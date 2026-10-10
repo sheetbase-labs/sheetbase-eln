@@ -42,8 +42,8 @@ beforeAll(async () => {
      VALUES ('${WS_A}','${OWNER}','owner'),('${WS_A}','${OTHER}','member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title)
-     VALUES ('${PROJECT_A}','${WS_A}','sci-02-a','SCI 02 A')`,
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id)
+     VALUES ('${PROJECT_A}','${WS_A}','sci-02-a','SCI 02 A','${OWNER}')`,
   )
 })
 
@@ -73,10 +73,7 @@ describe('SCI-02 analysis definitions', () => {
 
     const updated = await owner.query(
       `UPDATE api.analysis_definitions SET definition=$2::jsonb WHERE id=$1 RETURNING *`,
-      [
-        inserted.rows[0].id,
-        JSON.stringify({ ...definition, degree: 2 }),
-      ],
+      [inserted.rows[0].id, JSON.stringify({ ...definition, degree: 2 })],
     )
     expect(updated.rows[0].version).toBe(2)
 

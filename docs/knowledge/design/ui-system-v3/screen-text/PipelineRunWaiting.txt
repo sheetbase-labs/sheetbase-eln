@@ -1,0 +1,43 @@
+Run #61 · Ambr 250 daily import check
+Pipelines / PL-0003 / #61 Run #61 · Ambr 250 daily import check
+Waiting for a person 25 Sep 09:10 Started by: schedule, daily 09:10 Version 5
+This run is waiting for you. It found values without units and won’t guess them on its own.
+Steps
+✓ Read today’s Ambr exports
+SQL · 4 new rows in DS-0298
+0.3 s
+✓ Check units and ranges
+SQL · 2 columns without units
+0.1 s
+? Confirm units
+Waiting for a person since 09:12
+—
+4 Set units on 84 rows
+Runs after confirmation
+—
+5 Post to #ambr-250
+Not started
+—
+Confirm units for DS-0298
+Your choice is recorded as your decision, with your name, in DS-0298 history. The pipeline then sets the units and carries on.
+| | Column | Rows | Values seen | Suggested unit | Why
+| Glucose | 84 | 2.2–3.4 | g/L ▾
+| Range matches g/L on AMB-25-112
+| Osmolality | 84 | 278–318 | mOsm/kg ▾
+| Header in the export: “Osmo (mOsm/kg)”
+Reason required
+Confirm and continue Skip this step Stop run
+Skipping leaves the units empty and the run finishes without step 4. If nobody answers by 09:10 tomorrow, the run stops and the next one asks again.
+Asked
+Gareth P. (owner)
+Tom H. (editor, Ambr 250)
+Inbox item and email sent at 09:12.
+Inputs used
+DS-0298
+Snapshot S-7 · 84 rows
+Version
+PL-0003 v5
+Temporary data
+Kept while the run waits, up to 24 hours, then deleted.
+Why it asks
+Units change what a number means. Pipelines may propose values, but a person confirms anything that changes recorded data.

@@ -36,6 +36,20 @@ describe('isolated Python client', () => {
       rows: job.inputs.data,
       logs: ['Processed one row'],
       runtime,
+      // PIPE-04.1: the step declared no artefact key, so it returned no files.
+      files: [],
+      usage: {
+        inputBytes: Buffer.byteLength(JSON.stringify(job)),
+        outputBytes: Buffer.byteLength(
+          JSON.stringify({
+            rows: job.inputs.data,
+            logs: ['Processed one row'],
+            runtime,
+          }),
+        ),
+        rows: 1,
+        cells: 2,
+      },
     })
     const [url, request] = fetchMock.mock.calls[0]
     expect(String(url)).toBe('http://runner:8080/execute')
@@ -72,7 +86,22 @@ describe('isolated Python client', () => {
           b: Array.from({ length: 60_000 }, () => ({})),
         },
       }),
-    ).rejects.toMatchObject({ code: 'input_too_large' })
+    ).rejects.toMatchObject({
+      code: 'input_too_large',
+      message: expect.stringMatching(/120000 rows.*100000 row/),
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+  it('names the measured size when the request payload exceeds the limit', async () => {
+    await expect(
+      executePythonTransform({
+        ...job,
+        parameters: { blob: 'x'.repeat(33 * 1024 * 1024) },
+      }),
+    ).rejects.toMatchObject({
+      code: 'input_too_large',
+      message: expect.stringMatching(/33\.0 MiB.*32\.0 MiB limit/),
+    })
     expect(fetchMock).not.toHaveBeenCalled()
   })
   it('rejects unpinned runtime and malformed row output', async () => {
@@ -98,6 +127,7 @@ describe('isolated Python client', () => {
     fetchMock.mockResolvedValue(new Response(body))
     await expect(executePythonTransform(job)).rejects.toMatchObject({
       code: 'output_too_large',
+      message: expect.stringContaining('over the 32.0 MiB limit'),
     })
     expect(cancelled).toBe(true)
   })

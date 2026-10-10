@@ -23,7 +23,7 @@ function Table({
         data-slot="table"
         data-variant={variant}
         className={cn(
-          'w-full caption-bottom text-sm',
+          'w-full caption-bottom text-body',
           variant === 'quiet' &&
             '[&_th]:h-8 [&_th]:font-medium [&_th]:normal-case [&_th]:tracking-normal [&_td]:py-2.5 [&_tr]:border-border/40',
           className,
@@ -84,7 +84,7 @@ function TableRow({
     <tr
       data-slot="table-row"
       className={cn(
-        'border-b transition-colors hover:bg-muted/40 data-[state=selected]:bg-muted',
+        'border-b transition-colors hover:bg-row-hover data-[state=selected]:bg-selection',
         className,
       )}
       {...props}
@@ -100,7 +100,7 @@ function TableHead({
     <th
       data-slot="table-head"
       className={cn(
-        'h-9 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground',
+        'h-[31px] px-3 text-left align-middle text-label font-medium text-muted-foreground',
         className,
       )}
       {...props}
@@ -115,7 +115,7 @@ function TableCell({
   return (
     <td
       data-slot="table-cell"
-      className={cn('px-3 py-2 align-middle', className)}
+      className={cn('h-8 px-3 align-middle', className)}
       {...props}
     />
   )

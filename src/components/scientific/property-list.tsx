@@ -39,10 +39,10 @@ function Property({ label, children, mono, stacked = false }: PropertyProps) {
         stacked ? 'grid' : 'flex items-center justify-between',
       )}
     >
-      <dt className="shrink-0 text-xs text-muted-foreground">{label}</dt>
+      <dt className="shrink-0 text-xs text-fg-muted">{label}</dt>
       <dd
         className={cn(
-          'min-w-0 text-xs font-medium text-foreground',
+          'min-w-0 text-xs font-medium text-fg',
           stacked ? 'break-words text-left' : 'truncate text-right',
           mono && 'font-mono tabular-nums',
           stacked && mono && 'text-[0.6875rem] leading-4 tracking-[-0.015em]',

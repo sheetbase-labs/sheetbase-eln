@@ -1,97 +1,65 @@
-import * as React from 'react'
-import {
-  CheckSquare,
-  FlaskConical,
-  Link2,
-  PackageOpen,
-  Pilcrow,
-  Plus,
-  Sheet,
-  Paperclip,
-  LineChart,
-  Grid3x3,
-  Sigma,
-  Workflow,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-
-import { cn } from '#/lib/utils'
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '#/components/ui'
+import type { IconName } from '#/components/v3/icons'
 
 /**
- * Block insertion control (ELN-005). A keyboard-accessible picker that
- * inserts one of the editable block types. Familiar labels (Text, Checklist,
- * Linked record) rather than internal codes; each item is
- * keyboard-operable through the DropdownMenu and announces its type.
+ * The block catalogue: the editable block types with familiar labels (Text,
+ * Sheet, Record reference) rather than internal codes.
  *
- * The picker is the only insertion affordance on the canvas; it does not
- * own the mutation. On select it calls `onInsert(type)` and the parent
- * performs the insert_block RPC and refetch/optimistic update.
+ * EXP-04.3 — the labels, descriptions and order of the entries the Insert
+ * block menu in the notebook design names (`canvas/NbEditing.dc.html`) come
+ * from that design: Sheet, Chart, Record reference, Text, File or image,
+ * each with its canvas description verbatim.
+ *
+ * The design's menu is a flat seven-entry mock of the menu at one cursor
+ * position, so the catalogue keeps only the entries that are real block
+ * types and keeps the Roadmap-2 grouping both insert surfaces share
+ * (Sheets and references → Writing → Files and figures), led by the group
+ * the design highlights first (Sheet). The design's other two entries are
+ * not block types and live inside a block instead: "Heading" is the
+ * rich-text heading mark and "Formula" is a Sheet column (ƒx).
+ *
+ * The insertion UI is the command-palette `AddBlockMenu` (`+`) and the slash
+ * menu (`/`); this module owns the option list they share.
  */
 
 export interface BlockPickerOption {
   type: string
   label: string
   description: string
-  icon: LucideIcon
-  group: 'writing' | 'structure' | 'evidence'
+  icon: IconName
+  group: 'structure' | 'writing' | 'evidence'
   aliases: readonly string[]
 }
 
+/** Group order follows the design, which opens on Sheet. */
 export const BLOCK_PICKER_GROUPS = [
-  { id: 'writing', label: 'Writing' },
   { id: 'structure', label: 'Sheets and references' },
+  { id: 'writing', label: 'Writing' },
   { id: 'evidence', label: 'Files and figures' },
 ] as const
 
 export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   {
-    type: 'rich_text',
-    label: 'Text',
-    description: 'Headings, paragraphs, and prose lists.',
-    icon: Pilcrow,
-    group: 'writing',
-    aliases: ['heading', 'paragraph', 'note', 'prose'],
-  },
-  {
-    type: 'checklist',
-    label: 'Checklist',
-    description: 'A list of checkable items.',
-    icon: CheckSquare,
-    group: 'writing',
-    aliases: ['todo', 'tasks'],
+    type: 'sheet',
+    label: 'Sheet',
+    description: 'Grid backed by a model',
+    icon: 'table',
+    group: 'structure',
+    aliases: ['table', 'grid', 'spreadsheet'],
   },
   {
     type: 'linked_record',
-    label: 'Linked record',
-    description:
-      'A reference to another experiment, Dataset, sample or reagent.',
-    icon: Link2,
+    label: 'Record reference',
+    description: 'Sample, material, dataset…',
+    icon: 'link',
     group: 'structure',
-    aliases: ['dataset', 'record', 'sample', 'reagent', 'link'],
-  },
-  {
-    type: 'sheet',
-    label: 'Sheet',
-    description: 'Start a new Sheet on this Notebook.',
-    icon: Sheet,
-    group: 'structure',
-    aliases: ['table', 'grid', 'spreadsheet'],
+    aliases: ['dataset', 'record', 'sample', 'material', 'link'],
   },
   {
     type: 'sheet_shared',
     label: 'Link existing Sheet',
     description:
       'Show a Sheet that already exists. Edits stay shared with every Notebook that uses it.',
-    icon: Link2,
+    icon: 'link',
     group: 'structure',
     aliases: ['embed', 'reuse'],
   },
@@ -99,41 +67,56 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     type: 'protocol_reference',
     label: 'Protocol',
     description: 'Pin an exact protocol version and its procedure.',
-    icon: FlaskConical,
+    icon: 'flask',
     group: 'structure',
     aliases: ['sop', 'method'],
   },
   {
     type: 'materials',
     label: 'Materials',
-    description: 'Linked samples and reagents with quantities and units.',
-    icon: PackageOpen,
+    description: 'Linked samples and materials with quantities and units.',
+    icon: 'box',
     group: 'structure',
-    aliases: ['samples', 'reagents', 'inventory'],
+    aliases: ['samples', 'materials', 'inventory'],
   },
   {
-    type: 'file',
-    label: 'File',
-    description: 'Attach a file with provenance and lifecycle states.',
-    icon: Paperclip,
-    group: 'evidence',
-    aliases: ['image', 'photo', 'pdf', 'attachment'],
+    type: 'rich_text',
+    label: 'Text',
+    description: 'Paragraph',
+    icon: 'edit',
+    group: 'writing',
+    aliases: ['heading', 'paragraph', 'note', 'prose'],
+  },
+  {
+    type: 'checklist',
+    label: 'Checklist',
+    description: 'A list of checkable items.',
+    icon: 'check',
+    group: 'writing',
+    aliases: ['todo', 'tasks'],
   },
   {
     type: 'chart',
     label: 'Chart',
-    description:
-      'A line, scatter or bar chart from a saved dataset, with a live or frozen snapshot.',
-    icon: LineChart,
+    description: 'From a sheet or dataset',
+    icon: 'chart',
     group: 'evidence',
     aliases: ['plot', 'graph'],
+  },
+  {
+    type: 'file',
+    label: 'File or image',
+    description: 'Attach a file with provenance and lifecycle states.',
+    icon: 'download',
+    group: 'evidence',
+    aliases: ['image', 'photo', 'pdf', 'attachment'],
   },
   {
     type: 'analysis',
     label: 'Analysis',
     description:
       'A saved analysis — grouped statistics or a regression fit — run against live dataset rows, freezable as evidence.',
-    icon: Sigma,
+    icon: 'code',
     group: 'evidence',
     aliases: ['statistics', 'regression', 'fit'],
   },
@@ -142,7 +125,7 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Plate map',
     description:
       'A 96-well plate layout with sample assignments, controls, replicates and volumes.',
-    icon: Grid3x3,
+    icon: 'table',
     group: 'evidence',
     aliases: ['plate', 'wells'],
   },
@@ -151,101 +134,8 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     label: 'Pipeline output',
     description:
       'Reference a Pipeline run and pin the Dataset Version it produced into the notebook.',
-    icon: Workflow,
+    icon: 'pipeline',
     group: 'evidence',
     aliases: ['pipeline', 'automation', 'run'],
   },
 ]
-
-export interface BlockPickerProps {
-  onInsert: (type: string) => void
-  /** Insert after this block id; the parent decides positioning. */
-  afterBlockId?: string
-  disabled?: boolean
-  className?: string
-  /** Variant: a full "Add block" button (default) or a compact icon trigger. */
-  variant?: 'button' | 'icon'
-  label?: string
-  triggerId?: string
-}
-
-export function BlockPicker({
-  onInsert,
-  afterBlockId,
-  disabled,
-  className,
-  variant = 'button',
-  label = 'Add block',
-  triggerId,
-}: BlockPickerProps) {
-  const [open, setOpen] = React.useState(false)
-  void afterBlockId // captured by the parent when wiring onInsert
-
-  const trigger =
-    variant === 'icon' ? (
-      <Button
-        id={triggerId}
-        variant="ghost"
-        size="icon-sm"
-        aria-label={label}
-        disabled={disabled}
-        className="rounded-full border bg-background shadow-xs"
-      >
-        <Plus className="size-3.5" />
-      </Button>
-    ) : (
-      <Button
-        id={triggerId}
-        variant="ghost"
-        size="sm"
-        disabled={disabled}
-        aria-label={label}
-        className="w-full justify-start text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-      >
-        <Plus className="size-4" aria-hidden="true" />
-        {label}
-      </Button>
-    )
-
-  return (
-    <div className={cn('relative', className)}>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-72">
-          <DropdownMenuLabel>Insert block</DropdownMenuLabel>
-          {BLOCK_PICKER_GROUPS.map((group) => {
-            const items = BLOCK_PICKER_OPTIONS.filter(
-              (opt) => opt.group === group.id,
-            )
-            return (
-              <div key={group.id}>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
-                {items.map((opt) => {
-                  const Icon = opt.icon
-                  return (
-                    <DropdownMenuItem
-                      key={opt.type}
-                      onSelect={() => onInsert(opt.type)}
-                      className="flex items-start gap-2"
-                    >
-                      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium">
-                          {opt.label}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {opt.description}
-                        </span>
-                      </span>
-                    </DropdownMenuItem>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  )
-}

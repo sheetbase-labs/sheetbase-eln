@@ -14,15 +14,16 @@ import {
   fromDatasetVersionRowPage,
   fromCommitResult,
   fromValidationResult,
-  fromSchemaField,
-  type Dataset,
-  type DatasetVersion,
-  type DatasetRowPage,
-  type DatasetVersionRowPage,
-  type CommitResult,
-  type ValidationResult,
-  type SchemaField,
+  fromSchemaField
+  
+  
+  
+  
+  
+  
+  
 } from "../types.js";
+import type {Dataset, DatasetVersion, DatasetRowPage, DatasetVersionRowPage, CommitResult, ValidationResult, SchemaField} from "../types.js";
 import { NotFoundError, StaleVersionError } from "../errors.js";
 
 // ── Row batch builder ──────────────────────────────────────────────────────

@@ -148,7 +148,7 @@ async function createPolicy(
 ) {
   const { rows } = await client.query(
     `SELECT * FROM api.create_agent_operation_policy(
-      $1,$2,'dataset_rows.commit',$3,$4,$5,$6::jsonb
+      $1,$2,'dataset_rows.commit',$3,$4,$5,$6::jsonb,$7,$8
     )`,
     [
       WS,
@@ -157,6 +157,8 @@ async function createPolicy(
       input.targetId,
       input.credentialId ?? CREDENTIAL,
       JSON.stringify({ maxAffectedRows: input.maxAffectedRows }),
+      'Test policy change',
+      'I approve this delegation',
     ],
   )
   return rows[0] as { id: string; enabled: boolean; credential_id: string }
@@ -164,6 +166,7 @@ async function createPolicy(
 
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
+  // (certifications are inserted after the workspace exists)
   await migrator.query(
     `INSERT INTO internal.user (id,name,email,"emailVerified") VALUES
       ($1,'AUTO04 Owner','auto04-owner@sheetbase.test',true),
@@ -183,6 +186,11 @@ beforeAll(async () => {
     [WS, OWNER, STEWARD, VIEWER, OTHER_WS, OUTSIDER],
   )
   await migrator.query(
+    `INSERT INTO api.user_signature_certifications(workspace_id,user_id,statement_version)
+     VALUES ($1,$2,1),($1,$3,1) ON CONFLICT DO NOTHING`,
+    [WS, OWNER, STEWARD],
+  )
+  await migrator.query(
     `INSERT INTO internal.api_credentials(
       id,workspace_id,name,display_prefix,secret_hash,scopes,created_by_user_id
     ) VALUES
@@ -190,7 +198,14 @@ beforeAll(async () => {
       ($4,$2,'AUTO04 limited credential','sb_auto04_limited','auto04-limited-hash',ARRAY['agent_operations:read','agent_operations:write'],$3),
       ($5,$2,'AUTO04 no-agent credential','sb_auto04_no_agent','auto04-no-agent-hash',ARRAY['datasets:write'],$3),
       ($6,$2,'AUTO04 other credential','sb_auto04_other','auto04-other-hash',ARRAY['agent_operations:read','agent_operations:write','datasets:write'],$3)`,
-    [CREDENTIAL, WS, OWNER, LIMITED_CREDENTIAL, NO_AGENT_CREDENTIAL, OTHER_CREDENTIAL],
+    [
+      CREDENTIAL,
+      WS,
+      OWNER,
+      LIMITED_CREDENTIAL,
+      NO_AGENT_CREDENTIAL,
+      OTHER_CREDENTIAL,
+    ],
   )
 })
 
@@ -508,6 +523,36 @@ describe('AUTO-04 agent-authored operations', () => {
         [WS, dataset.id, CREDENTIAL],
       ),
       '42501',
+    )
+    // AUTO-04 governance: a reason is required, and the change is an
+    // e-signature (the caller must be certified).
+    await expectDenied(
+      steward.query(
+        `SELECT api.create_agent_operation_policy(
+          $1,'no reason','dataset_rows.commit','dataset',$2,$3,'{"maxAffectedRows":1}'::jsonb,'','I approve this delegation'
+        )`,
+        [WS, dataset.id, CREDENTIAL],
+      ),
+      '22023',
+    )
+    await migrator.query(
+      `UPDATE api.user_signature_certifications SET revoked_at = now()
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [WS, STEWARD],
+    )
+    await expectDenied(
+      steward.query(
+        `SELECT api.create_agent_operation_policy(
+          $1,'uncertified','dataset_rows.commit','dataset',$2,$3,'{"maxAffectedRows":1}'::jsonb,'Reason','I approve this delegation'
+        )`,
+        [WS, dataset.id, CREDENTIAL],
+      ),
+      '42501',
+    )
+    await migrator.query(
+      `UPDATE api.user_signature_certifications SET revoked_at = NULL
+        WHERE workspace_id = $1 AND user_id = $2`,
+      [WS, STEWARD],
     )
 
     const delegated = await propose(

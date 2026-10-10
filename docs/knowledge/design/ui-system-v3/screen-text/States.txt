@@ -1,0 +1,52 @@
+Interaction states
+Interaction states
+Hover, focus, pressed, disabled and open states for everything outside the sidebar. The sidebar has its own board.
+Buttons
+Default
+Hover
+Keyboard focus
+Pressed or open
+Disabled
+Primary
+Save changes Save changes Save changes Save changes Save changes Secondary
+Save changes Save changes Save changes Save changes Save changes Quiet
+Save changes Save changes Save changes Save changes Save changes Danger
+Save changes Save changes Save changes Save changes Save changes
+Tabs
+Current Hover Keyboard focus Default 12
+Tabs are a tablist: ← → move between them, the page changes on Enter or Space.
+Table rows and row menu
+| | State | Experiment | Status |
+| Default | Harvest clarification: depth filter screening | In progress |
+| Hover | Row actions appear on hover | In progress |
+| Selected | Checkbox or click; inspector shows it | In review |
+| Keyboard focus | ↑ ↓ moves, Enter opens, Space selects | Approved |
+| Menu open | Menu anchors to the ⋯ button | Draft | Open Copy link Duplicate as draft Move to project… Delete draft
+Toasts
+Changes saved Link copied Couldn’t save. Check your connection and try again. Bottom centre, 6 s, one at a time. Undo appears only when the action can be reversed. Errors stay until dismissed.
+Inputs
+Default
+Hover
+Focus
+Invalid Only 4,600 mL left. Enter 4,600 or less.
+Disabled
+Read-only Set by your administrator
+Try it
+Save changes Share Submit for review Simulate a failed save
+These buttons are live in Play: each shows its toast.
+Menus and popovers
+Create
+Experiment Sample Project Import data Scan a label
+Sort
+Sort by Updated Started ID Owner Newest first Oldest first
+Filter builder
+Status ▾
+is ▾
+In progress ▾
+Owner ▾
+is ▾
+Me ▾
+Add condition Clear Apply
+Tooltip and chip
+Derived value · Capsid titre ÷ feed titre
+Updated in last 30 days Added Changed Removed

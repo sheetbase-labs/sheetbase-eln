@@ -228,10 +228,9 @@ describe('CORE-05 Dataset Schema draft concurrency', () => {
       )
     ).rows[0].result
     await expectDenied(
-      stewardA.query(
-        `select api.create_next_dataset_schema_version($1)`,
-        [created.schema_definition_id],
-      ),
+      stewardA.query(`select api.create_next_dataset_schema_version($1)`, [
+        created.schema_definition_id,
+      ]),
       'SB072',
     )
     await expectDenied(
@@ -342,25 +341,25 @@ describe('CORE-05 local-field Model promotion', () => {
     expect(retry.targetId).toBe(sample.targetId)
     await expectDenied(
       steward.query(
-        `select api.promote_local_field($1,$2,'model_field',null,'promo-sample','reagent')`,
+        `select api.promote_local_field($1,$2,'model_field',null,'promo-sample','material')`,
         [sampleInstance.id, SAMPLE_FIELD],
       ),
       '23505',
     )
     const reagent = (
       await steward.query(
-        `select api.promote_local_field($1,$2,'model_field',null,'promo-reagent','reagent') result`,
+        `select api.promote_local_field($1,$2,'model_field',null,'promo-reagent','material') result`,
         [reagentInstance.id, REAGENT_FIELD],
       )
     ).rows[0].result
-    expect(reagent.modelKey).toBe('reagent')
+    expect(reagent.modelKey).toBe('material')
     const reagentKind = (
       await steward.query(
         `select kind from api.record_field_definitions where id=$1`,
         [reagent.targetId],
       )
     ).rows[0]
-    expect(reagentKind.kind).toBe('reagent')
+    expect(reagentKind.kind).toBe('material')
   })
 })
 

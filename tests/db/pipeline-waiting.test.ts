@@ -1,0 +1,254 @@
+/**
+ * PIPE-02.1 — a run can wait for a person.
+ *
+ * The migration adds `waiting` to the run status and the prompt table that records
+ * what was asked and who answered. The prompt is readable by the workspace that
+ * owns the run; writes stay with the executor.
+ */
+import type { Client } from 'pg'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import { expectDenied, prepareTestDatabase, setActorJwt } from './helpers'
+
+const WS = '00000000-0000-4000-8000-000000050000'
+const OTHER_WS = '00000000-0000-4000-8000-000000050010'
+const DEF = '00000000-0000-4000-8000-000000050001'
+const VERSION = '00000000-0000-4000-8000-000000050002'
+const RUN = '00000000-0000-4000-8000-000000050003'
+const MEMBER = 'pipe021-member'
+const OUTSIDER = 'pipe021-outsider'
+
+let migrator: Client
+let asRole: (role: 'authenticator') => Promise<Client>
+const clients: Client[] = []
+
+beforeAll(async () => {
+  ;({ migrator, asRole } = await prepareTestDatabase())
+  for (const user of [MEMBER, OUTSIDER]) {
+    await migrator.query(
+      `insert into internal."user"(id,name,email,"emailVerified") values($1,$1,$2,true)`,
+      [user, `${user}@test.invalid`],
+    )
+  }
+  await migrator.query(
+    `insert into api.workspaces(id,slug,name) values($1,'pipe021','PIPE-02.1')`,
+    [WS],
+  )
+  await migrator.query(
+    `insert into api.workspaces(id,slug,name) values($1,'pipe021b','PIPE-02.1 other')`,
+    [OTHER_WS],
+  )
+  await migrator.query(
+    `insert into api.workspace_memberships(workspace_id,user_id,role) values($1,$2,'owner')`,
+    [WS, MEMBER],
+  )
+  await migrator.query(
+    `insert into api.workspace_memberships(workspace_id,user_id,role) values($1,$2,'owner')`,
+    [OTHER_WS, OUTSIDER],
+  )
+  await migrator.query(
+    `insert into api.pipeline_definitions(id,workspace_id,key,name) values($1,$2,'pipe021','PIPE-02.1')`,
+    [DEF, WS],
+  )
+  await migrator.query(
+    `insert into api.pipeline_definition_versions(id,definition_id,workspace_id,version,lifecycle,configuration)
+     values($1,$2,$3,1,'published','{}'::jsonb)`,
+    [VERSION, DEF, WS],
+  )
+  await migrator.query(
+    `insert into api.pipeline_runs(id,workspace_id,definition_version_id,trigger_kind,status,parameters,input_versions,actor_user_id)
+     values($1,$2,$3,'manual','running','{}'::jsonb,'{}'::jsonb,$4)`,
+    [RUN, WS, VERSION, MEMBER],
+  )
+})
+
+afterAll(async () => {
+  await Promise.all(clients.map((client) => client.end()))
+  await migrator?.end()
+})
+
+async function actor(userId: string, workspaceId: string): Promise<Client> {
+  const client = await asRole('authenticator')
+  clients.push(client)
+  await client.query('set role authenticated')
+  await setActorJwt(client, userId, workspaceId)
+  return client
+}
+
+describe('PIPE-02.1 waiting runs', () => {
+  it('accepts waiting as a run status and still refuses an unknown one', async () => {
+    await migrator.query(
+      `update api.pipeline_runs set status='waiting' where id=$1`,
+      [RUN],
+    )
+    const { rows } = await migrator.query<{ status: string }>(
+      `select status from api.pipeline_runs where id=$1`,
+      [RUN],
+    )
+    expect(rows[0]!.status).toBe('waiting')
+
+    await expectDenied(
+      migrator.query(
+        `update api.pipeline_runs set status='paused' where id=$1`,
+        [RUN],
+      ),
+      '23514',
+    )
+  })
+
+  it('records what was asked, and requires an author with the answer', async () => {
+    await migrator.query(
+      `insert into api.pipeline_run_prompts(run_id,workspace_id,step_id,form_schema,asked_user_ids,expires_at)
+       values($1,$2,'confirm-units','{"fields":["unitsPerColumn"]}'::jsonb,'{"${MEMBER}"}'::text[],now() + interval '2 days')`,
+      [RUN, WS],
+    )
+    const { rows } = await migrator.query<{
+      step_id: string
+      asked_user_ids: string[]
+      answer: unknown
+    }>(
+      `select step_id, asked_user_ids, answer from api.pipeline_run_prompts where run_id=$1`,
+      [RUN],
+    )
+    expect(rows[0]!.step_id).toBe('confirm-units')
+    expect(rows[0]!.asked_user_ids).toEqual([MEMBER])
+    expect(rows[0]!.answer).toBeNull()
+
+    // An answer without its author (or time) is not an answer.
+    await expectDenied(
+      migrator.query(
+        `insert into api.pipeline_run_prompts(run_id,workspace_id,step_id,answer)
+         values($1,$2,'confirm-units','{"unitsPerColumn":4}'::jsonb)`,
+        [RUN, WS],
+      ),
+      '23514',
+    )
+
+    await migrator.query(
+      `update api.pipeline_run_prompts
+          set answer='{"unitsPerColumn":4}'::jsonb, answered_by_user_id=$2, answered_at=now()
+        where run_id=$1`,
+      [RUN, MEMBER],
+    )
+    const answered = await migrator.query<{ answered_by_user_id: string }>(
+      `select answered_by_user_id from api.pipeline_run_prompts where run_id=$1`,
+      [RUN],
+    )
+    expect(answered.rows[0]!.answered_by_user_id).toBe(MEMBER)
+  })
+
+  it('shows the prompt to its own workspace and nothing to another', async () => {
+    const member = await actor(MEMBER, WS)
+    const seen = await member.query(`select id from api.pipeline_run_prompts`)
+    expect(seen.rows).toHaveLength(1)
+
+    const outsider = await actor(OUTSIDER, OTHER_WS)
+    const hidden = await outsider.query(
+      `select id from api.pipeline_run_prompts`,
+    )
+    expect(hidden.rows).toEqual([])
+  })
+
+  it('lists the waiting run for the person asked, and drops it once answered', async () => {
+    await migrator.query(
+      `insert into api.pipeline_run_prompts(run_id,workspace_id,step_id,asked_user_ids)
+       values($1,$2,'confirm-dilution','{"${MEMBER}"}'::text[])`,
+      [RUN, WS],
+    )
+    const member = await actor(MEMBER, WS)
+    const listed = await member.query<{
+      kind: string
+      title: string
+      reason: string
+    }>(
+      `select kind, title, reason from api.my_work_items where kind='run_waiting'`,
+    )
+    expect(listed.rows).toHaveLength(1)
+    expect(listed.rows[0]!.title).toBe('PIPE-02.1')
+    expect(listed.rows[0]!.reason).toContain('Waiting')
+
+    // Somebody the prompt did not ask sees no such item.
+    const outsider = await actor(OUTSIDER, OTHER_WS)
+    const other = await outsider.query(
+      `select kind from api.my_work_items where kind='run_waiting'`,
+    )
+    expect(other.rows).toEqual([])
+
+    await migrator.query(
+      `update api.pipeline_run_prompts set answer='{"unitsPerColumn":4}'::jsonb,
+              answered_by_user_id=$1, answered_at=now()
+        where step_id='confirm-dilution'`,
+      [MEMBER],
+    )
+    const after = await member.query(
+      `select kind from api.my_work_items where kind='run_waiting'`,
+    )
+    expect(after.rows).toEqual([])
+  })
+
+  it('answers a prompt only as the person asked, and records it in the run history', async () => {
+    const prompt = await migrator.query<{ id: string }>(
+      `insert into api.pipeline_run_prompts(run_id,workspace_id,step_id,asked_user_ids,expires_at)
+       values($1,$2,'confirm-temperature','{"${MEMBER}"}'::text[], now() + interval '1 day')
+       returning id`,
+      [RUN, WS],
+    )
+    const promptId = prompt.rows[0]!.id
+
+    // Somebody the prompt did not ask cannot answer it.
+    const outsider = await actor(OUTSIDER, OTHER_WS)
+    await expectDenied(
+      outsider.query(
+        `select api.answer_pipeline_run_prompt($1,'{"celsius":37}'::jsonb)`,
+        [promptId],
+      ),
+      '42501',
+    )
+
+    const member = await actor(MEMBER, WS)
+    const answered = await member.query<{ answered_by_user_id: string }>(
+      `select answered_by_user_id from api.answer_pipeline_run_prompt($1,'{"celsius":37}'::jsonb)`,
+      [promptId],
+    )
+    expect(answered.rows[0]!.answered_by_user_id).toBe(MEMBER)
+
+    // The decision is in the run's history, under the answerer's name.
+    const events = await migrator.query<{ payload: Record<string, unknown> }>(
+      `select payload from api.change_events
+        where entity_type='pipeline_run' and entity_uuid=$1
+        order by created_at desc limit 1`,
+      [RUN],
+    )
+    expect(events.rows[0]!.payload).toMatchObject({
+      decision: 'prompt_answered',
+      stepId: 'confirm-temperature',
+      answeredBy: MEMBER,
+    })
+
+    // Answering twice is not a second decision.
+    await expectDenied(
+      member.query(
+        `select api.answer_pipeline_run_prompt($1,'{"celsius":40}'::jsonb)`,
+        [promptId],
+      ),
+      '22023',
+    )
+  })
+
+  it('refuses an expired prompt', async () => {
+    const prompt = await migrator.query<{ id: string }>(
+      `insert into api.pipeline_run_prompts(run_id,workspace_id,step_id,asked_user_ids,expires_at)
+       values($1,$2,'confirm-expired','{"${MEMBER}"}'::text[], now() - interval '1 hour')
+       returning id`,
+      [RUN, WS],
+    )
+    const member = await actor(MEMBER, WS)
+    await expectDenied(
+      member.query(
+        `select api.answer_pipeline_run_prompt($1,'{"celsius":37}'::jsonb)`,
+        [prompt.rows[0]!.id],
+      ),
+      '22023',
+    )
+  })
+})

@@ -1,0 +1,11 @@
+Scan, phone
+Scan
+SMP-2231
+HL-0934
+2–8 °C
+SMP-2231
+Harvest lot HL-0934
+Released · 4,600 mL · CR-1, shelf 3
+Open sample Withdraw Record reading
+Can’t scan? Type the ID · Last scan CB-0012
+Today Scan Inbox {{toastMsg}}

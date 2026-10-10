@@ -1,24 +1,28 @@
 import * as React from 'react'
 
+import { QueryClientContext } from '@tanstack/react-query'
+
 import { cn } from '#/lib/utils'
 import type {
   NotebookBlock as NotebookBlockData,
   NotebookRecord,
 } from '#/lib/notebook-data'
+import { Button } from '#/components/v3/ui/button'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  Button,
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '#/components/ui'
+} from '#/components/v3/ui/popover'
 import { DraftProposalPanel } from '#/components/assist/draft-proposal-panel'
 import {
   buildTextDraftProposal,
@@ -31,6 +35,7 @@ import { BlockEditor } from './block-editor'
 import type { AutosaveStatus, SaveResult } from './block-editor'
 import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
+import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
 import {
   collapsedSectionBlockIds,
   collapsedSectionNodeIndexes,
@@ -38,8 +43,12 @@ import {
   notebookSectionSpans,
   sectionHiddenCounts,
 } from '#/lib/notebook-outline'
-import { BlockPicker } from './block-picker'
+import { AddBlockControl } from './add-block-menu'
 import { NotebookSheetBlock } from './notebook-sheet-block'
+import {
+  NotebookSignedSection,
+  NotebookViewerActions,
+} from './notebook-viewer-actions'
 import { ScientificWorkbookProvider } from './scientific-workbook-provider'
 import {
   useCollaborationEnabled,
@@ -54,6 +63,11 @@ import {
 } from '#/components/collaboration/thread-panel'
 import { useCollaborationRoomReady } from '#/components/collaboration/collaboration-room'
 import type { ThreadAnchor } from '#/lib/collaboration/types'
+import {
+  useRegisterShortcuts,
+  useShortcutScope,
+} from '#/components/shortcuts/shortcut-provider'
+import { notebookShortcuts } from '#/lib/shortcut-scopes'
 
 export type { AutosaveStatus, SaveResult } from './block-editor'
 
@@ -71,7 +85,10 @@ export type { AutosaveStatus, SaveResult } from './block-editor'
  * - a stable selection target and URL anchor per block (#block-<id>) so
  *   comments and review can refer to a block later.
  *
- * `readOnly` disables all mutations (archived notebooks).
+ * `readOnly` disables all mutations (archived, signed and view-only
+ * notebooks). A read-only notebook that is neither archived nor signed shows
+ * the view-only actions — request edit access, copy selection, comment
+ * (EXP-04.5); a signed one shows its signatures.
  */
 
 export interface NotebookDocumentProps {
@@ -172,6 +189,12 @@ export interface NotebookDocumentProps {
   onToggleSection?: (anchorId: string) => void
   frozenSheetEvidence?: Map<string, FrozenSheetEvidence>
   /**
+   * EXP-04.4: the selected cell of a live Sheet block, lifted out of the grid
+   * so the surrounding inspector can describe it. Null when the sheet has no
+   * selection (or its editor unmounted).
+   */
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
+  /**
    * COLLAB-02: active workspace id used to build block comment anchors;
    * omit to disable the affordance. Actual write access is enforced
    * server-side.
@@ -195,6 +218,20 @@ const EDITABLE_TYPES = new Set([
   'pipeline_output',
   'plate_map',
 ])
+
+/**
+ * EXP-04.1: prose reads in a 680px measure, while the data-dense blocks —
+ * sheets, charts and plate maps — take the full width of the working surface.
+ * The distinction is the design's, not an accident of content length: a chart
+ * or a grid needs the horizontal room, and a paragraph is unreadable without
+ * a measure.
+ */
+const WIDE_BLOCK_TYPES = new Set(['sheet', 'chart', 'plate_map'])
+
+/** The measure a block renders at, exposed for styling and for tests. */
+export function blockMeasure(type: string): 'prose' | 'wide' {
+  return WIDE_BLOCK_TYPES.has(type) ? 'wide' : 'prose'
+}
 
 export function NotebookDocument(props: NotebookDocumentProps) {
   return (
@@ -229,6 +266,7 @@ function NotebookDocumentContent({
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
   frozenSheetEvidence,
+  onCellSelectionChange,
   className,
   /** NOTE-02 section collapse — presentation state only, route-owned. */
   collapsedSections,
@@ -495,9 +533,52 @@ function NotebookDocumentContent({
   }
 
   const isReadOnly = readOnly || record.archivedAt !== null
+  // EXP-04.5: a signed (locked) record shows its signatures inline, and a
+  // view-only reader gets the actions they still have. Archived records are
+  // neither: they are read-only for everyone and no access request applies.
+  const isSigned = record.lockedAt !== null
+  const viewerActions = isReadOnly && record.archivedAt === null && !isSigned
+  // A signed section only reads where a query client exists — presentational
+  // and pre-hydration renders must not open a connection.
+  const hasQueryClient = React.useContext(QueryClientContext) !== undefined
   // COLLAB-02: block comment affordances render only when the deployment
   // has collaboration enabled; ThreadPanel further gates on room readiness.
   const collabComments = useCollaborationEnabled()
+  const collabReady = useCollaborationRoomReady()
+
+  // Cell operations belong to SheetKeyboardShortcuts, not block navigation.
+  useShortcutScope('notebook')
+  useRegisterShortcuts(
+    React.useMemo(() => {
+      const selectedBlock = () =>
+        document.activeElement?.closest('[id^="block-"]') ??
+        (selectedId ? document.getElementById(`block-${selectedId}`) : null)
+      const commentButton = () =>
+        selectedBlock()?.querySelector<HTMLButtonElement>(
+          '[data-sheet-comment-selection]:not(:disabled)',
+        ) ??
+        selectedBlock()?.querySelector<HTMLButtonElement>(
+          '[aria-label^="Comments on block"]:not(:disabled)',
+        )
+      return notebookShortcuts({
+        insertBlock: !isReadOnly
+          ? () => {
+              void handleInsert('rich_text', selectedId ?? undefined)
+            }
+          : undefined,
+        commentSelection: () => commentButton()?.click(),
+      }).map((definition) => ({
+        ...definition,
+        when: (event: KeyboardEvent) =>
+          definition.id === 'notebook-comment-selection'
+            ? Boolean(commentButton())
+            : !(
+                event.target instanceof HTMLElement &&
+                event.target.closest('[role="grid"]')
+              ),
+      }))
+    }, [isReadOnly, selectedId]),
+  )
 
   // --- Sections (NOTE-02) -------------------------------------------------
   // The outline is a projection of rich_text heading nodes; collapse is
@@ -545,7 +626,6 @@ function NotebookDocumentContent({
     if (!optimisticOrder) return blocks.map((b) => b.id)
     return optimisticOrder
   }, [blocks, optimisticOrder])
-
   const blockById = React.useMemo(() => {
     const map = new Map<string, NotebookBlockData>()
     for (const b of blocks) map.set(b.id, b)
@@ -898,15 +978,22 @@ function NotebookDocumentContent({
         activeBlockId={selectedId}
         mode={selectedId ? 'editing' : 'viewing'}
       />
+      {viewerActions ? (
+        <NotebookViewerActions
+          projectId={record.projectId}
+          commentEnabled={collabComments && collabReady}
+          selectedBlockId={selectedId}
+        />
+      ) : null}
       {orderedIds.length === 0 && !isReadOnly ? (
         <div
-          className="rounded-lg border border-dashed bg-muted/20 px-6 py-8 text-center"
+          className="rounded-lg border border-dashed bg-surface-muted/20 px-6 py-8 text-center"
           data-empty-notebook
         >
           <h2 className="font-display text-base font-semibold">
             Start this Notebook
           </h2>
-          <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+          <p className="mx-auto mt-1 max-w-md text-sm text-fg-muted">
             Begin with an objective, method, observation, or another scientific
             block. The new block opens in place and saves automatically.
           </p>
@@ -919,7 +1006,7 @@ function NotebookDocumentContent({
             >
               Start writing
             </button>
-            <BlockPicker
+            <AddBlockControl
               onInsert={(type) => void handleInsert(type)}
               label="Choose block type"
               className="sm:w-44"
@@ -969,11 +1056,16 @@ function NotebookDocumentContent({
               id={`block-${block.id}`}
               className={cn(
                 'scroll-mt-28 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                // EXP-04.1: prose in a 680px measure, wide blocks full width.
+                blockMeasure(block.type) === 'wide'
+                  ? 'w-full'
+                  : 'mx-auto w-full max-w-[680px]',
                 isMoving && 'opacity-60',
                 // NOTE-02: collapsed sections are removed from view but
                 // restored in print, so printed structure stays complete.
                 isHiddenSection && 'hidden print:contents',
               )}
+              data-block-measure={blockMeasure(block.type)}
               tabIndex={isReadOnly ? undefined : 0}
               role={isReadOnly ? undefined : 'group'}
               aria-label={`${blockLabel(block)} block${canMove ? ' — Alt+Arrow keys move; Ctrl+Arrow keys navigate' : ''}`}
@@ -1083,7 +1175,12 @@ function NotebookDocumentContent({
                     block={block}
                     record={record}
                     readOnly={isReadOnly}
-                    frozenEvidence={frozenSheetEvidence?.get(block.id)}
+                    onCellSelectionChange={onCellSelectionChange}
+                    frozenEvidence={
+                      frozenSheetEvidence
+                        ? (frozenSheetEvidence.get(block.id) ?? null)
+                        : undefined
+                    }
                   />
                 ) : editable && (isSelected || hasUnsavedDraft) ? (
                   <BlockEditor
@@ -1146,7 +1243,7 @@ function NotebookDocumentContent({
               {moveError && moveError.blockId === block.id ? (
                 <p
                   role="alert"
-                  className="mt-1 px-1 text-xs text-destructive"
+                  className="mt-1 px-1 text-xs text-danger-text"
                   data-move-error={moveError.stale ? 'stale' : 'generic'}
                 >
                   {moveError.message}
@@ -1167,9 +1264,10 @@ function NotebookDocumentContent({
                 data-print-hide
               >
                 <div className="absolute inset-x-0 h-px bg-border opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100" />
-                <BlockPicker
+                <AddBlockControl
                   onInsert={(type) => void handleInsert(type, block.id)}
                   variant="icon"
+                  after={blockLabel(block)}
                   label={`Insert block after ${blockLabel(block)}`}
                   className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
                 />
@@ -1177,7 +1275,7 @@ function NotebookDocumentContent({
             ) : null}
             {collapsedHere && !isHiddenSection ? (
               <div
-                className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground"
+                className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-fg-muted"
                 data-testid={`section-collapsed-${collapsedHere}`}
                 data-print-hide
               >
@@ -1193,7 +1291,7 @@ function NotebookDocumentContent({
                 </span>
                 <button
                   type="button"
-                  className="underline underline-offset-2 hover:text-foreground"
+                  className="underline underline-offset-2 hover:text-fg"
                   onClick={() => onToggleSection?.(collapsedHere)}
                 >
                   Show
@@ -1205,16 +1303,15 @@ function NotebookDocumentContent({
       })}
 
       {errorById.__insert ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-danger-text">
           {errorById.__insert}
         </p>
       ) : null}
 
       {isReadOnly || orderedIds.length === 0 ? null : (
         <div className="pt-2" data-print-hide>
-          <BlockPicker
+          <AddBlockControl
             onInsert={(type) => void handleInsert(type)}
-            disabled={false}
             label="Add block"
             triggerId="notebook-add-block"
           />
@@ -1224,7 +1321,7 @@ function NotebookDocumentContent({
         <div className="space-y-2 pt-2" data-print-hide>
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => {
               const proposal = buildDraftProposal()
@@ -1237,7 +1334,7 @@ function NotebookDocumentContent({
             Draft summary
           </Button>
           {draftStatus ? (
-            <p className="text-xs text-muted-foreground">{draftStatus}</p>
+            <p className="text-xs text-fg-muted">{draftStatus}</p>
           ) : null}
           {draftProposal ? (
             <DraftProposalPanel
@@ -1253,7 +1350,7 @@ function NotebookDocumentContent({
         </div>
       ) : null}
       {!isReadOnly && orderedIds.length > 0 ? (
-        <p className="text-xs text-muted-foreground" data-print-hide>
+        <p className="text-xs text-fg-muted" data-print-hide>
           Type / in empty text to insert a block. Alt+↑/↓ reorders the focused
           block; Ctrl+↑/↓ moves focus between blocks. Alt+Enter adds text below.
           The block menu also duplicates or deletes.
@@ -1263,7 +1360,7 @@ function NotebookDocumentContent({
       {undo ? (
         <div
           role="status"
-          className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-2 text-xs"
+          className="flex items-center gap-3 rounded-md border bg-surface-muted/40 px-3 py-2 text-xs"
         >
           <span>{'Block deleted.'}</span>
           {onUndoDelete ? (
@@ -1278,16 +1375,20 @@ function NotebookDocumentContent({
         </div>
       ) : null}
 
-      <AlertDialog
+      {isSigned && hasQueryClient ? (
+        <NotebookSignedSection recordId={record.id} />
+      ) : null}
+
+      <ConfirmDialog
         open={confirmDelete !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmDelete(null)
         }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this block?</AlertDialogTitle>
-            <AlertDialogDescription>
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Delete this block?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
               {confirmDelete && unsavedBlockIds.has(confirmDelete.id)
                 ? 'This block has edits that have not saved. Deleting now discards those edits. You can undo immediately after deleting.'
                 : confirmDelete &&
@@ -1295,21 +1396,21 @@ function NotebookDocumentContent({
                     isCanonicalSheetBlock(confirmDelete.payload)
                   ? 'The block will be removed from the notebook. The Sheet Instance is not archived or deleted, and you can undo immediately after deleting.'
                   : 'The block will be removed from the notebook. You can undo immediately after deleting.'}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pendingDelete}>
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel disabled={pendingDelete}>
               Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
+            </ConfirmDialogCancel>
+            <ConfirmDialogAction
               onClick={() => void handleConfirmDelete()}
               disabled={pendingDelete}
             >
               {pendingDelete ? 'Deleting…' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }
@@ -1405,18 +1506,16 @@ function BlockCommentsInner({
   ).length
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <span className="inline-flex">
-          <CommentButton
-            count={unresolvedCount}
-            label={`Comments on block ${blockId}`}
-            className={cn(
-              'size-6 transition-opacity',
-              unresolvedCount === 0 &&
-                'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100',
-            )}
-          />
-        </span>
+      <PopoverTrigger render={<span className="inline-flex" />}>
+        <CommentButton
+          count={unresolvedCount}
+          label={`Comments on block ${blockId}`}
+          className={cn(
+            'size-6 transition-opacity',
+            unresolvedCount === 0 &&
+              'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100',
+          )}
+        />
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 p-3">
         <ThreadPanel anchor={anchor} currentRole={role} compact />

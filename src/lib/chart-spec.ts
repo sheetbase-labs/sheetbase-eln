@@ -1803,7 +1803,7 @@ export function materialiseChart(
   })
 
   // Rows whose mapped value is missing or non-numeric are dropped from the
-  // plot (recharts skips null points); the count is surfaced so silent gaps
+  // plot (a null point has no position); the count is surfaced so silent gaps
   // never masquerade as data.
   const droppedPoints = series.reduce(
     (acc, s) =>

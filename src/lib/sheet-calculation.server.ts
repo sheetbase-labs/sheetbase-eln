@@ -3,9 +3,21 @@ import { z } from 'zod'
 
 import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
+import {
+  buildFlagIndex,
+  summariseExcludedValues,
+  toDatasetValueFlag,
+} from './dataset-flags'
+import type {
+  DatasetValueFlag,
+  DatasetValueFlagWire,
+  ExcludedValue,
+  ExclusionSummary,
+} from './dataset-flags'
 import type { FieldDefinition } from './field-definition'
 import {
   evaluateSheetCalculation,
+  flaggedValueForProvenance,
   sheetInstanceCalculationSchema,
 } from './sheet-calculation'
 import type {
@@ -34,6 +46,8 @@ type Snapshot = {
   revision: number
   state: z.infer<typeof sheetInstanceStateSchema>
   composition: Awaited<ReturnType<typeof fetchComposedSheetRows>>
+  /** DSET-01.2 — active Dataset Value Flags for the composed bindings. */
+  flags?: DatasetValueFlag[]
 }
 
 type TrustedResult = {
@@ -71,13 +85,27 @@ function sourceRevisions(row: Snapshot['composition']['rows'][number]) {
   )
 }
 
+/**
+ * DSET-01.2 — active-flag index shared with every other exclusion surface.
+ */
+function snapshotFlagIndex(snapshot: Snapshot) {
+  return buildFlagIndex(snapshot.flags ?? [])
+}
+
+interface SnapshotEvaluation {
+  results: TrustedResult[]
+  /** Distinct flagged Dataset values dropped from ƒx evaluation. */
+  excluded: ExcludedValue[]
+}
+
 /** Pure bounded calculation over the authoritative composition snapshot. */
-export function calculateSheetSnapshot(snapshot: Snapshot): TrustedResult[] {
+function evaluateSheetSnapshot(snapshot: Snapshot): SnapshotEvaluation {
   if (
     !snapshot.composition.definitionConfiguration ||
     !snapshot.composition.boundProjection
   )
     throw new Error('Calculation requires a pinned composed Definition.')
+  const flagIndex = snapshotFlagIndex(snapshot)
   const configuration = parseSheetDefinitionConfiguration(
     snapshot.composition.definitionConfiguration,
   )
@@ -127,6 +155,7 @@ export function calculateSheetSnapshot(snapshot: Snapshot): TrustedResult[] {
     snapshot.composition.boundProjection.rows.map((row) => [row.rowKey, row]),
   )
   const results: TrustedResult[] = []
+  const excluded: ExcludedValue[] = []
 
   for (const row of snapshot.composition.rows) {
     const projected = projectionRows.get(row.rowKey)
@@ -197,7 +226,11 @@ export function calculateSheetSnapshot(snapshot: Snapshot): TrustedResult[] {
               dependency,
               field: dependencyCalculation.outputField,
               state:
-                dependencyResult.resultKind === 'value' ? 'present' : 'missing',
+                dependencyResult.resultKind === 'value'
+                  ? 'present'
+                  : dependencyResult.errorCode === 'EXCLUDED'
+                    ? 'excluded'
+                    : 'missing',
               value: dependencyResult.value,
               provenance: {
                 kind: 'calculation',
@@ -215,7 +248,11 @@ export function calculateSheetSnapshot(snapshot: Snapshot): TrustedResult[] {
               dependency,
               field: column.field,
               state:
-                dependencyResult.resultKind === 'value' ? 'present' : 'missing',
+                dependencyResult.resultKind === 'value'
+                  ? 'present'
+                  : dependencyResult.errorCode === 'EXCLUDED'
+                    ? 'excluded'
+                    : 'missing',
               value: dependencyResult.value,
               provenance: {
                 kind: 'calculation',
@@ -236,6 +273,20 @@ export function calculateSheetSnapshot(snapshot: Snapshot): TrustedResult[] {
               },
             }
           const bound = projected.values[dependency.id]
+          // DSET-01.2 — a flagged Dataset value is excluded by default.
+          const flag =
+            bound.kind === 'present'
+              ? flaggedValueForProvenance(bound.provenance, flagIndex)
+              : undefined
+          if (flag) {
+            excluded.push({ rowId: flag.rowId, fieldId: flag.fieldId, flag })
+            return {
+              dependency,
+              field: column.field,
+              state: 'excluded',
+              provenance: bound.provenance,
+            }
+          }
           return {
             dependency,
             field: column.field,
@@ -276,7 +327,25 @@ export function calculateSheetSnapshot(snapshot: Snapshot): TrustedResult[] {
     for (const calculation of calculations) evaluate(calculation.id)
     results.push(...rowResults.values())
   }
-  return results
+  return { results, excluded }
+}
+
+/** Pure bounded calculation results; exclusions are applied but not reported. */
+export function calculateSheetSnapshot(snapshot: Snapshot): TrustedResult[] {
+  return evaluateSheetSnapshot(snapshot).results
+}
+
+/**
+ * DSET-01.2 — calculation results plus how many flagged Dataset values were
+ * excluded from ƒx evaluation, so a caller can report them instead of dropping
+ * them silently.
+ */
+export function calculateSheetSnapshotReport(snapshot: Snapshot): {
+  results: TrustedResult[]
+  exclusions: ExclusionSummary
+} {
+  const { results, excluded } = evaluateSheetSnapshot(snapshot)
+  return { results, exclusions: summariseExcludedValues(excluded) }
 }
 
 export interface SheetCalculationServerDeps {
@@ -354,6 +423,29 @@ async function loadSnapshot(
       { offset, limit },
       dataClient,
     )
+    // DSET-01.2 — read the active flags for every Dataset the composition
+    // binds, so ƒx evaluation excludes flagged values by default. Flags are
+    // only visible to workspace members; the RLS context is already set.
+    const datasetIds = Array.from(
+      new Set(
+        composition.rows.flatMap((row) =>
+          row.sources
+            .filter((source) => source.sourceKind === 'dataset')
+            .map((source) => source.datasetId),
+        ),
+      ),
+    )
+    const flags: DatasetValueFlag[] =
+      datasetIds.length > 0
+        ? (
+            await client.query<DatasetValueFlagWire>(
+              `SELECT id,dataset_id,row_id,field_id,kind,source,reason,comment,set_at,cleared_at
+                 FROM api.dataset_value_flags
+                WHERE cleared_at IS NULL AND dataset_id = ANY($1::uuid[])`,
+              [datasetIds],
+            )
+          ).rows.map(toDatasetValueFlag)
+        : []
     await client.query('COMMIT')
     return {
       instanceId,
@@ -362,6 +454,7 @@ async function loadSnapshot(
       revision: Number(instance.revision),
       state: sheetInstanceStateSchema.parse(instance.state),
       composition,
+      flags,
     }
   } catch (error) {
     await client.query('ROLLBACK')
@@ -449,14 +542,19 @@ export async function handleSheetCalculation(
         },
         { status: 409 },
       )
-    const results = calculateSheetSnapshot(snapshot)
+    const { results, exclusions } = calculateSheetSnapshotReport(snapshot)
+    const finalized = await deps.finalize(
+      session.user.id,
+      snapshot,
+      parsed.data.retryToken,
+      results,
+    )
+    // DSET-01.2 — surface the exclusion count alongside the persisted result
+    // batch. Data-layer only; no UI is mandated here.
     return Response.json(
-      await deps.finalize(
-        session.user.id,
-        snapshot,
-        parsed.data.retryToken,
-        results,
-      ),
+      finalized !== null && typeof finalized === 'object'
+        ? { ...(finalized as Record<string, unknown>), exclusions }
+        : { result: finalized, exclusions },
     )
   } catch (error) {
     const candidate = error as { code?: string }

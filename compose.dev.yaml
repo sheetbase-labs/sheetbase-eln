@@ -96,7 +96,7 @@ services:
         condition: service_healthy
     environment:
       MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?Set MIGRATION_DATABASE_URL in the development env file}
-    command: ['./node_modules/.bin/drizzle-kit', 'migrate']
+    command: ['node', 'scripts/migrate-once.mjs']
     restart: 'no'
 
   seed:

@@ -1,0 +1,13 @@
+Dataset snapshots at 1024px
+Datasets / DS-0311 ELISA capsid titre and turbidity
+Details
+1 out of range Model ELISA and turbidity v2 EXP-0142 Owner Gareth P.
+Rows 96 Snapshots 15 Compare
+A snapshot never changes. Records, analyses and runs cite the snapshot they used.
+| | Snapshot | Saved | Made by | Rows | Change |
+| S-15 | 25 Sep 10:11 | PL-0011 run #88 | 96 | +8 rows | Latest
+| S-14 | 24 Sep 16:04 | Import · TB-02 CSV | 88 | +9 rows, 1 flagged | Kept
+| S-13 | 24 Sep 15:40 | Import · PR-01 plates 1–3 | 79 | +36 rows | Kept
+| S-12 | 23 Sep 17:40 | Gareth P. · by hand | 43 | 1 value corrected | Kept
+| S-11 | 23 Sep 15:02 | Import · PR-01 plate 0 | 43 | +12 rows | Kept
+Details panel is hidden at this width; select a snapshot and press Details.

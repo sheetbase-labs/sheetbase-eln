@@ -2,7 +2,11 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  grantProjectAccess,
+  prepareTestDatabase,
+} from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000c052'
 const WS_B = '00000000-0000-4000-8000-00000000c053'
@@ -52,8 +56,22 @@ beforeAll(async () => {
       ('${WS_A}','${MEMBER}','member'),
       ('${WS_A}','${VIEWER}','viewer'),
       ('${WS_B}','${OTHER_OWNER}','owner');
-    insert into api.projects(id,workspace_id,key,title) values
-      ('${PROJECT_A}','${WS_A}','cap','Capabilities')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id) values
+      ('${PROJECT_A}','${WS_A}','cap','Capabilities','${OWNER}')`)
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: MEMBER,
+    canView: true,
+    canEdit: true,
+  })
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: VIEWER,
+    canView: true,
+    canEdit: false,
+  })
 })
 
 afterAll(async () => {
@@ -74,6 +92,9 @@ describe('CORE-05 capability resolver', () => {
               api.has_capability($1,'instance.upgrade') as instance_upgrade,
               api.has_capability($1,'integrations.manage') as integrations_manage,
               api.has_capability($1,'pipelines.manage') as pipelines_manage,
+              api.has_capability($1,'sample.release') as sample_release,
+              api.has_capability($1,'sample.quarantine') as sample_quarantine,
+              api.has_capability($1,'sample.dispose') as sample_dispose,
               api.has_capability($1,'unknown.cap') as unknown_cap,
               api.list_capabilities($1) as listed`,
       [WS_A],
@@ -88,6 +109,9 @@ describe('CORE-05 capability resolver', () => {
       instance_upgrade: true,
       integrations_manage: true,
       pipelines_manage: true,
+      sample_release: true,
+      sample_quarantine: true,
+      sample_dispose: true,
       unknown_cap: false,
     })
     expect(rows[0].listed).toEqual([
@@ -97,6 +121,9 @@ describe('CORE-05 capability resolver', () => {
       'pipelines.manage',
       'record.create',
       'record.link',
+      'sample.dispose',
+      'sample.quarantine',
+      'sample.release',
       'schema.edit',
       'schema.publish',
       'schema.retire',
@@ -260,14 +287,14 @@ describe('CORE-05 capability resolver', () => {
   it('denies viewer record create while a member can still create', async () => {
     const member = await actor(MEMBER, WS_A)
     const created = await member.query(
-      `select id from api.create_record($1::uuid, 'experiment', 'Member experiment', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+      `select id from api.create_record($1::uuid, 'experiment', 'Member experiment', 'in_progress', ARRAY[]::text[], '{}'::jsonb)`,
       [PROJECT_A],
     )
     expect(created.rows[0].id).toBeTruthy()
     const viewer = await actor(VIEWER, WS_A)
     await expectDenied(
       viewer.query(
-        `select id from api.create_record($1::uuid, 'experiment', 'Viewer experiment', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        `select id from api.create_record($1::uuid, 'experiment', 'Viewer experiment', 'in_progress', ARRAY[]::text[], '{}'::jsonb)`,
         [PROJECT_A],
       ),
       '42501',

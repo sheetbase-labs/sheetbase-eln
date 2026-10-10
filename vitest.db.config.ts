@@ -9,7 +9,10 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/db/**/*.test.ts'],
     setupFiles: ['tests/db/setup.ts'],
-    fileParallelism: false,
+    // Each worker clones the migrated template into its own database, so files
+    // run in parallel without sharing state (see tests/db/helpers.ts).
+    fileParallelism: true,
+    maxWorkers: 12,
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

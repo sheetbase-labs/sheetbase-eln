@@ -56,7 +56,7 @@ function def(
 describe('scientific record kinds and identifiers', () => {
   it('recognises the three scientific kinds and rejects others', () => {
     expect(isScientificRecordKind('sample')).toBe(true)
-    expect(isScientificRecordKind('reagent')).toBe(true)
+    expect(isScientificRecordKind('material')).toBe(true)
     expect(isScientificRecordKind('protocol_template')).toBe(true)
     expect(isScientificRecordKind('experiment')).toBe(false)
     expect(isScientificRecordKind('report')).toBe(false)
@@ -64,13 +64,13 @@ describe('scientific record kinds and identifiers', () => {
 
   it('maps each kind to its stable identifier prefix', () => {
     expect(KIND_PREFIX.sample).toBe('SMP')
-    expect(KIND_PREFIX.reagent).toBe('RGT')
+    expect(KIND_PREFIX.material).toBe('RGT')
     expect(KIND_PREFIX.protocol_template).toBe('PRT')
   })
 
   it('matches the stable <PREFIX>-YYYY-NNNN identifier shape', () => {
     expect(identifierPattern('sample').test('SMP-2026-0001')).toBe(true)
-    expect(identifierPattern('reagent').test('RGT-2026-0042')).toBe(true)
+    expect(identifierPattern('material').test('RGT-2026-0042')).toBe(true)
     expect(identifierPattern('protocol_template').test('PRT-2026-0007')).toBe(
       true,
     )
@@ -254,12 +254,12 @@ describe('validateProperties', () => {
         logicalType: 'integer',
         lifecycle: 'retired',
       }),
-      def({ fieldName: 'reagent_lot', logicalType: 'text', kind: 'reagent' }),
+      def({ fieldName: 'material_lot', logicalType: 'text', kind: 'material' }),
     ]
-    // retired field is not validated; reagent field is not validated for sample.
+    // retired field is not validated; material field is not validated for sample.
     const errors = validateProperties(
       'sample',
-      { required_text: 'x', legacy: 'preserved', reagent_lot: 9 },
+      { required_text: 'x', legacy: 'preserved', material_lot: 9 },
       mixed,
     )
     expect(errors).toEqual([])
@@ -269,8 +269,8 @@ describe('validateProperties', () => {
 describe('status vocabularies and transition rules', () => {
   it('exposes a distinct vocabulary per kind', () => {
     expect(KIND_STATUS_VOCABULARY.sample).toContain('frozen')
-    expect(KIND_STATUS_VOCABULARY.reagent).toContain('low_stock')
-    expect(KIND_STATUS_VOCABULARY.reagent).not.toContain('frozen')
+    expect(KIND_STATUS_VOCABULARY.material).toContain('low_stock')
+    expect(KIND_STATUS_VOCABULARY.material).not.toContain('frozen')
     expect(KIND_STATUS_VOCABULARY.protocol_template).toEqual([
       'draft',
       'active',
@@ -286,7 +286,7 @@ describe('status vocabularies and transition rules', () => {
       ['sample', 'reserved', 'available'],
       ['sample', 'reserved', 'consumed'],
       ['sample', 'quarantined', 'available'],
-      ['reagent', 'available', 'expired'],
+      ['material', 'available', 'expired'],
       ['protocol_template', 'draft', 'active'],
       ['protocol_template', 'under_review', 'draft'],
       ['protocol_template', 'active', 'draft'],
@@ -299,7 +299,9 @@ describe('status vocabularies and transition rules', () => {
   it('rejects disallowed transitions', () => {
     expect(isAllowedTransition('sample', 'consumed', 'available')).toBe(false)
     expect(isAllowedTransition('sample', 'available', 'frozen')).toBe(false)
-    expect(isAllowedTransition('reagent', 'low_stock', 'available')).toBe(false)
+    expect(isAllowedTransition('material', 'low_stock', 'available')).toBe(
+      false,
+    )
     expect(
       isAllowedTransition('protocol_template', 'active', 'under_review'),
     ).toBe(false)
@@ -322,7 +324,7 @@ describe('status vocabularies and transition rules', () => {
 describe('linkTypeForKind', () => {
   it('maps protocol_template to the protocol link type and keeps the others', () => {
     expect(linkTypeForKind('sample')).toBe('sample')
-    expect(linkTypeForKind('reagent')).toBe('reagent')
+    expect(linkTypeForKind('material')).toBe('material')
     expect(linkTypeForKind('protocol_template')).toBe('protocol')
   })
 })
@@ -389,7 +391,7 @@ describe('summariseProperties', () => {
 
   it('ignores definitions for other kinds', () => {
     const entries = summariseProperties(
-      'reagent',
+      'material',
       { note: 'cold' },
       definitions,
     )
@@ -474,10 +476,10 @@ describe('scientificRecordQueryKeys', () => {
       'field-definitions',
       'sample',
     ])
-    expect(scientificRecordQueryKeys.search('reagent', 'lot')).toEqual([
+    expect(scientificRecordQueryKeys.search('material', 'lot')).toEqual([
       'sci-001',
       'search',
-      'reagent',
+      'material',
       'lot',
     ])
     expect(scientificRecordQueryKeys.record('id-1')).toEqual([

@@ -6571,6 +6571,336 @@
         }
       }
     },
+    "/api/db/record_models": {
+      "get": {
+        "tags": ["Projects"],
+        "summary": "Read record_models",
+        "operationId": "get_record_models",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["projects:read"],
+        "description": "GET `record_models` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `record_models` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecordModelsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecordModelsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Projects"],
+        "summary": "Headers for record_models",
+        "operationId": "head_record_models",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["projects:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `record_models` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecordModelsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecordModelsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/records": {
       "get": {
         "tags": ["Projects"],
@@ -11047,7 +11377,7 @@
                   },
                   "p_kind": {
                     "type": "string",
-                    "description": "Record kind, e.g. experiment, sample, reagent."
+                    "description": "Record kind, e.g. experiment, sample, material."
                   },
                   "p_title": {
                     "type": "string",
@@ -11853,7 +12183,7 @@
           }
         ],
         "x-sheetbase-scopes": ["webhooks:write"],
-        "description": "Creates a subscription in the JWT workspace. Returns the subscription row and a generated signing secret (returned exactly once). rate_limit_per_minute caps delivery attempts per rolling minute (deferred, never dropped); null = unlimited.",
+        "description": "Creates a subscription in the JWT workspace. Returns the subscription row and, for a webhook or Teams destination, a generated signing secret (returned exactly once). An email destination names a recipient instead of a URL and gets no secret. rate_limit_per_minute caps delivery attempts per rolling minute (deferred, never dropped); null = unlimited.",
         "requestBody": {
           "required": true,
           "content": {
@@ -11861,7 +12191,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["p_workspace_id", "p_key", "p_url"],
+                "required": ["p_workspace_id", "p_key"],
                 "properties": {
                   "p_workspace_id": {
                     "type": "string",
@@ -11874,7 +12204,15 @@
                   },
                   "p_url": {
                     "type": "string",
-                    "description": "HTTPS webhook endpoint URL."
+                    "description": "HTTPS webhook endpoint URL. Required for webhook and Teams destinations; must be omitted for an email destination."
+                  },
+                  "p_channel_type": {
+                    "type": "string",
+                    "description": "Destination type: 'webhook' (default), 'teams', or 'email'."
+                  },
+                  "p_recipient_user_id": {
+                    "type": "string",
+                    "description": "User id of the recipient. Required for an email destination and must be omitted otherwise."
                   },
                   "p_event_types": {
                     "type": "array",
@@ -12048,7 +12386,6 @@
                     },
                     "order": {
                       "type": "array",
-                      "description": "Full (id, order) list for the record after the operation.",
                       "items": {
                         "type": "object",
                         "additionalProperties": false,
@@ -12064,7 +12401,8 @@
                           }
                         },
                         "required": ["id", "order"]
-                      }
+                      },
+                      "description": "Full (id, order) list for the record after the operation."
                     }
                   },
                   "required": ["structure_version"]
@@ -12743,7 +13081,6 @@
                     },
                     "order": {
                       "type": "array",
-                      "description": "Full (id, order) list for the record after the operation.",
                       "items": {
                         "type": "object",
                         "additionalProperties": false,
@@ -12759,7 +13096,8 @@
                           }
                         },
                         "required": ["id", "order"]
-                      }
+                      },
+                      "description": "Full (id, order) list for the record after the operation."
                     }
                   },
                   "required": ["block", "structure_version"]
@@ -13640,7 +13978,6 @@
                     },
                     "order": {
                       "type": "array",
-                      "description": "Full (id, order) list for the record after the operation.",
                       "items": {
                         "type": "object",
                         "additionalProperties": false,
@@ -13656,7 +13993,8 @@
                           }
                         },
                         "required": ["id", "order"]
-                      }
+                      },
+                      "description": "Full (id, order) list for the record after the operation."
                     }
                   },
                   "required": ["block", "structure_version"]
@@ -15651,18 +15989,18 @@
         }
       }
     },
-    "/api/db/rpc/replay_webhook_delivery": {
+    "/api/db/rpc/replay_webhook_deliveries": {
       "post": {
         "tags": ["Projects"],
-        "summary": "Replay a webhook delivery",
-        "operationId": "rpc_replay_webhook_delivery",
+        "summary": "Replay webhook deliveries by subscription and/or time window",
+        "operationId": "rpc_replay_webhook_deliveries",
         "security": [
           {
             "bearerAuth": []
           }
         ],
         "x-sheetbase-scopes": ["webhooks:write"],
-        "description": "Creates a new pending delivery from an existing terminal one (delivered, failed, dead_letter), reusing the original payload, body, and signature — the same idempotency key, so receivers that deduplicate never see a duplicate effect. Audited via replay lineage plus a change event.",
+        "description": "Operator-invoked bulk replay of terminal deliveries (default dead_letter) for a subscription and/or creation window. Each replay reuses the original idempotency key. Originals with a pending/retrying replay already queued are skipped, so re-running a window is safe. One summary change event audits the action; never automatic.",
         "requestBody": {
           "required": true,
           "content": {
@@ -15670,17 +16008,37 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["p_workspace_id", "p_delivery_id"],
+                "required": ["p_workspace_id"],
                 "properties": {
                   "p_workspace_id": {
                     "type": "string",
                     "format": "uuid",
                     "description": "Workspace UUID."
                   },
-                  "p_delivery_id": {
+                  "p_subscription_id": {
                     "type": "string",
                     "format": "uuid",
-                    "description": "Terminal delivery UUID to replay."
+                    "description": "Optional subscription UUID filter (null = all subscriptions)."
+                  },
+                  "p_since": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Optional lower bound on original delivery creation time."
+                  },
+                  "p_until": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Optional upper bound on original delivery creation time."
+                  },
+                  "p_status": {
+                    "type": "string",
+                    "description": "Which terminal status to replay (dead_letter, failed, delivered; default dead_letter)."
+                  },
+                  "p_limit": {
+                    "type": "integer",
+                    "description": "Max deliveries to replay (1–500, default 50).",
+                    "minimum": 1,
+                    "maximum": 500
                   }
                 }
               }
@@ -15689,22 +16047,11 @@
         },
         "responses": {
           "200": {
-            "description": "Result of replay_webhook_delivery",
+            "description": "Result of replay_webhook_deliveries",
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "New pending delivery row. PostgREST returns a JSON array of composite rows by default.",
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/WebhookDeliveriesRow"
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/WebhookDeliveriesRow"
-                      }
-                    }
-                  ]
+                  "$ref": "#/components/schemas/WebhookBulkReplayResult"
                 }
               }
             }
@@ -15782,18 +16129,18 @@
         }
       }
     },
-    "/api/db/rpc/replay_webhook_deliveries": {
+    "/api/db/rpc/replay_webhook_delivery": {
       "post": {
         "tags": ["Projects"],
-        "summary": "Replay webhook deliveries by subscription and/or time window",
-        "operationId": "rpc_replay_webhook_deliveries",
+        "summary": "Replay a webhook delivery",
+        "operationId": "rpc_replay_webhook_delivery",
         "security": [
           {
             "bearerAuth": []
           }
         ],
         "x-sheetbase-scopes": ["webhooks:write"],
-        "description": "Operator-invoked bulk replay of terminal deliveries (default dead_letter) for a subscription and/or creation window. Each replay reuses the original idempotency key. Originals with a pending/retrying replay already queued are skipped, so re-running a window is safe. One summary change event audits the action; never automatic.",
+        "description": "Creates a new pending delivery from an existing terminal one (delivered, failed, dead_letter), reusing the original payload, body, and signature — the same idempotency key, so receivers that deduplicate never see a duplicate effect. Audited via replay lineage plus a change event.",
         "requestBody": {
           "required": true,
           "content": {
@@ -15801,37 +16148,17 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["p_workspace_id"],
+                "required": ["p_workspace_id", "p_delivery_id"],
                 "properties": {
                   "p_workspace_id": {
                     "type": "string",
                     "format": "uuid",
                     "description": "Workspace UUID."
                   },
-                  "p_subscription_id": {
+                  "p_delivery_id": {
                     "type": "string",
                     "format": "uuid",
-                    "description": "Optional subscription UUID filter (null = all subscriptions)."
-                  },
-                  "p_since": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Optional lower bound on original delivery creation time."
-                  },
-                  "p_until": {
-                    "type": "string",
-                    "format": "date-time",
-                    "description": "Optional upper bound on original delivery creation time."
-                  },
-                  "p_status": {
-                    "type": "string",
-                    "description": "Which terminal status to replay (dead_letter, failed, delivered; default dead_letter)."
-                  },
-                  "p_limit": {
-                    "type": "integer",
-                    "description": "Max deliveries to replay (1–500, default 50).",
-                    "minimum": 1,
-                    "maximum": 500
+                    "description": "Terminal delivery UUID to replay."
                   }
                 }
               }
@@ -15840,11 +16167,22 @@
         },
         "responses": {
           "200": {
-            "description": "Result of replay_webhook_deliveries",
+            "description": "Result of replay_webhook_delivery",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WebhookBulkReplayResult"
+                  "description": "New pending delivery row. PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/WebhookDeliveriesRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookDeliveriesRow"
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -16753,7 +17091,7 @@
                   "p_kind": {
                     "type": "string",
                     "nullable": true,
-                    "description": "experiment, sample, reagent, protocol_template, report, file, notebook_template."
+                    "description": "experiment, sample, material, protocol_template, report, file, notebook_template."
                   },
                   "p_status": {
                     "type": "string",
@@ -18375,7 +18713,7 @@
         "schema": {
           "type": "string"
         },
-        "description": "PostgREST disjunctive group, e.g. `or=(kind.eq.sample,kind.eq.reagent)`."
+        "description": "PostgREST disjunctive group, e.g. `or=(kind.eq.sample,kind.eq.material)`."
       },
       "ColumnFilter": {
         "name": "{column}",
@@ -22941,6 +23279,68 @@
                 "type": "null"
               }
             ]
+          }
+        }
+      },
+      "RecordModelsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.record_models` row (snake_case). GET-only for API keys. Workspace-defined model identity (ADR-0051); authoring is owner/session (`schema.edit`), not `api_client`.",
+        "required": [
+          "id",
+          "workspace_id",
+          "key",
+          "name",
+          "identifier_prefix",
+          "lifecycle",
+          "current_version",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "identifier_prefix": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": ["draft", "published", "retired"]
+          },
+          "current_version": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "updated_by_user_id": {
+            "type": "string",
+            "nullable": true
           }
         }
       },

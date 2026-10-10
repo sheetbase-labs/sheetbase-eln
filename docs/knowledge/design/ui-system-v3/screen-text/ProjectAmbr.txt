@@ -1,0 +1,60 @@
+Project, Ambr 250 perfusion scale-down
+Projects / PRJ-0205
+Ambr 250 perfusion scale-down
+Members
+New experiment
+In progress Internal Platform Process development Lead Gareth P. Started 14 Jul 2026
+Overview Experiments 3 Samples 2 Datasets 2 Files — Members 3 Settings
+Milestones
+1 of 3 complete
+| | Milestone | Status | Target | Evidence
+| Scale-down model qualified | Complete | 28 Aug | EXP-0119
+| Perfusion rate screen | In progress | 9 Oct | EXP-0140 · 2 missing units
+| Bleed strategy | Not started | 30 Oct | —
+Recent experiments
+3
+| | ID | Experiment | Owner | Status | Updated
+| EXP-0140 | Ambr 250 run AMB-25-118 | Gareth P. | In progress | Yesterday
+| EXP-0132 | Ambr 250 run AMB-25-112 | Gareth P. | Approved | 12 Sep
+| EXP-0119 | Scale-down qualification vs 50 L | Gareth P. | Approved | 28 Aug
+Experiments
+3 New experiment
+| | ID | Experiment | Owner | Status | Updated
+| EXP-0140 | Ambr 250 run AMB-25-118 | Gareth P. | In progress | Yesterday
+| EXP-0132 | Ambr 250 run AMB-25-112 | Gareth P. | Approved | 12 Sep
+| EXP-0119 | Scale-down qualification vs 50 L | Gareth P. | Approved | 28 Aug
+Samples
+2 All samples
+| | ID | Name | Type | Quantity | Location | Status
+| SMP-2238 | AMB-25-118 day 6 | Culture sample | 2.0 mL | F-1, box 3, C4 | Stored
+| SMP-2201 | AMB-25-118 inoculum | Culture | In process | Ambr 250, bay 2 | In use
+Datasets
+2 All datasets
+| | ID | Name | Model | Rows | Validation
+| DS-0298 | Ambr 250 daily readings, AMB-25-118 | Ambr 250 daily reading v1 | 84 | 2 columns missing units
+| DS-0284 | Ambr 250 daily readings, AMB-25-112 | Ambr 250 daily reading v1 | 98 | Valid · locked
+See how files look on AAV9 process transfer
+Team
+3
+| | Person | Project role | Access
+| Gareth P. | Lead | Editor
+| Tom H. | Scientist | Editor
+| Mei L. | Default reviewer | Reviewer
+Gareth P. is the lead. Ask them to change the stage, reviewer or client sharing.
+Details
+ID
+PRJ-0205
+Client
+Internal
+Protocol
+PRT-014 v2
+Default reviewer
+Mei L.
+Bioreactor
+Ambr 250, bays 1–4
+Members
+Gareth P. · Lead
+Tom H. · Scientist
+Mei L. · Default reviewer
+Note
+PRT-014 v2 is due its periodic review on 1 Oct. New runs keep the version they started on.

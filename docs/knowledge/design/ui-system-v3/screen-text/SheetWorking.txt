@@ -1,0 +1,42 @@
+Working sheet
+AAV9 process transfer / Downstream / Clarification Clarification working sheet
+Share Add to notebook
+SHT-0019 Owner Gareth P. Saved 09:40 Used in EXP-0142
+Working sheet, not a dataset. Columns from DS-0311 are pinned to snapshot S-15 and read-only here. Local columns live only in this sheet until you promote them. Update to latest snapshot
+From a dataset snapshot (read-only) Linked record Calculated Local, exploratory
+| | | Condition DS-0311 · S-15
+| Filter train Material record
+| Load (L/m²) DS-0311 · S-15
+| Turbidity (NTU) DS-0311 · S-15
+| Capsid titre (cp/mL) DS-0311 · S-15
+| Step yield (%) ƒx
+| Visual clarity Local
+| Adj. yield (%) Local
+| Keep? Local
+| 1 | A-50 | MAT-0418 A | 50 | 6.2 | 7.4 × 10¹¹ | 86.0 | Clear | 85 |
+| 2 | A-100 | MAT-0418 A | 100 | 9.8 | 7.1 × 10¹¹ | 82.6 | Clear | 82 |
+| 3 | A-150 | MAT-0418 A | 150 | 18.4 | 6.5 × 10¹¹ | 75.6 | Slight haze | — |
+| 4 | B-50 | MAT-0419 B | 50 | 4.1 | 7.8 × 10¹¹ | 90.7 | Clear | 90 |
+| 5 | B-100 | MAT-0419 B | 100 | 5.6 | 7.6 × 10¹¹ | 88.4 | Clear | 88 |
+| 6 | B-150 | MAT-0419 B | 150 | 8.9 | 7.3 × 10¹¹ | 84.9 | Clear | 84 |
+| 7 | C-50 | MAT-0420 C | 50 | 12.7 | 6.9 × 10¹¹ | 80.2 | Slight haze | 79 |
+| 8 | C-100 | MAT-0420 C | 100 | 24.3 | 6.2 × 10¹¹ | 72.1 | Hazy | — |
+| 9 | C-150 | MAT-0420 C | 150 | 61.5 | 5.4 × 10¹¹ | 62.8 | Hazy | — |
+Add column Add rows from a dataset…
+Column
+Visual clarity
+Local · text · added by Gareth P. 24 Sep
+Where it lives
+Only in this sheet. It isn’t in DS-0311, it can’t be cited as evidence, and pipelines can’t read it.
+Make it lasting
+Promote local columns into DS-0311 or a new dataset. The model change is reviewed first; nothing moves until then.
+Promote columns…
+Sources
+DS-0311
+Snapshot S-15, 6 columns
+Materials
+3 linked records
+Local
+3 columns
+Calculated
+Step yield

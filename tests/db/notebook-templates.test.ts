@@ -172,7 +172,7 @@ describe('CORE-06.3 / 06.4 Notebook Template versions', () => {
 
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -214,10 +214,10 @@ describe('CORE-06.3 / 06.4 Notebook Template versions', () => {
         [WS, JSON.stringify(validSheetDefinitionConfiguration())],
       )
     ).rows[0].result
-    await owner.query(
-      `select api.publish_sheet_definition_version($1,$2)`,
-      [definition.version.id, definition.version.revision],
-    )
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
 
     const created = (
       await owner.query(

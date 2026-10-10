@@ -6,7 +6,8 @@
 export type PipelineLifecycle = 'active' | 'retired'
 export type PipelineVersionLifecycle = 'draft' | 'published' | 'retired'
 export type PipelineRunTrigger = 'manual' | 'scheduled' | 'event'
-export type PipelineRunStatus = 'running' | 'succeeded' | 'failed' | 'cancelled'
+export type PipelineRunStatus =
+  'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled'
 export type PipelineScheduleKind = 'interval' | 'daily' | 'event'
 
 export interface PipelineDefinitionWire {
@@ -83,6 +84,22 @@ export interface PipelineRunOutputWire {
   dataset_id: string
   dataset_version_id: string
   label: string
+  created_at: string
+}
+
+/** One paused `confirm` step of a run: the typed form, the people asked, and
+ * the answer once given. See drizzle/0396_pipeline_run_prompts.sql. */
+export interface PipelineRunPromptWire {
+  id: string
+  workspace_id: string
+  run_id: string
+  step_id: string
+  form_schema: Record<string, unknown>
+  asked_user_ids: string[]
+  answer: Record<string, unknown> | null
+  answered_by_user_id: string | null
+  answered_at: string | null
+  expires_at: string | null
   created_at: string
 }
 

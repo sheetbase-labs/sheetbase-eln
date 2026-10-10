@@ -1,4 +1,6 @@
 import { expect, test } from 'playwright/test'
+import { signInAsDesignUser } from '../visual/sign-in'
+import { z } from 'zod'
 
 // Exercise route transitions and the real table/dialog components without
 // creating persistent records. Database summary/RLS semantics have DB tests.
@@ -83,4 +85,56 @@ test('new project opens first-use guidance and can return to Projects', async ({
       .getByRole('searchbox', { name: 'Filter projects' })
       .evaluate((el) => el.getBoundingClientRect().width),
   ).toBeGreaterThan(300)
+})
+
+test.describe('native project activity', () => {
+  test.use({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 2,
+  })
+
+  test('shows current readable identities for the actual latest record events', async ({
+    page,
+  }) => {
+    await signInAsDesignUser(page, '00000000-0000-4000-8000-000000000310')
+    await page.goto('/projects')
+    const expected = z
+      .array(z.object({ identifier: z.string(), title: z.string() }))
+      .parse(
+        await page.evaluate(async () => {
+          const project = '00000000-0000-4000-8000-000000000320'
+          const events = await fetch(
+            `/api/db/change_events?project_id=eq.${project}&order=sequence.desc&limit=3`,
+          )
+          if (!events.ok) throw new Error('Native event read failed')
+          const rows: Array<{ entity_type: string; entity_uuid: string }> =
+            await events.json()
+          const records = []
+          for (const row of rows.filter(
+            (event) => event.entity_type === 'record',
+          )) {
+            const response = await fetch(
+              `/api/db/records?id=eq.${row.entity_uuid}&project_id=eq.${project}&select=identifier,title`,
+            )
+            if (!response.ok) throw new Error('Native record read failed')
+            records.push(...(await response.json()))
+          }
+          return records
+        }),
+      )
+    expect(expected.length).toBeGreaterThan(0)
+    await page
+      .getByRole('button', { name: 'Show details for AAV9 process transfer' })
+      .click()
+    for (const record of expected) {
+      await expect(
+        page.getByTitle('Current record identity').filter({
+          hasText: `${record.identifier} · ${record.title}`,
+        }),
+      ).toBeVisible()
+    }
+    await page.screenshot({
+      path: '.amp/in/artifacts/proj01-integrated-activity.png',
+    })
+  })
 })

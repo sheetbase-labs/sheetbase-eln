@@ -53,14 +53,19 @@ function makeReagent(
     lot: null,
     expiry: null,
     quantity: null,
+    initialQuantity: null,
     unit: null,
     storage: null,
+    received: null,
+    releasedBy: null,
+    releasedAt: null,
+    certificate: null,
     lowStockThreshold: null,
     expiryWarningDays: null,
     record: {
       id: 'r1',
       projectId: null,
-      kind: 'reagent',
+      kind: 'material',
       identifier: 'RGT-2026-0001',
       title: 'Acetonitrile',
       status: 'available',
@@ -147,7 +152,9 @@ describe('fetchReagentUsage', () => {
         {
           id: 'link-1',
           source_record_id: 'experiment-1',
-          link_type: 'reagent',
+          link_type: 'material',
+          link_metadata: { quantity: 1, unit: 'units' },
+          created_at: '2026-09-23T00:00:00Z',
         },
       ])
       .mockResolvedValueOnce([
@@ -166,7 +173,10 @@ describe('fetchReagentUsage', () => {
         sourceRecordId: 'experiment-1',
         sourceKind: 'experiment',
         sourceIdentifier: 'EXP-2026-0001',
-        linkType: 'reagent',
+        linkType: 'material',
+        createdAt: '2026-09-23T00:00:00Z',
+        quantity: 1,
+        unit: 'units',
       },
     ])
     expect(list).toHaveBeenNthCalledWith(
@@ -362,7 +372,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
   })
   it('scopes to non-archived, non-deleted reagents by default', () => {
     const q = reagentListQuery(baseQuery)
-    expect(q).toContain('kind=eq.reagent')
+    expect(q).toContain('kind=eq.material')
     expect(q).toContain('deleted_at=is.null')
     expect(q).toContain('archived_at=is.null')
     expect(q).toContain('order=identifier.asc')
@@ -465,7 +475,7 @@ describe('createReagent and editReagent', () => {
       id: 'r-new',
       workspace_id: 'ws',
       project_id: 'p1',
-      kind: 'reagent',
+      kind: 'material',
       identifier: 'RGT-2026-0002',
       title: 'Acetonitrile',
       status: 'available',
@@ -491,7 +501,7 @@ describe('createReagent and editReagent', () => {
     })
     expect(rpc).toHaveBeenCalledWith('create_model_record', {
       p_project_id: 'p1',
-      p_kind: 'reagent',
+      p_kind: 'material',
       p_title: 'Acetonitrile',
       p_status: 'available',
       p_tags: ['solvent'],

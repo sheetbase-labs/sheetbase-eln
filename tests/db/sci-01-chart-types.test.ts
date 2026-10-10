@@ -136,7 +136,12 @@ async function insertChartBlock(spec: unknown) {
   const res = await migrator.query(
     `INSERT INTO api.blocks(record_id,type,payload,"order",created_by_user_id)
      VALUES ($1,'chart',$2::jsonb,$4,$3) RETURNING *`,
-    [experimentId, JSON.stringify({ title: 'T', spec, frozen: null }), USER_A, ++blockOrder],
+    [
+      experimentId,
+      JSON.stringify({ title: 'T', spec, frozen: null }),
+      USER_A,
+      ++blockOrder,
+    ],
   )
   return res.rows[0]
 }
@@ -155,8 +160,8 @@ beforeAll(async () => {
      VALUES ('${WS_A}','${USER_A}','owner')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title)
-     VALUES ('${PROJECT_A}','${WS_A}','sci-01-a','SCI 01 A')`,
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id)
+     VALUES ('${PROJECT_A}','${WS_A}','sci-01-a','SCI 01 A','${USER_A}')`,
   )
   await migrator.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER_A, workspace_id: WS_A }),
@@ -188,8 +193,13 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await migrator.query(`DELETE FROM api.analysis_definitions WHERE workspace_id=$1`, [WS_A])
-  await migrator.query(`DELETE FROM api.records WHERE project_id=$1`, [PROJECT_A])
+  await migrator.query(
+    `DELETE FROM api.analysis_definitions WHERE workspace_id=$1`,
+    [WS_A],
+  )
+  await migrator.query(`DELETE FROM api.records WHERE project_id=$1`, [
+    PROJECT_A,
+  ])
   await migrator.query(`DELETE FROM api.projects WHERE id=$1`, [PROJECT_A])
   // freeze_chart now pins a Dataset Version that references the creating
   // user; those versions are immutable evidence so the owner is left in place.
@@ -233,16 +243,16 @@ describe('SCI-01 chart blocks on canonical Datasets', () => {
     expect(
       [...points]
         .map((p) => [p.x, p.y])
-        .sort((a, b) => Number(a[0]) - Number(b[0]) || Number(a[1]) - Number(b[1])),
-    ).toEqual(
-      [
-        [0, 1],
-        [0, 2],
-        [24, 3],
-        [24, 4],
-        [48, 5],
-      ],
-    )
+        .sort(
+          (a, b) => Number(a[0]) - Number(b[0]) || Number(a[1]) - Number(b[1]),
+        ),
+    ).toEqual([
+      [0, 1],
+      [0, 2],
+      [24, 3],
+      [24, 4],
+      [48, 5],
+    ])
     expect(res.rows[0].version).toBe(block.version + 1)
   })
 
@@ -283,15 +293,15 @@ describe('SCI-01 chart blocks on canonical Datasets', () => {
 
   it('freezes a faceted line chart into codepoint-sorted per-value panels', async () => {
     const spec = specFor(dsIdMain, {
-        fields: {
-          x: { fieldId: FIELD_TIME },
-          y: { fieldId: FIELD_RECOVERY },
-          series: null,
-          color: null,
-          size: null,
-          facet: { fieldId: FIELD_CONDITION },
-        },
-      })
+      fields: {
+        x: { fieldId: FIELD_TIME },
+        y: { fieldId: FIELD_RECOVERY },
+        series: null,
+        color: null,
+        size: null,
+        facet: { fieldId: FIELD_CONDITION },
+      },
+    })
     const block = await insertChartBlock(spec)
     const res = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
       block.id,

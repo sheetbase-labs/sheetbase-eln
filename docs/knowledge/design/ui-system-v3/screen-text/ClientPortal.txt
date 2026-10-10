@@ -1,0 +1,40 @@
+Client portal
+Projects
+Reports 3
+Messages 1
+You see records only after your CDMO team approves and shares them.
+AAV9 process transfer
+In progress Tech transfer CDMO lead Gareth P. Last update 25 Sep
+Milestones
+| | Milestone | Status | Target
+| Upstream process locked | Complete | 19 Sep
+| Clarification train selected | In progress | 29 Sep
+| TFF and polish defined | Not started | 16 Oct
+| 50 L engineering run | Not started | 6 Nov
+Approved records
+3
+| | Record | Title | Approved | Shared |
+| EXP-0138 | Transfection ratio, PEI:DNA sweep | 25 Sep · Gareth P. | Today | Open PDF
+| EXP-0136 | Seeding density at transfection | 19 Sep · Mei L. | 20 Sep | Open PDF
+| EXP-0133 | Harvest timing: 48, 72 and 96 h | 19 Sep · Mei L. | 20 Sep | Open PDF
+Each PDF includes the signature page and a verification code you can check against the CDMO's audit trail.
+Reports
+3
+| | Report | Covers | Shared |
+| Transfection ratio report | EXP-0138 v2 | 25 Sep | Open PDF
+| Upstream process lock summary | EXP-0133, EXP-0136 | 20 Sep | Open PDF
+| Monthly progress, August | PRJ-0217 | 2 Sep | Open PDF
+Messages
+1
+Gareth P. 25 Sep Transfection ratio report is approved and attached. Clarification results expected 29 Sep.
+Send
+Message from your CDMO
+Gareth P. · 25 Sep Transfection ratio report is approved and attached. Clarification results expected 29 Sep.
+Reply
+Your access
+Role
+Client viewer
+Can
+Read and download approved records, message the team
+Can't
+See drafts, raw data or other clients

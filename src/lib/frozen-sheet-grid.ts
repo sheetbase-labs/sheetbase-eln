@@ -2,6 +2,9 @@
  * Reconstruct a read-only grid from frozen Sheet Instance state.
  * Does not call live composition; it only reads localFields / localValues.
  */
+import { z } from 'zod'
+
+import { composedRowKeySchema } from './sheet-instance'
 
 export type FrozenSheetGridColumn = {
   id: string
@@ -11,11 +14,14 @@ export type FrozenSheetGridColumn = {
 export type FrozenSheetGrid = {
   columns: FrozenSheetGridColumn[]
   rows: string[][]
+  /** Only explicit submitted composed identities permit cell comments. */
+  rowKeys: string[] | null
 }
 
 export type FrozenComposedGrid = {
   columns?: Array<{ id?: unknown; label?: unknown }>
   rows?: unknown
+  rowKeys?: unknown
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -84,7 +90,7 @@ export function frozenSheetGridFromState(
     const row = asRecord(localValues[rowKey]) ?? {}
     return columns.map((column) => formatFrozenCell(row[column.id]))
   })
-  return { columns, rows }
+  return { columns, rows, rowKeys: null }
 }
 
 export function frozenSheetGridFromEvidence(evidence: {
@@ -108,7 +114,16 @@ export function frozenSheetGridFromEvidence(evidence: {
             : columns.map(() => ''),
         )
       : []
-    return { columns, rows }
+    const identities = z
+      .array(z.union([z.uuid(), composedRowKeySchema]))
+      .safeParse(grid.rowKeys)
+    const rowKeys =
+      identities.success &&
+      identities.data.length === rows.length &&
+      new Set(identities.data).size === rows.length
+        ? identities.data
+        : null
+    return { columns, rows, rowKeys }
   }
   return frozenSheetGridFromState(evidence.instanceState)
 }

@@ -1,404 +1,314 @@
-import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { OverviewView } from './overview-view'
-import type { NotebookBlock } from '#/lib/notebook-data'
-import type { OverviewSection, OverviewRevision } from '#/lib/overview'
+import type { SignatureWire } from '#/lib/signatures'
+import type { ReadinessBlock } from './readiness'
+import type { ExperimentOverviewProps } from './overview-view'
+import { ExperimentOverview } from './overview-view'
+
+const linkCalls = vi.hoisted(() => ({
+  calls: [] as Array<{
+    to?: string
+    params?: Record<string, string>
+    hash?: string
+  }>,
+}))
+
+// The overview renders router links; record the invocations and interpolate
+// route params + hash so the resulting href can be asserted without a router.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    params,
+    hash,
+    children,
+    ...props
+  }: {
+    to?: string
+    params?: Record<string, string>
+    hash?: string
+    children?: React.ReactNode
+  } & Record<string, unknown>) => {
+    linkCalls.calls.push({ to, params, hash })
+    let href = typeof to === 'string' ? to : '#'
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        href = href.replace(`$${key}`, encodeURIComponent(value))
+      }
+    }
+    if (hash) href += `#${hash}`
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    )
+  },
+}))
 
 afterEach(() => {
   cleanup()
+  linkCalls.calls = []
 })
 
-// Stub BlockPreview to avoid pulling in React Query / chart / plate / file
-// rendering dependencies. The overview view's job is to compose sections and
-// delegate rendering — we verify the composition, not the preview internals.
-vi.mock('#/components/notebook/block-preview', () => ({
-  BlockPreview: ({ block }: { block: NotebookBlock }) => (
-    <div data-testid={`block-${block.id}`}>
-      {block.type}: {block.id}
-    </div>
-  ),
-}))
+const SHEET_BLOCK = 'blk-sheet'
+const OBJECTIVE_BLOCK = 'blk-objective'
 
-function makeBlock(
-  overrides: Partial<NotebookBlock> & { id: string; type: string },
-): NotebookBlock {
+const BLOCKS: ReadinessBlock[] = [
+  {
+    id: OBJECTIVE_BLOCK,
+    payload: {
+      doc: {
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ text: 'Screen three depth-filter trains.' }],
+          },
+        ],
+      },
+    },
+  },
+  { id: SHEET_BLOCK, payload: { instanceId: 'instance-1' } },
+]
+
+function signature(): SignatureWire {
   return {
-    recordId: 'r1',
-    payload: {},
-    payloadSchemaVersion: 1,
-    order: 0,
-    version: 1,
-    ...overrides,
+    id: 'sig-1',
+    workspace_id: 'ws-1',
+    submission_id: 'sub-1',
+    revision_id: 'rev-1',
+    record_id: 'rec-1',
+    signature_meaning: 'reviewed-and-approved',
+    assurance_level: 'standard',
+    revision_integrity_digest: 'a'.repeat(64),
+    signer_user_id: 'user-mei',
+    signer_session_id: 'session-1',
+    signer_role: 'reviewer',
+    auth_method: 'session+name-confirmation',
+    confirmation_phrase: 'I approve',
+    signed_at: '2026-09-25T10:00:00.000Z',
+    created_at: '2026-09-25T10:00:00.000Z',
+    signer_name: 'Mei L.',
   }
 }
 
-const blocks: NotebookBlock[] = [
-  makeBlock({ id: 'b1', type: 'rich_text', order: 1 }),
-  makeBlock({ id: 'b2', type: 'materials', order: 2 }),
-  makeBlock({ id: 'b3', type: 'chart', order: 3 }),
-  makeBlock({ id: 'b4', type: 'checklist', order: 4 }),
-]
-
-function makeSections(): OverviewSection[] {
-  return [
-    {
-      id: 'notes',
-      label: 'Notes',
-      blocks: [blocks[0]],
+function baseProps(): ExperimentOverviewProps {
+  return {
+    record: {
+      id: 'rec-1',
+      identifier: 'EXP-0142',
+      title: 'Harvest clarification',
+      status: 'in_progress',
+      projectId: 'project-1',
+      createdByUserId: 'user-gp',
+      createdAt: '2026-09-21T09:00:00.000Z',
+      properties: {},
     },
-    {
-      id: 'materials',
-      label: 'Materials',
-      blocks: [blocks[1]],
+    blocks: BLOCKS,
+    links: [
+      {
+        id: 'link-protocol',
+        linkType: 'protocol',
+        targetKind: 'protocol_template',
+        targetIdentifier: 'PRT-021',
+        targetRecordId: 'protocol-1',
+      },
+      {
+        id: 'link-dataset',
+        linkType: 'dataset',
+        targetKind: 'dataset',
+        targetIdentifier: 'DS-0311',
+        targetRecordId: 'dataset-1',
+      },
+      {
+        id: 'link-upstream',
+        linkType: 'upstream',
+        targetKind: 'experiment',
+        targetIdentifier: 'EXP-0138',
+        targetRecordId: 'exp-2',
+      },
+    ],
+    readiness: {
+      recordId: 'rec-1',
+      ready: false,
+      validationErrors: [
+        {
+          revisionId: 'rev-1',
+          checkDefinitionKey: 'default',
+          checkDefinitionVersion: 1,
+          overallStatus: 'fail',
+          blockingFailures: 1,
+          warningFailures: 0,
+          runAt: '2026-09-24T16:04:00.000Z',
+          results: [
+            {
+              key: 'schema-valid-columns',
+              category: 'schema',
+              severity: 'blocking',
+              label: 'Sheet columns valid',
+              status: 'fail',
+              evidence: {
+                invalidColumns: [
+                  {
+                    tableId: SHEET_BLOCK,
+                    columnId: 'col-1',
+                    fieldName: 'Turbidity',
+                    logicalType: 'furlong',
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+      openCommentThreads: [
+        {
+          commentId: 'cmt-1',
+          body: 'Why is turbidity 61.5?',
+          authorUserId: 'user-ps',
+          target: { blockId: SHEET_BLOCK },
+          createdAt: '2026-09-24T12:00:00.000Z',
+        },
+      ],
+      emptyRequiredFields: [
+        {
+          instanceId: 'instance-1',
+          instanceName: 'Clarification',
+          parameterId: 'param-1',
+          parameterKey: 'decision',
+          label: 'Decision',
+        },
+      ],
     },
-    {
-      id: 'visualizations',
-      label: 'Visualizations',
-      blocks: [blocks[2]],
-    },
-    {
-      id: 'tasks',
-      label: 'Tasks',
-      blocks: [blocks[3]],
-    },
-  ]
+    signatures: [signature()],
+    followedBy: [
+      {
+        id: 'exp-3',
+        identifier: 'EXP-0145',
+        title: '50 L confirmation run',
+        status: 'draft',
+      },
+    ],
+    userLabel: (userId) =>
+      userId === 'user-gp'
+        ? 'Gareth P.'
+        : userId === 'user-ps'
+          ? 'Priya S.'
+          : userId,
+    projectName: 'AAV9 process transfer',
+  }
 }
 
-describe('OverviewView', () => {
-  it('renders all sections with their labels', () => {
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
-      />,
-    )
-    expect(screen.getByText('Notes')).toBeTruthy()
-    expect(screen.getByText('Materials')).toBeTruthy()
-    expect(screen.getByText('Visualizations')).toBeTruthy()
-    expect(screen.getByText('Tasks')).toBeTruthy()
+const STEP_BLOCKS: ReadinessBlock[] = [
+  ...BLOCKS,
+  {
+    id: 'step-1',
+    type: 'procedure_step',
+    payload: {
+      text: 'Equilibrate the column',
+      stepNumber: 1,
+      completed: true,
+      completedAt: '2026-09-24T09:00:00.000Z',
+      completedByUserId: 'user-gp',
+      note: '20 CV at 150 cm/h',
+      sourceProtocolRevisionId: 'rev-1',
+      sourceStepBlockId: 'src-step-1',
+    },
+  },
+  {
+    id: 'step-2',
+    type: 'procedure_step',
+    payload: {
+      text: 'Load the clarified harvest',
+      stepNumber: 2,
+      completed: false,
+      completedAt: null,
+      completedByUserId: null,
+      note: '',
+      sourceProtocolRevisionId: 'rev-1',
+      sourceStepBlockId: 'src-step-2',
+    },
+  },
+]
+
+describe('EXP-02.2 protocol progress', () => {
+  it('derives each step from the notebook, with who finished it and when', () => {
+    render(<ExperimentOverview {...baseProps()} blocks={STEP_BLOCKS} />)
+    expect(screen.getByText('Equilibrate the column')).toBeDefined()
+    expect(screen.getByText('Load the clarified harvest')).toBeDefined()
+    // The completed step names who finished it and when.
+    expect(screen.getByText('Done')).toBeDefined()
+    expect(screen.getAllByText(/Gareth P\./).length).toBeGreaterThan(0)
+    expect(screen.getByText('20 CV at 150 cm/h')).toBeDefined()
+    // The unfinished step is not presented as done.
+    expect(screen.getByText('Not started')).toBeDefined()
   })
 
-  it('renders blocks through BlockPreview', () => {
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
-      />,
-    )
-    expect(screen.getByTestId('block-b1')).toBeTruthy()
-    expect(screen.getByTestId('block-b2')).toBeTruthy()
-    expect(screen.getByTestId('block-b3')).toBeTruthy()
-    expect(screen.getByTestId('block-b4')).toBeTruthy()
+  it('says no progress is recorded rather than inventing steps', () => {
+    render(<ExperimentOverview {...baseProps()} />)
+    expect(screen.getByText(/No step progress is recorded yet/)).toBeDefined()
   })
+})
 
-  it('shows block count per section', () => {
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
-      />,
-    )
-    expect(screen.getAllByText('1 block')).toHaveLength(4)
-  })
+describe('EXP-02.4 ExperimentOverview', () => {
+  it('deep-links every readiness item to the block that resolves it', () => {
+    render(<ExperimentOverview {...baseProps()} />)
 
-  it('shows empty state when no sections', () => {
-    render(<OverviewView sections={[]} mode="active" excludedBlockIds={[]} />)
-    expect(screen.getByText('Overview is empty')).toBeTruthy()
-  })
+    expect(screen.getByText('Sheet columns valid')).toBeDefined()
+    expect(screen.getByText('Open comment thread')).toBeDefined()
+    expect(screen.getByText('Decision is empty')).toBeDefined()
 
-  it('shows empty state for historical mode with no blocks', () => {
-    render(
-      <OverviewView sections={[]} mode="historical" excludedBlockIds={[]} />,
-    )
-    expect(screen.getByText('This revision contains no blocks.')).toBeTruthy()
-  })
-
-  it('shows visibility toggle in active mode', () => {
-    const onToggle = vi.fn()
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
-        onToggleBlock={onToggle}
-      />,
-    )
-    // Each block has a toggle button
-    const toggles = screen.getAllByLabelText('Hide from overview')
-    expect(toggles).toHaveLength(4)
-  })
-
-  it('hides visibility toggle in locked mode', () => {
-    const onToggle = vi.fn()
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="locked"
-        excludedBlockIds={[]}
-        onToggleBlock={onToggle}
-      />,
-    )
-    expect(screen.queryByLabelText('Hide from overview')).toBeNull()
-  })
-
-  it('hides visibility toggle in archived mode', () => {
-    const onToggle = vi.fn()
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="archived"
-        excludedBlockIds={[]}
-        onToggleBlock={onToggle}
-      />,
-    )
-    expect(screen.queryByLabelText('Hide from overview')).toBeNull()
-  })
-
-  it('hides visibility toggle in historical mode', () => {
-    const onToggle = vi.fn()
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="historical"
-        excludedBlockIds={[]}
-        onToggleBlock={onToggle}
-      />,
-    )
-    expect(screen.queryByLabelText('Hide from overview')).toBeNull()
-  })
-
-  it('calls onToggleBlock when toggle is clicked', () => {
-    const onToggle = vi.fn()
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
-        onToggleBlock={onToggle}
-      />,
-    )
-    const toggles = screen.getAllByLabelText('Hide from overview')
-    fireEvent.click(toggles[0])
-    expect(onToggle).toHaveBeenCalledWith('b1', true)
-  })
-
-  it('shows "Show in overview" for excluded blocks', () => {
-    const onToggle = vi.fn()
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={['b1']}
-        onToggleBlock={onToggle}
-      />,
-    )
-    expect(screen.getByLabelText('Show in overview')).toBeTruthy()
-    // Clicking it calls with exclude=false
-    fireEvent.click(screen.getByLabelText('Show in overview'))
-    expect(onToggle).toHaveBeenCalledWith('b1', false)
-  })
-
-  it('renders excluded blocks with reduced opacity', () => {
-    const { container } = render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={['b1']}
-      />,
-    )
-    const excludedBlock = container.querySelector('[data-testid="block-b1"]')
-    expect(excludedBlock?.parentElement?.className).toContain('opacity-50')
-  })
-
-  it('shows locked banner in locked mode', () => {
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="locked"
-        excludedBlockIds={[]}
-      />,
-    )
-    expect(
-      screen.getByText('This record is locked. The overview is read-only.'),
-    ).toBeTruthy()
-  })
-
-  it('shows archived banner in archived mode', () => {
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="archived"
-        excludedBlockIds={[]}
-      />,
-    )
-    expect(
-      screen.getByText('This record is archived. The overview is read-only.'),
-    ).toBeTruthy()
-  })
-
-  it('shows revision banner in historical mode', () => {
-    const revision: OverviewRevision = {
-      id: 'rev-12345678-1234-1234-1234-123456789abc',
-      recordId: 'r1',
-      reason: 'submit',
-      createdAt: '2026-07-22T10:00:00Z',
-      createdByUserId: 'u1',
-      superseded: false,
-      blocks: [],
-      metadata: {},
+    for (const action of ['Go to cell', 'Open thread', 'Fill in']) {
+      const link = screen.getByRole('link', { name: action })
+      expect(link.getAttribute('href')).toBe(
+        '/records/rec-1/notebook#block-blk-sheet',
+      )
     }
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="historical"
-        revision={revision}
-        excludedBlockIds={[]}
-      />,
-    )
-    expect(screen.getByText(/Viewing historical revision/)).toBeTruthy()
-    expect(screen.getByText(/submit/)).toBeTruthy()
-  })
 
-  it('shows superseded label for superseded revisions', () => {
-    const revision: OverviewRevision = {
-      id: 'rev-12345678-1234-1234-1234-123456789abc',
-      recordId: 'r1',
-      reason: 'submit',
-      createdAt: '2026-07-22T10:00:00Z',
-      createdByUserId: 'u1',
-      superseded: true,
-      blocks: [],
-      metadata: {},
-    }
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="historical"
-        revision={revision}
-        excludedBlockIds={[]}
-      />,
-    )
-    expect(screen.getByText(/\(superseded\)/)).toBeTruthy()
-  })
-
-  it('does not show banners in active mode', () => {
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
-      />,
-    )
+    // The comment is attributed and the check names the offending column.
     expect(
-      screen.queryByText('This record is locked. The overview is read-only.'),
-    ).toBeNull()
+      screen.getByText(/Priya S\.: Why is turbidity 61\.5\?/),
+    ).toBeDefined()
     expect(
-      screen.queryByText('This record is archived. The overview is read-only.'),
-    ).toBeNull()
-    expect(screen.queryByText(/Viewing historical revision/)).toBeNull()
+      screen.getByText(/Column “Turbidity” has unsupported type/),
+    ).toBeDefined()
   })
 
-  it('associates section headings with aria-labelledby', () => {
+  it('renders linked experiments and signatures from real data', () => {
+    render(<ExperimentOverview {...baseProps()} />)
+
+    const upstream = screen.getByRole('link', { name: 'EXP-0138' })
+    expect(upstream.getAttribute('href')).toBe('/experiments/exp-2')
+
+    const next = screen.getByRole('link', { name: 'EXP-0145' })
+    expect(next.getAttribute('href')).toBe('/experiments/exp-3')
+    expect(screen.getByText('50 L confirmation run')).toBeDefined()
+    expect(screen.getByText(/Draft/)).toBeDefined()
+
+    expect(screen.getByText('Mei L.')).toBeDefined()
+    expect(screen.getByText('Reviewed and approved')).toBeDefined()
+  })
+
+  it('names an absent fact rather than faking it', () => {
     render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
+      <ExperimentOverview
+        {...baseProps()}
+        record={{
+          ...baseProps().record,
+          properties: {},
+        }}
+        signatures={[]}
       />,
     )
-    const notesHeading = screen.getByText('Notes')
-    const section = notesHeading.closest('section')
-    expect(section?.getAttribute('aria-labelledby')).toBe(
-      'overview-section-notes',
-    )
-  })
 
-  it('renders a responsive container class', () => {
-    const { container } = render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
-      />,
-    )
-    // The overview renders in a space-y container that is responsive
-    expect(container.firstChild).toBeTruthy()
-    const root = container.firstChild as HTMLElement
-    expect(root.className).toContain('space-y-8')
-  })
-
-  it('section headings are keyboard-accessible h2 elements', () => {
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
-      />,
-    )
-    const headings = screen.getAllByRole('heading', { level: 2 })
-    expect(headings).toHaveLength(4)
-    for (const heading of headings) {
-      expect(heading.tagName).toBe('H2')
-      expect(heading.id).toMatch(/^overview-section-/)
-    }
-  })
-
-  it('toggle buttons are keyboard-focusable with aria-pressed', () => {
-    const onToggle = vi.fn()
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="active"
-        excludedBlockIds={[]}
-        onToggleBlock={onToggle}
-      />,
-    )
-    const toggles = screen.getAllByLabelText('Hide from overview')
-    for (const toggle of toggles) {
-      expect(toggle.tagName).toBe('BUTTON')
-      expect(toggle.getAttribute('aria-pressed')).toBe('false')
-    }
-  })
-
-  it('banners use role=status for screen readers', () => {
-    render(
-      <OverviewView
-        sections={makeSections()}
-        mode="locked"
-        excludedBlockIds={[]}
-      />,
-    )
-    const banner = screen.getByRole('status')
-    expect(banner.textContent).toContain('locked')
-  })
-
-  it('renders sections in canonical order regardless of block order', () => {
-    // Reverse the block order to verify sections still appear in canonical order
-    const reversedSections: OverviewSection[] = [
-      { id: 'tasks', label: 'Tasks', blocks: [blocks[3]] },
-      { id: 'visualizations', label: 'Visualizations', blocks: [blocks[2]] },
-      { id: 'materials', label: 'Materials', blocks: [blocks[1]] },
-      { id: 'notes', label: 'Notes', blocks: [blocks[0]] },
-    ]
-    const { container } = render(
-      <OverviewView
-        sections={reversedSections}
-        mode="active"
-        excludedBlockIds={[]}
-      />,
-    )
-    const headings = Array.from(container.querySelectorAll('h2')).map(
-      (h) => h.textContent,
-    )
-    // Sections render in the order they are passed (the route composes them
-    // in canonical order); verify all labels are present
-    expect(headings).toContain('Notes')
-    expect(headings).toContain('Materials')
-    expect(headings).toContain('Visualizations')
-    expect(headings).toContain('Tasks')
+    // No reviewer / planned end / client recorded: said, not invented.
+    expect(screen.getAllByText('Not recorded').length).toBeGreaterThanOrEqual(3)
+    // Protocol step progress is not modelled, and the page says so.
+    expect(screen.getByText(/No step progress is recorded yet/)).toBeDefined()
+    // No signatures: the honest empty state, not an empty table.
+    expect(
+      screen.getByText(
+        'No signatures have been recorded against this record yet.',
+      ),
+    ).toBeDefined()
   })
 })

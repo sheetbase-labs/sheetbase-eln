@@ -71,7 +71,7 @@ function buildRouter() {
 
   const router = createRouter({
     routeTree: (RootRoute as any).addChildren([child]),
-    context: { queryClient: new QueryClient(), auth: null },
+    context: { queryClient: new QueryClient(), auth: null, shellCounts: {} },
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })
 

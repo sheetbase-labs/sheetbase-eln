@@ -13,6 +13,8 @@ import {
   preserveHiddenColumnFilters,
   presentationFiltersToHotAdditions,
   resolveCanonicalCellChanges,
+  SHEET_DERIVED_GROUP,
+  SHEET_LOCAL_GROUP,
   validateCanonicalCell,
 } from './canonical-sheet-grid'
 import type {
@@ -24,6 +26,7 @@ import type { ComposedSheetSnapshot } from './sheet-composition-data'
 import type { SheetPresentation } from './sheet-instance'
 import { validSheetInstanceState } from './sheet-instance.test'
 import { sanitizeSheetPresentation } from './sheet-presentation-view'
+import { validSheetDefinitionConfiguration } from '../../tests/fixtures/sheet-definition'
 
 const fieldId = '10000000-0000-4000-8000-000000000004'
 const rowId = '10000000-0000-4000-8000-000000000005'
@@ -58,6 +61,8 @@ describe('canonicalSheetGridMatrix', () => {
       'Observation',
     ])
     expect(matrix.columns[0]?.origin).toBe('local')
+    expect(matrix.columns[0]?.group).toBe(SHEET_LOCAL_GROUP)
+    expect(matrix.columns[0]?.sourceLabel).toBeUndefined()
     expect(matrix.rowKeys).toEqual([rowId])
     expect(matrix.data[0]?.[0]).toBe('independent value')
   })
@@ -66,7 +71,39 @@ describe('canonicalSheetGridMatrix', () => {
     const editableBound = '30000000-0000-4000-8000-000000000001'
     const derivedBound = '30000000-0000-4000-8000-000000000002'
     const composedRow = `sb-row-v1:${'a'.repeat(64)}`
+    // EXP-04.2: the pinned Definition names each binding's Dataset parameter,
+    // and the composed rows carry the snapshot revisions the header cites.
+    const configuration = validSheetDefinitionConfiguration()
+    const [bindingA, bindingB] = configuration.bindings
     const snapshot = {
+      definitionConfiguration: configuration,
+      rows: [
+        {
+          identityValues: [12],
+          sources: [
+            {
+              sourceKind: 'dataset',
+              bindingId: bindingA.id,
+              datasetId: '21000000-0000-4000-8000-000000000003',
+              datasetRevision: 9,
+              rowId: null,
+              revision: 4,
+              matched: true,
+              values: {},
+            },
+            {
+              sourceKind: 'dataset',
+              bindingId: bindingB.id,
+              datasetId: '21000000-0000-4000-8000-000000000004',
+              datasetRevision: 8,
+              rowId: null,
+              revision: 7,
+              matched: true,
+              values: {},
+            },
+          ],
+        },
+      ],
       boundProjection: {
         columns: [
           {
@@ -102,15 +139,35 @@ describe('canonicalSheetGridMatrix', () => {
     })
 
     expect(
-      matrix.columns.map(({ label, origin, editable }) => ({
+      matrix.columns.map(({ label, origin, editable, group, sourceLabel }) => ({
         label,
         origin,
         editable,
+        group,
+        sourceLabel,
       })),
     ).toEqual([
-      { label: 'Governed result', origin: 'bound', editable: true },
-      { label: 'Derived recovery', origin: 'bound', editable: false },
-      { label: 'Observation', origin: 'local', editable: true },
+      {
+        label: 'Governed result',
+        origin: 'bound',
+        editable: true,
+        group: 'Results',
+        sourceLabel: 'Results · rev 9',
+      },
+      {
+        label: 'Derived recovery',
+        origin: 'bound',
+        editable: false,
+        group: 'Comparison',
+        sourceLabel: 'Comparison · rev 8',
+      },
+      {
+        label: 'Observation',
+        origin: 'local',
+        editable: true,
+        group: SHEET_LOCAL_GROUP,
+        sourceLabel: undefined,
+      },
     ])
     expect(matrix.rowKeys).toEqual([composedRow, rowId])
     expect(matrix.data).toEqual([
@@ -169,6 +226,7 @@ const editableNumeric: CanonicalSheetGridColumn = {
   },
   presentation: { kind: 'number', inputType: 'number' },
   editable: true,
+  group: 'Results',
 }
 const readOnly: CanonicalSheetGridColumn = {
   id: 'col-readonly',
@@ -177,6 +235,7 @@ const readOnly: CanonicalSheetGridColumn = {
   field: null,
   presentation: { kind: 'text', inputType: null },
   editable: false,
+  group: SHEET_DERIVED_GROUP,
 }
 const bulkColumns = [editableNumeric, readOnly]
 
@@ -545,7 +604,7 @@ describe('clear contents with visual→physical columns (GRID-04)', () => {
   })
 })
 
-describe('Handsontable filter ⇄ presentation.filters mapping (GRID-04)', () => {
+describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
   const columns = [{ id: 'col-a' }, { id: 'col-b' }, { id: 'col-c' }]
   const columnIds = new Set(columns.map((column) => column.id))
   const emptyPresentation = {

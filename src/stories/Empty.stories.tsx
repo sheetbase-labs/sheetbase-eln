@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { FlaskConical, Search } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import {
   Empty,
@@ -20,7 +20,7 @@ export const Default: Story = {
   render: () => (
     <Empty>
       <EmptyIcon>
-        <FlaskConical />
+        <Icon name="flask" />
       </EmptyIcon>
       <EmptyTitle>No experiments yet</EmptyTitle>
       <EmptyDescription>
@@ -36,7 +36,7 @@ export const SearchResults: Story = {
   render: () => (
     <Empty>
       <EmptyIcon>
-        <Search />
+        <Icon name="search" />
       </EmptyIcon>
       <EmptyTitle>No results</EmptyTitle>
       <EmptyDescription>Try changing your search or filters.</EmptyDescription>

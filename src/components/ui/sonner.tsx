@@ -12,16 +12,19 @@ function Toaster(props: ToasterProps) {
     <Sonner
       data-slot="toaster"
       theme="light"
+      position="bottom-center"
+      duration={6000}
+      visibleToasts={1}
       className="toaster group"
       toastOptions={{
         classNames: {
           toast:
-            'group toast group-[.toaster]:!border-border group-[.toaster]:!bg-background group-[.toaster]:!text-foreground group-[.toaster]:!shadow-lg',
-          description: 'group-[.toast]:!text-muted-foreground',
+            'group toast group-[.toaster]:!rounded-lg group-[.toaster]:!border-transparent group-[.toaster]:!bg-inverse-bg group-[.toaster]:!text-caption group-[.toaster]:!text-inverse-text group-[.toaster]:!shadow-overlay',
+          description: 'group-[.toast]:!text-inverse-text',
           actionButton:
-            'group-[.toast]:!bg-primary group-[.toast]:!text-primary-foreground',
+            'group-[.toast]:!bg-inverse-text group-[.toast]:!text-inverse-bg',
           cancelButton:
-            'group-[.toast]:!bg-muted group-[.toast]:!text-muted-foreground',
+            'group-[.toast]:!bg-inverse-bg group-[.toast]:!text-inverse-text',
         },
       }}
       {...props}

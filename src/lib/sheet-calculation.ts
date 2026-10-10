@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { flagKey, isValueFlagged } from './dataset-flags'
+import type { DatasetValueFlag } from './dataset-flags'
 import type { FormulaNode } from './formula-ir'
 import { buildPersistedFormulaArtifact, parseFormula } from './formula-ir'
 import { buildScientificWorkbook } from './scientific-workbook'
@@ -132,9 +134,36 @@ export function sheetCalculationDependenciesFromExpression(input: {
 export type SheetCalculationInput = {
   dependency: SheetCalculationDependency
   field: FieldDefinition
-  state: 'present' | 'missing' | 'unmatched'
+  state: 'present' | 'missing' | 'unmatched' | 'excluded'
   value?: unknown
   provenance: unknown
+}
+
+/**
+ * DSET-01.2 — resolve the active Dataset Value Flag behind a bound input's
+ * provenance, if any. A flagged value is excluded from ƒx evaluation by
+ * default; clearing the flag leaves the value present. Provenance that is not
+ * a matched Dataset row is never excluded, so unbound/local inputs are not
+ * affected. Shares the canonical index with charts, analyses and pipelines.
+ */
+export function flaggedValueForProvenance(
+  provenance: unknown,
+  flagIndex: ReadonlyMap<string, DatasetValueFlag>,
+): DatasetValueFlag | undefined {
+  if (typeof provenance !== 'object' || provenance === null) return undefined
+  const candidate = provenance as {
+    sourceKind?: unknown
+    sourceRowId?: unknown
+    sourceFieldId?: unknown
+  }
+  if (
+    candidate.sourceKind !== 'dataset' ||
+    typeof candidate.sourceRowId !== 'string' ||
+    typeof candidate.sourceFieldId !== 'string' ||
+    !isValueFlagged(flagIndex, candidate.sourceRowId, candidate.sourceFieldId)
+  )
+    return undefined
+  return flagIndex.get(flagKey(candidate.sourceRowId, candidate.sourceFieldId))
 }
 
 export type SheetCalculationResult =
@@ -144,6 +173,7 @@ export type SheetCalculationResult =
       errorCode:
         | 'MISSING'
         | 'UNMATCHED'
+        | 'EXCLUDED'
         | 'TYPE'
         | 'QUANTITY'
         | 'DIV_BY_ZERO'
@@ -220,6 +250,14 @@ export function evaluateSheetCalculation(input: {
   inputs: SheetCalculationInput[]
 }): SheetCalculationResult {
   const dependencyProvenance = input.inputs.map((item) => item.provenance)
+  const excluded = input.inputs.find((item) => item.state === 'excluded')
+  if (excluded)
+    return {
+      status: 'error',
+      errorCode: 'EXCLUDED',
+      diagnostic: 'A flagged value is excluded from this calculation.',
+      dependencyProvenance,
+    }
   const absent = input.inputs.find((item) => item.state !== 'present')
   if (absent)
     return {

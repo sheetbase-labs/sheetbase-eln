@@ -1,0 +1,21 @@
+Import, upload
+Datasets / Import data
+Import data
+Cancel Continue
+1 Upload 2 Map columns 3 Review and import
+XLSX
+PR-01_EXP-0142_plate4.xlsx
+188 KB · uploaded 11:52 · SHA-256 42aa…d61f
+Replace file
+Recognised as a PR-01 plate map export. Parser “PR-01 plate map v1.3” read 1 plate, 96 wells, 34 with samples. Sheet “Results”, header on row 3.
+Import into
+Append to  DS-0311 · ELISA capsid titre and turbidity  (model ELISA and turbidity v2)
+New dataset
+Link to experiment EXP-0142 Harvest clarification: depth filter screening ▾
+Instrument Plate reader PR-01 · calibration valid ▾
+What happens next
+2
+Check how file columns map to dataset fields and units.
+3
+See every row that will be added, flagged or skipped, then import.
+The original file is kept unchanged in Files with its hash. Imported values are never edited in place.

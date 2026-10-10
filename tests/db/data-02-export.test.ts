@@ -24,7 +24,11 @@ async function actor(userId: string, workspaceId: string) {
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query(`select set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ sub: userId, workspace_id: workspaceId }),
+    JSON.stringify({
+      sub: userId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }),
   ])
   return client
 }
@@ -93,7 +97,13 @@ describe('DATA-02 export receipts (api.data_exports)', () => {
     await foreignClaims.query('SET ROLE authenticated')
     await foreignClaims.query(
       `select set_config('request.jwt.claims',$1,false)`,
-      [JSON.stringify({ sub: OWNER_A, workspace_id: WS_B })],
+      [
+        JSON.stringify({
+          sub: OWNER_A,
+          workspace_id: WS_B,
+          role: 'authenticated',
+        }),
+      ],
     )
     const { rows: foreignRows } = await foreignClaims.query(
       `select count(*)::int as n from api.data_exports where object_id=$1`,
@@ -166,6 +176,6 @@ describe('DATA-02 revision_evidence_package contract', () => {
       a.query(`select api.revision_evidence_package($1)`, [
         '0d020000-0000-4000-8000-0000000000ff',
       ]),
-    ).rejects.toMatchObject({ code: '22023' })
+    ).rejects.toMatchObject({ code: '42501' })
   })
 })

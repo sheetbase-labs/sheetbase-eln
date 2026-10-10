@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Notebook on tablet</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="position: relative; width: 834px; height: 1112px">
+<header class="topbar"><button class="btn ib" aria-label="Open navigation"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"></path></svg></button>
+<span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span><span style="flex-grow: 1"></span>
+<button class="btn ib" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg></button>
+<button class="btn ib" aria-label="Account: Gareth P." style="border-radius: 50%; background: var(--selection); font-size: 11px; font-weight: 600">GP</button></header><main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface)"><div class="pagehead" style="padding: 12px 24px 0"><nav class="crumbs"><a href="ProjectDetail.dc.html">AAV9 process transfer</a>  /  <span class="mono">EXP-0142</span></nav>
+<div style="display: flex; align-items: center; gap: 8px"><h1 class="page-title" style="flex-grow: 1; font-size: 17px">Harvest clarification: depth filter screening</h1><x-import component-from-global-scope="Sheetbase.Button" on-click="{{onSubmitted}}">Submit for review</x-import><x-import component-from-global-scope="Sheetbase.Button" icon-only="true" aria-label="Show properties panel" aria-pressed="false" sx="border-color: var(--border)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M10 2.5v11"></path></svg></x-import></div>
+<div class="meta"><span style="color: var(--text)"><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></span><span>Gareth P.</span><span>Saved 09:32</span></div>
+<div class="tabs" style="margin-top: 2px; gap: 16px"><a href="ExpOverview.dc.html">Overview</a><a href="Notebook.dc.html" class="on">Notebook</a><a href="ExpSamples.dc.html">Samples</a><a href="ExpDatasets.dc.html">Datasets</a><a href="ExpResults.dc.html">Results</a><span style="position: relative; display: inline-flex"><button type="button" aria-haspopup="menu" aria-expanded="{{exp.more}}" onClick="{{open.more}}">More ▾</button><sc-if value="{{m.more}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="More tabs" sx="left: 0; top: 36px; width: 180px"><x-import component-from-global-scope="Sheetbase.MenuItem" href="ExpFiles.dc.html" hint="4">Files</x-import><x-import component-from-global-scope="Sheetbase.MenuItem" href="ExpHistory.dc.html">History</x-import></x-import></sc-if></span></div></div><article class="doc" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 12px">
+<h2>Method</h2><p>Harvest was held at 2–8 °C and filtered at a constant flux of 100 LMH. Filtrate was sampled at 50, 100 and 150 L/m² for turbidity and capsid titre (ELISA, method EM-004).</p>
+<div style="display: flex; align-items: center; gap: 8px; margin-top: 8px"><span style="font-weight: 600">Clarification runs</span><span class="muted" style="font-size: 12px">9 rows · scroll for more columns →</span></div>
+<div class="hscroll"><table class="g num" role="grid" aria-label="Clarification runs" style="width: 1040px">
+<thead><tr><th class="rn" style="position: sticky; left: 0; z-index: 1"></th><th style="position: sticky; left: 36px; z-index: 1; box-shadow: 1px 0 0 var(--grid-line)">Condition</th><th>Filter train</th><th class="r">Load (L/m²)</th><th class="r">Turbidity out (NTU)</th><th class="r">Capsid titre (cp/mL)</th><th class="r">Step yield (%)<span class="fx">ƒx</span></th><th>Meets criteria<span class="fx">ƒx</span></th></tr></thead><tbody>
+<tr><td class="rn" style="position: sticky; left: 0">7</td><td style="position: sticky; left: 36px; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">C-50</td><td>MAT-0420 C</td><td class="r">50</td><td class="r">12.7</td><td class="r">6.9 × 10¹¹</td><td class="r der">80.2</td><td class="der">Yes</td></tr><tr><td class="rn" style="position: sticky; left: 0">8</td><td style="position: sticky; left: 36px; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">C-100</td><td>MAT-0420 C</td><td class="r">100</td><td class="r">24.3</td><td class="r">6.2 × 10¹¹</td><td class="r der">72.1</td><td class="der">No · both</td></tr><tr><td class="rn" style="position: sticky; left: 0">9</td><td style="position: sticky; left: 36px; background: var(--surface); box-shadow: 1px 0 0 var(--grid-line)">C-150</td><td>MAT-0420 C</td><td class="r">150</td><td class="r cell-invalid cell-active">61.5</td><td class="r">5.4 × 10¹¹</td><td class="r der">62.8</td><td class="der">No · both</td></tr></tbody></table><div class="fade-r" aria-hidden="true"></div></div>
+<div style="font-size: 12px; color: var(--danger-text)">1 validation error · C9 Turbidity out. Open the properties panel to fix it.</div>
+<h2 style="margin-top: 8px">Observations</h2><p>Train B held ≥ 84 % step yield across all loads with filtrate turbidity below 10 NTU. Train C breached the 20 NTU limit above 50 L/m².</p></article></main><div class="scrim" aria-hidden="true"></div>
+<aside class="dialog" role="dialog" aria-modal="true" aria-label="Properties" style="left: 0; right: 0; bottom: 0; border-radius: 12px 12px 0 0; max-height: 520px">
+<div style="display: flex; justify-content: center; padding-top: 8px"><span style="width: 36px; height: 4px; border-radius: 2px; background: var(--border-strong)"></span></div>
+<div style="padding: 10px 20px 8px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-subtle)"><div style="flex-grow: 1"><div class="h" style="font-size: 15px; font-weight: 600">Selected cell</div><div class="muted" style="font-size: 12px">Clarification runs · row 9 · Turbidity out</div></div><x-import component-from-global-scope="Sheetbase.Button" icon-only="true" aria-label="Close panel">✕</x-import></div>
+<div style="padding: 14px 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+<section><div class="num" style="font-size: 22px; font-weight: 500">61.5 <span class="muted" style="font-size: 13px; font-weight: 400">NTU</span></div>
+<div class="notice bad" style="margin-top: 10px; line-height: 18px"><b style="font-weight: 600; color: var(--danger-text)">Outside allowed range</b><div>Allowed 0–50 NTU. Repeat the reading, or record it as out of range with a reason.</div></div>
+<div style="display: flex; gap: 8px; margin-top: 10px"><x-import component-from-global-scope="Sheetbase.Button" sx="height: 36px" on-click="{{onSent}}">Request repeat</x-import><x-import component-from-global-scope="Sheetbase.Button" sx="height: 36px" href="DialogsRecord.dc.html">Mark out of range…</x-import></div></section>
+<section><h3 style="font-size: 12px; margin: 0 0 6px">Provenance</h3><dl class="dl"><dt>Dataset</dt><dd>DS-0311 row 88</dd><dt>Instrument</dt><dd>Turbidimeter TB-02</dd><dt>Captured</dt><dd class="num">24 Sep 2026, 16:04</dd><dt>Entered by</dt><dd>Import</dd></dl></section></div></aside>
+<sc-if value="{{m.any}}" hint-placeholder-val="{{ false }}"><button type="button" class="dismiss" aria-label="Close menu" onClick="{{close}}"></button></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":834,"height":1112}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

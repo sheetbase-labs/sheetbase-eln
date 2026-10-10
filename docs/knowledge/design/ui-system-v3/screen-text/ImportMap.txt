@@ -1,0 +1,43 @@
+Import, map and review
+Datasets / Import data
+Import data
+Back Import 34 rows
+✓ Upload 2 Map columns 3 Review and import
+Columns
+6 of 7 mapped · saved as the default for PR-01 plate maps
+| | File column | Dataset field | Unit | Example values | Status | Note
+| Sample | Sample (link) ▾
+| — | SMP-2249, SMP-2251… | Mapped | Matched 34 of 34
+| Well | Plate / well ▾
+| — | G1, G2, H1… | Mapped |
+| Dilution | Dilution ▾
+| ratio | 1:400, 1:2000 | Mapped |
+| OD450 | Raw ▾
+| OD | 0.412, 0.398… | Mapped |
+| Conc (cp/mL) | Result ▾
+| cp/mL | 2.1E+11… | Mapped | Scientific notation read
+| Blank corr. | — not imported — ▾
+| | Y, Y, Y… | Skipped | No matching field
+| Read time | Captured ▾
+| — | 11:58:02… | Mapped | Timezone: Europe/London
+Rows to import
+34 rows · showing 5 with flags first
+| | Row | Sample | Well | Dilution | Raw (OD) | Result (cp/mL) | Outcome
+| 97 | SMP-2249 | G1 | 1:400 | 0.412 | 5.2 × 10¹¹ | Fills planned row 97
+| 98 | SMP-2249 | G2 | 1:400 | 0.398 | 5.0 × 10¹¹ | New row
+| 112 | SMP-2253 | H7 | 1:2000 | 3.912 | — | Above curve (OD > 3.0), no result
+| 113 | SMP-2253 | H8 | 1:2000 | 1.022 | 8.9 × 10¹¹ | Replicate CV 31 % (limit 20 %)
+| 114 | BLANK | A12 | — | 0.051 | — | Control, not imported
+Summary
+Will add
+32 rows
+Fills planned
+1 row (97)
+Flagged
+1 above curve, 1 high CV
+Skipped
+2 controls
+Flagged rows
+Flagged rows import with their flag and stay out of analyses until reviewed. Nothing is dropped silently.
+Record
+The import, mapping and file hash are written to DS-0311 History and EXP-0142 History.

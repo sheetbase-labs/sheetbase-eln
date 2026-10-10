@@ -129,7 +129,7 @@ export interface ChangeEventWire {
 export type LineageEntityType =
   | 'experiment'
   | 'sample'
-  | 'reagent'
+  | 'material'
   | 'protocol'
   | 'dataset'
   | 'figure'
@@ -179,6 +179,12 @@ export interface LineageEdge {
   targetRecordId: string | null
   relationshipType: string
   label: string
+  /**
+   * LAB-03 — the human relation the derivation writer recorded in the link's
+   * metadata (e.g. "Filtered from this lot"). Null when the link carries none,
+   * in which case `label` is the only relation text available.
+   */
+  relationLabel: string | null
   direction: LineageDirection
   targetKind: string | null
   targetIdentifier: string | null
@@ -224,7 +230,7 @@ export const DEFAULT_FILTERS: LineageFilters = {
 const KIND_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
   experiment: 'experiment',
   sample: 'sample',
-  reagent: 'reagent',
+  material: 'material',
   protocol_template: 'protocol',
   report: 'report',
   file: 'file',
@@ -233,7 +239,7 @@ const KIND_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
 
 const LINK_TYPE_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
   sample: 'sample',
-  reagent: 'reagent',
+  material: 'material',
   protocol: 'protocol',
   dataset: 'dataset',
   analysis: 'dataset',
@@ -244,7 +250,7 @@ const LINK_TYPE_TO_ENTITY_TYPE: Record<string, LineageEntityType> = {
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
   sample: 'uses',
-  reagent: 'uses',
+  material: 'uses',
   protocol: 'defined by',
   dataset: 'generates',
   analysis: 'analyzed by',
@@ -261,7 +267,7 @@ const RELATIONSHIP_LABELS: Record<string, string> = {
 export const ENTITY_TYPE_LABELS: Record<LineageEntityType, string> = {
   experiment: 'Experiment',
   sample: 'Sample',
-  reagent: 'Reagent',
+  material: 'Material',
   protocol: 'Protocol',
   dataset: 'Dataset',
   figure: 'Figure',
@@ -277,7 +283,7 @@ export const ENTITY_TYPE_LABELS: Record<LineageEntityType, string> = {
 export const ENTITY_TYPE_COLORS: Record<LineageEntityType, string> = {
   experiment: '#3b82f6',
   sample: '#10b981',
-  reagent: '#10b981',
+  material: '#10b981',
   protocol: '#3b82f6',
   dataset: '#3b82f6',
   figure: '#8b5cf6',
@@ -293,7 +299,7 @@ export const ENTITY_TYPE_COLORS: Record<LineageEntityType, string> = {
 export const ALL_ENTITY_TYPES: LineageEntityType[] = [
   'experiment',
   'sample',
-  'reagent',
+  'material',
   'protocol',
   'dataset',
   'figure',
@@ -306,7 +312,7 @@ export const ALL_ENTITY_TYPES: LineageEntityType[] = [
 
 export const ALL_RELATIONSHIP_TYPES: string[] = [
   'sample',
-  'reagent',
+  'material',
   'protocol',
   'dataset',
   'analysis',
@@ -351,6 +357,35 @@ export const lineageQueryKeys = {
 // ---------------------------------------------------------------------------
 
 /**
+ * The proxy caps a single query value at 500 characters, so a bulk `in.(...)`
+ * filter must be split into chunks. `prefixLength` is the fixed part of the
+ * value (for example the surrounding `or=(...)`).
+ */
+const QUERY_VALUE_BUDGET = 480
+
+function chunkIdsForQuery(
+  ids: string[],
+  prefixLength: number,
+  weight = 1,
+): string[][] {
+  const chunks: string[][] = []
+  let current: string[] = []
+  let length = prefixLength
+  for (const id of ids) {
+    const piece = (encodeURIComponent(id).length + 1) * weight
+    if (current.length > 0 && length + piece > QUERY_VALUE_BUDGET) {
+      chunks.push(current)
+      current = []
+      length = prefixLength
+    }
+    current.push(id)
+    length += piece
+  }
+  if (current.length > 0) chunks.push(current)
+  return chunks
+}
+
+/**
  * Fetch all records visible to the caller (RLS-filtered). When a seed record
  * id is provided, fetches only that record plus the records referenced by
  * its links (and their links, up to maxDepth). Otherwise fetches all
@@ -382,10 +417,21 @@ export async function fetchLineageLinks(
   recordIds: string[] | null = null,
 ): Promise<RecordLinkWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<RecordLinkWire>(
-      'record_links',
-      `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id`,
+    const select =
+      'id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id'
+    const pages = await Promise.all(
+      chunkIdsForQuery(recordIds, 60, 2).map((chunk) => {
+        const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+        return client.list<RecordLinkWire>(
+          'record_links',
+          `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=${select}`,
+        )
+      }),
+    )
+    const byId = new Map<string, RecordLinkWire>()
+    for (const page of pages) for (const link of page) byId.set(link.id, link)
+    return [...byId.values()].sort((a, b) =>
+      String(b.created_at).localeCompare(String(a.created_at)),
     )
   }
   return client.list<RecordLinkWire>(
@@ -402,11 +448,18 @@ export async function fetchLineageReviews(
   recordIds: string[] | null = null,
 ): Promise<ReviewSubmissionWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<ReviewSubmissionWire>(
-      'review_submissions',
-      `?record_id=in.(${filter})&order=submitted_at.desc&select=id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at`,
+    const select =
+      'id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at'
+    const pages = await Promise.all(
+      chunkIdsForQuery(recordIds, 30).map((chunk) => {
+        const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+        return client.list<ReviewSubmissionWire>(
+          'review_submissions',
+          `?record_id=in.(${filter})&order=submitted_at.desc&select=${select}`,
+        )
+      }),
     )
+    return pages.flat()
   }
   return client.list<ReviewSubmissionWire>(
     'review_submissions',
@@ -422,11 +475,18 @@ export async function fetchLineageDecisions(
   recordIds: string[] | null = null,
 ): Promise<ReviewDecisionWire[]> {
   if (recordIds && recordIds.length > 0) {
-    const filter = recordIds.map((id) => encodeURIComponent(id)).join(',')
-    return client.list<ReviewDecisionWire>(
-      'review_decisions',
-      `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at`,
+    const select =
+      'id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at'
+    const pages = await Promise.all(
+      chunkIdsForQuery(recordIds, 30).map((chunk) => {
+        const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+        return client.list<ReviewDecisionWire>(
+          'review_decisions',
+          `?record_id=in.(${filter})&order=created_at.desc&select=${select}`,
+        )
+      }),
     )
+    return pages.flat()
   }
   return client.list<ReviewDecisionWire>(
     'review_decisions',
@@ -723,6 +783,10 @@ export function buildLineageGraph(
       targetRecordId: link.target_record_id,
       relationshipType: link.link_type,
       label: relationshipLabel(link.link_type),
+      relationLabel:
+        typeof link.link_metadata.relation === 'string'
+          ? link.link_metadata.relation
+          : null,
       direction: edgeDirection,
       targetKind: link.target_kind,
       targetIdentifier: link.target_identifier,
@@ -766,6 +830,7 @@ export function buildLineageGraph(
       targetRecordId: null,
       relationshipType: 'reviewed_by',
       label: 'reviewed by',
+      relationLabel: null,
       direction: 'downstream',
       targetKind: 'review',
       targetIdentifier: `REV-${review.id.slice(0, 8)}`,
@@ -805,6 +870,7 @@ export function buildLineageGraph(
       targetRecordId: null,
       relationshipType: isApproval ? 'approved_by' : 'rejected_by',
       label: isApproval ? 'approved by' : 'rejected by',
+      relationLabel: null,
       direction: 'downstream',
       targetKind: 'decision',
       targetIdentifier: `${isApproval ? 'APP' : 'REJ'}-${decision.id.slice(0, 8)}`,
@@ -842,6 +908,7 @@ export function buildLineageGraph(
       targetRecordId: null,
       relationshipType: 'signed_by',
       label: 'signed by',
+      relationLabel: null,
       direction: 'downstream',
       targetKind: 'signature',
       targetIdentifier: `SIG-${sig.id.slice(0, 8)}`,
@@ -1370,7 +1437,7 @@ const EVIDENCE_ENTITY_TYPES: Partial<Record<LineageEntityType, true>> = {
  *
  * - Submitted/frozen evidence nodes (review, approval/rejection, signature
  *   carrying a `revisionId`) link to the frozen evidence workspace
- *   (`/reviews/<revisionId>`) — the existing evidence route, never a live
+ *   (`/review/<revisionId>`) — the existing evidence route, never a live
  *   page.
  * - Live record nodes link to their canonical surface via
  *   `recordDestination` (stable UUID, kind-aware).
@@ -1380,7 +1447,7 @@ const EVIDENCE_ENTITY_TYPES: Partial<Record<LineageEntityType, true>> = {
 export function lineageNodeDestination(node: LineageNode): string | null {
   if (!node.accessible || !node.recordId) return null
   if (node.revisionId && EVIDENCE_ENTITY_TYPES[node.entityType]) {
-    return `/reviews/${encodeURIComponent(node.revisionId)}`
+    return `/review/${encodeURIComponent(node.revisionId)}`
   }
   return recordDestination(node.kind, node.recordId)
 }

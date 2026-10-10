@@ -1,53 +1,57 @@
 import * as React from 'react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ComposedChart,
-  ErrorBar,
-  Line,
-  LineChart,
-  ReferenceArea,
-  ReferenceDot,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { FigureSvg, seriesStyle } from '@sheetbase-labs/sheetbase-explorer'
+import type { FigureModel } from '@sheetbase-labs/sheetbase-explorer'
 
 import { cn } from '#/lib/utils'
 import { ChartFrame } from './chart-frame'
-import { BoxPlotChart, HeatmapPlot, HistogramPlot } from './chart-plots'
-import type { ChartSelection, PlotSelectionProps } from './chart-plots'
 import { CHART_PALETTE, formatScientific } from '#/lib/chart-spec'
 import type {
-  AxisDisplay,
-  ChartAnnotation,
   ChartSpec,
-  ChartType,
   FacetedChart,
   FrozenChart,
+  HeatmapMatrix,
   MaterialisedChart,
   MaterialisedSeries,
-  ReferenceOverlay,
 } from '#/lib/chart-spec'
+import {
+  buildPackageFigure,
+  figureCategoryToPx,
+  figureValueToPx,
+} from '#/lib/chart-package'
 
 /**
  * SCI-004 — Chart renderer inside `ChartFrame` (decision 0029).
  *
- * Renders line, scatter and bar charts using the approved palette and
- * scientific number formatting.
+ * Every chart kind the ELN specifies is rendered by `sheetbase-explorer`'s
+ * `FigureSvg` from the materialised rows, so marks, series, axes, units and the
+ * grid come from the package and its v3 tokens: point/line types, bar
+ * (grouped/stacked), summary, box, histogram, violin and heatmap. The overlay
+ * in `PackageFigurePlot` adds the marks the figure model cannot
+ * carry: reference bands, an identity line, annotations, error bars and the
+ * reference lines the package does not draw itself.
  *
  * Accessibility:
  *  - `ChartFrame` owns the figure semantics (role=figure, labelled title,
  *    sr-only `alt` description).
  *  - The plot carries an accessible label that summarises the plotted series.
- *  - The tabular alternative (`ChartTableAlternative`) renders the exact
- *    rows the chart plots, so the data is reachable without the visual.
- *  - Series are distinguishable by colour AND dash/symbol so non-colour
+ *  - The tabular alternative (`ChartTableAlternative`, `HeatmapTableAlternative`)
+ *    renders the exact rows the chart plots, so the data is reachable without
+ *    the visual.
+ *  - Series are distinguishable by colour AND symbol so non-colour
  *    perception still works (DESIGN.md "non-colour distinctions").
  */
+
+/** A selected plot element: one point/bar/bin/violin of one series. */
+export interface ChartSelection {
+  seriesIdentifier: string
+  /** Index within the series points (bin index for histograms, 0 for violins). */
+  index: number
+}
+
+export interface PlotSelectionProps {
+  selection: ChartSelection | null
+  onSelect: (selection: ChartSelection | null) => void
+}
 
 export interface ChartRendererProps {
   title: string
@@ -105,7 +109,7 @@ export function ChartRenderer({
   const mode = frozen ? 'snapshot' : 'live'
   const alt = describeChart(spec, materialised, frozen)
   const legend = materialised.series.length ? (
-    <ChartLegend series={materialised.series} type={spec?.type ?? 'line'} />
+    <ChartLegend series={materialised.series} />
   ) : null
   return (
     <ChartFrame
@@ -117,7 +121,7 @@ export function ChartRenderer({
       legend={legend}
       loading={loading}
       actions={actions}
-      className={className}
+      className={cn('sheetbase-scope', className)}
       hideTitle={hideTitle}
       expanded={expanded}
       onExpandedChange={onExpandedChange}
@@ -202,10 +206,17 @@ export function ChartRenderer({
           ) : null}
         </div>
       )}
-      {showTableAlternative &&
-      materialised.state.kind === 'ok' &&
-      materialised.rows.length > 0 ? (
-        <ChartTableAlternative materialised={materialised} />
+      {showTableAlternative && materialised.state.kind === 'ok' ? (
+        materialised.heatmap ? (
+          <HeatmapTableAlternative
+            heatmap={materialised.heatmap}
+            valueLabel={materialised.yLabel}
+            selection={selection}
+            onSelect={onSelectionChange ?? (() => {})}
+          />
+        ) : materialised.rows.length > 0 ? (
+          <ChartTableAlternative materialised={materialised} />
+        ) : null
       ) : null}
     </ChartFrame>
   )
@@ -228,6 +239,7 @@ function MeasuredPlotHeight({
       if (next > 0) setHeight(Math.max(160, next))
     }
     apply()
+    if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(apply)
     observer.observe(node)
     return () => observer.disconnect()
@@ -258,7 +270,6 @@ function ChartPlot({
   facetTotal?: number
   selectionProps: PlotSelectionProps
 }) {
-  const type = spec?.type ?? 'line'
   if (facets && facets.length > 0) {
     return (
       <div className="w-full">
@@ -290,342 +301,407 @@ function ChartPlot({
       </div>
     )
   }
-  const data = toRechartsData(materialised.series)
+
+  // Every kind — including histogram and violin — is drawn by the package's
+  // v3 figure: point/line, bar (grouped/stacked), summary, box, histogram,
+  // violin and heatmap.
+  return (
+    <PackageFigurePlot
+      spec={spec}
+      materialised={materialised}
+      height={height}
+      selectionProps={selectionProps}
+    />
+  )
+}
+
+/**
+ * The package's v3 figure, rendered by `FigureSvg`, with a transparent hit
+ * layer over the model's marks so the shared selection model still follows a
+ * click or the arrow keys (the package figure itself is static). An overlay
+ * carries the marks the figure model has no primitive for: shaded reference
+ * bands, an identity line, annotations, error bars and the reference lines the
+ * package does not draw itself.
+ */
+function PackageFigurePlot({
+  spec,
+  materialised,
+  height,
+  selectionProps,
+}: {
+  spec: ChartSpec | null
+  materialised: MaterialisedChart
+  height: number
+  selectionProps: PlotSelectionProps
+}) {
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const [width, setWidth] = React.useState(640)
+  React.useLayoutEffect(() => {
+    const node = containerRef.current
+    if (!node) return
+    const apply = () => {
+      const next = Math.floor(node.getBoundingClientRect().width)
+      if (next > 0) setWidth(Math.max(240, next))
+    }
+    apply()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(apply)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+  const figure = React.useMemo(
+    () =>
+      spec ? buildPackageFigure(spec, materialised, { width, height }) : null,
+    [spec, materialised, width, height],
+  )
+  if (!figure)
+    return (
+      <ChartStateMessage tone="muted">
+        {spec?.type === 'heatmap'
+          ? 'No heatmap grid available.'
+          : 'This chart has no numeric x/y points to plot.'}
+      </ChartStateMessage>
+    )
+  const type = spec?.type ?? 'line'
   const xScale = spec?.display.axes.x.scale ?? 'linear'
   const yScale = spec?.display.axes.y.scale ?? 'linear'
-  const margin = { top: 16, right: 16, bottom: 32, left: 64 }
-  const grid = <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-  const xAxis = (
-    <XAxis
-      dataKey="x"
-      type="number"
-      scale={xScale}
-      domain={axisDomain(spec?.display.axes.x)}
-      reversed={Boolean(spec?.display.axes.x.reverse)}
-      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-      axisLine={{ stroke: 'var(--border)' }}
-      tickLine={false}
-      label={{
-        value: axisLabel(materialised.xLabel, materialised.xUnit),
-        position: 'bottom',
-        fontSize: 11,
-        fill: 'var(--muted-foreground)',
-      }}
-      tickFormatter={(value) => formatScientific(value)}
-    />
-  )
-  const yAxis = (
-    <YAxis
-      type="number"
-      scale={yScale}
-      domain={axisDomain(spec?.display.axes.y)}
-      reversed={Boolean(spec?.display.axes.y.reverse)}
-      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-      axisLine={false}
-      tickLine={false}
-      tickFormatter={(value) => formatScientific(value)}
-      label={{
-        value: axisLabel(materialised.yLabel, materialised.yUnit),
-        angle: -90,
-        position: 'insideLeft',
-        fontSize: 11,
-        fill: 'var(--muted-foreground)',
-      }}
-    />
-  )
-  const references = referenceOverlayNodes(spec?.overlays.references, data)
-  const tooltip = (
-    <Tooltip
-      contentStyle={{
-        background: 'var(--popover)',
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        fontSize: 12,
-      }}
-      formatter={(value) => formatScientific(Number(value))}
-    />
-  )
-  let chart: React.ReactNode
-  if (type === 'histogram') {
-    return (
-      <HistogramPlot
-        spec={spec}
-        series={materialised.series}
-        height={height}
-        selectionProps={selectionProps}
-      />
-    )
+  const plot = figure.plot
+  // A band x axis (bar/box/heatmap) has no numeric scale; its categories sit at
+  // band centres.
+  const bandX = (figure.x.bands?.length ?? 0) > 0
+  const yPx = (value: number) => {
+    const px = figureValueToPx(figure, 'y', yScale, value)
+    return Math.min(plot.y + plot.height, Math.max(plot.y, px))
   }
-  if (type === 'violin' || type === 'box') {
-    return (
-      <BoxPlotChart
-        series={materialised.series}
-        height={height}
-        logScale={spec?.display.axes.y.scale === 'log'}
-        selectionProps={selectionProps}
-      />
-    )
-  }
-  if (type === 'heatmap') {
-    if (!materialised.heatmap)
-      return (
-        <ChartStateMessage tone="muted">
-          No heatmap grid available.
-        </ChartStateMessage>
+  const xPx = (value: number) =>
+    bandX
+      ? figureCategoryToPx(figure, value)
+      : figureValueToPx(figure, 'x', xScale, value)
+  const references = spec?.overlays.references ?? []
+  const annotations = spec?.display.annotations ?? []
+  // Bar categories are numeric (so x guides are meaningful); box and heatmap
+  // categories are labels, and a heatmap has no numeric y either.
+  const numericX = type !== 'heatmap' && type !== 'box'
+  const numericY = type !== 'heatmap'
+  // The package figure draws reference lines itself on numeric axes (x and y)
+  // and on bar/box (y only); only the remainder needs an overlay.
+  const packageRefLines: 'both' | 'y' | 'none' =
+    type === 'heatmap' ? 'none' : bandX ? 'y' : 'both'
+  const errorPoints = materialised.series.flatMap((series) =>
+    series.points
+      .filter(
+        (point) => point.x !== null && point.y !== null && point.yError != null,
       )
-    return (
-      <HeatmapPlot
-        heatmap={materialised.heatmap}
-        valueLabel={materialised.yLabel}
-        selectionProps={selectionProps}
-      />
-    )
-  }
-  const annotations: ChartAnnotation[] = spec?.display.annotations ?? []
-  const annotationDots = annotations.map((a, i) => (
-    <ReferenceDot
-      key={i}
-      x={a.x}
-      y={a.y}
-      r={4}
-      fill="var(--foreground)"
-      stroke="var(--background)"
-      label={{
-        value: a.label,
-        position: 'top',
-        fontSize: 10,
-        fill: 'var(--muted-foreground)',
-      }}
-    />
-  ))
-  if (
-    type === 'scatter' ||
-    type === 'scatter_line' ||
-    type === 'connected_scatter' ||
-    type === 'strip'
-  ) {
-    // Scatter types plot the same pivoted rows as line charts. Marks are
-    // Line dots so they share axes and the fill-height container.
-    const connect = type === 'scatter_line' || type === 'connected_scatter'
-    const scatterChildren = (
-      <>
-        {grid}
-        {xAxis}
-        {yAxis}
-        {tooltip}
-        {materialised.series.map((series) =>
-          series.renderAs === 'line' || connect ? (
-            <Line
-              key={series.identifier}
-              dataKey={series.identifier}
-              name={series.label}
-              type="linear"
-              stroke={series.color}
-              strokeWidth={2}
-              strokeDasharray={series.renderAs === 'line' ? '6 4' : undefined}
-              dot={series.renderAs === 'line' ? false : { r: 3 }}
-              isAnimationActive={false}
-            />
-          ) : (
-            <Line
-              key={series.identifier}
-              dataKey={series.identifier}
-              name={series.label}
-              type="linear"
-              stroke={series.color}
-              strokeWidth={0}
-              dot={{ r: 4, fill: series.color, stroke: series.color }}
-              isAnimationActive={false}
-              legendType="circle"
-            />
-          ),
-        )}
-        {references}
-        {annotationDots}
-      </>
-    )
-    chart = (
-      <ComposedChart data={data} margin={margin} role="img">
-        {scatterChildren}
-      </ComposedChart>
-    )
-  } else if (
-    type === 'bar' ||
-    type === 'grouped_bar' ||
-    type === 'stacked_bar' ||
-    type === 'summary'
-  ) {
-    const stackId = type === 'stacked_bar' ? 'stack' : undefined
-    chart = (
-      <BarChart data={data} margin={margin} role="img">
-        {grid}
-        {xAxis}
-        {yAxis}
-        {tooltip}
-        {materialised.series.map((series) => (
-          <Bar
-            key={series.identifier}
-            dataKey={series.identifier}
-            name={series.label}
-            fill={series.color}
-            opacity={0.85}
-            stackId={stackId}
-            onClick={(_data, index) =>
-              selectionProps.onSelect({
-                seriesIdentifier: series.identifier,
-                index,
-              })
-            }
-          >
-            {hasErrorBars(series) ? (
-              <ErrorBar
-                dataKey={`${series.identifier}_error`}
-                stroke={series.color}
-                strokeWidth={1.5}
-              />
-            ) : null}
-          </Bar>
-        ))}
-        {references}
-        {annotationDots}
-      </BarChart>
-    )
-  } else {
-    chart = (
-      <LineChart data={data} margin={margin} role="img">
-        {grid}
-        {xAxis}
-        {yAxis}
-        {tooltip}
-        {materialised.series.map((series) => (
-          <Line
-            key={series.identifier}
-            type="monotone"
-            dataKey={series.identifier}
-            name={series.label}
-            stroke={series.color}
-            strokeWidth={2}
-            dot={{
-              r: 3,
-              fill: 'var(--popover)',
-              stroke: series.color,
-              strokeWidth: 2,
-            }}
-            activeDot={{ r: 5 }}
-          >
-            {hasErrorBars(series) ? (
-              <ErrorBar
-                dataKey={`${series.identifier}_error`}
-                stroke={series.color}
-                strokeWidth={1.5}
-              />
-            ) : null}
-          </Line>
-        ))}
-        {references}
-      </LineChart>
-    )
-  }
+      .map((point) => ({ series, point })),
+  )
   return (
     <div
-      role="img"
+      ref={containerRef}
+      role="group"
       tabIndex={0}
-      aria-label={`${materialised.xLabel} vs ${materialised.yLabel}. ${describeSeries(materialised)}`}
-      className="w-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={figure.ariaLabel}
+      className="relative w-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{ height }}
       onKeyDown={(event) =>
         handlePlotKeyDown(event, materialised, selectionProps)
       }
     >
-      <ResponsiveContainer
-        width="100%"
-        height={height}
-        initialDimension={{ width: 640, height }}
+      {/* One root SVG wraps the package figure and the ELN's overlay marks,
+          so the figure export serialises exactly what is shown. */}
+      <svg
+        className="h-full w-full"
+        viewBox={`0 0 ${width} ${height}`}
+        aria-hidden="true"
       >
-        {chart}
-      </ResponsiveContainer>
+        <FigureSvg figure={figure} ariaLabel={figure.ariaLabel} />
+        <g pointerEvents="none">
+          {references.map((overlay, index) => {
+            if (overlay.kind === 'band') {
+              if (overlay.axis === 'y' && !numericY) return null
+              if (overlay.axis === 'x' && !numericX) return null
+              return overlay.axis === 'y' ? (
+                <rect
+                  key={`band-${index}`}
+                  x={plot.x}
+                  width={plot.width}
+                  y={yPx(overlay.hi)}
+                  height={Math.max(0, yPx(overlay.lo) - yPx(overlay.hi))}
+                  fill="var(--muted)"
+                  fillOpacity={0.25}
+                />
+              ) : (
+                <rect
+                  key={`band-${index}`}
+                  y={plot.y}
+                  height={plot.height}
+                  x={xPx(overlay.lo)}
+                  width={Math.max(0, xPx(overlay.hi) - xPx(overlay.lo))}
+                  fill="var(--muted)"
+                  fillOpacity={0.25}
+                />
+              )
+            }
+            if (overlay.kind === 'identity') {
+              if (!numericX || !numericY) return null
+              const [d0, d1] = figure.x.domain
+              return (
+                <line
+                  key={`identity-${index}`}
+                  x1={xPx(d0)}
+                  y1={yPx(d0)}
+                  x2={xPx(d1)}
+                  y2={yPx(d1)}
+                  stroke="var(--muted-foreground)"
+                  strokeDasharray="2 6"
+                />
+              )
+            }
+            if (
+              overlay.kind === 'hline' &&
+              packageRefLines === 'none' &&
+              numericY
+            ) {
+              const y = yPx(overlay.value)
+              return (
+                <line
+                  key={`hline-${index}`}
+                  x1={plot.x}
+                  x2={plot.x + plot.width}
+                  y1={y}
+                  y2={y}
+                  stroke="var(--muted-foreground)"
+                  strokeDasharray="4 4"
+                />
+              )
+            }
+            if (
+              overlay.kind === 'vline' &&
+              packageRefLines !== 'both' &&
+              numericX
+            ) {
+              const x = xPx(overlay.value)
+              return (
+                <line
+                  key={`vline-${index}`}
+                  x1={x}
+                  x2={x}
+                  y1={plot.y}
+                  y2={plot.y + plot.height}
+                  stroke="var(--muted-foreground)"
+                  strokeDasharray="4 4"
+                />
+              )
+            }
+            return null
+          })}
+          {errorPoints.map(({ series, point }, index) => {
+            const cx = xPx(point.x as number)
+            const hi = yPx((point.y as number) + (point.yError as number))
+            const lo = yPx((point.y as number) - (point.yError as number))
+            return (
+              <g
+                key={`error-${series.identifier}-${index}`}
+                stroke="var(--muted-foreground)"
+                strokeWidth={1}
+              >
+                <line x1={cx} x2={cx} y1={hi} y2={lo} />
+                <line x1={cx - 3} x2={cx + 3} y1={hi} y2={hi} />
+                <line x1={cx - 3} x2={cx + 3} y1={lo} y2={lo} />
+              </g>
+            )
+          })}
+          {annotations.map((annotation, index) => {
+            if (!numericX || !numericY) return null
+            const cx = xPx(annotation.x)
+            const cy = yPx(annotation.y)
+            return (
+              <g key={`annotation-${index}`}>
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={4}
+                  fill="var(--foreground)"
+                  stroke="var(--background)"
+                />
+                <text
+                  x={cx}
+                  y={cy - 6}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fill="var(--muted-foreground)"
+                >
+                  {annotation.label}
+                </text>
+              </g>
+            )
+          })}
+        </g>
+        <g>{plotHitTargets(figure, materialised, selectionProps)}</g>
+      </svg>
     </div>
   )
 }
 
-function axisDomain(
-  axis: AxisDisplay | undefined,
-): [number | 'auto', number | 'auto'] {
-  return [axis?.min ?? 'auto', axis?.max ?? 'auto']
-}
-
-function referenceOverlayNodes(
-  overlays: ReferenceOverlay[] | undefined,
-  data: Array<Record<string, number | null | undefined>>,
-) {
-  if (!overlays?.length) return null
-  const xs = data
-    .map((row) => (typeof row.x === 'number' ? row.x : null))
-    .filter((value): value is number => value !== null)
-  const xMin = xs.length ? Math.min(...xs) : 0
-  const xMax = xs.length ? Math.max(...xs) : 1
-  return overlays.map((overlay, index) => {
-    const key = `ref-${index}`
-    if (overlay.kind === 'hline') {
-      return (
-        <ReferenceLine
-          key={key}
-          y={overlay.value}
-          stroke="var(--muted-foreground)"
-          strokeDasharray="4 4"
-          label={{ value: overlay.label, position: 'right', fontSize: 10 }}
-        />
+/**
+ * Transparent, clickable hit targets over the package figure's marks, so the
+ * shared selection model follows a click. One target per mark: a point circle,
+ * a bar/bin/box/violin rectangle or a heatmap cell. The target also carries a
+ * `<title>`, giving the mark a tooltip and an accessible name the package's
+ * shapes lack.
+ */
+function plotHitTargets(
+  figure: FigureModel,
+  materialised: MaterialisedChart,
+  selectionProps: PlotSelectionProps,
+): React.ReactNode[] {
+  const targets: React.ReactNode[] = []
+  figure.series.forEach((series) => {
+    series.points.forEach((point) => {
+      if (point.py === undefined) return
+      targets.push(
+        <circle
+          key={`hit-${series.id}-${point.rowId ?? point.index}`}
+          cx={point.px}
+          cy={point.py}
+          r={9}
+          fill="transparent"
+          className="cursor-pointer"
+          onClick={() =>
+            selectionProps.onSelect({
+              seriesIdentifier: series.id,
+              index: point.index,
+            })
+          }
+        />,
       )
-    }
-    if (overlay.kind === 'vline') {
-      return (
-        <ReferenceLine
-          key={key}
-          x={overlay.value}
-          stroke="var(--muted-foreground)"
-          strokeDasharray="4 4"
-          label={{ value: overlay.label, position: 'top', fontSize: 10 }}
-        />
-      )
-    }
-    if (overlay.kind === 'band') {
-      return overlay.axis === 'y' ? (
-        <ReferenceArea
-          key={key}
-          y1={overlay.lo}
-          y2={overlay.hi}
-          fill="var(--muted)"
-          fillOpacity={0.25}
-          strokeOpacity={0}
-        />
-      ) : (
-        <ReferenceArea
-          key={key}
-          x1={overlay.lo}
-          x2={overlay.hi}
-          fill="var(--muted)"
-          fillOpacity={0.25}
-          strokeOpacity={0}
-        />
-      )
-    }
-    return (
-      <ReferenceLine
-        key={key}
-        segment={[
-          { x: xMin, y: xMin },
-          { x: xMax, y: xMax },
-        ]}
-        stroke="var(--muted-foreground)"
-        strokeDasharray="2 6"
-        label={{
-          value: overlay.label ?? 'identity',
-          position: 'insideTopRight',
-          fontSize: 10,
-        }}
-      />
+    })
+  })
+  // Histogram bars carry a bin label ("0–10") as their category, not a point
+  // x, so map the label back to the per-series bin index the selection uses.
+  const binIndexByLabel = new Map(
+    (figure.bins ?? []).map((bin) => [bin.label, bin.index]),
+  )
+  figure.bars?.forEach((bar) => {
+    const series = materialised.series.find(
+      (item) => item.identifier === bar.seriesId,
+    )
+    const pointIndex = series
+      ? series.points.findIndex((point) => String(point.x) === bar.category)
+      : -1
+    const index =
+      pointIndex >= 0 ? pointIndex : (binIndexByLabel.get(bar.category) ?? -1)
+    targets.push(
+      <rect
+        key={`hit-bar-${bar.seriesId}-${bar.category}`}
+        x={bar.x}
+        y={bar.y}
+        width={bar.width}
+        height={bar.height}
+        fill="transparent"
+        className={index >= 0 ? 'cursor-pointer' : undefined}
+        onClick={
+          index >= 0
+            ? () =>
+                selectionProps.onSelect({
+                  seriesIdentifier: bar.seriesId,
+                  index,
+                })
+            : undefined
+        }
+      >
+        <title>
+          {`${series?.label ?? bar.seriesId} · ${bar.category}: ${formatScientific(bar.value)}`}
+        </title>
+      </rect>,
     )
   })
+  figure.boxes?.forEach((box) => {
+    const series = materialised.series.find(
+      (item) => item.identifier === box.seriesId || item.label === box.seriesId,
+    )
+    targets.push(
+      <rect
+        key={`hit-box-${box.seriesId}-${box.category}`}
+        x={box.x}
+        y={Math.min(box.yWhiskerLow, box.yWhiskerHigh)}
+        width={box.width}
+        height={Math.max(1, Math.abs(box.yWhiskerLow - box.yWhiskerHigh))}
+        fill="transparent"
+        className={series ? 'cursor-pointer' : undefined}
+        onClick={
+          series
+            ? () =>
+                selectionProps.onSelect({
+                  seriesIdentifier: series.identifier,
+                  index: 0,
+                })
+            : undefined
+        }
+      >
+        <title>
+          {`${series?.label ?? box.category}: median ${formatScientific(box.median)}; IQR ${formatScientific(box.q1)}–${formatScientific(box.q3)}; whiskers ${formatScientific(box.whiskerLow)}–${formatScientific(box.whiskerHigh)}`}
+        </title>
+      </rect>,
+    )
+  })
+  figure.violins?.forEach((violin) => {
+    const series = materialised.series.find(
+      (item) =>
+        item.identifier === violin.seriesId || item.label === violin.category,
+    )
+    targets.push(
+      <rect
+        key={`hit-violin-${violin.seriesId}-${violin.category}`}
+        x={violin.x}
+        y={figure.plot.y}
+        width={violin.width}
+        height={figure.plot.height}
+        fill="transparent"
+        className={series ? 'cursor-pointer' : undefined}
+        onClick={
+          series
+            ? () =>
+                selectionProps.onSelect({
+                  seriesIdentifier: series.identifier,
+                  index: 0,
+                })
+            : undefined
+        }
+      >
+        <title>
+          {`${series?.label ?? violin.category}: median ${formatScientific(violin.box.median)}; IQR ${formatScientific(violin.box.q1)}–${formatScientific(violin.box.q3)}; whiskers ${formatScientific(violin.box.whiskerLow)}–${formatScientific(violin.box.whiskerHigh)}`}
+        </title>
+      </rect>,
+    )
+  })
+  const heatmap = materialised.heatmap
+  figure.heat?.forEach((cell) => {
+    if (!heatmap) return
+    const xIndex = heatmap.xLabels.indexOf(cell.x)
+    const yIndex = (heatmap.yLabels ?? ['']).indexOf(cell.y)
+    if (xIndex < 0 || yIndex < 0) return
+    const index = yIndex * heatmap.xLabels.length + xIndex
+    targets.push(
+      <rect
+        key={`hit-heat-${cell.x}-${cell.y}`}
+        x={cell.rect.x}
+        y={cell.rect.y}
+        width={cell.rect.width}
+        height={cell.rect.height}
+        fill="transparent"
+        className="cursor-pointer"
+        onClick={() =>
+          selectionProps.onSelect({
+            seriesIdentifier: 'heatmap',
+            index,
+          })
+        }
+      >
+        <title>{`${cell.x} × ${cell.y}: ${formatScientific(cell.value)}`}</title>
+      </rect>,
+    )
+  })
+  return targets
 }
 
 function handlePlotKeyDown(
@@ -647,69 +723,30 @@ function handlePlotKeyDown(
   selectionProps.onSelect({ seriesIdentifier: series.identifier, index: next })
 }
 
-function toRechartsData(series: MaterialisedSeries[]) {
-  const xMap = new Map<number, Record<string, number | null | undefined>>()
-  for (const item of series) {
-    for (const point of item.points) {
-      if (point.x === null || point.y === null) continue
-      const row = xMap.get(point.x) ?? { x: point.x }
-      row[item.identifier] = point.y
-      if (point.yError !== null && point.yError !== undefined)
-        row[`${item.identifier}_error`] = point.yError
-      xMap.set(point.x, row)
-    }
-  }
-  return Array.from(xMap.values()).sort(
-    (a, b) => (a.x as number) - (b.x as number),
-  )
-}
-
-function hasErrorBars(series: MaterialisedSeries) {
-  return series.points.some(
-    (point) => point.yError !== null && point.yError !== undefined,
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Legend + tabular alternative + state messages
 // ---------------------------------------------------------------------------
 
-function ChartLegend({
-  series,
-  type,
-}: {
-  series: MaterialisedSeries[]
-  type: ChartType
-}) {
+function ChartLegend({ series }: { series: MaterialisedSeries[] }) {
   return (
     <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-      {series.map((s, i) => (
-        <li key={s.identifier} className="flex items-center gap-1.5">
-          {type === 'bar' ? (
-            <span
-              aria-hidden="true"
-              className="inline-block h-3 w-3 rounded-[2px]"
-              style={{ backgroundColor: s.color }}
-            />
-          ) : type === 'scatter' ? (
-            <span
-              aria-hidden="true"
-              className="inline-block h-3 w-3 rounded-full border-2"
-              style={{ borderColor: s.color, backgroundColor: 'white' }}
-            />
-          ) : (
-            <span
-              aria-hidden="true"
-              className="inline-block h-0.5 w-4"
-              style={{
-                backgroundColor: s.color,
-                borderTop: `2px ${i % 2 === 1 ? 'dashed' : 'solid'} ${s.color}`,
-              }}
-            />
-          )}
-          <span>{s.label}</span>
-        </li>
-      ))}
+      {series.map((s, i) => {
+        const { marker, colour } = seriesStyle(i)
+        return (
+          <li key={s.identifier} className="flex items-center gap-1.5">
+            <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden="true">
+              {marker === 'square' ? (
+                <rect x={1.5} y={1.5} width={7} height={7} fill={colour} />
+              ) : marker === 'triangle' ? (
+                <polygon points="5,1 9.5,9 0.5,9" fill={colour} />
+              ) : (
+                <circle cx={5} cy={5} r={3.5} fill={colour} />
+              )}
+            </svg>
+            <span>{s.label}</span>
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -775,6 +812,112 @@ function ChartTableAlternative({
   )
 }
 
+/**
+ * Accessible alternative for a package-rendered heatmap: the ELN's aggregated
+ * grid as a semantic table. The visual is now the package's SVG, so the cell
+ * values live here, and each cell is still selectable so the shared selection
+ * model stays in sync with the figure.
+ */
+function HeatmapTableAlternative({
+  heatmap,
+  valueLabel,
+  selection,
+  onSelect,
+}: {
+  heatmap: HeatmapMatrix
+  valueLabel: string
+  selection: ChartSelection | null
+  onSelect: (selection: ChartSelection | null) => void
+}) {
+  const cellByPosition = new Map(
+    heatmap.cells.map((cell) => [`${cell.x},${cell.y}`, cell]),
+  )
+  const yLabels = heatmap.yLabels ?? ['']
+  const cellCount = heatmap.cells.filter((cell) => cell.value !== null).length
+  return (
+    <details className="group mt-3">
+      <summary className="cursor-pointer text-xs text-muted-foreground">
+        Show data table ({cellCount} cells)
+      </summary>
+      <div className="mt-2 overflow-x-auto">
+        <table className="border-collapse text-xs">
+          <caption className="sr-only">
+            {`Heatmap grid of ${valueLabel} (${heatmap.aggregate}) with ${heatmap.xLabels.length} × ${yLabels.length} cells.`}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col" className="px-2 py-1" />
+              {heatmap.xLabels.map((label) => (
+                <th
+                  key={label}
+                  scope="col"
+                  className="px-2 py-1 text-left font-medium text-muted-foreground"
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {yLabels.map((yLabel, y) => (
+              <tr key={yLabel} className="odd:bg-background">
+                <th
+                  scope="row"
+                  className="whitespace-nowrap px-2 py-1 text-left font-medium text-muted-foreground"
+                >
+                  {yLabel}
+                </th>
+                {heatmap.xLabels.map((xLabel, x) => {
+                  const cell = cellByPosition.get(`${x},${y}`)
+                  const value = cell?.value ?? null
+                  const index = y * heatmap.xLabels.length + x
+                  const selected =
+                    selection?.seriesIdentifier === 'heatmap' &&
+                    selection.index === index
+                  return (
+                    <td key={xLabel} className="p-0">
+                      <button
+                        type="button"
+                        className={cn(
+                          'm-0.5 min-w-14 rounded-[4px] px-2 py-1 font-mono tabular-nums transition-[outline]',
+                          selected && 'outline outline-2 outline-foreground',
+                        )}
+                        onClick={() =>
+                          onSelect(
+                            selected
+                              ? null
+                              : { seriesIdentifier: 'heatmap', index },
+                          )
+                        }
+                        aria-pressed={selected}
+                        title={
+                          cell
+                            ? `${xLabel} × ${yLabel}: ${formatScientific(value)} (${cell.count} rows)`
+                            : `${xLabel} × ${yLabel}: no data`
+                        }
+                      >
+                        {value === null ? '—' : formatScientific(value)}
+                      </button>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Colour scale {formatScientific(heatmap.min)} →{' '}
+        {formatScientific(heatmap.max)}
+        {heatmap.aggregate !== 'count'
+          ? `; ${heatmap.aggregate} of ${valueLabel}`
+          : '; row count'}
+        .
+      </p>
+    </details>
+  )
+}
+
 function ChartStateMessage({
   children,
   tone,
@@ -802,10 +945,6 @@ function ChartStateMessage({
 // ---------------------------------------------------------------------------
 // Descriptions for screen readers
 // ---------------------------------------------------------------------------
-
-function axisLabel(label: string, unit?: string) {
-  return unit ? `${label} (${unit})` : label
-}
 
 function describeSeries(materialised: MaterialisedChart): string {
   const parts = materialised.series.map(

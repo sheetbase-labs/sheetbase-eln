@@ -7,7 +7,7 @@ import { getAppSession } from '#/lib/auth'
 import {
   SHEETBASE_PROFILE_FINGERPRINT,
   sheetbaseRuntimeFingerprint,
-} from './hyperformula-profile'
+} from './formula-profile'
 import { buildScientificWorkbook } from './scientific-workbook'
 import type { WorkbookCellAddress, WorkbookTable } from './scientific-workbook'
 import type { ScientificLogicalType } from './scientific-sheet-data'
@@ -279,7 +279,10 @@ async function loadSnapshot(actor: string, recordId: string) {
            JOIN api.workspaces w ON w.id=r.workspace_id AND w.status='active'
            JOIN api.workspace_memberships m
              ON m.workspace_id=r.workspace_id AND m.user_id=$2
-          WHERE r.id=$1 AND r.archived_at IS NULL AND r.deleted_at IS NULL`,
+          WHERE r.id=$1 AND r.archived_at IS NULL AND r.deleted_at IS NULL
+            AND m.suspended_at IS NULL AND m.role<>'client_viewer'
+            AND (r.project_id IS NULL OR
+              (SELECT can_view FROM internal.project_permissions_for(r.project_id,$2)))`,
         [recordId, actor],
       )
     ).rows.at(0)

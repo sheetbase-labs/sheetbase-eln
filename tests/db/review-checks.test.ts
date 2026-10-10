@@ -6,7 +6,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, ensureSessions } from './helpers'
 
 const WS_A = '95000000-0000-4000-8000-000000000001'
 const WS_B = '95000000-0000-4000-8000-000000000002'
@@ -256,9 +256,10 @@ beforeAll(async () => {
     [WS_A, OWNER_A, WS_B, OWNER_B],
   )
   await migrator!.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title) VALUES
-       ($1,$2,'R05A','REV005 A')`,
-    [PROJECT_A, WS_A],
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES
+       ($1,$2,'R05A','REV005 A',$3)`,
+    [PROJECT_A, WS_A, OWNER_A],
+    await ensureSessions(migrator, [OWNER_A, OWNER_B]),
   )
   await migrator!.query(
     `INSERT INTO api.records
@@ -276,6 +277,62 @@ afterAll(async () => {
 })
 
 describe('REV-005 reviewer check definitions and results', () => {
+  it('does not vacuously pass canonical Sheet schema and calculation checks without frozen results', async () => {
+    const owner = await authenticated(OWNER_A, WS_A)
+    const snapshot = passingSnapshot()
+    snapshot.scientificTables = []
+    snapshot.formulas = []
+    snapshot.sheetEvidence = [
+      {
+        blockId: 'sheet-block',
+        instanceId: 'sheet-instance',
+        instanceRevision: 2,
+        sourceDefinitionVersionId: null,
+        datasetBindings: [],
+        instanceState: {
+          localFields: [
+            {
+              fieldId: 'titer',
+              key: 'titer',
+              label: 'Log titer',
+              logicalType: 'invalid_type',
+            },
+          ],
+          localValues: { day28: { titer: 5.9 } },
+          instanceCalculations: [
+            {
+              id: 'recovery',
+              label: 'Recovery',
+              lifecycle: 'active',
+              expression: {
+                language: 'sheetbase-formula-v1',
+                source: '=ROUND(A1 * 1.000, 4)',
+              },
+            },
+          ],
+        },
+      },
+    ]
+    const revision = await insertRevision(RECORD_A, WS_A, snapshot)
+    const result = await runChecks(
+      owner,
+      revision.id,
+      'check-canonical-missing',
+    )
+    expect(
+      result.results.find((item) => item.key === 'schema-valid-columns'),
+    ).toMatchObject({
+      status: 'fail',
+      evidence: { totalColumns: 1 },
+    })
+    expect(
+      result.results.find((item) => item.key === 'formula-no-stale-results'),
+    ).toMatchObject({
+      status: 'fail',
+      evidence: { totalFormulas: 1 },
+    })
+  })
+
   it('runs all checks against a passing revision and records a pass result', async () => {
     const owner = await authenticated(OWNER_A, WS_A)
     const rev = await insertRevision(RECORD_A, WS_A, passingSnapshot())
@@ -369,9 +426,7 @@ describe('REV-005 reviewer check definitions and results', () => {
     expect(formulaCheck?.evidence).toMatchObject({ totalFormulas: 1 })
 
     // required-links (informational) fails — does not affect overall status.
-    const linksCheck = result.results.find(
-      (r) => r.key === 'required-links',
-    )
+    const linksCheck = result.results.find((r) => r.key === 'required-links')
     expect(linksCheck?.status).toBe('fail')
     expect(result.infoFailureCount).toBe(1)
   })
@@ -424,7 +479,9 @@ describe('REV-005 reviewer check definitions and results', () => {
     )
     const v1Row = rows.find((r) => r.check_definition_version === 1)
     const v2Row = rows.find((r) => r.check_definition_version === 2)
-    expect(v1Row.check_definition_digest).not.toBe(v2Row.check_definition_digest)
+    expect(v1Row.check_definition_digest).not.toBe(
+      v2Row.check_definition_digest,
+    )
   })
 
   it('returns the same result for an idempotent retry', async () => {
@@ -490,9 +547,7 @@ describe('REV-005 reviewer check definitions and results', () => {
     expect(invalidCols[0]).toMatchObject({ logicalType: 'invalid_type' })
 
     // The required-links evidence shows missing types.
-    const linksCheck = result.results.find(
-      (r) => r.key === 'required-links',
-    )
+    const linksCheck = result.results.find((r) => r.key === 'required-links')
     expect(linksCheck?.status).toBe('fail')
     expect(linksCheck?.evidence).toMatchObject({
       requiredLinkTypes: ['file'],

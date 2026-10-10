@@ -1,14 +1,10 @@
-import {
-  ChevronRight,
-  FileCheck2,
-  FlaskConical,
-  History,
-  Upload,
-  UserCheck,
-} from 'lucide-react'
+import { FileCheck2, History, UserCheck } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { Button, Skeleton } from '#/components/ui'
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
+import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import { cn } from '#/lib/utils'
 
 /**
@@ -40,7 +36,7 @@ export interface AuditEvent {
   timestamp: string
   /** Optional target record, e.g. "Protocol 4". */
   target?: string
-  icon?: LucideIcon
+  icon?: IconName | LucideIcon
 }
 
 export interface AuditTrailProps {
@@ -55,9 +51,9 @@ export interface AuditTrailProps {
   className?: string
 }
 
-const typeIcons: Partial<Record<string, LucideIcon>> = {
-  created: FlaskConical,
-  uploaded: Upload,
+const typeIcons: Partial<Record<string, IconName | LucideIcon>> = {
+  created: 'flask',
+  uploaded: 'upload',
   'review-requested': FileCheck2,
   'review-started': UserCheck,
 }
@@ -101,7 +97,7 @@ export function AuditTrail({
 
   if (events.length === 0) {
     return (
-      <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+      <p className="rounded-md border border-dashed bg-surface-muted/30 px-3 py-2 text-xs text-fg-muted">
         No activity yet
       </p>
     )
@@ -115,7 +111,7 @@ export function AuditTrail({
         aria-label="Audit trail"
       >
         {events.map((event, i) => {
-          const Icon = event.icon ?? typeIcons[event.type] ?? History
+          const EventIcon = event.icon ?? typeIcons[event.type] ?? History
           const isLast = i === events.length - 1
           const actor = event.actor
           return (
@@ -129,12 +125,20 @@ export function AuditTrail({
                   className="absolute left-4 top-8 h-[calc(100%-1.5rem)] w-px bg-border"
                 />
               ) : null}
-              <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground">
-                <Icon className="size-3.5" aria-hidden="true" />
+              <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-surface text-fg-muted">
+                {typeof EventIcon === 'string' ? (
+                  <Icon
+                    name={EventIcon}
+                    className="size-3.5"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <EventIcon className="size-3.5" aria-hidden="true" />
+                )}
               </span>
               <div className="min-w-0 pt-1">
                 <p className="text-sm font-medium">{event.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="truncate text-xs text-fg-muted">
                   {actor?.unknown ? 'Unknown user' : (actor?.name ?? 'System')}
                   {' · '}
                   {event.timestamp}
@@ -149,12 +153,12 @@ export function AuditTrail({
       {hasMore && onLoadMore ? (
         <div className="pt-3">
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={onLoadMore}
             disabled={loadingMore}
           >
-            <ChevronRight className="mr-1 size-3.5" />
+            <Icon name="chevronRight" className="mr-1 size-3.5" />
             {loadingMore
               ? 'Loading…'
               : `Load more (${totalCount - events.length} left)`}
@@ -162,7 +166,7 @@ export function AuditTrail({
         </div>
       ) : null}
       {totalCount !== undefined ? (
-        <p className="pt-2 text-xs text-muted-foreground">
+        <p className="pt-2 text-xs text-fg-muted">
           Showing {events.length} of {totalCount} events
         </p>
       ) : null}

@@ -19,6 +19,7 @@ import {
   INPUT_ROW_LIMIT,
   EXECUTION_TIMEOUT_SECONDS,
 } from '#/lib/pipeline-limits'
+import { DATASET_RETENTION_INTERVAL_MS } from '#/lib/dataset-retention-scheduler.server'
 import { checkExtensionCompat } from '#/lib/extensions/compat'
 
 // Scheduler configuration — mirrors the env check in
@@ -55,6 +56,12 @@ export interface DiagnosticsResult {
     sweepIntervalSeconds: number
     enabledScheduleCount: number
     recoveredStaleCount: number
+  }
+  datasetRetention: {
+    enabled: boolean
+    lastPrunedAt: string | null
+    intervalSeconds: number
+    prunedSnapshots24h: number
   }
   pipelineExecutor: {
     activeRuns: number
@@ -280,7 +287,11 @@ export async function getScopedClient(
     await client.query('BEGIN')
     await client.query('SET LOCAL ROLE authenticated')
     await client.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
-      JSON.stringify({ sub: userId, workspace_id: workspaceId }),
+      JSON.stringify({
+        sub: userId,
+        workspace_id: workspaceId,
+        role: 'authenticated',
+      }),
     ])
   } catch (err) {
     client.release()
@@ -406,7 +417,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
 
     // Scheduler / pipeline run stats
     const { db } = await import('#/db/client.server')
-    const [schedRes, runRes] = await Promise.all([
+    const [schedRes, runRes, pruneRes] = await Promise.all([
       db.execute(sql`
         SELECT count(*) FILTER (WHERE enabled)::int AS enabled_count,
                max(last_evaluated_at)::text AS last_sweep
@@ -420,10 +431,18 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
         FROM api.pipeline_runs
         WHERE workspace_id = ${data.workspaceId}::uuid
       `),
+      db.execute(sql`
+        SELECT max(p.rows_removed_at)::text AS last_pruned,
+               count(*) FILTER (WHERE p.rows_removed_at > now() - interval '24 hours')::int AS pruned_24h
+        FROM api.dataset_version_prunes p
+        JOIN api.dataset_versions v ON v.id = p.dataset_version_id
+        WHERE v.workspace_id = ${data.workspaceId}::uuid
+      `),
     ])
 
     const schedRow = schedRes.rows[0] as Record<string, unknown> | undefined
     const runRow = runRes.rows[0] as Record<string, unknown> | undefined
+    const pruneRow = pruneRes.rows[0] as Record<string, unknown> | undefined
 
     // Migration state
     let applied: string | null = null
@@ -481,6 +500,13 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
         sweepIntervalSeconds: 60,
         enabledScheduleCount,
         recoveredStaleCount: num(runRow?.recovered_stale ?? 0),
+      },
+      datasetRetention: {
+        // Same SHEETBASE_SCHEDULER_ENABLED gate as the pipeline scheduler.
+        enabled: schedEnabled,
+        lastPrunedAt: str(pruneRow?.last_pruned ?? null),
+        intervalSeconds: DATASET_RETENTION_INTERVAL_MS / 1000,
+        prunedSnapshots24h: num(pruneRow?.pruned_24h ?? 0),
       },
       pipelineExecutor: {
         activeRuns: num(runRow?.active_runs ?? 0),

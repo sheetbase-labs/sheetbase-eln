@@ -1,22 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
 
+import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
 import {
-  Button,
   Dialog,
+  DialogBody,
+  DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
-  Label,
-} from '#/components/ui'
+} from '#/components/v3/ui/dialog'
+import { NativeSelect } from '#/components/v3/projects/select'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
-import {
-  notebookQueryKeysAfterSignature,
-  notebookSignState,
-} from '#/lib/notebook-experience'
+import { notebookQueryKeysAfterSignature } from '#/lib/notebook-experience'
 import {
   fetchReviewSubmissionByRevision,
   fetchRevisionRow,
@@ -24,12 +24,21 @@ import {
 } from '#/lib/review-workspace'
 import {
   ASSURANCE_LEVEL_STATEMENT,
+  availableSignatureMeanings,
+  fetchSignatureEligibility,
   SIGNATURE_MEANING_OPTIONS,
   fetchSignaturesForSubmission,
   signatureQueryKeys,
   signRevision,
+  requestSignatureStepUp,
 } from '#/lib/signatures'
-import type { SignatureMeaning } from '#/lib/signatures'
+import type { PostSubmissionSignatureMeaning } from '#/lib/signatures'
+import {
+  fetchWorkspaceCertifications,
+  isCurrentStatement,
+  signatureCertificationDataClient,
+  signatureCertificationQueryKeys,
+} from '#/lib/signature-certification'
 
 export function SignNotebookDialog({
   open,
@@ -45,8 +54,12 @@ export function SignNotebookDialog({
   currentUserName: string
 }) {
   const queryClient = useQueryClient()
-  const [meaning, setMeaning] = useState<SignatureMeaning>('approve-for-record')
+  const [meaning, setMeaning] = useState<PostSubmissionSignatureMeaning>(
+    'reviewed-and-approved',
+  )
   const [confirmation, setConfirmation] = useState('')
+  const [password, setPassword] = useState('')
+  const passwordRef = useRef<HTMLInputElement>(null)
 
   const submissionQuery = useQuery({
     queryKey: reviewWorkspaceQueryKeys.submissionForRevision(revisionId),
@@ -67,32 +80,82 @@ export function SignNotebookDialog({
     enabled: open && Boolean(submission?.id),
   })
 
-  const signState = notebookSignState({
+  const eligibility = useQuery({
+    queryKey: signatureQueryKeys.eligibility(
+      submission?.id ?? 'none',
+      currentUserId,
+    ),
+    queryFn: () =>
+      fetchSignatureEligibility(notebookDataClient, submission!, currentUserId),
+    enabled: open && Boolean(submission),
+  })
+  // A signature needs a current certification (DEC-04 / ADR-0045). Read the
+  // signer's own attestation so the dialog can say so before a password attempt
+  // is refused by the server.
+  const certificationsQuery = useQuery({
+    queryKey: signatureCertificationQueryKeys.workspace(
+      submission?.workspace_id ?? 'none',
+    ),
+    queryFn: () =>
+      fetchWorkspaceCertifications(
+        signatureCertificationDataClient,
+        submission!.workspace_id,
+      ),
+    enabled: open && Boolean(submission),
+  })
+  const certification = (certificationsQuery.data ?? []).find(
+    (row) => row.userId === currentUserId,
+  )
+  const certificationCurrent = isCurrentStatement(certification)
+  const integrityDigest = revisionQuery.data?.integrity_digest ?? null
+  const meanings = availableSignatureMeanings({
     currentUserId,
     submission,
+    integrityDigest,
+    supersededByRevisionId:
+      revisionQuery.data?.superseded_by_revision_id ?? null,
+    eligibility: eligibility.data,
+    certificationCurrent,
     signatures: signaturesQuery.data ?? [],
   })
-  const integrityDigest = revisionQuery.data?.integrity_digest ?? null
+  const canSign = meanings.length > 0
   const confirmationMatches =
     confirmation.trim().toLowerCase() === currentUserName.trim().toLowerCase()
   const selected = SIGNATURE_MEANING_OPTIONS.find(
     (option) => option.value === meaning,
   )!
+  useEffect(() => {
+    if (open && canSign) passwordRef.current?.focus()
+  }, [open, canSign])
+  useEffect(() => {
+    if (!meanings.includes(meaning) && meanings[0]) setMeaning(meanings[0])
+  }, [meaning, meanings])
 
   const sign = useMutation({
-    mutationFn: () => {
-      if (!submission || !integrityDigest) {
+    mutationFn: async () => {
+      if (!submission || !integrityDigest || !meanings.includes(meaning)) {
         throw new DataClientError(
           'validation_error',
           'This revision is not ready to sign.',
           400,
         )
       }
+      const enteredPassword = password
+      setPassword('')
+      const proof = await requestSignatureStepUp({
+        workspaceId: submission.workspace_id,
+        password: enteredPassword,
+        purpose: 'sign',
+        submissionId: submission.id,
+        revisionDigest: integrityDigest,
+        signatureMeaning: meaning,
+      })
       return signRevision(notebookDataClient, {
         submissionId: submission.id,
         signatureMeaning: meaning,
         confirmationPhrase: confirmation,
         expectedRevisionDigest: integrityDigest,
+        signingToken: proof.token,
       })
     },
     onSuccess: async () => {
@@ -104,6 +167,9 @@ export function SignNotebookDialog({
             revisionId,
           }).map((queryKey) => queryClient.invalidateQueries({ queryKey })),
         )
+        await queryClient.invalidateQueries({
+          queryKey: signatureQueryKeys.forRecord(submission.record_id),
+        })
       }
       setConfirmation('')
       onOpenChange(false)
@@ -125,93 +191,147 @@ export function SignNotebookDialog({
       onOpenChange={(next) => {
         if (!next) {
           setConfirmation('')
-          setMeaning('approve-for-record')
+          setPassword('')
+          setMeaning('reviewed-and-approved')
         }
         onOpenChange(next)
       }}
     >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Sign this Notebook</DialogTitle>
-          <DialogDescription>
-            This records an internal electronic signature against the submitted
-            evidence. It is not a regulatory compliance certification.
-          </DialogDescription>
-        </DialogHeader>
-        {signState !== 'can-sign' ? (
-          <p className="text-sm text-muted-foreground">
-            {signState === 'awaiting-review'
-              ? 'Review must finish before this Notebook can be signed.'
-              : signState === 'already-signed'
-                ? 'You have already signed this submission.'
-                : signState === 'not-assigned'
-                  ? 'Only an assigned reviewer may sign this Notebook.'
-                  : 'No review submission is available for this revision.'}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            <Label className="space-y-1">
-              <span>Signature meaning</span>
-              <select
-                aria-label="Signature meaning"
-                className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                value={meaning}
-                onChange={(event) =>
-                  setMeaning(event.target.value as SignatureMeaning)
+      <DialogContent
+        initialFocus={passwordRef}
+        className="w-[min(560px,calc(100vw-32px))]"
+      >
+        <DialogHeader
+          title="Sign this Notebook"
+          description="This records an internal electronic signature against the submitted evidence. It is not a regulatory compliance certification."
+        />
+        <form
+          className="flex min-h-0 flex-1 flex-col"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (sign.isPending) return
+            if (!password || !confirmationMatches || !integrityDigest) return
+            sign.mutate()
+          }}
+        >
+          <DialogBody>
+            {!canSign ? (
+              !certificationsQuery.isSuccess ? (
+                <p className="m-0 text-body text-fg-muted">
+                  Checking your signature certification…
+                </p>
+              ) : certificationCurrent ? (
+                <p className="m-0 text-body text-fg-muted">
+                  No eligible signature meaning is available. Signing requires
+                  an active frozen revision, assignment as a nonauthor reviewer
+                  or an explicit witness request, and current workspace write
+                  permission.
+                </p>
+              ) : (
+                <Notice tone="warn">
+                  <p className="m-0">
+                    Certification is required before you can sign. Your
+                    electronic signature is not certified for this workspace; an
+                    uncertified signature is not accepted.
+                  </p>
+                  <p className="m-0 mt-1.5 text-label">
+                    Certify in Settings → Electronic signatures: confirm your
+                    identity with an administrator, agree to the statement and
+                    enter your signing password. A practice signature is offered
+                    there and is not stored.
+                  </p>
+                  <p className="m-0 mt-1.5">
+                    <Link to="/settings/signatures" className="underline">
+                      Open signature settings
+                    </Link>
+                  </p>
+                </Notice>
+              )
+            ) : (
+              <div className="flex flex-col gap-3">
+                <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
+                  <dt className="text-fg-muted">Signing as</dt>
+                  <dd className="m-0">{currentUserName}</dd>
+                  <dt className="text-fg-muted">Meaning</dt>
+                  <dd className="m-0 font-medium">{selected.label}</dd>
+                  <dt className="text-fg-muted">Revision</dt>
+                  <dd className="m-0 font-mono break-all">{revisionId}</dd>
+                  <dt className="text-fg-muted">Content hash</dt>
+                  <dd className="m-0 font-mono break-all">
+                    {integrityDigest ?? 'Unavailable'}
+                  </dd>
+                </dl>
+                <Field
+                  label="Signing password"
+                  hint="Re-enter your local signing password for this signature. Three failed attempts lock signing for 15 minutes."
+                >
+                  <Input
+                    ref={passwordRef}
+                    aria-label="Signing password"
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </Field>
+                <Field label="Signature meaning">
+                  <NativeSelect
+                    aria-label="Signature meaning"
+                    value={meaning}
+                    onChange={(event) => {
+                      const option = SIGNATURE_MEANING_OPTIONS.find(
+                        (item) => item.value === event.target.value,
+                      )
+                      if (option) setMeaning(option.value)
+                    }}
+                  >
+                    {SIGNATURE_MEANING_OPTIONS.filter((option) =>
+                      meanings.includes(option.value),
+                    ).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+                <p className="m-0 text-label text-fg-muted">
+                  {selected.description}
+                </p>
+                <p className="m-0 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-label text-fg-muted">
+                  {ASSURANCE_LEVEL_STATEMENT.standard}
+                </p>
+                <Field label="Type your name to confirm">
+                  <Input
+                    aria-label="Signature confirmation"
+                    type="text"
+                    placeholder={currentUserName}
+                    value={confirmation}
+                    onChange={(event) => setConfirmation(event.target.value)}
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+            )}
+            {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+            {canSign ? (
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={
+                  sign.isPending ||
+                  !password ||
+                  !confirmationMatches ||
+                  !integrityDigest
                 }
               >
-                {SIGNATURE_MEANING_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              {selected.description}
-            </p>
-            <p className="rounded-md border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
-              {ASSURANCE_LEVEL_STATEMENT.standard}
-            </p>
-            <Label className="space-y-1">
-              <span>Type your name to confirm</span>
-              <input
-                aria-label="Signature confirmation"
-                type="text"
-                className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-                placeholder={currentUserName}
-                value={confirmation}
-                onChange={(event) => setConfirmation(event.target.value)}
-                autoComplete="off"
-              />
-            </Label>
-          </div>
-        )}
-        {errorMessage ? (
-          <p className="text-sm text-destructive" role="alert">
-            {errorMessage}
-          </p>
-        ) : null}
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          {signState === 'can-sign' ? (
-            <Button
-              type="button"
-              disabled={
-                sign.isPending || !confirmationMatches || !integrityDigest
-              }
-              onClick={() => sign.mutate()}
-            >
-              Sign
-            </Button>
-          ) : null}
-        </DialogFooter>
+                Sign
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

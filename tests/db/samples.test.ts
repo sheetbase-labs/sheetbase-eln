@@ -22,14 +22,23 @@ let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
 
 function claims(userId: string, workspaceId: string): string {
-  return JSON.stringify({ sub: userId, workspace_id: workspaceId, role: 'authenticated' })
+  return JSON.stringify({
+    sub: userId,
+    workspace_id: workspaceId,
+    role: 'authenticated',
+  })
 }
 
-async function asAuthenticated(userId: string, workspaceId: string): Promise<Client> {
+async function asAuthenticated(
+  userId: string,
+  workspaceId: string,
+): Promise<Client> {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
-  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [claims(userId, workspaceId)])
+  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+    claims(userId, workspaceId),
+  ])
   return client
 }
 
@@ -65,9 +74,9 @@ beforeAll(async () => {
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_A}', '${MEMBER_A}', 'member'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'reg-a', 'REG A'),
-      ('${PROJ_B}', '${WS_B}', 'reg-b', 'REG B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'reg-a', 'REG A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'reg-b', 'REG B', '${OWNER_B}')`,
   )
 })
 
@@ -112,10 +121,10 @@ describe('REG-002 receive / consume quantity integrity', () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const sample = await createSample(owner, PROJ_A, 'Bad receive')
     await expect(
-      owner.query(`SELECT * FROM api.receive_sample(p_record_id => $1, p_quantity => 0, p_expected_metadata_version => $2)`, [
-        sample.id,
-        sample.metadata_version,
-      ]),
+      owner.query(
+        `SELECT * FROM api.receive_sample(p_record_id => $1, p_quantity => 0, p_expected_metadata_version => $2)`,
+        [sample.id, sample.metadata_version],
+      ),
     ).rejects.toMatchObject({ code: 'SB006' })
   })
 
@@ -126,13 +135,16 @@ describe('REG-002 receive / consume quantity integrity', () => {
       quantityUnit: 'mL',
     })
     await expect(
-      owner.query(`SELECT * FROM api.consume_sample(p_record_id => $1, p_quantity => 6, p_expected_metadata_version => $2)`, [
-        sample.id,
-        sample.metadata_version,
-      ]),
+      owner.query(
+        `SELECT * FROM api.consume_sample(p_record_id => $1, p_quantity => 6, p_expected_metadata_version => $2)`,
+        [sample.id, sample.metadata_version],
+      ),
     ).rejects.toMatchObject({ code: 'SB006' })
     // Quantity unchanged after the failed consume.
-    const { rows } = await owner.query(`SELECT properties FROM api.records WHERE id = $1`, [sample.id])
+    const { rows } = await owner.query(
+      `SELECT properties FROM api.records WHERE id = $1`,
+      [sample.id],
+    )
     expect(Number(rows[0].properties.quantity)).toBe(5)
   })
 
@@ -186,21 +198,23 @@ describe('REG-002 transfer location integrity', () => {
       storageLocation: 'Bench 1',
     })
     await expect(
-      owner.query(`SELECT * FROM api.transfer_sample(p_record_id => $1, p_to_location => 'Bench 1', p_expected_metadata_version => $2)`, [
-        sample.id,
-        sample.metadata_version,
-      ]),
+      owner.query(
+        `SELECT * FROM api.transfer_sample(p_record_id => $1, p_to_location => 'Bench 1', p_expected_metadata_version => $2)`,
+        [sample.id, sample.metadata_version],
+      ),
     ).rejects.toMatchObject({ code: 'SB007' })
   })
 
   it('refuses an untraceable transfer from an unknown location', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const sample = await createSample(owner, PROJ_A, 'No origin', { quantity: 1 })
+    const sample = await createSample(owner, PROJ_A, 'No origin', {
+      quantity: 1,
+    })
     await expect(
-      owner.query(`SELECT * FROM api.transfer_sample(p_record_id => $1, p_to_location => 'Freezer A', p_expected_metadata_version => $2)`, [
-        sample.id,
-        sample.metadata_version,
-      ]),
+      owner.query(
+        `SELECT * FROM api.transfer_sample(p_record_id => $1, p_to_location => 'Freezer A', p_expected_metadata_version => $2)`,
+        [sample.id, sample.metadata_version],
+      ),
     ).rejects.toMatchObject({ code: 'SB008' })
   })
 })
@@ -215,7 +229,11 @@ describe('REG-002 edit / archive / restore', () => {
     })
     const { rows: edited } = await owner.query(
       `SELECT * FROM api.edit_sample($1, $2, NULL, $3::jsonb, NULL, 'updated barcode')`,
-      [sample.id, sample.metadata_version, JSON.stringify({ barcode: 'BC-9', lowStockThreshold: 1 })],
+      [
+        sample.id,
+        sample.metadata_version,
+        JSON.stringify({ barcode: 'BC-9', lowStockThreshold: 1 }),
+      ],
     )
     expect(edited[0].properties.barcode).toBe('BC-9')
     expect(Number(edited[0].properties.lowStockThreshold)).toBe(1)
@@ -228,10 +246,10 @@ describe('REG-002 edit / archive / restore', () => {
 
     // Controlled mutations refuse to operate on archived samples.
     await expect(
-      owner.query(`SELECT * FROM api.receive_sample(p_record_id => $1, p_quantity => 1, p_expected_metadata_version => $2)`, [
-        sample.id,
-        archived[0].metadata_version,
-      ]),
+      owner.query(
+        `SELECT * FROM api.receive_sample(p_record_id => $1, p_quantity => 1, p_expected_metadata_version => $2)`,
+        [sample.id, archived[0].metadata_version],
+      ),
     ).rejects.toMatchObject({ code: 'SB004' })
 
     const { rows: restored } = await owner.query(
@@ -244,11 +262,7 @@ describe('REG-002 edit / archive / restore', () => {
       `SELECT operation FROM api.sample_events WHERE record_id = $1 ORDER BY created_at ASC`,
       [sample.id],
     )
-    expect(ops.map((r) => r.operation)).toEqual([
-      'edit',
-      'archive',
-      'restore',
-    ])
+    expect(ops.map((r) => r.operation)).toEqual(['edit', 'archive', 'restore'])
   })
 
   it('edit_sample cannot mutate quantity, unit or storage location directly', async () => {
@@ -290,17 +304,89 @@ describe('REG-002 optimistic concurrency', () => {
       quantity: 1,
       storageLocation: 'A',
     })
-    await owner.query(`SELECT * FROM api.receive_sample(p_record_id => $1, p_quantity => 1, p_expected_metadata_version => $2)`, [
-      sample.id,
-      sample.metadata_version,
-    ])
+    await owner.query(
+      `SELECT * FROM api.receive_sample(p_record_id => $1, p_quantity => 1, p_expected_metadata_version => $2)`,
+      [sample.id, sample.metadata_version],
+    )
     // Reuse the original (now stale) version.
     await expect(
-      owner.query(`SELECT * FROM api.consume_sample(p_record_id => $1, p_quantity => 1, p_expected_metadata_version => $2)`, [
-        sample.id,
-        sample.metadata_version,
-      ]),
+      owner.query(
+        `SELECT * FROM api.consume_sample(p_record_id => $1, p_quantity => 1, p_expected_metadata_version => $2)`,
+        [sample.id, sample.metadata_version],
+      ),
     ).rejects.toMatchObject({ code: 'SB001' })
+  })
+})
+
+describe('LAB-05.2 label print event', () => {
+  it('records a print as its own event without touching the sample', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const sample = await createSample(owner, PROJ_A, 'Printed sample', {
+      quantity: 5,
+    })
+    const before = await owner.query<{ metadata_version: number }>(
+      `SELECT metadata_version FROM api.records WHERE id = $1`,
+      [sample.id],
+    )
+
+    const printed = (
+      await owner.query(
+        `SELECT api.record_sample_label_print($1,$2,'Printed label') AS result`,
+        [sample.id, before.rows[0]!.metadata_version],
+      )
+    ).rows[0].result as { operation: string; notes: string }
+
+    expect(printed.operation).toBe('print')
+    expect(printed.notes).toBe('Printed label')
+
+    const events = await owner.query<{ operation: string }>(
+      `SELECT operation FROM api.sample_events WHERE record_id = $1`,
+      [sample.id],
+    )
+    expect(events.rows.map((row) => row.operation)).toContain('print')
+
+    // Printing changes nothing about the sample itself.
+    const after = await owner.query<{
+      metadata_version: number
+      properties: Record<string, unknown>
+    }>(`SELECT metadata_version, properties FROM api.records WHERE id = $1`, [
+      sample.id,
+    ])
+    expect(after.rows[0]!.metadata_version).toBe(
+      before.rows[0]!.metadata_version,
+    )
+    expect(quantityOf(after.rows[0]!)).toBe(5)
+  })
+
+  it('refuses a stale metadata version and a non-sample record', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const sample = await createSample(owner, PROJ_A, 'Stale print')
+    const stale = (
+      await owner.query<{ metadata_version: number }>(
+        `SELECT metadata_version FROM api.records WHERE id = $1`,
+        [sample.id],
+      )
+    ).rows[0]!.metadata_version
+
+    await expect(
+      owner.query(
+        `SELECT api.record_sample_label_print($1,$2,'Printed label') AS result`,
+        [sample.id, stale + 5],
+      ),
+    ).rejects.toThrow(/changed since/)
+
+    const experiment = (
+      await owner.query(
+        `SELECT * FROM api.create_record($1::uuid, 'experiment', 'Not a sample', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        [PROJ_A],
+      )
+    ).rows[0]
+    await expect(
+      owner.query(
+        `SELECT api.record_sample_label_print($1,null,'Printed label') AS result`,
+        [experiment.id],
+      ),
+    ).rejects.toThrow(/Unknown sample/)
   })
 })
 
@@ -316,10 +402,10 @@ describe('REG-002 workspace isolation', () => {
     // Workspace B cannot see or consume A's sample (RLS hides the row; the
     // RPC's SELECT ... FOR UPDATE finds nothing).
     await expect(
-      ownerB.query(`SELECT * FROM api.consume_sample(p_record_id => $1, p_quantity => 1, p_expected_metadata_version => $2)`, [
-        sample.id,
-        1,
-      ]),
+      ownerB.query(
+        `SELECT * FROM api.consume_sample(p_record_id => $1, p_quantity => 1, p_expected_metadata_version => $2)`,
+        [sample.id, 1],
+      ),
     ).rejects.toMatchObject({ code: '42501' })
     // B sees no events for A's sample.
     const { rows: bEvents } = await ownerB.query(

@@ -8,11 +8,9 @@ import Subscript from '@tiptap/extension-subscript'
 import Superscript from '@tiptap/extension-superscript'
 import {
   Bold,
-  Code2,
   Heading2,
   Heading3,
   Italic,
-  Link2,
   List,
   ListOrdered,
   Pilcrow,
@@ -21,8 +19,9 @@ import {
   SuperscriptIcon,
   Undo2,
 } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 import { RichTextContent } from '#/lib/blocks/rich-text'
 import type { RichTextDocument, RichTextPayload } from '#/lib/blocks/rich-text'
 import { cn } from '#/lib/utils'
@@ -231,7 +230,7 @@ export function RichTextEditor({
         'aria-multiline': 'true',
         role: 'textbox',
         class:
-          'space-y-1.5 text-sm leading-6 text-foreground outline-none [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:leading-7 [&_h2]:tracking-tight [&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:leading-6 [&_h3]:tracking-tight [&_ol]:list-decimal [&_ol]:space-y-0.5 [&_ol]:pl-5 [&_p]:min-h-[1.25rem] [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-5',
+          'space-y-1.5 text-sm leading-6 text-fg outline-none [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:leading-7 [&_h2]:tracking-tight [&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:leading-6 [&_h3]:tracking-tight [&_ol]:list-decimal [&_ol]:space-y-0.5 [&_ol]:pl-5 [&_p]:min-h-[1.25rem] [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-5',
       },
       handleKeyDown: (view, event) => {
         const menu = slashMenuRef.current
@@ -491,80 +490,80 @@ export function RichTextEditor({
   const controls = [
     {
       label: 'Paragraph',
-      icon: Pilcrow,
+      icon: <Pilcrow className="size-3.5" />,
       active: editor.isActive('paragraph'),
       action: () => editor.chain().focus().setParagraph().run(),
     },
     {
       label: 'Heading 2',
-      icon: Heading2,
+      icon: <Heading2 className="size-3.5" />,
       active: editor.isActive('heading', { level: 2 }),
       action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
     },
     {
       label: 'Heading 3',
-      icon: Heading3,
+      icon: <Heading3 className="size-3.5" />,
       active: editor.isActive('heading', { level: 3 }),
       action: () => editor.chain().focus().toggleHeading({ level: 3 }).run(),
     },
     {
       label: 'Bold',
-      icon: Bold,
+      icon: <Bold className="size-3.5" />,
       active: editor.isActive('bold'),
       action: () => editor.chain().focus().toggleBold().run(),
     },
     {
       label: 'Italic',
-      icon: Italic,
+      icon: <Italic className="size-3.5" />,
       active: editor.isActive('italic'),
       action: () => editor.chain().focus().toggleItalic().run(),
     },
     {
       label: 'Link',
-      icon: Link2,
+      icon: <Icon name="link" className="size-3.5" />,
       active: editor.isActive('link'),
       action: setLink,
     },
     {
       label: 'Subscript',
-      icon: SubscriptIcon,
+      icon: <SubscriptIcon className="size-3.5" />,
       active: editor.isActive('subscript'),
       action: () => editor.chain().focus().toggleSubscript().run(),
     },
     {
       label: 'Superscript',
-      icon: SuperscriptIcon,
+      icon: <SuperscriptIcon className="size-3.5" />,
       active: editor.isActive('superscript'),
       action: () => editor.chain().focus().toggleSuperscript().run(),
     },
     {
       label: 'Inline code',
-      icon: Code2,
+      icon: <Icon name="code" className="size-3.5" />,
       active: editor.isActive('code'),
       action: () => editor.chain().focus().toggleCode().run(),
     },
     {
       label: 'Bullet list',
-      icon: List,
+      icon: <List className="size-3.5" />,
       active: editor.isActive('bulletList'),
       action: () => editor.chain().focus().toggleBulletList().run(),
     },
     {
       label: 'Ordered list',
-      icon: ListOrdered,
+      icon: <ListOrdered className="size-3.5" />,
       active: editor.isActive('orderedList'),
       action: () => editor.chain().focus().toggleOrderedList().run(),
     },
     {
       label: 'Undo',
-      icon: Undo2,
+      icon: <Undo2 className="size-3.5" />,
       active: false,
       action: () => editor.chain().focus().undo().run(),
       disabled: !editor.can().undo(),
     },
     {
       label: 'Redo',
-      icon: Redo2,
+      icon: <Redo2 className="size-3.5" />,
       active: false,
       action: () => editor.chain().focus().redo().run(),
       disabled: !editor.can().redo(),
@@ -582,24 +581,24 @@ export function RichTextEditor({
           style={{ top: toolbarPos.top, left: toolbarPos.left }}
           onMouseDown={(event) => event.preventDefault()}
         >
-          {controls.map(({ label, icon: Icon, active, action, disabled }) => (
+          {controls.map(({ label, icon, active, action, disabled }) => (
             <Button
               key={label}
               aria-label={label}
               aria-pressed={active || undefined}
               className={cn(
-                'size-7 text-muted-foreground shadow-none',
+                'size-7 text-fg-muted shadow-none',
                 active && 'bg-accent text-accent-foreground',
               )}
               disabled={disabled}
               onClick={action}
               onMouseDown={(event) => event.preventDefault()}
-              size="icon-sm"
+              size="icon"
               title={label}
               type="button"
-              variant="ghost"
+              variant="quiet"
             >
-              <Icon className="size-3.5" />
+              {icon}
             </Button>
           ))}
         </div>

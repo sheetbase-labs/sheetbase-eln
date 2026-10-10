@@ -21,14 +21,23 @@ let asRole: (role: 'authenticator') => Promise<Client>
 const clients: Client[] = []
 
 function claims(userId: string, workspaceId: string): string {
-  return JSON.stringify({ sub: userId, workspace_id: workspaceId, role: 'authenticated' })
+  return JSON.stringify({
+    sub: userId,
+    workspace_id: workspaceId,
+    role: 'authenticated',
+  })
 }
 
-async function asAuthenticated(userId: string, workspaceId: string): Promise<Client> {
+async function asAuthenticated(
+  userId: string,
+  workspaceId: string,
+): Promise<Client> {
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
-  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [claims(userId, workspaceId)])
+  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+    claims(userId, workspaceId),
+  ])
   return client
 }
 
@@ -64,7 +73,12 @@ async function configureRule(
 async function createLink(
   client: Client,
   sourceId: string,
-  target: { kind: string; identifier: string; id: string | null; linkType: string },
+  target: {
+    kind: string
+    identifier: string
+    id: string | null
+    linkType: string
+  },
 ): Promise<Record<string, any>> {
   const { rows } = await client.query(
     `SELECT * FROM api.create_record_link($1, $2, $3, $4, $5, NULL)`,
@@ -86,9 +100,9 @@ beforeAll(async () => {
      INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
       ('${WS_A}', '${OWNER_A}', 'owner'), ('${WS_A}', '${MEMBER_A}', 'member'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'rel-a', 'Rel A'),
-      ('${PROJ_B}', '${WS_B}', 'rel-b', 'Rel B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'rel-a', 'Rel A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'rel-b', 'Rel B', '${OWNER_B}')`,
   )
 })
 
@@ -100,7 +114,15 @@ afterAll(async () => {
 describe('rule stewardship', () => {
   it('lets owners declare rules and rejects malformed declarations with SB071', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const rule = await configureRule(owner, 'experiment', 'sample', 'sample', 1, 2, 'consumes')
+    const rule = await configureRule(
+      owner,
+      'experiment',
+      'sample',
+      'sample',
+      1,
+      2,
+      'consumes',
+    )
     expect(rule).toMatchObject({
       source_model_key: 'experiment',
       link_type: 'sample',
@@ -110,16 +132,36 @@ describe('rule stewardship', () => {
       label: 'consumes',
     })
     // Upsert: re-declaring the same scope updates the bounds.
-    const updated = await configureRule(owner, 'experiment', 'sample', 'sample', 0, 2, null)
+    const updated = await configureRule(
+      owner,
+      'experiment',
+      'sample',
+      'sample',
+      0,
+      2,
+      null,
+    )
     expect(updated.id).toBe(rule.id)
     expect(updated.min_links).toBe(0)
     // Unknown link vocabulary, non-record-backed target, inverted bounds.
-    await expect(configureRule(owner, 'experiment', 'custom', 'sample')).rejects.toMatchObject({ code: 'SB071' })
-    await expect(configureRule(owner, 'experiment', 'sample', 'project')).rejects.toMatchObject({ code: 'SB071' })
-    await expect(configureRule(owner, 'project', 'sample', 'sample')).rejects.toMatchObject({ code: 'SB071' })
-    await expect(configureRule(owner, 'experiment', 'sample', 'sample', 3, 2)).rejects.toMatchObject({ code: 'SB071' })
-    await owner.query(`SELECT api.remove_model_relationship_rule($1)`, [rule.id])
-    const { rows } = await owner.query(`SELECT count(*)::int AS n FROM api.model_relationship_rules`)
+    await expect(
+      configureRule(owner, 'experiment', 'custom', 'sample'),
+    ).rejects.toMatchObject({ code: 'SB071' })
+    await expect(
+      configureRule(owner, 'experiment', 'sample', 'project'),
+    ).rejects.toMatchObject({ code: 'SB071' })
+    await expect(
+      configureRule(owner, 'project', 'sample', 'sample'),
+    ).rejects.toMatchObject({ code: 'SB071' })
+    await expect(
+      configureRule(owner, 'experiment', 'sample', 'sample', 3, 2),
+    ).rejects.toMatchObject({ code: 'SB071' })
+    await owner.query(`SELECT api.remove_model_relationship_rule($1)`, [
+      rule.id,
+    ])
+    const { rows } = await owner.query(
+      `SELECT count(*)::int AS n FROM api.model_relationship_rules`,
+    )
     expect(rows[0].n).toBe(0)
   })
 
@@ -127,15 +169,25 @@ describe('rule stewardship', () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const member = await asAuthenticated(MEMBER_A, WS_A)
     const other = await asAuthenticated(OWNER_B, WS_B)
-    await expect(configureRule(member, 'experiment', 'sample', 'sample')).rejects.toMatchObject({ code: '42501' })
+    await expect(
+      configureRule(member, 'experiment', 'sample', 'sample'),
+    ).rejects.toMatchObject({ code: '42501' })
     const rule = await configureRule(owner, 'experiment', 'sample', 'sample')
     // Members read their workspace rules; other workspaces see nothing.
-    expect((await member.query(`SELECT id FROM api.model_relationship_rules`)).rows).toHaveLength(1)
-    expect((await other.query(`SELECT id FROM api.model_relationship_rules`)).rows).toHaveLength(0)
-    await expect(other.query(`SELECT api.remove_model_relationship_rule($1)`, [rule.id])).rejects.toMatchObject({
+    expect(
+      (await member.query(`SELECT id FROM api.model_relationship_rules`)).rows,
+    ).toHaveLength(1)
+    expect(
+      (await other.query(`SELECT id FROM api.model_relationship_rules`)).rows,
+    ).toHaveLength(0)
+    await expect(
+      other.query(`SELECT api.remove_model_relationship_rule($1)`, [rule.id]),
+    ).rejects.toMatchObject({
       code: '42501',
     })
-    await owner.query(`SELECT api.remove_model_relationship_rule($1)`, [rule.id])
+    await owner.query(`SELECT api.remove_model_relationship_rule($1)`, [
+      rule.id,
+    ])
   })
 })
 
@@ -147,17 +199,42 @@ describe('link enforcement', () => {
     const s1 = await createRecord(owner, PROJ_A, 'sample', 'S1')
     const s2 = await createRecord(owner, PROJ_A, 'sample', 'S2')
     const s3 = await createRecord(owner, PROJ_A, 'sample', 'S3')
-    const reagent = await createRecord(owner, PROJ_A, 'reagent', 'R1')
-    const protocol = await createRecord(owner, PROJ_A, 'protocol_template', 'P1')
-    await createLink(owner, exp.id, { kind: 'sample', identifier: s1.identifier, id: s1.id, linkType: 'sample' })
-    await createLink(owner, exp.id, { kind: 'sample', identifier: s2.identifier, id: s2.id, linkType: 'sample' })
+    const reagent = await createRecord(owner, PROJ_A, 'material', 'R1')
+    const protocol = await createRecord(
+      owner,
+      PROJ_A,
+      'protocol_template',
+      'P1',
+    )
+    await createLink(owner, exp.id, {
+      kind: 'sample',
+      identifier: s1.identifier,
+      id: s1.id,
+      linkType: 'sample',
+    })
+    await createLink(owner, exp.id, {
+      kind: 'sample',
+      identifier: s2.identifier,
+      id: s2.id,
+      linkType: 'sample',
+    })
     // Third sample edge exceeds the maximum.
     await expect(
-      createLink(owner, exp.id, { kind: 'sample', identifier: s3.identifier, id: s3.id, linkType: 'sample' }),
+      createLink(owner, exp.id, {
+        kind: 'sample',
+        identifier: s3.identifier,
+        id: s3.id,
+        linkType: 'sample',
+      }),
     ).rejects.toMatchObject({ code: 'SB081' })
     // Unlisted target model for the constrained model fails closed.
     await expect(
-      createLink(owner, exp.id, { kind: 'reagent', identifier: reagent.identifier, id: reagent.id, linkType: 'sample' }),
+      createLink(owner, exp.id, {
+        kind: 'material',
+        identifier: reagent.identifier,
+        id: reagent.id,
+        linkType: 'sample',
+      }),
     ).rejects.toMatchObject({ code: 'SB080' })
     // Undeclared link types fail closed too once the model has any rule.
     await expect(
@@ -173,39 +250,47 @@ describe('link enforcement', () => {
   it('leaves models without rules unrestricted', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const sample = await createRecord(owner, PROJ_A, 'sample', 'Free source')
-    const reagent = await createRecord(owner, PROJ_A, 'reagent', 'Free target')
+    const reagent = await createRecord(owner, PROJ_A, 'material', 'Free target')
     const link = await createLink(owner, sample.id, {
-      kind: 'reagent',
+      kind: 'material',
       identifier: reagent.identifier,
       id: reagent.id,
-      linkType: 'reagent',
+      linkType: 'material',
     })
     expect(link.target_record_id).toBe(reagent.id)
   })
 
   it('enforces rules on direct inserts and identifier-only links', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    await configureRule(owner, 'experiment', 'reagent', 'reagent', 0, 1)
+    await configureRule(owner, 'experiment', 'material', 'material', 0, 1)
     const exp = await createRecord(owner, PROJ_A, 'experiment', 'Direct source')
-    const reagent = await createRecord(owner, PROJ_A, 'reagent', 'Direct target')
+    const reagent = await createRecord(
+      owner,
+      PROJ_A,
+      'material',
+      'Direct target',
+    )
     const sample = await createRecord(owner, PROJ_A, 'sample', 'Direct sample')
     // Direct PostgREST-style insert of a disallowed pair fails closed.
     await expect(
       owner.query(
         `INSERT INTO api.record_links(source_record_id, target_record_id, target_kind, target_identifier, link_type, created_by_user_id)
-         VALUES ($1, $2, 'sample', $3, 'reagent', $4)`,
+         VALUES ($1, $2, 'sample', $3, 'material', $4)`,
         [exp.id, sample.id, sample.identifier, OWNER_A],
       ),
     ).rejects.toMatchObject({ code: 'SB080' })
     // Identifier-only link resolving to an allowed model succeeds.
     const { rows } = await owner.query(
-      `SELECT * FROM api.create_record_link($1, 'reagent', $2, 'reagent', NULL, NULL)`,
+      `SELECT * FROM api.create_record_link($1, 'material', $2, 'material', NULL, NULL)`,
       [exp.id, reagent.identifier],
     )
     expect(rows[0].target_record_id).toBeNull()
     // Identifier-only link to an unlisted model fails closed.
     await expect(
-      owner.query(`SELECT * FROM api.create_record_link($1, 'mystery', 'X-1', 'reagent', NULL, NULL)`, [exp.id]),
+      owner.query(
+        `SELECT * FROM api.create_record_link($1, 'mystery', 'X-1', 'material', NULL, NULL)`,
+        [exp.id],
+      ),
     ).rejects.toMatchObject({ code: 'SB080' })
   })
 
@@ -215,8 +300,18 @@ describe('link enforcement', () => {
     const s1 = await createRecord(owner, PROJ_A, 'sample', 'D1')
     const s2 = await createRecord(owner, PROJ_A, 'sample', 'D2')
     await configureRule(owner, 'experiment', 'sample', 'sample', 0, 2)
-    await createLink(owner, exp.id, { kind: 'sample', identifier: s1.identifier, id: s1.id, linkType: 'sample' })
-    await createLink(owner, exp.id, { kind: 'sample', identifier: s2.identifier, id: s2.id, linkType: 'sample' })
+    await createLink(owner, exp.id, {
+      kind: 'sample',
+      identifier: s1.identifier,
+      id: s1.id,
+      linkType: 'sample',
+    })
+    await createLink(owner, exp.id, {
+      kind: 'sample',
+      identifier: s2.identifier,
+      id: s2.id,
+      linkType: 'sample',
+    })
     // Materials/plate/template dedupe upsert of an existing edge at the cap.
     const { rows } = await owner.query(
       `INSERT INTO api.record_links(source_record_id, target_record_id, target_kind, target_identifier, link_type, created_by_user_id)
@@ -239,9 +334,17 @@ describe('link enforcement', () => {
   it('keeps archived-target linking behaviour unchanged for allowed pairs', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     await configureRule(owner, 'experiment', 'sample', 'sample')
-    const exp = await createRecord(owner, PROJ_A, 'experiment', 'Archive source')
+    const exp = await createRecord(
+      owner,
+      PROJ_A,
+      'experiment',
+      'Archive source',
+    )
     const sample = await createRecord(owner, PROJ_A, 'sample', 'Archive target')
-    await owner.query(`SELECT * FROM api.archive_record($1, $2)`, [sample.id, sample.metadata_version])
+    await owner.query(`SELECT * FROM api.archive_record($1, $2)`, [
+      sample.id,
+      sample.metadata_version,
+    ])
     const link = await createLink(owner, exp.id, {
       kind: 'sample',
       identifier: sample.identifier,
@@ -259,14 +362,29 @@ describe('link enforcement', () => {
     const report = await createRecord(owner, PROJ_A, 'report', 'Cross source')
     const cross = await createRecord(other, PROJ_B, 'sample', 'Cross target')
     await expect(
-      createLink(owner, report.id, { kind: 'sample', identifier: cross.identifier, id: cross.id, linkType: 'general' }),
+      createLink(owner, report.id, {
+        kind: 'sample',
+        identifier: cross.identifier,
+        id: cross.id,
+        linkType: 'general',
+      }),
     ).rejects.toMatchObject({ code: 'SB002' })
     // A constrained source model still fails the same attempt — the RPC's
     // same-workspace check runs before the insert, so SB002 keeps
     // precedence for id-addressed cross-workspace targets.
-    const exp = await createRecord(owner, PROJ_A, 'experiment', 'Cross constrained')
+    const exp = await createRecord(
+      owner,
+      PROJ_A,
+      'experiment',
+      'Cross constrained',
+    )
     await expect(
-      createLink(owner, exp.id, { kind: 'sample', identifier: cross.identifier, id: cross.id, linkType: 'sample' }),
+      createLink(owner, exp.id, {
+        kind: 'sample',
+        identifier: cross.identifier,
+        id: cross.id,
+        linkType: 'sample',
+      }),
     ).rejects.toMatchObject({ code: 'SB002' })
   })
 

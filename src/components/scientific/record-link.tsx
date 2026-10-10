@@ -1,15 +1,10 @@
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
-import {
-  Archive,
-  ArrowUpRight,
-  FileWarning,
-  Link2,
-  Lock,
-  Trash2,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+// ArrowUpRight/FileWarning/Trash2 have no v3 equivalents.
+import { ArrowUpRight, FileWarning, Trash2 } from 'lucide-react'
 
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 /**
@@ -35,7 +30,7 @@ export interface RecordLinkProps {
   type: string
   title: string
   meta?: string
-  icon?: LucideIcon
+  icon?: IconName
   state?: RecordLinkState
   /** Auxiliary actions rendered at the right edge (buttons/links). */
   actions?: React.ReactNode
@@ -44,25 +39,25 @@ export interface RecordLinkProps {
 
 const stateMeta: Record<
   Exclude<RecordLinkState, 'available'>,
-  { icon: LucideIcon; label: string; className: string }
+  { icon: React.ReactNode; label: string; className: string }
 > = {
   archived: {
-    icon: Archive,
+    icon: <Icon name="archive" className="size-4" />,
     label: 'Archived',
     className: 'text-muted-foreground',
   },
   missing: {
-    icon: FileWarning,
+    icon: <FileWarning className="size-4" />,
     label: 'Unavailable',
     className: 'text-muted-foreground',
   },
   deleted: {
-    icon: Trash2,
+    icon: <Trash2 className="size-4" />,
     label: 'Deleted',
     className: 'text-muted-foreground line-through',
   },
   'permission-restricted': {
-    icon: Lock,
+    icon: <Icon name="lock" className="size-4" />,
     label: 'Permission restricted',
     className: 'text-muted-foreground',
   },
@@ -73,14 +68,13 @@ export function RecordLink({
   type,
   title,
   meta,
-  icon: Icon = Link2,
+  icon = 'link',
   state = 'available',
   actions,
   className,
 }: RecordLinkProps) {
   const unavailable = state !== 'available'
   const stateInfo = unavailable ? stateMeta[state] : null
-  const StateIcon = stateInfo?.icon
 
   const body = (
     <>
@@ -92,11 +86,7 @@ export function RecordLink({
             : 'bg-primary/10 text-primary',
         )}
       >
-        {StateIcon ? (
-          <StateIcon className="size-4" />
-        ) : (
-          <Icon className="size-4" />
-        )}
+        {stateInfo ? stateInfo.icon : <Icon name={icon} className="size-4" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground">

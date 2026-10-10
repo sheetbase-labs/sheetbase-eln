@@ -18,14 +18,13 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default: 'border-transparent bg-primary text-primary-foreground',
-        secondary: 'border-transparent bg-secondary text-secondary-foreground',
-        outline: 'border-border bg-background text-foreground',
-        success: 'border-success/20 bg-success/10 text-success',
-        warning:
-          'border-warning/30 bg-warning/15 text-warning-foreground dark:text-warning',
-        danger: 'border-destructive/20 bg-destructive/10 text-destructive',
-        info: 'border-info/20 bg-info/10 text-info',
-        violet: 'border-violet/20 bg-violet/10 text-violet',
+        secondary: 'border-transparent bg-muted text-muted-foreground',
+        outline: 'border-border bg-card text-foreground',
+        success: 'border-transparent bg-success-wash text-success-text',
+        warning: 'border-transparent bg-warning-wash text-warning-text',
+        danger: 'border-transparent bg-danger-wash text-danger-text',
+        info: 'border-transparent bg-selection text-info',
+        violet: 'border-transparent bg-review-wash text-review',
       },
     },
     defaultVariants: { variant: 'default' },

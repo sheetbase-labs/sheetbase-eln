@@ -6,8 +6,11 @@ export type FrozenSheetEvidence = {
   instanceState: Record<string, unknown>
   datasetBindings: Array<Record<string, unknown>>
   composedGrid?: {
-    columns?: Array<{ id?: unknown; label?: unknown }>
+    columns?: Array<Record<string, unknown>>
+    rowKeys?: unknown
     rows?: unknown
+    fields?: unknown
+    calculations?: unknown
   } | null
 }
 
@@ -23,10 +26,13 @@ function parseComposedGrid(
     columns: Array.isArray(value.columns)
       ? value.columns.map((column) => {
           if (!isRecord(column)) return {}
-          return { id: column.id, label: column.label }
+          return column
         })
       : undefined,
+    rowKeys: value.rowKeys,
     rows: value.rows,
+    fields: value.fields,
+    calculations: value.calculations,
   }
 }
 

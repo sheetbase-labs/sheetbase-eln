@@ -14,7 +14,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, grantProjectAccess } from './helpers'
 import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
 
 const DENIED = '42501'
@@ -329,9 +329,16 @@ describe('GOV-03 trigger coverage', () => {
     const recordId = '10000000-0000-4000-8000-0000000e03d2'
     const fileId = '10000000-0000-4000-8000-0000000e03d3'
     await migrator.query(
-      `INSERT INTO api.projects (id, workspace_id, key, title)
-       VALUES ('${projectId}', '${WS}', 'gov03-proj', 'GOV03 Project')`,
+      `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id)
+       VALUES ('${projectId}', '${WS}', 'gov03-proj', 'GOV03 Project', '${OWNER}')`,
     )
+    await grantProjectAccess(migrator, {
+      workspaceId: WS,
+      projectId,
+      userId: MEMBER,
+      canView: true,
+      canEdit: true,
+    })
     await migrator.query(
       `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier,
          title, status, created_by_user_id)
@@ -459,9 +466,9 @@ describe('api.audit_events permissions and isolation', () => {
       (event) => event.entityType === 'api_credential',
     )
     expect(credential).toBeDefined()
-    expect(ownerPage.events.every((event) => event.actorName !== undefined)).toBe(
-      true,
-    )
+    expect(
+      ownerPage.events.every((event) => event.actorName !== undefined),
+    ).toBe(true)
   })
 
   it('allows viewers to read general history but never crosses workspaces', async () => {
@@ -489,17 +496,14 @@ describe('api.audit_events permissions and isolation', () => {
     const client = await asRole('authenticator')
     clients.push(client)
     await client.query('SET ROLE authenticated')
-    await client.query(
-      "SELECT set_config('request.jwt.claims', $1, false)",
-      [
-        JSON.stringify({
-          sub: MEMBER,
-          workspace_id: WS,
-          role: 'authenticated',
-          // no session_id — service/credential style caller
-        }),
-      ],
-    )
+    await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+      JSON.stringify({
+        sub: MEMBER,
+        workspace_id: WS,
+        role: 'authenticated',
+        // no session_id — service/credential style caller
+      }),
+    ])
     await expect(callAuditEvents(client, {})).rejects.toMatchObject({
       code: DENIED,
     })
@@ -551,19 +555,19 @@ describe('same-workspace access differentials (review pass)', () => {
     const memberClient = await asAuthenticated(MEMBER, WS)
     const page = await callAuditEvents(memberClient, { p_object: RECORD_D })
     expect(page.events.length).toBeGreaterThan(0)
-    expect(
-      page.events.some((event) => event.operation === 'create'),
-    ).toBe(true)
+    expect(page.events.some((event) => event.operation === 'create')).toBe(true)
   })
 
   it('never exposes admin/security classes to plain members via filters, search or pagination', async () => {
     // A real project_access grant through its canonical RPC — this emits an
     // authoritative change event of the sensitive class.
     const ownerClient = await asAuthenticated(OWNER, WS)
-    const grants = (await ownerClient.query<{ id: string }>(
-      `SELECT * FROM api.grant_project_access('${WS}'::uuid,
+    const grants = (
+      await ownerClient.query<{ id: string }>(
+        `SELECT * FROM api.grant_project_access('${WS}'::uuid,
          '${PROJECT_D}'::uuid, '${MEMBER}', 'viewer')`,
-    )).rows as Array<{ id: string }>
+      )
+    ).rows as Array<{ id: string }>
     expect(grants).toHaveLength(1)
 
     // Owner sees it; the granted member does not see it even though they are
@@ -582,7 +586,9 @@ describe('same-workspace access differentials (review pass)', () => {
     const byObject = await callAuditEvents(memberClient, {
       p_object: PROJECT_D,
     })
-    expect(byObject.events.some((e) => e.entityType === 'project_access')).toBe(false)
+    expect(byObject.events.some((e) => e.entityType === 'project_access')).toBe(
+      false,
+    )
 
     // Exhaustive pagination walk: no sensitive class ever materialises and
     // hasMore/cursor arithmetic never counts hidden rows back into view.
@@ -703,9 +709,16 @@ describe('history stays honest for archived and deleted objects', () => {
   it('keeps events readable when the record is archived or soft-deleted', async () => {
     const recordId = '10000000-0000-4000-8000-0000000e03f1'
     await migrator.query(
-      `INSERT INTO api.projects (id, workspace_id, key, title)
-       VALUES ('10000000-0000-4000-8000-0000000e03f9', '${WS}', 'gov03-proj-b', 'Archive Proj')`,
+      `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id)
+       VALUES ('10000000-0000-4000-8000-0000000e03f9', '${WS}', 'gov03-proj-b', 'Archive Proj', '${OWNER}')`,
     )
+    await grantProjectAccess(migrator, {
+      workspaceId: WS,
+      projectId: '10000000-0000-4000-8000-0000000e03f9',
+      userId: MEMBER,
+      canView: true,
+      canEdit: true,
+    })
     await migrator.query("SELECT set_config('request.jwt.claims', $1, false)", [
       claims(MEMBER, WS),
     ])
@@ -715,12 +728,17 @@ describe('history stays honest for archived and deleted objects', () => {
        VALUES ('${recordId}', '${WS}', '10000000-0000-4000-8000-0000000e03f9',
                'experiment', 'GOV03-002', 'Doomed Notebook', 'draft', '${MEMBER}')`,
     )
-    await migrator.query(`UPDATE api.records SET deleted_at = now() WHERE id = $1`, [
-      recordId,
-    ])
+    await migrator.query(
+      `UPDATE api.records SET deleted_at = now() WHERE id = $1`,
+      [recordId],
+    )
 
     const memberClient = await asAuthenticated(MEMBER, WS)
     const page = await callAuditEvents(memberClient, { p_object: recordId })
-    expect(page.events.some((event) => event.operation === 'delete' || event.operation === 'create')).toBe(true)
+    expect(
+      page.events.some(
+        (event) => event.operation === 'delete' || event.operation === 'create',
+      ),
+    ).toBe(true)
   })
 })

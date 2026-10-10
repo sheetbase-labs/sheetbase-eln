@@ -1,13 +1,8 @@
-import {
-  Undo2,
-  Check,
-  CircleDashed,
-  Clock,
-  MinusCircle,
-  XCircle,
-} from 'lucide-react'
+import { CircleDashed, MinusCircle, Undo2, XCircle } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+import { Icon } from '#/components/icons'
+import type { IconName } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 /**
@@ -51,7 +46,7 @@ export interface ApprovalStepperProps {
 
 const stateMeta: Record<
   ApprovalStepState,
-  { icon: LucideIcon; label: string; ring: string; dot: string }
+  { icon: IconName | LucideIcon; label: string; ring: string; dot: string }
 > = {
   pending: {
     icon: CircleDashed,
@@ -60,13 +55,13 @@ const stateMeta: Record<
     dot: 'text-muted-foreground',
   },
   active: {
-    icon: Clock,
+    icon: 'clock',
     label: 'In progress',
     ring: 'border-primary bg-primary text-primary-foreground',
     dot: 'text-primary',
   },
   completed: {
-    icon: Check,
+    icon: 'check',
     label: 'Completed',
     ring: 'border-success bg-success text-success-foreground',
     dot: 'text-success',
@@ -134,7 +129,6 @@ export function ApprovalStepper({
           state: 'pending',
         }
         const meta = stateMeta[status.state]
-        const Icon = meta.icon
         const isLast = i === steps.length - 1
         return (
           <li
@@ -156,7 +150,15 @@ export function ApprovalStepper({
                 meta.ring,
               )}
             >
-              <Icon className="size-3.5" aria-hidden="true" />
+              {typeof meta.icon === 'string' ? (
+                <Icon
+                  name={meta.icon}
+                  className="size-3.5"
+                  aria-hidden="true"
+                />
+              ) : (
+                <meta.icon className="size-3.5" aria-hidden="true" />
+              )}
             </span>
             <div className="min-w-0 pt-1">
               <p className="text-sm font-medium">{def.title}</p>

@@ -43,14 +43,12 @@ export function NotebookHistoryPanel({
       <section aria-label="Submitted revisions" className="space-y-2">
         <h3 className="text-sm font-semibold">Submitted revisions</h3>
         {revisions.error ? (
-          <p className="text-sm text-destructive" role="alert">
+          <p className="text-sm text-danger-text" role="alert">
             Could not load submitted revisions.
           </p>
         ) : null}
         {revisions.data && revisions.data.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No submitted revisions yet.
-          </p>
+          <p className="text-sm text-fg-muted">No submitted revisions yet.</p>
         ) : null}
         <ul className="space-y-1">
           {(revisions.data ?? []).map((revision) => {
@@ -65,13 +63,13 @@ export function NotebookHistoryPanel({
                   className="text-sm underline-offset-4 hover:underline"
                 >
                   {label}
-                  <span className="ml-2 font-mono text-xs text-muted-foreground">
+                  <span className="ml-2 font-mono text-xs text-fg-muted">
                     {secondary}
                   </span>
                 </Link>
                 <a
                   href={`/api/export/revision/${revision.id}/package`}
-                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  className="text-xs text-fg-muted underline-offset-4 hover:underline"
                 >
                   evidence ZIP
                 </a>

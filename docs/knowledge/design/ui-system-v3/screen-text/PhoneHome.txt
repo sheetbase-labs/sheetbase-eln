@@ -1,0 +1,21 @@
+Today, phone
+Today
+Friday 25 September · Lab 2
+Scan a label
+Your bookings
+09:00 AMB-25-118 day 6 sampling
+Ambr 250 · bay 2
+Done
+11:30 ELISA plate 4, capsid titre
+Plate reader PR-01 · EXP-0142
+Next
+14:00 Tech-transfer review, CL-017
+Meeting room 3
+Needs you
+Turbidity 61.5 NTU outside range
+EXP-0142 · row 88
+Review EXP-0138
+Due 29 Sep · Priya S.
+Filter train C lot expires
+MAT-0420 · 1 Oct
+Today Scan Inbox {{toastMsg}}

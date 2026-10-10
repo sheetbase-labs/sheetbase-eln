@@ -3,7 +3,7 @@
  *
  * Combines the REV-002 submission + revision, REV-003 version diffs, REV-004
  * anchored comments, REV-005 check results and the REV-007 review-decision
- * transition RPCs into the single data surface the `/reviews/$revisionId`
+ * transition RPCs into the single data surface the `/review/$revisionId`
  * workspace route renders. Reads go through the same-origin `/api/db`
  * boundary and RLS; the four transition RPCs are SECURITY DEFINER and enforce
  * the active / not-superseded / digest / permission guards server-side, so
@@ -11,10 +11,12 @@
  * refuse.
  */
 import type { DataClient } from './data-client'
-import { notebookDataClient } from './notebook-data'
+import { fetchRevisionSheetEvidence, notebookDataClient } from './notebook-data'
 import type { RevisionWire } from './notebook-data'
 import type { CanonicalRevisionEnvelope } from './revision-diff'
 import type { ReviewSubmissionWire } from './reviews'
+import { sheetEvidenceFromRevisionRows } from './sheet-evidence'
+import type { FrozenSheetEvidence } from './sheet-evidence'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST).
@@ -107,13 +109,22 @@ export function fetchReviewSubmissionByRevision(
 }
 
 /** Fetch a single revision row by id. */
-export function fetchRevisionRow(
+export async function fetchRevisionRow(
   client: DataClient,
   revisionId: string,
-): Promise<RevisionWire | null> {
-  return client
-    .list<RevisionWire>('revisions', `?id=eq.${revisionId}&limit=1`)
-    .then((rows) => (rows.length > 0 ? rows[0] : null))
+): Promise<
+  (RevisionWire & { frozenSheetEvidence: FrozenSheetEvidence[] }) | null
+> {
+  const rows = await client.list<RevisionWire>(
+    'revisions',
+    `?id=eq.${revisionId}&limit=1`,
+  )
+  if (rows.length === 0) return null
+  const evidence = await fetchRevisionSheetEvidence(client, revisionId)
+  return {
+    ...rows[0],
+    frozenSheetEvidence: [...sheetEvidenceFromRevisionRows(evidence).values()],
+  }
 }
 
 /** Fetch every revision of a record, newest-first, for the comparison picker. */
@@ -150,11 +161,14 @@ export function fetchReviewDecisions(
  * `canonical_snapshot` column, so the workspace can still render them.
  */
 export function toCanonicalEnvelope(
-  revision: RevisionWire,
+  revision: RevisionWire & { frozenSheetEvidence?: FrozenSheetEvidence[] },
 ): CanonicalRevisionEnvelope {
   const canonical = revision.canonical_snapshot
   if (canonical && typeof canonical === 'object' && 'blocks' in canonical) {
-    return canonical as unknown as CanonicalRevisionEnvelope
+    const envelope = canonical as unknown as CanonicalRevisionEnvelope
+    return revision.frozenSheetEvidence?.length
+      ? { ...envelope, sheetEvidence: revision.frozenSheetEvidence }
+      : envelope
   }
   return {
     formatVersion: 0,

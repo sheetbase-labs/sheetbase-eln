@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+// Bold/Italic are rich-text marks; the v3 set has no equivalents.
 import { Bold, Italic } from 'lucide-react'
 import { Toggle } from '#/components/ui/toggle'
 

@@ -21,19 +21,13 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import * as schema from '#/db/schema'
-import {
-  createCredential,
-  mintApiClientToken,
-} from '#/lib/api-credentials'
+import { createCredential, mintApiClientToken } from '#/lib/api-credentials'
 import { resolveExternalToken } from '#/lib/external-token'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
-import {
-  migratorUrl,
-  prepareTestDatabase,
-  roleUrl,
-} from './helpers'
+import { migratorUrl, prepareTestDatabase, roleUrl } from './helpers'
 
-const SECRET = process.env.PGRST_JWT_SECRET ?? 'test-jwt-secret-at-least-32-chars!!'
+const SECRET =
+  process.env.PGRST_JWT_SECRET ?? 'test-jwt-secret-at-least-32-chars!!'
 
 let migrator: Client
 let db: ReturnType<typeof drizzle<typeof schema>>
@@ -103,7 +97,9 @@ async function asRole(
   return client
 }
 
-async function projectRows(client: Client): Promise<{ id: string; title: string }[]> {
+async function projectRows(
+  client: Client,
+): Promise<{ id: string; title: string }[]> {
   const { rows } = await client.query<{ id: string; title: string }>(
     'SELECT id::text, title FROM api.projects ORDER BY title',
   )

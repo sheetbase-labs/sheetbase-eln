@@ -1,0 +1,41 @@
+Project files, AAV9 process transfer
+Projects / PRJ-0217
+AAV9 process transfer
+Members
+New experiment
+In progress Client CL-017 AAV9 Tech transfer Lead Gareth P. Started 3 Aug 2026
+Overview Experiments 14 Samples 86 Datasets 23 Files 17 Members 5 Settings
+All kinds Linked to: any Sort: Uploaded Upload
+| | Name | Kind | Linked to | Size | Uploaded by | Uploaded
+| XLSX PR-01_EXP-0142_plates1-3.xlsx | Instrument export | EXP-0142 | 214 KB | Import service | 24 Sep
+| CSV TB-02_turbidity_2026-09-24.csv | Instrument export | EXP-0142 | 3 KB | Gareth P. | 24 Sep
+| CSV pressure_log_trains_A-C.csv | Instrument export | EXP-0142 | 41 KB | Gareth P. | 23 Sep
+| PDF PRT-021_v3_depth_filtration.pdf | Protocol, controlled copy | PRT-021 | 880 KB | Gareth P. | 21 Sep
+| PDF EXP-0138_v2_signed.pdf | Signed record | EXP-0138 | 1.2 MB | System | 25 Sep
+| PDF EXP-0133_v1_signed.pdf | Signed record | EXP-0133 | 1.1 MB | System | 19 Sep
+| XLSX ddPCR_titre_transfection_sweep.xlsx | Instrument export | EXP-0138 | 96 KB | Priya S. | 23 Sep
+| CSV ViCell_harvest_72h.csv | Instrument export | EXP-0138 | 12 KB | Priya S. | 23 Sep
+| PDF CL-017_tech_transfer_plan_v2.pdf | Client document | — | 640 KB | Gareth P. | 4 Aug
+| DOCX Scale-up_assumptions_50L.docx | Working document | — | 58 KB | Gareth P. | 2 Sep
+| PDF CoA_HEK293_WCB-2.pdf | Certificate of analysis | SMP-1002 | 310 KB | Mei L. | 10 Aug
+11 of 17 files · instrument exports are parsed into datasets; signed PDFs are generated when a record is approved
+CSV · 3 KB
+TB-02_turbidity_2026-09-24.csv
+Download Copy link
+Record
+Instrument
+Turbidimeter TB-02
+Parsed into
+DS-0311 , 9 rows
+Parser
+TB-02 CSV v1.0
+SHA-256
+1b77e4…a3f18c92
+Retention
+Until 2041 (15 years)
+Preview
+sample_id,reading_ntu,dilution,time
+SMP-2240,6.2,1,2026-09-24T15:31
+SMP-2241,9.8,1,2026-09-24T15:33
+SMP-2248,61.5,1,2026-09-24T16:04
+Raw files can’t be edited or deleted. A new upload becomes version 2; version 1 and its hash stay in History.

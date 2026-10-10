@@ -77,7 +77,7 @@ Change and audit events use `<domain>.<entity>.<past_tense_verb>`:
 The entity segment uses the singular domain noun. New event types are added,
 never renamed: consumers may be replaying history.
 
-## TanStack Table vs Handsontable
+## TanStack Table vs the Sheetbase grid
 
 Both are in the stack deliberately. Choose per surface, not per preference.
 
@@ -85,14 +85,15 @@ Both are in the stack deliberately. Choose per surface, not per preference.
   inboxes, search results and any read-oriented operational view. It stays
   headless under Sheetbase styling and supports server-side pagination,
   filtering and sorting.
-- **Handsontable** is only for spreadsheet-like scientific editing: sheet
-  blocks, dataset edit modes and plate-adjacent entry where cell-range
-  selection, fill handles, paste matrices and in-cell editors are the actual
-  task. It always sits behind the Sheetbase wrapper component
-  (see `SHEET-001` in `TODO.md`), never as a raw vendor instance.
+- **`@sheetbase-labs/sheetbase-table`** (behind `SheetbaseTableGrid`) is only
+  for spreadsheet-like scientific editing: sheet blocks, dataset edit modes and
+  plate-adjacent entry where cell-range selection, fill handles, paste matrices
+  and in-cell editors are the actual task. Callers use the neutral
+  `SheetbaseGridProps` contract (see `sheetbase-table.md`), never the engine's
+  own props.
 - If a surface only needs row selection, sorting and an inspector, it is
-  TanStack Table. If you are reaching for Handsontable to get a nicer looking
-  read-only grid, stop and use TanStack Table.
+  TanStack Table. If you are reaching for the spreadsheet engine to get a nicer
+  looking read-only grid, stop and use TanStack Table.
 
 ## Formatting and linting
 

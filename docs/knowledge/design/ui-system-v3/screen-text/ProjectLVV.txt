@@ -1,0 +1,67 @@
+Project, LVV stability, 2–8 °C hold
+Projects / PRJ-0214
+LVV stability, 2–8 °C hold
+Members
+New experiment
+In review Client CL-009 Lentiviral vector Process development Lead Priya S. Started 1 Sep 2026
+Overview Experiments 4 Samples 3 Datasets 3 Files 3 Members 4 Settings
+Milestones
+1 of 4 complete
+| | Milestone | Status | Target | Evidence
+| Hold study design approved | Complete | 8 Sep | PRT-019 v1
+| Day 0–7 pulls | In review | 28 Sep | EXP-0131
+| Day 14 pull | Not started | 8 Oct | —
+| Stability report to CL-009 | Not started | 23 Oct | —
+Recent experiments
+4
+| | ID | Experiment | Owner | Status | Updated
+| EXP-0131 | Day 7 stability pull, 2–8 °C | Tom H. | In review | 24 Sep
+| EXP-0127 | Day 3 stability pull, 2–8 °C | Tom H. | Approved | 21 Sep
+| EXP-0124 | Day 0 reference, LVV harvest H-21 | Priya S. | Approved | 18 Sep
+| EXP-0123 | Infectious titre method check | Mei L. | Approved | 15 Sep
+Experiments
+4 New experiment
+| | ID | Experiment | Owner | Status | Updated
+| EXP-0131 | Day 7 stability pull, 2–8 °C | Tom H. | In review | 24 Sep
+| EXP-0127 | Day 3 stability pull, 2–8 °C | Tom H. | Approved | 21 Sep
+| EXP-0124 | Day 0 reference, LVV harvest H-21 | Priya S. | Approved | 18 Sep
+| EXP-0123 | Infectious titre method check | Mei L. | Approved | 15 Sep
+Samples
+3 All samples
+| | ID | Name | Type | Quantity | Location | Status
+| SMP-2236 | LVV hold, day 7 aliquot | Stability pull | 0.5 mL | F-4 (−80 °C), box 2 | Stored
+| SMP-2190 | LVV harvest H-21, 2–8 °C hold | Viral harvest | 180 mL | CR-2, shelf 1 | Hold limit passed
+| SMP-2210 | LVV harvest H-22 | Viral harvest | 0 mL | — | Consumed
+Datasets
+3 All datasets
+| | ID | Name | Model | Rows | Validation
+| DS-0301 | Infectious titre by flow, days 0–7 | Transduction titre v1 | 24 | Valid
+| DS-0300 | p24 ELISA, days 0–7 | p24 ELISA v2 | 48 | Valid
+| DS-0188 | LVV stability, 2–8 °C, lot 22-114 | Stability pull v1 | 48 | Archived · 1 snapshot due for removal
+See how files look on AAV9 process transfer
+Team
+4
+| | Person | Project role | Access
+| Priya S. | Lead | Editor
+| Tom H. | Scientist | Editor
+| Mei L. | Default reviewer | Reviewer
+| Gareth P. | Collaborator | Viewer
+Priya S. is the lead. Ask them to change the stage, reviewer or client sharing.
+Details
+ID
+PRJ-0214
+Client
+CL-009
+Protocol
+PRT-019 v1
+Default reviewer
+Mei L.
+Agreement
+MSA-009 · SOW-11
+Members
+Priya S. · Lead
+Tom H. · Scientist
+Mei L. · Default reviewer
+Gareth P. · Collaborator
+Note
+You are a viewer here. Ask Priya S. for edit access if you need to add records.

@@ -48,6 +48,7 @@ docs/knowledge/
 │   ├── PROGRAMME_MAP.md
 │   ├── tasks/               # 18 streams / 60 tasks; qualified status index
 │   └── prompts/             # historical execution prompts, not assignments
+├── roadmap-4/               # active: exact UI system v3 parity + 86 original tasks; reconciled remaining work
 ├── mockups/
 ├── references/
 ├── history/                 # includes dated reconciliation evidence
@@ -56,12 +57,12 @@ docs/knowledge/
 
 ## Current work
 
-[`NEXT.md`](NEXT.md) is the only current hand-off file. Programme folders contain scope, task definitions, prompts, audits and historical completion evidence, but they do not own competing current work queues. Roadmap 1's retained local `NEXT.md` is historical.
+[`NEXT.md`](NEXT.md) is the repository-wide hand-off: it decides which roadmap is active and what is next across roadmaps. Programme folders contain scope, task definitions, prompts, audits and historical completion evidence, but they do not own competing current work queues, with one deliberate exception: Roadmap 4 is self-contained, with its own [`roadmap-4/NEXT.md`](roadmap-4/NEXT.md) and task tracker, which own its queue once the root `NEXT.md` activates it; that activation has happened.
 
 The [7 September 2026 reconciliation](history/2026-09-07-roadmap-reconciliation.md)
 records the checked baseline, implementation dispositions, outstanding work and
 verification limits. It is supporting historical evidence, not another current
-hand-off. A Roadmap 4 proposal is not activated by this reconciliation.
+hand-off. It predates Roadmap 4's activation; the current hand-off activates it.
 
 When merged reality changes what is active or next, update the root `NEXT.md`.
 
@@ -75,6 +76,7 @@ When merged reality changes what is active or next, update the root `NEXT.md`.
 - [`product/ux-principles.md`](product/ux-principles.md)
 - [`product/non-goals.md`](product/non-goals.md)
 - [`design/ui-system-v2.md`](design/ui-system-v2.md) — durable historical design ideas extracted from the original UI-system work.
+- [`design/ui-system-v3/`](design/ui-system-v3/README.md) — verbatim snapshot of the current design (126 screens and the design system); adoption proposed by Roadmap 4 and ADR-0047.
 
 ## Architecture and decisions
 
@@ -86,7 +88,7 @@ When merged reality changes what is active or next, update the root `NEXT.md`.
 - [`architecture/scientific-analysis.md`](architecture/scientific-analysis.md)
 
 ADRs live directly under [`decisions/`](decisions/). Read each decision's status:
-ADR-0044 and ADR-0045 are proposed, not accepted. Cross-cutting summaries and
+ADR-0044 remains proposed; ADR-0045 was accepted through Roadmap 4 DEC-04. Cross-cutting summaries and
 retired/open decision context live under [`decisions/context/`](decisions/context/).
 
 ## Roadmaps
@@ -105,15 +107,31 @@ queue. Programme-specific task contracts remain under `roadmap-2/tasks/`.
 ### Roadmap 3 — Product & Scientific Maturity
 
 [`roadmap-3/`](roadmap-3/) is no longer planned/unstarted. Of its **18 streams and
-60 tasks**, 50 have merged implementation, two have proposed decisions and eight
-are deferred. Merged implementation includes limited/stub-backed capabilities
-and does not establish independent acceptance of every exit. REUSE-02 also has
-an unresolved baseline test failure.
+60 tasks**, the September baseline records 50 with merged implementation,
+two proposed decisions and eight deferred. ADR-0045 was subsequently accepted
+through DEC-04; ADR-0044 remains proposed. Merged implementation includes limited/stub-backed capabilities
+and does not establish independent acceptance of every exit. REUSE-02 has
+a historical baseline failure, not a freshly reproduced result; current
+equivalent workflow acceptance remains unverified.
 
 Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md),
 [`roadmap-3/PROGRAMME_MAP.md`](roadmap-3/PROGRAMME_MAP.md) and
 [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md). Original task goals and
 exits remain intact. Read current status before reusing an old agent prompt.
+
+### Roadmap 4 — Design-led Product (active, incomplete)
+
+[Roadmap 4](roadmap-4/README.md) contains 17 streams and 86 original tasks.
+The [2 October source reconciliation](roadmap-4/RECONCILIATION.md) records its
+audit baseline (13 accepted decisions, four inherited implementation completions
+without fresh full acceptance, 52 partial, 16 not started and one cancelled
+duplicate). Eleven tasks have closed since; nod now records **28 done of 85
+active tasks and 87 of 266 steps**. The app-3 port is adopted, but the original
+capability and parity exits remain open. Start with [its current
+handoff](roadmap-4/NEXT.md).
+
+[Roadmap 5](../../plans/roadmap-5/README.md) remains a proposal. Its overlapping
+requirements retain Roadmap 4 task ownership.
 
 ## Mockups, references and history
 

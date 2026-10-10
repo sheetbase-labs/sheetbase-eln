@@ -125,6 +125,32 @@ describe('createLiveEventCoordinator', () => {
     })
   })
 
+  it('reconnects on demand, resuming after the last applied sequence', () => {
+    const { coordinator, sources } = makeDeps()
+    coordinator.connect()
+    sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+    sources[0].dispatch('change', changeEvent(5))
+    expect(coordinator.getStatus().lastAppliedSeq).toBe(5)
+
+    coordinator.reconnect()
+
+    expect(sources).toHaveLength(2)
+    expect(sources[0].closed).toBe(true)
+    expect(sources[1].url).toContain('after=5')
+    expect(coordinator.getStatus().status).toBe('connecting')
+  })
+
+  it('does not reopen a stream after disconnect', () => {
+    const { coordinator, sources } = makeDeps()
+    coordinator.connect()
+    coordinator.disconnect()
+
+    coordinator.reconnect()
+
+    expect(sources).toHaveLength(1)
+    expect(coordinator.getStatus().status).toBe('offline')
+  })
+
   it('applies other-tab block events by invalidating the blocks cache', () => {
     const { coordinator, qc, sources } = makeDeps()
     const spy = vi.spyOn(qc, 'invalidateQueries')
@@ -140,6 +166,142 @@ describe('createLiveEventCoordinator', () => {
     expect(keys).toContainEqual(notebookQueryKeys.record('rec-1'))
     // No global invalidation for a single event.
     expect(keys).not.toContainEqual(['notebook'])
+  })
+
+  it('refreshes live Sheet comment markers without inventing a revision or record context', () => {
+    const { coordinator, qc, sources } = makeDeps()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    coordinator.connect()
+    sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+    spy.mockClear()
+    sources[0].dispatch(
+      'change',
+      changeEvent(1, {
+        entityType: 'comment',
+        recordId: null,
+        projectId: null,
+        payload: { sheetInstanceId: 'sheet-2', revisionId: null },
+      }),
+    )
+    expect(spy.mock.calls.map(([options]) => options?.queryKey)).toContainEqual(
+      ['comments', 'sheet', 'sheet-2'],
+    )
+    expect(spy.mock.calls.map(([options]) => options?.queryKey)).toContainEqual(
+      ['comments', 'record'],
+    )
+    expect(
+      spy.mock.calls.map(([options]) => options?.queryKey),
+    ).not.toContainEqual(['comments', 'revision', null])
+  })
+
+  it.each([
+    ['instrument_run', ['home-counts', 'home-activity']],
+    ['calendar_booking', ['home-bookings', 'home-activity']],
+    [
+      'review_decision',
+      ['home-counts', 'home-reviews', 'home-recents', 'home-activity'],
+    ],
+    [
+      'dataset',
+      ['home-counts', 'home-dataset-issues', 'home-recents', 'home-activity'],
+    ],
+    ['comment', ['home-activity']],
+  ])(
+    'refreshes only affected Home collections for %s mutations',
+    (entityType, prefixes) => {
+      const { coordinator, qc, sources } = makeDeps()
+      const spy = vi.spyOn(qc, 'invalidateQueries')
+      coordinator.connect()
+      sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+      spy.mockClear()
+      sources[0].dispatch('change', changeEvent(1, { entityType }))
+      vi.advanceTimersByTime(100)
+      const keys = spy.mock.calls
+        .map(([options]) => options?.queryKey)
+        .filter(
+          (key) => typeof key?.[0] === 'string' && key[0].startsWith('home-'),
+        )
+      expect(keys).toEqual(prefixes.map((prefix) => [prefix, 'ws-1']))
+    },
+  )
+
+  it.each([
+    'workspace_group',
+    'workspace_group_membership',
+    'project_access',
+    'project_access_request',
+  ])('refreshes effective assignments and Home on %s changes', (entityType) => {
+    const { coordinator, qc, sources } = makeDeps()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    coordinator.connect()
+    sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+    spy.mockClear()
+    sources[0].dispatch(
+      'change',
+      changeEvent(1, { entityType, operation: 'delete' }),
+    )
+    vi.advanceTimersByTime(100)
+    const keys = spy.mock.calls.map(([options]) => options?.queryKey)
+    expect(keys).toContainEqual(['workspace-access', 'ws-1'])
+    expect(keys).toContainEqual(['home-first-run-projects', 'ws-1'])
+    expect(keys).toContainEqual(['home-counts', 'ws-1'])
+    expect(keys).not.toContainEqual(['workspace-access', 'ws-2'])
+  })
+
+  it.each([
+    { entityType: 'audit_read', operation: 'create' },
+    { entityType: 'presence', operation: 'update' },
+    { entityType: 'record', operation: 'read' },
+    { entityType: 'record', operation: 'update', clientId: 'self-tab' },
+  ])(
+    'does not refresh Home from audit reads, presence or own cursor advances (%j)',
+    (event) => {
+      const { coordinator, qc, sources } = makeDeps()
+      const spy = vi.spyOn(qc, 'invalidateQueries')
+      coordinator.connect()
+      sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+      spy.mockClear()
+      sources[0].dispatch('change', changeEvent(1, event))
+      vi.advanceTimersByTime(100)
+      expect(
+        spy.mock.calls
+          .map(([options]) => options?.queryKey)
+          .filter(
+            (key) => typeof key?.[0] === 'string' && key[0].startsWith('home-'),
+          ),
+      ).toEqual([])
+      expect(coordinator.getStatus().lastAppliedSeq).toBe(1)
+    },
+  )
+
+  it('coalesces a replay burst and cancels queued Home reads on disconnect', () => {
+    const { coordinator, qc, sources } = makeDeps()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    coordinator.connect()
+    sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+    spy.mockClear()
+    for (let sequence = 1; sequence <= 120; sequence++) {
+      sources[0].dispatch(
+        'change',
+        changeEvent(sequence, { entityType: 'instrument_run' }),
+      )
+    }
+    expect(spy).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(99)
+    expect(spy).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(spy.mock.calls.map(([options]) => options?.queryKey)).toEqual([
+      ['home-counts', 'ws-1'],
+      ['home-activity', 'ws-1'],
+    ])
+    spy.mockClear()
+    sources[0].dispatch(
+      'change',
+      changeEvent(121, { entityType: 'instrument_run' }),
+    )
+    coordinator.disconnect()
+    vi.advanceTimersByTime(100)
+    expect(spy).not.toHaveBeenCalled()
   })
 
   it('skips its own echoed events but still advances the cursor', () => {
@@ -304,6 +466,9 @@ describe('createLiveEventCoordinator', () => {
     })
     const keys = spy.mock.calls.map((c) => c[0]!.queryKey)
     expect(keys).toContainEqual(['notebook'])
+    expect(keys).toContainEqual(['home-counts', 'ws-1'])
+    expect(keys).toContainEqual(['home-reviews', 'ws-1'])
+    expect(keys).toContainEqual(['workspace-access', 'ws-1'])
     expect(keys).toContainEqual(notebookQueryKeys.projectsList())
     for (const prefix of [
       'scientific-table',
@@ -428,6 +593,30 @@ describe('createLiveEventCoordinator', () => {
     sources[0].dispatch('change', changeEvent(1, { workspaceId: 'ws-other' }))
     expect(spy).not.toHaveBeenCalled()
     expect(coordinator.getStatus().lastAppliedSeq).toBe(0)
+  })
+
+  it('refreshes scoped parser evidence and failure work on authoritative changes', () => {
+    const { coordinator, qc, sources } = makeDeps()
+    const spy = vi.spyOn(qc, 'invalidateQueries')
+    coordinator.connect()
+    sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+    for (const [index, entityType] of [
+      'parser_version',
+      'dataset_import_file',
+      'connector_run',
+    ].entries()) {
+      spy.mockClear()
+      sources[0].dispatch('change', changeEvent(index + 1, { entityType }))
+      expect(spy).toHaveBeenCalledWith({ queryKey: ['work-items'] })
+      if (entityType !== 'connector_run') {
+        expect(spy).toHaveBeenCalledWith({
+          queryKey: ['parser-settings', 'ws-1'],
+        })
+        expect(spy).toHaveBeenCalledWith({
+          queryKey: ['parser-test-files', 'ws-1'],
+        })
+      }
+    }
   })
 
   it('subscribe receives the current snapshot immediately and on changes', () => {

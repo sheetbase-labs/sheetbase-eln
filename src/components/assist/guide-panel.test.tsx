@@ -107,7 +107,7 @@ describe('GuidePanel', () => {
       screen
         .getByRole('link', { name: 'Open review workspace' })
         .getAttribute('href'),
-    ).toBe('/reviews/rev-1')
+    ).toBe('/review/rev-1')
   })
 
   it('announces completion when every step is done', () => {

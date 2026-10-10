@@ -12,11 +12,37 @@ done names the layers it must touch; not every ticket needs all five.
 | Browser workflow     | Does the whole user journey work in a real browser?                                                 | Playwright                                              | `tests/browser/`                          | `pnpm test:browser` |
 
 Status today: all five layers are wired. Unit and component tests run through
-`pnpm test` in jsdom. Database integration uses `pnpm test:db` and a fresh
-migrated `sheetbase_test` per run. API contracts use `pnpm test:api` against
-the running PostgREST stack. Browser workflows use `pnpm test:browser`; the
-Playwright configuration starts an isolated application server and the tests
-create and remove their own authenticated fixtures.
+`pnpm test` in jsdom. Database integration uses `pnpm test:db`: a migrated
+template database is built once per run and each vitest worker clones it into
+its own `sheetbase_test_<worker>`, so files run in parallel (about a minute for
+the whole layer). The local Postgres runs with `synchronous_commit`, `fsync` and
+`full_page_writes` off: it is a disposable development database, and those
+settings halve the layer's runtime. API contracts use `pnpm test:api` against the running PostgREST
+stack. Browser workflows use `pnpm test:browser` (two workers); the Playwright
+configuration starts an isolated application server and the tests create and
+remove their own authenticated fixtures.
+
+`pnpm test:parity` compares the app against the DSYS-01 reference PNGs. The
+references are rendered from the vendored canvases only when those change
+(`tsx scripts/design-reference.mts --if-stale`), and the comparisons run
+parallel across workers.
+
+`tests/db/design-scenarios.test.ts` covers three design screens and provisions
+its own `sheetbase_parity_*` database for each. It refuses to run unless
+`SHEETBASE_ENV=test`, `SHEETBASE_DEV_AUTH_FREE=false`, and all four role
+URLs (`DATABASE_URL`, `MIGRATION_DATABASE_URL`, `PGRST_DB_URI`,
+`FORMULA_DATABASE_URL`) are loopback URLs naming that exact database (see
+[seeds.md](seeds.md)). A `.env.local` whose `PGRST_DB_URI` names the Compose
+host `postgres` fails these three by design; point that variable at the local
+port rather than relaxing the guard.
+
+While working a slice, run the file or files that cover it: the full database
+layer is for acceptance, not for every change.
+
+`pnpm test:parity` and `pnpm test:browser` are deferred until the end of the
+current programme: implementation slices are verified by the unit suite and the
+database files that cover them, and the visual and browser layers run once, at
+acceptance.
 
 ## Rules that apply at every layer
 
@@ -107,8 +133,8 @@ Stability notebook can own two managed sheets; typed columns, units,
 validation, CSV import, literals and durable formulas survive display-name
 changes; within-sheet and cross-sheet calculations use stable identities;
 validation, stale-version, circular-reference and stale-cache states remain
-explicit; and an attributed external API edit reaches both Handsontable grids
-and their dependent HyperFormula results through the live-event stream.
+explicit; and an attributed external API edit reaches both sheet grids
+and their dependent calculation results through the live-event stream.
 
 The browser proof inserts a short-lived Better Auth session directly, just as
 the OAuth callback would after provider consent. It never contacts GitHub and

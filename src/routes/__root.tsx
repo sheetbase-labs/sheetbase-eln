@@ -3,12 +3,14 @@ import {
   Outlet,
   Scripts,
   createRootRouteWithContext,
+  useMatches,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import { LiveEventProvider } from '../components/live'
-import { ShellProvider } from '../components/app-shell'
+import { ShellProvider } from '../components/shell'
+import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { CollaborationProvider } from '../components/collaboration/collaboration-provider'
@@ -21,10 +23,16 @@ import { ThemeProvider } from '../components/theme-provider'
 
 import type { QueryClient } from '@tanstack/react-query'
 import type { CurrentContext } from '#/lib/current-user'
+import type { ShellCounts } from '#/lib/shell-counts.server'
+import type { ShellPinned } from '#/lib/shell-chrome.server'
+import type { Notification } from '#/components/v3/types'
 
 interface RouterContext {
   queryClient: QueryClient
   auth: CurrentContext | null
+  shellCounts: ShellCounts
+  shellPinned: ShellPinned[]
+  shellNotifications: Notification[]
 }
 
 // Fetch auth context once at the root so every child route can read it
@@ -35,7 +43,18 @@ interface RouterContext {
 const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const { getRequestHeaders } = await import('@tanstack/react-start/server')
   const { getCurrentContext } = await import('#/lib/current-user')
-  return getCurrentContext(getRequestHeaders())
+  const context = await getCurrentContext(getRequestHeaders())
+  if (!context?.workspace)
+    return { context, counts: {}, pinned: [], notifications: [] }
+  const { getShellCounts } = await import('#/lib/shell-counts.server')
+  const { getShellPinned, getShellNotifications } =
+    await import('#/lib/shell-chrome.server')
+  const [counts, pinned, notifications] = await Promise.all([
+    getShellCounts(context.workspace.id, context.user.id),
+    getShellPinned(context.workspace.id, context.user.id),
+    getShellNotifications(context.workspace.id, context.user.id),
+  ])
+  return { context, counts, pinned, notifications }
 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -71,8 +90,18 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootRouteComponent,
   shellComponent: RootDocument,
   beforeLoad: async () => {
-    const auth = await getAuthContextFn()
-    return { auth }
+    const {
+      context: auth,
+      counts: shellCounts,
+      pinned,
+      notifications,
+    } = await getAuthContextFn()
+    return {
+      auth,
+      shellCounts,
+      shellPinned: pinned,
+      shellNotifications: notifications,
+    }
   },
 })
 
@@ -86,7 +115,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
  * active child route (e.g. `/sign-in`) inside the provider.
  */
 function RootRouteComponent() {
-  const { auth } = Route.useRouteContext()
+  const { auth, shellCounts, shellPinned, shellNotifications } =
+    Route.useRouteContext()
 
   // Map the auth context to the AppShell context shape so the sidebar
   // (workspace name, user info, nav) renders during SSR — not after
@@ -94,7 +124,14 @@ function RootRouteComponent() {
   // content appeared but the sidebar was missing.
   const shellContext = auth
     ? {
-        workspace: auth.workspace ? { name: auth.workspace.name } : null,
+        workspace: auth.workspace
+          ? {
+              id: auth.workspace.id,
+              slug: auth.workspace.slug,
+              name: auth.workspace.name,
+            }
+          : null,
+        workspaces: auth.workspaces,
         user: {
           name: auth.user.name,
           email: auth.user.email,
@@ -103,28 +140,192 @@ function RootRouteComponent() {
       }
     : null
 
+  // UI port (roadmap-4/ui-app3): routes already ported from sheetbase-app-3
+  // render inside app-3's shell; every other route keeps the ELN shell until it
+  // is ported. The list grows area by area, then this branch and the ELN shell
+  // are deleted.
+  const v3RouteIds = [
+    '/',
+    '/inbox',
+    '/review/$revisionId',
+    '/evidence/$revisionId',
+    '/instruments',
+    '/instruments/$instrumentId',
+    '/scan',
+    '/readings/new',
+    '/sheets/$sheetId',
+    '/sheets/new',
+    '/records/$recordId',
+    '/records/$recordId/',
+    '/records/$recordId/notebook',
+    '/schedule',
+    '/search',
+    '/settings',
+    '/settings/',
+    '/settings/members',
+    '/settings/access',
+    '/settings/signatures',
+    '/settings/instruments',
+    '/settings/integrations',
+    '/settings/integrations/$connectorId',
+    '/settings/audit',
+    '/settings/diagnostics',
+    '/settings/usage',
+    '/settings/api',
+    '/settings/profile',
+    '/settings/notifications',
+    '/protocols',
+    '/protocols/$protocolId',
+    '/templates',
+    '/templates/$templateId',
+    '/templates/$templateId/',
+    '/templates/$templateId/versions',
+    '/templates/$templateId/in-use',
+    '/templates/$templateId/update',
+    '/experiments',
+    '/experiments/new',
+    '/experiments/$expId',
+    '/experiments/$expId/',
+    '/experiments/$expId/overview',
+    '/experiments/$expId/notebook',
+    '/experiments/$expId/samples',
+    '/experiments/$expId/datasets',
+    '/experiments/$expId/results',
+    '/experiments/$expId/files',
+    '/experiments/$expId/history',
+    '/models',
+    '/models/$modelId',
+    '/models/$modelId/',
+    '/models/$modelId/fields',
+    '/models/$modelId/versions',
+    '/models/$modelId/records',
+    '/models/$modelId/records/',
+    '/models/$modelId/records/new',
+    '/models/$modelId/records/$recordId',
+    '/models/$modelId/rules',
+    '/models/$modelId/relations',
+    '/models/$modelId/usage',
+    '/models/$modelId/datasets',
+    '/models/$modelId/edit',
+    '/analysis',
+    '/analysis/',
+    '/analysis/new',
+    '/analysis/$analysisId',
+    '/help',
+    '/help/',
+    '/help/records',
+    '/help/shortcuts',
+    '/pipelines',
+    '/pipelines/agents',
+    '/pipelines/runs/$runId',
+    '/pipelines/$pipelineId',
+    '/pipelines/$pipelineId/',
+    '/pipelines/$pipelineId/runs',
+    '/pipelines/$pipelineId/runs/',
+    '/pipelines/$pipelineId/runs/$runId',
+    '/pipelines/$pipelineId/triggers',
+    '/pipelines/$pipelineId/steps',
+    '/import',
+    '/datasets',
+    '/datasets/$datasetId',
+    '/datasets/$datasetId/',
+    '/datasets/$datasetId/snapshots',
+    '/datasets/$datasetId/rows',
+    '/datasets/$datasetId/compare',
+    '/samples',
+    '/materials',
+    '/samples/$sampleId',
+    '/samples/$sampleId/',
+    '/samples/$sampleId/usage',
+    '/samples/$sampleId/history',
+    '/samples/$sampleId/lineage',
+    '/samples/$sampleId/measurements',
+    '/projects',
+    '/projects/$projectId',
+    '/projects/$projectId/',
+    '/projects/$projectId/milestones',
+    '/projects/$projectId/folders',
+    '/projects/$projectId/members',
+    '/projects/$projectId/settings',
+  ]
+  // Routes with their own chrome (the client portal, ADR-0049) render without
+  // either shell: no internal navigation and no workspace data.
+  const bareRouteIds = ['/client-portal', '/sign-in']
+  const bareRoute = useMatches().some((match) =>
+    bareRouteIds.includes(match.routeId),
+  )
+  const portedToV3 = useMatches().some((match) =>
+    v3RouteIds.includes(match.routeId),
+  )
+  const appShellData = auth
+    ? {
+        me: {
+          id: auth.user.id,
+          name: auth.user.name,
+          initials: initialsOf(auth.user.name),
+          role: auth.workspace?.role ?? 'Member',
+        },
+        notifications: shellNotifications,
+        pinned: shellPinned,
+        counts: shellCounts,
+        workspace: auth.workspace
+          ? { id: auth.workspace.id, name: auth.workspace.name }
+          : null,
+        workspaces: auth.workspaces.map((workspace) => ({
+          id: workspace.id,
+          name: workspace.name,
+        })),
+      }
+    : {
+        me: { id: '', name: '', initials: '', role: '' },
+        notifications: [],
+        pinned: [],
+        counts: {},
+        workspace: null,
+        workspaces: [],
+      }
+
   return (
-    <LiveEventProvider>
-      <CollaborationEnabledContext.Provider
-        value={auth?.collaborationEnabled ?? false}
-      >
-        <CollaborationProvider>
-          <ShellProvider initialContext={shellContext}>
-            <Outlet />
-          </ShellProvider>
-        </CollaborationProvider>
-      </CollaborationEnabledContext.Provider>
-    </LiveEventProvider>
+    <ThemeProvider authenticated={Boolean(auth)}>
+      <LiveEventProvider>
+        <CollaborationEnabledContext.Provider
+          value={auth?.collaborationEnabled ?? false}
+        >
+          <CollaborationProvider>
+            {bareRoute ? (
+              <Outlet />
+            ) : portedToV3 ? (
+              <V3AppShell data={appShellData}>
+                <Outlet />
+              </V3AppShell>
+            ) : (
+              <ShellProvider initialContext={shellContext}>
+                <Outlet />
+              </ShellProvider>
+            )}
+          </CollaborationProvider>
+        </CollaborationEnabledContext.Provider>
+      </LiveEventProvider>
+    </ThemeProvider>
   )
 }
 
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('')
+}
+
 /**
- * Inline no-flash script: applies the saved theme and density to <html>
- * before the React tree hydrates, so there is no flash of the wrong theme
- * on reload. Runs synchronously in <head>. Production CSP allowlists inline
- * scripts by per-request nonce (see docs/operations/security-headers.md).
+ * Inline no-flash script: applies the saved theme to <html> before the React
+ * tree hydrates, so there is no flash of the wrong theme on reload. Runs
+ * synchronously in <head>. Production CSP allowlists inline scripts by
+ * per-request nonce (see docs/operations/security-headers.md).
  */
-const themeNoFlash = `(function(){try{var t=localStorage.getItem('sheetbase-theme')||'light';var d=localStorage.getItem('sheetbase-density')||'comfortable';var dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(dark)document.documentElement.classList.add('dark');document.documentElement.dataset.density=d;}catch(e){}})();`
+const themeNoFlash = `(function(){try{var t=localStorage.getItem('sheetbase-theme')||'light';var dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(dark)document.documentElement.classList.add('dark');}catch(e){}})();`
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
@@ -134,8 +335,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeNoFlash }} />
       </head>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
-        {import.meta.env.DEV ? (
+        {children}
+        {import.meta.env.DEV && !import.meta.env.VITE_PARITY ? (
           <TanStackDevtools
             config={{ position: 'bottom-right' }}
             plugins={[

@@ -54,6 +54,14 @@ export interface DatasetCommitRow {
   rowId: string
   expectedRevision?: number
   values: Record<string, unknown>
+  /** Captured with the successful canonical cell write, not supplied to History later. */
+  reason?: string
+  /**
+   * DSET-01.3 — optional sample/well key for creates. A matching active
+   * planned row in the same Dataset is filled (planned→recorded) instead of a
+   * new row being inserted. Rejected on updates.
+   */
+  plannedKey?: string
 }
 
 export interface DatasetCommitResult {
@@ -62,6 +70,7 @@ export interface DatasetCommitResult {
   datasetRevision?: number
   idempotent?: boolean
   rows?: Array<{ rowId: string; revision: number; operation: string }>
+  sourceEvents?: Array<{ recordId: string | null; sourceEventId: string }>
   errors?: Array<{
     rowIndex?: number
     rowId?: string

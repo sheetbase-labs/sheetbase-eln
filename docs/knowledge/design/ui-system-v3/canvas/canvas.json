@@ -1,0 +1,1555 @@
+{
+ "v": 3,
+ "attachments": {},
+ "boards": {
+  "Analysis.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "analysis",
+   "title": "Analysis workspace · AN-0057",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "AnalysisEmpty.dc.html": {
+   "h": 640,
+   "is_interactive": true,
+   "page": "analysis",
+   "title": "Analysis · No data",
+   "w": 1440,
+   "x": 0,
+   "y": 1320
+  },
+  "AuditLog.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "settings",
+   "title": "Audit log",
+   "w": 1440,
+   "x": 4560,
+   "y": 0
+  },
+  "ClientPortal.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "settings",
+   "title": "Client portal · CL-017",
+   "w": 1440,
+   "x": 6080,
+   "y": 0
+  },
+  "DatasetExplorer.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Dataset explorer · DS-0298 (missing units)",
+   "w": 1440,
+   "x": 6080,
+   "y": 0
+  },
+  "DatasetsError.dc.html": {
+   "h": 640,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Datasets · Partial load error",
+   "w": 1440,
+   "x": 4560,
+   "y": 1420
+  },
+  "DatasetsList.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Datasets list",
+   "w": 1440,
+   "x": 4560,
+   "y": 0
+  },
+  "DialogsCreate.dc.html": {
+   "h": 820,
+   "is_interactive": true,
+   "page": "flows",
+   "title": "Creation dialogs",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
+  },
+  "DialogsRecord.dc.html": {
+   "h": 1020,
+   "is_interactive": true,
+   "page": "flows",
+   "title": "Record dialogs",
+   "w": 1440,
+   "x": 3040,
+   "y": 0
+  },
+  "ExpDatasets.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Datasets tab",
+   "w": 1440,
+   "x": 4560,
+   "y": 0
+  },
+  "ExpFiles.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Files tab",
+   "w": 1440,
+   "x": 7600,
+   "y": 0
+  },
+  "ExpHistory.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "History tab",
+   "w": 1440,
+   "x": 9120,
+   "y": 0
+  },
+  "ExpOverview.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Overview tab",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "ExpResults.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Results tab",
+   "w": 1440,
+   "x": 6080,
+   "y": 0
+  },
+  "ExpSamples.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Samples tab",
+   "w": 1440,
+   "x": 3040,
+   "y": 0
+  },
+  "ExperimentsList.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Experiments list",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "ExperimentsLoading.dc.html": {
+   "h": 760,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Experiments · Loading",
+   "w": 1440,
+   "x": 0,
+   "y": 1420
+  },
+  "HomeBench.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Schedule",
+   "w": 1440,
+   "x": 3040,
+   "y": 0
+  },
+  "HomeFirstRun.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Home · First run (new user)",
+   "w": 1440,
+   "x": 0,
+   "y": 1320
+  },
+  "HomeTriage.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Inbox",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
+  },
+  "ImportFailed.dc.html": {
+   "h": 760,
+   "is_interactive": true,
+   "page": "flows",
+   "title": "Import · File not recognised",
+   "w": 1440,
+   "x": 3040,
+   "y": 1320
+  },
+  "ImportMap.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "flows",
+   "title": "Import · 2 Map and review",
+   "w": 1440,
+   "x": 1520,
+   "y": 1320
+  },
+  "ImportUpload.dc.html": {
+   "h": 820,
+   "is_interactive": true,
+   "page": "flows",
+   "title": "Import · 1 Upload",
+   "w": 1440,
+   "x": 0,
+   "y": 1320
+  },
+  "InboxEmpty.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Inbox · Nothing to do",
+   "w": 1440,
+   "x": 1520,
+   "y": 1320
+  },
+  "Main.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Home",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "MaterialsList.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Materials list",
+   "w": 1440,
+   "x": 10640,
+   "y": 0
+  },
+  "NbConflict.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Notebook · Conflict after reconnect",
+   "w": 1440,
+   "x": 6080,
+   "y": 2160
+  },
+  "NbEditing.dc.html": {
+   "h": 1100,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Notebook · Editing",
+   "w": 1440,
+   "x": 3040,
+   "y": 2160
+  },
+  "NbLoading.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Notebook · Loading",
+   "w": 1440,
+   "x": 0,
+   "y": 2160
+  },
+  "NbNew.dc.html": {
+   "h": 1300,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Notebook · New from template",
+   "w": 1440,
+   "x": 1520,
+   "y": 2160
+  },
+  "NbOffline.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Notebook · Offline",
+   "w": 1440,
+   "x": 4560,
+   "y": 2160
+  },
+  "NbSigned.dc.html": {
+   "h": 1300,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Notebook · Signed and locked",
+   "w": 1440,
+   "x": 7600,
+   "y": 2160
+  },
+  "NbViewer.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Notebook · View-only access",
+   "w": 1440,
+   "x": 9120,
+   "y": 2160
+  },
+  "NewExperiment.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "flows",
+   "title": "New experiment from a protocol",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "Notebook.dc.html": {
+   "h": 1840,
+   "is_interactive": true,
+   "page": "experiment",
+   "title": "Notebook tab",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
+  },
+  "NotebookLaptop.dc.html": {
+   "h": 760,
+   "is_interactive": true,
+   "page": "narrow",
+   "title": "Notebook · 1024px laptop",
+   "w": 1024,
+   "x": 0,
+   "y": 0
+  },
+  "NotebookTablet.dc.html": {
+   "h": 1112,
+   "is_interactive": true,
+   "page": "narrow",
+   "title": "Notebook · tablet, panel as drawer",
+   "w": 834,
+   "x": 1104,
+   "y": 0
+  },
+  "Panels.dc.html": {
+   "h": 1860,
+   "page": "panels",
+   "title": "Left navigation and inspector states",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "ProjectDetail.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "title": "Project · AAV9 process transfer",
+   "w": 1440,
+   "x": 6080,
+   "y": 0
+  },
+  "Projects.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Project list",
+   "w": 1440,
+   "x": 4560,
+   "y": 0
+  },
+  "ProjectsEmpty.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Projects · Empty workspace",
+   "w": 1440,
+   "x": 4560,
+   "y": 1320
+  },
+  "ProjectsError.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Projects · Failed to load",
+   "w": 1440,
+   "x": 7600,
+   "y": 1320
+  },
+  "ProjectsNoResults.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Projects · No search results",
+   "w": 1440,
+   "x": 6080,
+   "y": 1320
+  },
+  "ProjectsTablet.dc.html": {
+   "h": 1112,
+   "is_interactive": true,
+   "page": "narrow",
+   "title": "Projects · tablet",
+   "w": 834,
+   "x": 2018,
+   "y": 0
+  },
+  "ProtocolDetail.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Protocol · PRT-021 v3",
+   "w": 1440,
+   "x": 9120,
+   "y": 0
+  },
+  "ProtocolsList.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Protocols list",
+   "w": 1440,
+   "x": 7600,
+   "y": 0
+  },
+  "ReviewApproved.dc.html": {
+   "h": 1180,
+   "is_interactive": true,
+   "page": "review",
+   "title": "Reviewer · approved and signed",
+   "w": 1440,
+   "x": 3040,
+   "y": 0
+  },
+  "ReviewRecord.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "review",
+   "title": "Reviewer · returning with a comment",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "ReviewReturned.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "review",
+   "title": "Author · returned for changes",
+   "w": 1440,
+   "x": 4560,
+   "y": 0
+  },
+  "ReviewSign.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "review",
+   "title": "Reviewer · signing dialog",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
+  },
+  "SampleConsumed.dc.html": {
+   "h": 560,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Sample · Consumed",
+   "w": 1440,
+   "x": 3040,
+   "y": 2780
+  },
+  "SampleDetail.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Sample record · SMP-2231",
+   "w": 1440,
+   "x": 3040,
+   "y": 0
+  },
+  "SampleExpired.dc.html": {
+   "h": 560,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Sample · Hold time exceeded",
+   "w": 1440,
+   "x": 3040,
+   "y": 2100
+  },
+  "SampleQuarantine.dc.html": {
+   "h": 560,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Sample · Quarantine",
+   "w": 1440,
+   "x": 3040,
+   "y": 1420
+  },
+  "SamplesEmpty.dc.html": {
+   "h": 640,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Samples · Empty tab",
+   "w": 1440,
+   "x": 1520,
+   "y": 1420
+  },
+  "SamplesList.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "records",
+   "title": "Samples list",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
+  },
+  "ScheduleEmpty.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "title": "Schedule · No bookings",
+   "w": 1440,
+   "x": 3040,
+   "y": 1320
+  },
+  "SchemaEditor.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "schemas",
+   "title": "Model editor · Clarification run v5 draft",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
+  },
+  "SchemaPending.dc.html": {
+   "h": 640,
+   "is_interactive": true,
+   "page": "schemas",
+   "title": "Model · Awaiting QA approval",
+   "w": 1440,
+   "x": 3040,
+   "y": 0
+  },
+  "SchemasList.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "schemas",
+   "title": "Models list",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "SearchEmpty.dc.html": {
+   "h": 560,
+   "is_interactive": true,
+   "page": "analysis",
+   "title": "Search · No results",
+   "w": 1440,
+   "x": 1520,
+   "y": 1320
+  },
+  "SearchPalette.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "analysis",
+   "title": "Search · ⌘K palette",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
+  },
+  "SearchResults.dc.html": {
+   "h": 1000,
+   "is_interactive": true,
+   "page": "analysis",
+   "title": "Search · Results page",
+   "w": 1440,
+   "x": 3040,
+   "y": 0
+  },
+  "SettingsInstruments.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "settings",
+   "title": "Settings · Instruments and parsers",
+   "w": 1440,
+   "x": 3040,
+   "y": 0
+  },
+  "SettingsMembers.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "settings",
+   "title": "Settings · Members and roles",
+   "w": 1440,
+   "x": 0,
+   "y": 0
+  },
+  "SettingsSignature.dc.html": {
+   "h": 900,
+   "is_interactive": true,
+   "page": "settings",
+   "title": "Settings · My electronic signature",
+   "w": 1440,
+   "x": 1520,
+   "y": 0
+  },
+  "ProjectFiles.dc.html": {
+   "x": 0,
+   "y": 2640,
+   "w": 1440,
+   "h": 1000,
+   "title": "Project · Files",
+   "is_interactive": true
+  },
+  "ProjectMembers.dc.html": {
+   "x": 1520,
+   "y": 2640,
+   "w": 1440,
+   "h": 1000,
+   "title": "Project · Members",
+   "is_interactive": true
+  },
+  "ProjectSettings.dc.html": {
+   "x": 3040,
+   "y": 2640,
+   "w": 1440,
+   "h": 1000,
+   "title": "Project · Settings",
+   "is_interactive": true
+  },
+  "ProjectLVV.dc.html": {
+   "x": 4560,
+   "y": 2640,
+   "w": 1440,
+   "h": 1000,
+   "title": "Pinned project · LVV stability",
+   "is_interactive": true
+  },
+  "ProjectAmbr.dc.html": {
+   "x": 6080,
+   "y": 2640,
+   "w": 1440,
+   "h": 1000,
+   "title": "Pinned project · Ambr 250",
+   "is_interactive": true
+  },
+  "HelpRecords.dc.html": {
+   "x": 7600,
+   "y": 2640,
+   "w": 1440,
+   "h": 1000,
+   "title": "Help · records and signatures",
+   "is_interactive": true
+  },
+  "SignedOut.dc.html": {
+   "x": 9120,
+   "y": 2640,
+   "w": 1440,
+   "h": 900,
+   "title": "Signed out",
+   "is_interactive": true
+  },
+  "SampleLineage.dc.html": {
+   "x": 0,
+   "y": 3760,
+   "w": 1440,
+   "h": 1000,
+   "title": "Sample · Lineage",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "SampleUsage.dc.html": {
+   "x": 1520,
+   "y": 3760,
+   "w": 1440,
+   "h": 1000,
+   "title": "Sample · Usage",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "SampleMeasurements.dc.html": {
+   "x": 3040,
+   "y": 3760,
+   "w": 1440,
+   "h": 1000,
+   "title": "Sample · Measurements",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "SampleHistory.dc.html": {
+   "x": 4560,
+   "y": 3760,
+   "w": 1440,
+   "h": 1000,
+   "title": "Sample · History",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "SettingsGeneral.dc.html": {
+   "x": 0,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "Settings · General",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "SettingsAccess.dc.html": {
+   "x": 1520,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "Settings · Project access",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "SettingsProfile.dc.html": {
+   "x": 3040,
+   "y": 1320,
+   "w": 1440,
+   "h": 1000,
+   "title": "Settings · Profile and appearance",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "SettingsNotifications.dc.html": {
+   "x": 4560,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "Settings · Notifications",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "PhoneHome.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Phone · Today",
+   "is_interactive": true,
+   "page": "phone"
+  },
+  "PhoneScan.dc.html": {
+   "x": 470,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Phone · Scan a label",
+   "is_interactive": true,
+   "page": "phone"
+  },
+  "PhoneSample.dc.html": {
+   "x": 940,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Phone · Sample after scan",
+   "is_interactive": true,
+   "page": "phone"
+  },
+  "PhoneWithdraw.dc.html": {
+   "x": 1410,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Phone · Withdraw volume",
+   "is_interactive": true,
+   "page": "phone"
+  },
+  "PhoneReading.dc.html": {
+   "x": 1880,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Phone · Record a reading",
+   "is_interactive": true,
+   "page": "phone"
+  },
+  "PhoneInbox.dc.html": {
+   "x": 2350,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Phone · Inbox",
+   "is_interactive": true,
+   "page": "phone"
+  },
+  "States.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 1390,
+   "title": "Interaction states",
+   "is_interactive": true,
+   "page": "interaction"
+  },
+  "FocusOrder.dc.html": {
+   "x": 1520,
+   "y": 0,
+   "w": 1440,
+   "h": 760,
+   "title": "Keyboard focus order",
+   "is_interactive": true,
+   "page": "interaction"
+  },
+  "Shortcuts.dc.html": {
+   "x": 3040,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "title": "Keyboard shortcuts",
+   "is_interactive": true,
+   "page": "interaction"
+  },
+  "PipelinesList.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "title": "Pipelines list",
+   "is_interactive": true,
+   "page": "pipelines"
+  },
+  "PipelineEditor.dc.html": {
+   "x": 1520,
+   "y": 0,
+   "w": 1440,
+   "h": 1000,
+   "title": "Pipeline editor · steps and preview",
+   "is_interactive": true,
+   "page": "pipelines"
+  },
+  "PipelineTriggers.dc.html": {
+   "x": 3040,
+   "y": 0,
+   "w": 1440,
+   "h": 1080,
+   "title": "Pipeline · triggers, outputs, permissions",
+   "is_interactive": true,
+   "page": "pipelines"
+  },
+  "PipelineRuns.dc.html": {
+   "x": 4560,
+   "y": 0,
+   "w": 1440,
+   "h": 1000,
+   "title": "Pipeline · runs and versions",
+   "is_interactive": true,
+   "page": "pipelines"
+  },
+  "PipelineRun.dc.html": {
+   "x": 0,
+   "y": 1500,
+   "w": 1440,
+   "h": 1000,
+   "title": "Run · succeeded, kept nothing",
+   "is_interactive": true,
+   "page": "pipelines"
+  },
+  "PipelineRunWaiting.dc.html": {
+   "x": 1520,
+   "y": 1500,
+   "w": 1440,
+   "h": 900,
+   "title": "Run · waiting for a person",
+   "is_interactive": true,
+   "page": "pipelines"
+  },
+  "PipelineRunFailed.dc.html": {
+   "x": 3040,
+   "y": 1500,
+   "w": 1440,
+   "h": 900,
+   "title": "Run · failed, storage limit",
+   "is_interactive": true,
+   "page": "pipelines"
+  },
+  "DatasetSnapshots.dc.html": {
+   "x": 0,
+   "y": 5360,
+   "w": 1440,
+   "h": 900,
+   "title": "Dataset DS-0311 · Snapshots",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "DatasetCompare.dc.html": {
+   "x": 1520,
+   "y": 5360,
+   "w": 1440,
+   "h": 900,
+   "title": "Dataset DS-0311 · Compare S-14 → S-15",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "RecordInstrument.dc.html": {
+   "x": 3040,
+   "y": 5360,
+   "w": 1440,
+   "h": 900,
+   "title": "Instrument INS-0007 · stable identity",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "SheetWorking.dc.html": {
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 1000,
+   "title": "Working sheet SHT-0019 · local columns",
+   "is_interactive": true,
+   "page": "sheets"
+  },
+  "SheetPromote.dc.html": {
+   "x": 1520,
+   "y": 0,
+   "w": 1440,
+   "h": 1000,
+   "title": "Working sheet · Promote columns",
+   "is_interactive": true,
+   "page": "sheets"
+  },
+  "TemplatesList.dc.html": {
+   "x": 0,
+   "y": 1600,
+   "w": 1440,
+   "h": 900,
+   "title": "Templates",
+   "is_interactive": true,
+   "page": "sheets"
+  },
+  "TemplateUpdate.dc.html": {
+   "x": 1520,
+   "y": 1600,
+   "w": 1440,
+   "h": 900,
+   "title": "Template v4 · update an existing notebook",
+   "is_interactive": true,
+   "page": "sheets"
+  },
+  "EvidenceCompare.dc.html": {
+   "x": 6080,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "title": "Signed EXP-0133 · Evidence vs live",
+   "is_interactive": true,
+   "page": "review"
+  },
+  "ProjectFolders.dc.html": {
+   "x": 10640,
+   "y": 2640,
+   "w": 1440,
+   "h": 900,
+   "title": "Project · Folders",
+   "is_interactive": true
+  },
+  "SettingsIntegrations.dc.html": {
+   "x": 6080,
+   "y": 1320,
+   "w": 1440,
+   "h": 1000,
+   "title": "Settings · Integrations",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "SettingsApi.dc.html": {
+   "x": 7600,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "Settings · API and SDK",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "SheetEmpty.dc.html": {
+   "x": 3040,
+   "y": 0,
+   "w": 1440,
+   "h": 900,
+   "title": "Working sheet · Empty",
+   "is_interactive": true,
+   "page": "sheets"
+  },
+  "PromoteRejected.dc.html": {
+   "x": 4560,
+   "y": 0,
+   "w": 1440,
+   "h": 1000,
+   "title": "Working sheet · Promotion returned by QA",
+   "is_interactive": true,
+   "page": "sheets"
+  },
+  "TemplateEditor.dc.html": {
+   "x": 3040,
+   "y": 1600,
+   "w": 1440,
+   "h": 1000,
+   "title": "Template TPL-006 · Editing draft v5",
+   "is_interactive": true,
+   "page": "sheets"
+  },
+  "SnapshotRemoved.dc.html": {
+   "x": 4560,
+   "y": 5360,
+   "w": 1440,
+   "h": 900,
+   "title": "Dataset DS-0188 · Snapshot rows removed",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "ModelRecords.dc.html": {
+   "x": 0,
+   "y": 6860,
+   "w": 1440,
+   "h": 900,
+   "title": "Model Cell bank · Records",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "RecordDetail.dc.html": {
+   "x": 1520,
+   "y": 6860,
+   "w": 1440,
+   "h": 1000,
+   "title": "Cell bank CB-0012 · Record page",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "RecordNew.dc.html": {
+   "x": 3040,
+   "y": 6860,
+   "w": 1440,
+   "h": 900,
+   "title": "New cell bank · form from the model",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "IntegrationConnect.dc.html": {
+   "x": 0,
+   "y": 2640,
+   "w": 1440,
+   "h": 1000,
+   "title": "Integrations · Connect a system",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "IntegrationDeliveries.dc.html": {
+   "x": 1520,
+   "y": 2640,
+   "w": 1440,
+   "h": 900,
+   "title": "Integrations · Webhook deliveries failing",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "TokenCreate.dc.html": {
+   "x": 3040,
+   "y": 2640,
+   "w": 1440,
+   "h": 900,
+   "title": "API · New token, shown once",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "TokenExpired.dc.html": {
+   "x": 4560,
+   "y": 2640,
+   "w": 1440,
+   "h": 900,
+   "title": "API · Expired token still in use",
+   "is_interactive": true,
+   "page": "settings"
+  },
+  "FolderMove.dc.html": {
+   "x": 12160,
+   "y": 2640,
+   "w": 1440,
+   "h": 900,
+   "title": "Project · Move items between folders",
+   "is_interactive": true
+  },
+  "SheetTablet.dc.html": {
+   "x": 2932,
+   "y": 0,
+   "w": 834,
+   "h": 1112,
+   "title": "Working sheet on tablet",
+   "is_interactive": true,
+   "page": "narrow"
+  },
+  "SnapshotsLaptop.dc.html": {
+   "x": 3846,
+   "y": 0,
+   "w": 1024,
+   "h": 760,
+   "title": "Dataset snapshots at 1024px",
+   "is_interactive": true,
+   "page": "narrow"
+  },
+  "EvidencePhone.dc.html": {
+   "x": 2820,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Phone · Evidence vs live",
+   "is_interactive": true,
+   "page": "phone"
+  },
+  "RecordPhone.dc.html": {
+   "x": 3290,
+   "y": 0,
+   "w": 390,
+   "h": 844,
+   "title": "Phone · Scanned cell bank",
+   "is_interactive": true,
+   "page": "phone"
+  },
+  "ModelFields.dc.html": {
+   "x": 4560,
+   "y": 6860,
+   "w": 1440,
+   "h": 900,
+   "title": "Model Cell bank · Fields",
+   "is_interactive": true,
+   "page": "records"
+  },
+  "ModelVersions.dc.html": {
+   "x": 6080,
+   "y": 6860,
+   "w": 1440,
+   "h": 900,
+   "title": "Model Cell bank · Versions",
+   "is_interactive": true,
+   "page": "records"
+  }
+ },
+ "createdOnFiles": {
+  "at": "2026-09-25T09:40:00Z",
+  "v": 1
+ },
+ "designSystems": [
+  {
+   "artifact": "https://claude.ai/artifact/RHGA9SezYnfKfJorUs6aHh",
+   "copiedAt": "2026-09-26T09:40:00Z",
+   "namespace": "sheetbase",
+   "title": "Sheetbase",
+   "version": "1790409588-346a"
+  }
+ ],
+ "launch": {
+  "view": "canvas"
+ },
+ "notes": {
+  "t1": {
+   "kind": "title1",
+   "maxW": 8000,
+   "text": "Workspace · home, inbox, schedule, projects",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t10": {
+   "kind": "title1",
+   "maxW": 4480,
+   "page": "analysis",
+   "text": "Analysis and search",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t11": {
+   "kind": "title1",
+   "maxW": 2960,
+   "page": "analysis",
+   "text": "Empty states",
+   "w": 240,
+   "x": 0,
+   "y": 1020
+  },
+  "t12": {
+   "kind": "title1",
+   "maxW": 4480,
+   "page": "schemas",
+   "text": "Models",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t13": {
+   "kind": "title1",
+   "maxW": 7520,
+   "page": "settings",
+   "text": "Settings, audit and client access",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t14": {
+   "kind": "title1",
+   "maxW": 4870,
+   "page": "narrow",
+   "text": "Narrow screens",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t2": {
+   "kind": "title1",
+   "maxW": 8000,
+   "page": "experiment",
+   "text": "Experiment EXP-0142 · tabs, in app order",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t3": {
+   "kind": "title1",
+   "maxW": 8000,
+   "page": "experiment",
+   "text": "Notebook states",
+   "w": 240,
+   "x": 0,
+   "y": 1860
+  },
+  "t4": {
+   "kind": "title1",
+   "maxW": 8000,
+   "text": "Workspace states",
+   "w": 240,
+   "x": 0,
+   "y": 1020
+  },
+  "t5": {
+   "kind": "title1",
+   "maxW": 8000,
+   "page": "records",
+   "text": "Records · lists and record pages",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t6": {
+   "kind": "title1",
+   "maxW": 6080,
+   "page": "records",
+   "text": "Record states",
+   "w": 240,
+   "x": 0,
+   "y": 1120
+  },
+  "t7": {
+   "kind": "title1",
+   "maxW": 7520,
+   "page": "review",
+   "text": "Review and e-signature · EXP-0138",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t8": {
+   "kind": "title1",
+   "maxW": 4480,
+   "page": "flows",
+   "text": "Create and confirm",
+   "w": 240,
+   "x": 0,
+   "y": -300
+  },
+  "t9": {
+   "kind": "title1",
+   "maxW": 4480,
+   "page": "flows",
+   "text": "Import instrument data",
+   "w": 240,
+   "x": 0,
+   "y": 1020
+  },
+  "t15": {
+   "x": 0,
+   "y": 2340,
+   "text": "Project pages, pinned projects, help",
+   "kind": "title1",
+   "maxW": 8000,
+   "w": 240
+  },
+  "t16": {
+   "x": 0,
+   "y": 3460,
+   "text": "Sample record SMP-2231 · other tabs",
+   "kind": "title1",
+   "maxW": 5920,
+   "w": 240,
+   "page": "records"
+  },
+  "t17": {
+   "x": 0,
+   "y": 1020,
+   "text": "Workspace and account settings",
+   "kind": "title1",
+   "maxW": 8000,
+   "w": 240,
+   "page": "settings"
+  },
+  "t18": {
+   "x": 0,
+   "y": -300,
+   "text": "Phone · at the bench",
+   "kind": "title1",
+   "maxW": 3680,
+   "w": 240,
+   "page": "phone"
+  },
+  "t19": {
+   "x": 0,
+   "y": -300,
+   "text": "Interaction and keyboard",
+   "kind": "title1",
+   "maxW": 4480,
+   "w": 240,
+   "page": "interaction"
+  },
+  "t20": {
+   "x": 0,
+   "y": -300,
+   "text": "Pipelines · PL-0007 Clarification step yield",
+   "kind": "title1",
+   "maxW": 5920,
+   "w": 240,
+   "page": "pipelines"
+  },
+  "t21": {
+   "x": 0,
+   "y": 1200,
+   "text": "Runs",
+   "kind": "title1",
+   "maxW": 4400,
+   "w": 240,
+   "page": "pipelines"
+  },
+  "t22": {
+   "x": 0,
+   "y": 5060,
+   "text": "Snapshots and stable record identity",
+   "kind": "title1",
+   "maxW": 5920,
+   "w": 240,
+   "page": "records"
+  },
+  "t23": {
+   "x": 0,
+   "y": -300,
+   "text": "Sheets · working surface and promote",
+   "kind": "title1",
+   "maxW": 5920,
+   "w": 240,
+   "page": "sheets"
+  },
+  "t24": {
+   "x": 0,
+   "y": 1300,
+   "text": "Templates",
+   "kind": "title1",
+   "maxW": 4400,
+   "w": 240,
+   "page": "sheets"
+  },
+  "t25": {
+   "x": 0,
+   "y": 6560,
+   "text": "Records from a model · Cell bank",
+   "kind": "title1",
+   "maxW": 7440,
+   "w": 240,
+   "page": "records"
+  },
+  "t26": {
+   "x": 0,
+   "y": 2340,
+   "text": "Integrations and API · flows and problems",
+   "kind": "title1",
+   "maxW": 5920,
+   "w": 240,
+   "page": "settings"
+  }
+ },
+ "order": [
+  "Main.dc.html",
+  "HomeTriage.dc.html",
+  "HomeBench.dc.html",
+  "Projects.dc.html",
+  "ExpOverview.dc.html",
+  "Notebook.dc.html",
+  "ExpSamples.dc.html",
+  "ExpDatasets.dc.html",
+  "ExpResults.dc.html",
+  "ExpFiles.dc.html",
+  "ExpHistory.dc.html",
+  "NbLoading.dc.html",
+  "NbNew.dc.html",
+  "NbEditing.dc.html",
+  "NbOffline.dc.html",
+  "NbConflict.dc.html",
+  "NbSigned.dc.html",
+  "NbViewer.dc.html",
+  "Panels.dc.html",
+  "HomeFirstRun.dc.html",
+  "InboxEmpty.dc.html",
+  "ScheduleEmpty.dc.html",
+  "ProjectsEmpty.dc.html",
+  "ProjectsNoResults.dc.html",
+  "ProjectsError.dc.html",
+  "Analysis.dc.html",
+  "SearchPalette.dc.html",
+  "SearchResults.dc.html",
+  "ProjectDetail.dc.html",
+  "ExperimentsList.dc.html",
+  "SamplesList.dc.html",
+  "SampleDetail.dc.html",
+  "DatasetsList.dc.html",
+  "DatasetExplorer.dc.html",
+  "SchemasList.dc.html",
+  "SchemaEditor.dc.html",
+  "ProtocolsList.dc.html",
+  "ProtocolDetail.dc.html",
+  "MaterialsList.dc.html",
+  "ExperimentsLoading.dc.html",
+  "SamplesEmpty.dc.html",
+  "SampleQuarantine.dc.html",
+  "SampleExpired.dc.html",
+  "SampleConsumed.dc.html",
+  "DatasetsError.dc.html",
+  "ReviewRecord.dc.html",
+  "ReviewSign.dc.html",
+  "ReviewApproved.dc.html",
+  "ReviewReturned.dc.html",
+  "NewExperiment.dc.html",
+  "DialogsCreate.dc.html",
+  "DialogsRecord.dc.html",
+  "ImportUpload.dc.html",
+  "ImportMap.dc.html",
+  "ImportFailed.dc.html",
+  "AnalysisEmpty.dc.html",
+  "SearchEmpty.dc.html",
+  "SchemaPending.dc.html",
+  "SettingsMembers.dc.html",
+  "SettingsSignature.dc.html",
+  "SettingsInstruments.dc.html",
+  "AuditLog.dc.html",
+  "ClientPortal.dc.html",
+  "NotebookLaptop.dc.html",
+  "NotebookTablet.dc.html",
+  "ProjectsTablet.dc.html",
+  "ProjectFiles.dc.html",
+  "ProjectMembers.dc.html",
+  "ProjectSettings.dc.html",
+  "ProjectLVV.dc.html",
+  "ProjectAmbr.dc.html",
+  "HelpRecords.dc.html",
+  "SignedOut.dc.html",
+  "SampleLineage.dc.html",
+  "SampleUsage.dc.html",
+  "SampleMeasurements.dc.html",
+  "SampleHistory.dc.html",
+  "SettingsGeneral.dc.html",
+  "SettingsAccess.dc.html",
+  "SettingsProfile.dc.html",
+  "SettingsNotifications.dc.html",
+  "PhoneHome.dc.html",
+  "PhoneScan.dc.html",
+  "PhoneSample.dc.html",
+  "PhoneWithdraw.dc.html",
+  "PhoneReading.dc.html",
+  "PhoneInbox.dc.html",
+  "States.dc.html",
+  "FocusOrder.dc.html",
+  "Shortcuts.dc.html",
+  "PipelinesList.dc.html",
+  "PipelineEditor.dc.html",
+  "PipelineTriggers.dc.html",
+  "PipelineRuns.dc.html",
+  "PipelineRun.dc.html",
+  "PipelineRunWaiting.dc.html",
+  "PipelineRunFailed.dc.html",
+  "DatasetSnapshots.dc.html",
+  "DatasetCompare.dc.html",
+  "RecordInstrument.dc.html",
+  "SheetWorking.dc.html",
+  "SheetPromote.dc.html",
+  "TemplatesList.dc.html",
+  "TemplateUpdate.dc.html",
+  "EvidenceCompare.dc.html",
+  "ProjectFolders.dc.html",
+  "SettingsIntegrations.dc.html",
+  "SettingsApi.dc.html",
+  "SheetEmpty.dc.html",
+  "PromoteRejected.dc.html",
+  "TemplateEditor.dc.html",
+  "SnapshotRemoved.dc.html",
+  "ModelRecords.dc.html",
+  "RecordDetail.dc.html",
+  "RecordNew.dc.html",
+  "IntegrationConnect.dc.html",
+  "IntegrationDeliveries.dc.html",
+  "TokenCreate.dc.html",
+  "TokenExpired.dc.html",
+  "FolderMove.dc.html",
+  "SheetTablet.dc.html",
+  "SnapshotsLaptop.dc.html",
+  "EvidencePhone.dc.html",
+  "RecordPhone.dc.html",
+  "ModelFields.dc.html",
+  "ModelVersions.dc.html"
+ ],
+ "pages": [
+  {
+   "id": "core",
+   "name": "Workspace"
+  },
+  {
+   "id": "experiment",
+   "name": "Experiment"
+  },
+  {
+   "id": "review",
+   "name": "Review and signing"
+  },
+  {
+   "id": "flows",
+   "name": "Flows and dialogs"
+  },
+  {
+   "id": "records",
+   "name": "Records"
+  },
+  {
+   "id": "sheets",
+   "name": "Sheets and templates"
+  },
+  {
+   "id": "analysis",
+   "name": "Analysis and search"
+  },
+  {
+   "id": "pipelines",
+   "name": "Pipelines"
+  },
+  {
+   "id": "schemas",
+   "name": "Models"
+  },
+  {
+   "id": "settings",
+   "name": "Settings and admin"
+  },
+  {
+   "id": "narrow",
+   "name": "Narrow screens"
+  },
+  {
+   "id": "phone",
+   "name": "Phone"
+  },
+  {
+   "id": "interaction",
+   "name": "Interaction and keyboard"
+  },
+  {
+   "id": "panels",
+   "name": "Sidebars and panels"
+  }
+ ],
+ "title": "Sheetbase ELN"
+}

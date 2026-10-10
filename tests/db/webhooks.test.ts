@@ -31,9 +31,24 @@ beforeAll(async () => {
 
   // Create users and workspace.
   await db.insert(schema.user).values([
-    { id: OWNER_A, name: 'Owner A', email: 'whk-a@sheetbase.test', emailVerified: true },
-    { id: MEMBER_A, name: 'Member A', email: 'whk-mem@sheetbase.test', emailVerified: true },
-    { id: VIEWER_A, name: 'Viewer A', email: 'whk-view@sheetbase.test', emailVerified: true },
+    {
+      id: OWNER_A,
+      name: 'Owner A',
+      email: 'whk-a@sheetbase.test',
+      emailVerified: true,
+    },
+    {
+      id: MEMBER_A,
+      name: 'Member A',
+      email: 'whk-mem@sheetbase.test',
+      emailVerified: true,
+    },
+    {
+      id: VIEWER_A,
+      name: 'Viewer A',
+      email: 'whk-view@sheetbase.test',
+      emailVerified: true,
+    },
   ])
 
   await db.insert(schema.workspaces).values({
@@ -129,30 +144,33 @@ describe('API-06 Webhooks', () => {
     it('rejects non-HTTPS URLs', async () => {
       const c = await asOwner()
       await expect(
-        c.query(
-          `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
-          [WS_A, 'test-hook-http', 'http://example.com/webhook'],
-        ),
+        c.query(`SELECT * FROM api.create_webhook_subscription($1, $2, $3)`, [
+          WS_A,
+          'test-hook-http',
+          'http://example.com/webhook',
+        ]),
       ).rejects.toThrow()
     })
 
     it('rejects invalid keys', async () => {
       const c = await asOwner()
       await expect(
-        c.query(
-          `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
-          [WS_A, 'Bad Key!', 'https://example.com/webhook'],
-        ),
+        c.query(`SELECT * FROM api.create_webhook_subscription($1, $2, $3)`, [
+          WS_A,
+          'Bad Key!',
+          'https://example.com/webhook',
+        ]),
       ).rejects.toThrow()
     })
 
     it('rejects duplicate keys in the same workspace', async () => {
       const c = await asOwner()
       await expect(
-        c.query(
-          `SELECT * FROM api.create_webhook_subscription($1, $2, $3)`,
-          [WS_A, 'test-hook-1', 'https://example.com/other'],
-        ),
+        c.query(`SELECT * FROM api.create_webhook_subscription($1, $2, $3)`, [
+          WS_A,
+          'test-hook-1',
+          'https://example.com/other',
+        ]),
       ).rejects.toThrow()
     })
 
@@ -160,7 +178,12 @@ describe('API-06 Webhooks', () => {
       const c = await asApiCredential()
       const { rows } = await c.query(
         `SELECT api.create_webhook_subscription($1, $2, $3, $4) AS result`,
-        [WS_A, 'cred-hook-1', 'https://example.com/cred-webhook', JSON.stringify([])],
+        [
+          WS_A,
+          'cred-hook-1',
+          'https://example.com/cred-webhook',
+          JSON.stringify([]),
+        ],
       )
       expect(rows).toHaveLength(1)
       const sub = rows[0].result.subscription
@@ -181,7 +204,13 @@ describe('API-06 Webhooks', () => {
 
       const { rows } = await c.query(
         `SELECT * FROM api.update_webhook_subscription($1, $2, $3, $4, $5)`,
-        [WS_A, subId, 'https://example.com/updated', null, 'Updated description'],
+        [
+          WS_A,
+          subId,
+          'https://example.com/updated',
+          null,
+          'Updated description',
+        ],
       )
       expect(rows[0].url).toBe('https://example.com/updated')
       expect(rows[0].description).toBe('Updated description')
@@ -347,7 +376,13 @@ describe('API-06 Webhooks', () => {
           (id, workspace_id, subscription_id, change_event_id, event_type,
            payload, body, signature, status)
          VALUES ($1, $2, $3, '00000000-0000-4000-8000-0000000000e2', 'dataset.updated', $4, $5, 'sha256=x', 'delivered')`,
-        [deliveryId, WS_A, subId, JSON.stringify({ eventType: 'dataset.updated' }), JSON.stringify({ eventType: 'dataset.updated' })],
+        [
+          deliveryId,
+          WS_A,
+          subId,
+          JSON.stringify({ eventType: 'dataset.updated' }),
+          JSON.stringify({ eventType: 'dataset.updated' }),
+        ],
       )
 
       const viewer = await asRole('authenticator')
@@ -355,10 +390,10 @@ describe('API-06 Webhooks', () => {
       await viewer.query('SET ROLE authenticated')
       await setActorJwt(viewer, VIEWER_A, WS_A)
       await expect(
-        viewer.query(
-          `SELECT * FROM api.replay_webhook_delivery($1, $2)`,
-          [WS_A, deliveryId],
-        ),
+        viewer.query(`SELECT * FROM api.replay_webhook_delivery($1, $2)`, [
+          WS_A,
+          deliveryId,
+        ]),
       ).rejects.toThrow()
     })
 
@@ -447,7 +482,13 @@ describe('API-06 Webhooks', () => {
           (id, workspace_id, subscription_id, change_event_id, event_type,
            payload, body, signature, status)
          VALUES ($1, $2, $3, '00000000-0000-4000-8000-0000000000a0', 'record.created', $4, $5, 'sha256=x', 'pending')`,
-        [deliveryId, WS_A, subId, JSON.stringify({ eventType: 'record.created' }), JSON.stringify({ eventType: 'record.created' })],
+        [
+          deliveryId,
+          WS_A,
+          subId,
+          JSON.stringify({ eventType: 'record.created' }),
+          JSON.stringify({ eventType: 'record.created' }),
+        ],
       )
 
       // Fail 3 times — should auto-disable.
@@ -523,7 +564,15 @@ describe('API-06 Webhooks', () => {
       const c = await asOwner()
       const { rows: subs } = await c.query(
         `SELECT api.create_webhook_subscription($1, $2, $3, $4, $5, $6, $7) AS result`,
-        [WS_A, 'dlq-disable-test', 'https://example.com/dlqd', JSON.stringify([]), null, 5, 2],
+        [
+          WS_A,
+          'dlq-disable-test',
+          'https://example.com/dlqd',
+          JSON.stringify([]),
+          null,
+          5,
+          2,
+        ],
       )
       const subId = subs[0].result.subscription.id
       const deliveryId = '00000000-0000-4000-8000-0000000000b2'
@@ -552,7 +601,10 @@ describe('API-06 Webhooks', () => {
 
     it('rejects invalid delivery statuses', async () => {
       await expect(
-        migrator.query(`SELECT api.record_webhook_delivery_result($1, $2, $3)`, [WS_A, '00000000-0000-4000-8000-0000000000b9', 'bogus']),
+        migrator.query(
+          `SELECT api.record_webhook_delivery_result($1, $2, $3)`,
+          [WS_A, '00000000-0000-4000-8000-0000000000b9', 'bogus'],
+        ),
       ).rejects.toThrow()
     })
   })
@@ -588,7 +640,14 @@ describe('API-06 Webhooks', () => {
       expect(byType.rows[0].result.total).toBe(2)
       const byWindow = await c.query(
         `SELECT api.list_webhook_deliveries($1, $2, $3, $4, NULL, NULL, $5, $6) AS result`,
-        [WS_A, subId, 50, 0, new Date(Date.now() - 60 * 60 * 1000), new Date(Date.now() + 60 * 60 * 1000)],
+        [
+          WS_A,
+          subId,
+          50,
+          0,
+          new Date(Date.now() - 60 * 60 * 1000),
+          new Date(Date.now() + 60 * 60 * 1000),
+        ],
       )
       expect(byWindow.rows[0].result.total).toBe(2)
     })
@@ -596,7 +655,10 @@ describe('API-06 Webhooks', () => {
     it('rejects an invalid status filter', async () => {
       const c = await asOwner()
       await expect(
-        c.query(`SELECT api.list_webhook_deliveries($1, NULL, 10, 0, $2) AS result`, [WS_A, 'bogus']),
+        c.query(
+          `SELECT api.list_webhook_deliveries($1, NULL, 10, 0, $2) AS result`,
+          [WS_A, 'bogus'],
+        ),
       ).rejects.toThrow()
     })
   })
@@ -618,7 +680,10 @@ describe('API-06 Webhooks', () => {
         [deliveryId, WS_A, subId, JSON.stringify({}), '{}'],
       )
       await expect(
-        c.query(`SELECT * FROM api.replay_webhook_delivery($1, $2)`, [WS_A, deliveryId]),
+        c.query(`SELECT * FROM api.replay_webhook_delivery($1, $2)`, [
+          WS_A,
+          deliveryId,
+        ]),
       ).rejects.toThrow()
     })
 
@@ -660,7 +725,10 @@ describe('API-06 Webhooks', () => {
         [WS_A, 'bulk-replay-test', 'https://example.com/br'],
       )
       const subId = subs[0].result.subscription.id
-      const body = JSON.stringify({ eventType: 'record.created', eventId: '00000000-0000-4000-8000-0000000000f1' })
+      const body = JSON.stringify({
+        eventType: 'record.created',
+        eventId: '00000000-0000-4000-8000-0000000000f1',
+      })
       await migrator.query(
         `INSERT INTO api.webhook_deliveries
           (id, workspace_id, subscription_id, change_event_id, event_type,
@@ -673,10 +741,17 @@ describe('API-06 Webhooks', () => {
       )
       const { rows } = await c.query(
         `SELECT api.replay_webhook_deliveries($1, $2, $3, $4) AS result`,
-        [WS_A, subId, new Date(Date.now() - 24 * 60 * 60 * 1000), new Date(Date.now() + 60 * 60 * 1000)],
+        [
+          WS_A,
+          subId,
+          new Date(Date.now() - 24 * 60 * 60 * 1000),
+          new Date(Date.now() + 60 * 60 * 1000),
+        ],
       )
       expect(rows[0].result.replayed_count).toBe(1)
-      expect(rows[0].result.delivery_ids).toEqual(['00000000-0000-4000-8000-0000000000f1'])
+      expect(rows[0].result.delivery_ids).toEqual([
+        '00000000-0000-4000-8000-0000000000f1',
+      ])
       const { rows: replayed } = await migrator.query(
         `SELECT status, attempt, body, signature, replay_of_delivery_id, next_attempt_at
            FROM api.webhook_deliveries WHERE replay_of_delivery_id = $1`,
@@ -719,7 +794,10 @@ describe('API-06 Webhooks', () => {
     it('rejects a non-terminal replay status', async () => {
       const c = await asOwner()
       await expect(
-        c.query(`SELECT api.replay_webhook_deliveries($1, NULL, NULL, NULL, $2) AS result`, [WS_A, 'pending']),
+        c.query(
+          `SELECT api.replay_webhook_deliveries($1, NULL, NULL, NULL, $2) AS result`,
+          [WS_A, 'pending'],
+        ),
       ).rejects.toThrow()
     })
   })
@@ -764,14 +842,19 @@ describe('API-06 Webhooks', () => {
       expect(entry.success_rate_24h).toBeCloseTo(0.5, 4)
       expect(entry.last_error.code).toBe('http_error')
       expect(entry.last_error.message).toBe('HTTP 500')
-      expect(entry.last_error.delivery_id).toBe('00000000-0000-4000-8000-0000000000a2')
+      expect(entry.last_error.delivery_id).toBe(
+        '00000000-0000-4000-8000-0000000000a2',
+      )
       expect(entry.last_delivered_at).not.toBeNull()
     })
 
     it('rejects an unknown subscription', async () => {
       const c = await asOwner()
       await expect(
-        c.query(`SELECT api.get_webhook_endpoint_health($1, $2) AS result`, [WS_A, '00000000-0000-4000-8000-00000000ffff']),
+        c.query(`SELECT api.get_webhook_endpoint_health($1, $2) AS result`, [
+          WS_A,
+          '00000000-0000-4000-8000-00000000ffff',
+        ]),
       ).rejects.toThrow()
     })
   })
@@ -781,13 +864,33 @@ describe('API-06 Webhooks', () => {
       const c = await asOwner()
       const { rows: created } = await c.query(
         `SELECT api.create_webhook_subscription($1, $2, $3, $4, $5, $6, $7, $8, $9) AS result`,
-        [WS_A, 'rate-test', 'https://example.com/rate', JSON.stringify([]), null, 5, 10, null, 120],
+        [
+          WS_A,
+          'rate-test',
+          'https://example.com/rate',
+          JSON.stringify([]),
+          null,
+          5,
+          10,
+          null,
+          120,
+        ],
       )
       expect(created[0].result.subscription.rate_limit_per_minute).toBe(120)
       await expect(
         c.query(
           `SELECT api.create_webhook_subscription($1, $2, $3, $4, $5, $6, $7, $8, $9) AS result`,
-          [WS_A, 'rate-bad-test', 'https://example.com/ratebad', JSON.stringify([]), null, 5, 10, null, 0],
+          [
+            WS_A,
+            'rate-bad-test',
+            'https://example.com/ratebad',
+            JSON.stringify([]),
+            null,
+            5,
+            10,
+            null,
+            0,
+          ],
         ),
       ).rejects.toThrow()
       const subId = created[0].result.subscription.id
@@ -802,7 +905,17 @@ describe('API-06 Webhooks', () => {
       const c = await asOwner()
       const { rows: subs } = await c.query(
         `SELECT api.create_webhook_subscription($1, $2, $3, $4, $5, $6, $7, $8, $9) AS result`,
-        [WS_A, 'rate-defer-test', 'https://example.com/ratedefer', JSON.stringify([]), null, 5, 100, null, 1],
+        [
+          WS_A,
+          'rate-defer-test',
+          'https://example.com/ratedefer',
+          JSON.stringify([]),
+          null,
+          5,
+          100,
+          null,
+          1,
+        ],
       )
       const subId = subs[0].result.subscription.id
       // A recent attempt consumes the whole per-minute budget.
@@ -829,7 +942,9 @@ describe('API-06 Webhooks', () => {
       )
       expect(rows[0].status).toBe('retrying')
       expect(rows[0].attempt).toBe(1)
-      expect(new Date(rows[0].next_attempt_at).getTime()).toBeGreaterThan(Date.now())
+      expect(new Date(rows[0].next_attempt_at).getTime()).toBeGreaterThan(
+        Date.now(),
+      )
     })
   })
 })

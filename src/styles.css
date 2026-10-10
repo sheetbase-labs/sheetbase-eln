@@ -1,99 +1,328 @@
+/*
+ * Cascade order. The `@sheetbase-labs/*` component bundles ship bare element
+ * resets (`button { background: transparent }`) that must not beat the app's
+ * Tailwind utilities, so their CSS loads into the `sheetbase` layer, below
+ * `components` and `utilities`. Declared before the imports so the layer is
+ * ordered here rather than created wherever the first `@import … layer()`
+ * appears.
+ */
+@layer theme, base, sheetbase, components, utilities;
+
 @import '@fontsource-variable/instrument-sans';
 @import '@fontsource-variable/inter';
-@import 'handsontable/styles/handsontable.css';
-@import 'handsontable/styles/ht-theme-main.css';
+@import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-animate-css';
 @import '@liveblocks/react-ui/styles.css';
 
+/*
+ * Sheetbase components (@sheetbase-labs/*, COMP-05).
+ *
+ * `sheetbase-table/styles.css` bundles the packages' own default preset, so it
+ * loads first; `sheetbase-explorer/styles.css` adds the explorer figure and
+ * chart classes (`.sb-figure*`) over the same preset; `themes/v3.css` declares
+ * the same 101 variables with the v3 values and replaces them in source order.
+ * The host mapping further down binds the variables that have an ELN token
+ * onto it, so one theme drives the ELN and the packages. Figures are wrapped
+ * in `.sheetbase-scope` so that mapping applies. See
+ * docs/development/sheetbase-components.md.
+ */
+@import '@sheetbase-labs/sheetbase-table/styles.css' layer(sheetbase);
+@import '@sheetbase-labs/sheetbase-explorer/styles.css' layer(sheetbase);
+@import '@sheetbase-labs/sheetbase-advanced-search/styles.css' layer(sheetbase);
+@import '@sheetbase-labs/sheetbase-shared/themes/v3.css' layer(sheetbase);
+
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * UI system v3 tokens. Generated from
+ * `docs/knowledge/design/ui-system-v3/design-system/tokens.json` by
+ * `scripts/design-tokens.mts`, converted to OKLCH (ADR-0007 keeps OKLCH as
+ * the format). Re-run the script when the design snapshot changes; the
+ * contrast pairs this must satisfy live in `src/lib/contrast.test.ts`.
+ */
 :root {
-  --background: oklch(0.995 0.002 260);
-  --foreground: oklch(0.19 0.018 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.19 0.018 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.018 260);
-  --primary: oklch(0.55 0.19 255);
-  --primary-foreground: oklch(0.985 0.002 255);
-  --secondary: oklch(0.965 0.006 260);
-  --secondary-foreground: oklch(0.25 0.02 260);
-  --muted: oklch(0.968 0.005 260);
-  --muted-foreground: oklch(0.5 0.02 260);
-  --accent: oklch(0.95 0.018 255);
-  --accent-foreground: oklch(0.27 0.07 255);
-  --destructive: oklch(0.55 0.21 27);
-  --destructive-foreground: oklch(0.985 0.002 27);
-  --success: oklch(0.62 0.17 145);
-  --success-foreground: oklch(0.985 0.002 145);
-  --warning: oklch(0.76 0.16 78);
-  --warning-foreground: oklch(0.27 0.05 78);
-  --info: oklch(0.62 0.16 255);
-  --info-foreground: oklch(0.985 0.002 255);
-  --violet: oklch(0.62 0.2 300);
-  --violet-foreground: oklch(0.985 0.002 300);
-  --border: oklch(0.91 0.009 260);
-  --input: oklch(0.89 0.012 260);
-  --ring: oklch(0.62 0.16 255);
-  --chart-1: oklch(0.58 0.2 255);
-  --chart-2: oklch(0.63 0.17 155);
-  --chart-3: oklch(0.62 0.2 300);
-  --chart-4: oklch(0.76 0.16 78);
-  --chart-5: oklch(0.65 0.13 210);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.982 0.004 260);
-  --sidebar-foreground: oklch(0.23 0.02 260);
-  --sidebar-primary: oklch(0.55 0.19 255);
-  --sidebar-primary-foreground: oklch(0.985 0.002 255);
-  --sidebar-accent: oklch(0.945 0.015 255);
-  --sidebar-accent-foreground: oklch(0.25 0.06 255);
-  --sidebar-border: oklch(0.91 0.009 260);
-  --sidebar-ring: oklch(0.62 0.16 255);
+  /*
+   * COMP-05: `@sheetbase-labs/sheetbase-table/styles.css` ends with an
+   * unlayered `:root { --font-sans: "Instrument Sans", …; --font-mono:
+   * "Roboto Mono", … }`. Unlayered rules beat Tailwind's `@layer theme`
+   * output, so the `@theme inline` font values never applied and app chrome
+   * rendered in Instrument Sans instead of the design's Inter. Re-assert the
+   * ELN's own values here — unlayered and later in source order — so the whole
+   * app, not just `.sheetbase-scope` content, uses Inter and JetBrains Mono.
+   */
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+
+  /* Core surfaces and text (bg, surface, text, text-muted, text-faint) */
+  --background: oklch(0.995 0.003 286.4);
+  --foreground: oklch(0.19 0.018 259.7);
+  --card: oklch(1 0 89.9);
+  --card-foreground: oklch(0.19 0.018 259.7);
+  --popover: oklch(1 0 89.9);
+  --popover-foreground: oklch(0.19 0.018 259.7);
+  --primary: oklch(0.551 0.188 256);
+  --primary-foreground: oklch(1 0 89.9);
+  --primary-hover: oklch(0.505 0.173 256.1);
+  --secondary: oklch(0.979 0.003 264.5);
+  --secondary-foreground: oklch(0.19 0.018 259.7);
+  --muted: oklch(0.979 0.003 264.5);
+  --muted-foreground: oklch(0.501 0.02 259.4);
+  --faint-foreground: oklch(0.55 0.019 259.4);
+  --accent: oklch(0.96 0.005 258.3);
+  --accent-foreground: oklch(0.19 0.018 259.7);
+  --destructive: oklch(0.61 0.22 27);
+  --destructive-foreground: oklch(1 0 89.9);
+  --success: oklch(0.636 0.163 153.3);
+  --success-foreground: oklch(1 0 89.9);
+  --warning: oklch(0.761 0.159 77.7);
+  --warning-foreground: oklch(0.19 0.018 259.7);
+  --info: oklch(0.551 0.188 256);
+  --info-foreground: oklch(1 0 89.9);
+  --border: oklch(0.909 0.009 264.5);
+  --input: oklch(0.909 0.009 264.5);
+  --ring: oklch(0.551 0.188 256);
+
+  /* Selection and links (selection, selection-subtle, selection-border, accent, accent-hover) */
+  --selection: oklch(0.95 0.018 258.4);
+  --selection-subtle: oklch(0.975 0.009 258.3);
+  --selection-border: oklch(0.798 0.073 254.4);
+  --link: oklch(0.551 0.188 256);
+  --link-hover: oklch(0.467 0.159 255.9);
+
+  /* Borders and derived surfaces */
+  --border-subtle: oklch(0.954 0.005 258.3);
+  --border-strong: oklch(0.831 0.012 259.8);
+  --grid-line: oklch(0.927 0.007 260.7);
+  --surface-derived: oklch(0.988 0.003 264.5);
+  --surface-disabled: oklch(0.966 0.005 258.3);
+  --canvas-sunken: oklch(0.97 0.003 264.5);
+  --row-hover: oklch(0.981 0.005 258.3);
+  --skeleton: oklch(0.954 0.005 258.3);
+  --highlight: oklch(0.956 0.074 95.9);
+
+  /* Status washes and text (danger, success, warning) */
+  --danger-text: oklch(0.5 0.182 29.5);
+  --danger-wash: oklch(0.959 0.017 17.5);
+  --danger-border: oklch(0.861 0.054 18.2);
+  --success-text: oklch(0.457 0.108 154);
+  --success-wash: oklch(0.954 0.022 164.5);
+  --warning-text: oklch(0.508 0.108 73.3);
+  --warning-wash: oklch(0.976 0.031 91);
+  --warning-border: oklch(0.906 0.076 91.8);
+
+  /* Review, analysis and chart series (review, review-wash, analysis, neutral-dot) */
+  --review: oklch(0.62 0.2 300.1);
+  --review-wash: oklch(0.944 0.03 305.1);
+  --analysis: oklch(0.657 0.115 213);
+  --neutral-dot: oklch(0.713 0.018 259.4);
+  --chart-1: oklch(0.657 0.115 213);
+  --chart-2: oklch(0.551 0.188 256);
+  --chart-3: oklch(0.501 0.02 259.4);
+  --chart-4: oklch(0.62 0.2 300.1);
+  --chart-5: oklch(0.657 0.115 213);
+  --chart-grid: oklch(0.954 0.005 258.3);
+  --chart-axis: oklch(0.713 0.018 259.4);
+
+  /* Inverse and overlays */
+  --inverse-bg: oklch(0.19 0.018 259.7);
+  --inverse-text: oklch(1 0 89.9);
+  --scrim: oklch(0.19 0.018 259.7 / 0.32);
+  --hatch: oklch(0.19 0.018 259.7 / 0.03);
+
+  /* Shape, elevation and layout sizes */
+  --radius: 6px;
+  --shadow-overlay: 0 8px 24px rgba(15, 20, 28, 0.12);
+  --shadow-dialog: 0 16px 48px rgba(15, 20, 28, 0.22);
+  --topbar-height: 44px;
+  --nav-width: 232px;
+  --inspector-width: 300px;
+  --row-height: 32px;
+  --control-height: 28px;
+
+  --sidebar: oklch(0.979 0.003 264.5);
+  --sidebar-foreground: oklch(0.19 0.018 259.7);
+  --sidebar-primary: oklch(0.551 0.188 256);
+  --sidebar-primary-foreground: oklch(1 0 89.9);
+  --sidebar-accent: oklch(0.95 0.018 258.4);
+  --sidebar-accent-foreground: oklch(0.19 0.018 259.7);
+  --sidebar-border: oklch(0.909 0.009 264.5);
+  --sidebar-ring: oklch(0.551 0.188 256);
+
+  /* Deprecated alias for the v3 `review` token; usages migrate in DSYS-02.3. */
+  --violet: var(--review);
+  --violet-foreground: oklch(1 0 89.9);
 }
 
 .dark {
-  --background: oklch(0.15 0.012 260);
-  --foreground: oklch(0.96 0.006 260);
-  --card: oklch(0.18 0.014 260);
-  --card-foreground: oklch(0.96 0.006 260);
-  --popover: oklch(0.19 0.014 260);
-  --popover-foreground: oklch(0.96 0.006 260);
-  --primary: oklch(0.68 0.16 255);
-  --primary-foreground: oklch(0.15 0.018 255);
-  --secondary: oklch(0.24 0.014 260);
-  --secondary-foreground: oklch(0.94 0.006 260);
-  --muted: oklch(0.23 0.012 260);
-  --muted-foreground: oklch(0.69 0.016 260);
-  --accent: oklch(0.27 0.035 255);
-  --accent-foreground: oklch(0.95 0.015 255);
-  --destructive: oklch(0.57 0.21 27);
-  --destructive-foreground: oklch(0.985 0.002 27);
-  --success: oklch(0.72 0.16 145);
-  --success-foreground: oklch(0.15 0.018 145);
-  --warning: oklch(0.79 0.15 78);
-  --warning-foreground: oklch(0.15 0.02 78);
-  --info: oklch(0.7 0.15 255);
-  --info-foreground: oklch(0.15 0.018 255);
-  --violet: oklch(0.72 0.18 300);
-  --violet-foreground: oklch(0.15 0.018 300);
-  --border: oklch(0.29 0.014 260);
-  --input: oklch(0.32 0.016 260);
-  --ring: oklch(0.69 0.15 255);
-  --chart-1: oklch(0.7 0.17 255);
-  --chart-2: oklch(0.72 0.16 155);
-  --chart-3: oklch(0.72 0.18 300);
-  --chart-4: oklch(0.79 0.15 78);
-  --chart-5: oklch(0.7 0.13 210);
-  --sidebar: oklch(0.17 0.014 260);
-  --sidebar-foreground: oklch(0.94 0.006 260);
-  --sidebar-primary: oklch(0.68 0.16 255);
-  --sidebar-primary-foreground: oklch(0.15 0.018 255);
-  --sidebar-accent: oklch(0.25 0.027 255);
-  --sidebar-accent-foreground: oklch(0.95 0.015 255);
-  --sidebar-border: oklch(0.29 0.014 260);
-  --sidebar-ring: oklch(0.69 0.15 255);
+  --background: oklch(0.177 0.011 260.6);
+  --foreground: oklch(0.933 0.007 260.7);
+  --card: oklch(0.216 0.016 256.8);
+  --card-foreground: oklch(0.933 0.007 260.7);
+  --popover: oklch(0.216 0.016 256.8);
+  --popover-foreground: oklch(0.933 0.007 260.7);
+  --primary: oklch(0.553 0.175 257.1);
+  --primary-foreground: oklch(1 0 89.9);
+  --primary-hover: oklch(0.591 0.177 256.8);
+  --secondary: oklch(0.241 0.018 255.7);
+  --secondary-foreground: oklch(0.933 0.007 260.7);
+  --muted: oklch(0.241 0.018 255.7);
+  --muted-foreground: oklch(0.712 0.02 255.6);
+  --faint-foreground: oklch(0.66 0.022 257.5);
+  --accent: oklch(0.266 0.021 257.3);
+  --accent-foreground: oklch(0.933 0.007 260.7);
+  --destructive: oklch(0.676 0.176 24.2);
+  --destructive-foreground: oklch(1 0 89.9);
+  --success: oklch(0.719 0.146 157.3);
+  --success-foreground: oklch(0.177 0.011 260.6);
+  --warning: oklch(0.793 0.144 83.2);
+  --warning-foreground: oklch(0.177 0.011 260.6);
+  --info: oklch(0.687 0.167 255.6);
+  --info-foreground: oklch(0.177 0.011 260.6);
+  --border: oklch(0.311 0.02 257.3);
+  --input: oklch(0.311 0.02 257.3);
+  --ring: oklch(0.687 0.167 255.6);
+
+  --selection: oklch(0.286 0.044 256.9);
+  --selection-subtle: oklch(0.249 0.029 255.2);
+  --selection-border: oklch(0.424 0.085 256);
+  --link: oklch(0.687 0.167 255.6);
+  --link-hover: oklch(0.761 0.124 255.3);
+
+  --border-subtle: oklch(0.274 0.017 255.7);
+  --border-strong: oklch(0.377 0.023 258.4);
+  --grid-line: oklch(0.294 0.019 254.8);
+  --surface-derived: oklch(0.233 0.018 255.7);
+  --surface-disabled: oklch(0.237 0.015 256.8);
+  --canvas-sunken: oklch(0.162 0.01 255.7);
+  --row-hover: oklch(0.246 0.022 257.3);
+  --skeleton: oklch(0.278 0.019 254.8);
+  --highlight: oklch(0.367 0.065 94.1);
+
+  --danger-text: oklch(0.76 0.143 23.5);
+  --danger-wash: oklch(0.237 0.037 20.2);
+  --danger-border: oklch(0.342 0.077 22);
+  --success-text: oklch(0.797 0.129 158.7);
+  --success-wash: oklch(0.259 0.034 163.1);
+  --warning-text: oklch(0.846 0.125 86.6);
+  --warning-wash: oklch(0.263 0.032 88.9);
+  --warning-border: oklch(0.365 0.054 89.2);
+
+  --review: oklch(0.716 0.152 298.3);
+  --review-wash: oklch(0.255 0.051 298.1);
+  --analysis: oklch(0.743 0.121 210.2);
+  --neutral-dot: oklch(0.565 0.02 253.4);
+  --chart-1: oklch(0.743 0.121 210.2);
+  --chart-2: oklch(0.687 0.167 255.6);
+  --chart-3: oklch(0.712 0.02 255.6);
+  --chart-4: oklch(0.716 0.152 298.3);
+  --chart-5: oklch(0.743 0.121 210.2);
+  --chart-grid: oklch(0.294 0.019 254.8);
+  --chart-axis: oklch(0.436 0.022 258.4);
+
+  --inverse-bg: oklch(0.933 0.007 260.7);
+  --inverse-text: oklch(0.177 0.011 260.6);
+  --scrim: oklch(0 0 0 / 0.55);
+  --hatch: oklch(1 0 89.9 / 0.03);
+
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  --sidebar: oklch(0.241 0.018 255.7);
+  --sidebar-foreground: oklch(0.933 0.007 260.7);
+  --sidebar-primary: oklch(0.553 0.175 257.1);
+  --sidebar-primary-foreground: oklch(1 0 89.9);
+  --sidebar-accent: oklch(0.286 0.044 256.9);
+  --sidebar-accent-foreground: oklch(0.933 0.007 260.7);
+  --sidebar-border: oklch(0.311 0.02 257.3);
+  --sidebar-ring: oklch(0.687 0.167 255.6);
+
+  --violet: var(--review);
+  --violet-foreground: oklch(1 0 89.9);
+}
+
+/*
+ * Sheetbase components host mapping (COMP-05).
+ *
+ * The values are `var()` references, never copies: the packages read the ELN's
+ * v3 tokens, and `.dark` on <html> switches both together. The selectors are
+ * `:root`-prefixed (specificity 0,1,1) so they win over the preset's
+ * `:where(.sheetbase-scope)` rules (0,0,0 light, 0,1,0 dark) whatever order the
+ * bundles end up in.
+ *
+ * Variables whose name and meaning already match an ELN token (`--border`,
+ * `--border-subtle`, `--border-strong`, `--grid-line`, `--selection`,
+ * `--selection-subtle`, `--selection-border`, `--surface-derived`,
+ * `--surface-disabled`, `--link`, `--link-hover`, `--danger-text`,
+ * `--chart-grid`, `--chart-axis`, `--radius-*`, `--control-height` and
+ * type sizes) keep the v3 preset binding: `--border: var(--border)` on the
+ * same element would be a self-reference and invalid CSS. `--row-height` also
+ * stays at the preset's 28px — that is the v3 grid row, not the ELN's 32px
+ * list row. Identical-name variables that do differ in meaning are rebound
+ * below; the ELN values they shadow are read through the aliases here, which
+ * resolve on `:root` before the scope reshapes the name.
+ */
+:root {
+  --sb-host-muted-surface: var(--muted);
+  --sb-host-hover-surface: var(--accent);
+  --sb-host-font-sans: var(--font-sans);
+  --sb-host-font-mono: var(--font-mono);
+}
+
+:root .sheetbase-scope,
+:root .sheetbase-explorer {
+  /* Use the loaded @fontsource family names, not the preset's font aliases. */
+  --font-sans: var(--sb-host-font-sans);
+  --font-mono: var(--sb-host-font-mono);
+
+  /* Surfaces */
+  --app: var(--background);
+  --canvas: var(--background);
+  --panel: var(--card);
+  --panel-2: var(--sb-host-muted-surface);
+  --surface: var(--card);
+  --surface-muted: var(--sb-host-muted-surface);
+  --surface-hover: var(--sb-host-hover-surface);
+
+  /* Text */
+  --text: var(--foreground);
+  --muted: var(--muted-foreground);
+  --faint: var(--faint-foreground);
+
+  /* Interaction */
+  --accent: var(--primary);
+  --accent-dark: var(--primary-hover);
+  --accent-ink: var(--primary);
+  --accent-soft: var(--selection);
+  --accent-soft-2: var(--selection-subtle);
+  --focus: var(--ring);
+  --on-accent: var(--primary-foreground);
+
+  /* Status */
+  --green: var(--success);
+  --green-text: var(--success-text);
+  --green-soft: var(--success-wash);
+  --orange: var(--warning);
+  --orange-text: var(--warning-text);
+  --orange-soft: var(--warning-wash);
+  --blue: var(--info);
+  --purple: var(--review);
+  --purple-soft: var(--review-wash);
+  --danger: var(--destructive);
+  --danger-soft: var(--danger-wash);
+
+  /* Charts */
+  --series-a: var(--chart-1);
+  --series-b: var(--chart-2);
+  --series-c: var(--chart-3);
+  --chart-label: var(--muted-foreground);
+  --chart-anchor: var(--foreground);
+
+  /* Elevation */
+  --shadow: var(--shadow-overlay);
 }
 
 @theme inline {
@@ -101,7 +330,10 @@
   --font-display:
     'Instrument Sans Variable', 'Inter Variable', ui-sans-serif, system-ui,
     sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -110,10 +342,12 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -124,16 +358,56 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
-  --color-violet: var(--violet);
-  --color-violet-foreground: var(--violet-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-selection: var(--selection);
+  --color-selection-subtle: var(--selection-subtle);
+  --color-selection-border: var(--selection-border);
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-grid-line: var(--grid-line);
+  --color-surface-derived: var(--surface-derived);
+  --color-surface-disabled: var(--surface-disabled);
+  --color-canvas-sunken: var(--canvas-sunken);
+  --color-row-hover: var(--row-hover);
+  --color-skeleton: var(--skeleton);
+  --color-highlight: var(--highlight);
+
+  --color-danger-text: var(--danger-text);
+  --color-danger-wash: var(--danger-wash);
+  --color-danger-border: var(--danger-border);
+  --color-success-text: var(--success-text);
+  --color-success-wash: var(--success-wash);
+  --color-warning-text: var(--warning-text);
+  --color-warning-wash: var(--warning-wash);
+  --color-warning-border: var(--warning-border);
+
+  --color-review: var(--review);
+  --color-review-wash: var(--review-wash);
+  --color-analysis: var(--analysis);
+  --color-neutral-dot: var(--neutral-dot);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
+
+  --color-inverse-bg: var(--inverse-bg);
+  --color-inverse-text: var(--inverse-text);
+  --color-scrim: var(--scrim);
+  --color-hatch: var(--hatch);
+
+  /* Deprecated aliases; usages migrate in DSYS-02.3. */
+  --color-violet: var(--violet);
+  --color-violet-foreground: var(--violet-foreground);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -142,10 +416,77 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) - 3px);
-  --radius-md: calc(var(--radius) - 1px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 10px;
+
+  --shadow-overlay: var(--shadow-overlay);
+  --shadow-dialog: var(--shadow-dialog);
+
+  --spacing-topbar: var(--topbar-height);
+  --spacing-nav: var(--nav-width);
+  --spacing-inspector: var(--inspector-width);
+  --spacing-row: var(--row-height);
+  --spacing-control: var(--control-height);
+}
+
+/* UI system v3 type styles. Interface text is 13px; headings use Instrument
+   Sans; machine values use JetBrains Mono. */
+@utility text-page-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+}
+
+@utility text-section {
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+@utility text-doc-heading {
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+
+@utility text-prose {
+  font-size: 14px;
+  line-height: 22px;
+}
+
+@utility text-body {
+  font-size: 13px;
+  line-height: 18px;
+}
+
+@utility text-label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+@utility text-caption {
+  font-size: 12px;
+  line-height: 17px;
+}
+
+@utility text-id {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+@layer components {
+  /* The table bundle's demo body minimum must not constrain the app shell. */
+  body {
+    min-width: 0;
+  }
 }
 
 @layer base {
@@ -159,17 +500,20 @@
     scroll-behavior: smooth;
   }
 
-  /* Compact density: 15px root shrinks spacing, not text. The DESIGN.md
-     baseline (12px caption, 13px data, 14px body) is preserved; only the
-     8px-grid spacing around components tightens. */
-  html[data-density='compact'] {
-    font-size: 15px;
-  }
-
   body {
     @apply min-h-svh bg-background text-foreground antialiased;
     font-family: var(--font-sans);
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    /* UI port (roadmap-4/ui-app3): the reference sets a 13px body; ported
+       markup relies on it where it has no explicit text-* class. */
+    font-size: 13px;
+    line-height: 18px;
+    /*
+     * No font-feature-settings: the design's base text (.sb-root in
+     * bundle.css) runs plain Inter with no stylistic sets, and cv02/cv03/
+     * cv04/cv11 change glyph shapes (a, g, l, 4, 6, 9), which broke parity
+     * (DSYS-06). Keep them off the app chrome; scoped utilities such as
+     * .scientific-nums may still opt in.
+     */
     text-rendering: optimizeLegibility;
   }
 
@@ -187,7 +531,21 @@
   }
 
   ::selection {
-    background: color-mix(in oklab, var(--primary) 22%, transparent);
+    background: var(--selection);
+  }
+
+  /* Diff marks, matching the reference base layer. */
+  del {
+    @apply text-fg-muted line-through;
+    background: var(--danger-wash);
+    padding: 0 1px;
+  }
+
+  ins {
+    @apply no-underline;
+    background: var(--success-wash);
+    border-bottom: 1px solid var(--success);
+    padding: 0 1px;
   }
 }
 
@@ -206,34 +564,32 @@
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
 }
 
-/* Handsontable is always mounted through SheetbaseGrid. These overrides keep
-   the vendor grid on the same compact, scientific-data visual language as the
-   rest of the application while preserving Handsontable's interaction CSS. */
-.sheetbase-grid.ht-theme-main {
-  --ht-font-family: var(--font-sans);
-  --ht-font-size: 13px;
-  --ht-font-size-small: 12px;
-  --ht-line-height: 18px;
-  --ht-line-height-small: 16px;
-  --ht-border-color: var(--border);
-  --ht-accent-color: var(--primary);
-  --ht-foreground-color: var(--foreground);
-  --ht-foreground-secondary-color: var(--muted-foreground);
-  --ht-background-color: var(--card);
-  --ht-background-secondary-color: var(--muted);
-  --ht-cell-selection-background-color: color-mix(
-    in oklab,
-    var(--primary) 16%,
-    transparent
-  );
-  --ht-cell-read-only-background-color: var(--muted);
-  --ht-header-font-weight: 600;
-  --ht-border-radius: var(--radius-sm);
+/* COMP-06 step 3 — the ELN in-cell formula editor.
+ *
+ * Formula-enabled columns edit through a hosted input (`.custom-editor-host`)
+ * that renders its own reference highlights and function-suggestion dropdown.
+ * The grid still renders its static formula layers from the editor's opening
+ * draft (tokens, reference outlines, its own suggestion list); those sit above
+ * the host by z-index and would otherwise show stale content, so they are
+ * hidden while a hosted editor is open. */
+.grid-canvas:has(.custom-editor-host) .cell-formula-tokens,
+.grid-canvas:has(.custom-editor-host) .formula-reference,
+.grid-canvas:has(.custom-editor-host) .formula-suggestions {
+  display: none;
+}
 
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-variant-numeric: tabular-nums lining-nums;
+/* The hosted input fills its cell editor host and inherits the host's mono
+   typography; the host (`.cell-editor`) owns the border, background and focus
+   outline. */
+.sheetbase-formula-editor {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
 }
 
 @keyframes accordion-down {
@@ -311,5 +667,56 @@
   --lb-foreground-subtle: var(--muted-foreground);
   --lb-icon-background: var(--muted);
   /* Text-selection highlight inside comments follows the primary hue. */
-  --lb-selection: color-mix(in oklab, var(--primary) 25%, transparent);
+  --lb-selection: var(--selection);
+}
+
+/*
+ * sheetbase-app-3 compatibility bridge (UI port, branch roadmap-4/ui-app3).
+ *
+ * app-3 components address tokens by different names (`bg-surface`, `text-fg`,
+ * `bg-bg`, …) and rely on a few utilities. Alias them onto the ELN tokens so
+ * the ported components render correctly while the existing screens keep
+ * working. Additive only — the ELN theme stays the source.
+ */
+@theme inline {
+  --color-bg: var(--background);
+  --color-surface: var(--card);
+  --color-surface-muted: var(--muted);
+  --color-surface-hover: var(--accent);
+  --color-fg: var(--foreground);
+  --color-fg-muted: var(--muted-foreground);
+  --color-fg-faint: var(--faint-foreground);
+  --color-danger: var(--destructive);
+  --color-on-accent: var(--primary-foreground);
+  --color-accent-strong: var(--primary);
+  --color-accent-strong-hover: var(--primary-hover);
+  --color-focus: var(--ring);
+  --color-series-a: var(--chart-1);
+  --color-series-b: var(--chart-2);
+  --color-series-c: var(--chart-3);
+  --color-inverse: var(--inverse-bg);
+  --color-inverse-foreground: var(--inverse-text);
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+@utility text-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+}
+
+@utility text-doc {
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
 }

@@ -48,7 +48,6 @@ async function clean() {
   )
   await admin.query(`DELETE FROM api.records WHERE workspace_id=$1`, [WS])
   await admin.query(`DELETE FROM api.projects WHERE workspace_id=$1`, [WS])
-  await admin.query(`DELETE FROM api.change_events WHERE workspace_id=$1`, [WS])
   await admin.query(
     `DELETE FROM api.workspace_change_seq WHERE workspace_id=$1`,
     [WS],

@@ -1,0 +1,10 @@
+Projects, empty workspace
+Projects
+0
+Import
+New project
+| | ID | Project | Client | Modality | Stage | Lead | Experiments | Status | Updated
+No projects in Analytical Development yet
+A project groups the experiments, samples and datasets for one programme or client. Members and permissions are set per project.
+New project Import from CSV
+Copy a project structure from Process Development

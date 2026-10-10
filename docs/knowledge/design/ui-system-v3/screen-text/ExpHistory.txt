@@ -1,0 +1,52 @@
+Experiment history
+Projects / AAV9 process transfer / EXP-0142
+Harvest clarification: depth filter screening
+Share
+Submit for review
+In progress Owner Gareth P. Started 21 Sep 2026 Protocol PRT-021 v3 Client CL-017
+Overview Notebook Samples 12 Datasets 2 Results Files 4 History
+All 38 Data 21 Text 7 Status 2 Files 4 Comments 4 Signatures 0
+Actor: anyone
+Export audit trail
+| | Time | Actor | Action | Object | Field | Change | Reason
+| Friday 25 September
+| 09:34 | Gareth P. | Created sample | SMP-2249 | — | C-150 filtrate, 1:5 dilution | Repeat of out-of-range reading
+| 09:32 | Gareth P. | Edited cell | Clarification runs, row 9 | Load (L/m²) | 125 → 150 | Transcription error; run sheet says 150
+| 09:31 | Gareth P. | Replied | Observations | — | “Yes. Queued for plate 4 at 11:30.” | —
+| 09:05 | Priya S. | Commented | Observations | — | “Can we repeat C at 150 with a 1:5 dilution?” | —
+| Thursday 24 September
+| 16:20 | Gareth P. | Ran analysis | AN-0057 | — | v2 → v3 | —
+| 16:04 | System | Flagged value | DS-0311, row 88 | Turbidity (NTU) | 61.5 outside 0–50 | Model rule
+| 16:04 | Import service | Imported rows | DS-0311 | — | +96 rows | From PR-01 and TB-02 exports
+| 15:59 | Gareth P. | Uploaded file | TB-02_turbidity_2026-09-24.csv | — | 1b77…0c92 | —
+| Wednesday 23 September
+| 17:52 | Gareth P. | Uploaded file | pressure_log_trains_A-C.csv | — | c410…77ad | —
+| 17:40 | Gareth P. | Added rows | Clarification runs | — | +9 rows (A-50 to C-150) | —
+| 11:20 | Gareth P. | Edited text | Method | — | flux 120 LMH → 100 LMH | Protocol specifies 100 LMH
+| Monday 21 September
+| 14:10 | Gareth P. | Changed status | EXP-0142 | Status | Draft → In progress | —
+| 09:12 | Gareth P. | Created experiment | EXP-0142 | — | From template PRT-021 v3 | —
+| No signatures yet. The author and reviewer sign when EXP-0142 is submitted and approved.
+13 of 38 entries · older entries load on scroll Times in BST (UTC+1)
+Entry
+When
+25 Sep 2026, 09:32:14 BST
+Actor
+Gareth P. (gareth.p)
+Action
+Edited cell
+Object
+Clarification runs , row 9
+Field
+Load (L/m²)
+Old value
+125
+New value
+150
+Reason
+Transcription error; run sheet says 150
+Session
+web · 7c1e…
+Knock-on changes
+Meets criteria recalculated for row 9. Figure 1 in AN-0057 is now stale.
+Audit entries are written by the system and can't be edited or deleted.

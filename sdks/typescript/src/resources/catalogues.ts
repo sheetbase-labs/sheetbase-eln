@@ -6,9 +6,30 @@
  * Authoring RPCs stay fail-closed.
  */
 import type { HttpTransport } from "../http.js";
+import {  fromRecordModel } from "../types.js";
+import type {RecordModel} from "../types.js";
 
 export class CataloguesResource {
   constructor(private transport: HttpTransport) {}
+
+  // ── Record Models (MDL-01) ──────────────────────────────────────────
+
+  async listRecordModels(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<RecordModel[]> {
+    const rows = await this.transport.get("/api/db/record_models", {
+      params: { limit: options?.limit ?? 100, offset: options?.offset ?? 0 },
+    });
+    return rows.map(fromRecordModel);
+  }
+
+  async getRecordModel(modelId: string): Promise<RecordModel | null> {
+    const rows = await this.transport.get("/api/db/record_models", {
+      params: { id: `eq.${modelId}`, limit: 1 },
+    });
+    return rows.length > 0 ? fromRecordModel(rows[0]) : null;
+  }
 
   // ── Dataset Schema ──────────────────────────────────────────────────
 

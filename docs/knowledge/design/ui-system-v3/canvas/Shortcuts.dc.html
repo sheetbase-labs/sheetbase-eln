@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Keyboard shortcuts</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 1440px; height: 900px">
+<div style="position: relative; width: 100%; height: 100%"><div aria-hidden="true" style="position: absolute; inset: 0; display: flex; flex-direction: column"><div style="height: 44px; background: var(--surface); border-bottom: 1px solid var(--border)"></div><div style="flex-grow: 1; display: flex"><div style="width: 232px; background: var(--surface); border-right: 1px solid var(--border); padding: 14px; display: flex; flex-direction: column; gap: 12px"><div class="sk" style="height: 12px; width: 120px"></div><div class="sk" style="height: 12px; width: 100px"></div><div class="sk" style="height: 12px; width: 130px"></div><div class="sk" style="height: 12px; width: 90px"></div></div><div style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 14px"><div class="sk" style="height: 18px; width: 90px"></div><div class="sk" style="height: 150px"></div><div class="sk" style="height: 240px"></div></div></div></div><div class="scrim" aria-hidden="true"></div><div role="dialog" aria-modal="true" aria-labelledby="ks-t" class="dialog" style="left: 300px; top: 90px; width: 840px"><div class="dialog-head" style="display: flex; align-items: center"><h2 id="ks-t" style="flex-grow: 1">Keyboard shortcuts</h2><a href="Main.dc.html" class="btn ib" aria-label="Close"><x-import component-from-global-scope="Sheetbase.Icon" name="x" size="14"></x-import></a></div><div class="dialog-body" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 40px"><section style="display: flex; flex-direction: column; gap: 6px"><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 4px">Anywhere</h3><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Search and jump</span><span><kbd>⌘</kbd> <kbd>K</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Create…</span><span><kbd>C</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Go to Home</span><span><kbd>G</kbd> then <kbd>H</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Go to Inbox</span><span><kbd>G</kbd> then <kbd>I</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Go to Experiments</span><span><kbd>G</kbd> then <kbd>E</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Show this list</span><span><kbd>?</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Collapse the sidebar</span><span><kbd>⌘</kbd> <kbd>\</kbd></span></div></section><section style="display: flex; flex-direction: column; gap: 6px"><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 4px">Lists</h3><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Move between rows</span><span><kbd>↑</kbd> <kbd>↓</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Next and previous item</span><span><kbd>J</kbd> <kbd>K</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Open</span><span><kbd>↵</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Select</span><span><kbd>Space</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Add to selection</span><span><kbd>X</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Filter this list</span><span><kbd>/</kbd></span></div></section><section style="display: flex; flex-direction: column; gap: 6px"><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 4px">Notebook and sheets</h3><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Insert a block</span><span><kbd>/</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Edit the cell</span><span><kbd>↵</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Cancel the edit</span><span><kbd>Esc</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Next cell</span><span><kbd>Tab</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Save the row</span><span><kbd>⌘</kbd> <kbd>↵</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Comment on selection</span><span><kbd>⌥</kbd> <kbd>⌘</kbd> <kbd>M</kbd></span></div></section><section style="display: flex; flex-direction: column; gap: 6px"><h3 style="font-size: 12px; font-weight: 600; margin: 0 0 4px">Review</h3><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Next and previous change</span><span><kbd>N</kbd> <kbd>P</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Reply to comment</span><span><kbd>R</kbd></span></div><div style="display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0"><span>Approve and sign…</span><span><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>↵</kbd></span></div></section></div><div class="dialog-foot" style="justify-content: space-between"><span class="muted" style="font-size: 12px">On Windows, use Ctrl for ⌘ and Alt for ⌥. <a href="FocusOrder.dc.html">Focus order</a></span><a href="Main.dc.html" class="btn">Close</a></div></div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

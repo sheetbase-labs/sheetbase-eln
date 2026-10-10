@@ -41,7 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # `write` includes read of the private @sheetbase-labs/* packages.
       packages: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     outputs:
       app_image_ref: ${{ steps.app_digest.outputs.ref }}
       postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
@@ -87,6 +90,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 11.9.0
+
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

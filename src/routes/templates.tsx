@@ -1,614 +1,352 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
-
-import { useShell } from '#/components/app-shell'
 import {
-  TemplateFilters,
-  TemplateInspector,
-  TemplateList,
-} from '#/components/templates/template-library'
-import { VersionedNotebookTemplatePanel } from '#/components/templates/versioned-notebook-templates'
-import type {
-  TemplateLinkedRecord,
-  TemplateOwnershipFilter,
-  TemplateProject,
-  TemplateView,
-} from '#/components/templates/template-library'
-import { createDataClient, DataClientError } from '#/lib/data-client'
-import {
-  fetchBlocksForRecord,
-  fetchRecord,
-  notebookDataClient,
-  notebookQueryKeys,
-  toBlock,
-} from '#/lib/notebook-data'
-import type { BlockWire, NotebookBlock, RecordWire } from '#/lib/notebook-data'
-import {
-  archiveTemplate,
-  buildTemplateExport,
-  createTemplateFavouritesStore,
-  duplicateTemplate,
-  fetchTemplates,
-  fetchTemplateUsage,
-  instantiateTemplate,
-  templateQueryKeys,
-} from '#/lib/templates'
-import type { TargetKind } from '#/lib/templates'
-import {
-  derivePurposeFacets,
-  matchesProtocolLifecycle,
-  matchesPurposeFacet,
-} from '#/lib/reuse-discovery'
-import type { ProtocolLifecycleState } from '#/lib/reuse-discovery'
-import { useRecentViewTracking } from '#/lib/recents'
-import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
+  Link,
+  Outlet,
+  createFileRoute,
+  redirect,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router'
 
-/**
- * Template Library. Versioned notebook templates are the notebook catalogue.
- * Protocol templates remain a separate pin-into-Notebook catalogue (TPL-001).
- */
+import { Status } from '#/components/v3/ui/status'
+import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import {
+  DescriptionList,
+  Inspector,
+  InspectorSection,
+  Muted,
+} from '#/components/v3/ui/layout'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import {
+  ListFooter,
+  ListHeader,
+  ListToolbar,
+  MobileList,
+  SearchTabs,
+  stickyCell,
+  stickyHead,
+} from '#/components/v3/inventory/list'
+import {
+  templateLifecycle,
+  useTemplateRows,
+} from '#/components/v3/templates/templates-data'
+import type { TemplateRow } from '#/components/v3/templates/templates-data'
+import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 
-const getTemplateContext = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    return getCurrentContext(getRequestHeaders())
-  },
-)
+const tabs = ['all', 'active', 'retired'] as const
+type TemplateTab = (typeof tabs)[number]
+const tabLabel: Record<TemplateTab, string> = {
+  all: 'All',
+  active: 'Active',
+  retired: 'Retired',
+}
 
+/** UI port (roadmap-4/ui-app3): the Templates board on the CORE-06 notebook
+ * template catalogue. Templates pin immutable published versions; a new version
+ * never changes work already made. */
 export const Route = createFileRoute('/templates')({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): {
+    q?: string
+    tab?: TemplateTab
+    selected?: string
+    template?: string
+    protocol?: string
+  } => ({
+    q: typeof search.q === 'string' ? search.q : undefined,
+    selected: typeof search.selected === 'string' ? search.selected : undefined,
     template: typeof search.template === 'string' ? search.template : undefined,
     protocol: typeof search.protocol === 'string' ? search.protocol : undefined,
+    tab:
+      search.tab === 'active' ||
+      search.tab === 'retired' ||
+      search.tab === 'all'
+        ? search.tab
+        : undefined,
   }),
-  beforeLoad: async () => {
-    const context = await getTemplateContext()
+  beforeLoad: async ({ context: rootContext }) => {
+    const context = rootContext.auth
     if (!context) {
       throw redirect({ to: '/sign-in' })
     }
     return { context }
   },
-  component: TemplateLibraryRoute,
+  component: TemplatesRoute,
 })
 
-const dataClient = createDataClient()
+function TemplatesRoute() {
+  const isIndex = useRouterState({
+    select: (state) => state.location.pathname === '/templates',
+  })
+  return isIndex ? <TemplatesList /> : <Outlet />
+}
 
-function TemplateLibraryRoute() {
-  const { context } = Route.useRouteContext()
-  const routeSearch = Route.useSearch()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
+function inTab(t: TemplateRow, tab: TemplateTab): boolean {
+  if (tab === 'all') return true
+  if (tab === 'active') return t.lifecycle === 'active'
+  return t.lifecycle === 'retired'
+}
 
-  // FIND-01: an opened template counts as a "view" for the Recent surface;
-  // browsing the library without a selection does not.
-  useRecentViewTracking('notebook_template', routeSearch.template ?? null)
+function TemplatesList() {
+  const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const query = useTemplateRows()
+  const rows = query.data ?? []
+  const members = useWorkspaceMemberNames()
+  const ownerName = (id: string | null) =>
+    id ? (members.data?.get(id) ?? '—') : '—'
+  const tab: TemplateTab = search.tab ?? 'all'
+  const [selected, setSelected] = useState<string | null>(null)
 
-  const currentUserId = context.user.id
-  const role = context.workspace?.role ?? null
-  const workspaceId = context.workspace?.id ?? 'no-workspace'
-
-  // Filters
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [search, setSearch] = useState('')
-  const [ownership, setOwnership] = useState<TemplateOwnershipFilter>('all')
-  const [favouritesOnly, setFavouritesOnly] = useState(false)
-  const [purposeFilter, setPurposeFilter] = useState('all')
-  const [view, setView] = useState<TemplateView>('list')
-  const selectedId = routeSearch.protocol ?? null
-  const [instantiationError, setInstantiationError] = useState<string | null>(
-    null,
+  const counts = useMemo(
+    () =>
+      Object.fromEntries(
+        tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
+      ) as Record<TemplateTab, number>,
+    [rows],
   )
-  const [instantiationSuccess, setInstantiationSuccess] = useState<{
-    recordId: string
-    projectId: string
-  } | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
-
-  function setSelectedId(id: string | null) {
-    void navigate({
-      to: '/templates',
-      search: { template: undefined, protocol: id ?? undefined },
-      replace: false,
-    })
-  }
-
-  function setSelectedNotebookTemplateId(id: string | null) {
-    void navigate({
-      to: '/templates',
-      search: { template: id ?? undefined, protocol: undefined },
-      replace: false,
-    })
-  }
-
-  // Favourites store (per-user, per-workspace localStorage).
-  const favouritesStore = useMemo(
-    () => createTemplateFavouritesStore({ workspaceId, userId: currentUserId }),
-    [workspaceId, currentUserId],
-  )
-  const [favourites, setFavourites] = useState<Set<string>>(
-    () => new Set(favouritesStore.list()),
-  )
-
-  function toggleFavourite(id: string) {
-    favouritesStore.toggle(id)
-    setFavourites(new Set(favouritesStore.list()))
-  }
-
-  // Template list query. "archived" is an effective lifecycle state, not a
-  // record status, so it filters client-side below (includeArchived fetches
-  // everything); other statuses filter server-side as before.
-  const serverStatus =
-    statusFilter !== 'all' && statusFilter !== 'archived'
-      ? statusFilter
-      : undefined
-  const templatesQuery = useQuery({
-    queryKey: templateQueryKeys.list({
-      kind: 'protocol_template',
-      status: serverStatus,
-      search,
-      includeArchived: true,
-    }),
-    queryFn: async () => {
-      return fetchTemplates(notebookDataClient, {
-        kind: 'protocol_template',
-        status: serverStatus,
-        search,
-        includeArchived: true,
-      })
-    },
-  })
-
-  // Block counts for every listed template, fetched in a single query so
-  // the list can show a "blocks" column without N+1 requests. Selects only
-  // record_id to keep the payload small.
-  const templateIds = (templatesQuery.data ?? []).map((t) => t.id)
-  const blockCountsQuery = useQuery({
-    queryKey: ['sci-006', 'template-block-counts', templateIds],
-    queryFn: async () => {
-      const idFilter = templateIds.join(',')
-      const rows = await notebookDataClient.list<{ record_id: string }>(
-        'blocks',
-        `?record_id=in.(${idFilter})&select=record_id`,
-      )
-      const counts: Record<string, number> = {}
-      for (const row of rows) {
-        counts[row.record_id] = (counts[row.record_id] ?? 0) + 1
-      }
-      return counts
-    },
-    enabled: templateIds.length > 0,
-  })
-
-  // Usage counts: how many records were instantiated from each template.
-  // Each instantiation creates a `record_links` row with link_type='template'
-  // whose target_record_id is the template, so grouping by target gives the
-  // per-template usage count in one request.
-  const usageCountsQuery = useQuery({
-    queryKey: ['sci-006', 'template-usage-counts', templateIds],
-    queryFn: async () => {
-      const idFilter = templateIds.join(',')
-      const rows = await notebookDataClient.list<{ target_record_id: string }>(
-        'record_links',
-        `?link_type=eq.template&target_record_id=in.(${idFilter})&select=target_record_id`,
-      )
-      const counts: Record<string, number> = {}
-      for (const row of rows) {
-        counts[row.target_record_id] = (counts[row.target_record_id] ?? 0) + 1
-      }
-      return counts
-    },
-    enabled: templateIds.length > 0,
-  })
-
-  // TPL-001: grid view renders thumbnails from actual block content. Fetch
-  // the blocks for every listed template (bounded by the workspace template
-  // count) only when the grid view is active, then group by record id.
-  const blockPreviewsQuery = useQuery({
-    queryKey: ['tpl-001', 'template-block-previews', templateIds],
-    queryFn: async () => {
-      const idFilter = templateIds.join(',')
-      const rows = await notebookDataClient.list<BlockWire>(
-        'blocks',
-        `?record_id=in.(${idFilter})&order=record_id.asc,order.asc`,
-      )
-      const grouped: Record<string, BlockWire[]> = {}
-      for (const row of rows) {
-        ;(grouped[row.record_id] ??= []).push(row)
-      }
-      const mapped: Record<string, NotebookBlock[]> = {}
-      for (const [recordId, blocks] of Object.entries(grouped)) {
-        mapped[recordId] = blocks.map(toBlock)
-      }
-      return mapped
-    },
-    enabled: view === 'grid' && templateIds.length > 0,
-  })
-
-  // Selected template detail queries
-  const selectedQuery = useQuery({
-    queryKey: notebookQueryKeys.record(selectedId ?? 'none'),
-    queryFn: () => fetchRecord(notebookDataClient, selectedId!),
-    enabled: Boolean(selectedId),
-  })
-
-  const blocksQuery = useQuery({
-    queryKey: notebookQueryKeys.blocks(selectedId ?? 'none'),
-    queryFn: () => fetchBlocksForRecord(notebookDataClient, selectedId!),
-    enabled: Boolean(selectedId),
-  })
-
-  // TPL-001: usage links (incoming) + their source records for the inspector.
-  const usageLinksQuery = useQuery({
-    queryKey: templateQueryKeys.usage(selectedId ?? 'none'),
-    queryFn: () => fetchTemplateUsage(notebookDataClient, selectedId!),
-    enabled: Boolean(selectedId),
-  })
-
-  const linkedRecordsQuery = useQuery({
-    queryKey: ['tpl-001', 'linked-records', usageLinksQuery.data ?? []],
-    queryFn: async () => {
-      const ids = (usageLinksQuery.data ?? []).map((item) => item.recordId)
-      if (ids.length === 0) return [] as TemplateLinkedRecord[]
-      const rows = await notebookDataClient.list<RecordWire>(
-        'records',
-        `?id=in.(${ids.join(',')})&select=id,identifier,title,kind,status,project_id`,
-      )
-      const linked: TemplateLinkedRecord[] = rows.map((row) => ({
-        id: row.id,
-        identifier: row.identifier,
-        title: row.title,
-        kind: row.kind,
-        status: row.status,
-        projectId: row.project_id,
-      }))
-      return linked
-    },
-    enabled: Boolean(selectedId) && (usageLinksQuery.data ?? []).length > 0,
-  })
-
-  // Project list for the instantiation form
-  const projectsQuery = useQuery({
-    queryKey: notebookQueryKeys.projectsList(),
-    queryFn: async () => {
-      return notebookDataClient.list<TemplateProject>(
-        'projects',
-        '?order=created_at.desc',
-      )
-    },
-  })
-
-  // Apply client-side filters: ownership + favourites + purpose + archived
-  // lifecycle (server filters handle kind/status/search). Ownership uses the
-  // current user id; the records endpoint does not expose a
-  // created_by_user_id filter via the proxy list helper without a join, so
-  // filter in the browser — the template count is bounded by workspace size.
-  // Purpose options come from the tag vocabulary in use across the fetched
-  // templates, so the facet updates with the result set.
-  const allTemplates = templatesQuery.data ?? []
-  const purposeOptions = useMemo(
-    () => derivePurposeFacets(allTemplates),
-    [allTemplates],
-  )
-  const templates = useMemo(() => {
-    let rows = allTemplates
-    if (statusFilter !== 'all') {
-      const lifecycle = statusFilter as ProtocolLifecycleState
-      rows = rows.filter((t) => matchesProtocolLifecycle(t, lifecycle))
-    }
-    if (purposeFilter !== 'all') {
-      rows = rows.filter((t) => matchesPurposeFacet(t.tags, purposeFilter))
-    }
-    if (ownership === 'mine') {
-      rows = rows.filter((t) => t.createdByUserId === currentUserId)
-    }
-    if (favouritesOnly) {
-      rows = rows.filter((t) => favourites.has(t.id))
-    }
-    return rows
-  }, [
-    allTemplates,
-    statusFilter,
-    purposeFilter,
-    ownership,
-    favouritesOnly,
-    favourites,
-    currentUserId,
-  ])
-
-  const selected = selectedQuery.data ?? null
-  const selectedBlocks = blocksQuery.data ?? []
-  const projects = projectsQuery.data ?? []
-  const blockCounts = blockCountsQuery.data ?? {}
-  const usageCounts = usageCountsQuery.data ?? {}
-  const blockPreviews = blockPreviewsQuery.data ?? {}
-  const linkedRecords = linkedRecordsQuery.data ?? []
-  const selectedUsageCount = selected ? (usageCounts[selected.id] ?? 0) : 0
-
-  // Instantiation mutation
-  const instantiateMutation = useMutation({
-    mutationFn: async (params: {
-      templateRecordId: string
-      targetProjectId: string
-      targetKind: TargetKind
-      title: string
-    }) => {
-      return instantiateTemplate(dataClient, params)
-    },
-    onSuccess: (result) => {
-      setInstantiationError(null)
-      setInstantiationSuccess({
-        recordId: result.record.id,
-        projectId: result.record.projectId ?? '',
-      })
-      void queryClient.invalidateQueries({
-        queryKey: ['sci-006', 'templates'],
-      })
-      void queryClient.invalidateQueries({
-        queryKey: ['tpl-001', 'template-usage'],
-      })
-    },
-    onError: (error) => {
-      if (error instanceof DataClientError) {
-        if (error.code === 'template_not_instantiable') {
-          setInstantiationError(
-            'This template cannot be instantiated. It must be validated and not archived.',
-          )
-        } else if (error.code === 'permission_denied') {
-          setInstantiationError(
-            'You do not have permission to instantiate this template.',
-          )
-        } else {
-          setInstantiationError(error.message)
-        }
-      } else {
-        setInstantiationError('Could not instantiate the template. Try again.')
-      }
-    },
-  })
-
-  // TPL-001: archive mutation
-  const archiveMutation = useMutation({
-    mutationFn: async (params: {
-      recordId: string
-      expectedMetadataVersion: number
-    }) => {
-      return archiveTemplate(
-        dataClient,
-        params.recordId,
-        params.expectedMetadataVersion,
-      )
-    },
-    onSuccess: () => {
-      setActionError(null)
-      void queryClient.invalidateQueries({
-        queryKey: ['sci-006', 'templates'],
-      })
-      void queryClient.invalidateQueries({
-        queryKey: notebookQueryKeys.record(selectedId ?? 'none'),
-      })
-    },
-    onError: (error) => {
-      if (error instanceof DataClientError) {
-        if (error.code === 'SB001') {
-          setActionError(
-            'This template changed before the action ran. Refresh and try again.',
-          )
-        } else if (error.code === 'permission_denied' || error.status === 403) {
-          setActionError('You do not have permission to archive this template.')
-        } else {
-          setActionError(error.message)
-        }
-      } else {
-        setActionError('Could not archive the template. Try again.')
-      }
-    },
-  })
-
-  // TPL-001: duplicate mutation
-  const duplicateMutation = useMutation({
-    mutationFn: async (params: {
-      template: NonNullable<typeof selected>
-      blocks: typeof selectedBlocks
-      targetProjectId: string
-      title: string
-    }) => {
-      return duplicateTemplate(dataClient, params)
-    },
-    onSuccess: (result) => {
-      setActionError(null)
-      void queryClient.invalidateQueries({
-        queryKey: ['sci-006', 'templates'],
-      })
-      // Select the newly created draft so the author can review it.
-      setSelectedId(result.record.id)
-    },
-    onError: (error) => {
-      if (error instanceof DataClientError) {
-        if (error.status === 403 || error.code === 'permission_denied') {
-          setActionError(
-            'You do not have permission to duplicate this template.',
-          )
-        } else {
-          setActionError(error.message)
-        }
-      } else {
-        setActionError('Could not duplicate the template. Try again.')
-      }
-    },
-  })
-
-  // TPL-001: export — build a JSON blob from the live template + blocks and
-  // trigger a browser download. No server round-trip beyond the block fetch
-  // the inspector already performs.
-  function handleExport() {
-    if (!selected) return
-    const exported = buildTemplateExport(selected, selectedBlocks)
-    const blob = new Blob([JSON.stringify(exported, null, 2)], {
-      type: 'application/json',
-    })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `${selected.identifier}-template.json`
-    document.body.appendChild(anchor)
-    anchor.click()
-    document.body.removeChild(anchor)
-    URL.revokeObjectURL(url)
-  }
-
-  function handleArchive() {
-    if (!selected) return
-    if (selected.archivedAt) return
-    const warning =
-      selectedUsageCount > 0
-        ? `${selectedUsageCount} ${selectedUsageCount === 1 ? 'record has' : 'records have'} been instantiated from this template. They keep their own copy. Archive anyway?`
-        : 'Archive this template? It will no longer be available for new instantiations.'
-    if (!window.confirm(warning)) return
-    archiveMutation.mutate({
-      recordId: selected.id,
-      expectedMetadataVersion: selected.metadataVersion,
-    })
-  }
-
-  function handleDuplicate() {
-    if (!selected) return
-    if (!selected.projectId) {
-      setActionError(
-        'This template is not in a project and cannot be duplicated here.',
-      )
-      return
-    }
-    duplicateMutation.mutate({
-      template: selected,
-      blocks: selectedBlocks,
-      targetProjectId: selected.projectId,
-      title: `${selected.title} (copy)`,
-    })
-  }
-
-  const shellContext = {
-    workspace: context.workspace ? { name: context.workspace.name } : null,
-    user: {
-      name: context.user.name,
-      email: context.user.email,
-      role: context.workspace?.role,
-    },
-  }
-
-  const inspector = selected ? (
-    <TemplateInspector
-      template={selected}
-      blocks={selectedBlocks}
-      blocksLoading={blocksQuery.isLoading}
-      projects={projects}
-      onInstantiate={(title, projectId) => {
-        setInstantiationSuccess(null)
-        instantiateMutation.mutate({
-          templateRecordId: selected.id,
-          targetProjectId: projectId,
-          targetKind: 'experiment',
-          title,
-        })
-      }}
-      isInstantiating={instantiateMutation.isPending}
-      instantiationError={instantiationError}
-      instantiationSuccess={instantiationSuccess}
-      usageCount={selectedUsageCount}
-      blockCount={blockCounts[selected.id]}
-      linkedRecords={linkedRecords}
-      currentUserId={currentUserId}
-      role={role}
-      onArchive={handleArchive}
-      onDuplicate={handleDuplicate}
-      onExport={handleExport}
-      isArchiving={archiveMutation.isPending}
-      isDuplicating={duplicateMutation.isPending}
-      actionError={actionError}
-    />
-  ) : null
-
-  useShell({
-    fullBleed: true,
-    context: shellContext,
-    breadcrumbs: [{ label: 'Home', to: '/' }, { label: 'Templates' }],
-    inspector: inspector,
-  })
+  const q = (search.q ?? '').trim().toLowerCase()
+  const visible = rows
+    .filter((t) => inTab(t, tab))
+    .filter((t) => !q || `${t.key} ${t.name}`.toLowerCase().includes(q))
+  const wanted = search.selected ?? search.template ?? search.protocol
+  const sel =
+    visible.find((t) => t.id === (selected ?? wanted)) ?? visible.at(0)
 
   return (
-    <>
-      <div className="space-y-5 p-4">
-        <header className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-semibold tracking-tight">
-              Template Library
-            </h1>
-          </div>
-          <p className="text-xs leading-5 text-muted-foreground">
-            Start a notebook from a published template, or add a reusable
-            protocol.
-          </p>
-        </header>
-
-        <VersionedNotebookTemplatePanel
-          workspaceId={workspaceId}
-          canEdit={role === 'owner' || role === 'admin' || role === 'steward'}
-          projects={projects}
-          selectedTemplateId={routeSearch.template ?? null}
-          onSelectedTemplateIdChange={setSelectedNotebookTemplateId}
-          // FIND-02: star the selected canonical notebook template. The
-          // separate localStorage "favourites" filter below is the protocol
-          // template catalogue's own list filter, not FIND-02 state.
-          headerActions={
-            <FavouriteToggle
-              kind="notebook_template"
-              objectId={routeSearch.template ?? null}
+    <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <ListHeader
+          title="Templates"
+          total={rows.length}
+          tabs={
+            <SearchTabs
+              label="Template lists"
+              current={tab}
+              items={tabs.map((t) => ({
+                key: t,
+                label: tabLabel[t],
+                count: counts[t],
+                link: {
+                  to: '/templates',
+                  search: { tab: t === 'all' ? undefined : t, q: search.q },
+                },
+              }))}
             />
           }
         />
-
-        <section className="space-y-4">
-          <div className="space-y-1">
-            <h2 className="text-sm font-semibold">Protocol templates</h2>
-            <p className="text-xs text-muted-foreground">
-              Add a specific protocol version to a notebook.
-            </p>
-          </div>
-          <TemplateFilters
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            search={search}
-            onSearchChange={setSearch}
-            count={templates.length}
-            favouritesOnly={favouritesOnly}
-            onFavouritesOnlyChange={setFavouritesOnly}
-            ownership={ownership}
-            onOwnershipChange={setOwnership}
-            view={view}
-            onViewChange={setView}
-            purposeFilter={purposeFilter}
-            onPurposeChange={setPurposeFilter}
-            purposeOptions={purposeOptions}
+        <ListToolbar
+          q={search.q}
+          label="Search templates"
+          placeholder="Search templates"
+          onSearch={(next) =>
+            void navigate({
+              to: '/templates',
+              search: (s) => ({ ...s, q: next || undefined }),
+              replace: true,
+            })
+          }
+        />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <Table aria-label="Templates" className="max-lg:hidden">
+            <TableHeader>
+              <TableRow>
+                <TableHead className={stickyHead}>ID</TableHead>
+                <TableHead>Key</TableHead>
+                <TableHead>Template</TableHead>
+                <TableHead>Kind</TableHead>
+                <TableHead align="right">Version</TableHead>
+                <TableHead align="right">Sections</TableHead>
+                <TableHead align="right">In use</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Owner</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((t) => {
+                const status = templateLifecycle(t.lifecycle)
+                return (
+                  <TableRow
+                    key={t.id}
+                    selected={t.id === sel?.id}
+                    className="cursor-pointer"
+                    onClick={() => setSelected(t.id)}
+                  >
+                    <TableCell className={stickyCell}>
+                      <span className="mono">{t.displayId ?? '—'}</span>
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      <span className="mono">{t.key}</span>
+                    </TableCell>
+                    <TableCell
+                      className={t.id === sel?.id ? 'font-medium' : undefined}
+                    >
+                      <Link
+                        to="/templates/$templateId"
+                        params={{ templateId: t.id }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="kind">Notebook</Badge>
+                    </TableCell>
+                    <TableCell align="right">
+                      {t.published
+                        ? `v${t.published.version}`
+                        : t.latest
+                          ? `v${t.latest.version} draft`
+                          : '—'}
+                    </TableCell>
+                    <TableCell align="right">{t.sectionCount}</TableCell>
+                    <TableCell
+                      align="right"
+                      className={t.inUse === 0 ? 'text-fg-muted' : undefined}
+                    >
+                      {t.inUse}
+                    </TableCell>
+                    <TableCell>
+                      <Status tone={status.tone}>{status.label}</Status>
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {ownerName(t.createdByUserId)}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+          <MobileList
+            label="Templates"
+            items={visible.map((t) => {
+              const status = templateLifecycle(t.lifecycle)
+              return {
+                key: t.id,
+                id: t.displayId ?? t.key,
+                title: t.name,
+                sub: `${t.sectionCount} sections · ${t.inUse} in use · ${ownerName(t.createdByUserId)}`,
+                status: <Status tone={status.tone}>{status.label}</Status>,
+                link: {
+                  to: '/templates/$templateId',
+                  params: { templateId: t.id },
+                },
+              }
+            })}
           />
-
-          <TemplateList
-            templates={templates}
-            isLoading={templatesQuery.isLoading}
-            error={templatesQuery.error}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onRetry={() => templatesQuery.refetch()}
-            blockCounts={blockCounts}
-            usageCounts={usageCounts}
-            view={view}
-            favourites={favourites}
-            onToggleFavourite={toggleFavourite}
-            currentUserId={currentUserId}
-            blockPreviews={blockPreviews}
-          />
-        </section>
+          {!query.isLoading && visible.length === 0 ? (
+            <div role="status" className="flex justify-center px-6">
+              <EmptyState
+                icon={q ? 'search' : 'template'}
+                className="items-center py-14 text-center"
+                title={
+                  q
+                    ? `No templates match “${search.q}”`
+                    : `No templates in ${tabLabel[tab].toLowerCase()}`
+                }
+                body="Search looks at template keys and names."
+              />
+            </div>
+          ) : null}
+        </div>
+        <ListFooter right={sel ? '1 selected' : undefined}>
+          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
+        </ListFooter>
       </div>
-    </>
+
+      {sel ? (
+        <Inspector
+          aria-label="Template details"
+          className="w-[320px] gap-0 p-0"
+        >
+          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
+            <span className="mono text-fg-muted">{sel.key}</span>
+            <div className="font-heading text-doc font-semibold">
+              {sel.name}
+            </div>
+            <div className="text-label">
+              <Status tone={templateLifecycle(sel.lifecycle).tone}>
+                {templateLifecycle(sel.lifecycle).label}
+              </Status>
+            </div>
+            {sel.description ? (
+              <Muted className="mt-1">{sel.description}</Muted>
+            ) : null}
+            <div className="mt-1.5 flex gap-1.5">
+              <Button
+                size="sm"
+                variant="primary"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/templates/$templateId"
+                    params={{ templateId: sel.id }}
+                  />
+                }
+              >
+                Open
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4 px-4 py-3.5">
+            <InspectorSection title="Details">
+              <DescriptionList
+                labelWidth={80}
+                items={[
+                  ['Key', sel.key],
+                  [
+                    'Published',
+                    sel.published ? `v${sel.published.version}` : '—',
+                  ],
+                  ['Versions', String(sel.versions.length)],
+                  ['Sections', String(sel.sectionCount)],
+                  ['In use', String(sel.inUse)],
+                ]}
+              />
+            </InspectorSection>
+            <InspectorSection title="Versions">
+              <div className="flex flex-col text-label">
+                {sel.versions.length ? (
+                  [...sel.versions].reverse().map((v, i, list) => (
+                    <div
+                      key={v.id}
+                      className={`grid grid-cols-[40px_1fr_auto] gap-2 py-1.5 ${
+                        i < list.length - 1
+                          ? 'border-b border-border-subtle'
+                          : ''
+                      }`}
+                    >
+                      <b className="font-medium">v{v.version}</b>
+                      <span>{templateLifecycle(v.lifecycle).label}</span>
+                      <span className="text-fg-muted">
+                        {v.publishedAt ? v.publishedAt.slice(0, 10) : '—'}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <Muted>No version yet.</Muted>
+                )}
+              </div>
+            </InspectorSection>
+            <InspectorSection title="Reuse is deliberate">
+              <Muted>
+                New versions never change notebooks already made from an old
+                one; each owner chooses whether to take a new version.
+              </Muted>
+            </InspectorSection>
+          </div>
+        </Inspector>
+      ) : null}
+    </div>
   )
 }

@@ -84,6 +84,8 @@ export const datasetExplorerQueryKeys = {
 
 export interface CanonicalDatasetWire extends ScientificTableWire {
   workspace_id?: string
+  /** Stable per-workspace display id, e.g. DS-0298. */
+  display_id?: string | null
   schema_version_id?: string
   description?: string | null
   revision?: number
@@ -93,6 +95,7 @@ export interface CanonicalDatasetWire extends ScientificTableWire {
 
 interface DatasetResourceWire {
   id: string
+  display_id?: string | null
   workspace_id: string
   schema_version_id: string
   name: string
@@ -766,4 +769,149 @@ export function validateTransformations(
     }
   }
   return errors.length > 0 ? { ok: false, errors } : { ok: true }
+}
+
+// --- Snapshot summaries and comparison (DSET-03.1/03.2) -------------------
+
+export interface DatasetVersionChange {
+  added: number
+  removed: number
+  changed: number
+  /** DSET-03.2 — individual value-flag additions, removals and changes. */
+  flags: number
+}
+
+/** DSET-03.2 — one flag-level change on a compared row. */
+export interface DatasetVersionFlagDelta {
+  fieldId: string
+  kind: string
+  source: string
+  change: 'added' | 'removed' | 'changed'
+  from?: { reason: string; comment: string | null }
+  to?: { reason: string; comment: string | null }
+}
+
+export interface DatasetVersionRetentionPolicy {
+  /** Workspace retention period for snapshots cited by a signed record. */
+  citedYears: number
+  /** Workspace retention period for uncited snapshots after archive. */
+  uncitedYears: number
+}
+
+export interface DatasetVersionRetention {
+  reason: string
+  keptUntil: string | null
+  /** DSET-03.1 — the workspace policy the reason is computed from. */
+  policy?: DatasetVersionRetentionPolicy
+}
+
+/**
+ * DSET-03.1 — what produced a snapshot. `pipeline_run` carries the run that
+ * recorded the version as an output; otherwise the snapshot was saved by hand
+ * (`manual`) or through the API (`api`). Imports do not yet record a
+ * structured producer link, so they surface as `manual`/`api` until DSET-05/06.
+ */
+export interface DatasetVersionSource {
+  kind: 'pipeline_run' | 'manual' | 'api'
+  runId: string | null
+  definitionName: string | null
+  triggerKind: string | null
+  status: string | null
+  label: string | null
+  startedAt: string | null
+}
+
+export interface DatasetVersionCitedRevision {
+  revisionId: string
+  signedAt: string
+  signerUserId: string
+}
+
+export interface DatasetVersionCitedRun {
+  runId: string
+  status: string
+  triggerKind: string
+  startedAt: string
+}
+
+export interface DatasetVersionCitedAnalysis {
+  blockId: string
+  recordId: string
+}
+
+/** DSET-03.1 — the signed records, analyses and pipeline runs citing a snapshot. */
+export interface DatasetVersionCitations {
+  signedRevisions: DatasetVersionCitedRevision[]
+  pipelineRuns: DatasetVersionCitedRun[]
+  analyses: DatasetVersionCitedAnalysis[]
+}
+
+export interface DatasetVersionSummary {
+  id: string
+  label: string
+  createdAt: string
+  createdByUserId: string | null
+  createdByCredentialId: string | null
+  createdByName: string | null
+  sourceDatasetRevision: number
+  rowCount: number
+  /** DSET-03.1 — deterministic sha256 over the frozen rows/values/flags. */
+  contentHash: string
+  /** Set when the retention job removed this snapshot's rows. */
+  rowsRemovedAt: string | null
+  change: DatasetVersionChange | null
+  retention: DatasetVersionRetention
+  source: DatasetVersionSource | null
+  citedBy: DatasetVersionCitations
+}
+
+export async function listDatasetVersionSummaries(
+  client: DataClient,
+  datasetId: string,
+): Promise<DatasetVersionSummary[]> {
+  return client.rpc<DatasetVersionSummary[]>('dataset_version_list', {
+    p_dataset_id: datasetId,
+  })
+}
+
+/**
+ * DSET-04.3 — keep a snapshot's rows from retention. The RPC requires a
+ * trimmed reason (1–500 characters) and is writer-gated server-side; the
+ * reason is stored beside the snapshot and pushes removal out by the
+ * workspace's uncited retention period. A signed citation still takes
+ * precedence.
+ */
+export async function keepDatasetVersion(
+  client: DataClient,
+  versionId: string,
+  reason: string,
+): Promise<void> {
+  await client.rpc('keep_dataset_version', {
+    p_version_id: versionId,
+    p_reason: reason.trim(),
+  })
+}
+
+export async function compareDatasetVersions(
+  client: DataClient,
+  versionA: string,
+  versionB: string,
+  limit = 100,
+  offset = 0,
+): Promise<{
+  counts: DatasetVersionChange
+  columns: Array<{ fieldId: string; kind: string }>
+  rows: Array<{
+    rowId: string
+    kind: string
+    fields: Array<{ fieldId: string; from: unknown; to: unknown }>
+    flagFields: DatasetVersionFlagDelta[]
+  }>
+}> {
+  return client.rpc('compare_dataset_versions', {
+    p_version_a: versionA,
+    p_version_b: versionB,
+    p_limit: limit,
+    p_offset: offset,
+  })
 }

@@ -172,9 +172,7 @@ describe('BlockPreview metric (number formatting)', () => {
     const value = screen.getByText('100')
     // The value sits in a font-display dd, the label in a muted dt.
     expect(value.closest('dd')?.className).toContain('font-display')
-    expect(container.querySelector('dt')?.className).toContain(
-      'text-muted-foreground',
-    )
+    expect(container.querySelector('dt')?.className).toContain('text-fg-muted')
   })
 
   it('leaves non-numeric string values untouched', () => {

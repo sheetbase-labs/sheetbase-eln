@@ -185,3 +185,44 @@ describe('RecordHistoryTimeline', () => {
     expect(screen.getByText('No activity yet')).toBeTruthy()
   })
 })
+
+describe('captured change facts', () => {
+  it('names a protocol deviation by the field it captured', () => {
+    const mapped = mapTimelineEvents([
+      {
+        type: 'change_event',
+        id: 'ce-deviation',
+        seq: 9,
+        ts: '2026-07-26T10:00:00.000Z',
+        operation: 'update',
+        actorUserId: 'owner-a',
+        title: 'protocol_deviation update',
+        payload: {
+          effect: 'protocol_deviation',
+          frozenText: 'Hold at 2-8 C for 14 days.',
+          recordedText: 'Hold at 2-8 C for 21 days.',
+          changes: {
+            text: {
+              from: 'Hold at 2-8 C for 14 days.',
+              to: 'Hold at 2-8 C for 21 days.',
+              label: 'Protocol step text',
+            },
+          },
+        },
+      },
+      {
+        type: 'change_event',
+        id: 'ce-plain',
+        seq: 10,
+        ts: '2026-07-26T10:01:00.000Z',
+        operation: 'update',
+        actorUserId: 'owner-a',
+        title: 'record update',
+        payload: { title: 'Renamed' },
+      },
+    ])
+    expect(mapped[0].target).toBe('Protocol step text')
+    // A payload without captured facts still reports the operation.
+    expect(mapped[1].target).toBe('update')
+  })
+})

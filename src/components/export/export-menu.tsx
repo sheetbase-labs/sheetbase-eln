@@ -4,10 +4,9 @@
  * the GET, so plain anchor navigation is sufficient — no fetch/credentials
  * plumbing in the client.
  */
-import { Download } from 'lucide-react'
 import { useState } from 'react'
 
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +14,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
+} from '#/components/v3/ui/dropdown-menu'
 
 export interface ExportOption {
   format: string
@@ -65,18 +64,24 @@ export function ExportMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" variant="outline" disabled={busy}>
-          <Download className="size-4" />
-          {busy ? 'Exporting…' : label}
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            icon="download"
+          />
+        }
+      >
+        {busy ? 'Exporting…' : label}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Download as</DropdownMenuLabel>
         {formats.map((option) => (
           <DropdownMenuItem
             key={option.format}
-            onSelect={() => download(option.format)}
+            onClick={() => download(option.format)}
           >
             {option.label}
           </DropdownMenuItem>
@@ -87,7 +92,7 @@ export function ExportMenu({
             {extraItems.map((item) => (
               <DropdownMenuItem
                 key={item.format}
-                onSelect={() => download(item.format)}
+                onClick={() => download(item.format)}
               >
                 {item.label}
               </DropdownMenuItem>

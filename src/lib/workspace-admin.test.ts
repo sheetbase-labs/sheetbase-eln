@@ -184,8 +184,10 @@ describe('workspace-admin labels', () => {
       analyst: 'Analyst',
       reviewer: 'Reviewer',
       viewer: 'Viewer',
+      client_viewer: 'Client viewer',
     })
     expect(WORKSPACE_ROLE_DESCRIPTIONS.viewer).toMatch(/Read-only/)
+    expect(WORKSPACE_ROLE_DESCRIPTIONS.client_viewer).toMatch(/client portal/)
     expect(WORKSPACE_ROLE_DESCRIPTIONS.scientist).toMatch(/Member/)
     expect(INVITATION_STATUS_LABELS).toEqual({
       pending: 'Pending',

@@ -1,12 +1,5 @@
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '#/components/ui'
+import { Avatar } from '#/components/v3/ui/avatar'
+import { Tooltip } from '#/components/v3/ui/tooltip'
 import { cn } from '#/lib/utils'
 import { useOthers } from '#/lib/collaboration/liveblocks.config'
 
@@ -74,41 +67,35 @@ function PresenceStackInner({
   const { visible, overflow } = presenceStackEntries(peers, max)
   const countLabel = `${peers.length} here`
   return (
-    <TooltipProvider delayDuration={200}>
-      <div
-        role="group"
-        aria-label={countLabel}
-        title={countLabel}
-        className={cn('flex items-center -space-x-1.5', className)}
-      >
-        {visible.map((other, index) => {
-          const name = other.info?.name?.trim() || 'Someone'
-          return (
-            <Tooltip key={other.connectionId ?? index}>
-              <TooltipTrigger asChild>
-                <span aria-label={name} title={name} className="inline-flex">
-                  <Avatar className="size-6 ring-2 ring-background">
-                    {other.info?.avatar ? (
-                      <AvatarImage src={other.info.avatar} alt="" />
-                    ) : null}
-                    <AvatarFallback>{initialsFor(name)}</AvatarFallback>
-                  </Avatar>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{name}</TooltipContent>
-            </Tooltip>
-          )
-        })}
-        {overflow > 0 ? (
-          <span
-            aria-hidden="true"
-            title={`${overflow} more`}
-            className="inline-flex size-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background"
-          >
-            +{overflow}
-          </span>
-        ) : null}
-      </div>
-    </TooltipProvider>
+    <div
+      role="group"
+      aria-label={countLabel}
+      title={countLabel}
+      className={cn('flex items-center -space-x-1.5', className)}
+    >
+      {visible.map((other, index) => {
+        const name = other.info?.name?.trim() || 'Someone'
+        return (
+          <Tooltip key={other.connectionId ?? index} content={name}>
+            <span
+              aria-label={name}
+              title={name}
+              className="inline-flex ring-2 ring-surface"
+            >
+              <Avatar initials={initialsFor(name)} size="sm" />
+            </span>
+          </Tooltip>
+        )
+      })}
+      {overflow > 0 ? (
+        <span
+          aria-hidden="true"
+          title={`${overflow} more`}
+          className="inline-flex size-6 items-center justify-center rounded-full bg-surface-muted text-[10px] font-medium ring-2 ring-surface"
+        >
+          +{overflow}
+        </span>
+      ) : null}
+    </div>
   )
 }

@@ -1,0 +1,46 @@
+Sample lineage, SMP-2231
+Samples / SMP-2231
+Harvest lot HL-0934
+Print label
+Move
+Withdraw volume…
+Released Cell harvest AAV9 process transfer Model Sample v6
+Details Lineage 11 Usage 3 Measurements 18 History
+Lineage
+Export lineage
+1 parent chain · 11 derived samples. Every derivation links to the experiment that made it.
+Sample Relation Status
+SMP-1002 HEK293 WCB-2
+Cell bank Released
+├ SMP-2226 Production culture, 20 L
+Expanded in EXP-0134 Consumed
+└ SMP-2231 Harvest lot HL-0934
+This sample · harvested 20 Sep Released
+├ SMP-2240 … 2247 A-50 to C-100 filtrates (8)
+Filtered in EXP-0142 Stored
+├ SMP-2248 C-150 filtrate
+Filtered in EXP-0142 Stored
+└ SMP-2249 C-150 filtrate, 1:5 dilution
+Diluted from SMP-2248 Awaiting measurement
+└ SMP-2250 Feed retain
+Aliquot of this lot Stored
+Where this lot went
+Filtered in EXP-0142
+10,350 mL
+9 filtrates, 3 trains
+Retained
+50 mL
+SMP-2250 feed retain
+Remaining
+4,600 mL
+CR-1, shelf 3 · hold until 4 Oct
+Label
+SMP-2231
+HL-0934
+2–8 °C · use by 04-Oct
+Hold time
+5 of 14 days used
+Recent history
+23 Sep Gareth P. withdrew 10,350 mL
+21 Sep Gareth P. withdrew 50 mL
+20 Sep Mei L. changed status Quarantine → Released

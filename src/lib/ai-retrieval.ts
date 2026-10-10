@@ -65,7 +65,7 @@ export const DEFAULT_AI_RETRIEVAL_LIMIT = 10
 export const MAX_AI_RETRIEVAL_LIMIT = 50
 
 export interface AiCitation {
-  /** Object class (`record`, `file`, `dataset`, `sheet`, `template`). */
+  /** Object class (`record`, `file`, `dataset`, `sheet`, `template`, `comment`). */
   kind: AiCitationKind
   /** Canonical stable UUID of the cited object. */
   stableId: string
@@ -188,8 +188,8 @@ export async function retrieveForAi(
 
 /**
  * Map a citation to the envelope object ref that resolves it. Returns null
- * for template citations: the template catalogue has no envelope object
- * kind, so templates stay citable but cannot be summarised.
+ * for template/comment citations: neither has an envelope object kind, so
+ * their actual identity and owner link stay citable without inventing a Record.
  */
 export function citationToObjectRef(citation: AiCitation): AiObjectRef | null {
   const kind: AiObjectRefKind | null =
@@ -204,13 +204,13 @@ export function citationToObjectRef(citation: AiCitation): AiObjectRef | null {
   return { kind, id: citation.stableId }
 }
 
-function templateOmission(citation: AiCitation): AiContextOmission {
+function unsupportedCitationOmission(citation: AiCitation): AiContextOmission {
   return {
     kind: citation.kind,
     id: citation.stableId,
     reason: 'unsupported_kind',
     detail:
-      `template ${citation.stableId} '${citation.title}' has no envelope object kind; ` +
+      `${citation.kind} ${citation.stableId} '${citation.title}' has no envelope object kind; ` +
       'cited with its deep link but not summarised (supported: record, notebook, sheet, dataset, analysis)',
   }
 }
@@ -264,11 +264,11 @@ export async function assembleGroundedContext(
     limit: input.limit,
   })
   const refs: AiObjectRef[] = []
-  const templateOmissions: AiContextOmission[] = []
+  const unsupportedOmissions: AiContextOmission[] = []
   for (const citation of retrieved.citations) {
     const ref = citationToObjectRef(citation)
     if (ref) refs.push(ref)
-    else templateOmissions.push(templateOmission(citation))
+    else unsupportedOmissions.push(unsupportedCitationOmission(citation))
   }
   const envelope = await assembleAiContext(client, actor, {
     workspaceId: input.workspaceId,
@@ -276,7 +276,7 @@ export async function assembleGroundedContext(
     objectRefs: refs,
     budgets: input.budgets,
   })
-  envelope.omissions.push(...templateOmissions)
+  envelope.omissions.push(...unsupportedOmissions)
   return {
     envelope,
     citations: retrieved.citations,

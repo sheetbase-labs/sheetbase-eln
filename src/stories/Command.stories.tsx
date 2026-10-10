@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { FileText, FlaskConical, Settings } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import {
   Command,
   CommandEmpty,
@@ -26,18 +26,18 @@ export const Default: Story = {
         <CommandEmpty>No results found.</CommandEmpty>
         <CommandGroup heading="Records">
           <CommandItem>
-            <FlaskConical />
+            <Icon name="flask" />
             Experiments<CommandShortcut>⌘E</CommandShortcut>
           </CommandItem>
           <CommandItem>
-            <FileText />
+            <Icon name="protocol" />
             Protocols
           </CommandItem>
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="System">
           <CommandItem>
-            <Settings />
+            <Icon name="settings" />
             Settings
           </CommandItem>
         </CommandGroup>

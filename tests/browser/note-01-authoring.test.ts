@@ -58,10 +58,6 @@ async function clean() {
     AUTHOR_RECORD,
     CONFLICT_RECORD,
   ])
-  await admin.query(
-    `DELETE FROM api.change_events WHERE project_id=$1 OR record_id IN ($2,$3)`,
-    [PROJECT, AUTHOR_RECORD, CONFLICT_RECORD],
-  )
   await admin.query(`DELETE FROM api.projects WHERE id=$1`, [PROJECT])
 }
 

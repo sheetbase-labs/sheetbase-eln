@@ -1,8 +1,8 @@
 import * as React from 'react'
 import { Command as CommandPrimitive } from 'cmdk'
-import { Search } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
+import { Icon } from '#/components/icons'
 import { Dialog, DialogContent, DialogTitle } from '#/components/ui/dialog'
 
 function Command({
@@ -43,7 +43,7 @@ function CommandInput({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
   return (
     <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
-      <Search className="mr-2 size-4 shrink-0 opacity-50" />
+      <Icon name="search" className="mr-2 size-4 shrink-0 opacity-50" />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(

@@ -66,6 +66,7 @@ beforeAll(async () => {
     workspaceId: WS,
     key: 'eln-proj',
     title: 'ELN Project',
+    leadUserId: OWNER,
   })
 })
 
@@ -352,7 +353,7 @@ describe('notebook domain schema', () => {
 })
 
 describe('create_record RPC identifier sequence', () => {
-  it('assigns EXP- prefixed, year-numbered, project-scoped identifiers', async () => {
+  it('assigns design-prefixed, workspace-scoped identifiers that never repeat', async () => {
     const owner = await asAuthenticated(OWNER, WS)
     const a = await owner.query(
       `SELECT * FROM api.create_record('${PROJ}', 'experiment', 'First experiment', 'draft', ARRAY['stability'])`,
@@ -363,15 +364,15 @@ describe('create_record RPC identifier sequence', () => {
     const c = await owner.query(
       `SELECT * FROM api.create_record('${PROJ}', 'protocol_template', 'Titration template')`,
     )
-    expect(a.rows[0].identifier).toMatch(/^EXP-\d{4}-\d{4}$/)
-    expect(b.rows[0].identifier).toMatch(/^EXP-\d{4}-\d{4}$/)
-    expect(c.rows[0].identifier).toMatch(/^PRT-\d{4}-\d{4}$/)
-    // Sequence is per (project, prefix, year), so the two EXP ids differ by
-    // one and the PRT starts at its own 0001.
-    const aSeq = Number(a.rows[0].identifier.split('-')[2])
-    const bSeq = Number(b.rows[0].identifier.split('-')[2])
+    expect(a.rows[0].identifier).toMatch(/^EXP-\d{4}$/)
+    expect(b.rows[0].identifier).toMatch(/^EXP-\d{4}$/)
+    expect(c.rows[0].identifier).toMatch(/^PRT-\d{3}$/)
+    // The sequence is per (workspace, kind), so the two EXP ids differ by one
+    // and the PRT starts at its own 001.
+    const aSeq = Number(a.rows[0].identifier.split('-')[1])
+    const bSeq = Number(b.rows[0].identifier.split('-')[1])
     expect(bSeq).toBe(aSeq + 1)
-    const cSeq = Number(c.rows[0].identifier.split('-')[2])
+    const cSeq = Number(c.rows[0].identifier.split('-')[1])
     expect(cSeq).toBe(1)
   })
 
@@ -445,7 +446,7 @@ describe('Virus Stability demo fixtures', () => {
               count(DISTINCT status)::text AS statuses
        FROM api.records
        WHERE project_id = '${DEMO_VIRUS_STABILITY_PROJECT_ID}'
-         AND kind = 'reagent'`,
+         AND kind = 'material'`,
     )
     expect(Number(reagents[0]?.n)).toBe(26)
     expect(Number(reagents[0]?.statuses)).toBe(5)
@@ -494,7 +495,9 @@ describe('Virus Stability demo fixtures', () => {
     ).toBe(false)
     const materials = rows.find((row) => row.id === DEMO_BLOCK_IDS.materials)
     expect(materials?.type).toBe('materials')
-    expect(materials?.payload.items).toHaveLength(3)
+    // Two active materials: an expired lot cannot be recorded as used (LAB-04.2),
+    // so the demo no longer cites the expired reference lot.
+    expect(materials?.payload.items).toHaveLength(2)
   })
 
   it('demo block payloads validate at the application boundary', async () => {

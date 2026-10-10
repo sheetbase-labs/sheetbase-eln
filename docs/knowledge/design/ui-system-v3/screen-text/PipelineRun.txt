@@ -1,0 +1,48 @@
+Run #148 · Clarification step yield
+Pipelines / PL-0007 / #148 Run #148 · Clarification step yield
+Run again Open pipeline
+Succeeded 25 Sep 10:12 · 38 s Started by: new DS-0311 snapshot S-15 (plate 4 import) Version 3
+Steps
+✓ Join titre to runs
+SQL · 96 + 27 rows in → 9 out
+0.2 s
+✓ Step yield per run
+SQL · 9 in → 8 out
+0.1 s
+✓ Fit yield vs load, draw figure
+Python · 3 fits, 1 figure · 140 MB used
+31 s
+✓ Propose Figure 1 in EXP-0142
+ELN · proposal waiting for Gareth P.
+0.4 s
+✓ Post summary to #aav9-process
+Notify · queued, sent 10:13
+0.1 s
+Step 3 output Deleted 10:12:42
+90 80 70 60 50 100 150 L/m²
+Train A Train B Train C Dashed: 80 % target
+| | Train | Yield at 150 | r²
+| A | 75.6 % | 0.99
+| B | 84.9 % | 0.97
+| C | — (flagged) | 0.98
+Step 4 didn’t change the notebook. It proposed a new Figure 1 that Gareth P. can accept or reject in EXP-0142. Open proposal
+Log
+10:12:04 run #148 started by event: DS-0311 snapshot S-15 (import of PR-01_EXP-0142_plate4.xlsx) 10:12:04 materialised in_ds0311 (96 rows, S-15) and in_ds0310 (27 rows, S-6) 10:12:05 step 3 python: fitting 3 trains · r² A 0.99, B 0.97, C 0.98 10:12:36 step 3 wrote figure step_yield_by_load.png (48 KB) temporary 10:12:37 step 4 proposed block “Step yield by filter load (run #148)” in EXP-0142 10:12:42 run finished · temporary tables and files deleted
+Inputs used
+DS-0311
+Snapshot S-15 · 96 rows
+DS-0310
+Snapshot S-6 · 27 rows
+Version
+PL-0007 v3
+Temporary data
+in_ds0311 96 rows
+in_ds0310 27 rows
+step_1 9 · step_2 8 rows
+step_yield_by_load.png 48 KB
+All deleted when the run ended at 10:12:42. Row counts and the log stay.
+Kept
+No dataset. This pipeline keeps nothing.
+Did
+Proposed Figure 1 in EXP-0142
+Sent 1 message to #aav9-process

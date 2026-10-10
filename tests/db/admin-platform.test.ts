@@ -14,11 +14,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import {
-  migratorUrl,
-  prepareTestDatabase,
-  setActorJwt,
-} from './helpers'
+import { migratorUrl, prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000a001'
 const WS_B = '00000000-0000-4000-8000-00000000a002'

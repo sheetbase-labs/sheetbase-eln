@@ -445,6 +445,7 @@ export const notebookQueryKeys = {
   record: (recordId: string) => ['notebook', 'record', recordId] as const,
   blocks: (recordId: string) => ['notebook', 'blocks', recordId] as const,
   links: (recordId: string) => ['notebook', 'links', recordId] as const,
+  revisions: (recordId: string) => ['notebook', 'revisions', recordId] as const,
   activity: (recordId: string) => ['notebook', 'activity', recordId] as const,
   fileObject: (fileRecordId: string) =>
     ['notebook', 'file-object', fileRecordId] as const,
@@ -467,7 +468,7 @@ export const RECORD_KIND_LABELS: Record<string, string> = {
   report: 'Report',
   notebook_template: 'Notebook template',
   sample: 'Sample',
-  reagent: 'Reagent',
+  material: 'Material',
   file: 'File',
   study: 'Study',
   /* DATA-04 search result classes (not record kinds, but rendered through
@@ -487,12 +488,12 @@ export function recordKindLabel(kind: string): string {
  */
 export function statusDomainForKind(
   kind: string,
-): 'experiment' | 'sample' | 'reagent' | 'protocol' | 'notebook_template' {
+): 'experiment' | 'sample' | 'material' | 'protocol' | 'notebook_template' {
   switch (kind) {
     case 'sample':
       return 'sample'
-    case 'reagent':
-      return 'reagent'
+    case 'material':
+      return 'material'
     case 'protocol_template':
       return 'protocol'
     case 'notebook_template':
@@ -598,12 +599,29 @@ export interface SubmitRecordRevisionInput {
   workflowDefinitionVersion: number
   reviewerUserIds: string[]
   idempotencyKey: string
+  /** WORK-01.1 — optional review due date overriding the project default. */
+  dueAt?: string | null
+  authorSigningToken?: string
+  authorConfirmationPhrase?: string
 }
 
 export interface SubmitRecordRevisionResult {
   revision: { id: string; integrityDigest: string }
   submission: { id: string; state: 'submitted' }
   idempotent: boolean
+}
+
+export interface ReviewWorkflowWire {
+  definition_key: string
+  version: number
+  requires_signature: boolean
+}
+
+/** Activation is owned by immutable workflow versions, not a client flag. */
+export function fetchAvailableReviewWorkflows(
+  client: DataClient,
+): Promise<ReviewWorkflowWire[]> {
+  return client.rpc('available_review_workflows', {})
 }
 
 /** Read the digest of the complete live evidence set immediately before submit. */
@@ -627,6 +645,13 @@ export function submitRecordRevision(
     p_reviewer_user_ids: input.reviewerUserIds,
     p_confirmed: true,
     p_idempotency_key: input.idempotencyKey,
+    p_due_at: input.dueAt ?? null,
+    ...(input.authorSigningToken
+      ? {
+          p_author_signing_token: input.authorSigningToken,
+          p_author_confirmation_phrase: input.authorConfirmationPhrase,
+        }
+      : {}),
   })
 }
 
@@ -635,6 +660,14 @@ export function fetchRevision(client: DataClient, revisionId: string) {
   return client
     .list<RevisionWire>('revisions', `?id=eq.${revisionId}&limit=1`)
     .then((rows) => (rows.length > 0 ? rows[0] : null))
+}
+
+/** All revisions of a record, newest first (Notebook Revisions tab). */
+export function fetchRevisionsForRecord(client: DataClient, recordId: string) {
+  return client.list<RevisionWire>(
+    'revisions',
+    `?record_id=eq.${encodeURIComponent(recordId)}&select=id,record_id,structure_version,metadata_version,reason,created_at,created_by_user_id,integrity_digest&order=created_at.desc,id.desc&limit=100`,
+  )
 }
 
 export function fetchLatestRevisionForRecord(

@@ -1,7 +1,8 @@
 /** Sheet Instance resource — query rows, mutations, materialize, record write-back. */
 import type { HttpTransport } from "../http.js";
 import { iterRpc } from "../pagination.js";
-import { fromSheetInstance, type SheetInstance } from "../types.js";
+import { fromSheetInstance  } from "../types.js";
+import type {SheetInstance} from "../types.js";
 import { NotFoundError } from "../errors.js";
 
 export class SheetsResource {

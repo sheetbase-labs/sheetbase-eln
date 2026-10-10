@@ -1,0 +1,646 @@
+import { useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { Button } from '#/components/v3/ui/button'
+import { Status } from '#/components/v3/ui/status'
+import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
+import { Muted, Section } from '#/components/v3/ui/layout'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import { toast } from '#/components/v3/ui/sonner'
+import {
+  CheckRow,
+  SettingsBody,
+  SettingsHeader,
+} from '#/components/v3/settings/settings-page'
+import { createDataClient } from '#/lib/data-client'
+import { hasCapability } from '#/lib/capability'
+import {
+  adminQueryKeys,
+  fetchWorkspaceSettings,
+  updateWorkspaceSettings,
+} from '#/lib/workspace-admin'
+import {
+  SIGNATURE_STATEMENT,
+  SIGNATURE_STATEMENT_VERSION,
+  certifySignature,
+  fetchWorkspaceCertifications,
+  isCurrentStatement,
+  practiceSignature,
+  requestIdentityVerification,
+  verifySignatureIdentity,
+  readSignaturePolicy,
+  signatureCertificationDataClient,
+  signatureCertificationQueryKeys,
+  withdrawSignatureCertification,
+} from '#/lib/signature-certification'
+import type { SignaturePolicy } from '#/lib/signature-certification'
+import { requestSignatureCredential } from '#/lib/signatures'
+
+/** UI port (roadmap-4/ui-app3): electronic signatures. You certify your own
+ * signature for the workspace; owners and admins set the workspace policy.
+ * Certification is a per-user attestation (SIGN-003), never a record write. */
+/** The three signature meanings, as the reference describes them. */
+const MEANING_ROWS = [
+  {
+    meaning: 'Authored',
+    who: 'The record author, before it is submitted',
+    usedFor: 'Your own records',
+  },
+  {
+    meaning: 'Reviewed',
+    who: 'A reviewer, after reading the record',
+    usedFor: 'The review step before approval',
+  },
+  {
+    meaning: 'Approved',
+    who: 'An approver, as the final decision',
+    usedFor: 'Releasing the record as evidence',
+  },
+] as const
+
+export const Route = createFileRoute('/settings/signatures')({
+  component: Signatures,
+})
+
+const dataClient = createDataClient()
+
+function Signatures() {
+  const { context } = Route.useRouteContext()
+  const workspaceId = context.workspace?.id ?? ''
+  const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
+  const canVerify =
+    context.workspace?.role === 'owner' || context.workspace?.role === 'admin'
+  const queryClient = useQueryClient()
+  const [agreed, setAgreed] = useState(false)
+  const [password, setPassword] = useState('')
+
+  const certifications = useQuery({
+    queryKey: signatureCertificationQueryKeys.workspace(workspaceId),
+    queryFn: () =>
+      fetchWorkspaceCertifications(
+        signatureCertificationDataClient,
+        workspaceId,
+      ),
+    enabled: Boolean(workspaceId),
+  })
+  const settings = useQuery({
+    queryKey: adminQueryKeys.settings(workspaceId),
+    queryFn: () => fetchWorkspaceSettings(dataClient, workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+
+  const mine = (certifications.data ?? []).find(
+    (c) => c.userId === context.user.id,
+  )
+  const current = isCurrentStatement(mine)
+  const uncertified = (certifications.data ?? []).filter(
+    (c) => !isCurrentStatement(c),
+  )
+  const policy = readSignaturePolicy(settings.data?.signaturePolicy)
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({
+      queryKey: signatureCertificationQueryKeys.workspace(workspaceId),
+    })
+    void queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.settings(workspaceId),
+    })
+  }
+
+  const certify = useMutation({
+    mutationFn: () => {
+      const enteredPassword = password
+      setPassword('')
+      return certifySignature(
+        signatureCertificationDataClient,
+        workspaceId,
+        enteredPassword,
+        SIGNATURE_STATEMENT_VERSION,
+      )
+    },
+    onSuccess: () => {
+      setAgreed(false)
+      invalidate()
+      toast('Signature certified', {
+        description: 'Recorded with the statement version you agreed to.',
+      })
+    },
+    onError: (error: unknown) =>
+      toast('Could not certify', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      }),
+  })
+
+  const verify = useMutation({
+    mutationFn: () =>
+      requestIdentityVerification(signatureCertificationDataClient),
+    onSuccess: invalidate,
+  })
+  const practice = useMutation({
+    mutationFn: () => {
+      const enteredPassword = password
+      setPassword('')
+      return practiceSignature(
+        signatureCertificationDataClient,
+        workspaceId,
+        enteredPassword,
+      )
+    },
+    onSuccess: () =>
+      toast('Practice signature completed', {
+        description:
+          'Password and certification verified. No real record signature was stored.',
+      }),
+  })
+
+  const withdraw = useMutation({
+    mutationFn: () =>
+      withdrawSignatureCertification(
+        signatureCertificationDataClient,
+        workspaceId,
+      ),
+    onSuccess: () => {
+      invalidate()
+      toast('Certification withdrawn', {
+        description: 'You cannot sign until you certify again.',
+      })
+    },
+    onError: (error: unknown) =>
+      toast('Could not withdraw', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      }),
+  })
+
+  return (
+    <>
+      <SettingsHeader title="Electronic signatures">
+        {context.workspace?.name ?? 'Workspace'} · signatures are a deliberate
+        act; every one records who, when and what version
+      </SettingsHeader>
+      <SettingsBody>
+        <Section title="Confirm your identity">
+          {mine?.identityVerifiedAt ? (
+            <p className="m-0 text-body">
+              Verified by{' '}
+              {(certifications.data ?? []).find(
+                (c) => c.userId === mine.identityVerifiedBy,
+              )?.name ?? 'a different administrator'}{' '}
+              on {mine.identityVerifiedAt.slice(0, 10)} · {mine.verifiedEmail}.
+            </p>
+          ) : (
+            <Muted>
+              {mine?.verificationRequested
+                ? 'Awaiting independent administrator verification.'
+                : 'Ask a different active owner or administrator to independently confirm your identity and email. A workspace owner cannot verify their own identity.'}
+            </Muted>
+          )}
+          <Button
+            size="sm"
+            disabled={verify.isPending || certifications.isPending}
+            onClick={() => verify.mutate()}
+          >
+            {mine?.identityVerifiedAt
+              ? 'Request new verification for recovery'
+              : 'Request identity verification'}
+          </Button>
+          <Muted>
+            Requesting verification revokes signing eligibility and outstanding
+            signing grants. The administrator never chooses or sees your
+            password.
+          </Muted>
+          {verify.error ? (
+            <Notice tone="bad">{verify.error.message}</Notice>
+          ) : null}
+        </Section>
+        <CredentialEnrollment
+          workspaceId={workspaceId}
+          verified={Boolean(mine?.identityVerifiedAt)}
+          onChanged={invalidate}
+        />
+        <Section
+          title="Your signature"
+          count={
+            current ? (
+              <Status tone="ok">Certified</Status>
+            ) : (
+              <Status tone="warn">Not certified</Status>
+            )
+          }
+        >
+          {current ? (
+            <div className="flex flex-col gap-2 text-body">
+              <p className="m-0">
+                Certified {mine?.certifiedAt?.slice(0, 10)} against statement
+                version {mine?.statementVersion}.
+              </p>
+              <div className="flex gap-1.5">
+                <Button
+                  size="sm"
+                  disabled={withdraw.isPending}
+                  onClick={() => withdraw.mutate()}
+                >
+                  Withdraw certification
+                </Button>
+              </div>
+              <Field
+                label="Signing password"
+                hint="Enter it again for a practice signature. No real record signature is stored."
+              >
+                <Input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </Field>
+              <Button
+                size="sm"
+                disabled={!password || practice.isPending}
+                onClick={() => practice.mutate()}
+              >
+                Try a practice signature
+              </Button>
+              {practice.error ? (
+                <Notice tone="bad">{practice.error.message}</Notice>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              {mine?.certifiedAt ? (
+                <p className="m-0 mb-2 text-label text-warning-text">
+                  This certification is no longer eligible for signing. Complete
+                  independent verification and certify again with your password.
+                </p>
+              ) : null}
+              <p className="m-0 rounded-md bg-surface-muted px-3 py-2.5 text-body leading-[19px]">
+                {SIGNATURE_STATEMENT}
+              </p>
+              <label className="flex cursor-pointer items-center gap-2 text-body">
+                <Checkbox
+                  checked={agreed}
+                  onCheckedChange={(v) => setAgreed(Boolean(v))}
+                />
+                I have read and agree to this statement
+              </label>
+              <Field
+                label="Enter your signing password to certify"
+                hint="Use your local signing password, including if you sign in through company SSO."
+              >
+                <Input
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </Field>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="primary"
+                  disabled={
+                    !agreed ||
+                    !password ||
+                    !mine?.identityVerifiedAt ||
+                    certify.isPending
+                  }
+                  onClick={() => certify.mutate()}
+                >
+                  Certify signature
+                </Button>
+                {!mine?.identityVerifiedAt ? (
+                  <span className="text-label text-fg-muted">
+                    Independent identity verification is required first
+                  </span>
+                ) : !agreed ? (
+                  <span className="text-label text-fg-muted">
+                    Agree to the statement to continue
+                  </span>
+                ) : null}
+              </div>
+              {certify.error ? (
+                <Notice tone="bad">
+                  {certify.error instanceof Error
+                    ? certify.error.message
+                    : 'Certification was refused.'}
+                </Notice>
+              ) : null}
+            </>
+          )}
+        </Section>
+
+        <Section title="Signature meanings" count={MEANING_ROWS.length}>
+          <TableBox className="max-w-[760px]">
+            <Table aria-label="Signature meanings">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Meaning</TableHead>
+                  <TableHead>Who can sign</TableHead>
+                  <TableHead>Used for</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {MEANING_ROWS.map((m) => (
+                  <TableRow key={m.meaning}>
+                    <TableCell className="font-medium">{m.meaning}</TableCell>
+                    <TableCell className="text-fg-muted">{m.who}</TableCell>
+                    <TableCell className="text-fg-muted">{m.usedFor}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableBox>
+        </Section>
+
+        <PolicySection
+          policy={policy}
+          canManage={canManage}
+          workspaceId={workspaceId}
+          onSaved={invalidate}
+        />
+
+        <Section
+          title="People without a certified signature"
+          count={uncertified.length}
+        >
+          {uncertified.length ? (
+            <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body">
+              {uncertified.map((c) => (
+                <li
+                  key={c.userId}
+                  className="flex flex-wrap items-center gap-2"
+                >
+                  <Status tone="warn">{c.name}</Status>
+                  <span className="text-fg-muted">
+                    · cannot apply an electronic signature until certified
+                  </span>
+                  {canVerify &&
+                  c.userId !== context.user.id &&
+                  c.verificationRequested ? (
+                    <IdentityVerification
+                      userId={c.userId}
+                      name={c.name}
+                      onVerified={invalidate}
+                    />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Muted>
+              Everyone in the workspace has certified their signature.
+            </Muted>
+          )}
+        </Section>
+      </SettingsBody>
+    </>
+  )
+}
+
+function PolicySection({
+  policy,
+  canManage,
+  workspaceId,
+  onSaved,
+}: {
+  policy: SignaturePolicy
+  canManage: boolean
+  workspaceId: string
+  onSaved: () => void
+}) {
+  const [meanings, setMeanings] = useState<Record<string, boolean>>(
+    policy.meanings,
+  )
+
+  const save = useMutation({
+    mutationFn: () =>
+      updateWorkspaceSettings(createDataClient(), {
+        workspaceId,
+        signaturePolicy: { meanings, reauth: 'every' },
+      }),
+    onSuccess: () => {
+      onSaved()
+      toast('Signature policy saved')
+    },
+    onError: (error: unknown) =>
+      toast('Could not save the policy', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      }),
+  })
+
+  return (
+    <Section
+      title="Workspace policy"
+      count={
+        canManage ? (
+          <Button disabled={save.isPending} onClick={() => save.mutate()}>
+            Save changes
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="flex flex-col gap-2.5">
+        {(['Authored', 'Reviewed', 'Approved'] as const).map((m) => (
+          <CheckRow
+            key={m}
+            title={`${m} is a signature meaning in use`}
+            body={
+              m === 'Authored'
+                ? 'Always on: every record needs its author’s signature before review.'
+                : undefined
+            }
+            checked={meanings[m] ?? false}
+            disabled={!canManage || m === 'Authored'}
+            onCheckedChange={(on) =>
+              setMeanings((current) => ({ ...current, [m]: on }))
+            }
+          />
+        ))}
+      </div>
+      <Muted className="mt-3">
+        Password re-entry is required for every signature. Three consecutive
+        failed attempts lock signing for 15 minutes. GitHub sign-in is not
+        provider step-up.
+      </Muted>
+      <Muted className="mt-2">
+        A signature always records the signer, the server time, the meaning and
+        the exact version it applies to. Signed records are locked; changes need
+        an amendment and a new review.
+      </Muted>
+    </Section>
+  )
+}
+
+function IdentityVerification({
+  userId,
+  name,
+  onVerified,
+}: {
+  userId: string
+  name: string
+  onVerified: () => void
+}) {
+  const [email, setEmail] = useState('')
+  const [confirmed, setConfirmed] = useState(false)
+  const verify = useMutation({
+    mutationFn: () =>
+      verifySignatureIdentity(signatureCertificationDataClient, userId, email),
+    onSuccess: onVerified,
+  })
+  return (
+    <details className="w-full">
+      <summary className="cursor-pointer text-label">
+        Verify {name} independently
+      </summary>
+      <div className="mt-2 flex max-w-[480px] flex-col gap-2">
+        <Field label="Independently verified email">
+          <Input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </Field>
+        <label className="flex items-center gap-2 text-body">
+          <Checkbox
+            checked={confirmed}
+            onCheckedChange={(value) => setConfirmed(Boolean(value))}
+          />
+          I have independently confirmed this person's identity and email.
+        </label>
+        <Button
+          disabled={!email || !confirmed || verify.isPending}
+          onClick={() => verify.mutate()}
+        >
+          Confirm verified identity
+        </Button>
+        {verify.error ? (
+          <Notice tone="bad">{verify.error.message}</Notice>
+        ) : null}
+      </div>
+    </details>
+  )
+}
+
+function CredentialEnrollment({
+  workspaceId,
+  verified,
+  onChanged,
+}: {
+  workspaceId: string
+  verified: boolean
+  onChanged: () => void
+}) {
+  const [recovering, setRecovering] = useState(false)
+  const [secret, setSecret] = useState('')
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState<string | null>(null)
+  const send = useMutation({
+    mutationFn: () =>
+      requestSignatureCredential({
+        workspaceId,
+        purpose: recovering ? 'recover-request' : 'enroll-request',
+      }),
+    onSuccess: () =>
+      setMessage(
+        'A one-use secret was delivered to your independently verified email. It expires in five minutes; reissuing invalidates the previous secret.',
+      ),
+  })
+  const enroll = useMutation({
+    mutationFn: () => {
+      const input = {
+        workspaceId,
+        purpose: recovering ? 'recover' : 'enroll',
+        secret,
+        password,
+      } satisfies Parameters<typeof requestSignatureCredential>[0]
+      setPassword('')
+      setSecret('')
+      return requestSignatureCredential(input)
+    },
+    onSuccess: () => {
+      onChanged()
+      setMessage(
+        recovering
+          ? 'Recovery completed. Old sessions and signing grants were revoked. Sign in again, then certify your signature.'
+          : 'Signing password enrolled. Agree to the statement and enter it again to certify.',
+      )
+    },
+  })
+  return (
+    <Section title="Your signing password">
+      <details>
+        <summary className="cursor-pointer text-body">
+          Set up or recover a local signing password
+        </summary>
+        <div className="mt-2 flex max-w-[480px] flex-col gap-2">
+          <Muted>
+            Fresh independent verification must authorize this current session.
+            Email is sent immediately over certificate-validated TLS; there is
+            no browser or administrator secret fallback. Recovery revokes old
+            signing grants and sessions.
+          </Muted>
+          <label className="flex items-center gap-2 text-body">
+            <Checkbox
+              checked={recovering}
+              onCheckedChange={(value) => {
+                setRecovering(Boolean(value))
+                setMessage(null)
+                setPassword('')
+                setSecret('')
+              }}
+            />
+            Recover an existing credential instead of first enrollment
+          </label>
+          <Button
+            disabled={!verified || send.isPending || enroll.isPending}
+            onClick={() => send.mutate()}
+          >
+            Send one-use secret to verified email
+          </Button>
+          <Field label="One-use email secret">
+            <Input
+              autoComplete="off"
+              value={secret}
+              onChange={(event) => setSecret(event.target.value)}
+            />
+          </Field>
+          <Field
+            label="New signing password"
+            hint="8–128 characters. Your administrator never sees this password."
+          >
+            <Input
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </Field>
+          <Button
+            disabled={!verified || !secret || !password || enroll.isPending}
+            onClick={() => enroll.mutate()}
+          >
+            {recovering
+              ? 'Recover signing password'
+              : 'Enroll signing password'}
+          </Button>
+          {message ? <Notice>{message}</Notice> : null}
+          {send.error || enroll.error ? (
+            <Notice tone="bad">{(send.error ?? enroll.error)?.message}</Notice>
+          ) : null}
+        </div>
+      </details>
+    </Section>
+  )
+}

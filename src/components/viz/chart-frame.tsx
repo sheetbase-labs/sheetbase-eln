@@ -1,23 +1,17 @@
 import * as React from 'react'
-import {
-  Camera,
-  Download,
-  Expand,
-  Minimize2,
-  MoreHorizontal,
-  Radio,
-} from 'lucide-react'
+import { Expand, Minimize2 } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import {
-  Badge,
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Skeleton,
-} from '#/components/ui'
+} from '#/components/v3/ui/dropdown-menu'
+import { Icon } from '#/components/v3/icons'
 
 /**
  * ChartFrame — a reusable frame around any chart visualisation. It owns the
@@ -78,7 +72,7 @@ export function ChartFrame({
   return (
     <figure
       className={cn(
-        'rounded-lg border bg-card shadow-xs',
+        'rounded-lg border bg-surface shadow-xs',
         fill && 'flex h-full min-h-0 flex-col overflow-hidden',
         className,
       )}
@@ -98,19 +92,19 @@ export function ChartFrame({
                 {title}
               </h3>
               {mode === 'live' ? (
-                <Badge variant="success" className="shrink-0">
-                  <Radio className="size-3" aria-hidden="true" />
+                <Badge variant="add" className="shrink-0">
+                  <Icon name="play" size={12} aria-hidden="true" />
                   Live
                 </Badge>
               ) : (
-                <Badge variant="outline" className="shrink-0">
-                  <Camera className="size-3" aria-hidden="true" />
+                <Badge variant="kind" className="shrink-0">
+                  <Icon name="archive" size={12} aria-hidden="true" />
                   Snapshot
                 </Badge>
               )}
             </div>
             {subtitle ? (
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              <p className="mt-0.5 truncate text-xs text-fg-muted">
                 {subtitle}
               </p>
             ) : null}
@@ -118,17 +112,17 @@ export function ChartFrame({
           <div className="flex shrink-0 items-center gap-0.5">
             {actions}
             <Button
-              variant="ghost"
-              size="icon-sm"
+              variant="quiet"
+              size="icon"
               aria-label="Download chart"
               disabled={loading}
             >
-              <Download />
+              <Icon name="download" size={16} />
             </Button>
             {onExpandedChange ? (
               <Button
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 aria-label={expanded ? 'Contract chart' : 'Expand chart'}
                 title={expanded ? 'Contract chart' : 'Expand chart'}
                 disabled={loading}
@@ -138,16 +132,17 @@ export function ChartFrame({
               </Button>
             ) : null}
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Chart actions"
-                  disabled={loading}
-                >
-                  <MoreHorizontal />
-                </Button>
-              </DropdownMenuTrigger>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="quiet"
+                    size="icon"
+                    aria-label="Chart actions"
+                    disabled={loading}
+                    icon="more"
+                  />
+                }
+              />
               <DropdownMenuContent align="end">
                 <DropdownMenuItem disabled>Open in analysis</DropdownMenuItem>
                 <DropdownMenuItem disabled>Copy snapshot link</DropdownMenuItem>
@@ -182,9 +177,7 @@ export function ChartFrame({
       ) : null}
 
       {provenance ? (
-        <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-          {provenance}
-        </p>
+        <p className="border-t px-4 py-2 text-xs text-fg-muted">{provenance}</p>
       ) : null}
 
       {legend ? (

@@ -1,4 +1,4 @@
-import { SCIENTIFIC_CORE_FUNCTIONS } from '#/lib/hyperformula-profile'
+import { SCIENTIFIC_CORE_FUNCTIONS } from '#/lib/formula-profile'
 
 export const FUNCTION_DESCRIPTIONS: Readonly<Record<string, string>> =
   Object.freeze({

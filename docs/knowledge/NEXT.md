@@ -1,131 +1,83 @@
 ---
 title: Sheetbase Current Work
 status: canonical
-last_reviewed: 2026-09-07
+last_reviewed: 2026-10-10
 ---
 
 # Sheetbase — Current Work
 
-This is the single current hand-off for Sheetbase development across roadmaps.
-Start here when deciding what work is active or next.
+**Every Roadmap 4 active task is complete; nothing is in progress.** The work is
+on `GWP/roadmap-4-shell`. Its [reconciliation](roadmap-4/RECONCILIATION.md) covers
+all 86 original tasks and its evidence and limits still stand: task completion is
+not release acceptance, and the visual and browser layers are deferred to
+acceptance by the owner's instruction. The [Roadmap 4 handoff](roadmap-4/NEXT.md)
+and nod tracker own its queue. Roadmap 5 remains a
+[proposal](../../plans/roadmap-5/README.md).
 
-## Current branch work
+This is a local source and documentation assessment. It does not establish
+merge, current hosted CI, deployment or production acceptance. Earlier branch
+and PR #176 status belongs to the [pipeline handoff](handoffs/python-sql-pipelines.md),
+not the current-checkout summary.
 
-`GWP/design-overhaul` contains the requested interface improvements and the
-Python/ELN Pipeline extension described in [ADR-0046](decisions/0046-python-and-eln-pipeline-actions.md).
-This is local branch work, not a merged or production deployment claim. The
-local Python runner is configured; deployment requires reviewed immutable
-runner/runtime images and private runner configuration.
+## Programme status
 
-The work is published in [PR #176](https://github.com/sheetbase-labs/sheetbase-eln/pull/176).
-See the [Python/SQL pipeline handoff and proposed follow-on roadmap](handoffs/python-sql-pipelines.md)
-for setup, implementation details, validation limits and the next bounded tasks.
-PR publication does not establish merge or production acceptance.
+| Programme | Current interpretation                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roadmap 1 | Recorded complete; historical Core exits not independently recertified here.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Roadmap 2 | Active scope recorded closed; GOV-02 remains deferred.                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Roadmap 3 | September reconciliation records 50 merged implementation tasks plus institutional proposals/deferrals; known limits and workflow acceptance remain. ADR-0045 was subsequently accepted through DEC-04; ADR-0044 remains proposed.                                                                                                                                                                                                                                                |
+| Roadmap 4 | All 85 active tasks done on `GWP/roadmap-4-shell` (SHELL-04 cancelled in favour of DEC-03). The 2 October audit baseline it grew from was 13 accepted decisions, four inherited completions with acceptance unverified, 52 partial, 16 not started and one superseded duplicate; each was reconciled against the current source rather than the audit text. Completion is task-level: it is not release acceptance, and the deferred visual and browser layers remain unverified. |
+| Roadmap 5 | Proposed follow-on work; unfinished Roadmap 4 requirements retain their original task owner.                                                                                                                                                                                                                                                                                                                                                                                      |
 
-## Reconciled baseline
+The [7 September reconciliation](history/2026-09-07-roadmap-reconciliation.md)
+remains historical evidence for Roadmaps 1–3. This update audits Roadmap 4;
+it does not re-run all earlier programme exits. Recorded completion, source
+implementation, independent acceptance and deployment are different claims.
 
-Reconciled against `main` at `832d9d6f3baaf0e42853d8fa71224f157b541c46`
-(7 September 2026). The [reconciliation record](history/2026-09-07-roadmap-reconciliation.md)
-contains the evidence, status definitions and limits of this assessment.
+## Next work (2 October audit ordering)
 
-```text
-Roadmap 1    RECORDED COMPLETE — CORE-01..06 and Core Hardening
-Roadmap 2    ACTIVE SCOPE CLOSED — GOV-02 deferred; known limits remain
-Roadmap 3    WAVES A–C MERGED — not a blanket acceptance/release sign-off
-             WAVE D — 2 proposed decisions; 8 deferred implementation tasks
-Roadmap 4    PROPOSAL ONLY — not activated by this reconciliation
-```
+1. Restore the Roadmap 4 acceptance gate and shell behavior: DSYS-05/06 and
+   SHELL-01/03. The original parity registry has zero mapped screen states;
+   reconcile its reference contract with the adopted app-3 port before closing it.
+2. Close scientific correctness and daily-work gaps: DSET-01 and MOB-02.
+   LAB-07 owns effective protocol/training enforcement needed by EXP-02/03.
+3. Complete COMP/SHEET/MDL dependencies and governed/operational workflows
+   under their original IDs. Read the [task-by-task register](roadmap-4/RECONCILIATION.md#task-register)
+   for exact implemented subsets, gaps and evidence.
+4. Use Roadmap 5 only for explicitly selected follow-on acceptance or extensions.
+   It does not supersede the remaining Roadmap 4 backlog or authorize implementation.
 
-**Merged is not the same as accepted, deployed or production-ready.** This
-reconciliation preserves historical programme closure, identifies implementation
-present on `main`, and records concrete outstanding work. It does not certify
-that every historical exit criterion has been independently re-tested.
+## Important boundaries
 
-## What has landed
-
-Roadmap 1 established the canonical schema, Dataset, compositional Sheet,
-Record-creation, evolution, reuse and frozen-evidence contracts.
-
-Roadmap 2's active programmes are recorded closed: PC, API, DATA, GOV except
-GOV-02, COLLAB, SCI, INT, PLAT and AUTO. In particular, AUTO-04/05's bounded
-proposal/workflow contracts are implemented; they are not a live model-provider
-integration. See [Roadmap 2 status](roadmap-2/tasks/README.md).
-
-Roadmap 3 has implementation on `main` for the 50 numbered tasks in Product
-Depth, Scientific Depth, Open Platform and Intelligent Workspace. The earlier
-Wave A work and the `#127 → … → #161` stack are no longer waiting for review or
-ordered merging. PR #162 also merged, but it delivered proposals and deferrals,
-not the remaining institutional capabilities. See [Roadmap 3 task status](roadmap-3/tasks/README.md).
-
-## Outstanding implementation and verification
-
-| Area                         | Actual boundary / outstanding work                                                                                                                                                                                                                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CI / REUSE-02                | Baseline CI run `34094029808` failed: `versioned-notebook-templates.test.tsx` could not find the declared default value `5`. Diagnose and fix; do not assume flakiness. Static checks, database integration and production build passed in that run.                                                                     |
-| Whole-workflow acceptance    | The CI workflow leaves browser and live API suites manual. Their presence is not evidence of a passing integrated release gate. Revalidate selected end-to-end exits against real services.                                                                                                                              |
-| AI / ASSIST                  | Context, retrieval, policy and assistive interfaces are implemented; the gateway's only provider is a deterministic stub. Real model calls and real-provider quality/cost evaluation remain outstanding.                                                                                                                 |
-| Collaboration                | Record, Notebook-block and Dataset anchors exist. Canonical Sheet-cell/range comment anchors are not implemented; do not equate Dataset-cell comments with Sheet-cell comments.                                                                                                                                          |
-| Scientific analysis / intake | The import parser caps files at 10 MiB and tables at 1,000 rows; the scientific data layer caps analysis at 10,000 rows. The visualisation contract is single-Dataset and does not automatically include local Sheet columns. Broader workload/composed-source support is not delivered by declaring GRID/VIEW complete. |
-| SDK release                  | Manual release-candidate workflow dispatch is enabled again. Publishing remains a maintainer operation; no successful registry publication or live-service SDK acceptance was established by this reconciliation.                                                                                                        |
-| Recovery                     | Backup/restore tooling exists. The documented baseline retains backups on the VPS and cites an empty-workspace drill. Off-host protection and populated scientific-workspace recovery proof remain outstanding.                                                                                                          |
-
-These are a mix of observed failing checks, intentional limits and missing
-capabilities. They are not all regressions, and this table is not an exhaustive
-code audit. Source references and qualification are in the reconciliation record.
-
-## Deferred decisions and work
-
-| Task          | Status and activation condition                                                                                                                                    |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| GOV-02        | Deferred. Revisited through ENT-ORG; do not implement a second organisation model.                                                                                 |
-| ENT-ORG-01    | ADR-0044 is **proposed**, not accepted. The task's accepted-ADR exit is not met.                                                                                   |
-| ENT-ORG-02/03 | Deferred until an accepted organisation ADR and a concrete multi-workspace/team adoption need exist.                                                               |
-| GXP-01        | ADR-0045 is **proposed**. A concrete regulated intended use and accepted control decision remain outstanding.                                                      |
-| GXP-02..04    | Deferred until the intended-use/control gates are met and work is explicitly assigned. Existing review/signing controls do not establish regulated-use validation. |
-| OPS-01..03    | Deferred institutional work; requires an explicit deployment/adoption decision. Existing PLAT implementation is not proof that these later exits are met.          |
-
-Do not silently accept ADRs, relax their exits, or relabel deferred work as
-complete. The previously recorded absence of production adoption is the rationale
-for the deferral, not a fresh audit of deployment users or data.
-
-## Next work, in order
-
-1. Resolve the baseline CI failure with a demonstrated cause and a passing
-   regression test. Preserve assertions; do not hide failures with exclusions.
-2. Revalidate the highest-consequence integrated exits: first-use/template
-   instantiation, composed Sheet write-back, review/frozen reconstruction,
-   permission isolation and populated recovery. Record evidence and remaining
-   gaps rather than automatically reopening or re-completing whole roadmaps.
-3. Agree which documented capability gaps become the next implementation tasks.
-   The Roadmap 4 proposal is not an assignment and is not activated here.
-4. Decide ADR-0044/0045 only when the relevant adoption/intended-use evidence is
-   available. Earlier roadmaps landing does not remove their gates.
-
-This documentation reconciliation does not fix application code, change
-workflows, publish SDKs, deploy services, or activate a new capability stream.
+- **Whole-workflow acceptance:** unit and source evidence do not prove a complete
+  populated scientific workflow, permission isolation or frozen reconstruction.
+  Roadmap 4's original parity harness currently registers no comparisons;
+  historical port QA covers a different, narrower scope.
+- **REUSE-02:** run `34094029808` failed in the September baseline. That is dated
+  evidence, not a current reproduced failure; the old component was retired.
+  SHEET-04 still needs equivalent default-value and template-update acceptance.
+- **Scientific source ownership:** Sheet source pins and Definition-backed
+  materialization already exist. SHEET-05 owns composed-source analysis;
+  extend the existing materialization RPC rather than creating another engine.
+  Dataset-schema editing does not implement ADR-0051 workspace Record Models.
+- **Governance:** DEC-04/ADR-0045 is accepted, but signing step-up, expanded
+  meanings and audit verification remain REV work. ADR-0044 and wider
+  organisational/institutional deployment work remain separately gated.
+- **Earlier follow-ups:** live AI provider acceptance, SDK publication, off-host
+  recovery and populated restore evidence were not re-audited here. Consult
+  their original task/handoff before treating them as complete.
 
 ## When taking a task
 
-Read, in order:
+Read [agent context](agent/agent-context.md), [workflows](agent/workflows.md),
+[PRODUCT.md](PRODUCT.md), [DESIGN.md](DESIGN.md), [ROADMAP.md](ROADMAP.md),
+the relevant current task status, subsystem contracts and accepted ADRs.
+Then inspect current source and tests; old baseline descriptions are historical.
 
-1. [`agent/agent-context.md`](agent/agent-context.md)
-2. [`agent/workflows.md`](agent/workflows.md)
-3. [`PRODUCT.md`](PRODUCT.md)
-4. [`DESIGN.md`](DESIGN.md)
-5. [`ROADMAP.md`](ROADMAP.md)
-6. the relevant roadmap programme/task file and reconciled status;
-7. relevant architecture documents and accepted ADRs;
-8. current implementation/subsystem docs under `docs/`.
+## Maintenance
 
-Then inspect the actual code and tests. Documentation is context and contract,
-not a substitute for implementation evidence.
-
-## Maintenance rule
-
-Update this file whenever merged reality materially changes what is active or
-next. Programme folders retain scope, task definitions and historical evidence;
-they do not own a competing current hand-off. Roadmap 1's retained local
-`NEXT.md` is historical, not an active work queue.
-
-For status changes, record the implementation ref, validation evidence, known
-limits and explicit deferrals. Never use a merged PR alone as acceptance proof.
+This file owns cross-roadmap priority. Roadmap 4's [NEXT](roadmap-4/NEXT.md)
+and nod tracker own its queue. Other programme folders retain scope and history;
+Roadmap 1's local NEXT is historical. Record the implementation revision,
+validation evidence, limits and explicit deferrals whenever status changes.
+Do not equate a merged PR or a rendered screen with full acceptance.

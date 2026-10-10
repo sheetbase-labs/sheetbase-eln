@@ -515,7 +515,7 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
             {
               kind: 'review',
               id: s.submissionId,
-              deepLink: s.revisionId ? `/reviews/${s.revisionId}` : '/reviews',
+              deepLink: s.revisionId ? `/review/${s.revisionId}` : '/review',
             },
           ]
         : [{ kind: 'notebook', id: s.recordId, deepLink: recordLink(s) }],
@@ -544,7 +544,7 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
         label: 'Open review workspace',
         target: {
           kind: 'navigate',
-          href: s.revisionId ? `/reviews/${s.revisionId}` : '/reviews',
+          href: s.revisionId ? `/review/${s.revisionId}` : '/review',
           hint: 'Opens the canonical review workspace. Guidance only navigates — nothing is changed.',
         },
       },

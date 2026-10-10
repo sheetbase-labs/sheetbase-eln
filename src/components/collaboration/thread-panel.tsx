@@ -3,7 +3,9 @@ import * as React from 'react'
 import { Composer, Thread } from '@liveblocks/react-ui'
 
 import { useCollaborationRoomReady } from './collaboration-room'
-import { Badge, Button, Checkbox, Label } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Checkbox } from '#/components/v3/ui/checkbox'
 import { cn } from '#/lib/utils'
 import {
   anchorBelongsToRoom,
@@ -107,7 +109,7 @@ function ThreadPanelInner({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-medium">Discussion</span>
-          <Badge variant={unresolvedCount > 0 ? 'default' : 'secondary'}>
+          <Badge variant={unresolvedCount > 0 ? 'chg' : 'kind'}>
             {unresolvedCount} unresolved
           </Badge>
         </div>
@@ -117,17 +119,17 @@ function ThreadPanelInner({
             checked={unresolvedOnly}
             onCheckedChange={(checked) => setUnresolvedOnly(checked === true)}
           />
-          <Label
+          <label
             htmlFor="thread-panel-unresolved-only"
-            className="text-[11px] text-muted-foreground"
+            className="text-[11px] text-fg-muted"
           >
             Unresolved only
-          </Label>
+          </label>
         </div>
       </div>
 
       {visibleThreads.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-fg-muted">
           {unresolvedOnly && anchorThreads.length > 0
             ? 'All comments on this selection are resolved.'
             : 'No comments yet.'}
@@ -141,8 +143,8 @@ function ThreadPanelInner({
                 {thread.resolved ? (
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="xs"
+                    variant="quiet"
+                    size="sm"
                     aria-label={`Reopen thread ${thread.id}`}
                     onClick={() => markUnresolved(thread.id)}
                   >
@@ -151,8 +153,8 @@ function ThreadPanelInner({
                 ) : (
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="xs"
+                    variant="quiet"
+                    size="sm"
                     aria-label={`Resolve thread ${thread.id}`}
                     onClick={() => markResolved(thread.id)}
                   >

@@ -135,6 +135,12 @@
       "typescript": "generic"
     },
     {
+      "resource": "record_models",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "record_links",
       "methods": ["GET", "HEAD", "POST", "PATCH"],
       "python": "generic",

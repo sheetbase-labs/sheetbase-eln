@@ -47,6 +47,80 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import { notebookQueryKeys } from './notebook-data'
 
+// Home read models depend on durable domain mutations, not the SSE cursor.
+// In particular, reading audit history and presence must not refetch Home.
+const homeQueriesByEntity: Record<string, string[]> = {
+  record: [
+    'home-counts',
+    'home-reviews',
+    'home-materials',
+    'home-first-run-experiments',
+    'home-recents',
+    'home-activity',
+  ],
+  review_submission: [
+    'home-counts',
+    'home-reviews',
+    'home-recents',
+    'home-activity',
+  ],
+  review_decision: [
+    'home-counts',
+    'home-reviews',
+    'home-recents',
+    'home-activity',
+  ],
+  signature: [
+    'home-counts',
+    'home-reviews',
+    'home-first-run-certifications',
+    'home-recents',
+    'home-activity',
+  ],
+  dataset: [
+    'home-counts',
+    'home-dataset-issues',
+    'home-recents',
+    'home-activity',
+  ],
+  dataset_version: [
+    'home-counts',
+    'home-dataset-issues',
+    'home-recents',
+    'home-activity',
+  ],
+  dataset_schema_field: ['home-counts', 'home-dataset-issues', 'home-activity'],
+  instrument_run: ['home-counts', 'home-activity'],
+  calendar_booking: ['home-bookings', 'home-activity'],
+  calendar_booking_participant: ['home-bookings', 'home-activity'],
+  calendar_resource: ['home-bookings', 'home-activity'],
+  pipeline_run: ['home-counts', 'home-activity'],
+  connector_run: ['home-counts', 'home-activity'],
+  dataset_import_file: ['home-counts', 'home-activity'],
+  project: [
+    'home-first-run-projects',
+    'home-first-run-people',
+    'home-recents',
+    'home-activity',
+  ],
+  project_access: [
+    'home-counts',
+    'home-reviews',
+    'home-dataset-issues',
+    'home-materials',
+    'home-first-run-projects',
+    'home-first-run-project-opens',
+    'home-first-run-people',
+    'home-recents',
+    'home-activity',
+  ],
+  block: ['home-recents', 'home-activity'],
+  record_link: ['home-recents', 'home-activity'],
+  scientific_row: ['home-activity'],
+  sheet_instance: ['home-recents', 'home-activity'],
+  comment: ['home-activity'],
+}
+
 // ---------------------------------------------------------------------------
 // Types.
 // ---------------------------------------------------------------------------
@@ -116,6 +190,12 @@ export interface LiveEventDeps {
 
 export interface LiveCoordinator {
   connect: () => void
+  /**
+   * Drop the current stream and open a fresh one, resuming after the last
+   * applied sequence. Used by the offline banner's explicit Retry, which
+   * `connect()` cannot serve because it is a no-op while a stream exists.
+   */
+  reconnect: () => void
   disconnect: () => void
   getStatus: () => LiveStatus
   subscribe: (listener: (status: LiveStatus) => void) => () => void
@@ -144,6 +224,29 @@ export function createLiveEventCoordinator(
   /** Cursor to reconnect from; set by reset/bye, cleared on successful hello. */
   let reconnectAfter: number | null = null
   const listeners = new Set<(s: LiveStatus) => void>()
+  const pendingHomeQueries = new Map<string, readonly [string, string]>()
+  let homeInvalidationTimer: ReturnType<typeof setTimeout> | null = null
+
+  function queueHomeInvalidation(
+    prefix: string,
+    eventWorkspaceId: string,
+  ): void {
+    pendingHomeQueries.set(`${prefix}:${eventWorkspaceId}`, [
+      prefix,
+      eventWorkspaceId,
+    ])
+    if (homeInvalidationTimer !== null) return
+    // An initial SSE replay can contain hundreds of real domain mutations.
+    // Coalesce each affected Home collection once per short batch rather
+    // than restarting its reads for every historical event.
+    homeInvalidationTimer = setTimeout(() => {
+      homeInvalidationTimer = null
+      for (const queryKey of pendingHomeQueries.values()) {
+        void deps.queryClient.invalidateQueries({ queryKey })
+      }
+      pendingHomeQueries.clear()
+    }, 100)
+  }
 
   function snapshot(): LiveStatus {
     return { status, lastAppliedSeq, workspaceId, lastResetReason }
@@ -158,6 +261,22 @@ export function createLiveEventCoordinator(
     if (status === next) return
     status = next
     emit()
+  }
+
+  /**
+   * Notify subscribers after applying events at most once per microtask. A
+   * burst of durable events (for example a reconnect backlog) would otherwise
+   * call setState synchronously per event and can exceed React's nested-update
+   * limit. Status transitions still emit synchronously.
+   */
+  let eventEmitScheduled = false
+  function scheduleEventEmit(): void {
+    if (eventEmitScheduled) return
+    eventEmitScheduled = true
+    queueMicrotask(() => {
+      eventEmitScheduled = false
+      emit()
+    })
   }
 
   /**
@@ -176,7 +295,7 @@ export function createLiveEventCoordinator(
       // Own echo: the mutation's onSuccess already reconciled the cache.
       // Advance the cursor so a later replayed batch does not re-apply.
       lastAppliedSeq = event.sequence
-      emit()
+      scheduleEventEmit()
       return
     }
 
@@ -185,17 +304,70 @@ export function createLiveEventCoordinator(
     // optimistic state for unrelated in-flight mutations.
     invalidateForEvent(event)
     lastAppliedSeq = event.sequence
-    emit()
+    scheduleEventEmit()
   }
 
   function invalidateForEvent(event: ChangeEventWire): void {
     const qc = deps.queryClient
+    if (
+      [
+        'create',
+        'update',
+        'move',
+        'delete',
+        'archive',
+        'restore',
+        'link',
+        'unlink',
+        'quarantine',
+        'resolve',
+        'reopen',
+        'lock',
+        'amend',
+        'suspend',
+        'revoke',
+      ].includes(event.operation)
+    ) {
+      const accessChanged = [
+        'project_access',
+        'workspace_group',
+        'workspace_group_membership',
+        'project_access_request',
+      ].includes(event.entityType)
+      if (accessChanged) {
+        void qc.invalidateQueries({
+          queryKey: ['workspace-access', event.workspaceId],
+        })
+      }
+      const homeEntity = accessChanged ? 'project_access' : event.entityType
+      for (const prefix of homeQueriesByEntity[homeEntity] ?? []) {
+        queueHomeInvalidation(prefix, event.workspaceId)
+      }
+    }
     switch (event.entityType) {
+      case 'parser':
+      case 'parser_version':
+      case 'dataset_import_file': {
+        void qc.invalidateQueries({
+          queryKey: ['parser-settings', event.workspaceId],
+        })
+        void qc.invalidateQueries({
+          queryKey: ['parser-test-files', event.workspaceId],
+        })
+        void qc.invalidateQueries({ queryKey: ['work-items'] })
+        break
+      }
+      case 'connector_run': {
+        void qc.invalidateQueries({ queryKey: ['work-items'] })
+        break
+      }
       case 'project': {
         void qc.invalidateQueries({
           queryKey: keys.project(event.entityUuid),
         })
         void qc.invalidateQueries({ queryKey: keys.projectsList() })
+        // The Inbox work list derives from project records.
+        void qc.invalidateQueries({ queryKey: ['work-items'] })
         break
       }
       case 'record': {
@@ -209,6 +381,8 @@ export function createLiveEventCoordinator(
         }
         // Records list on the home/projects views may also reflect this.
         void qc.invalidateQueries({ queryKey: keys.projectsList() })
+        // Reviews and follows on this record change the Inbox work list.
+        void qc.invalidateQueries({ queryKey: ['work-items'] })
         break
       }
       case 'block': {
@@ -240,6 +414,15 @@ export function createLiveEventCoordinator(
           void qc.invalidateQueries({
             queryKey: ['comments', 'revision', revisionId],
           })
+        }
+        const sheetInstanceId = event.payload.sheetInstanceId
+        if (typeof sheetInstanceId === 'string') {
+          void qc.invalidateQueries({
+            queryKey: ['comments', 'sheet', sheetInstanceId],
+          })
+          // A shared live Sheet comment can appear in several Records. Each
+          // Record comments RPC rechecks the caller's access on refetch.
+          void qc.invalidateQueries({ queryKey: ['comments', 'record'] })
         }
         if (event.recordId) {
           void qc.invalidateQueries({
@@ -341,6 +524,12 @@ export function createLiveEventCoordinator(
 
   function invalidateAllWorkspaceCollections(): void {
     const qc = deps.queryClient
+    if (workspaceId) {
+      for (const prefix of new Set(Object.values(homeQueriesByEntity).flat())) {
+        void qc.invalidateQueries({ queryKey: [prefix, workspaceId] })
+      }
+      void qc.invalidateQueries({ queryKey: ['workspace-access', workspaceId] })
+    }
     // Invalidate by the notebook prefix and the projects-list key. This
     // is the recover-from-reset path, not the per-event path, so a broad
     // (but still workspace-scoped) invalidation is correct: the client
@@ -513,8 +702,21 @@ export function createLiveEventCoordinator(
       if (source) return
       openStream()
     },
+    reconnect() {
+      if (disposed) return
+      // Resume from the cursor we have already applied so the server does not
+      // replay the whole stream; duplicate suppression drops anything at or
+      // below it regardless.
+      reconnectAfter = lastAppliedSeq > 0 ? lastAppliedSeq : null
+      openStream()
+    },
     disconnect() {
       disposed = true
+      if (homeInvalidationTimer !== null) {
+        clearTimeout(homeInvalidationTimer)
+        homeInvalidationTimer = null
+      }
+      pendingHomeQueries.clear()
       if (reconnectTimer) {
         clearTimeout(reconnectTimer)
         reconnectTimer = null

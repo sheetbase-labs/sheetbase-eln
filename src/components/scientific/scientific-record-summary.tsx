@@ -1,5 +1,5 @@
 /**
- * ScientificRecordSummary — inspector summary for a sample, reagent or
+ * ScientificRecordSummary — inspector summary for a sample, material or
  * protocol record (SCI-001).
  *
  * Renders the shared record identity (identifier, kind, status), the
@@ -11,7 +11,7 @@
  *
  * Decision 0026; follows DESIGN.md and the concept system.
  */
-import { Archive } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { StatusBadge } from '#/components/scientific/status-badge'
 import { cn } from '#/lib/utils'
@@ -28,13 +28,13 @@ import type { NotebookRecord } from '#/lib/notebook-data'
 
 const KIND_DOMAIN = {
   sample: 'sample',
-  reagent: 'reagent',
+  material: 'material',
   protocol_template: 'protocol',
 } as const
 
 const KIND_LABEL = {
   sample: 'Sample',
-  reagent: 'Reagent',
+  material: 'Material',
   protocol_template: 'Protocol',
 } as const
 
@@ -67,7 +67,7 @@ export function ScientificRecordSummary({
           </span>
           {record.archivedAt ? (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Archive className="size-3" aria-hidden /> Archived
+              <Icon name="archive" size={12} /> Archived
             </span>
           ) : null}
         </div>

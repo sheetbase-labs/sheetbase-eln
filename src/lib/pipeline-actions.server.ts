@@ -87,6 +87,90 @@ function sqlValue(field: PipelineActionArgument, value: unknown): unknown {
   return field.type === 'jsonb' ? JSON.stringify(value) : value
 }
 
+/**
+ * PIPE-03.1 — the operation a proposal carries for an action.
+ *
+ * Only kinds the proposal contract can validate and execute are buildable here; an
+ * operation with no `proposalKind` cannot be proposed at all, which validation refuses
+ * before the run starts.
+ */
+function proposalOperation(
+  proposalKind: string,
+  resolved: Record<string, unknown>,
+): Record<string, unknown> {
+  if (proposalKind === 'notebook_block.insert') {
+    const expectedRevision = resolved.p_expected_structure_version
+    if (typeof expectedRevision !== 'number')
+      throw new Error(
+        'A proposed block insert needs p_expected_structure_version: the proposal records the revision the pipeline saw.',
+      )
+    return {
+      kind: 'notebook_block.insert',
+      recordId: resolved.p_record_id,
+      afterBlockId: resolved.p_after_block_id ?? null,
+      block: {
+        type: resolved.p_type,
+        payload: resolved.p_payload,
+        payloadSchemaVersion: resolved.p_payload_schema_version ?? 1,
+      },
+      expectedRevision,
+    }
+  }
+  throw new Error(`No proposal form is implemented for ${proposalKind}.`)
+}
+
+/** Writes the proposal for a `propose` action, in place of calling its RPC. */
+async function proposePipelineAction(
+  conn: ExecConnection,
+  run: { workspaceId: string; runId: string },
+  action: PipelineAction,
+  definition: { operation: string; label: string; proposalKind?: string },
+  resolved: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const provenance = await conn.query<{
+    definition_id: string
+    definition_name: string
+    version_id: string
+  }>(
+    `SELECT d.id AS definition_id, d.name AS definition_name, v.id AS version_id
+       FROM api.pipeline_runs r
+       JOIN api.pipeline_definition_versions v ON v.id = r.definition_version_id
+       JOIN api.pipeline_definitions d ON d.id = v.definition_id
+      WHERE r.id = $1`,
+    [run.runId],
+  )
+  const row = provenance.rows.at(0)
+  if (!row)
+    throw new Error('The run has no Pipeline Definition to attribute to.')
+
+  const response = await conn.query<{ result: unknown }>(
+    `SELECT to_jsonb(api.propose_agent_operation(
+       $1, $2, $3, $4::jsonb, $5::jsonb, $6
+     )) AS result`,
+    [
+      run.workspaceId,
+      `${definition.label} (${action.name})`,
+      `Proposed by the ${row.definition_name} pipeline, run ${run.runId}.`,
+      JSON.stringify(proposalOperation(definition.proposalKind!, resolved)),
+      JSON.stringify({
+        kind: 'pipeline',
+        pipelineId: row.definition_id,
+        pipelineName: row.definition_name,
+        definitionVersionId: row.version_id,
+        runId: run.runId,
+        invocationId: `${run.runId}:${action.name}`,
+      }),
+      `pipeline:${run.runId}:${action.name}`,
+    ],
+  )
+  const result = response.rows.at(0)?.result
+  if (!isObject(result) || typeof result.id !== 'string')
+    throw new Error(
+      `Action ${action.name} (${definition.label}) could not be proposed.`,
+    )
+  return result
+}
+
 /** Caller owns the transaction: any thrown action failure must roll back all run work. */
 export async function executePipelineActions(
   conn: ExecConnection,
@@ -118,6 +202,16 @@ export async function executePipelineActions(
         ...context,
         actions: results,
       }) as Record<string, unknown>
+      if (action.mode === 'propose') {
+        results[action.name] = await proposePipelineAction(
+          conn,
+          run,
+          action,
+          definition,
+          resolved,
+        )
+        continue
+      }
       const values: unknown[] = []
       const named: string[] = []
       for (const field of definition.arguments) {

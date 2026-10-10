@@ -31,11 +31,11 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Failed')).toBeTruthy()
   })
 
-  it('keeps warning statuses legible in dark mode', () => {
+  it('keeps warning statuses legible in both themes', () => {
     render(<StatusBadge domain="sample" status="quarantined" />)
     expect(
       screen.getByText('Quarantined').closest('[data-slot="badge"]')?.className,
-    ).toContain('dark:text-warning')
+    ).toContain('text-warning-text')
   })
 
   it('uses a custom vocabulary when provided', () => {
@@ -60,6 +60,14 @@ describe('StatusBadge', () => {
     // Sample has statuses experiment does not.
     expect(experimentStatusVocabulary['frozen']).toBeUndefined()
     expect(sampleStatusVocabulary['frozen']).toBeDefined()
+    // LAB-02: disposed is a terminal sample state and renders, not raw text.
+    expect(sampleStatusVocabulary['disposed'].label).toBe('Disposed')
+  })
+
+  it('renders the disposed sample state with a label, not the raw key', () => {
+    render(<StatusBadge domain="sample" status="disposed" />)
+    expect(screen.getByText('Disposed')).toBeTruthy()
+    expect(screen.queryByText('disposed')).toBeNull()
   })
 
   it('exposes a data-status attribute for selectors and a11y audits', () => {

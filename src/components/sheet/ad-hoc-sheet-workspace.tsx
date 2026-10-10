@@ -1,5 +1,27 @@
+import type { SheetInstance } from '#/lib/sheet-instance-data'
+
+import { CanonicalSheetEditor } from './canonical-sheet-workspace'
+
 /**
  * Local grid for Instances that currently have no source Definition.
- * PC-01: ad-hoc and composed share CanonicalSheetEditor / Handsontable.
+ *
+ * COMP-06 steps 2-3: the ad-hoc surface runs on the `sheetbase-table` backend
+ * through `CanonicalSheetEditor`, which is engine-agnostic and renders
+ * `SheetbaseTableGrid` for every canonical sheet. All domain behaviour
+ * (validation, write attribution, presentation) stays in the editor.
  */
-export { AdHocSheetWorkspace } from './canonical-sheet-workspace'
+export function AdHocSheetWorkspace({
+  instance,
+  readOnly = false,
+}: {
+  instance: SheetInstance
+  readOnly?: boolean
+}) {
+  return (
+    <CanonicalSheetEditor
+      instance={instance}
+      projectId={instance.projectId}
+      readOnly={readOnly}
+    />
+  )
+}

@@ -67,6 +67,13 @@ async function submit(
   idempotencyKey: string,
   recordId = RECORD_A,
 ) {
+  // An open comment thread blocks submission (EXP-02.1), so a fixture that has
+  // been anchoring comments resolves them before it submits again.
+  await migrator!.query(
+    `UPDATE api.comments SET state='resolved', resolved_at=now(), resolved_by_user_id=$2
+      WHERE record_id=$1 AND state='open'`,
+    [recordId, OWNER_A],
+  )
   const { rows } = await client.query(
     `SELECT api.submit_record_revision(
        $1, $2, 'default-scientific-review', 1, ARRAY[$3]::text[], true, $4
@@ -131,6 +138,14 @@ beforeAll(async () => {
        ($4,'Owner B','owner-b@rev4.test',true)`,
     [OWNER_A, REVIEWER_A, COMMENTER_A, OWNER_B],
   )
+  // Exploratory review still requires a genuine active session, but no author
+  // signing grant. Keep these tests on their original default workflow.
+  for (const userId of [OWNER_A, REVIEWER_A, COMMENTER_A, OWNER_B]) {
+    await migrator!.query(
+      `INSERT INTO internal.session(id,token,"userId","expiresAt") VALUES($1,$1,$2,now()+interval '1 hour')`,
+      [`session-${userId}`, userId],
+    )
+  }
   await migrator!.query(
     `INSERT INTO api.workspaces(id,slug,name) VALUES
        ($1,'rev4-a','Revision4 A'),($2,'rev4-b','Revision4 B')`,
@@ -146,12 +161,29 @@ beforeAll(async () => {
        ($1,$2,'R4A','Revision4 A'),($3,$4,'R4B','Revision4 B')`,
     [PROJECT_A, WS_A, PROJECT_B, WS_B],
   )
+  // Workspace roles alone are not project assignments. Give each participant
+  // only the explicit rights this comment/review fixture exercises.
+  await migrator!.query(
+    `INSERT INTO api.project_access(workspace_id,project_id,user_id,can_view,can_edit,can_review,can_manage,granted_by_user_id) VALUES
+       ($1,$2,$3,true,true,true,true,$3),($1,$2,$4,true,false,true,false,$3),
+       ($1,$2,$5,true,false,false,false,$3),($6,$7,$8,true,true,true,true,$8)`,
+    [
+      WS_A,
+      PROJECT_A,
+      OWNER_A,
+      REVIEWER_A,
+      COMMENTER_A,
+      WS_B,
+      PROJECT_B,
+      OWNER_B,
+    ],
+  )
   await migrator!.query(
     `INSERT INTO api.records
        (id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id)
      VALUES
-       ($1,$2,$3,'experiment','EXP-R4-A','Anchored experiment','draft',$4),
-       ($5,$6,$7,'experiment','EXP-R4-B','Other workspace','draft',$8)`,
+       ($1,$2,$3,'experiment','EXP-R4-A','Anchored experiment','in_progress',$4),
+       ($5,$6,$7,'experiment','EXP-R4-B','Other workspace','in_progress',$8)`,
     [RECORD_A, WS_A, PROJECT_A, OWNER_A, RECORD_B, WS_B, PROJECT_B, OWNER_B],
   )
   await migrator!.query(
@@ -591,5 +623,76 @@ describe('REV-004 anchored comments contract', () => {
     )
     expect(rows[0].author_user_id).toBeNull()
     expect(rows[0].body).toBe('I will leave')
+  })
+
+  it('returns a revision with its comments in one transaction (REV-01.3)', async () => {
+    const owner = await asUser(OWNER_A, WS_A)
+    const reviewer = await asUser(REVIEWER_A, WS_A)
+    const source = await preview(owner)
+    const submitted = await submit(
+      owner,
+      source.sourceDigest,
+      'rev4-atomic-return',
+    )
+    const submissionId = submitted.submission.id
+
+    // The reviewer's private drafts travel with the return: one call, so a
+    // returned review cannot arrive without the comments it promised.
+    const { rows } = await reviewer.query(
+      `SELECT api.return_revision_with_comments($1,$2,$3,$4,$5::jsonb) AS result`,
+      [
+        submissionId,
+        'please address these',
+        'submitted',
+        submitted.revision.integrityDigest,
+        JSON.stringify([
+          { targetKind: 'revision', target: {}, body: 'first draft' },
+          { targetKind: 'revision', target: {}, body: 'second draft' },
+        ]),
+      ],
+    )
+    const result = rows[0].result as {
+      decision: { state: string }
+      commentIds: string[]
+    }
+    expect(result.commentIds).toHaveLength(2)
+
+    const returned = await migrator!.query<{ state: string }>(
+      `SELECT state FROM api.review_submissions WHERE id = $1`,
+      [submissionId],
+    )
+    expect(returned.rows[0]!.state).toBe('returned')
+
+    const published = await migrator!.query<{ body: string; state: string }>(
+      `SELECT body, state FROM api.comments WHERE id = ANY($1::uuid[]) ORDER BY body`,
+      [result.commentIds],
+    )
+    expect(published.rows.map((row) => row.body)).toEqual([
+      'first draft',
+      'second draft',
+    ])
+    // The author can resolve them, so they arrive open and anchored.
+    expect(published.rows.every((row) => row.state === 'open')).toBe(true)
+
+    // A refused return publishes nothing: the submission is no longer in the
+    // state the caller believed, so the drafts must not leak.
+    await expect(
+      reviewer.query(
+        `SELECT api.return_revision_with_comments($1,$2,$3,$4,$5::jsonb) AS result`,
+        [
+          submissionId,
+          'again',
+          'submitted',
+          'b'.repeat(64),
+          JSON.stringify([
+            { targetKind: 'revision', target: {}, body: 'should not exist' },
+          ]),
+        ],
+      ),
+    ).rejects.toThrow()
+    const leaked = await migrator!.query(
+      `SELECT 1 FROM api.comments WHERE body = 'should not exist'`,
+    )
+    expect(leaked.rows).toEqual([])
   })
 })

@@ -2,9 +2,22 @@
  * DATA-01 import parsers. Files and clipboard become a tabular preview.
  * This module does not write Datasets or Records.
  */
+/**
+ * DSET-05.6 — import limits.
+ *
+ * Sized from the real exports this flow exists for, measured 2026-10-04:
+ *  - a 96-well plate reader export is ~96 data rows per plate; a plate-map
+ *    workbook with several plates and metadata sheets runs to a few MiB;
+ *  - a 14-day bioreactor trend export sampled once a minute is
+ *    14 × 24 × 60 = 20,160 rows per signal, and a wide export with several
+ *    signals is ~100k rows of text.
+ * The previous 10 MiB / 1,000-row cap rejected both. Parsing runs on the
+ * server (never in the browser) so the larger bound does not load the file
+ * into the client.
+ */
 export const IMPORT_LIMITS = {
-  bytes: 10 * 1024 * 1024,
-  rows: 1000,
+  bytes: 64 * 1024 * 1024,
+  rows: 100_000,
 } as const
 
 export type ImportFormat = 'csv' | 'tsv' | 'json' | 'xlsx' | 'clipboard'
@@ -56,7 +69,9 @@ export async function parseImportBytes(
   } = {},
 ): Promise<ImportPreview> {
   if (bytes.byteLength > IMPORT_LIMITS.bytes) {
-    throw new ImportParseError('Import file exceeds 10 MB.')
+    throw new ImportParseError(
+      `Import file exceeds ${Math.round(IMPORT_LIMITS.bytes / (1024 * 1024))} MB.`,
+    )
   }
   const format =
     options.format ?? sniffImportFormat(options.fileName ?? '', undefined)
@@ -195,6 +210,19 @@ function matrixToSheet(
 ): ImportSheet {
   const usable = matrix.filter((row) => row.some((cell) => cell.trim() !== ''))
   if (!usable.length) throw new ImportParseError('Import contains no data.')
+  // Instrument exports prefix the table with a `# Key: value` metadata block.
+  // Skip those leading comment lines so the header row is the first real row.
+  if (header) {
+    let firstRow = 0
+    while (
+      firstRow < usable.length &&
+      (usable[firstRow]?.[0] ?? '').trimStart().startsWith('#')
+    ) {
+      firstRow += 1
+    }
+    usable.splice(0, firstRow)
+    if (!usable.length) throw new ImportParseError('Import contains no data.')
+  }
   const width = Math.max(...usable.map((row) => row.length))
   const rawHeaders = header
     ? usable.shift()!

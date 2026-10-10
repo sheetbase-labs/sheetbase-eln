@@ -1,0 +1,1 @@
+ALTER TABLE "api"."records" ADD COLUMN "protocol_version_id" uuid;

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { FlaskConical, MoreHorizontal } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import { RecordLink } from '#/components/scientific/record-link'
 import { Button } from '#/components/ui'
 
@@ -11,7 +11,7 @@ const meta = {
     type: 'Sample',
     title: 'Human plasma aliquot',
     meta: 'SMP-2026-0142 · 2.4 mL',
-    icon: FlaskConical,
+    icon: 'flask',
   },
 } satisfies Meta<typeof RecordLink>
 export default meta
@@ -33,7 +33,7 @@ export const States: Story = {
           state={state}
           actions={
             <Button variant="ghost" size="icon-sm">
-              <MoreHorizontal />
+              <Icon name="more" />
             </Button>
           }
         />

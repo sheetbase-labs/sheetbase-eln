@@ -1,0 +1,34 @@
+Evidence and live record
+Projects / AAV9 process transfer / EXP-0133 Harvest timing: 48, 72 and 96 h
+Open live record Export evidence PDF
+Approved · version 1 Signed 19 Sep 2026 by Gareth P. and Mei L. Evidence hash 5ad2…e819
+You are looking at submitted evidence. Version 1 of EXP-0133, as signed on 19 Sep. It will always read exactly like this.
+Live data has moved on: DS-0296 has 1 newer snapshot (S-4, 22 Sep, H96 re-analysed with a new threshold). The signed conclusion is unchanged; the numbers it cites differ by 3 %. Create amendment
+Submitted evidence DS-0296 · S-3
+| | Condition | Harvest (h) | Genome titre (vg/mL) | Viability (%)
+| H48 | 48 | 3.9 × 10¹⁰ | 90.2
+| H72 | 72 | 7.0 × 10¹⁰ | 82.5
+| H96 | 96 | 7.3 × 10¹⁰ | 61.8
+What Gareth P. and Mei L. signed on 19 Sep.
+Live DS-0296 · S-4
+| | Condition | Harvest (h) | Genome titre (vg/mL) | Viability (%)
+| H48 | 48 | 3.9 × 10¹⁰ | 90.2
+| H72 | 72 | 7.0 × 10¹⁰ | 82.5
+| H96 | 96 | 7.3 × 10¹⁰ 7.1 × 10¹⁰ | 61.8
+Current data. Editing it never changes the evidence.
+Also different in live
+| | Where | Evidence | Live
+| Instrument name | Turbidimeter 2 | Turbidimeter TB-02 (same record, INS-0007)
+| Comments | 2 | 3 (1 added after signing, not part of the evidence)
+Evidence package
+Notebook content, version 1
+DS-0296 snapshot S-3 · 9 rows
+DS-0297 snapshot S-2 · 9 rows
+2 signatures with meanings
+1 file: ddPCR_harvest_timing.xlsx
+Integrity
+Hash verified 25 Sep 06:00
+Checked nightly against the value stored when it was signed.
+Cited by
+EXP-0138 · method rationale
+Client portal · shared 20 Sep

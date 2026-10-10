@@ -150,9 +150,9 @@ beforeAll(async () => {
      INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'sci008a', 'SCI008 A Project'),
-      ('${PROJ_B}', '${WS_B}', 'sci008b', 'SCI008 B Project')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'sci008a', 'SCI008 A Project', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'sci008b', 'SCI008 B Project', '${OWNER_B}')`,
   )
 })
 
@@ -288,7 +288,7 @@ describe('SCI-008 search — mixed result types', () => {
     await createRecord(
       owner,
       PROJ_A,
-      'reagent',
+      'material',
       'Mixed type reagent',
       'available',
     )
@@ -329,7 +329,7 @@ describe('SCI-008 search — mixed result types', () => {
     const kinds = new Set(results.map((r) => r.kind))
     expect(kinds.has('experiment')).toBe(true)
     expect(kinds.has('sample')).toBe(true)
-    expect(kinds.has('reagent')).toBe(true)
+    expect(kinds.has('material')).toBe(true)
     expect(kinds.has('protocol_template')).toBe(true)
     expect(kinds.has('notebook_template')).toBe(true)
     expect(kinds.has('file')).toBe(true)
@@ -501,7 +501,7 @@ describe('SCI-008 search — deep links', () => {
     const reagent = await createRecord(
       owner,
       PROJ_A,
-      'reagent',
+      'material',
       'Canonical destination reagent',
       'available',
     )
@@ -521,7 +521,7 @@ describe('SCI-008 search — deep links', () => {
       `/samples?selected=${sample.id}`,
     )
     expect(byId.get(reagent.id)?.deep_link).toBe(
-      `/reagents?selected=${reagent.id}`,
+      `/materials?selected=${reagent.id}`,
     )
     expect(byId.get(protocol.id)?.deep_link).toBe(
       `/templates?protocol=${protocol.id}`,

@@ -1,0 +1,49 @@
+Project, AAV9 process transfer
+Projects / PRJ-0217
+AAV9 process transfer
+Folders Members
+New experiment
+In progress Client CL-017 AAV9 Tech transfer Lead Gareth P. Started 3 Aug 2026
+Overview Experiments 14 Samples 86 Datasets 23 Files 17 Members 5 Settings
+Milestones
+1 of 5 complete
+| | Milestone | Status | Target | Evidence | Experiments done
+| Upstream process locked | Complete | 19 Sep | EXP-0133 , EXP-0136 |
+6 of 6
+| Clarification train selected | In progress | 29 Sep | EXP-0142 · 1 open issue |
+1 of 2
+| TFF and polish defined | Not started | 16 Oct | — | 0 of 3 planned
+| 50 L engineering run | Not started | 6 Nov | EXP-0145 draft | 0 of 1
+| Tech-transfer package to CL-017 | Not started | 27 Nov | — | —
+Recent experiments
+14 All experiments
+| | ID | Experiment | Owner | Status | Issues | Updated
+| EXP-0145 | Harvest clarification: 50 L confirmation run | Gareth P. | Draft | — | 09:40
+| EXP-0142 | Harvest clarification: depth filter screening | Gareth P. | In progress | 1 validation error | 09:32
+| EXP-0138 | Transfection ratio, PEI:DNA sweep | Priya S. | In review | — | 24 Sep
+| EXP-0136 | Seeding density at transfection | Gareth P. | Approved | — | 19 Sep
+| EXP-0133 | Harvest timing: 48, 72 and 96 h | Gareth P. | Approved | — | 19 Sep
+Details
+ID
+PRJ-0217
+Client
+CL-017
+Modality
+AAV9
+Stage
+Tech transfer
+Agreement
+MSA-017 · SOW-04
+Default reviewer
+Mei L.
+Members
+5 Manage
+Gareth P. Lead
+Priya S. Editor
+Mei L. Reviewer
+Sam R. Editor · joined today
+QA group Viewer
+Client access
+CL-017 sees approved records only, through the client portal. 2 client users.
+Open reviews
+EXP-0138 · due 29 Sep · you

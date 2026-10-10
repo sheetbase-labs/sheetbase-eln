@@ -4,24 +4,22 @@ import { render, screen } from '@testing-library/react'
 import { ThemeProvider, useTheme } from './theme-provider'
 
 function Probe() {
-  const { theme, density } = useTheme()
+  const { theme } = useTheme()
   return (
     <div>
       <span data-testid="theme">{theme}</span>
-      <span data-testid="density">{density}</span>
     </div>
   )
 }
 
 describe('ThemeProvider', () => {
-  it('provides default light theme and comfortable density', () => {
+  it('provides a default system theme', () => {
     render(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     )
-    expect(screen.getByTestId('theme').textContent).toBe('light')
-    expect(screen.getByTestId('density').textContent).toBe('comfortable')
+    expect(screen.getByTestId('theme').textContent).toBe('system')
   })
 
   it('throws when useTheme is used without a provider', () => {

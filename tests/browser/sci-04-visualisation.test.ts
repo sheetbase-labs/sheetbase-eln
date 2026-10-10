@@ -92,8 +92,9 @@ test.beforeAll(async () => {
     [svId],
   )
   const doseId = fields.rows.find((field) => field.key === 'dose')!.field_id
-  const responseId = fields.rows.find((field) => field.key === 'response')!
-    .field_id
+  const responseId = fields.rows.find(
+    (field) => field.key === 'response',
+  )!.field_id
   for (const [dose, response] of [
     [1, 2],
     [2, 4],
@@ -119,13 +120,17 @@ test.afterAll(async () => {
 test.describe('SCI-04 visualisation builder', () => {
   test('opens the chart builder and chart-type controls', async ({ page }) => {
     await page.goto(`/analysis?dataset=${datasetId}`)
-    await expect(
-      page.getByRole('tab', { name: 'Chart builder' }),
-    ).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByRole('radiogroup', { name: 'Chart type' })).toBeVisible({
+    await expect(page.getByRole('tab', { name: 'Chart builder' })).toBeVisible({
       timeout: 15_000,
     })
-    await expect(page.getByRole('radio', { name: /scatter/i }).first()).toBeVisible()
+    await expect(
+      page.getByRole('radiogroup', { name: 'Chart type' }),
+    ).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(
+      page.getByRole('radio', { name: /scatter/i }).first(),
+    ).toBeVisible()
     await expect(page.getByLabel('Linear fit')).toBeVisible()
     await expect(page.getByLabel('Horizontal reference')).toBeVisible()
     const plot = page.locator('[data-analysis-chart]')
@@ -134,13 +139,16 @@ test.describe('SCI-04 visualisation builder', () => {
     const viewport = page.viewportSize()
     expect(box?.height ?? 0).toBeGreaterThan((viewport?.height ?? 0) * 0.5)
     await expect(plot.locator('svg').first()).toBeVisible()
-    const svgInfo = await plot.locator('svg').first().evaluate((el) => ({
-      clientWidth: el.clientWidth,
-      clientHeight: el.clientHeight,
-      circleCount: el.querySelectorAll('circle').length,
-      pathCount: el.querySelectorAll('path').length,
-      snippet: el.innerHTML.slice(0, 800),
-    }))
+    const svgInfo = await plot
+      .locator('svg')
+      .first()
+      .evaluate((el) => ({
+        clientWidth: el.clientWidth,
+        clientHeight: el.clientHeight,
+        circleCount: el.querySelectorAll('circle').length,
+        pathCount: el.querySelectorAll('path').length,
+        snippet: el.innerHTML.slice(0, 800),
+      }))
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(svgInfo))
     await expect(plot.locator('circle').first()).toBeVisible()

@@ -6,8 +6,23 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+/**
+ * The pinned clock, exposed to the browser bundle so client-rendered,
+ * time-dependent surfaces (hold banners, relative dates) agree with the server.
+ * Only development and test pin it; deployed builds get an empty string and the
+ * client falls back to real time. See src/lib/clock.ts.
+ */
+const pinnedNow =
+  process.env.SHEETBASE_ENV === 'development' ||
+  process.env.SHEETBASE_ENV === 'test'
+    ? (process.env.SHEETBASE_NOW ?? '')
+    : ''
+
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
+  define: {
+    __SHEETBASE_NOW__: JSON.stringify(pinnedNow),
+  },
   plugins: [
     // Vite already forwards browser logs. Replaying them through TanStack's
     // server-to-browser pipe creates a feedback loop and exhausts Node's heap.

@@ -11,18 +11,16 @@
  */
 import * as React from 'react'
 
+import { Button } from '#/components/v3/ui/button'
 import {
-  Button,
-  Field,
-  FieldLabel,
-  Select,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
+import { NativeSelect } from '#/components/v3/projects/select'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import {
   CHART_SPEC_VERSION,
@@ -122,9 +120,14 @@ export function CompareView({
   return (
     <div className="flex flex-col gap-3">
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-        <Field>
-          <FieldLabel htmlFor="compare-view-type">View type</FieldLabel>
-          <Select
+        <div className="space-y-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor="compare-view-type"
+          >
+            View type
+          </label>
+          <NativeSelect
             id="compare-view-type"
             value={config.viewType}
             onChange={(event) =>
@@ -142,12 +145,17 @@ export function CompareView({
                   : 'Distribution'}
               </option>
             ))}
-          </Select>
-        </Field>
+          </NativeSelect>
+        </div>
         {config.viewType === 'time_series' ? (
-          <Field>
-            <FieldLabel htmlFor="compare-time-field">Time field</FieldLabel>
-            <Select
+          <div className="space-y-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="compare-time-field"
+            >
+              Time field
+            </label>
+            <NativeSelect
               id="compare-time-field"
               value={config.timeField ?? ''}
               onChange={(event) =>
@@ -163,12 +171,17 @@ export function CompareView({
                   {column.label}
                 </option>
               ))}
-            </Select>
-          </Field>
+            </NativeSelect>
+          </div>
         ) : null}
-        <Field>
-          <FieldLabel htmlFor="compare-value-field">Value field</FieldLabel>
-          <Select
+        <div className="space-y-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor="compare-value-field"
+          >
+            Value field
+          </label>
+          <NativeSelect
             id="compare-value-field"
             value={config.valueField}
             onChange={(event) =>
@@ -180,11 +193,16 @@ export function CompareView({
                 {column.label}
               </option>
             ))}
-          </Select>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="compare-facet-field">Facet field</FieldLabel>
-          <Select
+          </NativeSelect>
+        </div>
+        <div className="space-y-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor="compare-facet-field"
+          >
+            Facet field
+          </label>
+          <NativeSelect
             id="compare-facet-field"
             value={config.facetBy ?? ''}
             onChange={(event) =>
@@ -202,11 +220,11 @@ export function CompareView({
                   {column.label}
                 </option>
               ))}
-          </Select>
-        </Field>
+          </NativeSelect>
+        </div>
       </div>
       <fieldset>
-        <legend className="text-xs font-medium text-muted-foreground">
+        <legend className="text-xs font-medium text-fg-muted">
           Group by (explicit source fields)
         </legend>
         <div className="mt-1 flex flex-wrap gap-2">
@@ -227,7 +245,7 @@ export function CompareView({
         </div>
       </fieldset>
       {errors.length > 0 ? (
-        <p role="alert" className="text-xs text-destructive">
+        <p role="alert" className="text-xs text-danger-text">
           {errors.join('; ')}
         </p>
       ) : null}
@@ -272,7 +290,7 @@ export function CompareView({
                 <TableRow>
                   <TableCell
                     colSpan={config.facetBy ? 8 : 7}
-                    className="text-center text-xs text-muted-foreground"
+                    className="text-center text-xs text-fg-muted"
                   >
                     No groups — select at least one grouping field.
                   </TableCell>
@@ -307,7 +325,7 @@ export function CompareView({
               )}
             </TableBody>
           </Table>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fg-muted">
             {shaped.totalRows} rows · {shaped.groups.length} groups ·{' '}
             {shaped.droppedNullValues} null values excluded from statistics
             (never binned as zero) · source {source.name}

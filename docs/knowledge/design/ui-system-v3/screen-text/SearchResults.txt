@@ -1,0 +1,48 @@
+Search results
+Type
+All 9
+Samples 2
+Sheet rows 1
+Dataset rows 3
+Comments 1
+Experiments 1
+Files 1
+Project
+AAV9 process transfer 8
+AAV8 TFF concentration 1
+Updated
+Any time
+Last 7 days
+Include archived projects
+Results for “C-150”
+9 Sort: Relevance ▾
+Matched names, IDs, cell values, comments and file names you can access in Process Development
+Samples
+2
+SMP-2248 C-150 filtrate AAV9 process transfer / EXP-0142
+Name match
+Stored · F-2, box 14, A9 23 Sep
+SMP-2249 C-150 filtrate, 1:5 dilution AAV9 process transfer / EXP-0142
+Name match
+Awaiting measurement Today
+Sheet and dataset rows
+4
+Clarification runs · row 9 EXP-0142 / Notebook
+Condition = C-150 · Turbidity out 61.5 NTU · Step yield 62.8 %
+1 validation error 09:32
+DS-0311 · rows 87, 88, 89 EXP-0142 / Datasets / ELISA capsid titre and turbidity
+Condition = C-150 · 3 rows
+1 out of range 24 Sep
+Notebook text and comments
+2
+EXP-0142 · Observations AAV9 process transfer
+“…the 150 L/m² turbidity reading is outside the assay range…” · also matches “ C at 150 ” in 1 comment
+In progress 09:31
+EXP-0144 · Method AAV8 TFF concentration
+“…concentrate to C-150 target volume…”
+Planned 20 Sep
+Files
+1
+TB-02_turbidity_2026-09-24.csv EXP-0142 / Files
+Content match · line 10 “SMP-2248,61.5,1,…”
+Instrument export 24 Sep

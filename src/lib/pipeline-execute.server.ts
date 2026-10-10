@@ -26,7 +26,12 @@
  * attempt to the failed run.
  */
 import { Client } from 'pg'
-import { executePythonTransform } from './pipeline-python.server'
+import {
+  PipelinePythonError,
+  executePythonTransform,
+  releasePythonArtefacts,
+} from './pipeline-python.server'
+import type { PythonTransformUsage } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
 import type { QueryResultRow } from 'pg'
@@ -35,10 +40,14 @@ import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
 import { metrics, sizeBucketFor } from '#/lib/metrics'
 import type { PipelineStage } from '#/lib/metrics'
-import type { PipelineConfig } from './pipelines/config'
+import type { PipelineConfig, PipelineStep } from './pipelines/config'
 import {
   validatePipelineConfig,
   validatePipelineRunRequest,
+  findPipelineConfirmStep,
+  confirmExpiryHours,
+  confirmNoAnswerOutcome,
+  validateConfirmAnswer,
 } from './pipelines/config'
 import type { PipelineRunWire } from './pipelines/types'
 import {
@@ -71,6 +80,13 @@ export type PipelineErrorCode =
   | 'output_value_invalid'
   | 'dataset_commit_failed'
   | 'run_cancelled'
+  | 'run_not_waiting'
+  | 'prompt_not_found'
+  | 'confirm_not_asked'
+  | 'invalid_answer'
+  | 'prompt_expired'
+  | 'confirm_expired'
+  | 'waiting_expired'
   | 'pipeline_internal'
 
 class PipelineStepError extends Error {
@@ -278,117 +294,46 @@ export async function runPipelineExecution(
         errorMessage: transform.message,
       }
     }
+    if (transform.kind === 'waiting') {
+      observeStage('transform', transformMs)
+      await pauseRun(conn, run, transform)
+      await conn.commit()
+      const { rows } = await conn.query<PipelineRunWire>(
+        'SELECT * FROM api.pipeline_runs WHERE id = $1',
+        [run.id],
+      )
+      return { ok: true, run: rows[0] ?? null }
+    }
     observeStage('transform', transformMs)
     await log(conn, run, 'info', 'transform', 'Transform executed.', {
       rowCount: transform.rows.length,
       durationMs: transform.durationMs,
     })
 
-    // Write the output through canonical Dataset operations.
-    const outputStarted = Date.now()
-    if (!(await isRunRunning(conn, run.id)))
-      throw new PipelineStepError('run_cancelled', 'Run was cancelled.')
-    const output =
-      config.output.mode === 'none'
-        ? {
-            ok: true as const,
-            datasetId: null,
-            datasetVersionId: null,
-            label: null,
-            commitMs: 0,
-            snapshotMs: 0,
-          }
-        : await writeOutput(conn, run, config, transform.rows)
-    const outputMs = Date.now() - outputStarted
-    observeStage('output_commit', outputMs)
-    if (!output.ok) {
-      await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
-      await failRun(conn, run, output.code, output.message)
-      await conn.commit()
+    // Write the output, run actions/notifications and complete the run.
+    const finished = await finishExecution(conn, run, config, transform, {
+      startedAt,
+      materializeMs,
+      observeStage,
+    })
+    await conn.commit()
+    if (!finished.ok) {
       metrics.pipelineRuns.inc({
         trigger_kind: run.trigger_kind,
         outcome: 'failed',
       })
-      return { ok: false, errorCode: output.code, errorMessage: output.message }
+      return {
+        ok: false,
+        errorCode: finished.code,
+        errorMessage: finished.message,
+      }
     }
-    await log(
-      conn,
-      run,
-      'info',
-      'output',
-      config.output.mode === 'none'
-        ? 'Analysis completed without a Dataset output.'
-        : 'Output Dataset Version recorded.',
-      {
-        datasetId: output.datasetId,
-        datasetVersionId: output.datasetVersionId,
-        rows: transform.rows.length,
-        durationMs: outputMs,
-      },
-    )
-
-    await setRunActorClaims(conn, run)
-    const actionResults = await executePipelineActions(
-      conn,
-      { workspaceId: run.workspace_id, runId: run.id },
-      config.actions ?? [],
-      {
-        parameters: run.parameters,
-        previous: transform.rows,
-        output: {
-          datasetId: output.datasetId,
-          datasetVersionId: output.datasetVersionId,
-          label: output.label,
-        },
-      },
-    )
-    for (const action of config.actions ?? []) {
-      await log(conn, run, 'info', 'action', `${action.name} completed.`, {
-        name: action.name,
-        operation: action.operation,
-      })
-    }
-    const completion = {
-      actions: actionResults,
-      rowCount: transform.rows.length,
-      outputDatasetId: output.datasetId,
-      outputDatasetVersionId: output.datasetVersionId,
-      outputLabel: output.label,
-      durationMs: transform.durationMs,
-      stageDurationsMs: {
-        materializeInputs: materializeMs,
-        transform: transform.durationMs,
-        outputCommit: outputMs,
-        datasetCommit: output.commitMs,
-        datasetSnapshot: output.snapshotMs,
-        // Everything in the output phase beyond commit + snapshot (dataset
-        // creation, mapping, revision loads, output recording).
-        outputOverhead: Math.max(
-          0,
-          outputMs - output.commitMs - output.snapshotMs,
-        ),
-        total: Date.now() - startedAt,
-      },
-    }
-    await setRunActorClaims(conn, run)
-    await queuePipelineNotifications(conn, run, config, completion, {
-      parameters: run.parameters,
-      previous: transform.rows,
-      actions: actionResults,
-      output: {
-        datasetId: output.datasetId,
-        datasetVersionId: output.datasetVersionId,
-        label: output.label,
-      },
-    })
-    const finished = await completeRun(conn, run, completion)
-    await conn.commit()
     observeStage('total', Date.now() - startedAt)
     metrics.pipelineRuns.inc({
       trigger_kind: run.trigger_kind,
       outcome: 'succeeded',
     })
-    return { ok: true, run: finished }
+    return { ok: true, run: finished.run }
   } catch (error) {
     enforceDeadline = false
     let code: PipelineErrorCode =
@@ -449,9 +394,24 @@ export async function handlePipelineExecute(
   if (!runId || !/^[0-9a-f-]{36}$/i.test(runId)) {
     return responseError(400, 'invalid_request', 'A valid runId is required.')
   }
-  const report = await runPipelineExecution(session.user.id, runId, deps)
+  // PIPE-02: an answer resumes a waiting run instead of starting it.
+  let answerBody: unknown
+  if (body !== null && typeof body === 'object' && 'answer' in body)
+    answerBody = body.answer
+  const hasAnswer = answerBody !== undefined
+  const report = hasAnswer
+    ? await resumePipelineRun(session.user.id, runId, answerBody, deps)
+    : await runPipelineExecution(session.user.id, runId, deps)
   if (!report.ok) {
-    const status = report.errorCode === 'run_not_found' ? 404 : 422
+    const status = !hasAnswer
+      ? report.errorCode === 'run_not_found'
+        ? 404
+        : 422
+      : report.errorCode === 'run_not_found'
+        ? 404
+        : report.errorCode === 'invalid_answer'
+          ? 400
+          : 409
     return responseError(
       status,
       report.errorCode ?? 'execution_failed',
@@ -490,6 +450,791 @@ const defaultDeps: PipelineExecuteDeps = {
       end: () => client.end(),
     }
   },
+}
+
+// ---------------------------------------------------------------------------
+// PIPE-02 / DEC-08 — confirm steps, waiting runs and expiry.
+//
+// A step carrying `confirm` runs its proposal and then commits what it has so
+// far before stopping in `waiting`; the committed snapshot lives in
+// `api.pipeline_runs.result.pending` (bounded) and in the prompt's form schema,
+// and is deleted at run end or when the prompt expires. Resumption is a human
+// session: the person answers through the canonical RPC surface under their own
+// session, the decision is recorded under their name on the prompt row, and the
+// run's remaining automated steps re-establish the original actor. The pinned
+// inputs (`pipeline_runs.input_versions`) are re-materialized on resumption, so
+// live data changed while waiting can never leak into the resumed run.
+// ---------------------------------------------------------------------------
+
+/** Temporary committed work is bounded (DEC-08); larger results keep a summary. */
+const MAX_PENDING_JSON_CHARS = 262_144
+
+export interface PipelineConfirmAnswerInput {
+  decision: 'confirm' | 'skip' | 'stop'
+  values?: Record<string, unknown>
+  reason?: string
+}
+
+interface PromptRow {
+  id: string
+  workspace_id: string
+  run_id: string
+  step_id: string
+  form_schema: Record<string, unknown>
+  asked_user_ids: string[]
+  answer: Record<string, unknown> | null
+  answered_by_user_id: string | null
+  answered_at: string | null
+  expires_at: string | null
+  created_at: string
+}
+
+type FinishOutcome =
+  | { ok: true; run: PipelineRunWire | null }
+  | { ok: false; code: PipelineErrorCode; message: string }
+
+/**
+ * The segment between pauses: write the output through the canonical Dataset
+ * operations, run the governed actions, queue notifications and complete the
+ * run. Shared by a first execution and a resumption; the caller owns COMMIT so
+ * the generic catch path can still fail a broken run.
+ */
+async function finishExecution(
+  conn: ExecConnection,
+  run: RunRow,
+  config: PipelineConfig,
+  transform: {
+    rows: Array<Record<string, unknown>>
+    durationMs: number
+    usage?: PythonTransformUsage
+  },
+  timing: {
+    startedAt: number
+    materializeMs: number
+    observeStage: (stage: PipelineStage, ms: number) => void
+  },
+): Promise<FinishOutcome> {
+  const { startedAt, materializeMs, observeStage } = timing
+  const outputStarted = Date.now()
+  if (!(await isRunRunning(conn, run.id)))
+    throw new PipelineStepError('run_cancelled', 'Run was cancelled.')
+  const output =
+    config.output.mode === 'none'
+      ? {
+          ok: true as const,
+          datasetId: null,
+          datasetVersionId: null,
+          label: null,
+          commitMs: 0,
+          snapshotMs: 0,
+        }
+      : await writeOutput(conn, run, config, transform.rows)
+  const outputMs = Date.now() - outputStarted
+  observeStage('output_commit', outputMs)
+  if (!output.ok) {
+    await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+    await failRun(conn, run, output.code, output.message)
+    return { ok: false, code: output.code, message: output.message }
+  }
+  await log(
+    conn,
+    run,
+    'info',
+    'output',
+    config.output.mode === 'none'
+      ? 'Analysis completed without a Dataset output.'
+      : 'Output Dataset Version recorded.',
+    {
+      datasetId: output.datasetId,
+      datasetVersionId: output.datasetVersionId,
+      rows: transform.rows.length,
+      durationMs: outputMs,
+    },
+  )
+
+  await setRunActorClaims(conn, run)
+  const actionResults = await executePipelineActions(
+    conn,
+    { workspaceId: run.workspace_id, runId: run.id },
+    config.actions ?? [],
+    {
+      parameters: run.parameters,
+      previous: transform.rows,
+      output: {
+        datasetId: output.datasetId,
+        datasetVersionId: output.datasetVersionId,
+        label: output.label,
+      },
+    },
+  )
+  for (const action of config.actions ?? []) {
+    await log(conn, run, 'info', 'action', `${action.name} completed.`, {
+      name: action.name,
+      operation: action.operation,
+    })
+  }
+  const completion = {
+    actions: actionResults,
+    rowCount: transform.rows.length,
+    // PIPE-04.3: the run's peak measured Python payload usage (omitted when no
+    // Python step ran). Stored on the run so the UI can show storage/limits.
+    pythonUsage: transform.usage,
+    outputDatasetId: output.datasetId,
+    outputDatasetVersionId: output.datasetVersionId,
+    outputLabel: output.label,
+    durationMs: transform.durationMs,
+    stageDurationsMs: {
+      materializeInputs: materializeMs,
+      transform: transform.durationMs,
+      outputCommit: outputMs,
+      datasetCommit: output.commitMs,
+      datasetSnapshot: output.snapshotMs,
+      // Everything in the output phase beyond commit + snapshot (dataset
+      // creation, mapping, revision loads, output recording).
+      outputOverhead: Math.max(
+        0,
+        outputMs - output.commitMs - output.snapshotMs,
+      ),
+      total: Date.now() - startedAt,
+    },
+  }
+  await setRunActorClaims(conn, run)
+  await queuePipelineNotifications(conn, run, config, completion, {
+    parameters: run.parameters,
+    previous: transform.rows,
+    actions: actionResults,
+    output: {
+      datasetId: output.datasetId,
+      datasetVersionId: output.datasetVersionId,
+      label: output.label,
+    },
+  })
+  const finished = await completeRun(conn, run, completion)
+  return { ok: true, run: finished }
+}
+
+/** Keep the committed proposal bounded; a large one is stored as a summary. */
+function boundProposal(rows: Array<Record<string, unknown>>): unknown {
+  if (JSON.stringify(rows).length <= MAX_PENDING_JSON_CHARS) return rows
+  return {
+    truncated: true,
+    rowCount: rows.length,
+    columns: rows[0] ? Object.keys(rows[0]) : [],
+  }
+}
+
+/**
+ * Commit the work so far and stop the run in `waiting`. The proposal snapshot
+ * is the temporary storage (bounded); the prompt names who was asked and when
+ * it expires. Logged before the status flip, because run logs only accept
+ * running runs.
+ */
+async function pauseRun(
+  conn: ExecConnection,
+  run: RunRow,
+  outcome: Extract<TransformOutcome, { kind: 'waiting' }>,
+): Promise<void> {
+  const confirm = outcome.step.confirm
+  if (!confirm)
+    throw new PipelineStepError(
+      'pipeline_internal',
+      'A waiting outcome needs a confirm step.',
+    )
+  const hours = confirmExpiryHours(confirm)
+  const proposal = boundProposal(outcome.proposal)
+  await log(
+    conn,
+    run,
+    'info',
+    'confirm',
+    `Waiting for a person at step "${outcome.step.name}".`,
+    {
+      step: outcome.step.name,
+      askedUserIds: confirm.askedUserIds,
+      expiresHours: hours,
+    },
+  )
+  const pending = {
+    step: outcome.step.name,
+    since: new Date().toISOString(),
+    previousRows: outcome.previous.length,
+    proposal,
+  }
+  const updated = await conn.query<{ id: string }>(
+    `UPDATE api.pipeline_runs SET status = 'waiting', result = $2::jsonb
+      WHERE id = $1 AND status = 'running' RETURNING id`,
+    [run.id, JSON.stringify({ pending })],
+  )
+  if (updated.rows.length === 0)
+    throw new PipelineStepError(
+      'run_cancelled',
+      'Run was cancelled before it could wait.',
+    )
+  await conn.query(
+    `INSERT INTO api.pipeline_run_prompts
+       (workspace_id, run_id, step_id, form_schema, asked_user_ids, expires_at)
+     VALUES ($1, $2, $3, $4::jsonb, $5::text[], now() + make_interval(hours => $6::int))`,
+    [
+      run.workspace_id,
+      run.id,
+      outcome.step.name,
+      JSON.stringify({
+        title: `Confirm ${outcome.step.name}`,
+        fields: confirm.fields,
+        proposal: { step: outcome.step.name, rows: proposal },
+      }),
+      confirm.askedUserIds,
+      hours,
+    ],
+  )
+}
+
+async function loadOpenPrompt(
+  conn: ExecConnection,
+  runId: string,
+): Promise<PromptRow | null> {
+  const { rows } = await conn.query<PromptRow>(
+    `SELECT * FROM api.pipeline_run_prompts
+      WHERE run_id = $1 AND answer IS NULL
+      ORDER BY created_at DESC LIMIT 1`,
+    [runId],
+  )
+  return rows[0] ?? null
+}
+
+async function loadRunWire(
+  conn: ExecConnection,
+  runId: string,
+): Promise<PipelineRunWire | null> {
+  const { rows } = await conn.query<PipelineRunWire>(
+    'SELECT * FROM api.pipeline_runs WHERE id = $1',
+    [runId],
+  )
+  return rows[0] ?? null
+}
+
+/**
+ * End a waiting run without applying the decision. Run logs only accept running
+ * runs, so the status flips to running for the log, then to the terminal status.
+ */
+async function endWaitingRun(
+  conn: ExecConnection,
+  run: RunRow,
+  status: 'cancelled' | 'failed',
+  code: PipelineErrorCode,
+  message: string,
+  logStage: string,
+  logMessage: string,
+  detail: Record<string, unknown>,
+): Promise<void> {
+  await conn.query(
+    `UPDATE api.pipeline_runs SET status = 'running'
+      WHERE id = $1 AND status = 'waiting'`,
+    [run.id],
+  )
+  await log(conn, run, 'warning', logStage, logMessage, detail)
+  await conn.query(
+    `UPDATE api.pipeline_runs
+        SET status = $2, finished_at = now(), error_code = $3,
+            error_message = $4, result = '{}'::jsonb
+      WHERE id = $1 AND status = 'running'`,
+    [run.id, status, code, message],
+  )
+}
+
+/**
+ * Answer an open prompt and resume the run from the confirm step with the same
+ * pinned inputs. The answering person must be a workspace writer they were
+ * asked as; the governed RPCs still run as the original run actor (ADR-0052),
+ * while the decision is recorded under the person's name.
+ */
+export async function resumePipelineRun(
+  actor: string,
+  runId: string,
+  answer: unknown,
+  deps: PipelineExecuteDeps,
+): Promise<PipelineExecuteReport> {
+  const conn = await deps.connect()
+  await conn.begin()
+  const startedAt = Date.now()
+  let workStarted = false
+  try {
+    const run = await loadRun(conn, runId)
+    if (!run) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'run_not_found',
+        errorMessage: 'Pipeline run not found.',
+      }
+    }
+    await assertMember(conn, run.workspace_id, actor)
+    if (run.status !== 'waiting') {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'run_not_waiting',
+        errorMessage: 'This run is not waiting for a decision.',
+      }
+    }
+    const prompt = await loadOpenPrompt(conn, run.id)
+    if (!prompt) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'prompt_not_found',
+        errorMessage: 'No open decision was found for this run.',
+      }
+    }
+    if (!prompt.asked_user_ids.includes(actor)) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'confirm_not_asked',
+        errorMessage: 'You were not asked to decide this run.',
+      }
+    }
+    const config = parseConfig(run.configuration)
+    const step = findPipelineConfirmStep(config, prompt.step_id)
+    if (!step?.confirm) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'invalid_configuration',
+        errorMessage: 'The waiting step is not a confirm step in this version.',
+      }
+    }
+    const answerError = validateConfirmAnswer(step.confirm, answer)
+    if (answerError) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'invalid_answer',
+        errorMessage: answerError,
+      }
+    }
+    const decision = answer as PipelineConfirmAnswerInput
+
+    await setRunActorClaims(conn, run)
+    const { rows: executionLock } = await conn.query<{ acquired: boolean }>(
+      'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+      [runId],
+    )
+    if (executionLock[0]?.acquired === false) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'run_not_running',
+        errorMessage: 'This run is already executing.',
+      }
+    }
+    await conn.query('SAVEPOINT sb_pipeline_work')
+    workStarted = true
+
+    // Record the decision as one attributable act through the canonical RPC
+    // (it enforces asked/unanswered/unexpired and emits the change event).
+    // The claims must be the answering person's: PIPE-02.3 attribution.
+    await setActorClaims(conn, actor, run.workspace_id)
+    try {
+      await conn.query(
+        `SELECT * FROM api.answer_pipeline_run_prompt($1, $2::jsonb)`,
+        [prompt.id, JSON.stringify(answer)],
+      )
+    } catch (error) {
+      await conn.rollback()
+      const message =
+        error instanceof Error ? error.message : 'The decision was rejected.'
+      return {
+        ok: false,
+        errorCode: /expire/i.test(message)
+          ? 'prompt_expired'
+          : 'invalid_answer',
+        errorMessage: message,
+      }
+    }
+    // The remaining automated steps run as the original run actor.
+    await setRunActorClaims(conn, run)
+    const resumed = await conn.query<{ id: string }>(
+      `UPDATE api.pipeline_runs SET status = 'running', result = '{}'::jsonb
+        WHERE id = $1 AND status = 'waiting' RETURNING id`,
+      [run.id],
+    )
+    if (resumed.rows.length === 0) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'run_not_waiting',
+        errorMessage: 'This run is no longer waiting for a decision.',
+      }
+    }
+
+    if (decision.decision === 'stop') {
+      await log(conn, run, 'warning', 'stop', 'Run stopped by the decision.', {
+        by: actor,
+        step: prompt.step_id,
+      })
+      await conn.query(`SELECT api.cancel_pipeline_run($1, $2)`, [
+        run.workspace_id,
+        run.id,
+      ])
+      await conn.commit()
+      metrics.pipelineRuns.inc({
+        trigger_kind: run.trigger_kind,
+        outcome: 'cancelled',
+      })
+      return { ok: true, run: await loadRunWire(conn, run.id) }
+    }
+
+    // The pinned inputs, re-materialized: resumption never reads live data.
+    const materializeStarted = Date.now()
+    const materialized = await materializeInputs(conn, run)
+    const materializeMs = Date.now() - materializeStarted
+    await log(
+      conn,
+      run,
+      'info',
+      'inputs',
+      'Pinned inputs re-materialized for resumption.',
+      {
+        inputs: materialized.map((m) => ({ name: m.name, rows: m.rowCount })),
+        durationMs: materializeMs,
+      },
+    )
+
+    const answered = new Map<string, Record<string, unknown>>([
+      [prompt.step_id, answer as Record<string, unknown>],
+    ])
+    const transform = await executeSteps(
+      conn,
+      run,
+      config,
+      deps.executePython ?? executePythonTransform,
+      answered,
+    )
+    if (transform.kind === 'waiting') {
+      await pauseRun(conn, run, transform)
+      await conn.commit()
+      return { ok: true, run: await loadRunWire(conn, run.id) }
+    }
+    if (transform.kind === 'cancelled') {
+      await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+      await conn.commit()
+      return {
+        ok: false,
+        errorCode: 'run_cancelled',
+        errorMessage: 'Run was cancelled.',
+      }
+    }
+    if (transform.kind === 'error') {
+      await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+      await failRun(conn, run, transform.code, transform.message)
+      await conn.commit()
+      metrics.pipelineRuns.inc({
+        trigger_kind: run.trigger_kind,
+        outcome: 'failed',
+      })
+      return {
+        ok: false,
+        errorCode: transform.code,
+        errorMessage: transform.message,
+      }
+    }
+    const observeStage = (stage: PipelineStage, ms: number) =>
+      metrics.pipelineStageDuration.observe({ stage }, ms / 1000)
+    const finished = await finishExecution(conn, run, config, transform, {
+      startedAt,
+      materializeMs,
+      observeStage,
+    })
+    await conn.commit()
+    if (!finished.ok) {
+      metrics.pipelineRuns.inc({
+        trigger_kind: run.trigger_kind,
+        outcome: 'failed',
+      })
+      return {
+        ok: false,
+        errorCode: finished.code,
+        errorMessage: finished.message,
+      }
+    }
+    metrics.pipelineRuns.inc({
+      trigger_kind: run.trigger_kind,
+      outcome: 'succeeded',
+    })
+    return { ok: true, run: finished.run }
+  } catch (error) {
+    let code: PipelineErrorCode =
+      error instanceof PipelineStepError ? error.code : 'pipeline_internal'
+    let message = error instanceof Error ? error.message : String(error)
+    if (!workStarted) {
+      await conn.rollback()
+      return { ok: false, errorCode: code, errorMessage: message }
+    }
+    try {
+      await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+      const latest = await loadRun(conn, runId)
+      if (latest?.status === 'cancelled') {
+        code = 'run_cancelled'
+        message = 'Run was cancelled.'
+      } else if (latest?.status === 'running')
+        await failRunIfRunning(conn, runId, code, message)
+      await conn.commit()
+    } catch {
+      await conn.rollback()
+    }
+    return { ok: false, errorCode: code, errorMessage: message }
+  } finally {
+    await conn.end()
+  }
+}
+
+/** Outcome of one expiry sweep (DEC-08's no-answer behaviour, per step). */
+export interface PipelineExpiryReport {
+  examined: number
+  reasked: number
+  applied: number
+  failed: number
+}
+
+/**
+ * Expire unanswered prompts: stop and re-ask (default), apply the proposal
+ * attributed to the pipeline, or fail the run. Temporary data is deleted in
+ * every case. Safe to run repeatedly and concurrently.
+ */
+/**
+ * PIPE-04.2 — a settled run's artefacts are temporary unless the run kept them.
+ *
+ * A sweep rather than a call at every exit: a run ends in several places (success, transform
+ * failure, cancellation, expiry) and an external HTTP call does not belong inside the
+ * transaction any of them holds. The sweep is idempotent - releasing an already-released run
+ * writes the same keep marker again - and it records that it released, so a settled run is not
+ * asked about on every tick.
+ *
+ * **Kept** means the run produced a proposal: a proposal can reference a file the run
+ * produced (PIPE-03), so discarding the files would leave the proposal pointing at nothing.
+ * Every other run's artefacts are deleted, which is what "temporary" means.
+ */
+export async function releaseSettledRunArtefacts(
+  deps: PipelineExecuteDeps,
+): Promise<{ released: number; kept: number; failed: number }> {
+  const conn = await deps.connect()
+  const report = { released: 0, kept: 0, failed: 0 }
+  try {
+    const { rows } = await conn.query<{ id: string; workspace_id: string }>(
+      `SELECT r.id, r.workspace_id FROM api.pipeline_runs r
+        WHERE r.status IN ('succeeded', 'failed', 'cancelled')
+          AND NOT EXISTS (
+            SELECT 1 FROM api.pipeline_artefact_releases rel WHERE rel.run_id = r.id
+          )
+        ORDER BY r.finished_at NULLS LAST
+        LIMIT 50`,
+    )
+    for (const run of rows) {
+      const proposed = await conn.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM api.agent_operation_proposals
+          WHERE workspace_id = $1 AND provenance->>'runId' = $2`,
+        [run.workspace_id, run.id],
+      )
+      const keep = Number(proposed.rows[0]?.n ?? '0') > 0
+      try {
+        await releasePythonArtefacts(run.id, keep)
+      } catch {
+        // Leave the run unmarked so the next tick retries: one unreachable runner must
+        // not stop the sweep, and a run whose files were not released must not look
+        // released.
+        report.failed += 1
+        continue
+      }
+      await conn.query(
+        `INSERT INTO api.pipeline_artefact_releases(run_id, workspace_id, kept)
+         VALUES ($1, $2, $3::boolean)
+         ON CONFLICT (run_id) DO NOTHING`,
+        [run.id, run.workspace_id, keep],
+      )
+      if (keep) report.kept += 1
+      else report.released += 1
+    }
+  } finally {
+    await conn.end().catch(() => {})
+  }
+  return report
+}
+
+export async function expirePipelinePrompts(
+  deps: PipelineExecuteDeps,
+  now: Date = new Date(),
+): Promise<PipelineExpiryReport> {
+  const conn = await deps.connect()
+  const report: PipelineExpiryReport = {
+    examined: 0,
+    reasked: 0,
+    applied: 0,
+    failed: 0,
+  }
+  try {
+    const { rows: expired } = await conn.query<PromptRow>(
+      `SELECT p.* FROM api.pipeline_run_prompts p
+         JOIN api.pipeline_runs r ON r.id = p.run_id
+        WHERE p.answer IS NULL AND p.expires_at IS NOT NULL
+          AND p.expires_at <= $1 AND r.status = 'waiting'
+        ORDER BY p.expires_at`,
+      [now.toISOString()],
+    )
+    for (const prompt of expired) {
+      report.examined += 1
+      await conn.begin()
+      try {
+        // Re-check under a row lock: a concurrent answer, resumption or
+        // another sweep must win without losing a recorded decision.
+        const { rows: current } = await conn.query<{
+          answer: unknown
+          expires_at: string | null
+        }>(
+          `SELECT answer, expires_at FROM api.pipeline_run_prompts
+            WHERE id = $1 FOR UPDATE`,
+          [prompt.id],
+        )
+        if (
+          !current[0] ||
+          current[0].answer !== null ||
+          (current[0].expires_at !== null &&
+            new Date(current[0].expires_at) > now)
+        ) {
+          await conn.rollback()
+          continue
+        }
+        const run = await loadRun(conn, prompt.run_id)
+        if (!run || run.status !== 'waiting') {
+          await conn.rollback()
+          continue
+        }
+        await setRunActorClaims(conn, run)
+        const config = parseConfig(run.configuration)
+        const step = findPipelineConfirmStep(config, prompt.step_id)
+        const outcome = step?.confirm
+          ? confirmNoAnswerOutcome(step.confirm)
+          : 'fail'
+        if (outcome === 'apply' && step?.confirm) {
+          await conn.query(
+            `UPDATE api.pipeline_runs SET status = 'running', result = '{}'::jsonb
+              WHERE id = $1 AND status = 'waiting'`,
+            [run.id],
+          )
+          await log(
+            conn,
+            run,
+            'warning',
+            'waiting',
+            'Nobody answered before the prompt expired; the proposal is applied and attributed to the pipeline.',
+            { step: prompt.step_id },
+          )
+          await conn.query(
+            `DELETE FROM api.pipeline_run_prompts WHERE id = $1`,
+            [prompt.id],
+          )
+          await conn.query('SAVEPOINT sb_pipeline_work')
+          const materializeStarted = Date.now()
+          await materializeInputs(conn, run)
+          const materializeMs = Date.now() - materializeStarted
+          const answered = new Map<string, Record<string, unknown>>([
+            [prompt.step_id, { decision: 'confirm', values: {} }],
+          ])
+          const transform = await executeSteps(
+            conn,
+            run,
+            config,
+            deps.executePython ?? executePythonTransform,
+            answered,
+          )
+          if (transform.kind === 'rows') {
+            const observeStage = (stage: PipelineStage, ms: number) =>
+              metrics.pipelineStageDuration.observe({ stage }, ms / 1000)
+            const finished = await finishExecution(
+              conn,
+              run,
+              config,
+              transform,
+              {
+                startedAt: Date.now(),
+                materializeMs,
+                observeStage,
+              },
+            )
+            if (finished.ok) {
+              metrics.pipelineRuns.inc({
+                trigger_kind: run.trigger_kind,
+                outcome: 'succeeded',
+              })
+            } else {
+              metrics.pipelineRuns.inc({
+                trigger_kind: run.trigger_kind,
+                outcome: 'failed',
+              })
+            }
+          } else if (transform.kind === 'waiting') {
+            await pauseRun(conn, run, transform)
+          } else if (transform.kind === 'error') {
+            await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+            await failRun(conn, run, transform.code, transform.message)
+            metrics.pipelineRuns.inc({
+              trigger_kind: run.trigger_kind,
+              outcome: 'failed',
+            })
+          } else {
+            await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
+            await failRun(conn, run, 'run_cancelled', 'Run was cancelled.')
+            metrics.pipelineRuns.inc({
+              trigger_kind: run.trigger_kind,
+              outcome: 'cancelled',
+            })
+          }
+          await conn.commit()
+          report.applied += 1
+          continue
+        }
+        if (outcome === 'fail') {
+          await endWaitingRun(
+            conn,
+            run,
+            'failed',
+            'confirm_expired',
+            'Nobody answered before the prompt expired.',
+            'waiting',
+            'Nobody answered before the prompt expired; the run failed.',
+            { step: prompt.step_id },
+          )
+          await conn.query(
+            `DELETE FROM api.pipeline_run_prompts WHERE id = $1`,
+            [prompt.id],
+          )
+          await conn.commit()
+          report.failed += 1
+          continue
+        }
+        await endWaitingRun(
+          conn,
+          run,
+          'cancelled',
+          'waiting_expired',
+          'Nobody answered before the prompt expired; the next run will ask again.',
+          'waiting',
+          'Nobody answered before the prompt expired; the run stops and the next run asks again.',
+          { step: prompt.step_id },
+        )
+        await conn.query(`DELETE FROM api.pipeline_run_prompts WHERE id = $1`, [
+          prompt.id,
+        ])
+        await conn.commit()
+        report.reasked += 1
+      } catch {
+        await conn.rollback()
+      }
+    }
+  } finally {
+    await conn.end()
+  }
+  return report
 }
 
 // ---------------------------------------------------------------------------
@@ -621,9 +1366,17 @@ async function loadInputVersion(
   conn: ExecConnection,
   workspaceId: string,
   versionId: string,
-): Promise<{ id: string; schema_version_id: string } | null> {
-  const { rows } = await conn.query<{ id: string; schema_version_id: string }>(
-    `SELECT id, schema_version_id FROM api.dataset_versions
+): Promise<{
+  id: string
+  schema_version_id: string
+  dataset_id: string
+} | null> {
+  const { rows } = await conn.query<{
+    id: string
+    schema_version_id: string
+    dataset_id: string
+  }>(
+    `SELECT id, schema_version_id, dataset_id FROM api.dataset_versions
       WHERE id = $1 AND workspace_id = $2`,
     [versionId, workspaceId],
   )
@@ -747,6 +1500,13 @@ async function materializeInputRows(
       JOIN api.dataset_version_values v
         ON v.dataset_version_id = r.dataset_version_id
        AND v.row_id = r.row_id
+       -- DSET-01.2: a flagged value is excluded from the pipeline input.
+       AND NOT EXISTS (
+         SELECT 1 FROM api.dataset_version_flags f
+          WHERE f.dataset_version_id = v.dataset_version_id
+            AND f.row_id = v.row_id
+            AND f.field_id = v.field_id
+       )
      WHERE r.dataset_version_id = $1
      GROUP BY r.row_id, r.revision
      ORDER BY r.row_id`
@@ -759,7 +1519,22 @@ async function materializeInputRows(
 // ---------------------------------------------------------------------------
 
 type TransformOutcome =
-  | { kind: 'rows'; rows: Array<Record<string, unknown>>; durationMs: number }
+  | {
+      kind: 'rows'
+      rows: Array<Record<string, unknown>>
+      durationMs: number
+      /** PIPE-04.3: per-run peak payload usage measured across Python steps. */
+      usage?: PythonTransformUsage
+    }
+  | {
+      kind: 'waiting'
+      step: PipelineStep
+      /** The last executed step's result: what the dependent steps read. */
+      previous: Array<Record<string, unknown>>
+      /** The confirm step's own result: the proposal shown to the person. */
+      proposal: Array<Record<string, unknown>>
+      durationMs: number
+    }
   | { kind: 'cancelled' }
   | { kind: 'error'; code: PipelineErrorCode; message: string }
 
@@ -769,18 +1544,40 @@ async function executeSteps(
   run: RunRow,
   config: PipelineConfig,
   python: typeof executePythonTransform,
+  answered?: Map<string, Record<string, unknown>>,
 ): Promise<TransformOutcome> {
   const started = Date.now()
   let previous: Array<Record<string, unknown>> | undefined
-  const steps = [
+  // Steps skipped by a Skip decision: the confirm step's declared dependents.
+  const skipped = new Set<string>()
+  // The most recent recorded decision, exposed to the steps after it.
+  let answerValues: Record<string, unknown> | null = null
+  // PIPE-04.3: the peak payload usage reported by any Python step this run. Accumulated into a
+  // list rather than folded into a running object: a flag assigned inside the callback is
+  // narrowed to its initialiser by control-flow analysis, so the result could not ask whether
+  // anything had been seen.
+  const usages: PythonTransformUsage[] = []
+  const recordUsage = (usage: PythonTransformUsage | undefined): void => {
+    if (!usage) return
+    usages.push(usage)
+  }
+  const steps: PipelineStep[] = [
     ...(config.transform.language === 'none'
       ? []
-      : [{ name: 'analysis', ...config.transform }]),
+      : [
+          {
+            name: 'analysis',
+            language: config.transform.language,
+            statement: config.transform.statement,
+          },
+        ]),
     ...(config.steps ?? []),
   ]
-  for (const [index, step] of steps.entries()) {
-    if (!(await isRunRunning(conn, run.id))) return { kind: 'cancelled' }
-    let outcome: TransformOutcome
+
+  const runStep = async (
+    index: number,
+    step: (typeof steps)[number],
+  ): Promise<TransformOutcome> => {
     if (step.language === 'python') {
       const inputs: Record<string, Array<Record<string, unknown>>> = {}
       for (const input of config.inputs) {
@@ -790,18 +1587,17 @@ async function executeSteps(
         inputs[input.name] = rows.map((entry) => entry.row)
       }
       if (previous) inputs.previous = previous
+      if (answerValues) inputs.answer = [answerValues]
       try {
         const result = await python({
+          // PIPE-04.2: the artefact key is the run, so every Python step's files land in
+          // one per-run directory the run releases when it settles.
+          artefactKey: run.id,
           statement: step.statement,
           inputs,
           parameters: run.parameters,
           runtime: config.pythonRuntime,
         })
-        outcome = {
-          kind: 'rows',
-          rows: result.rows,
-          durationMs: Date.now() - started,
-        }
         await log(
           conn,
           run,
@@ -810,21 +1606,39 @@ async function executeSteps(
           `Python step ${index + 1} completed.`,
           { runtime: result.runtime, logs: result.logs },
         )
+        recordUsage(result.usage)
+        return {
+          kind: 'rows',
+          rows: result.rows,
+          durationMs: Date.now() - started,
+        }
       } catch (error) {
         return {
           kind: 'error',
-          code: 'transform_failed',
+          code: pythonErrorCode(error),
           message:
             error instanceof Error ? error.message : 'Python execution failed.',
         }
       }
-    } else {
-      if (previous) await materializePrevious(conn, previous)
-      outcome = await executeTransform(conn, run, {
-        ...config,
-        transform: step,
-      })
     }
+    if (previous) await materializePrevious(conn, previous)
+    return executeTransform(conn, run, { ...config, transform: step })
+  }
+
+  for (const [index, step] of steps.entries()) {
+    if (skipped.has(step.name)) {
+      await log(
+        conn,
+        run,
+        'info',
+        'skip',
+        `${index + 1}. ${step.name} skipped by the decision.`,
+        { step: index + 1, name: step.name },
+      )
+      continue
+    }
+    if (!(await isRunRunning(conn, run.id))) return { kind: 'cancelled' }
+    const outcome = await runStep(index, step)
     if (outcome.kind !== 'rows') return outcome
     let cells = 0
     for (const row of outcome.rows) cells += Object.keys(row).length
@@ -834,6 +1648,40 @@ async function executeSteps(
         code: 'row_limit_exceeded',
         message: 'Step result exceeds the row or cell limit.',
       }
+    }
+    // PIPE-02: a confirm step proposes values and then waits for a person.
+    // Its own result is the proposal; the dependent steps keep reading the
+    // preceding result, so an unanswered run changes nothing.
+    if (step.confirm) {
+      const decision = answered?.get(step.name)
+      if (!decision) {
+        return {
+          kind: 'waiting',
+          step,
+          previous: previous ?? [],
+          proposal: outcome.rows,
+          durationMs: Date.now() - started,
+        }
+      }
+      if (decision.decision === 'skip')
+        for (const name of step.confirm.skipSteps ?? []) skipped.add(name)
+      answerValues =
+        (decision.values as Record<string, unknown> | undefined) ?? {}
+      await provisionConfirmAnswer(conn, answerValues)
+      await log(
+        conn,
+        run,
+        'info',
+        'confirm',
+        `${index + 1}. ${step.name} answered: ${String(decision.decision)}.`,
+        {
+          step: index + 1,
+          name: step.name,
+          decision: decision.decision,
+          skipped: [...skipped],
+        },
+      )
+      continue
     }
     previous = outcome.rows
     await log(
@@ -854,7 +1702,56 @@ async function executeSteps(
     kind: 'rows',
     rows: previous ?? [],
     durationMs: Date.now() - started,
+    ...(usages.length > 0
+      ? {
+          usage: {
+            inputBytes: Math.max(...usages.map((u) => u.inputBytes)),
+            outputBytes: Math.max(...usages.map((u) => u.outputBytes)),
+            rows: Math.max(...usages.map((u) => u.rows)),
+            cells: Math.max(...usages.map((u) => u.cells)),
+          },
+        }
+      : {}),
   }
+}
+
+/**
+ * Map a runner failure onto the executor's bounded error codes. Size and
+ * timeout limits are reported with their own codes (and a numeric message from
+ * the broker) rather than collapsing into a bare `transform_failed`.
+ */
+function pythonErrorCode(error: unknown): PipelineErrorCode {
+  if (error instanceof PipelinePythonError) {
+    switch (error.code) {
+      case 'input_too_large':
+        return 'input_too_large'
+      case 'transform_timed_out':
+        return 'transform_timed_out'
+      case 'output_too_large':
+        return 'row_limit_exceeded'
+      default:
+        return 'transform_failed'
+    }
+  }
+  return 'transform_failed'
+}
+
+/**
+ * Expose the recorded decision to the steps after a confirm step. SQL steps
+ * read `pg_temp.confirm_answer` (their search_path already resolves pg_temp);
+ * Python steps receive `inputs.answer`.
+ */
+async function provisionConfirmAnswer(
+  conn: ExecConnection,
+  values: Record<string, unknown>,
+): Promise<void> {
+  await conn.query('DROP TABLE IF EXISTS pg_temp.confirm_answer')
+  await conn.query('CREATE TEMP TABLE confirm_answer (answer jsonb)')
+  await conn.query(
+    'INSERT INTO pg_temp.confirm_answer (answer) VALUES ($1::jsonb)',
+    [JSON.stringify(values)],
+  )
+  await conn.query('GRANT SELECT ON pg_temp.confirm_answer TO pipeline_worker')
 }
 
 function quoteIdentifier(value: string): string {
@@ -1482,18 +2379,27 @@ async function log(
   )
 }
 
+/** Stamp an actor's identity for governed RPCs in this transaction. */
+async function setActorClaims(
+  conn: ExecConnection,
+  userId: string | null,
+  workspaceId: string,
+): Promise<void> {
+  await conn.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
+    JSON.stringify({
+      role: 'authenticated',
+      sub: userId,
+      workspace_id: workspaceId,
+    }),
+  ])
+}
+
 /** Stamp the run actor's identity for governed RPCs in this transaction. */
 async function setRunActorClaims(
   conn: ExecConnection,
   run: RunRow,
 ): Promise<void> {
-  await conn.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
-    JSON.stringify({
-      role: 'authenticated',
-      sub: run.actor_user_id,
-      workspace_id: run.workspace_id,
-    }),
-  ])
+  await setActorClaims(conn, run.actor_user_id, run.workspace_id)
 }
 
 function truncate(value: string, max: number): string {

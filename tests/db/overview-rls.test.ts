@@ -41,11 +41,14 @@ beforeAll(async () => {
       ('${WS_B}', '${OWNER_B}', 'owner')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ}', '${WS}', 'sci-007-proj', 'SCI-007 Project')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ}', '${WS}', 'sci-007-proj', 'SCI-007 Project', '${OWNER}')`,
   )
 
-  const { rows: records } = await migrator.query<{ id: string; identifier: string }>(
+  const { rows: records } = await migrator.query<{
+    id: string
+    identifier: string
+  }>(
     `INSERT INTO api.records
        (workspace_id, project_id, kind, identifier, title, properties, created_by_user_id)
      VALUES
@@ -55,10 +58,16 @@ beforeAll(async () => {
        ('${WS}', '${PROJ}', 'experiment', 'EXP-SCI007-03', 'Revision experiment', '{}', '${OWNER}')
      RETURNING id::text, identifier`,
   )
-  overviewRecordId = records.find((row) => row.identifier === 'EXP-SCI007-01')!.id
+  overviewRecordId = records.find(
+    (row) => row.identifier === 'EXP-SCI007-01',
+  )!.id
   sampleRecordId = records.find((row) => row.identifier === 'SMP-SCI007-01')!.id
-  propertiesRecordId = records.find((row) => row.identifier === 'EXP-SCI007-02')!.id
-  revisionRecordId = records.find((row) => row.identifier === 'EXP-SCI007-03')!.id
+  propertiesRecordId = records.find(
+    (row) => row.identifier === 'EXP-SCI007-02',
+  )!.id
+  revisionRecordId = records.find(
+    (row) => row.identifier === 'EXP-SCI007-03',
+  )!.id
 
   await migrator.query(
     `INSERT INTO api.blocks (record_id, type, payload, "order", created_by_user_id) VALUES

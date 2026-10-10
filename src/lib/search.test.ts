@@ -38,6 +38,15 @@ import {
   parseSearchUrl,
   serializeSearchUrl,
   SEARCH_URL_DEFAULTS,
+  searchResultGroup,
+  groupSearchResults,
+  filterBySearchScope,
+  searchResultNewTabUrl,
+  contextualSearchActions,
+  searchActionHref,
+  urlFiltersToSearchFilters,
+  filterSearchResults,
+  SEARCH_PAGE_SIZE,
 } from './search'
 import type { SearchResultWire, SearchFilters, SearchResult } from './search'
 import type { DataClient } from './data-client'
@@ -379,6 +388,30 @@ describe('toSearchResult', () => {
     const result = toSearchResult(wireRow({ matched_field: 'unknown_source' }))
     expect(result.matchedField).toBe('unknown_source')
   })
+
+  it('maps a persisted comment hit to its own identity and visible owner destination', () => {
+    const comment = '56000000-0000-4000-8000-000000000041'
+    const owner = '56000000-0000-4000-8000-000000000042'
+    const deepLink = `/sheets/${owner}?commentId=${comment}`
+    const result = toSearchResult(
+      wireRow({
+        result_type: 'comment',
+        record_id: comment,
+        kind: 'comment',
+        matched_field: 'comment_body',
+        deep_link: deepLink,
+      }),
+    )
+    expect(result).toMatchObject({
+      resultType: 'comment',
+      recordId: comment,
+      deepLink,
+    })
+    expect(searchResultGroup(result)).toBe('Notebook text and comments')
+    expect(matchedFieldLabel(result.matchedField)).toBe('Matched in comment')
+    expect(contextualSearchActions([result])).toEqual([])
+    expect(contextualSearchActions([{ ...result, kind: 'sample' }])).toEqual([])
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -386,29 +419,17 @@ describe('toSearchResult', () => {
 // ---------------------------------------------------------------------------
 
 describe('searchResultDeepLink', () => {
-  it('keeps historical notebook-template records readable by stable ID', () => {
-    expect(searchResultDeepLink('record', 'notebook_template', 'rec-1')).toBe(
-      '/records/rec-1',
-    )
-  })
-
-  it('links records through canonical owning surfaces', () => {
-    expect(searchResultDeepLink('record', 'experiment', 'rec-1')).toBe(
-      '/records/rec-1',
-    )
-    expect(searchResultDeepLink('record', 'sample', 'rec-2')).toBe(
-      '/samples?selected=rec-2',
-    )
+  it('opens a record result at the record itself', () => {
+    expect(searchResultDeepLink('record', 'rec-1')).toBe('/records/rec-1')
+    expect(searchResultDeepLink('record', 'rec-2')).toBe('/records/rec-2')
   })
 
   it('links datasets, sheets and templates to their surfaces', () => {
-    expect(searchResultDeepLink('dataset', 'dataset', 'ds-1')).toBe(
+    expect(searchResultDeepLink('dataset', 'ds-1')).toBe(
       '/datasets?dataset=ds-1',
     )
-    expect(searchResultDeepLink('sheet', 'sheet_instance', 'sh-1')).toBe(
-      '/sheets/sh-1',
-    )
-    expect(searchResultDeepLink('template', 'notebook_template', 't-1')).toBe(
+    expect(searchResultDeepLink('sheet', 'sh-1')).toBe('/sheets/sh-1')
+    expect(searchResultDeepLink('template', 't-1')).toBe(
       '/templates?template=t-1',
     )
   })
@@ -587,7 +608,7 @@ describe('SEARCHABLE_KINDS', () => {
       'protocol_template',
       'report',
       'sample',
-      'reagent',
+      'material',
       'file',
       'notebook_template',
       'study',
@@ -777,6 +798,23 @@ describe('deriveSuggestions', () => {
     expect(suggestions.filter((s) => s.kind === 'type')).toHaveLength(0)
   })
 
+  it('does not offer a Record-kind filter for comment hits', () => {
+    const suggestions = deriveSuggestions(
+      [
+        searchResult({ resultType: 'record', kind: 'sample' }),
+        searchResult({
+          resultType: 'comment',
+          kind: 'comment',
+          matchedField: 'comment_body',
+        }),
+      ],
+      'recovery',
+    )
+    expect(
+      suggestions.filter((suggestion) => suggestion.kind === 'type'),
+    ).toEqual([])
+  })
+
   it('limits to 6 suggestions', () => {
     const results = SEARCHABLE_KINDS.map((kind, i) =>
       searchResult({
@@ -962,5 +1000,336 @@ describe('serializeSearchUrl', () => {
     expect(serialized.q).toBe('test')
     expect(serialized.kind).toBe('experiment')
     expect(serialized.project).toBe('proj-1')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SRCH-02 — result grouping shared by the results page and the palette.
+// ---------------------------------------------------------------------------
+
+describe('searchResultGroup', () => {
+  it('maps files and templates to their own sections', () => {
+    expect(searchResultGroup(searchResult({ resultType: 'file' }))).toBe(
+      'Files',
+    )
+    expect(searchResultGroup(searchResult({ resultType: 'template' }))).toBe(
+      'Templates',
+    )
+  })
+
+  it('groups datasets and sheets together', () => {
+    expect(
+      searchResultGroup(
+        searchResult({ resultType: 'dataset', kind: 'dataset' }),
+      ),
+    ).toBe('Sheet and dataset rows')
+    expect(
+      searchResultGroup(
+        searchResult({ resultType: 'sheet', kind: 'sheet_instance' }),
+      ),
+    ).toBe('Sheet and dataset rows')
+  })
+
+  it('prefers notebook text over the owning record', () => {
+    expect(
+      searchResultGroup(searchResult({ matchedField: 'block_text' })),
+    ).toBe('Notebook text and comments')
+  })
+
+  it('maps sample kind before the generic Records bucket', () => {
+    expect(searchResultGroup(searchResult({ kind: 'sample' }))).toBe('Samples')
+    expect(searchResultGroup(searchResult({ kind: 'experiment' }))).toBe(
+      'Records',
+    )
+  })
+
+  it('prefers an explicit object class over a matched field', () => {
+    expect(
+      searchResultGroup(
+        searchResult({
+          resultType: 'dataset',
+          kind: 'dataset',
+          matchedField: 'block_text',
+        }),
+      ),
+    ).toBe('Sheet and dataset rows')
+  })
+})
+
+describe('groupSearchResults', () => {
+  const dataset = searchResult({
+    recordId: 'ds-1',
+    resultType: 'dataset',
+    kind: 'dataset',
+  })
+  const sheet = searchResult({
+    recordId: 'sh-1',
+    resultType: 'sheet',
+    kind: 'sheet_instance',
+  })
+  const sampleA = searchResult({ recordId: 'sa', kind: 'sample' })
+  const sampleB = searchResult({ recordId: 'sb', kind: 'sample' })
+  const sampleC = searchResult({ recordId: 'sc', kind: 'sample' })
+
+  it('preserves canonical section order regardless of input order', () => {
+    const buckets = groupSearchResults([dataset, sampleA, sheet])
+    expect(buckets.map((b) => b.group)).toEqual([
+      'Samples',
+      'Sheet and dataset rows',
+    ])
+  })
+
+  it('keeps input order within a group', () => {
+    const buckets = groupSearchResults([sampleA, sampleB, sampleC])
+    expect(buckets[0].results.map((r) => r.recordId)).toEqual([
+      'sa',
+      'sb',
+      'sc',
+    ])
+  })
+
+  it('truncates displayed results but keeps an honest total', () => {
+    const buckets = groupSearchResults([sampleA, sampleB, sampleC], 2)
+    expect(buckets[0].results).toHaveLength(2)
+    expect(buckets[0].total).toBe(3)
+  })
+
+  it('returns an empty array when there are no results', () => {
+    expect(groupSearchResults([])).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SRCH-02 — scope filtering.
+// ---------------------------------------------------------------------------
+
+describe('filterBySearchScope', () => {
+  const projectA = searchResult({ recordId: 'a', projectId: 'p-a' })
+  const projectB = searchResult({ recordId: 'b', projectId: 'p-b' })
+  const workspaceTemplate = searchResult({
+    recordId: 't',
+    resultType: 'template',
+    kind: 'notebook_template',
+    projectId: null,
+  })
+
+  it('returns every result when no scope is set', () => {
+    expect(
+      filterBySearchScope([projectA, projectB, workspaceTemplate]),
+    ).toHaveLength(3)
+  })
+
+  it('keeps only results owned by the scoped project', () => {
+    expect(
+      filterBySearchScope([projectA, projectB, workspaceTemplate], 'p-a').map(
+        (r) => r.recordId,
+      ),
+    ).toEqual(['a'])
+  })
+
+  it('drops workspace-level templates that carry no project', () => {
+    expect(filterBySearchScope([workspaceTemplate], 'p-a')).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SRCH-02 — URL facets → RPC arguments.
+// ---------------------------------------------------------------------------
+
+describe('urlFiltersToSearchFilters', () => {
+  it('carries the query and pagination defaults', () => {
+    const filters = urlFiltersToSearchFilters({ q: ' C-150 ' }, 0)
+    expect(filters.query).toBe(' C-150 ')
+    expect(filters.limit).toBe(SEARCH_PAGE_SIZE)
+    expect(filters.offset).toBe(0)
+  })
+
+  it('pushes a single project facet through as p_project_id', () => {
+    const filters = urlFiltersToSearchFilters({ q: 'x', project: ['p-1'] }, 40)
+    expect(filters.projectId).toBe('p-1')
+    expect(filters.offset).toBe(40)
+  })
+
+  it('does not push an ambiguous multi-project facet', () => {
+    const filters = urlFiltersToSearchFilters(
+      { q: 'x', project: ['p-1', 'p-2'] },
+      0,
+    )
+    expect(filters.projectId).toBeUndefined()
+  })
+
+  it('maps single object-class facets onto the RPC result type', () => {
+    expect(
+      urlFiltersToSearchFilters({ q: 'x', type: ['Files'] }, 0).resultType,
+    ).toBe('file')
+    expect(
+      urlFiltersToSearchFilters({ q: 'x', type: ['Templates'] }, 0).resultType,
+    ).toBe('template')
+    expect(
+      urlFiltersToSearchFilters({ q: 'x', type: ['Records'] }, 0).resultType,
+    ).toBe('record')
+  })
+
+  it('maps the Samples facet onto the record kind', () => {
+    const filters = urlFiltersToSearchFilters({ q: 'x', type: ['Samples'] }, 0)
+    expect(filters.kind).toBe('sample')
+    expect(filters.resultType).toBeUndefined()
+  })
+
+  it('leaves facets with no single RPC equivalent unfiltered server-side', () => {
+    const filters = urlFiltersToSearchFilters(
+      { q: 'x', type: ['Notebook text and comments'] },
+      0,
+    )
+    expect(filters.resultType).toBeUndefined()
+    expect(filters.kind).toBeUndefined()
+  })
+
+  it('converts the 7-day facet into a stable p_date_from', () => {
+    const filters = urlFiltersToSearchFilters({ q: 'x', updated: '7d' }, 0)
+    expect(filters.dateFrom).toBeDefined()
+    const from = Date.parse(filters.dateFrom as string)
+    expect(Number.isNaN(from)).toBe(false)
+    // Anchored to start-of-day, so always at or before "now - 7 days".
+    expect(from).toBeLessThanOrEqual(Date.now() - 7 * 86_400_000)
+  })
+
+  it('chains into buildSearchRpcArgs as the RPC p_* arguments', () => {
+    const filters = urlFiltersToSearchFilters(
+      {
+        q: 'C-150',
+        type: ['Samples'],
+        project: ['p-1'],
+        updated: '7d',
+      },
+      40,
+    )
+    const args = buildSearchRpcArgs(filters)
+    expect(args.p_query).toBe('C-150')
+    expect(args.p_kind).toBe('sample')
+    expect(args.p_project_id).toBe('p-1')
+    expect(args.p_limit).toBe(SEARCH_PAGE_SIZE)
+    expect(args.p_offset).toBe(40)
+    expect(args.p_date_from).toBe(filters.dateFrom)
+  })
+})
+
+describe('filterSearchResults', () => {
+  const sample = searchResult({
+    recordId: 's',
+    kind: 'sample',
+    projectId: 'p-a',
+  })
+  const file = searchResult({
+    recordId: 'f',
+    resultType: 'file',
+    kind: 'file',
+    projectId: 'p-a',
+  })
+  const archived = searchResult({
+    recordId: 'arch',
+    kind: 'sample',
+    projectId: 'p-a',
+    archived: true,
+  })
+
+  it('filters by the selected group facet', () => {
+    const filtered = filterSearchResults([sample, file], { type: ['Files'] })
+    expect(filtered.map((r) => r.recordId)).toEqual(['f'])
+  })
+
+  it('filters by one of several selected projects', () => {
+    const other = searchResult({ recordId: 'o', projectId: 'p-b' })
+    const filtered = filterSearchResults([sample, other], {
+      project: ['p-a', 'p-b'],
+    })
+    expect(filtered.map((r) => r.recordId)).toEqual(['s', 'o'])
+  })
+
+  it('drops archived results unless Include archived is set', () => {
+    expect(filterSearchResults([sample, archived], {})).toHaveLength(1)
+    expect(
+      filterSearchResults([sample, archived], { archived: true }),
+    ).toHaveLength(2)
+  })
+
+  it('drops results older than the 7-day window', () => {
+    const recent = searchResult({
+      recordId: 'recent',
+      updatedAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+    })
+    const old = searchResult({
+      recordId: 'old',
+      updatedAt: new Date(Date.now() - 40 * 86_400_000).toISOString(),
+    })
+    const filtered = filterSearchResults([recent, old], { updated: '7d' })
+    expect(filtered.map((r) => r.recordId)).toEqual(['recent'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// SRCH-02 — contextual actions and new-tab URLs.
+// ---------------------------------------------------------------------------
+
+describe('contextualSearchActions', () => {
+  it('offers the sample register flow for a sample result', () => {
+    const actions = contextualSearchActions([
+      searchResult({ kind: 'sample', identifier: 'SMP-2248' }),
+    ])
+    expect(actions).toHaveLength(1)
+    expect(actions[0].label).toBe('Register a sample from SMP-2248…')
+    expect(actions[0].to).toBe('/samples')
+    expect(actions[0].search).toEqual({ new: true })
+  })
+
+  it('deduplicates repeated sample identifiers', () => {
+    const actions = contextualSearchActions([
+      searchResult({ recordId: 'a', kind: 'sample', identifier: 'SMP-1' }),
+      searchResult({ recordId: 'b', kind: 'sample', identifier: 'SMP-1' }),
+    ])
+    expect(actions).toHaveLength(1)
+  })
+
+  it('offers no actions when no registered kind is present', () => {
+    expect(
+      contextualSearchActions([searchResult({ kind: 'experiment' })]),
+    ).toEqual([])
+  })
+})
+
+describe('searchActionHref', () => {
+  it('serialises search params into a shareable href', () => {
+    expect(
+      searchActionHref({
+        id: 'register-sample',
+        label: 'Register a sample…',
+        to: '/samples',
+        search: { new: true },
+      }),
+    ).toBe('/samples?new=true')
+  })
+
+  it('returns the bare path when there are no params', () => {
+    expect(
+      searchActionHref({
+        id: 'x',
+        label: 'X',
+        to: '/datasets',
+      }),
+    ).toBe('/datasets')
+  })
+})
+
+describe('searchResultNewTabUrl', () => {
+  it('resolves a relative deep link against the origin', () => {
+    expect(
+      searchResultNewTabUrl('/records/rec-1', 'https://app.sheetbase.co.uk'),
+    ).toBe('https://app.sheetbase.co.uk/records/rec-1')
+  })
+
+  it('preserves query strings on a destination', () => {
+    expect(
+      searchResultNewTabUrl('/samples?new=true', 'https://app.sheetbase.co.uk'),
+    ).toBe('https://app.sheetbase.co.uk/samples?new=true')
   })
 })

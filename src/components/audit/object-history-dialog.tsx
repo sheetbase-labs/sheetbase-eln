@@ -1,15 +1,13 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { History } from 'lucide-react'
 import { useState } from 'react'
+import { Button } from '#/components/v3/ui/button'
 import {
-  Button,
   Dialog,
+  DialogBody,
   DialogContent,
-  DialogDescription,
   DialogHeader,
-  DialogTitle,
   DialogTrigger,
-} from '#/components/ui'
+} from '#/components/v3/ui/dialog'
 import { ObjectHistoryTimeline } from './object-history-timeline'
 import { auditHistoryDataClient, fetchAuditEvents } from '#/lib/audit-history'
 import { DataClientError } from '#/lib/data-client'
@@ -54,21 +52,17 @@ export function ObjectHistoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button type="button" size="sm" variant="outline">
-          <History className="size-3.5" aria-hidden="true" />
-          {triggerLabel}
-        </Button>
+      <DialogTrigger
+        render={<Button size="sm" variant="secondary" icon="clock" />}
+      >
+        {triggerLabel}
       </DialogTrigger>
       <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{objectLabel} history</DialogTitle>
-          <DialogDescription>
-            Authoritative record of who changed this {objectLabel.toLowerCase()}
-            , when, how, and what changed — frozen after the fact.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="max-h-[60vh] overflow-y-auto pr-1">
+        <DialogHeader
+          title={`${objectLabel} history`}
+          description={`Authoritative record of who changed this ${objectLabel.toLowerCase()}, when, how, and what changed — frozen after the fact.`}
+        />
+        <DialogBody className="max-h-[60vh] overflow-y-auto pr-1">
           <ObjectHistoryTimeline
             events={events}
             loading={historyQuery.isLoading}
@@ -84,7 +78,7 @@ export function ObjectHistoryDialog({
             loadingMore={historyQuery.isFetchingNextPage}
             maxHeight="52vh"
           />
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   )

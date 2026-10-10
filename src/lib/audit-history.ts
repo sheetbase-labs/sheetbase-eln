@@ -18,36 +18,100 @@
  *     rotation pairs), never through timestamp proximity.
  */
 
+import { z } from 'zod'
 import type { DataClient } from './data-client'
 import type { TimelineEventWire } from './sign-002'
 import { notebookDataClient } from './notebook-data'
 import { datasetPath, recordPath, sheetPath } from './navigation'
+import { csvEscape } from './export/delimited'
+import { isRichTextPayload, richTextToPlainText } from './blocks/rich-text'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case-free: the RPC returns jsonb keys we control).
 // ---------------------------------------------------------------------------
 
-export interface AuditEventWire {
-  sequence: number
-  id: string
-  createdAt: string
-  entityType: string
-  entityUuid: string
-  operation: string
-  recordId: string | null
-  projectId: string | null
-  actorUserId: string | null
-  actorName: string | null
-  actorCredentialId: string | null
-  clientId: string | null
-  payload: Record<string, unknown>
-}
+export const auditEventsPageSchema = z
+  .object({
+    formatVersion: z.literal(1),
+    events: z.array(
+      z.object({
+        sequence: z.number().int().positive(),
+        id: z.string(),
+        createdAt: z.iso.datetime(),
+        entityType: z.string(),
+        entityUuid: z.string(),
+        operation: z.string(),
+        recordId: z.string().nullable(),
+        projectId: z.string().nullable(),
+        actorUserId: z.string().nullable(),
+        actorName: z.string().nullable(),
+        actorCredentialId: z.string().nullable(),
+        clientId: z.string().nullable(),
+        payload: z.record(z.string(), z.unknown()),
+      }),
+    ),
+    hasMore: z.boolean(),
+    nextCursor: z.number().int().positive().nullable(),
+  })
+  .refine((page) => !page.hasMore || page.nextCursor !== null, {
+    message: 'Audit continuation requires a sequence cursor.',
+  })
 
-export interface AuditEventsPageWire {
-  formatVersion: number
-  events: AuditEventWire[]
-  hasMore: boolean
-  nextCursor: number | null
+export type AuditEventsPageWire = z.infer<typeof auditEventsPageSchema>
+export type AuditEventWire = AuditEventsPageWire['events'][number]
+
+export const auditHistoryCategories = [
+  'all',
+  'data',
+  'text',
+  'status',
+  'files',
+  'comments',
+  'signatures',
+] as const
+export type AuditHistoryCategory = (typeof auditHistoryCategories)[number]
+
+/** Classify captured event facts; an event can contain both text and status changes. */
+export function auditEventMatchesCategory(
+  event: AuditEventWire,
+  category: AuditHistoryCategory,
+): boolean {
+  if (category === 'all') return true
+  switch (category) {
+    case 'files':
+      return event.entityType === 'file'
+    case 'comments':
+      return event.entityType === 'comment'
+    case 'signatures':
+      return event.entityType === 'signature'
+    case 'text':
+      return (
+        (event.entityType === 'block' && event.payload.type === 'rich_text') ||
+        (event.entityType === 'record' && hasChange(event, 'title'))
+      )
+    case 'status':
+      return (
+        ['review_submission', 'review_decision', 'revision'].includes(
+          event.entityType,
+        ) ||
+        (event.entityType === 'record' &&
+          (event.operation === 'create' || hasChange(event, 'status')))
+      )
+    case 'data':
+      return (
+        [
+          'dataset',
+          'dataset_version',
+          'sheet_instance',
+          'scientific_row',
+          'formula',
+          'calculation',
+          'sample_event',
+        ].includes(event.entityType) ||
+        (event.entityType === 'block' &&
+          ['table', 'sheet', 'analysis'].includes(String(event.payload.type)))
+      )
+  }
 }
 
 export interface AuditEventsFilter {
@@ -78,11 +142,58 @@ export const auditHistoryDataClient: DataClient = notebookDataClient
  * Fetch one deterministic page of audit events. The RPC denies non-members
  * and api credentials outright; callers surface the permission error.
  */
-export function fetchAuditEvents(
+export async function fetchAuditEvents(
   client: DataClient,
   filter: AuditEventsFilter,
 ): Promise<AuditEventsPageWire> {
-  return client.rpc<AuditEventsPageWire>('audit_events', {
+  return auditEventsPageSchema.parse(
+    await client.rpc('audit_events', auditEventsRpcArgs(filter)),
+  )
+}
+
+/** Load a stable prefix completely so category/actor counts and CSV share one selection. */
+export async function fetchRecordAuditHistory(
+  client: DataClient,
+  recordId: string,
+) {
+  const events: AuditEventWire[] = []
+  let beforeSequence: number | undefined
+  let snapshotBefore = 1
+  for (;;) {
+    const page = await fetchAuditEvents(client, {
+      object: recordId,
+      beforeSequence,
+      limit: 200,
+    })
+    if (beforeSequence === undefined)
+      snapshotBefore = (page.events[0]?.sequence ?? 0) + 1
+    events.push(...page.events)
+    if (!page.hasMore) return { events, snapshotBefore }
+    if (
+      page.nextCursor === null ||
+      (beforeSequence !== undefined && page.nextCursor >= beforeSequence)
+    )
+      throw new Error('Invalid audit continuation cursor.')
+    beforeSequence = page.nextCursor
+  }
+}
+
+/** Only explicit source-event identities establish scientific knock-on effects. */
+export function auditKnockOnEvents(
+  event: AuditEventWire,
+  events: AuditEventWire[],
+) {
+  return events.filter(
+    (candidate) =>
+      candidate.id !== event.id &&
+      (candidate.payload.sourceEventId === event.id ||
+        (Array.isArray(candidate.payload.sourceEventIds) &&
+          candidate.payload.sourceEventIds.includes(event.id))),
+  )
+}
+
+export function auditEventsRpcArgs(filter: AuditEventsFilter) {
+  return {
     p_entity_type: filter.entityType ?? null,
     p_operation: filter.operation ?? null,
     p_actor_user_id: filter.actorUserId ?? null,
@@ -92,7 +203,7 @@ export function fetchAuditEvents(
     p_object: filter.object ?? null,
     p_before_sequence: filter.beforeSequence ?? null,
     p_limit: filter.limit ?? 50,
-  })
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -196,18 +307,14 @@ function humanizeToken(value: unknown): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-/** Format a scalar change value; uuids shorten, booleans stay honest. */
+/** Preserve captured values in the inspector and exported audit trail. */
 function formatChangeValue(value: unknown): string {
   if (value === null || value === undefined) return '—'
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
   if (typeof value === 'number') return String(value)
-  const text = String(value)
-  if (
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)
-  ) {
-    return text.slice(0, 8) + '…'
-  }
-  return text
+  if (isRichTextPayload(value)) return richTextToPlainText(value)
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }
 
 function shortId(id: string | null | undefined): string {
@@ -331,23 +438,38 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
   const changes = changesOf(event)
   const fields: FieldChange[] = []
   for (const [key, value] of Object.entries(changes)) {
-    const style = FIELD_STYLES[key]
-    if (!style || typeof value !== 'object' || value === null) continue
-    const pair = value as { from?: unknown; to?: unknown }
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      Array.isArray(value) ||
+      (!('from' in value) && !('to' in value))
+    ) {
+      continue
+    }
+    const style: FieldStyle | undefined =
+      key === 'payload' && event.payload.type === 'rich_text'
+        ? { label: 'Text' }
+        : FIELD_STYLES[key]
+    const fromValue = 'from' in value ? value.from : null
+    const toValue = 'to' in value ? value.to : null
     const from =
-      pair.from === null || pair.from === undefined
+      fromValue === null || fromValue === undefined
         ? null
-        : style.render
-          ? style.render(pair.from)
-          : formatChangeValue(pair.from)
+        : style?.render
+          ? style.render(fromValue)
+          : formatChangeValue(fromValue)
     const to =
-      pair.to === null || pair.to === undefined
+      toValue === null || toValue === undefined
         ? null
-        : style.render
-          ? style.render(pair.to)
-          : formatChangeValue(pair.to)
+        : style?.render
+          ? style.render(toValue)
+          : formatChangeValue(toValue)
     fields.push({
-      label: style.label,
+      label:
+        style?.label ??
+        ('label' in value && typeof value.label === 'string'
+          ? value.label
+          : key),
       kind: from === null ? 'added' : to === null ? 'removed' : 'changed',
       from: from ?? undefined,
       to: to ?? undefined,
@@ -359,6 +481,62 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
     subject: subjectFor(event),
     changes: fields,
   }
+}
+
+/** Group already-ordered events by the workspace's calendar day, not UTC. */
+export function groupAuditEventsByDay(
+  events: AuditEventWire[],
+  timeZone: string,
+): Array<{ label: string; events: AuditEventWire[] }> {
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+  const days = new Map<string, AuditEventWire[]>()
+  for (const event of events) {
+    const label = formatter.format(new Date(event.createdAt)).replace(',', '')
+    const entries = days.get(label) ?? []
+    entries.push(event)
+    days.set(label, entries)
+  }
+  return Array.from(days, ([label, entries]) => ({ label, events: entries }))
+}
+
+/** Serialize the same selected events as the history view, without live reads. */
+export function auditEventsCsv(events: AuditEventWire[]): string {
+  const lines = [
+    'time,sequence,actor,action,object,field,old_value,new_value,reason,client_id,payload',
+  ]
+  for (const event of events) {
+    const described = describeAuditEvent(event)
+    const changes = described.changes.length ? described.changes : [undefined]
+    for (const change of changes) {
+      lines.push(
+        [
+          event.createdAt,
+          String(event.sequence),
+          event.actorName ??
+            event.actorUserId ??
+            event.actorCredentialId ??
+            'System',
+          described.action,
+          described.subject,
+          change?.label ?? '',
+          change?.from ?? '',
+          change?.to ?? '',
+          typeof event.payload.reason === 'string' ? event.payload.reason : '',
+          event.clientId ?? '',
+          JSON.stringify(event.payload),
+        ]
+          .map((cell) => csvEscape(cell, ','))
+          .join(','),
+      )
+    }
+  }
+  return `${lines.join('\r\n')}\r\n`
 }
 
 // ---------------------------------------------------------------------------
@@ -460,13 +638,13 @@ export function auditLinkFor(event: AuditEventWire): AuditLink | null {
     case 'review_decision': {
       const revisionId = event.payload['revisionId']
       return typeof revisionId === 'string'
-        ? { href: `/reviews/${revisionId}`, label: 'Open review' }
+        ? { href: `/review/${revisionId}`, label: 'Open review' }
         : null
     }
     case 'revision': {
       const revisionId = event.payload['revisionId']
       return {
-        href: `/reviews/${typeof revisionId === 'string' ? revisionId : event.entityUuid}`,
+        href: `/review/${typeof revisionId === 'string' ? revisionId : event.entityUuid}`,
         label: 'Open review',
       }
     }

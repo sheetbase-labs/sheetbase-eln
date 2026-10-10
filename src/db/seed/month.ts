@@ -187,7 +187,15 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
   for (const [i, [key, title]] of projects.entries()) {
     await db
       .insert(schema.projects)
-      .values({ id: uuid(0x200 + i), workspaceId: WORKSPACE, key, title })
+      .values({
+        id: uuid(0x200 + i),
+        workspaceId: WORKSPACE,
+        key,
+        title,
+        // The native owner-rule trigger needs a declared lead so the seeded
+        // workspace admin can work in the seeded projects.
+        leadUserId: uuid(0x201),
+      })
       .onConflictDoUpdate({
         target: [schema.projects.workspaceId, schema.projects.key],
         set: { title },
@@ -233,7 +241,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       createdByUserId: GARETH,
       updatedByUserId: GARETH,
     })
-  const reagentNames = [
+  const materialNames = [
     'Dulbecco’s PBS',
     'Human IL-2',
     'Anti-CD19 antibody',
@@ -245,9 +253,9 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       id: uuid(0x350 + i),
       workspaceId: WORKSPACE,
       projectId: uuid(0x200 + (i % 3)),
-      kind: 'reagent',
+      kind: 'material',
       identifier: `RGT-2026-${String(i + 1).padStart(4, '0')}`,
-      title: reagentNames[i],
+      title: materialNames[i],
       status: 'active',
       tags: ['month-seed'],
       properties: {
@@ -1388,7 +1396,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
           {
             id: 'mat-show-2',
             materialRecordId: uuid(0x350),
-            kind: 'reagent',
+            kind: 'material',
             identifier: 'RGT-2026-0001',
             title: 'Dulbecco\u2019s PBS',
             quantity: 50,

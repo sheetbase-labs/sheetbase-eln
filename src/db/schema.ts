@@ -42,6 +42,13 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
   },
 })
 
+/** Full-text search vectors (PostgreSQL `tsvector`). */
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return 'tsvector'
+  },
+})
+
 const timestamps = {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
     .notNull()
@@ -233,6 +240,15 @@ export const apiCredentials = internal.table(
     lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
     revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
     expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
+    /**
+     * SET-04.2 — an expired token that is still presented is surfaced with its
+     * refusal count so the owner is told to create a replacement.
+     */
+    refusalCount: integer('refusal_count').notNull().default(0),
+    lastRefusedAt: timestamp('last_refused_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     createdByUserId: text('created_by_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
@@ -285,6 +301,13 @@ export const workspaceMemberships = api.table(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     role: text('role').notNull(),
+    /**
+     * ADR-0049 (client users): when the role is `client_viewer`, the client
+     * whose portal this person belongs to. Null for internal members.
+     */
+    clientId: uuid('client_id').references(() => clients.id, {
+      onDelete: 'set null',
+    }),
     suspendedAt: timestamp('suspended_at', {
       withTimezone: true,
       mode: 'date',
@@ -298,7 +321,11 @@ export const workspaceMemberships = api.table(
     ),
     check(
       'chk_workspace_memberships_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer', 'client_viewer')`,
+    ),
+    check(
+      'chk_workspace_memberships_client',
+      sql`(${table.role} = 'client_viewer') = (${table.clientId} IS NOT NULL)`,
     ),
     index('idx_workspace_memberships_user_id').on(table.userId),
     index('idx_workspace_memberships_suspended_at').on(table.suspendedAt),
@@ -318,6 +345,10 @@ export const workspaceInvitations = api.table(
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
     role: text('role').notNull().default('member'),
+    /** ADR-0049: set when the invited role is `client_viewer`. */
+    clientId: uuid('client_id').references(() => clients.id, {
+      onDelete: 'set null',
+    }),
     tokenHash: text('token_hash').notNull(),
     status: text('status').notNull().default('pending'),
     expiresAt: timestamp('expires_at', {
@@ -341,7 +372,11 @@ export const workspaceInvitations = api.table(
     ),
     check(
       'chk_workspace_invitations_role',
-      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer')`,
+      sql`${table.role} IN ('owner', 'admin', 'member', 'steward', 'scientist', 'analyst', 'reviewer', 'viewer', 'client_viewer')`,
+    ),
+    check(
+      'chk_workspace_invitations_client',
+      sql`(${table.role} = 'client_viewer') = (${table.clientId} IS NOT NULL)`,
     ),
     check(
       'chk_workspace_invitations_email',
@@ -372,9 +407,42 @@ export const workspaceSettings = api.table(
       .notNull()
       .default(sql`'{}'`),
     auditRetentionDays: integer('audit_retention_days').notNull().default(2555),
+    /** SET-01.1 — workspace general settings. */
+    site: text('site'),
+    timezone: text('timezone').notNull().default('Europe/London'),
+    dateFormat: text('date_format').notNull().default('d MMM yyyy'),
+    numberFormat: text('number_format').notNull().default('decimal'),
+    publicationApprovalRequired: boolean('publication_approval_required')
+      .notNull()
+      .default(false),
+    /** SET-01.2 — per-kind identifier prefixes, e.g. {"experiment":"EXP"}. */
+    idPrefixes: jsonb('id_prefixes')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    /**
+     * SET-01.3 — editing rules. The design's SettingsGeneral shows all three
+     * checked; `requireChangeReason` defaults off because enforcement is
+     * server-side, so a workspace opts in (the design seed opts the design
+     * workspace in for parity). Locking on sign is SIGN-002's behaviour and
+     * offline editing is EXP-05's.
+     */
+    requireChangeReason: boolean('require_change_reason')
+      .notNull()
+      .default(false),
+    lockOnSign: boolean('lock_on_sign').notNull().default(true),
+    allowOfflineEditing: boolean('allow_offline_editing')
+      .notNull()
+      .default(true),
     integrationSettings: jsonb('integration_settings')
       .notNull()
       .default(sql`'{}'`),
+    /** DSET-04 — snapshot retention periods in years (DEC-11). */
+    snapshotCitedRetentionYears: integer('snapshot_cited_retention_years')
+      .notNull()
+      .default(15),
+    snapshotUncitedRetentionYears: integer('snapshot_uncited_retention_years')
+      .notNull()
+      .default(2),
     createdByUserId: text('created_by_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
@@ -392,6 +460,96 @@ export const workspaceSettings = api.table(
   ],
 )
 
+export const workspaceGroups = api.table(
+  'workspace_groups',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_workspace_groups_workspace_id').on(table.workspaceId, table.id),
+    unique('uq_workspace_groups_workspace_name').on(
+      table.workspaceId,
+      table.name,
+    ),
+    check(
+      'chk_workspace_groups_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 120`,
+    ),
+  ],
+)
+
+export const workspaceGroupMemberships = api.table(
+  'workspace_group_memberships',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull(),
+    groupId: uuid('group_id').notNull(),
+    userId: text('user_id').notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_workspace_group_membership').on(
+      table.workspaceId,
+      table.groupId,
+      table.userId,
+    ),
+    foreignKey({
+      columns: [table.workspaceId, table.groupId],
+      foreignColumns: [workspaceGroups.workspaceId, workspaceGroups.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [
+        workspaceMemberships.workspaceId,
+        workspaceMemberships.userId,
+      ],
+    }).onDelete('cascade'),
+  ],
+)
+
+export const projectAccessRequests = api.table(
+  'project_access_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id').notNull(),
+    projectId: uuid('project_id').notNull(),
+    userId: text('user_id').notNull(),
+    reason: text('reason').notNull(),
+    status: text('status').notNull().default('pending'),
+    decidedByUserId: text('decided_by_user_id').references(() => user.id),
+    ...timestamps,
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [
+        workspaceMemberships.workspaceId,
+        workspaceMemberships.userId,
+      ],
+    }).onDelete('cascade'),
+    check(
+      'chk_project_access_request_status',
+      sql`${table.status} IN ('pending', 'approved', 'denied')`,
+    ),
+    check(
+      'chk_project_access_request_reason',
+      sql`length(btrim(${table.reason})) BETWEEN 1 AND 2000`,
+    ),
+    uniqueIndex('uq_project_access_pending_request')
+      .on(table.projectId, table.userId)
+      .where(sql`${table.status} = 'pending'`),
+  ],
+)
+
 export const projectAccess = api.table(
   'project_access',
   {
@@ -402,9 +560,14 @@ export const projectAccess = api.table(
     projectId: uuid('project_id')
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }),
+    groupId: uuid('group_id'),
+    canView: boolean('can_view').notNull().default(false),
+    canEdit: boolean('can_edit').notNull().default(false),
+    canReview: boolean('can_review').notNull().default(false),
+    clientPortal: boolean('client_portal').notNull().default(false),
+    canManage: boolean('can_manage').notNull().default(false),
+    // Read-only display projection; the rule flags are the authority.
     accessLevel: text('access_level').notNull().default('viewer'),
     grantedByUserId: text('granted_by_user_id')
       .notNull()
@@ -417,13 +580,150 @@ export const projectAccess = api.table(
       table.projectId,
       table.userId,
     ),
+    unique('uq_project_access_workspace_project_group').on(
+      table.workspaceId,
+      table.projectId,
+      table.groupId,
+    ),
+    foreignKey({
+      columns: [table.workspaceId, table.projectId],
+      foreignColumns: [projects.workspaceId, projects.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [
+        workspaceMemberships.workspaceId,
+        workspaceMemberships.userId,
+      ],
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.workspaceId, table.groupId],
+      foreignColumns: [workspaceGroups.workspaceId, workspaceGroups.id],
+    }).onDelete('cascade'),
+    check(
+      'chk_project_access_principal',
+      sql`(${table.userId} IS NULL) <> (${table.groupId} IS NULL)`,
+    ),
     check(
       'chk_project_access_access_level',
-      sql`${table.accessLevel} IN ('owner', 'editor', 'viewer')`,
+      sql`${table.accessLevel} IN ('owner', 'editor', 'reviewer', 'viewer')`,
     ),
     index('idx_project_access_workspace').on(table.workspaceId),
     index('idx_project_access_project').on(table.projectId),
     index('idx_project_access_user').on(table.userId),
+  ],
+)
+
+/**
+ * PROJ-01.1 / DEC-05 — a client organisation a project can belong to. `code` is
+ * the stable workspace-scoped display id (CL-nnn), assigned on insert.
+ */
+export const clients = api.table(
+  'clients',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_clients_workspace_code').on(table.workspaceId, table.code),
+    check('chk_clients_code', sql`${table.code} ~ '^CL-[0-9]{3,}$'`),
+    check(
+      'chk_clients_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    index('idx_clients_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * client_portal_shares (ADR-0049) — an explicit share of one approved record to
+ * one client's portal. A client viewer reads only records shared here (through
+ * the portal RPCs); direct record/block reads are denied for the role. Written
+ * by the project lead or a workspace admin.
+ */
+export const clientPortalShares = api.table(
+  'client_portal_shares',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    sharedAt: timestamp('shared_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    sharedByUserId: text('shared_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_client_portal_shares_client_record').on(
+      table.clientId,
+      table.recordId,
+    ),
+    index('idx_client_portal_shares_client').on(table.clientId),
+    index('idx_client_portal_shares_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * client_portal_messages (ADR-0049) — the shared message thread between a client
+ * and the CDMO team for that client's portal. Written only through
+ * `post_client_portal_message`; read under RLS by internal members and by the
+ * client whose portal it belongs to.
+ */
+export const clientPortalMessages = api.table(
+  'client_portal_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    clientId: uuid('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    authorUserId: text('author_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    authorKind: text('author_kind').notNull(),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_client_portal_messages_author_kind',
+      sql`${table.authorKind} IN ('team', 'client')`,
+    ),
+    check(
+      'chk_client_portal_messages_body',
+      sql`length(btrim(${table.body})) BETWEEN 1 AND 4000`,
+    ),
+    index('idx_client_portal_messages_client').on(
+      table.clientId,
+      table.createdAt,
+    ),
   ],
 )
 
@@ -442,14 +742,61 @@ export const projects = api.table(
     customFields: jsonb('custom_fields')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /**
+     * WORK-01.1 — default review period in days for this project's
+     * submissions. Null falls back to 7 days.
+     */
+    defaultReviewPeriodDays: integer('default_review_period_days'),
+    /** PROJ-03.2 — project governance settings (all default off). */
+    requireEffectiveProtocol: boolean('require_effective_protocol')
+      .notNull()
+      .default(false),
+    requireIndependentReviewer: boolean('require_independent_reviewer')
+      .notNull()
+      .default(false),
+    autoShareToClient: boolean('auto_share_to_client').notNull().default(false),
+    /** PROJ-01.1 — stable workspace display id, assigned on insert. */
+    displayId: text('display_id'),
+    clientId: uuid('client_id').references(() => clients.id, {
+      onDelete: 'set null',
+    }),
+    modality: text('modality'),
+    stage: text('stage'),
+    leadUserId: text('lead_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    defaultReviewerUserId: text('default_reviewer_user_id').references(
+      () => user.id,
+      { onDelete: 'set null' },
+    ),
+    agreementReference: text('agreement_reference'),
+    startedOn: date('started_on'),
+    /** PROJ-01.1 — optimistic token for update_project_details. */
+    revision: bigint('revision', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
     ...timestamps,
     archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
   },
   (table) => [
     unique('uq_projects_workspace_key').on(table.workspaceId, table.key),
+    unique('uq_projects_workspace_id').on(table.workspaceId, table.id),
     check(
       'chk_projects_status',
-      sql`${table.status} IN ('active', 'archived')`,
+      sql`${table.status} IN ('active', 'in_progress', 'in_review', 'complete', 'on_hold', 'archived')`,
+    ),
+    check(
+      'chk_projects_review_period',
+      sql`${table.defaultReviewPeriodDays} IS NULL OR (${table.defaultReviewPeriodDays} BETWEEN 1 AND 365)`,
+    ),
+    check(
+      'chk_projects_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^PRJ-[0-9]{4,}$'`,
+    ),
+    check('chk_projects_revision', sql`${table.revision} > 0`),
+    unique('uq_projects_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
     ),
     index('idx_projects_workspace_id').on(table.workspaceId),
   ],
@@ -542,6 +889,15 @@ export const records = api.table(
     customFields: jsonb('custom_fields')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    // New-experiment fields: who reviews the submitted notebook, and when the
+    // experiment is planned to end. Written through `set_experiment_fields`.
+    reviewerUserId: text('reviewer_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    plannedEnd: date('planned_end'),
+    // Experiment results (RM-118): the recorded decision and its note.
+    decision: text('decision'),
+    decisionNotes: text('decision_notes'),
     // Typed tags array; UI renders as badges.
     tags: text('tags')
       .array()
@@ -554,6 +910,17 @@ export const records = api.table(
     // trail (LIVE-001) is the history; this column guards against
     // simultaneous metadata edits.
     metadataVersion: integer('metadata_version').notNull().default(1),
+    // ADR-0051 / MDL-03: the published workspace Record Model version this
+    // record is pinned to. Null for built-in kinds. An explicit upgrade RPC
+    // changes only this pin; values are never rewritten. The FK to
+    // api.record_model_versions is declared in the migration SQL to avoid a
+    // forward type-inference reference.
+    modelVersionId: uuid('model_version_id'),
+    // LAB-07: the exact protocol version an experiment started on. Null for
+    // records that are not protocol-controlled. The FK to api.protocol_versions
+    // is declared in the migration SQL to avoid a forward type-inference
+    // reference. Experiments keep the version they started on.
+    protocolVersionId: uuid('protocol_version_id'),
     calculationInputRevision: bigint('calculation_input_revision', {
       mode: 'bigint',
     })
@@ -610,10 +977,10 @@ export const records = api.table(
       table.projectId,
       table.identifier,
     ),
-    check(
-      'chk_records_kind',
-      sql`${table.kind} IN ('experiment', 'protocol_template', 'report', 'sample', 'reagent', 'file', 'notebook_template', 'study')`,
-    ),
+    // `kind` is validated by the `guard_record_kind` trigger (ADR-0051
+    // / MDL-01 step 2): it must be a built-in `model_kinds` record kind or a
+    // `record_models` key owned by this record's workspace. A fixed CHECK
+    // cannot query the model registries, so the allowlist is a trigger.
     index('idx_records_workspace_id').on(table.workspaceId),
     index('idx_records_project_id').on(table.projectId),
     index('idx_records_folder_id').on(table.folderId),
@@ -716,7 +1083,7 @@ export const recordLinks = api.table(
   (table) => [
     check(
       'chk_record_links_link_type',
-      sql`${table.linkType} IN ('sample', 'protocol', 'dataset', 'reagent', 'analysis', 'file', 'general', 'template')`,
+      sql`${table.linkType} IN ('sample', 'protocol', 'dataset', 'material', 'analysis', 'file', 'general', 'template', 'follows', 'upstream')`,
     ),
     // No duplicate (source, target_identifier, link_type). target_identifier
     // is used (not target_record_id) so a link to a missing target is still
@@ -729,6 +1096,41 @@ export const recordLinks = api.table(
     index('idx_record_links_source_record_id').on(table.sourceRecordId),
     index('idx_record_links_target_record_id').on(table.targetRecordId),
     index('idx_record_links_link_type').on(table.linkType),
+  ],
+)
+
+/**
+ * LAB-06 — a record's "also known as" names. The stable identifier never
+ * changes; an alias is a secondary code people scan or type (for example a
+ * harvest lot). Readable by workspace members; writes go through the
+ * `add_record_alias` / `remove_record_alias` RPCs.
+ */
+export const recordAliases = api.table(
+  'record_aliases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    alias: text('alias').notNull(),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_record_aliases_alias',
+      sql`length(btrim(${table.alias})) BETWEEN 1 AND 120`,
+    ),
+    uniqueIndex('uq_record_aliases_workspace_alias').on(
+      table.workspaceId,
+      sql`lower(${table.alias})`,
+    ),
+    index('idx_record_aliases_record').on(table.recordId),
   ],
 )
 
@@ -762,6 +1164,13 @@ export const fileObjects = api.table(
     byteSize: bigint('byte_size', { mode: 'bigint' }).notNull(),
     checksum: text('checksum'),
     checksumAlgorithm: text('checksum_algorithm').notNull().default('sha256'),
+    // SRCH-01.3 — extracted text for CSV, TXT and JSON uploads, with the
+    // original newlines so search results can name the matching line.
+    extractedText: text('extracted_text'),
+    extractedAt: timestamp('extracted_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     status: text('status').notNull().default('active'),
     statusReason: text('status_reason'),
     storageBackend: text('storage_backend').notNull().default('local'),
@@ -771,6 +1180,17 @@ export const fileObjects = api.table(
     }),
     deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
     version: integer('version').notNull().default(1),
+    /**
+     * PROJ-04.3 — the version this one replaced. The chain is how "upload new
+     * version" keeps every earlier file downloadable; the FK is declared in the
+     * migration SQL (self-reference) and deletion is refused there.
+     */
+    previousVersionId: uuid('previous_version_id'),
+    /** PROJ-04.3 — the workspace retention policy applied at upload. */
+    retentionUntil: timestamp('retention_until', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -908,6 +1328,11 @@ export const reviewSubmissions = api.table(
       withTimezone: true,
       mode: 'date',
     }).notNull(),
+    /**
+     * WORK-01.1 — the review's due date, set from the project's default
+     * review period when the submission omits one (see the insert trigger).
+     */
+    dueAt: timestamp('due_at', { withTimezone: true, mode: 'date' }),
     idempotencyKey: text('idempotency_key').notNull(),
     ...timestamps,
   },
@@ -1157,13 +1582,15 @@ export const signatures = api.table(
     recordId: uuid('record_id')
       .notNull()
       .references(() => records.id, { onDelete: 'restrict' }),
-    // approve-for-record | witness
+    // Legacy evidence retains approve-for-record/witness unchanged.
     signatureMeaning: text('signature_meaning').notNull(),
     assuranceLevel: text('assurance_level').notNull().default('standard'),
     revisionIntegrityDigest: text('revision_integrity_digest').notNull(),
     signerUserId: text('signer_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),
+    // Nullable only for historical signatures, which must never be rewritten.
+    signerName: text('signer_name'),
     signerSessionId: text('signer_session_id').notNull(),
     signerRole: text('signer_role').notNull(),
     authMethod: text('auth_method').notNull(),
@@ -1178,7 +1605,7 @@ export const signatures = api.table(
   (table) => [
     check(
       'chk_signatures_meaning',
-      sql`${table.signatureMeaning} IN ('approve-for-record', 'witness')`,
+      sql`${table.signatureMeaning} IN ('approve-for-record', 'witness', 'authored', 'reviewed', 'reviewed-and-approved', 'witnessed')`,
     ),
     check(
       'chk_signatures_assurance_level',
@@ -1186,7 +1613,7 @@ export const signatures = api.table(
     ),
     check(
       'chk_signatures_auth_method',
-      sql`${table.authMethod} IN ('session+name-confirmation')`,
+      sql`${table.authMethod} IN ('session+name-confirmation', 'password')`,
     ),
     check(
       'chk_signatures_digest',
@@ -1196,9 +1623,10 @@ export const signatures = api.table(
       'chk_signatures_confirmation_phrase',
       sql`length(${table.confirmationPhrase}) BETWEEN 1 AND 200`,
     ),
-    unique('uq_signatures_submission_signer').on(
+    unique('uq_signatures_submission_signer_meaning').on(
       table.submissionId,
       table.signerUserId,
+      table.signatureMeaning,
     ),
     index('idx_signatures_submission').on(table.submissionId, table.signedAt),
     index('idx_signatures_workspace_signed').on(
@@ -1207,6 +1635,46 @@ export const signatures = api.table(
     ),
     index('idx_signatures_record').on(table.recordId, table.signedAt),
     index('idx_signatures_revision').on(table.revisionId),
+  ],
+)
+
+/** Explicit human request, pinned to the same frozen revision as its signature. */
+export const signatureWitnessRequests = api.table(
+  'signature_witness_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'restrict' }),
+    submissionId: uuid('submission_id')
+      .notNull()
+      .references(() => reviewSubmissions.id, { onDelete: 'restrict' }),
+    revisionDigest: text('revision_digest').notNull(),
+    witnessUserId: text('witness_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    requestedByUserId: text('requested_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'restrict' }),
+    requestedSessionId: text('requested_session_id').notNull(),
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .default(sql`clock_timestamp()`),
+  },
+  (table) => [
+    unique('uq_signature_witness_request').on(
+      table.submissionId,
+      table.witnessUserId,
+    ),
+    check(
+      'chk_signature_witness_digest',
+      sql`${table.revisionDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_signature_witness_requester',
+      sql`${table.witnessUserId} <> ${table.requestedByUserId}`,
+    ),
   ],
 )
 
@@ -1237,12 +1705,16 @@ export const comments = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'restrict' }),
-    revisionId: uuid('revision_id')
-      .notNull()
-      .references(() => revisions.id, { onDelete: 'restrict' }),
-    recordId: uuid('record_id')
-      .notNull()
-      .references(() => records.id, { onDelete: 'restrict' }),
+    revisionId: uuid('revision_id').references(() => revisions.id, {
+      onDelete: 'restrict',
+    }),
+    recordId: uuid('record_id').references(() => records.id, {
+      onDelete: 'restrict',
+    }),
+    sheetInstanceId: uuid('sheet_instance_id').references(
+      () => sheetInstances.id,
+      { onDelete: 'restrict' },
+    ),
     // Self for a top-level comment; the thread root for replies.
     rootId: uuid('root_id')
       .notNull()
@@ -1250,12 +1722,16 @@ export const comments = api.table(
     parentId: uuid('parent_id').references((): AnyPgColumn => comments.id, {
       onDelete: 'restrict',
     }),
-    // revision | block | table_region | diff
+    // Frozen revision targets or stable live/frozen Sheet identities.
     targetKind: text('target_kind').notNull(),
     target: jsonb('target')
       .notNull()
       .default(sql`'{}'`),
     body: text('body').notNull(),
+    // Generated full-text vector for comment search (SRCH-01.1).
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(body, ''))`,
+    ),
     mentions: text('mentions')
       .array()
       .notNull()
@@ -1274,7 +1750,11 @@ export const comments = api.table(
   (table) => [
     check(
       'chk_comments_target_kind',
-      sql`${table.targetKind} IN ('revision', 'block', 'table_region', 'diff')`,
+      sql`${table.targetKind} IN ('revision', 'block', 'table_region', 'diff', 'sheet_cell', 'sheet_row', 'sheet_range')`,
+    ),
+    check(
+      'chk_comments_anchor_owner',
+      sql`((${table.targetKind} IN ('sheet_cell', 'sheet_row', 'sheet_range') AND ${table.sheetInstanceId} IS NOT NULL) OR (${table.targetKind} IN ('revision', 'block', 'table_region', 'diff') AND ${table.sheetInstanceId} IS NULL)) AND (${table.revisionId} IS NOT NULL OR ${table.sheetInstanceId} IS NOT NULL) AND (${table.revisionId} IS NULL OR ${table.recordId} IS NOT NULL)`,
     ),
     check('chk_comments_state', sql`${table.state} IN ('open', 'resolved')`),
     check('chk_comments_body', sql`length(${table.body}) BETWEEN 1 AND 8000`),
@@ -1297,6 +1777,12 @@ export const comments = api.table(
       table.createdAt,
     ),
     index('idx_comments_record').on(table.workspaceId, table.recordId),
+    index('idx_comments_sheet').on(
+      table.workspaceId,
+      table.sheetInstanceId,
+      table.createdAt,
+    ),
+    index('idx_comments_search_vector').using('gin', table.searchVector),
   ],
 )
 
@@ -1394,10 +1880,12 @@ export const recordFieldDefinitions = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    // Compatibility name: this is the model key.
-    kind: text('kind')
-      .notNull()
-      .references(() => modelKinds.key, { onDelete: 'restrict' }),
+    // Compatibility name: this is the model key. ADR-0051 / MDL-01 step 2
+    // allows a built-in `model_kinds` key or a workspace-owned
+    // `record_models` key in the same workspace; the
+    // `record_field_definitions_kind_guard` trigger enforces that, so the
+    // column carries no single-table foreign key.
+    kind: text('kind').notNull(),
     // Stable slug; the key in the model host's custom_fields object. Immutable
     // once active rows reference it; rename the label, not the field_name.
     fieldName: text('field_name').notNull(),
@@ -1484,8 +1972,10 @@ export const modelFieldOptions = api.table(
  * `record_field_definitions.relationship` is per reference-field grain
  * (one target model, one/many cardinality) — not per-model link
  * acceptance with count bounds. This table extends the canonical Models
- * without a parallel ontology: both keys reference `model_kinds`, and the
- * links themselves stay authoritative in `record_links`.
+ * without a parallel ontology: the source is a built-in `model_kinds` key or
+ * a same-workspace `record_models` key (ADR-0051), the target is a built-in
+ * `model_kinds` key, and the links themselves stay authoritative in
+ * `record_links`.
  *
  * Enforcement grain: the world closes per source Model. A source model
  * with no declared rules keeps current behaviour untouched; a model with
@@ -1499,9 +1989,10 @@ export const modelRelationshipRules = api.table(
     workspaceId: uuid('workspace_id')
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
-    sourceModelKey: text('source_model_key')
-      .notNull()
-      .references(() => modelKinds.key, { onDelete: 'restrict' }),
+    // Built-in `model_kinds.key` or workspace `record_models.key` (ADR-0051);
+    // the `model_relationship_rules_source_guard` trigger enforces that union.
+    // The column carries no single-table foreign key (0292).
+    sourceModelKey: text('source_model_key').notNull(),
     linkType: text('link_type').notNull(),
     targetModelKey: text('target_model_key')
       .notNull()
@@ -1535,6 +2026,419 @@ export const modelRelationshipRules = api.table(
 )
 
 /**
+ * ADR-0051 / MDL-01 step 1 — workspace-owned record model identity.
+ *
+ * A workspace can define its own record model (e.g. "Cell bank", prefix
+ * `CB`) without a migration. This row is the model's identity: a stable
+ * workspace-unique `key`, display `name`, `identifier_prefix`, lifecycle and
+ * a `current_version` reference. `api.record_field_definitions.kind` already
+ * stores a model key, so fields attach to a workspace model without a
+ * parallel field store.
+ *
+ * Step 1 deliberately does **not** add a version table or the `records.kind`
+ * refactor. ADR-0051 §2 (versioned schemas with approval) is MDL-03; step 1
+ * is identity, identifier prefix and RLS. `current_version` is the published
+ * version reference MDL-03 will increment; the versioned field/rule snapshot
+ * and approval workflow are MDL-03/MDL-02, not here.
+ *
+ * Built-in kinds stay canonical in `model_kinds` (a global, migration-owned
+ * registry) and are **not** duplicated or seeded here. A workspace model is
+ * exactly a `record_models` row; `api.create_workspace_model` refuses a key
+ * that collides with a `model_kinds` key so the two registries cannot fork.
+ * The step-2 `records.kind` refactor reconciles them.
+ *
+ * Members read; writes require the `schema.edit` capability, matching the
+ * Dataset schema edit gate. Export is state (`lifecycle`), never a delete.
+ */
+export const recordModels = api.table(
+  'record_models',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Stable, immutable, workspace-unique slug. Never reused.
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    // Identifier family prefix, e.g. `CB`; identifier `CB-0001`.
+    identifierPrefix: text('identifier_prefix').notNull(),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    currentVersion: integer('current_version').notNull().default(1),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_record_models_workspace_key').on(table.workspaceId, table.key),
+    unique('uq_record_models_workspace_identifier_prefix').on(
+      table.workspaceId,
+      table.identifierPrefix,
+    ),
+    check(
+      'chk_record_models_key',
+      sql`${table.key} ~ '^[a-z][a-z0-9_]{0,59}$'`,
+    ),
+    check(
+      'chk_record_models_identifier_prefix',
+      sql`${table.identifierPrefix} ~ '^[A-Z][A-Z0-9]{0,7}$'`,
+    ),
+    check(
+      'chk_record_models_lifecycle',
+      sql`${table.lifecycle} IN ('draft','published','retired')`,
+    ),
+    check(
+      'chk_record_models_current_version',
+      sql`${table.currentVersion} > 0`,
+    ),
+    index('idx_record_models_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * ADR-0051 / MDL-03 — versioned workspace Record Model definitions.
+ *
+ * Each row is one snapshot of a workspace model's field definition. A draft may
+ * be edited (revision bumps) and submitted for approval; publishing requires a
+ * completed approval request covering every required approver role. Publishing
+ * never rewrites existing Record values: a Record keeps the `model_version_id`
+ * it was created or upgraded to until an explicit upgrade RPC changes the pin.
+ */
+export const recordModelVersions = api.table(
+  'record_model_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    modelId: uuid('model_id')
+      .notNull()
+      .references(() => recordModels.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    revision: integer('revision').notNull().default(1),
+    lifecycle: text('lifecycle').notNull().default('draft'),
+    definition: jsonb('definition')
+      .notNull()
+      .default(sql`'{"fields":[]}'::jsonb`),
+    reason: text('reason').notNull().default(''),
+    publishedAt: timestamp('published_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_record_model_versions_model_version').on(
+      table.modelId,
+      table.version,
+    ),
+    check('chk_record_model_versions_version', sql`${table.version} > 0`),
+    check('chk_record_model_versions_revision', sql`${table.revision} > 0`),
+    check(
+      'chk_record_model_versions_lifecycle',
+      sql`${table.lifecycle} IN ('draft','published')`,
+    ),
+    index('idx_record_model_versions_workspace').on(table.workspaceId),
+    index('idx_record_model_versions_model').on(table.modelId),
+  ],
+)
+
+/**
+ * ADR-0051 / MDL-03 — explicit Record Model pin upgrades.
+ *
+ * A row records that a Record moved from one published model version to
+ * another. Values are never rewritten by an upgrade, so this log is what lets
+ * `record_model_version_usage` separate records created at a version from
+ * records upgraded to it.
+ */
+export const recordModelVersionUpgrades = api.table(
+  'record_model_version_upgrades',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    fromVersionId: uuid('from_version_id').references(
+      () => recordModelVersions.id,
+      { onDelete: 'set null' },
+    ),
+    toVersionId: uuid('to_version_id')
+      .notNull()
+      .references(() => recordModelVersions.id, { onDelete: 'cascade' }),
+    reason: text('reason'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    upgradedByUserId: text('upgraded_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    index('idx_record_model_version_upgrades_record').on(table.recordId),
+    index('idx_record_model_version_upgrades_to').on(table.toVersionId),
+  ],
+)
+
+/**
+ * LAB-07 — controlled protocol versions.
+ *
+ * A protocol is a `protocol_template` Record. Each version is a frozen revision
+ * of that Record: `id` is the `api.revisions` id, so the scientific text of a
+ * version can never be rewritten. Lifecycle is separate from approval: an
+ * approved version is not yet effective.
+ */
+export const protocolVersions = api.table(
+  'protocol_versions',
+  {
+    id: uuid('id').primaryKey(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    protocolRecordId: uuid('protocol_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    status: text('status').notNull().default('draft'),
+    changeSummary: text('change_summary'),
+    reason: text('reason'),
+    effectiveAt: timestamp('effective_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    // LAB-07: the periodic review date. Confirming the version as current
+    // extends it; starting a new version supersedes the old one instead.
+    reviewDueAt: timestamp('review_due_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_protocol_versions_status',
+      sql`${table.status} IN ('draft','in_review','effective','superseded','retired')`,
+    ),
+    check('chk_protocol_versions_version', sql`${table.version} > 0`),
+    unique('uq_protocol_versions_protocol_version').on(
+      table.protocolRecordId,
+      table.version,
+    ),
+    index('idx_protocol_versions_workspace').on(table.workspaceId),
+    index('idx_protocol_versions_protocol').on(table.protocolRecordId),
+  ],
+)
+
+/**
+ * LAB-07 — read-and-acknowledge training, per exact protocol version.
+ */
+export const protocolAcknowledgements = api.table(
+  'protocol_acknowledgements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    protocolVersionId: uuid('protocol_version_id')
+      .notNull()
+      .references(() => protocolVersions.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    acknowledgedAt: timestamp('acknowledged_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_protocol_acknowledgements_version_user').on(
+      table.protocolVersionId,
+      table.userId,
+    ),
+    index('idx_protocol_acknowledgements_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * LAB-07 / PROJ-01 — the current protocol version pinned per project.
+ */
+export const projectProtocols = api.table(
+  'project_protocols',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    protocolRecordId: uuid('protocol_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    protocolVersionId: uuid('protocol_version_id')
+      .notNull()
+      .references(() => protocolVersions.id, { onDelete: 'cascade' }),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    unique('uq_project_protocols_project_protocol').on(
+      table.projectId,
+      table.protocolRecordId,
+    ),
+    index('idx_project_protocols_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * ADR-0051 / MDL-02 step 2 — workspace-owned model rules.
+ *
+ * A rule belongs to one model (a built-in `model_kinds` key or a
+ * workspace-owned `record_models` key), names the field(s) it applies to and
+ * carries a `condition` plus an `effect`:
+ *
+ * - `block`            — the write is refused.
+ * - `flag_block_submit` — the write is accepted but the record cannot be
+ *   submitted for review until it no longer matches.
+ * - `warn`             — the write and submission both proceed; a
+ *   non-blocking notice is reported.
+ *
+ * `field_keys` is the human-facing "applies to" metadata; the condition is
+ * authoritative and may reference other fields of the same model (cross-field
+ * business rules). `condition` uses a small JSON DSL evaluated by
+ * `internal.model_rule_condition_matches`: `{}` (always), `{"all":[...]}`,
+ * `{"any":[...]}`, `{"not":{...}}`, or a leaf
+ * `{"field":"x","op":"gt|gte|lt|lte|eq|neq|in|not_in|is_null|not_null|matches","value":...}`.
+ *
+ * Versioning: like `record_field_definitions`, rules attach to the model key
+ * without a parallel version table. ADR-0051 §2's versioned schema snapshot
+ * and approval are MDL-03; this keeps the canonical field/rule store and
+ * defers version grain to that task.
+ */
+export const modelRules = api.table(
+  'model_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Built-in `model_kinds.key` or workspace `record_models.key`; the
+    // `model_rule_guard` trigger enforces the same union as
+    // `record_field_definitions`.
+    modelKey: text('model_key').notNull(),
+    name: text('name').notNull(),
+    // "Applies to" fields: one or more model fields. Empty is refused by the
+    // guard trigger.
+    fieldKeys: text('field_keys')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    // Predicate DSL; `{}` always matches.
+    condition: jsonb('condition')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    effect: text('effect').notNull(),
+    // Non-blocking notice (warn) or refusal reason (block / submit block).
+    message: text('message').notNull(),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    check(
+      'chk_model_rules_effect',
+      sql`${table.effect} IN ('flag_block_submit','warn','block')`,
+    ),
+    check(
+      'chk_model_rules_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_model_rules_message',
+      sql`length(btrim(${table.message})) BETWEEN 1 AND 500`,
+    ),
+    check(
+      'chk_model_rules_condition',
+      sql`jsonb_typeof(${table.condition}) = 'object'`,
+    ),
+    index('idx_model_rules_scope').on(table.workspaceId, table.modelKey),
+  ],
+)
+
+/**
+ * label_templates (LAB-05.1) describes what a printed label carries for a kind of
+ * record: its name, which kind it labels, and whether the storage condition and the
+ * hold use-by date are printed. The 2D code's payload is fixed by DEC-10
+ * (`https://<host>/r/<identifier>`) and built in `src/lib/labels.ts`, so it is not a
+ * column here — a template cannot silently change what a printed code resolves to.
+ * Readable by workspace members; a template is workspace configuration, so writes are
+ * left to the RPCs that own configuration.
+ */
+export const labelTemplates = api.table(
+  'label_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    recordKind: text('record_kind').notNull(),
+    showCondition: boolean('show_condition').notNull().default(true),
+    showUseBy: boolean('show_use_by').notNull().default(true),
+    createdByUserId: text('created_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_label_templates_workspace_name').on(
+      table.workspaceId,
+      table.name,
+    ),
+    index('idx_label_templates_workspace').on(table.workspaceId),
+    check(
+      'chk_label_templates_name',
+      sql`length(btrim(${table.name})) between 1 and 120`,
+    ),
+    check(
+      'chk_label_templates_record_kind',
+      sql`length(btrim(${table.recordKind})) between 1 and 48`,
+    ),
+  ],
+)
+
+/**
  * sample_events (REG-002) is the append-only chain-of-custody and quantity
  * event log for sample records. Every controlled receive/consume/transfer
  * appends one row with actor attribution; the authoritative quantity and
@@ -1556,7 +2460,10 @@ export const sampleEvents = api.table(
     recordId: uuid('record_id')
       .notNull()
       .references(() => records.id, { onDelete: 'cascade' }),
-    // create | receive | consume | transfer | edit | archive | restore
+    // create | receive | consume | transfer | edit | archive | restore |
+    // hold_exceeded | quarantine | release | dispose (LAB-02: the scheduled
+    // System transition past the hold limit and the release/quarantine/disposal
+    // lifecycle; part of this same chain-of-custody log, not a second log)
     operation: text('operation').notNull(),
     // Signed: receive > 0, consume < 0, null for non-quantity operations.
     quantityDelta: numeric('quantity_delta'),
@@ -1568,6 +2475,12 @@ export const sampleEvents = api.table(
     actorUserId: text('actor_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    // LAB-01 step 1: the record (normally an experiment) a quantity-bearing
+    // event was performed for. Set by `api.consume_sample` /
+    // `api.withdraw_sample`; null for non-purpose operations.
+    purposeRecordId: uuid('purpose_record_id').references(() => records.id, {
+      onDelete: 'set null',
+    }),
     notes: text('notes'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
@@ -1576,7 +2489,7 @@ export const sampleEvents = api.table(
   (table) => [
     check(
       'chk_sample_events_operation',
-      sql`${table.operation} IN ('create','receive','consume','transfer','edit','archive','restore')`,
+      sql`${table.operation} IN ('create','receive','consume','transfer','edit','archive','restore','hold_exceeded','quarantine','release','dispose')`,
     ),
     check(
       'chk_sample_events_quantity_presence',
@@ -1607,6 +2520,108 @@ export const sampleEvents = api.table(
       table.createdAt,
     ),
     index('idx_sample_events_operation').on(table.operation),
+  ],
+)
+
+/**
+ * sample_reservations (LAB-01 step 2) — volume held for a planned experiment.
+ *
+ * A reservation is separate from the canonical consume/quantity ledger in
+ * `api.sample_events`: it does not change `records.properties.quantity`.
+ * Instead it holds part of the sample's current volume for a named experiment
+ * so `internal.sample_reserved_quantity` can subtract it from the free balance
+ * and `api.withdraw_sample` refuses a withdrawal into reserved volume.
+ *
+ * `state` is `active` (holding), `cancelled` (released by a person) or
+ * `fulfilled` (the planned use was consumed; retained for history). Only
+ * `active` rows count toward reserved volume. Workspace members read; writing
+ * requires the `record.create` writer capability, enforced by RLS, with the
+ * create/cancel RPCs as the only application writers.
+ */
+export const sampleReservations = api.table(
+  'sample_reservations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    sampleRecordId: uuid('sample_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    // The planned experiment the reserved volume is held for.
+    experimentRecordId: uuid('experiment_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    quantity: numeric('quantity').notNull(),
+    unit: text('unit'),
+    // True for a reservation created against a planned (not yet run) use.
+    planned: boolean('planned').notNull().default(true),
+    // active | cancelled | fulfilled
+    state: text('state').notNull().default('active'),
+    notes: text('notes'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    cancelledByUserId: text('cancelled_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    cancelledAt: timestamp('cancelled_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check('chk_sample_reservations_quantity', sql`${table.quantity} > 0`),
+    check(
+      'chk_sample_reservations_state',
+      sql`${table.state} IN ('active','cancelled','fulfilled')`,
+    ),
+    index('idx_sample_reservations_sample').on(
+      table.sampleRecordId,
+      table.state,
+    ),
+    index('idx_sample_reservations_experiment').on(table.experimentRecordId),
+    index('idx_sample_reservations_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * sample_release_rules (LAB-02 step 2) — workspace-owned release-check rule
+ * sets, one row per sample type (`'*'` is the workspace-wide default). `rules`
+ * is a bounded JSONB array of checks evaluated against a sample's
+ * authoritative measurements (`api.sample_measurement_provenance`) before
+ * `api.release_sample` may release it. The minimal canonical fallback lives in
+ * `internal.canonical_sample_release_rules()`; a workspace row overrides it.
+ * Members read; writing requires the `sample.release` capability.
+ */
+export const sampleReleaseRules = api.table(
+  'sample_release_rules',
+  {
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Matches records.properties.sampleType (case-insensitive); '*' = default.
+    sampleType: text('sample_type').notNull().default('*'),
+    rules: jsonb('rules')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    updatedByUserId: text('updated_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    primaryKey({ columns: [table.workspaceId, table.sampleType] }),
+    check(
+      'chk_sample_release_rules_type',
+      sql`length(btrim(${table.sampleType})) BETWEEN 1 AND 100`,
+    ),
+    check(
+      'chk_sample_release_rules_rules',
+      sql`jsonb_typeof(${table.rules}) = 'array'`,
+    ),
+    index('idx_sample_release_rules_workspace').on(table.workspaceId),
   ],
 )
 
@@ -2076,6 +3091,8 @@ export const datasetSchemaDefinitions = api.table(
     key: text('key').notNull(),
     name: text('name').notNull(),
     description: text('description'),
+    /** DSYS-05.4 — stable workspace display id, e.g. MDL-0012. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('draft'),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
@@ -2183,6 +3200,108 @@ export const datasetSchemaVersionFields = api.table(
     index('idx_dataset_schema_version_fields_version').on(
       table.schemaVersionId,
     ),
+  ],
+)
+
+// MDL-03.1: reusable approval requests. The object kind is generic so a
+// version, parser, protocol or promotion can share one request/decision store
+// without a second approval engine. Required role(s) are the governed
+// workspace roles; a request must be completed before its publish sibling
+// will activate the object. Decisions are the immutable trail.
+export const approvalRequests = api.table(
+  'approval_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    // Generic governed object, e.g. dataset_schema_version, parser_version,
+    // protocol_version, local_field_promotion.
+    objectKind: text('object_kind').notNull(),
+    objectId: uuid('object_id').notNull(),
+    // Immutable revision of the object at submission, when the object has one.
+    objectRevision: bigint('object_revision', { mode: 'number' }),
+    requiredApproverRoles: text('required_approver_roles')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    requiredApprovals: integer('required_approvals').notNull().default(1),
+    requireIndependence: boolean('require_independence')
+      .notNull()
+      .default(true),
+    state: text('state').notNull().default('pending'),
+    reason: text('reason'),
+    decisionReason: text('decision_reason'),
+    approvedByUserIds: text('approved_by_user_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    submittedByUserId: text('submitted_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    submittedAt: timestamp('submitted_at', {
+      withTimezone: true,
+      mode: 'date',
+    })
+      .notNull()
+      .defaultNow(),
+    decidedByUserId: text('decided_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    decidedAt: timestamp('decided_at', { withTimezone: true, mode: 'date' }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_approval_requests_state',
+      sql`${table.state} IN ('pending','approved','returned','withdrawn')`,
+    ),
+    check(
+      'chk_approval_requests_kind',
+      sql`${table.objectKind} ~ '^[a-z][a-z0-9_]{0,63}$'`,
+    ),
+    check(
+      'chk_approval_requests_required_approvals',
+      sql`${table.requiredApprovals} >= 1`,
+    ),
+    check(
+      'chk_approval_requests_roles',
+      sql`${table.requiredApproverRoles} <@ ARRAY['owner','admin','member','steward','scientist','analyst','reviewer','viewer']::text[]`,
+    ),
+    index('idx_approval_requests_workspace').on(table.workspaceId),
+    index('idx_approval_requests_object').on(table.objectKind, table.objectId),
+    uniqueIndex('uq_approval_requests_pending_object')
+      .on(table.objectKind, table.objectId)
+      .where(sql`${table.state} = 'pending'`),
+  ],
+)
+
+export const approvalRequestDecisions = api.table(
+  'approval_request_decisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    requestId: uuid('request_id')
+      .notNull()
+      .references(() => approvalRequests.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    decision: text('decision').notNull(),
+    reason: text('reason'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_approval_request_decisions_decision',
+      sql`${table.decision} IN ('approved','returned')`,
+    ),
+    index('idx_approval_request_decisions_request').on(table.requestId),
   ],
 )
 
@@ -2330,6 +3449,8 @@ export const notebookTemplates = api.table(
     key: text('key').notNull(),
     name: text('name').notNull(),
     description: text('description'),
+    /** DSYS-05.4 — stable workspace display id, e.g. TPL-0012. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('active'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
@@ -2390,6 +3511,14 @@ export const notebookTemplateVersions = api.table(
     publishedByUserId: text('published_by_user_id').references(() => user.id, {
       onDelete: 'set null',
     }),
+    /** Why this version was published or retired (governance record). */
+    reason: text('reason'),
+    /** The retire e-signature: who signed, its meaning and the server time. */
+    signedByUserId: text('signed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    signedMeaning: text('signed_meaning'),
+    signedAt: timestamp('signed_at', { withTimezone: true, mode: 'date' }),
     retiredAt: timestamp('retired_at', {
       withTimezone: true,
       mode: 'date',
@@ -2540,6 +3669,8 @@ export const sheetInstances = api.table(
     ),
     name: text('name').notNull(),
     description: text('description'),
+    /** DSYS-05.4 — stable workspace display id, e.g. SHT-0019. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('active'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
@@ -2824,10 +3955,16 @@ export const datasets = api.table(
       .references(() => datasetSchemaVersions.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     description: text('description'),
+    /** Stable per-workspace display id, e.g. DS-0298. Assigned on insert. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('active'),
+    /** ADR-0045 intended use; regulated imports require a QA-approved parser. */
+    intendedUse: text('intended_use').notNull().default('exploratory_research'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
       .default(sql`1`),
+    /** DSET-04 — when the dataset was archived, for snapshot retention. */
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -2838,6 +3975,14 @@ export const datasets = api.table(
     ),
   },
   (table) => [
+    unique('uq_datasets_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
+    ),
+    check(
+      'chk_datasets_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^DS-[0-9]{4,}$'`,
+    ),
     check(
       'chk_datasets_created_by_actor',
       sql`NOT (${table.createdByUserId} IS NOT NULL AND ${table.createdByCredentialId} IS NOT NULL)`,
@@ -2845,6 +3990,10 @@ export const datasets = api.table(
     check(
       'chk_datasets_lifecycle',
       sql`${table.lifecycle} IN ('active','archived')`,
+    ),
+    check(
+      'chk_datasets_intended_use',
+      sql`${table.intendedUse} IN ('exploratory_research', 'controlled_development', 'regulated_record')`,
     ),
     check('chk_datasets_revision', sql`${table.revision} > 0`),
     index('idx_datasets_workspace').on(table.workspaceId),
@@ -2865,10 +4014,35 @@ export const datasetRows = api.table(
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
       .default(sql`1`),
+    /** DSET-01.3 — a planned row (repeat requested) holds no values yet. */
+    status: text('status').notNull().default('recorded'),
+    /**
+     * DSET-01.3 — stable import matching key. A later import whose row carries
+     * the same key (scoped to this Dataset) fills the planned row instead of
+     * inserting a duplicate. NULL for ordinary rows.
+     */
+    plannedKey: text('planned_key'),
+    scheduledAt: timestamp('scheduled_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
     ...timestamps,
   },
   (table) => [
     check('chk_dataset_rows_revision', sql`${table.revision} > 0`),
+    check(
+      'chk_dataset_rows_status',
+      sql`${table.status} IN ('planned', 'recorded')`,
+    ),
+    check(
+      'chk_dataset_rows_planned_key',
+      sql`${table.plannedKey} IS NULL OR length(${table.plannedKey}) BETWEEN 1 AND 200`,
+    ),
+    uniqueIndex('uq_dataset_rows_planned_key')
+      .on(table.datasetId, table.plannedKey)
+      .where(
+        sql`${table.status} = 'planned' AND ${table.plannedKey} IS NOT NULL`,
+      ),
     index('idx_dataset_rows_dataset').on(table.datasetId),
     index('idx_dataset_rows_workspace').on(table.workspaceId),
   ],
@@ -2970,6 +4144,443 @@ export const datasetVersionValues = api.table(
   ],
 )
 
+/**
+ * SRCH-01.2 — full-text index over published Dataset cell values, maintained by
+ * a trigger on dataset_version_values. Search returns the dataset, the matched
+ * field label and the row identity.
+ */
+export const datasetCellSearch = api.table(
+  'dataset_cell_search',
+  {
+    datasetVersionId: uuid('dataset_version_id')
+      .notNull()
+      .references(() => datasetVersions.id, { onDelete: 'cascade' }),
+    rowId: uuid('row_id').notNull(),
+    fieldId: uuid('field_id').notNull(),
+    ordinal: integer('ordinal').notNull().default(0),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    fieldLabel: text('field_label').notNull(),
+    valueText: text('value_text').notNull(),
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(value_text, '') || ' ' || coalesce(field_label, ''))`,
+    ),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.datasetVersionId,
+        table.rowId,
+        table.fieldId,
+        table.ordinal,
+      ],
+    }),
+    index('idx_dataset_cell_search_vector').using('gin', table.searchVector),
+    index('idx_dataset_cell_search_workspace').on(table.workspaceId),
+    index('idx_dataset_cell_search_dataset').on(table.datasetId),
+  ],
+)
+
+/**
+ * PROJ-04.1 — placement for object kinds that have no folder column. Records keep
+ * `records.folder_id` (existing behaviour and readers), so this table is the one
+ * home for sheets, datasets, analyses and pipelines: one folder per object, in
+ * one workspace.
+ */
+export const folderItems = api.table(
+  'folder_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    folderId: uuid('folder_id')
+      .notNull()
+      .references(() => folders.id, { onDelete: 'cascade' }),
+    objectKind: text('object_kind').notNull(),
+    objectId: uuid('object_id').notNull(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_folder_items_object').on(
+      table.workspaceId,
+      table.objectKind,
+      table.objectId,
+    ),
+    index('idx_folder_items_folder').on(table.folderId),
+    check(
+      'chk_folder_items_kind',
+      sql`${table.objectKind} IN ('sheet_instance', 'dataset', 'analysis_view', 'pipeline_definition')`,
+    ),
+  ],
+)
+
+/**
+ * LAB-06.2 — a person's qualification to run one instrument until a date. The
+ * instrument page shows who is qualified and when it expires; the booking path
+ * (LAB-06.3) refuses an unqualified booker.
+ */
+export const instrumentQualifications = api.table(
+  'instrument_qualifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    validUntil: timestamp('valid_until', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    grantedByUserId: text('granted_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_instrument_qualifications_instrument_user').on(
+      table.instrumentId,
+      table.userId,
+    ),
+    index('idx_instrument_qualifications_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * SRCH-01.2 — one row per Sheet Instance cell value, so sheet values are
+ * searchable with their column label the way dataset cells are. A trigger
+ * rebuilds an instance's rows whenever its state changes; the table is
+ * RLS-scoped to the workspace and read through `api.search_sheet_cells`.
+ */
+export const sheetCellSearch = api.table(
+  'sheet_cell_search',
+  {
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'cascade' }),
+    rowKey: text('row_key').notNull(),
+    fieldId: text('field_id').notNull(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'cascade',
+    }),
+    fieldLabel: text('field_label').notNull(),
+    valueText: text('value_text').notNull(),
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(value_text, '') || ' ' || coalesce(field_label, ''))`,
+    ),
+  },
+  (table) => [
+    primaryKey({ columns: [table.instanceId, table.rowKey, table.fieldId] }),
+    index('idx_sheet_cell_search_vector').using('gin', table.searchVector),
+    index('idx_sheet_cell_search_workspace').on(table.workspaceId),
+    index('idx_sheet_cell_search_instance').on(table.instanceId),
+  ],
+)
+
+/**
+ * dataset_version_keeps (DSET-04.3) — a manual "Keep" on an immutable snapshot.
+ * The snapshot itself is frozen evidence, so the keep is stored beside it, one
+ * row per version, and read by the retention function.
+ */
+export const datasetVersionKeeps = api.table(
+  'dataset_version_keeps',
+  {
+    datasetVersionId: uuid('dataset_version_id')
+      .primaryKey()
+      .references(() => datasetVersions.id, { onDelete: 'cascade' }),
+    keptUntil: timestamp('kept_until', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    reason: text('reason').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_dataset_version_keeps_reason',
+      sql`length(btrim(${table.reason})) BETWEEN 1 AND 500`,
+    ),
+  ],
+)
+
+/**
+ * dataset_version_prunes (DSET-04.2) — records that a snapshot's row data was
+ * removed by the retention job, keeping the snapshot's identity and history.
+ */
+export const datasetVersionPrunes = api.table('dataset_version_prunes', {
+  datasetVersionId: uuid('dataset_version_id')
+    .primaryKey()
+    .references(() => datasetVersions.id, { onDelete: 'cascade' }),
+  rowsRemovedAt: timestamp('rows_removed_at', {
+    withTimezone: true,
+    mode: 'date',
+  })
+    .notNull()
+    .defaultNow(),
+  prunedRowCount: integer('pruned_row_count').notNull().default(0),
+})
+
+/**
+ * dataset_value_flags (DSET-01.1) — a flag on a recorded value (out of range,
+ * missing unit, above curve, high replicate CV). The value stays as recorded;
+ * a flag excludes it from criteria and analyses until cleared. Written through
+ * `flag_dataset_value` / `clear_dataset_value_flag`.
+ */
+export const datasetValueFlags = api.table(
+  'dataset_value_flags',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    rowId: uuid('row_id').notNull(),
+    fieldId: uuid('field_id').notNull(),
+    kind: text('kind').notNull(),
+    source: text('source').notNull().default('manual'),
+    /**
+     * DSET-01.1 — the rule that produced a `system` flag (`out_of_range`,
+     * `missing_unit` or `high_cv`), NULL for a manual flag. The evaluated value,
+     * the rule's parameters (`threshold`) and when it last ran make a system
+     * flag distinguishable from a person's decision.
+     */
+    systemRule: text('system_rule'),
+    reason: text('reason').notNull(),
+    comment: text('comment'),
+    evaluatedValue: jsonb('evaluated_value'),
+    threshold: jsonb('threshold'),
+    evaluatedAt: timestamp('evaluated_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    setByUserId: text('set_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    setAt: timestamp('set_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    clearedAt: timestamp('cleared_at', { withTimezone: true, mode: 'date' }),
+    clearedByUserId: text('cleared_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    /** DSET-01.1 — why a person cleared a flag (required for a system flag). */
+    clearedReason: text('cleared_reason'),
+  },
+  (table) => [
+    check(
+      'chk_dataset_value_flags_kind',
+      sql`${table.kind} IN ('out_of_range', 'missing_unit', 'above_curve', 'high_cv')`,
+    ),
+    check(
+      'chk_dataset_value_flags_source',
+      sql`${table.source} IN ('manual', 'system')`,
+    ),
+    check(
+      'chk_dataset_value_flags_system_rule',
+      sql`${table.systemRule} IS NULL OR ${table.systemRule} IN ('out_of_range', 'missing_unit', 'high_cv')`,
+    ),
+    check(
+      'chk_dataset_value_flags_provenance',
+      sql`(${table.source} = 'manual' AND ${table.systemRule} IS NULL) OR (${table.source} = 'system' AND ${table.systemRule} IS NOT NULL)`,
+    ),
+    check(
+      'chk_dataset_value_flags_cleared_reason',
+      sql`${table.clearedReason} IS NULL OR ${table.clearedAt} IS NOT NULL`,
+    ),
+    check(
+      'chk_dataset_value_flags_reason',
+      sql`length(btrim(${table.reason})) BETWEEN 1 AND 200`,
+    ),
+    index('idx_dataset_value_flags_value').on(
+      table.datasetId,
+      table.rowId,
+      table.fieldId,
+    ),
+  ],
+)
+
+/**
+ * sample_measurements (RM-112) — a measured value recorded for a sample
+ * (concentration, titre, viability). Members read; writes go through
+ * `record_sample_measurement`.
+ */
+export const sampleMeasurements = api.table(
+  'sample_measurements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    sampleRecordId: uuid('sample_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    value: numeric('value').notNull(),
+    unit: text('unit'),
+    method: text('method'),
+    measuredAt: timestamp('measured_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    notes: text('notes'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_sample_measurements_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    index('idx_sample_measurements_sample').on(
+      table.sampleRecordId,
+      table.measuredAt,
+    ),
+    index('idx_sample_measurements_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * work_item_views (RM-116) — which Inbox work items a person has seen, so
+ * "Mark all seen" clears the needs-action list. Own rows only.
+ */
+export const workItemViews = api.table(
+  'work_item_views',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    itemKey: text('item_key').notNull(),
+    seenAt: timestamp('seen_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.itemKey] }),
+    index('idx_work_item_views_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * protocol_training (RM-104) — who is trained on a protocol record. Members
+ * read; writes go through `record_protocol_training`.
+ */
+export const protocolTraining = api.table(
+  'protocol_training',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    protocolRecordId: uuid('protocol_record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().default('required'),
+    trainedAt: timestamp('trained_at', { withTimezone: true, mode: 'date' }),
+    dueAt: timestamp('due_at', { withTimezone: true, mode: 'date' }),
+    notes: text('notes'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_protocol_training_protocol_user').on(
+      table.protocolRecordId,
+      table.userId,
+    ),
+    check(
+      'chk_protocol_training_status',
+      sql`${table.status} IN ('required', 'trained', 'expired')`,
+    ),
+    index('idx_protocol_training_protocol').on(table.protocolRecordId),
+    index('idx_protocol_training_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * dataset_version_flags (DSET-01.1) — the active value flags frozen into a
+ * snapshot at capture, so a review sees the flags as they were.
+ */
+export const datasetVersionFlags = api.table(
+  'dataset_version_flags',
+  {
+    datasetVersionId: uuid('dataset_version_id')
+      .notNull()
+      .references(() => datasetVersions.id, { onDelete: 'cascade' }),
+    rowId: uuid('row_id').notNull(),
+    fieldId: uuid('field_id').notNull(),
+    kind: text('kind').notNull(),
+    source: text('source').notNull().default('manual'),
+    /** DSET-01.1 — frozen rule provenance (mirrors `dataset_value_flags`). */
+    systemRule: text('system_rule'),
+    reason: text('reason').notNull(),
+    comment: text('comment'),
+    evaluatedValue: jsonb('evaluated_value'),
+    threshold: jsonb('threshold'),
+    evaluatedAt: timestamp('evaluated_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    setByUserId: text('set_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    setAt: timestamp('set_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    check(
+      'chk_dataset_version_flags_source',
+      sql`${table.source} IN ('manual', 'system')`,
+    ),
+    check(
+      'chk_dataset_version_flags_system_rule',
+      sql`${table.systemRule} IS NULL OR ${table.systemRule} IN ('out_of_range', 'missing_unit', 'high_cv')`,
+    ),
+    check(
+      'chk_dataset_version_flags_provenance',
+      sql`(${table.source} = 'manual' AND ${table.systemRule} IS NULL) OR (${table.source} = 'system' AND ${table.systemRule} IS NOT NULL)`,
+    ),
+    primaryKey({
+      columns: [
+        table.datasetVersionId,
+        table.rowId,
+        table.fieldId,
+        table.kind,
+        table.source,
+      ],
+    }),
+  ],
+)
+
 export const datasetRowValues = api.table(
   'dataset_row_values',
   {
@@ -3065,6 +4676,289 @@ export const datasetBulkCommits = api.table(
       sql`${table.requestDigest} ~ '^[0-9a-f]{64}$'`,
     ),
     index('idx_dataset_bulk_commits_dataset').on(table.datasetId),
+  ],
+)
+
+/**
+ * DSET-06.1 — a parser definition: the named, versioned reading of one
+ * instrument file format. A parser is workspace-scoped and optionally linked
+ * to the instrument that produces the format; versions carry the recognition
+ * signature and the governance state, and every import cites the exact
+ * version it used.
+ */
+export const parsers = api.table(
+  'parsers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id').references(() => instruments.id, {
+      onDelete: 'set null',
+    }),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    format: text('format').notNull(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_parsers_format',
+      sql`${table.format} IN ('csv', 'tsv', 'xlsx', 'json')`,
+    ),
+    check(
+      'chk_parsers_key',
+      sql`length(btrim(${table.key})) BETWEEN 1 AND 200`,
+    ),
+    check(
+      'chk_parsers_name',
+      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
+    ),
+    uniqueIndex('uq_parsers_workspace_key').on(table.workspaceId, table.key),
+    index('idx_parsers_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * DSET-06.1 — one version of a parser. `status` gates use of GxP data:
+ * a `draft` parser may not import into a GxP Dataset until QA approves it.
+ * `signature` is the structural evidence recognition matches against;
+ * `mapping` is the parser's default column mapping, seeded into the import's
+ * map step.
+ */
+export const parserVersions = api.table(
+  'parser_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    parserId: uuid('parser_id')
+      .notNull()
+      .references(() => parsers.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    status: text('status').notNull().default('draft'),
+    signature: jsonb('signature')
+      .notNull()
+      .default(sql`'{}'`),
+    mapping: jsonb('mapping')
+      .notNull()
+      .default(sql`'{}'`),
+    testResult: jsonb('test_result'),
+    validatedAt: timestamp('validated_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    approvedByUserId: text('approved_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    approvedAt: timestamp('approved_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_parser_versions_status',
+      sql`${table.status} IN ('draft', 'validated', 'approved', 'retired')`,
+    ),
+    check('chk_parser_versions_version', sql`${table.version} > 0`),
+    check(
+      'chk_parser_versions_approved',
+      sql`${table.approvedAt} IS NULL OR ${table.status} = 'approved'`,
+    ),
+    uniqueIndex('uq_parser_versions_parser_version').on(
+      table.parserId,
+      table.version,
+    ),
+    index('idx_parser_versions_parser').on(table.parserId),
+  ],
+)
+
+/**
+ * DSET-05.3 — the mapping a parser remembers. One row per (parser, target):
+ * `target_key` is `dataset:<uuid>` or `schema:<uuid>`, so the same parser can
+ * remember a different mapping per dataset while defaulting for the format.
+ */
+export const parserMappings = api.table(
+  'parser_mappings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    parserId: uuid('parser_id')
+      .notNull()
+      .references(() => parsers.id, { onDelete: 'cascade' }),
+    targetKey: text('target_key').notNull(),
+    mapping: jsonb('mapping')
+      .notNull()
+      .default(sql`'{}'`),
+    isDefault: boolean('is_default').notNull().default(true),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_parser_mappings_target_key',
+      sql`length(btrim(${table.targetKey})) BETWEEN 1 AND 200`,
+    ),
+    uniqueIndex('uq_parser_mappings_default')
+      .on(table.workspaceId, table.parserId, table.targetKey)
+      .where(sql`${table.isDefault}`),
+    index('idx_parser_mappings_parser').on(table.parserId),
+  ],
+)
+
+/**
+ * DSET-05.1 — the raw file an import read. The bytes live in object storage
+ * under `storage_key`; this row records the identity (name, size, sha256)
+ * before any parsing happens, so a failed import still keeps the file for
+ * retry and every imported value traces to immutable evidence.
+ */
+export const datasetImportFiles = api.table(
+  'dataset_import_files',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    datasetId: uuid('dataset_id').references(() => datasets.id, {
+      onDelete: 'set null',
+    }),
+    filename: text('filename').notNull(),
+    mediaType: text('media_type'),
+    byteSize: bigint('byte_size', { mode: 'bigint' }).notNull(),
+    checksum: text('checksum').notNull(),
+    storageKey: text('storage_key').notNull(),
+    format: text('format').notNull(),
+    status: text('status').notNull().default('stored'),
+    parseError: text('parse_error'),
+    parserFailure: jsonb('parser_failure'),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_dataset_import_files_checksum',
+      sql`${table.checksum} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'chk_dataset_import_files_status',
+      sql`${table.status} IN ('stored', 'parsed', 'failed')`,
+    ),
+    check(
+      'chk_dataset_import_files_format',
+      sql`${table.format} IN ('csv', 'tsv', 'xlsx', 'json')`,
+    ),
+    check('chk_dataset_import_files_size', sql`${table.byteSize} > 0`),
+    index('idx_dataset_import_files_workspace').on(table.workspaceId),
+    index('idx_dataset_import_files_dataset').on(table.datasetId),
+  ],
+)
+
+/**
+ * DSET-05.4 — one committed (or failed) import: the file, the parser version,
+ * the mapping used, the row outcomes and the snapshot it produced. The import
+ * itself changes no values directly; it is the receipt for the canonical
+ * Dataset batch commit plus the one snapshot taken afterwards.
+ */
+export const datasetImports = api.table(
+  'dataset_imports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    datasetId: uuid('dataset_id')
+      .notNull()
+      .references(() => datasets.id, { onDelete: 'cascade' }),
+    experimentRecordId: uuid('experiment_record_id').references(
+      () => records.id,
+      { onDelete: 'set null' },
+    ),
+    instrumentId: uuid('instrument_id').references(() => instruments.id, {
+      onDelete: 'set null',
+    }),
+    parserId: uuid('parser_id').references(() => parsers.id, {
+      onDelete: 'set null',
+    }),
+    parserVersionId: uuid('parser_version_id').references(
+      () => parserVersions.id,
+      { onDelete: 'set null' },
+    ),
+    fileId: uuid('file_id').references(() => datasetImportFiles.id, {
+      onDelete: 'cascade',
+    }),
+    /** SQL connector sources have run evidence rather than a raw file. */
+    connectorRunId: uuid('connector_run_id').references(
+      () => connectorRuns.id,
+      {
+        onDelete: 'restrict',
+      },
+    ),
+    importedRowIds: jsonb('imported_row_ids')
+      .notNull()
+      .default(sql`'[]'`),
+    /** Frozen at commit, never reconstructed from a mutable parser catalogue. */
+    parserProvenance: jsonb('parser_provenance')
+      .notNull()
+      .default(sql`'{}'`),
+    sourceProvenance: jsonb('source_provenance')
+      .notNull()
+      .default(sql`'{}'`),
+    mapping: jsonb('mapping')
+      .notNull()
+      .default(sql`'{}'`),
+    outcome: jsonb('outcome')
+      .notNull()
+      .default(sql`'{}'`),
+    snapshotVersionId: uuid('snapshot_version_id').references(
+      () => datasetVersions.id,
+      { onDelete: 'set null' },
+    ),
+    status: text('status').notNull().default('preview'),
+    errorDetail: text('error_detail'),
+    idempotencyKey: text('idempotency_key').notNull(),
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    ...timestamps,
+  },
+  (table) => [
+    check(
+      'chk_dataset_imports_status',
+      sql`${table.status} IN ('preview', 'committed', 'failed')`,
+    ),
+    check(
+      'chk_dataset_imports_idempotency_key',
+      sql`length(btrim(${table.idempotencyKey})) BETWEEN 1 AND 128`,
+    ),
+    check(
+      'chk_dataset_imports_committed',
+      sql`${table.status} <> 'committed' OR ${table.snapshotVersionId} IS NOT NULL`,
+    ),
+    check(
+      'chk_dataset_imports_source',
+      sql`${table.fileId} IS NOT NULL OR ${table.connectorRunId} IS NOT NULL`,
+    ),
+    uniqueIndex('uq_dataset_imports_workspace_idempotency').on(
+      table.workspaceId,
+      table.idempotencyKey,
+    ),
+    index('idx_dataset_imports_dataset').on(table.datasetId),
+    index('idx_dataset_imports_experiment').on(table.experimentRecordId),
   ],
 )
 
@@ -3621,7 +5515,7 @@ export const changeEvents = api.table(
     ),
     check(
       'chk_change_events_entity_type',
-      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential', 'connector', 'connector_run', 'pipeline_definition', 'pipeline_definition_version', 'pipeline_run', 'pipeline_schedule', 'webhook_subscription', 'webhook_delivery', 'agent_operation_proposal')`,
+      sql`${table.entityType} IN ('project', 'folder', 'record', 'block', 'record_link', 'scientific_table', 'scientific_row', 'formula', 'calculation', 'record_field_definition', 'model_field_option', 'file', 'dataset_schema', 'dataset_schema_field', 'dataset_schema_relationship', 'dataset', 'dataset_version', 'sample_event', 'comment', 'review_submission', 'signature', 'review_decision', 'storage_site', 'storage_room', 'storage_unit', 'storage_shelf', 'storage_rack', 'storage_box', 'storage_position', 'storage_movement', 'plate_design', 'plate_well', 'plate_layout_template', 'calendar_resource', 'calendar_booking', 'calendar_booking_participant', 'calendar_booking_sample', 'study_workstream', 'study_task', 'study_task_dependency', 'study_task_assignment', 'study_task_resource', 'study_deliverable', 'study_project', 'study_experiment', 'study_plan_snapshot', 'instrument', 'instrument_run', 'instrument_run_stage', 'instrument_observation', 'instrument_plate_snapshot', 'instrument_qc_check', 'instrument_raw_file', 'instrument_run_link', 'report_definition', 'report_section', 'report_generation', 'sheet_instance', 'sheet_definition', 'sheet_definition_version', 'notebook_template', 'notebook_template_version', 'workspace_invitation', 'workspace_settings', 'project_access', 'api_credential', 'connector', 'connector_run', 'pipeline_definition', 'pipeline_definition_version', 'pipeline_run', 'pipeline_schedule', 'webhook_subscription', 'webhook_delivery', 'agent_operation_policy', 'agent_operation_proposal', 'extension', 'dataset_import_file', 'dataset_import', 'parser', 'parser_version')`,
     ),
     check(
       'chk_change_events_operation',
@@ -3727,6 +5621,246 @@ export const userFavourites = api.table(
     // Read path: WHERE user_id = $1 ORDER BY created_at DESC LIMIT n.
     index('idx_user_favourites_user_created').on(table.userId, table.createdAt),
   ],
+)
+
+/**
+ * work_item_follows (WORK-01.3) — a per-user follow of a record so it appears
+ * in the caller's Inbox work list. Only the follow itself is stored; the work
+ * item is derived from canonical state. Written through `follow_record` /
+ * `unfollow_record`; read under RLS for the row owner only.
+ */
+export const workItemFollows = api.table(
+  'work_item_follows',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id')
+      .notNull()
+      .references(() => records.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    unique('uq_work_item_follows_user_record').on(table.userId, table.recordId),
+    // Read path: WHERE user_id = $1 ORDER BY created_at DESC LIMIT n.
+    index('idx_work_item_follows_user_created').on(
+      table.userId,
+      table.createdAt,
+    ),
+  ],
+)
+
+/**
+ * notification_preferences (WORK-03.1) — per-user preferences per event type
+ * and channel. Rows are own-row; written through `save_notification_preference`.
+ */
+export const notificationPreferences = api.table(
+  'notification_preferences',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    eventType: text('event_type').notNull(),
+    inApp: boolean('in_app').notNull().default(true),
+    email: boolean('email').notNull().default(true),
+    digest: boolean('digest').notNull().default(false),
+    ...timestamps,
+  },
+  (table) => [
+    unique('uq_notification_preferences_user_event').on(
+      table.userId,
+      table.eventType,
+    ),
+    check(
+      'chk_notification_preferences_event',
+      sql`${table.eventType} IN ('review_requested', 'review_returned_or_signed', 'signature_requested', 'validation_error', 'comment_or_mention', 'instrument_booking', 'material_expiring', 'protocol_new_version')`,
+    ),
+  ],
+)
+
+/**
+ * user_preferences (SHELL-02) — one row per user holding their appearance
+ * choice (System/Light/Dark) and navigation state. Written exclusively through
+ * the `set_user_preference` SECURITY DEFINER RPC so the user id always comes
+ * from request claims; read back under RLS for the row owner only.
+ */
+export const userPreferences = api.table(
+  'user_preferences',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    appearance: text('appearance').notNull().default('system'),
+    navCollapsed: boolean('nav_collapsed').notNull().default(false),
+    /**
+     * The workspace the user last switched to (SHELL-01.4). Resolution uses it
+     * only while the user is still a member; otherwise the first membership.
+     */
+    activeWorkspaceId: uuid('active_workspace_id'),
+    preferences: jsonb('preferences').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+    /**
+     * SET-03.1 — the profile fields the SettingsProfile board shows. Initials are
+     * derived from the name when unset; the time zone is validated against the
+     * database's zone names by a trigger in the migration SQL.
+     */
+    initials: text('initials'),
+    jobTitle: text('job_title'),
+    timezone: text('timezone'),
+    /** WORK-03.1 — notification quiet hours (HH:MM) and daily digest time (HH:MM). */
+    quietHoursStart: text('quiet_hours_start'),
+    digestLastSentOn: date('digest_last_sent_on'),
+    quietHoursEnd: text('quiet_hours_end'),
+    digestTime: text('digest_time'),
+  },
+  (table) => [
+    unique('uq_user_preferences_user').on(table.userId),
+    check(
+      'chk_user_preferences_appearance',
+      sql`${table.appearance} IN ('system', 'light', 'dark')`,
+    ),
+  ],
+)
+
+/**
+ * user_signature_certifications (SIGN-003) — a person's electronic-signature
+ * certification for a workspace. One row per (workspace, user); certifying
+ * again updates `certified_at` and the agreed statement version, and withdrawing
+ * sets `revoked_at`. Written only through the `certify_signature` /
+ * `withdraw_signature_certification` SECURITY DEFINER RPCs; read under RLS by
+ * workspace members so the policy screen can list who has not certified.
+ */
+export const userSignatureCertifications = api.table(
+  'user_signature_certifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    statementVersion: integer('statement_version'),
+    certifiedAt: timestamp('certified_at', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    identityVerifiedBy: text('identity_verified_by').references(() => user.id),
+    identityVerifiedAt: timestamp('identity_verified_at', {
+      withTimezone: true,
+    }),
+    verifiedEmail: text('verified_email'),
+    credentialSessionId: text('credential_session_id'),
+    credentialAuthorizationId: uuid('credential_authorization_id'),
+    credentialAuthorizationConsumedAt: timestamp(
+      'credential_authorization_consumed_at',
+      { withTimezone: true },
+    ),
+    certifiedSessionId: text('certified_session_id'),
+    authMethod: text('auth_method'),
+  },
+  (table) => [
+    unique('uq_user_signature_certifications_user').on(
+      table.workspaceId,
+      table.userId,
+    ),
+    check(
+      'chk_user_signature_certifications_version',
+      sql`${table.statementVersion} > 0`,
+    ),
+    index('idx_user_signature_certifications_workspace').on(table.workspaceId),
+  ],
+)
+
+/** Server-issued, hashed, single-use password evidence; never exposed by PostgREST. */
+export const signatureGrants = internal.table(
+  'signature_grants',
+  {
+    tokenHash: text('token_hash').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').notNull(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    purpose: text('purpose').notNull(),
+    submissionId: uuid('submission_id').references(() => reviewSubmissions.id, {
+      onDelete: 'cascade',
+    }),
+    revisionDigest: text('revision_digest'),
+    recordId: uuid('record_id').references(() => records.id, {
+      onDelete: 'cascade',
+    }),
+    signatureMeaning: text('signature_meaning'),
+    submissionArguments: jsonb('submission_arguments'),
+    authorizationId: uuid('authorization_id'),
+    authMethod: text('auth_method').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      'chk_signature_grants_purpose',
+      sql`${table.purpose} IN ('sign', 'author-submit', 'certify', 'practice', 'enroll', 'recover')`,
+    ),
+    check(
+      'chk_signature_grants_auth_method',
+      sql`${table.authMethod} = 'password'`,
+    ),
+    check(
+      'chk_signature_grants_binding',
+      sql`(${table.purpose} = 'sign' AND ${table.submissionId} IS NOT NULL AND ${table.revisionDigest} ~ '^[0-9a-f]{64}$' AND ${table.recordId} IS NULL AND ${table.submissionArguments} IS NULL) OR (${table.purpose} = 'author-submit' AND ${table.submissionId} IS NULL AND ${table.revisionDigest} ~ '^[0-9a-f]{64}$' AND ${table.recordId} IS NOT NULL AND ${table.signatureMeaning} = 'authored' AND jsonb_typeof(${table.submissionArguments}) = 'object') OR (${table.purpose} NOT IN ('sign', 'author-submit') AND ${table.submissionId} IS NULL AND ${table.revisionDigest} IS NULL AND ${table.recordId} IS NULL AND ${table.signatureMeaning} IS NULL AND ${table.submissionArguments} IS NULL)`,
+    ),
+    index('idx_signature_grants_user').on(table.userId),
+  ],
+)
+
+/** A user-wide lockout is durable across sessions, workspaces and processes. */
+export const signaturePasswordAttempts = internal.table(
+  'signature_password_attempts',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    failures: integer('failures').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
+  },
+)
+
+export const signatureAuthenticationEvents = internal.table(
+  'signature_authentication_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').notNull(),
+    event: text('event').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
 )
 
 /**
@@ -4231,6 +6365,8 @@ export const analysisViews = api.table(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    /** DSYS-05.4 — stable workspace display id, e.g. AN-0057. */
+    displayId: text('display_id'),
     // Bumped by the bump_analysis_view_version trigger on every UPDATE.
     version: integer('version').notNull().default(1),
     spec: jsonb('spec').notNull(),
@@ -4594,6 +6730,8 @@ export const calendarBookings = api.table(
       onDelete: 'set null',
     }),
     title: text('title').notNull(),
+    /** Stable per-workspace display id, e.g. CAL-0913. Assigned on insert. */
+    displayId: text('display_id'),
     status: text('status').notNull().default('tentative'),
     allDay: boolean('all_day').notNull().default(false),
     startsAt: timestamp('starts_at', {
@@ -4628,6 +6766,14 @@ export const calendarBookings = api.table(
     check(
       'chk_calendar_bookings_title',
       sql`length(btrim(${table.title})) BETWEEN 1 AND 200`,
+    ),
+    unique('uq_calendar_bookings_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
+    ),
+    check(
+      'chk_calendar_bookings_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^CAL-[0-9]{4,}$'`,
     ),
     check(
       'chk_calendar_bookings_status',
@@ -4988,6 +7134,14 @@ export const studyTasks = api.table(
     linkedProtocolIdentifier: text('linked_protocol_identifier'),
     approvalRequired: boolean('approval_required').notNull().default(false),
     approvalStatus: text('approval_status').notNull().default('not_required'),
+    /** PROJ-02: whether the client portal shows this milestone. */
+    clientVisible: boolean('client_visible').notNull().default(false),
+    sharedSince: timestamp('shared_since', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+    /** Why visibility was last changed (required when hiding). */
+    clientVisibleReason: text('client_visible_reason'),
     tags: text('tags')
       .notNull()
       .default(sql`'{}'`),
@@ -5198,6 +7352,37 @@ export const studyDeliverables = api.table(
   ],
 )
 
+/** PROJ-02: append-only history of milestone date changes. */
+export const studyTaskDueChanges = api.table(
+  'study_task_due_changes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => studyTasks.id, { onDelete: 'cascade' }),
+    fromDueAt: timestamp('from_due_at', { withTimezone: true, mode: 'date' }),
+    toDueAt: timestamp('to_due_at', { withTimezone: true, mode: 'date' }),
+    reason: text('reason').notNull(),
+    clientNotified: boolean('client_notified').notNull().default(false),
+    changedAt: timestamp('changed_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .default(sql`now()`),
+    changedByUserId: text('changed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_study_task_due_changes_reason',
+      sql`length(btrim(${table.reason})) BETWEEN 1 AND 500`,
+    ),
+    index('idx_study_task_due_changes_task').on(table.taskId, table.changedAt),
+  ],
+)
+
 export const instruments = api.table(
   'instruments',
   {
@@ -5206,10 +7391,20 @@ export const instruments = api.table(
       .notNull()
       .references(() => workspaces.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    /** Stable per-workspace display id, e.g. INS-0007. Assigned on insert. */
+    displayId: text('display_id'),
     instrumentType: text('instrument_type').notNull().default('qpcr'),
     model: text('model'),
     serialNumber: text('serial_number'),
     vendor: text('vendor'),
+    /** Where the instrument sits, e.g. "Analytical lab 2". */
+    location: text('location'),
+    /** Who owns the instrument (a workspace member). */
+    ownerId: text('owner_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    /** Retired instruments stay for history; they cannot be booked or cited. */
+    retiredAt: timestamp('retired_at', { withTimezone: true, mode: 'date' }),
     connectionStatus: text('connection_status')
       .notNull()
       .default('disconnected'),
@@ -5224,6 +7419,8 @@ export const instruments = api.table(
     customFields: jsonb('custom_fields')
       .notNull()
       .default(sql`'{}'::jsonb`),
+    /** LAB-06.2 — what this instrument is qualified to run, e.g. "qPCR". */
+    qualifiedFor: text('qualified_for'),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -5233,6 +7430,14 @@ export const instruments = api.table(
     }),
   },
   (table) => [
+    unique('uq_instruments_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
+    ),
+    check(
+      'chk_instruments_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^INS-[0-9]{4,}$'`,
+    ),
     check(
       'chk_instruments_name',
       sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
@@ -5251,6 +7456,55 @@ export const instruments = api.table(
       table.workspaceId,
       table.position,
     ),
+  ],
+)
+
+export const instrumentCalibrations = api.table(
+  'instrument_calibrations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    instrumentId: uuid('instrument_id')
+      .notNull()
+      .references(() => instruments.id, { onDelete: 'cascade' }),
+    performedAt: timestamp('performed_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    dueAt: timestamp('due_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    // LAB-06 — the certificate is an uploaded file (SCI-003 storage boundary).
+    certificateFileId: uuid('certificate_file_id').references(
+      () => fileObjects.id,
+      { onDelete: 'set null' },
+    ),
+    performedByUserId: text('performed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    notes: text('notes'),
+    ...timestamps,
+    createdByUserId: text('created_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+  },
+  (table) => [
+    check(
+      'chk_instrument_calibrations_due',
+      sql`${table.dueAt} >= ${table.performedAt}`,
+    ),
+    check(
+      'chk_instrument_calibrations_notes',
+      sql`${table.notes} IS NULL OR length(${table.notes}) <= 2000`,
+    ),
+    index('idx_instrument_calibrations_instrument').on(
+      table.instrumentId,
+      table.dueAt,
+    ),
+    index('idx_instrument_calibrations_workspace').on(table.workspaceId),
   ],
 )
 
@@ -6742,6 +8996,8 @@ export const pipelineDefinitions = api.table(
     key: text('key').notNull(),
     name: text('name').notNull(),
     description: text('description'),
+    /** Stable per-workspace display id, e.g. PL-0014. Assigned on insert. */
+    displayId: text('display_id'),
     lifecycle: text('lifecycle').notNull().default('active'),
     revision: bigint('revision', { mode: 'bigint' })
       .notNull()
@@ -6758,6 +9014,14 @@ export const pipelineDefinitions = api.table(
     unique('uq_pipeline_definitions_workspace_key').on(
       table.workspaceId,
       table.key,
+    ),
+    unique('uq_pipeline_definitions_workspace_display_id').on(
+      table.workspaceId,
+      table.displayId,
+    ),
+    check(
+      'chk_pipeline_definitions_display_id',
+      sql`${table.displayId} IS NULL OR ${table.displayId} ~ '^PL-[0-9]{4,}$'`,
     ),
     unique('uq_pipeline_definitions_workspace_id').on(
       table.workspaceId,
@@ -6930,7 +9194,7 @@ export const pipelineRuns = api.table(
     ),
     check(
       'chk_pipeline_runs_status',
-      sql`${table.status} IN ('running', 'succeeded', 'failed', 'cancelled')`,
+      sql`${table.status} IN ('running', 'waiting', 'succeeded', 'failed', 'cancelled')`,
     ),
     check('chk_pipeline_runs_attempt', sql`${table.attempt} >= 1`),
     check(
@@ -6995,6 +9259,57 @@ export const pipelineRunLogs = api.table(
     check(
       'chk_pipeline_run_logs_level',
       sql`${table.level} IN ('info', 'warning', 'error')`,
+    ),
+  ],
+)
+
+/**
+ * PIPE-02.1 — a confirm step that pauses the run for a person.
+ *
+ * The run stops in `waiting` with one prompt recorded here: the step it paused
+ * on, the typed form the author configured, who was asked, and — once somebody
+ * answers — the answer and who gave it. The answer, its author and its time are
+ * all-or-nothing, so a prompt cannot look answered without a named person.
+ */
+export const pipelineRunPrompts = api.table(
+  'pipeline_run_prompts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    runId: uuid('run_id').notNull(),
+    stepId: text('step_id').notNull(),
+    formSchema: jsonb('form_schema')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    askedUserIds: text('asked_user_ids')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    answer: jsonb('answer'),
+    answeredByUserId: text('answered_by_user_id'),
+    answeredAt: timestamp('answered_at', { withTimezone: true, mode: 'date' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'fk_pipeline_run_prompts_run',
+      columns: [table.workspaceId, table.runId],
+      foreignColumns: [pipelineRuns.workspaceId, pipelineRuns.id],
+    }).onDelete('cascade'),
+    index('idx_pipeline_run_prompts_run').on(table.runId),
+    index('idx_pipeline_run_prompts_workspace').on(table.workspaceId),
+    check(
+      'chk_pipeline_run_prompts_step_id',
+      sql`length(btrim(${table.stepId})) between 1 and 96`,
+    ),
+    check(
+      'chk_pipeline_run_prompts_answer',
+      sql`(${table.answer} IS NULL) = (${table.answeredByUserId} IS NULL) AND (${table.answer} IS NULL) = (${table.answeredAt} IS NULL)`,
     ),
   ],
 )
@@ -7159,6 +9474,14 @@ export const agentOperationPolicies = api.table(
       .notNull()
       .default(sql`'{}'::jsonb`),
     enabled: boolean('enabled').notNull().default(true),
+    /** Why the policy was created or changed (change-control record). */
+    reason: text('reason'),
+    /** The change e-signature: who signed, its meaning and the server time. */
+    signedByUserId: text('signed_by_user_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    signedMeaning: text('signed_meaning'),
+    signedAt: timestamp('signed_at', { withTimezone: true, mode: 'date' }),
     createdByUserId: text('created_by_user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'restrict' }),

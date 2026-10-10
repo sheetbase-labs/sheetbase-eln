@@ -52,7 +52,7 @@ function RelationshipRowView({ row }: { row: RelationshipRow }) {
           <span
             title={`${row.duplicateCount} identical links collapsed into one row`}
             aria-label={`${row.duplicateCount} identical links`}
-            className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+            className="rounded bg-surface-muted px-1.5 py-0.5 text-[11px] font-medium text-fg-muted"
           >
             ×{row.duplicateCount}
           </span>
@@ -77,7 +77,7 @@ function DirectionSection({
       : rows.slice(0, RELATIONSHIP_RENDER_LIMIT)
   return (
     <div className="space-y-1">
-      <h4 className="text-xs font-semibold text-foreground">{heading}</h4>
+      <h4 className="text-xs font-semibold text-fg">{heading}</h4>
       <ul className="space-y-1">
         {visible.map((row) => (
           <li key={row.linkId} title={rowDetail(row)}>
@@ -89,7 +89,7 @@ function DirectionSection({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="px-1 text-xs text-muted-foreground hover:text-foreground"
+          className="px-1 text-xs text-fg-muted hover:text-fg"
         >
           Show all {rows.length}
         </button>
@@ -144,9 +144,7 @@ export function RelationshipPanel({
   if (isLoading) {
     return (
       <InspectorSection title="Relationships">
-        <p className="py-1 text-xs text-muted-foreground">
-          Loading relationships…
-        </p>
+        <p className="py-1 text-xs text-fg-muted">Loading relationships…</p>
       </InspectorSection>
     )
   }

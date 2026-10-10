@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+// Bold/Italic/Underline are rich-text marks; the v3 set has no equivalents.
 import { Bold, Italic, Underline } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { ButtonGroup } from '#/components/ui/button-group'

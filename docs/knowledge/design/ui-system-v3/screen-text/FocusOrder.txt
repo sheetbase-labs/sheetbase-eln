@@ -1,0 +1,31 @@
+Keyboard focus order
+Keyboard focus order
+Tab order through the app shell. Numbers are tab stops.
+Skip to content
+1 Sheetbase
+2 Workspace ▾
+3 Search ⌘K
+4 + New
+5
+6
+7
+8 Navigation
+↑ ↓ within, Tab leaves
+9 Page header: breadcrumb, title, actions
+10 Tabs · ← → between tabs
+11 Content: blocks in reading order; sheet cells use arrow keys, Tab leaves the grid
+12 Inspector
+13
+| | Stop | Region | Behaviour
+| 1 | Skip to content | First stop on every page; hidden until focused.
+| 2–8 | Top bar | Home, workspace, search, New, notifications, appearance, account.
+| 9 | Navigation | One tab stop; arrow keys move within it.
+| 10–11 | Page header and tabs | Actions in visual order, then the tab list.
+| 12 | Content | Document order. A sheet is one tab stop; arrow keys move between cells, Enter edits, Esc cancels.
+| 13 | Inspector | Follows the content it describes.
+• Menus, popovers and dialogs take focus when they open, keep it inside while open, and return it to the button that opened them.
+• Esc closes the top-most overlay. Clicking outside closes menus but never dialogs with unsaved input.
+• The focus ring is 2 px focus with a 1 px offset. It is never removed, only moved inside a grid cell.
+• Signing asks for the password in the dialog itself; focus starts in the password field.
+• Every icon-only button has a label that names the object: “Remove filter: Updated in last 30 days”, not “Remove”.
+All shortcuts: Keyboard shortcuts

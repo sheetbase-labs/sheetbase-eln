@@ -12,6 +12,7 @@
  *    validate_dataset_row_batch / commit_dataset_row_batch and stamps parser
  *    provenance into the finished run result.
  */
+import { randomUUID } from 'node:crypto'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -21,7 +22,7 @@ import { datasetFieldsFromColumns } from '#/lib/import-mapping'
 import type { DataClient } from '#/lib/data-client'
 import type { ScientificColumnWire } from '#/lib/scientific-sheet-data'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS_A = '0e010000-0000-4000-8000-000000000001'
 const OWNER_A = 'int-owner-a'
@@ -85,6 +86,23 @@ function pgDataClient(owner: Client): DataClient {
           )
         ).rows[0].result
       }
+      if (name === 'ensure_parser' || name === 'commit_dataset_import') {
+        const entries = Object.entries(args)
+        const parameters = entries
+          .map(
+            ([key, value], i) =>
+              `${key} => $${i + 1}${value !== null && typeof value === 'object' ? '::jsonb' : ''}`,
+          )
+          .join(', ')
+        const values = entries.map(([, value]) =>
+          value !== null && typeof value === 'object'
+            ? JSON.stringify(value)
+            : value,
+        )
+        return (
+          await owner.query(`SELECT api.${name}(${parameters}) result`, values)
+        ).rows[0].result
+      }
       // Connector RPCs share a uniform (uuid, uuid, text...) shape; cast any
       // object argument to jsonb so jsonb parameters work over raw SQL.
       const values = Object.values(args).map((value) =>
@@ -94,20 +112,16 @@ function pgDataClient(owner: Client): DataClient {
       )
       const placeholders = Object.values(args)
         .map((value, index) =>
-          value !== null && typeof value === 'object' ? `$${index + 1}::jsonb` : `$${index + 1}`,
+          value !== null && typeof value === 'object'
+            ? `$${index + 1}::jsonb`
+            : `$${index + 1}`,
         )
         .join(',')
       return (
-        await owner.query(
-          `select * from api.${name}(${placeholders})`,
-          values,
-        )
+        await owner.query(`select * from api.${name}(${placeholders})`, values)
       ).rows[0]
     },
-    list: async <T>(
-      resource: string,
-      query: string,
-    ): Promise<T[]> => {
+    list: async <T>(resource: string, query: string): Promise<T[]> => {
       if (resource !== 'connector_runs') {
         throw new Error(`unexpected list resource ${resource}`)
       }
@@ -125,7 +139,8 @@ function pgDataClient(owner: Client): DataClient {
       )
       return result.rows as T[]
     },
-    insert: async (resource: string, row: Record<string, unknown>) => {      if (resource !== 'datasets') {
+    insert: async (resource: string, row: Record<string, unknown>) => {
+      if (resource !== 'datasets') {
         throw new Error(`unexpected insert resource ${resource}`)
       }
       const result = await owner.query(
@@ -562,8 +577,12 @@ describe('INT-01 connector framework', () => {
         [WS_A],
       )
     ).rows
-    expect(events.filter((e) => e.entity_type === 'connector').length).toBeGreaterThan(0)
-    expect(events.filter((e) => e.entity_type === 'connector_run').length).toBeGreaterThan(0)
+    expect(
+      events.filter((e) => e.entity_type === 'connector').length,
+    ).toBeGreaterThan(0)
+    expect(
+      events.filter((e) => e.entity_type === 'connector_run').length,
+    ).toBeGreaterThan(0)
   })
 
   it('hides connector tables from external credentials (fail-closed allowlist)', async () => {
@@ -575,8 +594,14 @@ describe('INT-01 connector framework', () => {
          where table_schema='api' and table_name='connectors' order by grantee, privilege_type`,
       )
     ).rows
-    const clientGrants = grants.filter((g: { grantee: string }) => g.grantee === 'api_client')
-    expect(clientGrants.every((g: { privilege_type: string }) => g.privilege_type === 'SELECT')).toBe(true)
+    const clientGrants = grants.filter(
+      (g: { grantee: string }) => g.grantee === 'api_client',
+    )
+    expect(
+      clientGrants.every(
+        (g: { privilege_type: string }) => g.privilege_type === 'SELECT',
+      ),
+    ).toBe(true)
   })
 })
 
@@ -625,10 +650,17 @@ A2,std-2,21.7`
 
     // The raw file was retained through the canonical file subsystem first;
     // its canonical id and sha256 travel into run provenance.
-    const result = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
-      fileRecordId: '0e100000-0000-4000-8000-00000000aa01',
-      checksum: 'a'.repeat(64),
-    })
+    const result = await ingest(
+      owner,
+      connectorId,
+      fixture,
+      VALID_CSV,
+      'run-42.csv',
+      {
+        fileRecordId: '0e100000-0000-4000-8000-00000000aa01',
+        checksum: 'a'.repeat(64),
+      },
+    )
 
     expect(result.alreadyCompleted).toBe(false)
     expect(result.rowCount).toBe(2)
@@ -656,6 +688,23 @@ A2,std-2,21.7`
     expect(runRow.rows[0].result.parser).toBe('sheetbase.plate-reader-csv@1')
     expect(runRow.rows[0].result.fileName).toBe('run-42.csv')
 
+    const receipt = (
+      await owner.query(
+        `SELECT parser_provenance, imported_row_ids, source_provenance
+      FROM api.dataset_imports WHERE connector_run_id = $1`,
+        [result.runId],
+      )
+    ).rows[0]
+    expect(receipt.parser_provenance).toMatchObject({
+      key: 'sheetbase.plate-reader-csv',
+      version: 1,
+    })
+    expect(receipt.imported_row_ids).toHaveLength(2)
+    expect(receipt.source_provenance).toMatchObject({
+      fileRecordId: '0e100000-0000-4000-8000-00000000aa01',
+      checksum: 'a'.repeat(64),
+    })
+
     // Stage logs observable.
     const logs = await owner.query(
       `select stage, level from api.connector_run_logs where run_id=$1 order by sequence`,
@@ -669,6 +718,117 @@ A2,std-2,21.7`
     ])
   })
 
+  it('refuses an unapproved instrument parser on regulated datasets and succeeds after approval', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const fixture = await createDatasetFixture(owner)
+    const connectorId = (
+      await owner.query(
+        `SELECT id FROM api.connectors WHERE key = 'plate-reader-bench' LIMIT 1`,
+      )
+    ).rows[0].id
+    await migrator.query(
+      `UPDATE api.datasets SET intended_use = 'regulated_record' WHERE id = $1`,
+      [fixture.datasetId],
+    )
+    const version = (
+      await owner.query(`SELECT pv.id FROM api.parser_versions pv JOIN api.parsers p ON p.id = pv.parser_id
+      WHERE p.key = 'sheetbase.plate-reader-csv' AND pv.version = 1`)
+    ).rows[0].id
+    await migrator.query(
+      `UPDATE api.parser_versions SET status = 'draft', approved_at = NULL WHERE id = $1`,
+      [version],
+    )
+    await expect(
+      ingest(owner, connectorId, fixture, VALID_CSV, 'regulated.csv'),
+    ).rejects.toThrow(/approved parser/i)
+    const failedRun = (
+      await owner.query(
+        `SELECT id FROM api.connector_runs WHERE connector_id=$1 AND status='failed' ORDER BY started_at DESC LIMIT 1`,
+        [connectorId],
+      )
+    ).rows[0].id
+    const failureWork = () =>
+      owner.query(
+        `SELECT source_id,connector_id FROM api.my_work_items WHERE source_type='connector_run' AND source_id=$1`,
+        [failedRun],
+      )
+    expect((await failureWork()).rows).toEqual([
+      { source_id: failedRun, connector_id: connectorId },
+    ])
+    const viewer = await actor(VIEWER_A, WS_A)
+    expect(
+      (
+        await viewer.query(
+          'SELECT source_id FROM api.my_work_items WHERE source_id=$1',
+          [failedRun],
+        )
+      ).rows,
+    ).toHaveLength(0)
+    // A claimed successful retry without a canonical commit cannot clear work.
+    const forgedRetry = (
+      await owner.query(
+        'SELECT * FROM api.start_connector_run($1,$2,$3,$4,$5)',
+        [WS_A, connectorId, 'manual', randomUUID(), failedRun],
+      )
+    ).rows[0]
+    await owner.query('SELECT api.complete_connector_run($1,$2,$3)', [
+      WS_A,
+      forgedRetry.id,
+      { ok: true },
+    ])
+    expect((await failureWork()).rows).toHaveLength(1)
+    expect(
+      (
+        await owner.query(
+          'SELECT count(*)::int n FROM api.dataset_rows WHERE dataset_id = $1',
+          [fixture.datasetId],
+        )
+      ).rows[0].n,
+    ).toBe(0)
+    const testFile = randomUUID()
+    await migrator.query(
+      `INSERT INTO api.dataset_import_files(id,workspace_id,filename,byte_size,checksum,storage_key,format)
+      VALUES ($1,$2,'validation.csv',25,$3,$4,'csv')`,
+      [testFile, WS_A, 'a'.repeat(64), `${WS_A}/${testFile}/test`],
+    )
+    await setActorJwt(migrator, OWNER_A, WS_A)
+    await migrator.query(
+      'SELECT internal.record_parser_validation($1,$2,$3,$4,$5)',
+      [
+        version,
+        testFile,
+        'a'.repeat(64),
+        { signature: { engine: 'sheetbase.plate-reader-csv@1' }, mapping: {} },
+        {
+          ok: true,
+          fileId: testFile,
+          checksum: 'a'.repeat(64),
+          rowCount: 2,
+          errors: [],
+          headers: ['well', 'sample', 'od'],
+        },
+      ],
+    )
+    await owner.query('SELECT api.approve_parser_version($1)', [version])
+    const result = await ingest(
+      owner,
+      connectorId,
+      fixture,
+      VALID_CSV,
+      'regulated.csv',
+    )
+    expect(result.rowCount).toBe(2)
+    expect((await failureWork()).rows).toHaveLength(0)
+    expect(
+      (
+        await owner.query(
+          'SELECT parser_provenance FROM api.dataset_imports WHERE connector_run_id = $1',
+          [result.runId],
+        )
+      ).rows[0].parser_provenance.status,
+    ).toBe('approved')
+  })
+
   it('replays a successful run with the stored result, not an empty ingest', async () => {
     const owner = await actor(OWNER_A, WS_A)
     const fixture = await createDatasetFixture(owner)
@@ -678,18 +838,32 @@ A2,std-2,21.7`
       )
     ).rows[0].id
 
-    const first = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
-      fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
-      checksum: 'b'.repeat(64),
-    })
+    const first = await ingest(
+      owner,
+      connectorId,
+      fixture,
+      VALID_CSV,
+      'run-42.csv',
+      {
+        fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
+        checksum: 'b'.repeat(64),
+      },
+    )
     expect(first.alreadyCompleted).toBe(false)
 
     // Same retained file re-ingested: deduplicated to the same run, with the
     // stored result reconstructed — never rowCount 0 / empty metadata.
-    const replay = await ingest(owner, connectorId, fixture, VALID_CSV, 'run-42.csv', {
-      fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
-      checksum: 'b'.repeat(64),
-    })
+    const replay = await ingest(
+      owner,
+      connectorId,
+      fixture,
+      VALID_CSV,
+      'run-42.csv',
+      {
+        fileRecordId: '0e100000-0000-4000-8000-00000000aa02',
+        checksum: 'b'.repeat(64),
+      },
+    )
     expect(replay.alreadyCompleted).toBe(true)
     expect(replay.runId).toBe(first.runId)
     expect(replay.rowCount).toBe(2)

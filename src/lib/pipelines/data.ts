@@ -14,6 +14,7 @@ import type {
   PipelineDefinitionWire,
   PipelineRunLogWire,
   PipelineRunOutputWire,
+  PipelineRunPromptWire,
   PipelineRunWire,
   PipelineScheduleWire,
 } from './types'
@@ -259,6 +260,9 @@ const OUTPUT_FIELDS =
 const SCHEDULE_FIELDS =
   'id,workspace_id,definition_id,kind,spec,enabled,last_run_at,next_run_at,last_evaluated_at,last_evaluated_sequence,created_at,updated_at,created_by_user_id'
 
+const PROMPT_FIELDS =
+  'id,workspace_id,run_id,step_id,form_schema,asked_user_ids,answer,answered_by_user_id,answered_at,expires_at,created_at'
+
 export async function listPipelineDefinitions(
   client: DataClient,
 ): Promise<PipelineDefinitionWire[]> {
@@ -362,6 +366,56 @@ export async function listPipelineOutputsForDataset(
     'pipeline_run_outputs',
     `?select=${OUTPUT_FIELDS}&dataset_id=eq.${encodeURIComponent(datasetId)}&order=created_at.desc&limit=50`,
   )
+}
+
+// ---------------------------------------------------------------------------
+// Waiting runs (PIPE-02).
+// ---------------------------------------------------------------------------
+
+/** Every prompt a run has raised, oldest first. */
+export async function listPipelineRunPrompts(
+  client: DataClient,
+  runId: string,
+): Promise<PipelineRunPromptWire[]> {
+  return client.list<PipelineRunPromptWire>(
+    'pipeline_run_prompts',
+    `?select=${PROMPT_FIELDS}&run_id=eq.${encodeURIComponent(runId)}&order=created_at.asc`,
+  )
+}
+
+/** The answer a person gives to a waiting run's prompt. */
+export interface PipelineRunPromptAnswer {
+  decision: 'confirm' | 'skip' | 'stop'
+  values?: Record<string, unknown>
+  reason?: string
+}
+
+/**
+ * Answer a waiting run's prompt through the same-origin execute route. The
+ * route resumes the run from the paused step with the same pinned inputs and
+ * records the decision under the answering person's name; only the people the
+ * prompt asked may answer.
+ */
+export async function answerPipelineRunPrompt(
+  runId: string,
+  answer: PipelineRunPromptAnswer,
+): Promise<PipelineRunWire> {
+  const response = await fetch('/api/pipelines/execute', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ runId, answer }),
+  })
+  if (!response.ok) {
+    let message = `Answering the run failed (${response.status})`
+    try {
+      const body = (await response.json()) as { error?: { message?: string } }
+      if (body.error?.message) message = body.error.message
+    } catch {
+      // keep the generic message
+    }
+    throw new Error(message)
+  }
+  return (await response.json()) as PipelineRunWire
 }
 
 export async function listPipelineSchedules(

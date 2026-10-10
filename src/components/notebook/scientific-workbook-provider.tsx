@@ -46,7 +46,7 @@ export function ScientificWorkbookProvider({
   useEffect(() => {
     // Sheet queries often settle in the same browser turn. Build after those
     // registrations have coalesced instead of synchronously rebuilding the
-    // complete HyperFormula workbook once per arriving sheet.
+    // complete calculation workbook once per arriving sheet.
     const timeout = window.setTimeout(() => {
       let next: ScientificWorkbook | null = null
       if (tables.size) {

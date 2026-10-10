@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { validatePipelineConfig, validatePipelineRunRequest } from './config'
-import type { PipelineConfig } from './config'
+import {
+  validatePipelineConfig,
+  validatePipelineRunRequest,
+  validateConfirmAnswer,
+  findPipelineConfirmStep,
+  confirmNoAnswerOutcome,
+  confirmExpiryHours,
+} from './config'
+import type { PipelineConfig, PipelineStepConfirm } from './config'
 
 function validConfig(): PipelineConfig {
   return {
@@ -226,5 +233,116 @@ describe('Python and workflow configuration', () => {
     const errors = validatePipelineConfig(config)
     expect(errors.some((error) => error.field === 'inputs[0].name')).toBe(true)
     expect(errors.some((error) => error.code === 'duplicate_name')).toBe(true)
+  })
+})
+
+describe('Confirm steps (PIPE-02)', () => {
+  function confirmConfig(): PipelineConfig {
+    const config = validConfig()
+    config.steps = [
+      {
+        name: 'confirm_units',
+        language: 'sql',
+        statement: 'SELECT batch, count(*) FROM measurements GROUP BY batch',
+        confirm: {
+          fields: [
+            { key: 'unit', label: 'Unit', type: 'text', required: true },
+          ],
+          askedUserIds: ['chemist-a'],
+          skipSteps: ['set_units'],
+          noAnswer: 'apply',
+          expiresHours: 48,
+        },
+      },
+      {
+        name: 'set_units',
+        language: 'sql',
+        statement: 'SELECT batch FROM measurements',
+      },
+    ]
+    return config
+  }
+
+  it('accepts a confirm step with a form, asked people and skip dependents', () => {
+    expect(validatePipelineConfig(confirmConfig())).toEqual([])
+  })
+
+  it('rejects a confirm step without a form or asked people', () => {
+    const config = confirmConfig()
+    config.steps![0].confirm = { fields: [], askedUserIds: [] }
+    const errors = validatePipelineConfig(config)
+    expect(errors.some((e) => e.field === 'steps[0].confirm.fields')).toBe(true)
+    expect(
+      errors.some((e) => e.field === 'steps[0].confirm.askedUserIds'),
+    ).toBe(true)
+  })
+
+  it('rejects an unknown no-answer outcome and an out-of-range expiry', () => {
+    const config = confirmConfig()
+    config.steps![0].confirm!.noAnswer = 'ignore' as never
+    config.steps![0].confirm!.expiresHours = 0
+    const errors = validatePipelineConfig(config)
+    expect(errors.some((e) => e.field === 'steps[0].confirm.noAnswer')).toBe(
+      true,
+    )
+    expect(
+      errors.some((e) => e.field === 'steps[0].confirm.expiresHours'),
+    ).toBe(true)
+  })
+
+  it('rejects skipSteps that do not name a declared step', () => {
+    const config = confirmConfig()
+    config.steps![0].confirm!.skipSteps = ['nope']
+    const errors = validatePipelineConfig(config)
+    expect(errors.some((e) => e.field === 'steps[0].confirm.skipSteps')).toBe(
+      true,
+    )
+  })
+
+  it('finds the confirm step and applies the DEC-08 defaults', () => {
+    const config = confirmConfig()
+    expect(findPipelineConfirmStep(config, 'set_units')).toBeNull()
+    const step = findPipelineConfirmStep(config, 'confirm_units')
+    expect(step?.name).toBe('confirm_units')
+    const confirm = step!.confirm!
+    expect(confirmNoAnswerOutcome(confirm)).toBe('apply')
+    expect(confirmExpiryHours(confirm)).toBe(48)
+    expect(
+      confirmNoAnswerOutcome({ fields: confirm.fields, askedUserIds: ['a'] }),
+    ).toBe('reask')
+    expect(
+      confirmExpiryHours({ fields: confirm.fields, askedUserIds: ['a'] }),
+    ).toBe(24)
+  })
+
+  it('validates a recorded decision against the form', () => {
+    const confirm: PipelineStepConfirm = {
+      fields: [
+        { key: 'unit', label: 'Unit', type: 'text', required: true },
+        { key: 'note', label: 'Note', type: 'text' },
+      ],
+      askedUserIds: ['chemist-a'],
+    }
+    expect(validateConfirmAnswer(confirm, { decision: 'stop' })).toBeNull()
+    expect(validateConfirmAnswer(confirm, { decision: 'skip' })).toBeNull()
+    expect(
+      validateConfirmAnswer(confirm, {
+        decision: 'confirm',
+        values: { unit: 'g/L' },
+      }),
+    ).toBeNull()
+    expect(
+      validateConfirmAnswer(confirm, { decision: 'confirm', values: {} }),
+    ).toContain('missing required field')
+    expect(
+      validateConfirmAnswer(confirm, {
+        decision: 'confirm',
+        values: { unit: 5 },
+      }),
+    ).toContain('does not match')
+    expect(validateConfirmAnswer(confirm, { decision: 'maybe' })).toContain(
+      'decision',
+    )
+    expect(validateConfirmAnswer(confirm, null)).toContain('object')
   })
 })

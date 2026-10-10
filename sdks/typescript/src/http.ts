@@ -25,9 +25,9 @@ export interface FetchInit {
 export interface FetchResponse {
   ok: boolean;
   status: number;
-  headers?: { get(name: string): string | null };
-  json(): Promise<unknown>;
-  text(): Promise<string>;
+  headers?: { get: (name: string) => string | null };
+  json: () => Promise<unknown>;
+  text: () => Promise<string>;
 }
 
 export interface TableHead {

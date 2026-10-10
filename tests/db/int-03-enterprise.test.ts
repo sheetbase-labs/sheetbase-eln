@@ -114,6 +114,23 @@ function pgDataClient(owner: Client): DataClient {
           )
         ).rows[0].result
       }
+      if (name === 'ensure_parser' || name === 'commit_dataset_import') {
+        const entries = Object.entries(args)
+        const parameters = entries
+          .map(
+            ([key, value], i) =>
+              `${key} => $${i + 1}${value !== null && typeof value === 'object' ? '::jsonb' : ''}`,
+          )
+          .join(', ')
+        const values = entries.map(([, value]) =>
+          value !== null && typeof value === 'object'
+            ? JSON.stringify(value)
+            : value,
+        )
+        return (
+          await owner.query(`SELECT api.${name}(${parameters}) result`, values)
+        ).rows[0].result
+      }
       const values = Object.values(args).map((value) =>
         value !== null && typeof value === 'object' && !Array.isArray(value)
           ? JSON.stringify(value)
@@ -255,11 +272,17 @@ async function openStored(connectorId: string, name: string): Promise<string> {
 }
 
 async function createProjectFixture(owner: Client): Promise<string> {
+  const key = `int03-${crypto.randomUUID().slice(0, 8)}`
+  // No RETURNING: the owner-rule trigger fires after the insert, so the row is
+  // only readable by its new lead once the trigger has run.
+  await owner.query(
+    `insert into api.projects(workspace_id,key,title) values($1,$2,'INT-03 retention')`,
+    [WS_A, key],
+  )
   const project = (
     await owner.query(
-      `insert into api.projects(workspace_id,key,title)
-       values($1,$2,'INT-03 retention') returning id`,
-      [WS_A, `int03-${crypto.randomUUID().slice(0, 8)}`],
+      `select id from api.projects where workspace_id=$1 and key=$2`,
+      [WS_A, key],
     )
   ).rows[0]
   return project.id as string

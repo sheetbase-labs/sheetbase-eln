@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { grantProjectAccess, prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-000000005800'
 const WS_B = '00000000-0000-4000-8000-000000005801'
@@ -55,10 +55,24 @@ beforeAll(async () => {
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS_A}','${OWNER_A}','owner'),('${WS_A}','${MEMBER_A}','member'),
       ('${WS_B}','${OWNER_B}','owner');
-    insert into api.projects(id,workspace_id,key,title) values
-      ('${PROJECT_A}','${WS_A}','study-a','Study A'),
-      ('${PROJECT_A_2}','${WS_A}','study-a2','Study A2'),
-      ('${PROJECT_B}','${WS_B}','study-b','Study B')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id) values
+      ('${PROJECT_A}','${WS_A}','study-a','Study A','${OWNER_A}'),
+      ('${PROJECT_A_2}','${WS_A}','study-a2','Study A2','${OWNER_A}'),
+      ('${PROJECT_B}','${WS_B}','study-b','Study B','${OWNER_B}')`)
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: true,
+  })
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A_2,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: true,
+  })
 
   const owner = await actor(OWNER_A)
   const { rows } = await owner.query(
@@ -82,7 +96,7 @@ describe('Study domain', () => {
       workspace_id: WS_A,
       project_id: PROJECT_A,
       kind: 'study',
-      identifier: expect.stringMatching(/^STD-\d{4}-\d{4}$/),
+      identifier: expect.stringMatching(/^STD-\d{4}$/),
       title: 'Stability study',
       custom_fields: { programme_code: 'AUTO' },
     })
@@ -141,15 +155,22 @@ describe('Study domain', () => {
         study.id,
         PROJECT_B,
       ]),
+      // The 0323 entry guard fails closed before the workspace/link validation.
+    ).rejects.toMatchObject({ code: '42501' })
+    // A same-workspace non-experiment Record fails validation...
+    await expect(
+      member.query(`select api.link_study_experiment($1,$2)`, [
+        study.id,
+        reportA.id,
+      ]),
     ).rejects.toMatchObject({ code: 'SB073' })
-    for (const record of [reportA, experimentB]) {
-      await expect(
-        member.query(`select api.link_study_experiment($1,$2)`, [
-          study.id,
-          record.id,
-        ]),
-      ).rejects.toMatchObject({ code: 'SB073' })
-    }
+    // ...while another workspace's Record is denied before validation.
+    await expect(
+      member.query(`select api.link_study_experiment($1,$2)`, [
+        study.id,
+        experimentB.id,
+      ]),
+    ).rejects.toMatchObject({ code: '42501' })
 
     const ownerB = await actor(OWNER_B, WS_B)
     await expect(

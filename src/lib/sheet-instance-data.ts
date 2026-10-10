@@ -29,6 +29,7 @@ export const sheetInstanceWireSchema = z
     project_id: nullableUuid,
     notebook_record_id: nullableUuid,
     source_definition_version_id: nullableUuid,
+    display_id: z.string().nullable().optional(),
     name: z.string().trim().min(1).max(200),
     description: z.string().max(2_000).nullable(),
     lifecycle: z.enum(['active', 'archived']),
@@ -39,6 +40,8 @@ export const sheetInstanceWireSchema = z
     updated_at: timestamp,
     created_by_user_id: z.string().nullable(),
     updated_by_user_id: z.string().nullable(),
+    created_by_credential_id: nullableUuid.optional(),
+    updated_by_credential_id: nullableUuid.optional(),
   })
   .strict()
 
@@ -58,6 +61,7 @@ export interface SheetInstance {
   projectId: string | null
   notebookRecordId: string | null
   sourceDefinitionVersionId: string | null
+  displayId?: string | null
   name: string
   description: string | null
   lifecycle: 'active' | 'archived'
@@ -80,6 +84,7 @@ export function sheetInstanceFromWire(wire: unknown): SheetInstance {
     projectId: parsed.project_id,
     notebookRecordId: parsed.notebook_record_id,
     sourceDefinitionVersionId: parsed.source_definition_version_id,
+    displayId: parsed.display_id ?? null,
     name: parsed.name,
     description: parsed.description,
     lifecycle: parsed.lifecycle,

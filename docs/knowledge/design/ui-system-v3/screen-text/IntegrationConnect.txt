@@ -1,0 +1,29 @@
+Connect a system
+Workspace
+General Members and roles Project access Electronic signatures Instruments and parsers Integrations API and SDK Audit and retention Account
+Profile My signature Notifications Integrations
+Connect a system
+Systems connected to this workspace. Every action they take is checked by the same server rules as a person, and logged.
+| | System | Used for | Direction | Status | Last activity
+| QC LIMS | Release results (bioburden, endotoxin) onto samples | In | Connected | 16:40 yesterday
+| Microsoft Teams | Pipeline and review notifications | Out | Connected | 10:13
+| Instrument gateway | PR-01, TB-02 and ViCell exports as webhooks | In | Connected | 10:11
+| Document management | Controlled copies of signed PDFs | Out | Token expires in 5 days | 25 Sep 06:00
+Outgoing webhooks
+| | Outgoing webhook | Events | Last delivery |
+| https://lims.cdmo.example/hooks/sheetbase | sample.released, sample.quarantined | 200 · 16 Sep 11:20 | Deliveries
+| https://dms.cdmo.example/api/ingest | record.signed | 503 · retried 3 times | Deliveries
+Incoming webhooks
+| | Incoming webhook | Starts | Last call
+| PR-01 plate reader | PL-0011 | 10:11 · 200
+| Clarification step yield | PL-0007 (off) | —
+Incoming webhooks belong to pipelines and are set up on the pipeline’s Triggers tab.
+Connect a system
+Step 2 of 3
+System
+Environmental monitoring (EMS)
+Service identity
+ems-bridge · owner Mei L.
+It can To match chamber readings to what is stored in them. Each delivery is saved as a new snapshot; nothing earlier changes. Integrations can never do this. People sign and approve.
+Token expires after 90 days (the maximum) ▾
+Back Continue to test

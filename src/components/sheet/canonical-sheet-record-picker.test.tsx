@@ -11,6 +11,7 @@ import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 
 import { AdHocSheetWorkspace } from './ad-hoc-sheet-workspace'
+import type { SheetbaseGridCellChange } from './sheetbase-grid'
 import { recordCellDisplayText } from './canonical-sheet-workspace'
 
 globalThis.ResizeObserver = class {
@@ -21,7 +22,6 @@ globalThis.ResizeObserver = class {
 Element.prototype.scrollIntoView = () => {}
 
 const gridRender = vi.hoisted(() => vi.fn())
-const setDataAtCell = vi.hoisted(() => vi.fn())
 
 vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -33,57 +33,57 @@ vi.mock('#/lib/sheet-record-search', async (importOriginal) => ({
   searchSheetRecords: vi.fn(),
 }))
 
-vi.mock('./sheetbase-grid', () => ({
-  SheetbaseGrid: ({
-    settings,
-    onReady,
-  }: {
-    settings: GridSettingsCapture
-    onReady?: (hot: unknown) => void
-  }) => {
-    gridRender(settings)
-    // GRID-03: stand-in Handsontable instance so the workspace can write the
-    // picked Record UUID through the grid's own change pipeline.
-    onReady?.({
-      setDataAtCell,
-      toPhysicalRow: (row: number) => row,
-      toPhysicalColumn: (col: number) => col,
-      countCols: () => settings.colHeaders?.length ?? 0,
-      columnIndexMapper: {
-        getIndexesSequence: () =>
-          Array.from({ length: settings.colHeaders?.length ?? 0 }, (_, i) => i),
-        setIndexesSequence: () => {},
-      },
-      getPlugin: () => undefined,
-      getShortcutManager: () => ({ setActiveContextName: () => {} }),
+vi.mock('./sheetbase-grid', () => {
+  const Recorder = ({
+    columns,
+    onOpenRecordPicker,
+    beforeCellsChange,
+    onCellsChange,
+  }: GridPropsCapture) => {
+    gridRender({
+      columns,
+      onOpenRecordPicker,
+      beforeCellsChange,
+      onCellsChange,
     })
     return (
       <table>
         <thead>
           <tr>
-            {(settings.colHeaders ?? []).map((header) => (
-              <th key={header} scope="col">
-                {header}
+            {(columns ?? []).map((column) => (
+              <th key={column.id} scope="col">
+                {column.label}
               </th>
             ))}
           </tr>
         </thead>
       </table>
     )
-  },
-}))
+  }
+  return { SheetbaseTableGrid: Recorder }
+})
 
-interface GridSettingsCapture {
-  colHeaders?: string[]
-  columns?: Array<Record<string, unknown> & { readOnly?: boolean }>
-  beforeChange?: (
-    changes: Array<[number, number, unknown, unknown]>,
+interface GridPropsCapture {
+  columns?: Array<{
+    id: string
+    label: string
+    type: string
+    readOnly?: boolean
+    displayText?: (value: unknown) => string | undefined
+  }>
+  onOpenRecordPicker?: (
+    cell: {
+      rowIndex: number
+      columnIndex: number
+      columnId: string
+    },
+    editor: { commit: (value: unknown) => void; cancel: () => void },
+  ) => void
+  beforeCellsChange?: (
+    changes: SheetbaseGridCellChange[],
     source: string,
   ) => boolean | undefined
-  afterChange?: (
-    changes: Array<[number, number, unknown, unknown]>,
-    source: string,
-  ) => void
+  onCellsChange?: (changes: SheetbaseGridCellChange[], source: string) => void
 }
 
 const refFieldId = '15000000-0000-4000-8000-000000000001'
@@ -151,40 +151,14 @@ function renderWorkspace(ui: ReactNode) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
-function captureSettings(): GridSettingsCapture {
-  return gridRender.mock.lastCall?.[0] as GridSettingsCapture
-}
-
-/** Simulate Handsontable preparing and opening the custom editor on a cell. */
-function openEditor(settings: GridSettingsCapture, col: number) {
-  const EditorClass = settings.columns?.[col]?.editor as
-    | (new (hot: unknown) => {
-        prepare: (
-          row: number,
-          col: number,
-          prop: string | number,
-          td: HTMLTableCellElement,
-          value: unknown,
-          cellProperties: unknown,
-        ) => void
-        open: () => void
-      })
-    | undefined
-  expect(EditorClass).toEqual(expect.any(Function))
-  const hot = {
-    setDataAtCell,
-    getShortcutManager: () => ({ setActiveContextName: () => {} }),
-  }
-  const editor = new EditorClass!(hot)
-  editor.prepare(0, col, col, document.createElement('td'), null, {})
-  editor.open()
+function captureProps(): GridPropsCapture {
+  return gridRender.mock.lastCall?.[0] as GridPropsCapture
 }
 
 beforeEach(() => {
   vi.mocked(searchSheetRecords).mockReset()
   vi.mocked(mutateSheetLocalState).mockReset()
   gridRender.mockClear()
-  setDataAtCell.mockClear()
 })
 
 afterEach(cleanup)
@@ -192,69 +166,60 @@ afterEach(cleanup)
 describe('GRID-03 canonical Record picker editor', () => {
   it('wires the Record picker editor and display renderer for record-picker columns', () => {
     renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
-    const settings = captureSettings()
-    expect(settings.colHeaders).toEqual(['Sample', 'Observation'])
-    expect(settings.columns?.[0]).toEqual(
+    const props = captureProps()
+    expect(props.columns?.map((column) => column.label)).toEqual([
+      'Sample',
+      'Observation',
+    ])
+    expect(props.columns?.[0]).toEqual(
       expect.objectContaining({
-        type: 'text',
-        editor: expect.any(Function),
-        renderer: expect.any(Function),
+        type: 'record',
+        displayText: expect.any(Function),
         readOnly: false,
       }),
     )
-    // Non-reference columns keep their plain text editor.
-    expect(settings.columns?.[1]).not.toHaveProperty('editor')
+    // Non-reference columns keep their plain text display.
+    expect(props.columns?.[1]?.type).toBe('text')
+    expect(props.onOpenRecordPicker).toEqual(expect.any(Function))
   })
 
-  it('opens the shared model-scoped picker from the cell edit and writes the canonical UUID', async () => {
+  it('writes the picked Record through the backend editor handle', async () => {
     const user = userEvent.setup()
     vi.mocked(searchSheetRecords).mockResolvedValue([hit])
     vi.mocked(mutateSheetLocalState).mockResolvedValue(refInstance())
     renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
-    const settings = captureSettings()
+    const props = captureProps()
+    const commit = vi.fn()
+    const cancel = vi.fn()
+    const column = props.columns?.[0]
 
-    openEditor(settings, 0)
-
-    // The picker opens for the field's own relationship target, not a sheet
-    // default, and the search is the bounded server-backed RPC.
+    // COMP-06 steps 2-3: the table backend owns the cell editor and hands the
+    // workspace its commit/cancel, so the pick flows through the grid gate.
+    act(() => {
+      props.onOpenRecordPicker?.(
+        { rowIndex: 0, columnIndex: 0, columnId: column!.id },
+        { commit, cancel },
+      )
+    })
     expect(await screen.findByRole('combobox')).toBeTruthy()
-    expect(searchSheetRecords).toHaveBeenCalledWith(
-      { modelKey: 'sample', query: '' },
-      expect.anything(),
-    )
     const combobox = screen.getByRole('combobox')
     act(() => {
       combobox.focus()
     })
     await user.keyboard('{Enter}')
 
-    // Selection persists the canonical Record UUID through the grid pipeline.
-    expect(setDataAtCell).toHaveBeenCalledWith(
-      0,
-      0,
-      recordUuid,
-      'sheetbase.record-picker',
-    )
-    expect(setDataAtCell).toHaveBeenCalledTimes(1)
+    expect(commit).toHaveBeenCalledWith(recordUuid)
+    expect(cancel).not.toHaveBeenCalled()
   })
 
   it('displays the human label after a pick and the raw UUID when unknown', () => {
     renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
-    const settings = captureSettings()
-    const renderer = settings.columns?.[0]?.renderer as
-      ((...args: unknown[]) => unknown) | undefined
-    expect(renderer).toEqual(expect.any(Function))
-    // The label map is populated by the pick flow; simulate a post-pick
-    // render through the same renderer the grid uses.
-    act(() => {
-      openEditor(settings, 0)
-    })
-    const td = document.createElement('td')
-    // Before any pick the persisted UUID renders as-is...
-    renderer?.(null, td, 0, 0, null, recordUuid)
-    expect(td.textContent).toBe(recordUuid)
-    // (the pick itself is covered by the selection test above; here the pure
-    // display contract is asserted directly)
+    const props = captureProps()
+    const displayText = props.columns?.[0]?.displayText
+    expect(displayText).toEqual(expect.any(Function))
+    // Before any pick the persisted UUID renders as-is.
+    expect(displayText?.(recordUuid)).toBe(recordUuid)
+    expect(displayText?.(null)).toBe('')
     expect(
       recordCellDisplayText(
         { [recordUuid]: { identifier: 'SMP-2026-0001', title: 'LV harvest' } },
@@ -267,23 +232,40 @@ describe('GRID-03 canonical Record picker editor', () => {
 
   it('accepts a canonical UUID edit through the validation pipeline', () => {
     renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
-    const settings = captureSettings()
-    const changes: Array<[number, number, unknown, unknown]> = [
-      [0, 0, null, recordUuid],
+    const props = captureProps()
+    const changes: SheetbaseGridCellChange[] = [
+      {
+        rowIndex: 0,
+        rowId,
+        columnId: props.columns![0].id,
+        previous: null,
+        next: recordUuid,
+      },
     ]
     act(() => {
-      expect(settings.beforeChange?.(changes, 'edit')).toBeUndefined()
+      expect(props.beforeCellsChange?.(changes, 'edit')).toBeUndefined()
     })
     // The UUID is already canonical — coercion leaves it untouched.
-    expect(changes[0]?.[3]).toBe(recordUuid)
+    expect(changes[0]?.next).toBe(recordUuid)
   })
 
   it('fails closed when a non-UUID value is typed into a record-picker cell', () => {
     renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
-    const settings = captureSettings()
+    const props = captureProps()
     act(() => {
       expect(
-        settings.beforeChange?.([[0, 0, null, 'SMP-2026-0001']], 'edit'),
+        props.beforeCellsChange?.(
+          [
+            {
+              rowIndex: 0,
+              rowId,
+              columnId: props.columns![0].id,
+              previous: null,
+              next: 'SMP-2026-0001',
+            },
+          ],
+          'edit',
+        ),
       ).toBe(false)
     })
     const statuses = screen
@@ -292,20 +274,26 @@ describe('GRID-03 canonical Record picker editor', () => {
       .join(' ')
     expect(statuses).toContain('Edit rejected: invalid_value in Sample')
     expect(statuses).toContain('kept its previous value')
-    expect(setDataAtCell).not.toHaveBeenCalled()
   })
 
   it('clears the cell to a canonical null through the edit pipeline', async () => {
     vi.mocked(mutateSheetLocalState).mockResolvedValue(refInstance())
     renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
-    const settings = captureSettings()
+    const props = captureProps()
+    const changes: SheetbaseGridCellChange[] = [
+      {
+        rowIndex: 0,
+        rowId,
+        columnId: props.columns![0].id,
+        previous: recordUuid,
+        next: null,
+      },
+    ]
     act(() => {
-      // Clearing passes validation (nullable field) and applies the null…
-      expect(
-        settings.beforeChange?.([[0, 0, recordUuid, null]], 'edit'),
-      ).toBeUndefined()
-      // …and afterChange writes it to the authoritative local target.
-      settings.afterChange?.([[0, 0, recordUuid, null]], 'edit')
+      // Clearing passes validation (nullable field)…
+      expect(props.beforeCellsChange?.(changes, 'edit')).toBeUndefined()
+      // …and the change writes it to the authoritative local target.
+      props.onCellsChange?.(changes, 'edit')
     })
     await vi.waitFor(() => {
       expect(mutateSheetLocalState).toHaveBeenCalledWith(

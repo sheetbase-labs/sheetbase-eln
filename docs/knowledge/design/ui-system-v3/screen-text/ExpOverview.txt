@@ -1,0 +1,62 @@
+Experiment overview
+Projects / AAV9 process transfer / EXP-0142
+Harvest clarification: depth filter screening
+Share
+Submit for review
+In progress Owner Gareth P. Started 21 Sep 2026 Protocol PRT-021 v3 Client CL-017 Saved 09:32
+Overview Notebook Samples 12 Datasets 2 Results Files 4 History
+Objective
+Screen three depth-filter trains for clarification of AAV9 harvest lot HL-0934 and select one for the 50 L tech-transfer run. Acceptance: capsid step yield ≥ 80 % with filtrate turbidity ≤ 20 NTU.
+Protocol progress
+PRT-021 v3 · 3 of 6 steps done
+| | # | Step | Status | By | When | Evidence
+| 1 | Hold harvest at 2–8 °C | Done | Gareth P. | 21 Sep, 14:10 | SMP-2231
+| 2 | Filter runs, trains A–C at 50, 100, 150 L/m² | Done | Gareth P. | 23 Sep, 17:40 | 9 filtrate samples · DS-0310
+| 3 | Filtrate turbidity | Done, 1 flag | Import | 24 Sep, 16:04 | DS-0311 · 1 value out of range
+| 4 | Capsid titre by ELISA, plates 1–4 | In progress | Gareth P. | Plate 4 today, 11:30 | DS-0311
+| 5 | Step yield by load | Draft | Gareth P. | 23 Sep | AN-0057
+| 6 | Decision and review | Not started | — | — | Reviewer Mei L.
+Open before submission
+3
+Turbidity 61.5 NTU outside 0–50 NTU DS-0311 row 88 · repeat queued on plate 4
+Go to cell
+1 open comment thread Observations · Priya S.
+Open
+Decision field empty Result summary · required by PRT-021
+Fill in
+Key results
+Preliminary · not reviewed
+Leading train
+B ( MAT-0419 )
+Step yield, train B
+84.9–90.7 %
+Filtrate turbidity, train B
+4.1–8.9 NTU
+Trains meeting criteria
+1 of 3 at all loads
+Open results
+Properties
+Status
+In progress
+Owner
+Gareth P.
+Collaborators
+Priya S.
+Reviewer
+Mei L.
+Project
+AAV9 process transfer
+Client
+CL-017
+Protocol
+PRT-021 v3
+Started
+21 Sep 2026
+Planned end
+29 Sep 2026
+Linked experiments
+Upstream EXP-0138 Transfection ratio sweep
+Upstream EXP-0133 Harvest timing
+Next EXP-0145 50 L confirmation run · draft
+Signatures
+None yet. Author and reviewer sign after review.

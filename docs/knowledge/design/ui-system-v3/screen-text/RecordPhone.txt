@@ -1,0 +1,12 @@
+Record on phone
+Cell bank
+CB-0012 HEK293 WCB lot 3
+Scanned 11:02 · model Cell bank v4
+Status Released
+Cell line HEK293 · P12
+Vials left 31 of 50
+Location LN2-2 · rack C · box 4
+Parent CB-0010 HEK293 MCB
+Mycoplasma Not recorded
+Withdraw vials Record mycoplasma result
+Today Scan Inbox {{toastMsg}}

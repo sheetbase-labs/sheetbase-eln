@@ -3,7 +3,7 @@
  * history and seed. Proves a fresh database can be migrated and seeded in one
  * documented command. See docs/development/seeds.md and docs/development/migrations.md.
  *
- * Usage: pnpm db:fresh [--demo]
+ * Usage: pnpm db:fresh [--demo] [--design]
  */
 import { config } from 'dotenv'
 import { existsSync } from 'node:fs'
@@ -24,8 +24,8 @@ if (hasMigrations) {
 }
 
 const seedArgs = ['exec', 'tsx', 'src/db/seed/run.ts']
-if (process.argv.includes('--demo')) {
-  seedArgs.push('--demo')
+for (const flag of ['--demo', '--design']) {
+  if (process.argv.includes(flag)) seedArgs.push(flag)
 }
 execFileSync('pnpm', seedArgs, { stdio: 'inherit' })
 

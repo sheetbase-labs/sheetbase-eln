@@ -15,11 +15,17 @@ const mapped: MappedImport = {
   ],
 }
 
+const provenance = {
+  fileId: 'file-1',
+  parserId: 'parser-1',
+  parserVersionId: 'parser-version-1',
+}
+
 describe('import validate-before-commit', () => {
   it('validates then commits Dataset rows through canonical RPCs only', async () => {
     const rpc = vi.fn(async (name: string) => {
       if (name === 'validate_dataset_row_batch') return { ok: true }
-      if (name === 'commit_dataset_row_batch') {
+      if (name === 'commit_dataset_import') {
         return {
           ok: true,
           datasetRevision: 2,
@@ -35,13 +41,14 @@ describe('import validate-before-commit', () => {
         datasetId: 'ds-1',
         expectedRevision: 1,
         schemaVersionId: 'ver-1',
+        ...provenance,
       },
       mapped,
       'import-1',
     )
     expect(rpc.mock.calls.map((call) => call[0])).toEqual([
       'validate_dataset_row_batch',
-      'commit_dataset_row_batch',
+      'commit_dataset_import',
     ])
     expect(result).toMatchObject({
       ok: true,
@@ -59,6 +66,7 @@ describe('import validate-before-commit', () => {
         datasetId: 'ds-1',
         expectedRevision: 1,
         schemaVersionId: 'ver-1',
+        ...provenance,
       },
       {
         ...mapped,
@@ -95,6 +103,7 @@ describe('import validate-before-commit', () => {
         datasetId: 'ds-1',
         expectedRevision: 1,
         schemaVersionId: 'ver-1',
+        ...provenance,
       },
       mapped,
       'import-1',
@@ -157,6 +166,7 @@ describe('import validate-before-commit', () => {
           datasetId: 'ds-1',
           expectedRevision: 1,
           schemaVersionId: 'ver-2',
+          ...provenance,
         },
         mapped,
         'import-1',

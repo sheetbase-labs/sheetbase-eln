@@ -1,4 +1,4 @@
-import { AlertCircle, Loader2, Search } from 'lucide-react'
+import { Icon } from '#/components/v3/icons'
 
 import type { ScientificRecordKind } from '#/lib/scientific-records'
 import { RecordPicker } from '#/components/scientific/record-picker'
@@ -10,13 +10,14 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '#/components/ui/command'
+  CommandLoading,
+} from '#/components/v3/ui/command'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import { formatRecordReferenceLabel } from '#/lib/record-reference-cell'
 
 const MODEL_KIND: Record<string, ScientificRecordKind> = {
   sample: 'sample',
-  reagent: 'reagent',
+  material: 'material',
   protocol_template: 'protocol_template',
 }
 
@@ -66,28 +67,26 @@ export function SheetRecordPicker({
     ? results
     : results.filter((record) => !record.archivedAt)
   return (
-    <Command shouldFilter={false} loop>
-      <div className="flex items-center gap-2 border-b px-3">
-        <Search className="size-4 shrink-0 text-muted-foreground" />
-        <CommandInput
-          placeholder={label}
-          onValueChange={onSearch}
-          aria-label={label}
-        />
-        {loading ? (
-          <Loader2
-            className="size-4 shrink-0 animate-spin text-muted-foreground"
-            aria-hidden
-          />
-        ) : null}
-      </div>
+    <Command label={label} shouldFilter={false} loop>
+      <CommandInput
+        placeholder={label}
+        onValueChange={onSearch}
+        aria-label={label}
+        icon="search"
+      />
       <CommandList>
+        <CommandLoading loading={loading} />
         {error ? (
           <div
             role="alert"
-            className="flex items-start gap-2 px-3 py-4 text-sm text-destructive"
+            className="flex items-start gap-2 px-3 py-4 text-sm text-danger-text"
           >
-            <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+            <Icon
+              name="warn"
+              size={16}
+              className="mt-0.5 shrink-0"
+              aria-hidden
+            />
             {error.message}
           </div>
         ) : null}
@@ -113,7 +112,7 @@ export function SheetRecordPicker({
                 aria-selected={record.id === selectedId}
               >
                 <div className="min-w-0">
-                  <span className="font-mono text-xs text-muted-foreground">
+                  <span className="font-mono text-xs text-fg-muted">
                     {record.identifier}
                   </span>
                   <p className="truncate text-sm font-medium">{record.title}</p>

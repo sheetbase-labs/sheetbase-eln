@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Client portal</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<!--tabs [["portal", ["projects", "reports", "messages"], "projects"]]-->
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+.nav button{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:6px;color:var(--text);font:13px var(--font-sans);background:none;border:0;cursor:pointer;width:100%;text-align:left}
+.nav button:hover{background:var(--surface-hover)}
+.nav button.on{background:var(--selection);font-weight:500}
+.nav button svg{color:var(--text-muted)}
+.nav button .ct{margin-left:auto;font-size:12px;color:var(--text-muted)}
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 1440px; height: 900px">
+<header class="topbar"><span style="display: flex; align-items: center; gap: 8px; width: 260px"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.5" y="2.5" width="15" height="15" rx="3"></rect><path d="M2.5 8h15M8 8v9.5"></path></svg><span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span><span class="muted" style="font-size: 13px">Client portal</span></span>
+<span class="muted" style="font-size: 13px">CL-017 · shared by your CDMO team</span><span style="flex-grow: 1"></span><button class="btn ib" aria-label="Account: Client user" style="border-radius: 50%; background: var(--review-wash); font-size: 11px; font-weight: 600">JK</button></header>
+<div style="flex-grow: 1; display: flex; min-height: 0">
+<nav class="nav" aria-label="Portal"><button type="button" class="{{portal.projects.cls}}" aria-pressed="{{portal.projects.sel}}" onClick="{{portal.projects.pick}}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 4.5h4.5l1.5 1.5h6v7.5H2z"></path></svg>Projects</button><button type="button" class="{{portal.reports.cls}}" aria-pressed="{{portal.reports.sel}}" onClick="{{portal.reports.pick}}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 2h5.5L12 4.5V14H4z"></path><path d="M6 7.5h4M6 10h4"></path></svg>Reports<span class="ct">3</span></button><button type="button" class="{{portal.messages.cls}}" aria-pressed="{{portal.messages.sel}}" onClick="{{portal.messages.pick}}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M2 9h3.5l1 2h3l1-2H14M2 9l2-5.5h8L14 9v4.5H2z"></path></svg>Messages<span class="ct">1</span></button>
+<div style="flex-grow: 1"></div><div class="muted" style="font-size: 12px; line-height: 17px; padding: 8px">You see records only after your CDMO team approves and shares them.</div></nav>
+<main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface)"><sc-if value="{{portal.projects.on}}" hint-placeholder-val="{{ true }}">
+<div class="pagehead" style="padding: 16px 32px 12px"><h1 class="page-title">AAV9 process transfer</h1><div class="meta"><span style="color: var(--text)"><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></span><span>Tech transfer</span><span>CDMO lead Gareth P.</span><span>Last update 25 Sep</span></div></div>
+<div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 24px">
+<section style="display: flex; flex-direction: column; gap: 8px"><h2 class="sh">Milestones</h2><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t"><thead><tr><th>Milestone</th><th>Status</th><th>Target</th></tr></thead><tbody>
+<tr><td>Upstream process locked</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Complete</x-import></td><td class="muted">19 Sep</td></tr><tr><td>Clarification train selected</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></td><td class="muted">29 Sep</td></tr><tr><td>TFF and polish defined</td><td class="muted"><x-import component-from-global-scope="Sheetbase.Status" tone="none">Not started</x-import></td><td class="muted">16 Oct</td></tr><tr><td>50 L engineering run</td><td class="muted"><x-import component-from-global-scope="Sheetbase.Status" tone="none">Not started</x-import></td><td class="muted">6 Nov</td></tr></tbody></table></div></section>
+<section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">Approved records</h2><span class="muted num">3</span></div><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t num"><thead><tr><th>Record</th><th>Title</th><th>Approved</th><th>Shared</th><th></th></tr></thead><tbody>
+<tr><td class="mono">EXP-0138</td><td>Transfection ratio, PEI:DNA sweep</td><td>25 Sep · Gareth P.</td><td class="muted">Today</td><td style="text-align: right"><x-import component-from-global-scope="Sheetbase.Button" size="sm" on-click="{{onExported}}">Open PDF</x-import></td></tr>
+<tr><td class="mono">EXP-0136</td><td>Seeding density at transfection</td><td>19 Sep · Mei L.</td><td class="muted">20 Sep</td><td style="text-align: right"><x-import component-from-global-scope="Sheetbase.Button" size="sm" on-click="{{onExported}}">Open PDF</x-import></td></tr>
+<tr><td class="mono">EXP-0133</td><td>Harvest timing: 48, 72 and 96 h</td><td>19 Sep · Mei L.</td><td class="muted">20 Sep</td><td style="text-align: right"><x-import component-from-global-scope="Sheetbase.Button" size="sm" on-click="{{onExported}}">Open PDF</x-import></td></tr></tbody></table></div>
+<div class="muted" style="font-size: 12px">Each PDF includes the signature page and a verification code you can check against the CDMO's audit trail.</div></section>
+</div></sc-if><sc-if value="{{portal.reports.on}}" hint-placeholder-val="{{ false }}"><div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 26px"><section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">Reports</h2><span class="muted num" style="font-size: 12px">3</span><span style="flex-grow: 1"></span></div><div style="border: 1px solid var(--border); border-radius: 6px; overflow: hidden"><table class="t num"><thead><tr><th style="padding-left: 12px">Report</th><th>Covers</th><th>Shared</th><th></th></tr></thead><tbody><tr><td style="padding-left: 12px">Transfection ratio report</td><td>EXP-0138 v2</td><td>25 Sep</td><td><x-import component-from-global-scope="Sheetbase.Button" size="sm" on-click="{{onExported}}">Open PDF</x-import></td></tr><tr><td style="padding-left: 12px">Upstream process lock summary</td><td>EXP-0133, EXP-0136</td><td>20 Sep</td><td><x-import component-from-global-scope="Sheetbase.Button" size="sm" on-click="{{onExported}}">Open PDF</x-import></td></tr><tr><td style="padding-left: 12px">Monthly progress, August</td><td>PRJ-0217</td><td>2 Sep</td><td><x-import component-from-global-scope="Sheetbase.Button" size="sm" on-click="{{onExported}}">Open PDF</x-import></td></tr></tbody></table></div></section></div></sc-if><sc-if value="{{portal.messages.on}}" hint-placeholder-val="{{ false }}"><div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 26px"><section style="display: flex; flex-direction: column; gap: 8px"><div style="display: flex; align-items: baseline; gap: 8px"><h2 class="sh">Messages</h2><span class="muted num" style="font-size: 12px">1</span><span style="flex-grow: 1"></span></div><div style="max-width: 640px; display: flex; flex-direction: column; gap: 12px; font-size: 13px"><div style="border: 1px solid var(--border); border-radius: 6px; padding: 12px"><b style="font-weight: 600">Gareth P.</b> <span class="muted">25 Sep</span><div style="margin-top: 4px">Transfection ratio report is approved and attached. Clarification results expected 29 Sep.</div></div><textarea class="input" rows="3" placeholder="Write to your CDMO team" aria-label="Message"></textarea><div><x-import component-from-global-scope="Sheetbase.Button" variant="primary" on-click="{{onSent}}">Send</x-import></div></div></section></div></sc-if></main>
+<aside class="insp" style="padding: 16px; display: flex; flex-direction: column; gap: 16px"><section><h3>Message from your CDMO</h3><div style="font-size: 12px; line-height: 18px"><b style="font-weight: 500">Gareth P.</b> <span class="muted">· 25 Sep</span><div>Transfection ratio report is approved and attached. Clarification results expected 29 Sep.</div></div><x-import component-from-global-scope="Sheetbase.Button" size="sm" sx="margin-top: 8px" on-click="{{onSent}}">Reply</x-import></section>
+<section><h3>Your access</h3><dl class="dl"><dt>Role</dt><dd>Client viewer</dd><dt>Can</dt><dd>Read and download approved records, message the team</dd><dt>Can't</dt><dd>See drafts, raw data or other clients</dd></dl></section></aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+v.portal = tabs("portal", ["projects", "reports", "messages"], "projects");
+return v;
+}
+}
+</script>
+</body>
+</html>

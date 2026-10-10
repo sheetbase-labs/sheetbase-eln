@@ -1,0 +1,31 @@
+Projects on tablet
+Projects
+24 New project
+All 24 Mine 6 In progress 9 More ▾ In review Archived
+Search projects Filter · 1 Sort
+| | Project | Client | Modality | Stage | Lead | Experiments | Status
+| AAV9 process transfer
+PRJ-0217
+| CL-017 | AAV | Tech transfer | Gareth P. | 14 | In progress
+| LVV stability, 2–8 °C hold
+PRJ-0214
+| CL-009 | LVV | Process development | Priya S. | 9 | In review
+| CAR-T expansion media screen
+PRJ-0211
+| CL-022 | CAR-T | Process development | Tom H. | 21 | In progress
+| AAV full/empty assay qualification
+PRJ-0209
+| Internal | AAV | Analytical development | Mei L. | 6 | Complete
+| Ambr 250 perfusion scale-down
+PRJ-0205
+| Internal | Platform | Process development | Gareth P. | 18 | In progress
+| LVV transfection optimisation
+PRJ-0203
+| CL-009 | LVV | Process development | Priya S. | 11 | On hold
+| HEK293 cell bank characterisation
+PRJ-0198
+| CL-014 | Cell line | Analytical development | Mei L. | 7 | In review
+| AAV8 TFF concentration
+PRJ-0196
+| CL-017 | AAV | Process development | Tom H. | 12 | In progress
+8 of 12 · scroll sideways for all columns · project name stays pinned

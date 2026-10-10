@@ -1,0 +1,32 @@
+Sample measurements, SMP-2231
+Samples / SMP-2231
+Harvest lot HL-0934
+Print label
+Move
+Withdraw volume…
+Released Cell harvest AAV9 process transfer Model Sample v6
+Details Lineage 11 Usage 3 Measurements 18 History
+Measurements
+10 of 18 Fields
+| | Measurement | Value | Unit | Method | Source | Result | Measured
+| Capsid titre (ELISA) | 8.6 × 10¹¹ | cp/mL | EM-004 | DS-0311 rows 1–2 | In spec | 21 Sep
+| Genome titre (ddPCR) | 4.1 × 10¹⁰ | vg/mL | EM-011 | DS-0304 | In spec | 21 Sep
+| Full/empty ratio (AUC) | 12 | % full | EM-015 | DS-0306 | In spec | 22 Sep
+| Turbidity | 310 | NTU | TB-02 | DS-0311 row 81 | Recorded | 21 Sep
+| Viability at harvest | 71.4 | % | ViCell | DS-0303 | Recorded | 20 Sep
+| Host-cell DNA | 2.4 | µg/mL | EM-007 | DS-0307 | Recorded | 22 Sep
+| Bioburden | | CFU/mL | QC-102 | QC LIMS | Pass | 20 Sep
+| Endotoxin | 0.8 | EU/mL | QC-104 | QC LIMS | Pass | 21 Sep
+| pH | 7.12 | | Probe | DS-0299 | Recorded | 20 Sep
+| Osmolality | 312 | mOsm/kg | OSMO-1 | DS-0299 | Recorded | 20 Sep
+Values come from datasets and QC; they can’t be typed here. Release checks use bioburden and endotoxin.
+Label
+SMP-2231
+HL-0934
+2–8 °C · use by 04-Oct
+Hold time
+5 of 14 days used
+Recent history
+23 Sep Gareth P. withdrew 10,350 mL
+21 Sep Gareth P. withdrew 50 mL
+20 Sep Mei L. changed status Quarantine → Released

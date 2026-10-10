@@ -1,57 +1,25 @@
-/**
- * AUTO-03 — Pipeline run detail (`/pipelines/runs/$runId`).
- */
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Navigate } from '@tanstack/react-router'
 
-import { useShell } from '#/components/app-shell'
-import { PipelineRunDetail } from '#/components/pipelines/pipeline-run-detail'
-import { PageHeader } from '#/components/ui'
-import { createDataClient } from '#/lib/data-client'
+import { usePipelineIdForRun } from '#/components/v3/pipelines/pipelines-data'
 
+/** UI port (roadmap-4/ui-app3): run records moved under their pipeline. Links
+ * made before that move (notebook output blocks, admin lists) land here and are
+ * sent on to /pipelines/$pipelineId/runs/$runId. */
 export const Route = createFileRoute('/pipelines/runs/$runId')({
-  beforeLoad: async ({ context: rootContext }) => {
-    const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
-    return { context }
-  },
-  component: PipelineRunRoute,
+  component: RunRedirect,
 })
 
-const dataClient = createDataClient()
-
-function PipelineRunRoute() {
+function RunRedirect() {
   const { runId } = Route.useParams()
-  const { context } = Route.useRouteContext()
-
-  useShell({
-    context: {
-      workspace: context.workspace ? { name: context.workspace.name } : null,
-      user: {
-        name: context.user.name,
-        email: context.user.email,
-        role: context.workspace?.role,
-      },
-    },
-    breadcrumbs: [
-      { label: 'Home', to: '/' },
-      { label: 'Pipelines', to: '/pipelines' },
-      { label: `Run ${runId.slice(0, 8)}` },
-    ],
-  })
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-4 pt-4">
-        <PageHeader
-          compact
-          title={`Run ${runId.slice(0, 8)}`}
-          description="Inputs, ELN action results, outputs and execution log."
-          className="border-0 pb-4"
-        />
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
-        <PipelineRunDetail dataClient={dataClient} runId={runId} />
-      </div>
-    </div>
-  )
+  const pipelineId = usePipelineIdForRun(runId)
+  if (pipelineId.data) {
+    return (
+      <Navigate
+        to="/pipelines/$pipelineId/runs/$runId"
+        params={{ runId, pipelineId: pipelineId.data }}
+        replace
+      />
+    )
+  }
+  return null
 }

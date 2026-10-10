@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+// Align* are text-alignment marks; the v3 set has no equivalents.
 import { AlignCenter, AlignLeft, AlignRight } from 'lucide-react'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 

@@ -1,0 +1,34 @@
+Model, awaiting approval
+Models / MDL-0012
+Clarification run
+Withdraw submission
+v5 awaiting QA approval Submitted by Gareth P., 25 Sep 11:02 v4 stays current until approved
+Fields 10 Rules Versions Usage
+Locked while QA reviews. Anna B. (QA) is assigned · due 30 Sep. You'll be notified when it's approved or returned.
+Changes in v5
+| | Field | Change | Reason
+| Flux | Added Number, LMH, 10–300, default 100 | Record flux per run (PRT-021 v3)
+| Turbidity out | Changed range 0–50 → 0–100 NTU | TB-02 range extended, cert. CAL-0913
+Approval
+Gareth P. · model owner Submitted
+Anna B. · QA Waiting
+On approval: new records use v5. Migration of 3 open experiments was not requested.
+Rules
+3
+| | Rule | Applies to | Effect
+| Turbidity out within allowed range | Turbidity out | Flag value, block submission until resolved
+| Load must be one of the protocol load points | Load | Warn
+| Filter train must be a released material | Filter train | Block
+Versions
+4
+| | Version | Status | Date | Change
+| v5 | Draft | Today | Added Flux; Turbidity range 0–100
+| v4 | Published | 22 Sep | Added Load (L/m²)
+| v3 | Superseded | 2 Sep | Linked turbidity to DS model
+| v2 | Superseded | 14 Aug | Units made required
+Usage
+23 experiments
+| | Where | Count | Version
+| Records | 214 | v4 (88 on older versions)
+| Experiments | 23 | 3 open
+| Protocol templates | 1 | PRT-021 v3

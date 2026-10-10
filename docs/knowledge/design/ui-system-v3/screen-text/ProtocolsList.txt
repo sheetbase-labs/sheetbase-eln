@@ -1,0 +1,32 @@
+Protocols
+Protocols
+38 Import document New protocol
+Effective 31 Mine 9 In review 2 Review due 1 Retired 5
+Table Filter Sort Group
+Search
+| | ID | Protocol | Version | Area | Status | Owner | Effective
+| PRT-021 | Depth-filter clarification screen | v3 | AAV · downstream | Effective | Gareth P. | 2 Sep 2026
+| PRT-018 | Transfection ratio sweep | v2 | AAV · upstream | Effective | Priya S. | 18 Aug 2026
+| PRT-017 | Harvest timing | v2 | AAV · upstream | Effective | Gareth P. | 30 Jul 2026
+| PRT-024 | TFF concentration and diafiltration | v1 | AAV · downstream | In QA review | Tom H. | —
+| PRT-022 | AEX resin screen | v1 | LVV · downstream | Effective | Gareth P. | 12 Jul 2026
+| PRT-020 | T-cell expansion media comparison | v1 | CAR-T · upstream | Effective | Tom H. | 5 Jul 2026
+| PRT-019 | Viral vector hold stability, 2–8 °C | v1 | LVV · stability | Effective | Tom H. | 20 Jun 2026
+| PRT-014 | Ambr 250 perfusion run | v2 | Platform · upstream | Review due 1 Oct | Gareth P. | 1 Oct 2025
+| PRT-012 | Full/empty ratio by AUC | v2 | AAV · analytical | Effective | Mei L. | 3 Jun 2026
+| PRT-009 | Cell bank viability panel | v4 | Cell line · analytical | Effective | Mei L. | 14 May 2026
+| PRT-006 | Harvest clarification by centrifugation | v2 | AAV · downstream | Retired | Gareth P. | —
+PRT-014 v2 Ambr 250 perfusion run
+Periodic review due 1 Oct (6 days)
+Start periodic review Open
+Controlled document
+Effective
+1 Oct 2025
+Approved by
+Gareth P. (author), QA
+Trained
+5 of 6 users
+In use
+11 experiments, 1 open
+Review options
+Confirm as current (no change), or start v3. Experiments keep the version they started on.

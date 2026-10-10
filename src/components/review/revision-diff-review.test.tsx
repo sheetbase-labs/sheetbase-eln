@@ -11,6 +11,35 @@ import { RevisionDiffReview } from './revision-diff-review'
 afterEach(cleanup)
 
 describe('RevisionDiffReview', () => {
+  it('does not claim unchanged scientific content when historical Sheet row identities are unavailable', () => {
+    const snapshot = revisionFixture()
+    snapshot.sheetEvidence = [
+      {
+        blockId: 'historical-sheet',
+        instanceId: 'instance',
+        instanceRevision: 1,
+        sourceDefinitionVersionId: 'definition',
+        datasetBindings: [],
+        instanceState: {},
+        composedGrid: { columns: [{ id: 'titer' }], rows: [[5.9]] },
+      },
+    ]
+    render(
+      <RevisionDiffReview
+        before={snapshot}
+        after={structuredClone(snapshot)}
+      />,
+    )
+    const unavailable = screen
+      .getByText('Cell comparison unavailable')
+      .closest('[role="status"]')
+    expect(unavailable?.textContent).toContain('Cell comparison unavailable')
+    expect(unavailable?.textContent).toContain('stable row identities')
+    expect(
+      screen.queryByText(/submitted scientific content is unchanged/),
+    ).toBeNull()
+  })
+
   it('labels every change kind in text and supports change-type filtering', () => {
     render(
       <RevisionDiffReview

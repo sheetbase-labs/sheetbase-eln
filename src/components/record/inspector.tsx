@@ -1,15 +1,10 @@
 import * as React from 'react'
-import { X } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
-import {
-  Button,
-  Skeleton,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
+import { Tabs, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
+import { Icon } from '#/components/v3/icons'
 
 /**
  * Contextual inspector — the right-hand panel that shows properties, linked
@@ -67,8 +62,8 @@ function StateBlock({
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
       {icon}
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      <p className="text-sm font-medium text-fg">{title}</p>
+      {hint ? <p className="text-xs text-fg-muted">{hint}</p> : null}
     </div>
   )
 }
@@ -89,7 +84,7 @@ export function Inspector({
 
   return (
     <div
-      className={cn('flex h-full min-w-0 flex-col bg-background', className)}
+      className={cn('flex h-full min-w-0 flex-col bg-surface', className)}
       aria-label="Inspector"
     >
       {/* Identity header — omitted when hideHeader is set (e.g. notebook
@@ -98,11 +93,11 @@ export function Inspector({
         <div className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">
-              <h2 className="break-words text-base font-semibold leading-snug text-foreground">
+              <h2 className="break-words text-base font-semibold leading-snug text-fg">
                 {title}
               </h2>
               {recordType || status ? (
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-fg-muted">
                   {recordType ? <span>{recordType}</span> : null}
                   {status}
                 </div>
@@ -110,13 +105,13 @@ export function Inspector({
             </div>
             {onClose ? (
               <Button
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 className="mt-0.5 shrink-0"
                 aria-label="Close inspector"
                 onClick={onClose}
               >
-                <X className="size-4" />
+                <Icon name="x" size={16} />
               </Button>
             ) : null}
           </div>
@@ -148,43 +143,35 @@ export function Inspector({
           />
         ) : showTabs ? (
           <Tabs defaultValue={initial} className="flex flex-col gap-0">
-            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-background px-5">
-              <TabsList className="flex h-auto w-full justify-start gap-3 rounded-none bg-transparent p-0">
+            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-surface px-5">
+              <TabsList className="h-auto w-full justify-start">
                 {tabs.map((tab) => (
-                  <TabsTrigger
-                    key={tab.id}
-                    value={tab.id}
-                    className="-mb-px h-8 rounded-none border-b-2 border-transparent bg-transparent px-0 text-xs text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
-                  >
+                  <TabsTab key={tab.id} value={tab.id}>
                     {tab.label}
                     {tab.badge !== undefined ? (
-                      <span className="ml-1 text-[0.65rem] font-medium text-muted-foreground">
+                      <span className="num text-label text-fg-muted">
                         {tab.badge}
                       </span>
                     ) : null}
-                  </TabsTrigger>
+                  </TabsTab>
                 ))}
               </TabsList>
               {hideHeader && onClose ? (
                 <Button
-                  variant="ghost"
-                  size="icon-sm"
+                  variant="quiet"
+                  size="icon"
                   className="ml-auto shrink-0"
                   aria-label="Close inspector"
                   onClick={onClose}
                 >
-                  <X className="size-4" />
+                  <Icon name="x" size={16} />
                 </Button>
               ) : null}
             </div>
             {tabs.map((tab) => (
-              <TabsContent
-                key={tab.id}
-                value={tab.id}
-                className="mt-0 px-5 pb-6 pt-4"
-              >
+              <TabsPanel key={tab.id} value={tab.id} className="px-5 pb-6 pt-4">
                 {tab.content}
-              </TabsContent>
+              </TabsPanel>
             ))}
           </Tabs>
         ) : null}

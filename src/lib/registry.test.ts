@@ -104,7 +104,7 @@ describe('registry saved views', () => {
 
   it('updates and removes a saved view without duplicating it', () => {
     const store = createRegistrySavedViewStore({
-      registryId: 'reagents',
+      registryId: 'materials',
       workspaceId: 'workspace-a',
       userId: 'owner-a',
       storage: memoryStorage(),

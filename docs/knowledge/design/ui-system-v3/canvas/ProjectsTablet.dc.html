@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Projects on tablet</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<!--tabs [["list", ["all", "mine", "inprogress"], "all"]]-->
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+table[data-tab="all"] tr[data-f]:not([data-f~="all"]){display:none}
+table[data-tab="mine"] tr[data-f]:not([data-f~="mine"]){display:none}
+table[data-tab="inprogress"] tr[data-f]:not([data-f~="inprogress"]){display:none}
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 834px; height: 1112px">
+<header class="topbar"><button class="btn ib" aria-label="Open navigation"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h11"></path></svg></button>
+<span class="h" style="font-size: 15px; font-weight: 600">Sheetbase</span><span style="flex-grow: 1"></span>
+<button class="btn ib" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5L14 14"></path></svg></button>
+<button class="btn ib" aria-label="Account: Gareth P." style="border-radius: 50%; background: var(--selection); font-size: 11px; font-weight: 600">GP</button></header><main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface)">
+<div class="pagehead" style="padding: 14px 16px 0; gap: 4px"><div style="display: flex; align-items: center; gap: 8px"><h1 class="page-title">Projects</h1><span class="muted num">24</span><span style="flex-grow: 1"></span><x-import component-from-global-scope="Sheetbase.Button" variant="primary" sx="height: 36px" href="DialogsCreate.dc.html">New project</x-import></div>
+<div role="tablist" class="tabs" style="gap: 16px"><button type="button" role="tab" class="{{list.all.cls}}" aria-selected="{{list.all.sel}}" onClick="{{list.all.pick}}">All <span class="ct">24</span></button><button type="button" role="tab" class="{{list.mine.cls}}" aria-selected="{{list.mine.sel}}" onClick="{{list.mine.pick}}">Mine <span class="ct">6</span></button><button type="button" role="tab" class="{{list.inprogress.cls}}" aria-selected="{{list.inprogress.sel}}" onClick="{{list.inprogress.pick}}">In progress <span class="ct">9</span></button><span style="position: relative; display: inline-flex"><button type="button" aria-haspopup="menu" aria-expanded="{{exp.more}}" onClick="{{open.more}}">More ▾</button><sc-if value="{{m.more}}" hint-placeholder-val="{{ false }}"><x-import component-from-global-scope="Sheetbase.Menu" aria-label="More filters" sx="left: 0; top: 36px; width: 180px"><x-import component-from-global-scope="Sheetbase.MenuItem" href="Projects.dc.html" hint="3">In review</x-import><x-import component-from-global-scope="Sheetbase.MenuItem" href="Projects.dc.html" hint="12">Archived</x-import></x-import></sc-if></span></div></div>
+<div class="toolbar" style="padding: 8px 16px"><label style="flex-grow: 1"><span class="sr">Search projects</span><input type="search" class="input" placeholder="Search projects" style="height: 36px"></label><x-import component-from-global-scope="Sheetbase.Button" sx="height: 36px; color: var(--accent)">Filter · 1</x-import><x-import component-from-global-scope="Sheetbase.Button" sx="height: 36px">Sort</x-import></div>
+<div style="overflow-x: auto; position: relative"><table data-tab="{{list.now}}" class="t num" style="width: 1000px"><thead><tr><th style="position: sticky; left: 0; padding-left: 16px; box-shadow: 1px 0 0 var(--border)">Project</th><th>Client</th><th>Modality</th><th>Stage</th><th>Lead</th><th class="r">Experiments</th><th>Status</th></tr></thead><tbody><tr data-f="all inprogress mine"><td style="position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--border-subtle); padding-left: 16px; min-width: 230px"><div style="font-weight: 500">AAV9 process transfer</div><div class="mono muted" style="font-size: 11px">PRJ-0217</div></td><td>CL-017</td><td>AAV</td><td>Tech transfer</td><td>Gareth P.</td><td class="r">14</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></td></tr><tr data-f="all"><td style="position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--border-subtle); padding-left: 16px; min-width: 230px"><div style="font-weight: 500">LVV stability, 2–8 °C hold</div><div class="mono muted" style="font-size: 11px">PRJ-0214</div></td><td>CL-009</td><td>LVV</td><td>Process development</td><td>Priya S.</td><td class="r">9</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="review">In review</x-import></td></tr><tr data-f="all inprogress"><td style="position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--border-subtle); padding-left: 16px; min-width: 230px"><div style="font-weight: 500">CAR-T expansion media screen</div><div class="mono muted" style="font-size: 11px">PRJ-0211</div></td><td>CL-022</td><td>CAR-T</td><td>Process development</td><td>Tom H.</td><td class="r">21</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></td></tr><tr data-f="all"><td style="position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--border-subtle); padding-left: 16px; min-width: 230px"><div style="font-weight: 500">AAV full/empty assay qualification</div><div class="mono muted" style="font-size: 11px">PRJ-0209</div></td><td>Internal</td><td>AAV</td><td>Analytical development</td><td>Mei L.</td><td class="r">6</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="ok">Complete</x-import></td></tr><tr data-f="all inprogress mine"><td style="position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--border-subtle); padding-left: 16px; min-width: 230px"><div style="font-weight: 500">Ambr 250 perfusion scale-down</div><div class="mono muted" style="font-size: 11px">PRJ-0205</div></td><td>Internal</td><td>Platform</td><td>Process development</td><td>Gareth P.</td><td class="r">18</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></td></tr><tr data-f="all"><td style="position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--border-subtle); padding-left: 16px; min-width: 230px"><div style="font-weight: 500">LVV transfection optimisation</div><div class="mono muted" style="font-size: 11px">PRJ-0203</div></td><td>CL-009</td><td>LVV</td><td>Process development</td><td>Priya S.</td><td class="r">11</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="warn">On hold</x-import></td></tr><tr data-f="all"><td style="position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--border-subtle); padding-left: 16px; min-width: 230px"><div style="font-weight: 500">HEK293 cell bank characterisation</div><div class="mono muted" style="font-size: 11px">PRJ-0198</div></td><td>CL-014</td><td>Cell line</td><td>Analytical development</td><td>Mei L.</td><td class="r">7</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="review">In review</x-import></td></tr><tr data-f="all inprogress"><td style="position: sticky; left: 0; background: var(--surface); box-shadow: 1px 0 0 var(--border-subtle); padding-left: 16px; min-width: 230px"><div style="font-weight: 500">AAV8 TFF concentration</div><div class="mono muted" style="font-size: 11px">PRJ-0196</div></td><td>CL-017</td><td>AAV</td><td>Process development</td><td>Tom H.</td><td class="r">12</td><td><x-import component-from-global-scope="Sheetbase.Status" tone="progress">In progress</x-import></td></tr></tbody></table><div class="fade-r" aria-hidden="true" style="position: absolute; top: 0; right: 0; bottom: 0; width: 28px; background: linear-gradient(to right, transparent, var(--surface))"></div></div>
+<div class="muted" style="font-size: 12px; padding: 10px 16px">8 of 12 · scroll sideways for all columns · project name stays pinned</div></main>
+<sc-if value="{{m.any}}" hint-placeholder-val="{{ false }}"><button type="button" class="dismiss" aria-label="Close menu" onClick="{{close}}"></button></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":834,"height":1112}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+v.list = tabs("list", ["all", "mine", "inprogress"], "all");
+return v;
+}
+}
+</script>
+</body>
+</html>

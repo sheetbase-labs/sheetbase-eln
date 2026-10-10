@@ -1,0 +1,12 @@
+Analysis, no data
+Analysis / AN-0061
+Untitled analysis
+Draft Save
+Source
+DS-0298 · Ambr 250 readings ▾
+Filter
+Vessel is V05
+No rows match this filter
+DS-0298 has vessels V01–V04. “Vessel is V05” leaves 0 of 84 rows, so there's nothing to plot.
+Remove filter Choose another source
+Axes and settings appear once the chart has data.

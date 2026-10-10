@@ -6,13 +6,15 @@
  * for legacy revisions, decision next-state mapping, and the wire shape the
  * transition RPC wrappers send to PostgREST.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   blockedReasonLabel,
   DECISION_CONSEQUENCE,
   DECISION_NEXT_STATE,
   deriveReviewActionPermission,
+  fetchRevisionRow,
+  reviewWorkspaceDataClient,
   toCanonicalEnvelope,
 } from './review-workspace'
 import type { ReviewActionContext } from './review-workspace'
@@ -171,6 +173,54 @@ describe('DECISION_CONSEQUENCE', () => {
 })
 
 describe('toCanonicalEnvelope', () => {
+  it('loads persisted frozen evidence without changing the signed canonical snapshot', async () => {
+    const canonical = {
+      formatVersion: 1,
+      record: { id: 'rec-1' },
+      blocks: [],
+      links: [],
+      scientificTables: [],
+      formulas: [],
+      files: [],
+    }
+    const stored = revision({ canonical_snapshot: canonical })
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce([stored])
+      .mockResolvedValueOnce([
+        {
+          block_id: 'sheet-1',
+          instance_id: 'instance-1',
+          instance_revision: 4,
+          source_definition_version_id: 'definition-1',
+          instance_state: {},
+          dataset_versions: [{ datasetVersionId: 'frozen-version' }],
+          composed_grid: {
+            columns: [{ id: 'titer', label: 'Log titer' }],
+            rowKeys: ['day28'],
+            rows: [[5.9]],
+          },
+        },
+      ])
+    const fetched = await fetchRevisionRow(
+      { ...reviewWorkspaceDataClient, list },
+      'rev-1',
+    )
+    expect(fetched).not.toBeNull()
+    if (!fetched) throw new Error('revision missing')
+    const envelope = toCanonicalEnvelope(fetched)
+    expect(envelope.sheetEvidence?.[0].composedGrid).toMatchObject({
+      rowKeys: ['day28'],
+      rows: [[5.9]],
+    })
+    expect(stored.canonical_snapshot).toEqual(canonical)
+    expect(fetched.integrity_digest).toBe('a'.repeat(64))
+    expect(list.mock.calls.map(([resource]) => resource)).toEqual([
+      'revisions',
+      'revision_sheet_evidence',
+    ])
+  })
+
   it('uses canonical_snapshot when it carries blocks', () => {
     const blocks = [{ id: 'blk-9', type: 'text', payload: {}, order: 0 }]
     const rev = revision({

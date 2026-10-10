@@ -129,8 +129,8 @@ beforeAll(async () => {
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS}','${OWNER}','owner'),
       ('${OTHER_WS}','${OTHER}','owner');
-    insert into api.projects(id,workspace_id,key,title) values
-      ('${PROJECT}','${WS}','h2','H2')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id) values
+      ('${PROJECT}','${WS}','h2','H2','${OWNER}')`)
   await migrator.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id)
       values ($1,$2,$3,'experiment','H2-A','Notebook',$4)`,

@@ -45,9 +45,9 @@ beforeAll(async () => {
       ('${WS_B}', '${OWNER_B}', 'owner')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ}', '${WS}', 'nb-rpc-proj', 'NB RPC Project'),
-      ('${PROJ_B}', '${WS_B}', 'nb-rpc-proj-b', 'NB RPC Project B')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ}', '${WS}', 'nb-rpc-proj', 'NB RPC Project', '${OWNER}'),
+      ('${PROJ_B}', '${WS_B}', 'nb-rpc-proj-b', 'NB RPC Project B', '${OWNER_B}')`,
   )
 })
 
@@ -115,7 +115,7 @@ describe('create_record_with_blocks', () => {
             {"type":"rich_text","payload":{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Objective text."}]}]}},"order":2}]'::jsonb
       )`,
     )
-    expect(result.record.identifier).toMatch(/^EXP-\d{4}-\d{4}$/)
+    expect(result.record.identifier).toMatch(/^EXP-\d{4}$/)
     expect(result.record.title).toBe('Virus Stability')
     expect(result.blocks).toHaveLength(2)
     expect(result.blocks[0].type).toBe('rich_text')
@@ -592,13 +592,19 @@ describe('insert_block', () => {
   it('inserts strictly between both anchors and rejects inverted anchors', async () => {
     const owner = await asAuthenticated(OWNER, WS)
     const { recordId } = await seedEmpty(owner)
-    const first = await rpcByName<{ block: { id: string }; structure_version: number }>(
+    const first = await rpcByName<{
+      block: { id: string }
+      structure_version: number
+    }>(
       owner,
       `insert_block(
         '${recordId}'::uuid, 'checklist',
         '{"items":[]}'::jsonb, 1, NULL, 1)`,
     )
-    const second = await rpcByName<{ block: { id: string }; structure_version: number }>(
+    const second = await rpcByName<{
+      block: { id: string }
+      structure_version: number
+    }>(
       owner,
       `insert_block(
         '${recordId}'::uuid, 'checklist',
@@ -613,9 +619,11 @@ describe('insert_block', () => {
         '${recordId}'::uuid, 'rich_text',
         '{"doc":{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"mid"}]}]}}'::jsonb, 1, '${first.block.id}'::uuid, ${second.structure_version}, '${second.block.id}'::uuid)`,
     )
-    expect(
-      mid.order.map((b) => b.id),
-    ).toEqual([first.block.id, mid.block.id, second.block.id])
+    expect(mid.order.map((b) => b.id)).toEqual([
+      first.block.id,
+      mid.block.id,
+      second.block.id,
+    ])
 
     // Inverted anchors are rejected like move_block.
     await expect(

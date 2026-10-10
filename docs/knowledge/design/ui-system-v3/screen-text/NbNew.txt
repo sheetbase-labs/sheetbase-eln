@@ -1,0 +1,42 @@
+Notebook, new from template
+Projects / AAV9 process transfer / EXP-0145
+Harvest clarification: 50 L confirmation run
+Delete draft
+Start experiment
+Draft Owner Gareth P. From template Depth-filter clarification screen v3 2 required items before you can start
+Overview Notebook Samples 0 Datasets 0 Results Files 1 History
+Built from PRT-021 v3 : 6 sections, 1 sheet with model Clarification run v4 . Protocol text is linked; editing it records a deviation.
+Objective Required
+What will this experiment decide? For example: confirm train B at 150 L/m² gives ≥ 80 % step yield at 50 L scale.
+Materials Required
+No materials yet. PRT-021 needs a harvest lot and one filter train.
++ Add record Suggested from EXP-0142: MAT-0419 Filter train B
+Method From PRT-021 v3, section 4
+Hold harvest at 2–8 °C. Filter at a constant flux of 100 LMH to the target load. Sample filtrate at 50 L/m² intervals for turbidity and capsid titre (ELISA, method EM-004). Record pressure every 10 L/m².
+Clarification runs Sheet · Clarification run v4 · 0 rows
+| | | Condition * | Filter train * | Load (L/m²) * | Turbidity out (NTU) | Capsid titre (cp/mL) | Step yield (%) ƒx | Meets criteria ƒx
+| 1 | Type a condition, or paste rows from a spreadsheet
+* Required to save a row. Measured columns fill from datasets once linked.
+Figure 1 · Step yield by filter load
+Draws when Step yield has values
+Observations
+Add what you saw during the run.
+Result summary Required to submit
+Selected train, maximum load, step yield, filtrate turbidity and decision.
+Before you start 2 of 4
+Project linked · AAV9 process transfer
+Protocol · PRT-021 v3 (approved)
+Objective written · required
+Harvest lot and filter train added · required
+Properties
+Status
+Draft
+Owner
+Gareth P.
+Reviewer
+Assign…
+Follows
+EXP-0142
+Created
+25 Sep 2026, 09:40
+Only you can see this draft until you start the experiment. Changes are recorded in History from creation.

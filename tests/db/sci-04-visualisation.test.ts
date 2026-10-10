@@ -43,7 +43,11 @@ async function insertDataset(
   const schemaRes = await migrator.query(
     `INSERT INTO api.dataset_schema_definitions(workspace_id,key,name,lifecycle)
      VALUES ($1,$2,$3,'active') RETURNING id`,
-    [WS_A, `sci04_${name}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`, name],
+    [
+      WS_A,
+      `sci04_${name}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
+      name,
+    ],
   )
   const svRes = await migrator.query(
     `INSERT INTO api.dataset_schema_versions(schema_id,"version",lifecycle)
@@ -195,8 +199,8 @@ beforeAll(async () => {
      VALUES ('${WS_A}','${USER_A}','owner')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title)
-     VALUES ('${PROJECT_A}','${WS_A}','sci-04','SCI 04')`,
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id)
+     VALUES ('${PROJECT_A}','${WS_A}','sci-04','SCI 04','${USER_A}')`,
   )
   await migrator.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER_A, workspace_id: WS_A }),
@@ -226,7 +230,9 @@ beforeAll(async () => {
 afterAll(async () => {
   // Frozen Dataset Versions pin the creating user; they are immutable
   // evidence, so this fixture does not delete the Dataset or owner.
-  await migrator.query(`DELETE FROM api.records WHERE project_id=$1`, [PROJECT_A])
+  await migrator.query(`DELETE FROM api.records WHERE project_id=$1`, [
+    PROJECT_A,
+  ])
   await migrator.query(`DELETE FROM api.projects WHERE id=$1`, [PROJECT_A])
 })
 
@@ -251,7 +257,9 @@ describe('SCI-04 visualisation freeze', () => {
     const chart = rematerialiseFrozenChart(spec as ChartSpec, frozen, rows)
     expect(chart.state.kind).toBe('ok')
     expect(
-      chart.series[0].points.map((point) => point.y).sort((a, b) => Number(a) - Number(b)),
+      chart.series[0].points
+        .map((point) => point.y)
+        .sort((a, b) => Number(a) - Number(b)),
     ).toEqual([2, 4, 6])
   })
 
@@ -330,9 +338,9 @@ describe('SCI-04 visualisation freeze', () => {
       block.version,
     ])
     const frozen = res.rows[0].payload.frozen as FrozenChart
-    expect(
-      frozen.data.columns.map((column) => column.fieldId).sort(),
-    ).toEqual([fieldRow, fieldCol, fieldSignal].sort())
+    expect(frozen.data.columns.map((column) => column.fieldId).sort()).toEqual(
+      [fieldRow, fieldCol, fieldSignal].sort(),
+    )
 
     const reconstructed = rematerialiseFrozenChart(
       spec as ChartSpec,
@@ -349,10 +357,10 @@ describe('SCI-04 visualisation freeze', () => {
   it('keeps the pinned Version after the live Dataset is mutated', async () => {
     const spec = specFor('scatter')
     const block = await insertChartBlock(spec)
-    const frozenRes = await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
-      block.id,
-      block.version,
-    ])
+    const frozenRes = await migrator.query(
+      `SELECT * FROM api.freeze_chart($1,$2)`,
+      [block.id, block.version],
+    )
     const frozen = frozenRes.rows[0].payload.frozen as FrozenChart
     const versionId = frozen.datasetProvenance[0].datasetVersionId!
     const pinned = rematerialiseFrozenChart(
@@ -361,7 +369,9 @@ describe('SCI-04 visualisation freeze', () => {
       await loadPinnedVersionRows(migrator, versionId),
     )
     expect(
-      pinned.series[0].points.map((point) => point.y).sort((a, b) => Number(a) - Number(b)),
+      pinned.series[0].points
+        .map((point) => point.y)
+        .sort((a, b) => Number(a) - Number(b)),
     ).toEqual([2, 4, 6])
 
     const rowRes = await migrator.query(
@@ -390,9 +400,11 @@ describe('SCI-04 visualisation freeze', () => {
       frozen,
       await loadPinnedVersionRows(migrator, versionId),
     )
-    expect(still.series[0].points.map((point) => point.y).sort((a, b) => Number(a) - Number(b))).toEqual(
-      [2, 4, 6],
-    )
+    expect(
+      still.series[0].points
+        .map((point) => point.y)
+        .sort((a, b) => Number(a) - Number(b)),
+    ).toEqual([2, 4, 6])
   })
 
   it('matches live materialisation for log10, SEM, violin, OLS and error bars', async () => {
@@ -570,17 +582,24 @@ describe('SCI-04 visualisation freeze', () => {
         facet: null,
       },
     }
-    expect(validateChartSpec(invalid).some((error) => error.field === 'spec.fields.x')).toBe(
-      true,
-    )
-    await expect(insertChartBlock(invalid)).rejects.toMatchObject({ code: '23514' })
+    expect(
+      validateChartSpec(invalid).some(
+        (error) => error.field === 'spec.fields.x',
+      ),
+    ).toBe(true)
+    await expect(insertChartBlock(invalid)).rejects.toMatchObject({
+      code: '23514',
+    })
   })
 
   it('rejects malformed SCI-04 overlays and typeParams in TypeScript and the trigger', async () => {
     const cases: Array<{ name: string; spec: unknown }> = [
       {
         name: 'ols degree 5',
-        spec: { ...specFor(), overlays: { errorBars: null, fit: { method: 'ols', degree: 5 } } },
+        spec: {
+          ...specFor(),
+          overlays: { errorBars: null, fit: { method: 'ols', degree: 5 } },
+        },
       },
       {
         name: 'hline without a numeric value',
@@ -641,11 +660,11 @@ describe('SCI-04 visualisation freeze', () => {
       },
     ]
     for (const item of cases) {
-      expect(
-        validateChartSpec(item.spec).length,
+      expect(validateChartSpec(item.spec).length, item.name).toBeGreaterThan(0)
+      await expect(
+        insertChartBlock(item.spec),
         item.name,
-      ).toBeGreaterThan(0)
-      await expect(insertChartBlock(item.spec), item.name).rejects.toMatchObject({
+      ).rejects.toMatchObject({
         code: '23514',
       })
     }

@@ -59,6 +59,32 @@ capability sets is later GOV work if product requires it.
 The database still uses separate capability names (trigger split). That is not a
 two-person control.
 
+## Dataset schema publication approval
+
+General settings at `/settings/` expose `publication_approval_required`.
+Only an unsuspended owner or admin in the active workspace can change this
+policy through `update_workspace_publication_policy`. It defaults to `false`.
+
+When enabled, `publish_dataset_schema_version` requires the latest request to
+be approved for the draft's current revision. When disabled, a draft with no
+request retains direct publication. Existing requests still gate publication:
+pending requests lock field replacement and draft deletion, and returned or
+withdrawn requests cannot reuse an older approval. Field replacement increments
+the draft revision, so an approval cannot authorise later edits.
+
+`submit_approval_request` validates a dataset schema version's workspace,
+draft lifecycle and optional expected revision, then records the current
+revision. Approver roles, approval counts, independence and decision history
+remain enforced by the existing approval RPCs. Publication still requires
+`schema.publish`. Dataset evolution and dataset-targeted promotions call the
+same publication RPC and cannot bypass this policy.
+
+This policy governs canonical dataset schema versions, not the legacy
+SCI-010 schema system or unrelated sheet, template and pipeline publication.
+Workspace Record Models currently have no version-publication RPC. Their
+versioned approval workflow remains an unmet MDL requirement; dataset schema
+approval does not establish that exit.
+
 ## External API
 
 External credentials (`api_client`) do not use workspace `viewer`. Their allowlist

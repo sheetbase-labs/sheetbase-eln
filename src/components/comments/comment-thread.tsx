@@ -1,7 +1,9 @@
 import * as React from 'react'
-import { CheckCircle2, MessageSquare, RotateCcw } from 'lucide-react'
+import { CheckCircle2, RotateCcw } from 'lucide-react'
 
-import { Badge, Button } from '#/components/ui'
+import { Icon } from '#/components/icons'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import { cn } from '#/lib/utils'
 import type { CommentTargetKind, CommentWire } from '#/lib/comments-data'
 
@@ -23,6 +25,7 @@ export interface CommentThreadProps {
   onResolve: (commentId: string) => Promise<void>
   onReopen: (commentId: string) => Promise<void>
   pendingReplyId?: string | null
+  targetUnavailable?: boolean
 }
 
 const TARGET_KIND_LABEL: Record<CommentTargetKind, string> = {
@@ -30,6 +33,9 @@ const TARGET_KIND_LABEL: Record<CommentTargetKind, string> = {
   block: 'Block',
   table_region: 'Table region',
   diff: 'Diff',
+  sheet_cell: 'Sheet cell',
+  sheet_row: 'Sheet row',
+  sheet_range: 'Sheet range',
 }
 
 function authorLabel(
@@ -56,6 +62,9 @@ function describeTarget(
   if (kind === 'revision') return TARGET_KIND_LABEL.revision
   if (kind === 'block')
     return `${TARGET_KIND_LABEL.block} ${target.blockId ?? ''}`.trim()
+  if (kind === 'sheet_cell' || kind === 'sheet_row' || kind === 'sheet_range') {
+    return `${TARGET_KIND_LABEL[kind]} · ${target.rowKeys?.length ?? 0} ${target.rowKeys?.length === 1 ? 'row' : 'rows'}${kind === 'sheet_row' ? '' : ` · ${target.fieldIds?.length ?? 0} ${target.fieldIds?.length === 1 ? 'field' : 'fields'}`}`
+  }
   if (kind === 'table_region') {
     const parts = [target.tableId, target.rowId, target.columnId].filter(
       (value): value is string => typeof value === 'string' && value.length > 0,
@@ -94,7 +103,11 @@ function CommentRow({
   )
   const deleted = comment.author_user_id === null
   return (
-    <article className="rounded-lg border bg-card p-3">
+    <article
+      data-comment-id={comment.id}
+      tabIndex={-1}
+      className="rounded-lg border bg-surface p-3 focus-visible:outline-2 focus-visible:outline-ring"
+    >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-2">
           <span
@@ -103,7 +116,7 @@ function CommentRow({
             className={cn(
               'flex size-6 items-center justify-center rounded-full text-xs font-semibold',
               deleted
-                ? 'bg-muted text-muted-foreground'
+                ? 'bg-surface-muted text-fg-muted'
                 : 'bg-primary/15 text-primary',
             )}
           >
@@ -111,11 +124,11 @@ function CommentRow({
           </span>
           <span className="text-xs font-medium">{label}</span>
         </span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-fg-muted">
           {formatRelative(comment.created_at)}
         </span>
       </div>
-      <p className="mt-2 break-words text-sm leading-6 text-foreground whitespace-pre-wrap">
+      <p className="mt-2 break-words text-sm leading-6 text-fg whitespace-pre-wrap">
         {comment.body}
       </p>
     </article>
@@ -133,6 +146,7 @@ export function CommentThread({
   onResolve,
   onReopen,
   pendingReplyId,
+  targetUnavailable = false,
 }: CommentThreadProps) {
   const [replyBody, setReplyBody] = React.useState('')
   const [showReply, setShowReply] = React.useState(false)
@@ -150,7 +164,7 @@ export function CommentThread({
   return (
     <li className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={resolved ? 'success' : 'info'}>
+        <Badge variant={resolved ? 'add' : 'kind'}>
           {resolved ? (
             <>
               <CheckCircle2 className="size-3" aria-hidden="true" />
@@ -158,15 +172,19 @@ export function CommentThread({
             </>
           ) : (
             <>
-              <MessageSquare className="size-3" aria-hidden="true" />
+              <Icon name="comment" className="size-3" aria-hidden="true" />
               Open
             </>
           )}
         </Badge>
-        <span className="text-xs text-muted-foreground">
-          Anchored to {targetLabel}
-        </span>
+        <span className="text-xs text-fg-muted">Anchored to {targetLabel}</span>
       </div>
+      {targetUnavailable ? (
+        <p className="text-xs text-fg-muted">
+          Original target unavailable in this view. This thread retains its
+          historical anchor.
+        </p>
+      ) : null}
 
       <CommentRow
         comment={root}
@@ -198,7 +216,7 @@ export function CommentThread({
         <div className="flex flex-wrap items-center gap-2">
           {!resolved ? (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => onResolve(root.id)}
               aria-label="Resolve thread"
@@ -208,7 +226,7 @@ export function CommentThread({
             </Button>
           ) : (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => onReopen(root.id)}
               aria-label="Reopen thread"
@@ -219,7 +237,7 @@ export function CommentThread({
           )}
           {!showReply ? (
             <Button
-              variant="ghost"
+              variant="quiet"
               size="sm"
               onClick={() => setShowReply(true)}
               aria-label="Reply to thread"
@@ -233,7 +251,7 @@ export function CommentThread({
       {showReply && canComment ? (
         <form onSubmit={handleReply} className="space-y-2 pl-5">
           <textarea
-            className="min-h-[60px] w-full rounded-md border bg-background px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-[60px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             placeholder="Write a reply…"
             value={replyBody}
             onChange={(event) => setReplyBody(event.target.value)}
@@ -249,7 +267,7 @@ export function CommentThread({
             </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="quiet"
               size="sm"
               onClick={() => {
                 setShowReply(false)

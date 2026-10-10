@@ -24,7 +24,8 @@
 import * as React from 'react'
 import { Puzzle } from 'lucide-react'
 
-import { Button, CommandGroup, CommandItem } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { CommandGroup, CommandItem } from '#/components/ui'
 import type { InspectorTab } from '#/components/record'
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
 
@@ -43,7 +44,7 @@ export function ExtensionObjectActions({
           key={action.key}
           type="button"
           size="sm"
-          variant="ghost"
+          variant="quiet"
           title={`${action.title} (from ${action.extensionKey})`}
           onClick={() => onSelect(action)}
         >
@@ -73,7 +74,7 @@ export function ExtensionCommandGroup({
         >
           <Puzzle className="size-4" aria-hidden />
           {command.title}
-          <span className="ml-auto text-xs text-muted-foreground">
+          <span className="ml-auto text-xs text-fg-muted">
             {command.extensionKey}
           </span>
         </CommandItem>

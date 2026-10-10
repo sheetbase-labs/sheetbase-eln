@@ -9,7 +9,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { grantProjectAccess, prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000330a'
 const WS_B = '00000000-0000-4000-8000-00000000330b'
@@ -37,10 +37,9 @@ async function asAuthenticated(
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
-  await client.query(
-    "SELECT set_config('request.jwt.claims', $1, false)",
-    [claims(userId, workspaceId)],
-  )
+  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+    claims(userId, workspaceId),
+  ])
   return client
 }
 
@@ -52,7 +51,7 @@ async function createReagent(
   properties: Record<string, unknown> = {},
 ): Promise<Record<string, any>> {
   const { rows } = await client.query(
-    `SELECT * FROM api.create_record($1::uuid, 'reagent', $2, $3, ARRAY[]::text[], $4::jsonb)`,
+    `SELECT * FROM api.create_record($1::uuid, 'material', $2, $3, ARRAY[]::text[], $4::jsonb)`,
     [project, title, status, JSON.stringify(properties)],
   )
   return rows[0]
@@ -98,9 +97,17 @@ beforeAll(async () => {
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_A}', '${MEMBER_A}', 'member'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'reg003-a', 'REG-003 A')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'reg003-a', 'REG-003 A', '${OWNER_A}')`,
   )
+
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: true,
+  })
 })
 
 afterAll(async () => {
@@ -111,17 +118,30 @@ afterAll(async () => {
 describe('record_reagent_movement — receive', () => {
   it('increases quantity, sets status to available, and writes a ledger snapshot', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Acetonitrile', 'available', {
-      supplier: 'Sigma',
-      catalog_no: 'A123',
-      lot: 'L9',
-      expiry: '2027-01-01',
-      quantity: '5',
-      unit: 'mL',
-      storage: '-20 °C',
-    })
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Acetonitrile',
+      'available',
+      {
+        supplier: 'Sigma',
+        catalog_no: 'A123',
+        lot: 'L9',
+        expiry: '2027-01-01',
+        quantity: '5',
+        unit: 'mL',
+        storage: '-20 °C',
+      },
+    )
 
-    const result = await move(owner, reagent.id, 'receive', 10, reagent.metadata_version, 'PO-1')
+    const result = await move(
+      owner,
+      reagent.id,
+      'receive',
+      10,
+      reagent.metadata_version,
+      'PO-1',
+    )
     expect(result.record.status).toBe('available')
     expect(result.record.metadata_version).toBe(reagent.metadata_version + 1)
     expect(Number(result.record.properties.quantity)).toBe(15)
@@ -139,27 +159,51 @@ describe('record_reagent_movement — receive', () => {
 
   it('restocks a consumed reagent back to available', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Consumed reagent', 'consumed', {
-      quantity: '0',
-      unit: 'mL',
-    })
-    const result = await move(owner, reagent.id, 'receive', 5, reagent.metadata_version)
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Consumed reagent',
+      'consumed',
+      {
+        quantity: '0',
+        unit: 'mL',
+      },
+    )
+    const result = await move(
+      owner,
+      reagent.id,
+      'receive',
+      5,
+      reagent.metadata_version,
+    )
     expect(result.record.status).toBe('available')
     expect(Number(result.record.properties.quantity)).toBe(5)
   })
 
   it('rejects receive on a quarantined reagent', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Quarantined receive', 'available', {
-      quantity: '3',
-    })
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Quarantined receive',
+      'available',
+      {
+        quantity: '3',
+      },
+    )
     await move(owner, reagent.id, 'quarantine', null, reagent.metadata_version)
     const quarantined = await owner.query(
       `SELECT metadata_version FROM api.records WHERE id=$1`,
       [reagent.id],
     )
     await expect(
-      move(owner, reagent.id, 'receive', 2, quarantined.rows[0].metadata_version),
+      move(
+        owner,
+        reagent.id,
+        'receive',
+        2,
+        quarantined.rows[0].metadata_version,
+      ),
     ).rejects.toMatchObject({ code: 'SB004' })
   })
 })
@@ -167,11 +211,24 @@ describe('record_reagent_movement — receive', () => {
 describe('record_reagent_movement — consume', () => {
   it('decreases quantity and writes a negative delta', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Consume me', 'available', {
-      quantity: '10',
-      unit: 'mL',
-    })
-    const result = await move(owner, reagent.id, 'consume', 4, reagent.metadata_version, 'EXP-1')
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Consume me',
+      'available',
+      {
+        quantity: '10',
+        unit: 'mL',
+      },
+    )
+    const result = await move(
+      owner,
+      reagent.id,
+      'consume',
+      4,
+      reagent.metadata_version,
+      'EXP-1',
+    )
     expect(Number(result.record.properties.quantity)).toBe(6)
     expect(Number(result.movement.quantity_delta)).toBe(-4)
     expect(Number(result.movement.resulting_quantity)).toBe(6)
@@ -180,19 +237,37 @@ describe('record_reagent_movement — consume', () => {
 
   it('sets status to consumed when quantity reaches zero', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Drain to zero', 'available', {
-      quantity: '5',
-    })
-    const result = await move(owner, reagent.id, 'consume', 5, reagent.metadata_version)
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Drain to zero',
+      'available',
+      {
+        quantity: '5',
+      },
+    )
+    const result = await move(
+      owner,
+      reagent.id,
+      'consume',
+      5,
+      reagent.metadata_version,
+    )
     expect(Number(result.record.properties.quantity)).toBe(0)
     expect(result.record.status).toBe('consumed')
   })
 
   it('rejects over-consume with insufficient_stock', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Over consume', 'available', {
-      quantity: '3',
-    })
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Over consume',
+      'available',
+      {
+        quantity: '3',
+      },
+    )
     await expect(
       move(owner, reagent.id, 'consume', 10, reagent.metadata_version),
     ).rejects.toMatchObject({ code: 'SB006' })
@@ -202,10 +277,22 @@ describe('record_reagent_movement — consume', () => {
 describe('record_reagent_movement — quarantine and restore', () => {
   it('quarantines an available reagent without changing quantity', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Quarantine me', 'available', {
-      quantity: '7',
-    })
-    const result = await move(owner, reagent.id, 'quarantine', null, reagent.metadata_version)
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Quarantine me',
+      'available',
+      {
+        quantity: '7',
+      },
+    )
+    const result = await move(
+      owner,
+      reagent.id,
+      'quarantine',
+      null,
+      reagent.metadata_version,
+    )
     expect(result.record.status).toBe('quarantined')
     expect(Number(result.movement.quantity_delta)).toBe(0)
     expect(Number(result.movement.resulting_quantity)).toBe(7)
@@ -213,20 +300,44 @@ describe('record_reagent_movement — quarantine and restore', () => {
 
   it('restores a quarantined reagent to available', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Restore me', 'available', {
-      quantity: '7',
-    })
-    const quarantined = await move(owner, reagent.id, 'quarantine', null, reagent.metadata_version)
-    const result = await move(owner, reagent.id, 'restore', null, quarantined.record.metadata_version)
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Restore me',
+      'available',
+      {
+        quantity: '7',
+      },
+    )
+    const quarantined = await move(
+      owner,
+      reagent.id,
+      'quarantine',
+      null,
+      reagent.metadata_version,
+    )
+    const result = await move(
+      owner,
+      reagent.id,
+      'restore',
+      null,
+      quarantined.record.metadata_version,
+    )
     expect(result.record.status).toBe('available')
     expect(result.movement.operation).toBe('restore')
   })
 
   it('rejects quarantine of a non-available reagent', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Reserved quarantine', 'reserved', {
-      quantity: '1',
-    })
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Reserved quarantine',
+      'reserved',
+      {
+        quantity: '1',
+      },
+    )
     await expect(
       move(owner, reagent.id, 'quarantine', null, reagent.metadata_version),
     ).rejects.toMatchObject({ code: 'SB004' })
@@ -247,9 +358,15 @@ describe('record_reagent_movement — guards', () => {
 
   it('rejects archived reagents as frozen', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Archive then move', 'available', {
-      quantity: '2',
-    })
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Archive then move',
+      'available',
+      {
+        quantity: '2',
+      },
+    )
     const { rows: archived } = await owner.query(
       `SELECT * FROM api.archive_record($1, $2)`,
       [reagent.id, reagent.metadata_version],
@@ -261,9 +378,15 @@ describe('record_reagent_movement — guards', () => {
 
   it('rejects stale metadata versions (optimistic concurrency)', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Stale move', 'available', {
-      quantity: '2',
-    })
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Stale move',
+      'available',
+      {
+        quantity: '2',
+      },
+    )
     await move(owner, reagent.id, 'receive', 1, reagent.metadata_version)
     // Reuse the original (now stale) version.
     await expect(
@@ -274,9 +397,15 @@ describe('record_reagent_movement — guards', () => {
   it('rejects cross-workspace reagents', async () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
-    const reagent = await createReagent(ownerA, PROJ_A, 'Cross ws', 'available', {
-      quantity: '2',
-    })
+    const reagent = await createReagent(
+      ownerA,
+      PROJ_A,
+      'Cross ws',
+      'available',
+      {
+        quantity: '2',
+      },
+    )
     await expect(
       move(ownerB, reagent.id, 'receive', 1, reagent.metadata_version),
     ).rejects.toMatchObject({ code: '42501' })
@@ -284,9 +413,15 @@ describe('record_reagent_movement — guards', () => {
 
   it('attributes the actor on the ledger row', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Attributed', 'available', {
-      quantity: '1',
-    })
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Attributed',
+      'available',
+      {
+        quantity: '1',
+      },
+    )
     await move(owner, reagent.id, 'receive', 1, reagent.metadata_version)
     const ledger = await movementsFor(owner, reagent.id)
     expect(ledger[0].actor_user_id).toBe(OWNER_A)
@@ -297,11 +432,13 @@ describe('reagent_attention_summary — threshold-derived counts', () => {
   it('counts low stock, near expiry, expired and quarantined from properties', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     // Use a dedicated project so these reagents don't collide with other tests.
-    const { rows: projectRows } = await owner.query(
-      `INSERT INTO api.projects (id, workspace_id, key, title) VALUES ('00000000-0000-4000-8000-00000000339a', $1, 'reg003-attn', 'REG-003 Attn') RETURNING id`,
-      [WS_A],
+    const attnProject = '00000000-0000-4000-8000-00000000339a'
+    // No RETURNING: the owner rule is created by an AFTER INSERT trigger, and
+    // the new row is only readable once that trigger has run.
+    await owner.query(
+      `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES ($1, $2, 'reg003-attn', 'REG-003 Attn', $3)`,
+      [attnProject, WS_A, OWNER_A],
     )
-    const attnProject = projectRows[0].id
 
     // Low stock: quantity at threshold.
     await createReagent(owner, attnProject, 'Low stock', 'available', {
@@ -319,10 +456,22 @@ describe('reagent_attention_summary — threshold-derived counts', () => {
       expiry: '2020-01-01',
     })
     // Quarantined.
-    const quarantined = await createReagent(owner, attnProject, 'Quarantined', 'available', {
-      quantity: '5',
-    })
-    await move(owner, quarantined.id, 'quarantine', null, quarantined.metadata_version)
+    const quarantined = await createReagent(
+      owner,
+      attnProject,
+      'Quarantined',
+      'available',
+      {
+        quantity: '5',
+      },
+    )
+    await move(
+      owner,
+      quarantined.id,
+      'quarantine',
+      null,
+      quarantined.metadata_version,
+    )
     // OK reagent.
     await createReagent(owner, attnProject, 'Healthy', 'available', {
       quantity: '100',
@@ -358,14 +507,26 @@ describe('reagent_attention_summary — threshold-derived counts', () => {
 describe('reagent_movements — ledger preservation', () => {
   it('preserves historical supplier/lot snapshot after the record is updated', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
-    const reagent = await createReagent(owner, PROJ_A, 'Snapshot preservation', 'available', {
-      supplier: 'Old Supplier',
-      lot: 'LOT-OLD',
-      quantity: '10',
-      unit: 'mL',
-    })
+    const reagent = await createReagent(
+      owner,
+      PROJ_A,
+      'Snapshot preservation',
+      'available',
+      {
+        supplier: 'Old Supplier',
+        lot: 'LOT-OLD',
+        quantity: '10',
+        unit: 'mL',
+      },
+    )
     // Record a movement with the original supplier/lot.
-    const first = await move(owner, reagent.id, 'receive', 5, reagent.metadata_version)
+    const first = await move(
+      owner,
+      reagent.id,
+      'receive',
+      5,
+      reagent.metadata_version,
+    )
     expect(first.movement.supplier).toBe('Old Supplier')
     expect(first.movement.lot).toBe('LOT-OLD')
 
@@ -384,7 +545,13 @@ describe('reagent_movements — ledger preservation', () => {
       `SELECT metadata_version FROM api.records WHERE id=$1`,
       [reagent.id],
     )
-    const second = await move(owner, reagent.id, 'consume', 3, fresh.rows[0].metadata_version)
+    const second = await move(
+      owner,
+      reagent.id,
+      'consume',
+      3,
+      fresh.rows[0].metadata_version,
+    )
     expect(second.movement.supplier).toBe('New Supplier')
     expect(second.movement.lot).toBe('LOT-NEW')
 

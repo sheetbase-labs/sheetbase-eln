@@ -10,7 +10,7 @@
  * (identity/workspace/project steps arrive with API-003).
  */
 import { config } from 'dotenv'
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
@@ -20,6 +20,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import * as schema from '../schema'
 import { resolveDevUserIdentity } from '#/lib/dev-identity'
 import { monthSteps } from './month'
+import { DESIGN_WORKSPACE_IDS, designSteps } from './design'
 import {
   seedNotebookSheetGrid,
   virusStabilitySheetFields,
@@ -152,6 +153,9 @@ export const fixtureSteps: Array<SeedStep> = [
           workspaceId: FIXTURE_WORKSPACE_ID,
           key: FIXTURE_PROJECT_KEY,
           title: 'Fixture Project',
+          // The native owner-rule trigger needs the declared lead at creation
+          // so the fixture user can actually work in their own project.
+          leadUserId: FIXTURE_USER_ID,
         })
         // A live workspace may already own the historical fixture UUID. Do
         // not mutate or move that row when running an additive seed.
@@ -211,6 +215,9 @@ export const demoSteps: Array<SeedStep> = [
           workspaceId: FIXTURE_WORKSPACE_ID,
           key: DEMO_VIRUS_STABILITY_PROJECT_KEY,
           title: 'Lentivector Stability Study',
+          // The native owner-rule trigger needs the declared lead at creation
+          // so the demo user can work in the demo project.
+          leadUserId: FIXTURE_USER_ID,
         })
         .onConflictDoUpdate({
           target: [schema.projects.workspaceId, schema.projects.key],
@@ -375,6 +382,22 @@ export const demoSteps: Array<SeedStep> = [
             archivedAt: null,
           },
         })
+    },
+  },
+  {
+    name: 'demo sample alias: LVV-CAR-T harvest lot',
+    run: async (db) => {
+      // LAB-06 "also known as": a harvest lot people scan or type that
+      // resolves to the drug-substance sample.
+      await db
+        .insert(schema.recordAliases)
+        .values({
+          workspaceId: FIXTURE_WORKSPACE_ID,
+          recordId: DEMO_SAMPLE_RECORD_ID,
+          alias: 'HL-0934',
+          createdByUserId: DEV_USER.id,
+        })
+        .onConflictDoNothing()
     },
   },
   {
@@ -1157,7 +1180,7 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   {
-    name: 'demo reagents: registry fixtures',
+    name: 'demo materials: registry fixtures',
     run: async (db) => {
       const reagents = [
         {
@@ -1165,7 +1188,7 @@ export const demoSteps: Array<SeedStep> = [
           identifier: DEMO_REAGENT_IDENTIFIER,
           title: 'TaqMan qPCR kit',
           status: 'available',
-          tags: ['qPCR', 'reagent'],
+          tags: ['qPCR', 'material'],
           properties: {
             supplier: 'Acme Biosystems',
             catalog_no: 'TAQ-1000',
@@ -1485,7 +1508,7 @@ export const demoSteps: Array<SeedStep> = [
             identifier: `RGT-2026-${String(sequence).padStart(4, '0')}`,
             title,
             status,
-            tags: [category, 'reagent'],
+            tags: [category, 'material'],
             properties: {
               supplier,
               catalog_no: `DEMO-${String(sequence).padStart(4, '0')}`,
@@ -1507,7 +1530,7 @@ export const demoSteps: Array<SeedStep> = [
             ...reagent,
             workspaceId: FIXTURE_WORKSPACE_ID,
             projectId: DEMO_VIRUS_STABILITY_PROJECT_ID,
-            kind: 'reagent',
+            kind: 'material',
             createdByUserId: FIXTURE_USER_ID,
           })
           .onConflictDoUpdate({
@@ -1751,20 +1774,10 @@ export const demoSteps: Array<SeedStep> = [
               {
                 id: 'reagent-active',
                 materialRecordId: DEMO_REAGENT_RECORD_ID,
-                kind: 'reagent',
+                kind: 'material',
                 identifier: DEMO_REAGENT_IDENTIFIER,
                 title: 'TaqMan qPCR kit',
                 quantity: 20,
-                unit: { code: 'uL', symbol: 'µL', quantityKind: 'volume' },
-                observedAt: '2026-07-21T12:00:00Z',
-              },
-              {
-                id: 'sample-archived',
-                materialRecordId: DEMO_ARCHIVED_SAMPLE_RECORD_ID,
-                kind: 'sample',
-                identifier: DEMO_ARCHIVED_SAMPLE_IDENTIFIER,
-                title: 'LVV reference lot (expired)',
-                quantity: 50,
                 unit: { code: 'uL', symbol: 'µL', quantityKind: 'volume' },
                 observedAt: '2026-07-21T12:00:00Z',
               },
@@ -1857,7 +1870,7 @@ export const demoSteps: Array<SeedStep> = [
             items: [
               { text: 'Data integrity', checked: true },
               { text: 'Instrument calibration', checked: true },
-              { text: 'Reagent expiry', checked: true },
+              { text: 'Material expiry', checked: true },
             ],
           },
           order: 8,
@@ -1967,7 +1980,7 @@ export const demoSteps: Array<SeedStep> = [
     },
   },
   {
-    name: 'demo record links: experiment -> sample, reagent, archived sample',
+    name: 'demo record links: experiment -> sample, material, archived sample',
     run: async (db) => {
       const links = [
         {
@@ -1978,9 +1991,9 @@ export const demoSteps: Array<SeedStep> = [
         },
         {
           targetRecordId: DEMO_REAGENT_RECORD_ID,
-          targetKind: 'reagent' as const,
+          targetKind: 'material' as const,
           targetIdentifier: DEMO_REAGENT_IDENTIFIER,
-          linkType: 'reagent' as const,
+          linkType: 'material' as const,
         },
         // An active link to an archived target exercises the honest
         // archived-reference rendering: target_identifier is preserved so the
@@ -2147,7 +2160,9 @@ export const demoSteps: Array<SeedStep> = [
             updatedByUserId: FIXTURE_USER_ID,
           })
           .onConflictDoUpdate({
+            // One root file per record; versions are separate rows (PROJ-04.3).
             target: schema.fileObjects.recordId,
+            targetWhere: sql`previous_version_id is null`,
             set: {
               storageKey: f.storageKey,
               displayName: f.displayName,
@@ -2874,8 +2889,41 @@ async function main() {
 
   const withDemo = process.argv.includes('--demo')
   const withMonth = process.argv.includes('--month')
+  const withDesign = process.argv.includes('--design')
   const steps = [
     ...fixtureSteps,
+    ...(withDesign
+      ? [
+          ...designSteps,
+          // The auth-free dev session defaults to the fixture workspace, which
+          // only carries minimal fixtures. Put it in the design Process
+          // Development workspace and make that the active one, so the dev
+          // surface shows the full design data set.
+          {
+            name: 'design dev session workspace',
+            run: async (db: ReturnType<typeof createDb>) => {
+              const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+              await db
+                .insert(schema.workspaceMemberships)
+                .values({ workspaceId, userId: DEV_USER.id, role: 'owner' })
+                .onConflictDoUpdate({
+                  target: [
+                    schema.workspaceMemberships.workspaceId,
+                    schema.workspaceMemberships.userId,
+                  ],
+                  set: { role: 'owner' },
+                })
+              await db
+                .insert(schema.userPreferences)
+                .values({ userId: DEV_USER.id, activeWorkspaceId: workspaceId })
+                .onConflictDoUpdate({
+                  target: schema.userPreferences.userId,
+                  set: { activeWorkspaceId: workspaceId },
+                })
+            },
+          },
+        ]
+      : []),
     ...(withDemo ? demoSteps : []),
     ...(withMonth ? monthSteps : []),
   ]

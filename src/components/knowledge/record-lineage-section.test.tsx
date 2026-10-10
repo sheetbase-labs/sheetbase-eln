@@ -2,9 +2,10 @@
  * KNOW-02 — per-object lineage section tests.
  *
  * The pure `RecordLineageList` renders the seeded miniature (existing table
- * representation, seed row excluded) with evidence-vs-live destinations and
- * an `Open full lineage` deep-link; the live `RecordLineageSection` renders
- * the same through its query seam.
+ * representation, seed row excluded) with evidence-vs-live destinations; the
+ * live `RecordLineageSection` renders the same through its query seam. The
+ * standalone `/lineage` explorer was retired (SHELL-04 DEC-03), so no
+ * full-explorer deep-link is rendered.
  */
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -124,7 +125,7 @@ describe('RecordLineageList', () => {
     render(<RecordLineageList graph={makeGraph()} seedRecordId={SEED_ID} />)
 
     expect(screen.getByText('REV-sub-9').getAttribute('href')).toBe(
-      '/reviews/rev-9',
+      '/review/rev-9',
     )
   })
 
@@ -136,12 +137,10 @@ describe('RecordLineageList', () => {
     expect(missing.textContent).toContain('(missing)')
   })
 
-  it('deep-links to the full explorer with the same seed', () => {
+  it('does not deep-link to the retired full explorer', () => {
     render(<RecordLineageList graph={makeGraph()} seedRecordId={SEED_ID} />)
 
-    expect(screen.getByText('Open full lineage').getAttribute('href')).toBe(
-      `/lineage?seed=${SEED_ID}`,
-    )
+    expect(screen.queryByText('Open full lineage')).toBeNull()
   })
 
   it('shows an empty hint when the seed has no lineage neighbours', () => {
@@ -169,9 +168,6 @@ describe('RecordLineageSection', () => {
     expect(screen.getByText('Lineage')).toBeTruthy()
     expect(screen.getByText('SMP-UP-1').getAttribute('href')).toBe(
       '/samples?selected=up-id',
-    )
-    expect(screen.getByText('Open full lineage').getAttribute('href')).toBe(
-      `/lineage?seed=${SEED_ID}`,
     )
   })
 })

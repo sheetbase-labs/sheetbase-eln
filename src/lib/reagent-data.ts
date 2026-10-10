@@ -1,7 +1,7 @@
 /**
  * Reagent registry domain library (REG-003).
  *
- * Reagents are `records` of kind='reagent' with configurable properties
+ * Materials are `records` of kind='material' with configurable properties
  * (supplier, catalog_no, lot, expiry, quantity, unit, storage) defined by
  * `record_field_definitions` (SCI-001 / decision 0026). This module provides
  * the application-boundary layer on top of the database contract:
@@ -82,6 +82,12 @@ export function projectReagentProperties(
 export const DEFAULT_EXPIRY_WARNING_DAYS = 30
 
 export interface Reagent extends ReagentProperties {
+  /** Quantity as received, so the inspector can show "2 of 6 units". */
+  initialQuantity: number | null
+  received: string | null // ISO date YYYY-MM-DD
+  releasedBy: string | null
+  releasedAt: string | null // ISO date YYYY-MM-DD
+  certificate: string | null
   id: string
   identifier: string
   title: string
@@ -100,8 +106,16 @@ export interface Reagent extends ReagentProperties {
 
 export function toReagent(record: NotebookRecord): Reagent {
   const props = projectReagentProperties(record.properties)
+  // Lot-block detail is declared as model fields, so it arrives in custom_fields
+  // rather than in the legacy properties allow-list.
+  const custom = record.customFields ?? {}
   return {
     ...props,
+    initialQuantity: asNumber(custom.initial_quantity),
+    received: asString(custom.received),
+    releasedBy: asString(custom.released_by),
+    releasedAt: asString(custom.released_at),
+    certificate: asString(custom.certificate),
     id: record.id,
     identifier: record.identifier,
     title: record.title,
@@ -359,7 +373,7 @@ function postgrestLogicPattern(value: string): string {
  * included only when the status filter is `archived`.
  */
 export function reagentListQuery(query: RegistryQuery): string {
-  const parts: string[] = ['kind=eq.reagent', 'deleted_at=is.null']
+  const parts: string[] = ['kind=eq.material', 'deleted_at=is.null']
 
   const archived = query.filters.find(
     (f) => f.fieldId === 'status' && f.values[0] === 'archived',
@@ -502,12 +516,18 @@ export interface ReagentUsageLink {
   sourceKind: string
   sourceIdentifier: string
   linkType: string
+  /** When the usage was recorded, so the inspector can state the date. */
+  createdAt: string | null
+  quantity: number | null
+  unit: string | null
 }
 
 interface UsageLinkWire {
   id: string
   source_record_id: string
   link_type: string
+  link_metadata: unknown
+  created_at: string | null
 }
 
 interface UsageSourceWire {
@@ -528,8 +548,8 @@ export async function fetchReagentUsage(
 ): Promise<ReagentUsageLink[]> {
   const links = await client.list<UsageLinkWire>(
     'record_links',
-    `?target_identifier=eq.${encodeURIComponent(identifier)}&link_type=eq.reagent&order=created_at.desc&limit=${limit}` +
-      `&select=id,source_record_id,link_type`,
+    `?target_identifier=eq.${encodeURIComponent(identifier)}&link_type=eq.material&order=created_at.desc&limit=${limit}` +
+      `&select=id,source_record_id,link_type,link_metadata,created_at`,
   )
   if (links.length === 0) return []
 
@@ -550,10 +570,104 @@ export async function fetchReagentUsage(
             sourceKind: source.kind,
             sourceIdentifier: source.identifier,
             linkType: link.link_type,
+            createdAt: link.created_at ?? null,
+            quantity: asNumber(
+              (link.link_metadata as Record<string, unknown> | null)?.quantity,
+            ),
+            unit: asString(
+              (link.link_metadata as Record<string, unknown> | null)?.unit,
+            ),
           },
         ]
       : []
   })
+}
+
+export interface ReplacementLotLink {
+  id: string
+  targetRecordId: string | null
+  targetIdentifier: string
+  reason: string | null
+}
+
+/**
+ * The lot registered to replace this one (LAB-04.2). The link carries the
+ * replacement relation, so the inspector can state whether one exists.
+ */
+export async function fetchReplacementLot(
+  client: DataClient,
+  identifier: string,
+): Promise<ReplacementLotLink | null> {
+  const links = await client.list<{
+    id: string
+    target_record_id: string | null
+    target_identifier: string
+    link_metadata: unknown
+  }>(
+    'record_links',
+    `?source_record_id=in.(select id from api.records where identifier=eq.${encodeURIComponent(identifier)})` +
+      `&link_type=eq.material&limit=25&select=id,target_record_id,target_identifier,link_metadata`,
+  )
+  const replacement = links.find(
+    (link) =>
+      (link.link_metadata as Record<string, unknown> | null)?.relation ===
+      'replacement',
+  )
+  return replacement
+    ? {
+        id: replacement.id,
+        targetRecordId: replacement.target_record_id,
+        targetIdentifier: replacement.target_identifier,
+        reason:
+          asString(
+            (replacement.link_metadata as Record<string, unknown> | null)
+              ?.reason,
+          ) ?? null,
+      }
+    : null
+}
+
+export interface CertificateFile {
+  fileRecordId: string
+  identifier: string
+  displayName: string
+  mediaType: string | null
+}
+
+/**
+ * The lot's certificate of analysis (LAB-04.2). It is a file record linked to the
+ * lot, so the inspector shows the file rather than a text field.
+ */
+export async function fetchCertificateFile(
+  client: DataClient,
+  recordId: string,
+): Promise<CertificateFile | null> {
+  const links = await client.list<{ target_record_id: string | null }>(
+    'record_links',
+    `?source_record_id=eq.${encodeURIComponent(recordId)}&link_type=eq.file&limit=5` +
+      `&select=target_record_id`,
+  )
+  const target = links.find((link) => link.target_record_id)?.target_record_id
+  if (!target) return null
+  const record = (
+    await client.list<{ id: string; identifier: string }>(
+      'records',
+      `?id=eq.${encodeURIComponent(target)}&select=id,identifier`,
+    )
+  ).at(0)
+  if (!record) return null
+  const object = (
+    await client.list<{ display_name: string; media_type: string | null }>(
+      'file_objects',
+      `?record_id=eq.${encodeURIComponent(target)}&select=display_name,media_type&limit=1`,
+    )
+  ).at(0)
+  return {
+    fileRecordId: record.id,
+    identifier: record.identifier,
+    displayName: object?.display_name ?? record.identifier,
+    mediaType: object?.media_type ?? null,
+  }
 }
 
 export function fetchReagentAttentionSummary(
@@ -609,6 +723,43 @@ export function recordReagentMovement(
   })
 }
 
+export interface RegisterReplacementLotInput {
+  recordId: string
+  lot: string
+  /** ISO date YYYY-MM-DD. */
+  expiry: string
+  quantity: number
+  unit?: string | null
+  reason?: string | null
+}
+
+export interface RegisterReplacementLotResult {
+  id: string
+  identifier: string
+  title: string
+  projectId: string | null
+  metadataVersion: number
+  lot: string
+  expiry: string
+  quantity: number
+  unit: string | null
+}
+
+/** A replacement is a sibling lot for the same material (LAB-04.2). */
+export function registerReplacementLot(
+  client: DataClient,
+  input: RegisterReplacementLotInput,
+): Promise<RegisterReplacementLotResult> {
+  return client.rpc<RegisterReplacementLotResult>('register_replacement_lot', {
+    p_reagent_record_id: input.recordId,
+    p_lot: input.lot,
+    p_expiry: input.expiry,
+    p_quantity: input.quantity,
+    p_unit: input.unit ?? null,
+    p_reason: input.reason ?? null,
+  })
+}
+
 export function archiveReagent(
   client: DataClient,
   recordId: string,
@@ -656,7 +807,7 @@ export async function createReagent(
 ): Promise<Reagent> {
   const row = await client.rpc<RecordWire>('create_model_record', {
     p_project_id: input.projectId,
-    p_kind: 'reagent',
+    p_kind: 'material',
     p_title: input.title,
     p_status: input.status ?? 'available',
     p_tags: input.tags ?? [],

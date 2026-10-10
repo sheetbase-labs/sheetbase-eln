@@ -1,7 +1,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, grantProjectAccess } from './helpers'
 
 const WS = '00000000-0000-4000-8000-000000005700'
 const PROJECT = '00000000-0000-4000-8000-000000005701'
@@ -56,7 +56,14 @@ beforeAll(async () => {
     insert into api.workspaces(id,slug,name) values('${WS}','model-fields','Model fields');
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS}','${OWNER}','owner'),('${WS}','${ADMIN}','admin'),('${WS}','${MEMBER}','member');
-    insert into api.projects(id,workspace_id,key,title) values('${PROJECT}','${WS}','mf','MF')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id) values('${PROJECT}','${WS}','mf','MF','${OWNER}')`)
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: MEMBER,
+    canView: true,
+    canEdit: true,
+  })
 })
 
 afterAll(async () => {
@@ -118,11 +125,11 @@ describe('model field registry and controlled writes', () => {
       'file',
       'instrument',
       'instrument_run',
+      'material',
       'notebook_template',
       'plate_design',
       'project',
       'protocol_template',
-      'reagent',
       'report',
       'sample',
       'scientific_table',

@@ -20,14 +20,22 @@ import type { Client } from 'pg'
 import { Client as PgClient } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { runPipelineExecution } from '#/lib/pipeline-execute.server'
+import {
+  releaseSettledRunArtefacts,
+  runPipelineExecution,
+} from '#/lib/pipeline-execute.server'
 import type { PipelineExecuteDeps } from '#/lib/pipeline-execute.server'
 import { sweepPipelines } from '#/lib/pipeline-scheduler.server'
 import type {
   PipelineSchedulerDeps,
   SchedulerConnection,
 } from '#/lib/pipeline-scheduler.server'
-import { prepareTestDatabase, setActorJwt, TEST_DATABASE } from './helpers'
+import {
+  prepareTestDatabase,
+  setActorJwt,
+  TEST_DATABASE,
+  testDatabaseName,
+} from './helpers'
 
 const WS = '0e010000-0000-4000-8000-000000000101'
 const OWNER = 'pipeline-owner-a'
@@ -46,7 +54,7 @@ let pipelineVersionId = ''
 
 function superuserTestUrl(): string {
   const url = new URL(process.env.DATABASE_URL!)
-  url.pathname = `/${TEST_DATABASE}`
+  url.pathname = `/${testDatabaseName()}`
   return url.toString()
 }
 
@@ -1790,6 +1798,129 @@ describe('Pipeline workflow extensions', () => {
       project_id: actions.project.id,
       workspace_id: WS,
     })
+  })
+
+  it('proposes a notebook block instead of inserting it when the action says propose', async () => {
+    const record = (
+      await migrator.query<{ id: string; structure_version: number }>(
+        `INSERT INTO api.records(
+           workspace_id, kind, identifier, title, status, created_by_user_id)
+         VALUES($1,'experiment','EXP-031-PROPOSE','Proposal target','in_progress',$2)
+         RETURNING id, structure_version`,
+        [WS, OWNER],
+      )
+    ).rows[0]!
+
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      transform: { language: 'none', statement: '' },
+      output: { mode: 'none' },
+      actions: [
+        {
+          name: 'summary',
+          operation: 'insert_block',
+          mode: 'propose',
+          arguments: {
+            p_record_id: record.id,
+            p_type: 'rich_text',
+            p_payload: { doc: { type: 'doc', content: [] } },
+            p_expected_structure_version: record.structure_version,
+          },
+        },
+      ],
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    await close()
+    expect(report.ok).toBe(true)
+
+    const proposed = (
+      report.run?.result.actions as Record<
+        string,
+        {
+          id: string
+          operation_kind: string
+          status: string
+          provenance: Record<string, unknown>
+        }
+      >
+    ).summary
+    expect(proposed.operation_kind).toBe('notebook_block.insert')
+    // Inserting content is consequential, so it waits for a person.
+    expect(proposed.status).toBe('pending')
+    expect(proposed.provenance.kind).toBe('pipeline')
+    expect(proposed.provenance.runId).toBe(run.id)
+
+    // Nothing was inserted: the proposal is the whole effect of the step.
+    const blocks = await migrator.query(
+      `SELECT id FROM api.blocks WHERE record_id=$1`,
+      [record.id],
+    )
+    expect(blocks.rows).toEqual([])
+  })
+
+  it('releases a settled run artifacts once, keeping them only if the run proposed something', async () => {
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      transform: { language: 'none', statement: '' },
+      output: { mode: 'none' },
+      actions: [],
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    expect(report.ok).toBe(true)
+
+    // The runner is configured in this environment but not reachable, so the release
+    // fails; the run must be left unmarked so the next tick retries rather than looking
+    // released when its files were never dealt with.
+    const first = await releaseSettledRunArtefacts(deps)
+    expect(first.failed).toBeGreaterThanOrEqual(1)
+    const unmarked = await migrator.query(
+      `SELECT 1 FROM api.pipeline_artefact_releases WHERE run_id = $1`,
+      [run.id],
+    )
+    expect(unmarked.rows).toEqual([])
+    await close()
+  })
+
+  it('marks a run released once the runner has released its files', async () => {
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      transform: { language: 'none', statement: '' },
+      output: { mode: 'none' },
+      actions: [],
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    await runPipelineExecution(OWNER, run.id, deps)
+
+    // With no runner configured the release is a no-op that succeeds, which is how a
+    // deployment without Python behaves.
+    const previous = process.env.PIPELINE_PYTHON_RUNNER_URL
+    delete process.env.PIPELINE_PYTHON_RUNNER_URL
+    const first = await releaseSettledRunArtefacts(deps)
+    expect(first.released).toBeGreaterThanOrEqual(1)
+    // The sweep is bounded, and this file leaves many settled runs behind, so assert on
+    // what the sweep did rather than on this particular run being in the batch.
+    const marked = await migrator.query<{ kept: boolean }>(
+      `SELECT kept FROM api.pipeline_artefact_releases WHERE kept = false`,
+    )
+    expect(marked.rows.length).toBeGreaterThanOrEqual(1)
+
+    // Drain the batch - the sweep is bounded and this file leaves settled runs behind -
+    // then a further sweep has nothing to do: the release row is what stops it repeating.
+    for (let tick = 0; tick < 20; tick += 1) {
+      const pass = await releaseSettledRunArtefacts(deps)
+      if (pass.released === 0 && pass.failed === 0) break
+    }
+    const settled = await releaseSettledRunArtefacts(deps)
+    expect(settled.released).toBe(0)
+    await close()
   })
 
   it("does not let a viewer fail another user's running pipeline", async () => {

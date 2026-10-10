@@ -1,0 +1,17 @@
+Search palette
+Search
+In: all projects ▾
+Samples 2
+SMP-2248 C-150 filtrate EXP-0142 · F-2, box 14, A9 · Stored
+↵
+SMP-2249 C-150 filtrate, 1:5 dilution EXP-0142 · Awaiting measurement
+Sheet rows 1
+Clarification runs · row 9 · C-150 EXP-0142 Notebook · Turbidity 61.5 NTU, flagged
+Dataset rows 3
+DS-0311 · rows 87–89 · condition C-150 ELISA capsid titre and turbidity
+Comments 1
+“Can we repeat C at 150 with a 1:5 dilution?” Priya S. on EXP-0142 · Observations · 09:05
+Actions
++ Register a sample from C-150 …
+↑ ↓ move ↵ open ⌘ ↵ open in new tab Esc close
+See all 9 results

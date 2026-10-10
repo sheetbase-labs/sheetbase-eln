@@ -19,6 +19,7 @@ import * as React from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { NotebookDocument } from './notebook-document'
+import { BLOCK_PICKER_OPTIONS } from './block-picker'
 import { NotebookOutlinePanel } from './notebook-outline-panel'
 import { notebookOutline } from '#/lib/notebook-outline'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
@@ -98,6 +99,62 @@ function richTextBlock(id: string, text: string): NotebookBlock {
   }
 }
 
+/** A chart block with a frozen snapshot, so it renders without a dataset query. */
+function frozenChartBlock(id: string): NotebookBlock {
+  return {
+    ...richTextBlock(id, ''),
+    type: 'chart',
+    payload: {
+      title: 'Frozen stability snapshot (qPCR)',
+      spec: null,
+      frozen: {
+        revisionId: null,
+        frozenAt: '2025-07-14T10:00:00Z',
+        frozenByUserId: 'u1',
+        datasetProvenance: [
+          {
+            datasetId: '00000000-0000-4000-8000-000000000170',
+            schemaVersion: 1,
+            rowCount: 2,
+            checksum: 'abc12345',
+          },
+        ],
+        data: {
+          columns: [
+            {
+              fieldId: 'c1',
+              label: 'Time (days)',
+              logicalType: 'decimal',
+              unit: { symbol: 'd' },
+            },
+            {
+              fieldId: 'c2',
+              label: 'Log titer',
+              logicalType: 'decimal',
+              unit: { symbol: 'log₁₀' },
+            },
+          ],
+          rows: [
+            { col_time: 0, col_titer: 7.2 },
+            { col_time: 28, col_titer: 5.9 },
+          ],
+          series: [
+            {
+              identifier: '4 °C',
+              label: '4 °C',
+              color: '#006EDC',
+              points: [
+                { x: 0, y: 7.2, yError: null, label: '4 °C' },
+                { x: 28, y: 5.9, yError: null, label: '4 °C' },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  }
+}
+
 describe('NotebookDocument — rendering', () => {
   it('renders each block with a stable anchor id', () => {
     const { container } = render(
@@ -131,6 +188,35 @@ describe('NotebookDocument — rendering', () => {
 
     fireEvent.click(container.querySelector('#block-b1')!)
     expect(screen.getByRole('textbox', { name: 'Text content' })).toBeTruthy()
+  })
+
+  it('gives prose a 680px measure and data-dense blocks the full width', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    })
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <NotebookDocument
+          record={record}
+          blocks={[
+            richTextBlock('prose-1', 'Objective'),
+            frozenChartBlock('chart-1'),
+          ]}
+          onSaveBlock={vi.fn()}
+          onInsertBlock={vi.fn()}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+
+    const prose = container.querySelector('#block-prose-1')!
+    expect(prose.getAttribute('data-block-measure')).toBe('prose')
+    expect(prose.className).toContain('max-w-[680px]')
+
+    const chart = container.querySelector('#block-chart-1')!
+    expect(chart.getAttribute('data-block-measure')).toBe('wide')
+    expect(chart.className).not.toContain('max-w-[680px]')
   })
 
   it('renders an honest, labelled frozen chart preview', () => {
@@ -261,7 +347,7 @@ describe('NotebookDocument — insertion', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Add block/ }))
-    await user.click(screen.getByRole('menuitem', { name: /^Text/ }))
+    await user.click(await screen.findByRole('option', { name: /^Text/ }))
     expect(onInsertBlock).toHaveBeenCalledWith('rich_text', undefined)
   })
 
@@ -371,8 +457,119 @@ describe('NotebookDocument — insertion', () => {
     await user.click(
       screen.getAllByRole('button', { name: 'Insert block after Text' })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: /^Checklist/ }))
+    await user.click(await screen.findByRole('option', { name: /^Checklist/ }))
     expect(onInsertBlock).toHaveBeenCalledWith('checklist', 'b1')
+  })
+})
+
+// EXP-04.3 — the Insert block menu opens from `/` and `+`, filters as the
+// user types, and is driven from the keyboard (arrows, Enter, Esc).
+describe('NotebookDocument — insert-block menu', () => {
+  it('opens the menu from /, narrows it as the query is typed, and closes on Esc', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b1', 'A')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onReplaceBlock={vi.fn().mockResolvedValue(undefined)}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    await user.click(container.querySelector('#block-b1')!)
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    await user.click(editor)
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('/')
+
+    expect(
+      await screen.findByRole('listbox', { name: 'Insert block' }),
+    ).toBeTruthy()
+    expect(screen.getAllByRole('option')).toHaveLength(
+      BLOCK_PICKER_OPTIONS.length,
+    )
+
+    await user.paste('table')
+    const narrowed = screen.getAllByRole('option')
+    expect(narrowed).toHaveLength(1)
+    expect(narrowed[0].textContent).toContain('Grid backed by a model')
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('listbox', { name: 'Insert block' })).toBeNull()
+  })
+
+  it('inserts the block the arrow keys highlight with Enter', async () => {
+    const user = userEvent.setup()
+    const onReplaceBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b1', 'A')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onReplaceBlock={onReplaceBlock}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    await user.click(container.querySelector('#block-b1')!)
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    await user.click(editor)
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('/')
+    await screen.findByRole('listbox', { name: 'Insert block' })
+
+    // The design highlights Sheet first; one ArrowDown moves to the next
+    // entry in the same group.
+    await user.keyboard('{ArrowDown}')
+    const highlighted = screen
+      .getAllByRole('option')
+      .filter((option) => option.getAttribute('aria-selected') === 'true')
+    expect(highlighted).toHaveLength(1)
+    expect(highlighted[0].textContent).toContain('Record reference')
+
+    await user.keyboard('{Enter}')
+    expect(onReplaceBlock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'b1' }),
+      'linked_record',
+    )
+    expect(screen.queryByRole('listbox', { name: 'Insert block' })).toBeNull()
+  })
+
+  it('opens the same menu from the + control and inserts the highlighted block with Enter', async () => {
+    const user = userEvent.setup()
+    const onInsertBlock = vi.fn().mockResolvedValue(undefined)
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[richTextBlock('b1', 'A')]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={onInsertBlock}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Add block/ }))
+    // The `+` control opens the same "Insert block" menu as `/`.
+    expect(
+      await screen.findByRole('listbox', { name: 'Insert block' }),
+    ).toBeTruthy()
+    await user.type(
+      await screen.findByRole('combobox'),
+      'from a sheet or dataset',
+    )
+
+    const options = screen.getAllByRole('option')
+    expect(options).toHaveLength(1)
+    expect(options[0].textContent).toContain('Chart')
+
+    await user.keyboard('{Enter}')
+    expect(onInsertBlock).toHaveBeenCalledWith('chart', undefined)
   })
 })
 
@@ -476,7 +673,7 @@ describe('NotebookDocument — duplication', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Block actions/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Duplicate' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Duplicate' }))
     expect(onDuplicateBlock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'b1', type: 'rich_text' }),
     )
@@ -498,7 +695,7 @@ describe('NotebookDocument — delete confirmation', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Block actions/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     // Confirmation dialog opens; the destructive action is not yet taken.
     expect(onDeleteBlock).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Delete' }))
@@ -521,7 +718,7 @@ describe('NotebookDocument — delete confirmation', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Block actions/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onDeleteBlock).not.toHaveBeenCalled()
   })
@@ -544,7 +741,7 @@ describe('NotebookDocument — undo delete', () => {
       />,
     )
     await user.click(screen.getByRole('button', { name: /Block actions/ }))
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(screen.getByText('Block deleted.')).toBeTruthy()
     const undoDelete = screen
@@ -577,7 +774,7 @@ describe('NotebookDocument — undo delete', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Undo' }))
     // The restored block is present and the undo status is dismissed: the
@@ -628,8 +825,8 @@ function blockIdOrder(container: HTMLElement): string[] {
   )
 }
 
-function moveMenuItems(): HTMLElement[] {
-  return screen.getAllByRole('menuitem', { name: /^Move (up|down)$/ })
+async function moveMenuItems(): Promise<HTMLElement[]> {
+  return screen.findAllByRole('menuitem', { name: /^Move (up|down)$/ })
 }
 
 describe('NotebookDocument — movement via menu', () => {
@@ -653,9 +850,9 @@ describe('NotebookDocument — movement via menu', () => {
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
     // First block's Move up is disabled; only Move down is enabled.
-    const moves = moveMenuItems()
+    const moves = await moveMenuItems()
     expect(moves.length).toBeGreaterThanOrEqual(1)
-    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move down' }))
     expect(onMoveBlock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'b1' }),
       // Moving b1 from index 0 to index 1 → after=b2, before=b3.
@@ -680,7 +877,7 @@ describe('NotebookDocument — movement via menu', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[2],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move up' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move up' }))
     expect(onMoveBlock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'b3' }),
       // Moving b3 from index 2 to index 1 → after=b1, before=b2.
@@ -706,7 +903,7 @@ describe('NotebookDocument — movement via menu', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[1],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move up' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move up' }))
     expect(onMoveBlock).toHaveBeenLastCalledWith(
       expect.objectContaining({ id: 'b2' }),
       expect.objectContaining({ afterBlockId: null, beforeBlockId: 'b1' }),
@@ -729,7 +926,7 @@ describe('NotebookDocument — movement via menu', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    const up = screen.getByRole('menuitem', {
+    const up = await screen.findByRole('menuitem', {
       name: 'Move up',
     })
     expect(
@@ -756,7 +953,7 @@ describe('NotebookDocument — movement via menu', () => {
       screen.getAllByRole('button', { name: /Block actions/ })[1],
     )
     await user.click(
-      screen.getByRole('menuitem', { name: 'Insert text below' }),
+      await screen.findByRole('menuitem', { name: 'Insert text below' }),
     )
     expect(onInsertBlock).toHaveBeenCalledWith('rich_text', 'b2')
   })
@@ -897,7 +1094,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move down' }))
     // Optimistic: b1 should now appear second in DOM order while the RPC
     // is in flight.
     expect(blockIdOrder(container)).toEqual(['b2', 'b1', 'b3'])
@@ -929,7 +1126,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move down' }))
     // After rejection the order returns to the pre-move baseline.
     await new Promise((r) => setTimeout(r, 0))
     expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
@@ -955,7 +1152,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Move down' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move down' }))
     await new Promise((r) => setTimeout(r, 0))
     expect(container.querySelector('[data-move-error="generic"]')).toBeTruthy()
     expect(screen.getByText('network down')).toBeTruthy()

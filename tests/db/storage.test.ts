@@ -36,10 +36,9 @@ async function asAuthenticated(
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
-  await client.query(
-    "SELECT set_config('request.jwt.claims', $1, false)",
-    [claims(userId, workspaceId)],
-  )
+  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+    claims(userId, workspaceId),
+  ])
   return client
 }
 
@@ -137,9 +136,9 @@ beforeAll(async () => {
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_A}', '${MEMBER_A}', 'member'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'ops-a', 'OPS A'),
-      ('${PROJ_B}', '${WS_B}', 'ops-b', 'OPS B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'ops-a', 'OPS A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'ops-b', 'OPS B', '${OWNER_B}')`,
   )
 })
 
@@ -207,15 +206,17 @@ describe('OPS-002 transactional sample moves', () => {
     const h = await buildHierarchy(owner, WS_A, nextSuffix())
     const s1 = await createSample(owner, PROJ_A, 'Double 1', { barcode: 'D1' })
     const s2 = await createSample(owner, PROJ_A, 'Double 2', { barcode: 'D2' })
-    await owner.query(
-      `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-      [s1.id, h.positions.A1, s1.metadata_version],
-    )
+    await owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+      s1.id,
+      h.positions.A1,
+      s1.metadata_version,
+    ])
     await expect(
-      owner.query(
-        `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-        [s2.id, h.positions.A1, s2.metadata_version],
-      ),
+      owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+        s2.id,
+        h.positions.A1,
+        s2.metadata_version,
+      ]),
     ).rejects.toMatchObject({ code: 'SB010' })
     // First sample still occupies; second sample did not take the slot.
     const { rows: posRows } = await owner.query(
@@ -228,7 +229,9 @@ describe('OPS-002 transactional sample moves', () => {
   it('moves a sample between positions and clears the previous one', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const h = await buildHierarchy(owner, WS_A, nextSuffix())
-    const sample = await createSample(owner, PROJ_A, 'Movable', { barcode: 'MV' })
+    const sample = await createSample(owner, PROJ_A, 'Movable', {
+      barcode: 'MV',
+    })
     const placed = await owner.query(
       `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
       [sample.id, h.positions.A1, sample.metadata_version],
@@ -250,15 +253,18 @@ describe('OPS-002 transactional sample moves', () => {
   it('records storage_movements and a sample_events transfer row on each move', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const h = await buildHierarchy(owner, WS_A, nextSuffix())
-    const sample = await createSample(owner, PROJ_A, 'Audited', { barcode: 'AU' })
+    const sample = await createSample(owner, PROJ_A, 'Audited', {
+      barcode: 'AU',
+    })
     const placed = await owner.query(
       `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
       [sample.id, h.positions.A1, sample.metadata_version],
     )
-    await owner.query(
-      `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-      [sample.id, h.positions.A2, placed.rows[0].metadata_version],
-    )
+    await owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+      sample.id,
+      h.positions.A2,
+      placed.rows[0].metadata_version,
+    ])
     const { rows: moves } = await owner.query(
       `SELECT operation, from_path, to_path FROM api.storage_movements
        WHERE record_id = $1 ORDER BY created_at ASC`,
@@ -290,10 +296,11 @@ describe('OPS-002 transactional sample moves', () => {
       barcode: 'XWS',
     })
     await expect(
-      ownerA.query(
-        `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-        [sampleA.id, hB.positions.A1, sampleA.metadata_version],
-      ),
+      ownerA.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+        sampleA.id,
+        hB.positions.A1,
+        sampleA.metadata_version,
+      ]),
     ).rejects.toMatchObject({ code: 'SB011' })
   })
 
@@ -301,15 +308,17 @@ describe('OPS-002 transactional sample moves', () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const h = await buildHierarchy(owner, WS_A, nextSuffix())
     const sample = await createSample(owner, PROJ_A, 'Stale', { barcode: 'ST' })
-    await owner.query(
-      `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-      [sample.id, h.positions.A1, sample.metadata_version],
-    )
+    await owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+      sample.id,
+      h.positions.A1,
+      sample.metadata_version,
+    ])
     await expect(
-      owner.query(
-        `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-        [sample.id, h.positions.A2, sample.metadata_version],
-      ),
+      owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+        sample.id,
+        h.positions.A2,
+        sample.metadata_version,
+      ]),
     ).rejects.toMatchObject({ code: 'SB001' })
   })
 })
@@ -325,14 +334,16 @@ describe('OPS-002 concurrent moves are serialised', () => {
     // sample serialises them: the winner moves the sample; the loser sees a
     // stale metadata_version (SB001) or an already-occupied target (SB010).
     const [r1, r2] = await Promise.allSettled([
-      owner.query(
-        `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-        [sample.id, h.positions.A1, sample.metadata_version],
-      ),
-      owner.query(
-        `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-        [sample.id, h.positions.A2, sample.metadata_version],
-      ),
+      owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+        sample.id,
+        h.positions.A1,
+        sample.metadata_version,
+      ]),
+      owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+        sample.id,
+        h.positions.A2,
+        sample.metadata_version,
+      ]),
     ])
     const ok = [r1, r2].filter((r) => r.status === 'fulfilled').length
     const failed = [r1, r2].filter(
@@ -354,17 +365,23 @@ describe('OPS-002 concurrent moves are serialised', () => {
   it('two concurrent moves of different samples into the SAME position: only one wins', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const h = await buildHierarchy(owner, WS_A, nextSuffix())
-    const s1 = await createSample(owner, PROJ_A, 'Concurrent A', { barcode: 'CA' })
-    const s2 = await createSample(owner, PROJ_A, 'Concurrent B', { barcode: 'CB' })
+    const s1 = await createSample(owner, PROJ_A, 'Concurrent A', {
+      barcode: 'CA',
+    })
+    const s2 = await createSample(owner, PROJ_A, 'Concurrent B', {
+      barcode: 'CB',
+    })
     const [r1, r2] = await Promise.allSettled([
-      owner.query(
-        `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-        [s1.id, h.positions.A1, s1.metadata_version],
-      ),
-      owner.query(
-        `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-        [s2.id, h.positions.A1, s2.metadata_version],
-      ),
+      owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+        s1.id,
+        h.positions.A1,
+        s1.metadata_version,
+      ]),
+      owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+        s2.id,
+        h.positions.A1,
+        s2.metadata_version,
+      ]),
     ])
     const ok = [r1, r2].filter((r) => r.status === 'fulfilled').length
     const blocked = [r1, r2].filter(
@@ -436,10 +453,11 @@ describe('OPS-002 quarantine and missing positions', () => {
       barcode: 'QT',
     })
     await expect(
-      owner.query(
-        `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-        [sample.id, h.positions.A1, sample.metadata_version],
-      ),
+      owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+        sample.id,
+        h.positions.A1,
+        sample.metadata_version,
+      ]),
     ).rejects.toMatchObject({ code: 'SB013' })
   })
 
@@ -449,15 +467,15 @@ describe('OPS-002 quarantine and missing positions', () => {
     const sample = await createSample(owner, PROJ_A, 'Occ holder', {
       barcode: 'OH',
     })
-    await owner.query(
-      `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-      [sample.id, h.positions.A1, sample.metadata_version],
-    )
+    await owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+      sample.id,
+      h.positions.A1,
+      sample.metadata_version,
+    ])
     await expect(
-      owner.query(
-        `SELECT * FROM api.set_position_status($1, 'quarantined')`,
-        [h.positions.A1],
-      ),
+      owner.query(`SELECT * FROM api.set_position_status($1, 'quarantined')`, [
+        h.positions.A1,
+      ]),
     ).rejects.toMatchObject({ code: 'SB013' })
   })
 
@@ -473,10 +491,11 @@ describe('OPS-002 quarantine and missing positions', () => {
       barcode: 'MS',
     })
     await expect(
-      owner.query(
-        `SELECT * FROM api.move_sample_to_position($1, $2, $3)`,
-        [sample.id, h.positions.A1, sample.metadata_version],
-      ),
+      owner.query(`SELECT * FROM api.move_sample_to_position($1, $2, $3)`, [
+        sample.id,
+        h.positions.A1,
+        sample.metadata_version,
+      ]),
     ).rejects.toMatchObject({ code: 'SB013' })
     const { rows: restored } = await owner.query(
       `SELECT * FROM api.set_position_status($1, 'available')`,

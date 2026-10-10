@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Creation dialogs</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="ds/sheetbase/components/bundle.css">
+<script src="ds/sheetbase/components/bundle.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:var(--bg)}
+
+</style>
+</helmet>
+<div data-theme="{{theme}}" class="sb-root shell" style="width: 1440px; height: 820px">
+<div style="padding: 32px 30px; display: flex; flex-direction: column; gap: 28px; background: var(--canvas-sunken); height: 100%">
+<div><div class="h" style="font-size: 18px; font-weight: 600">Creation dialogs</div><div class="muted" style="font-size: 12px">Opened from “New” in the header or a list page. The background page dims behind them.</div></div>
+<div style="display: flex; gap: 40px; align-items: flex-start"><div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 12px; font-weight: 600">New project</div>
+<div class="dialog" role="dialog" aria-label="New project" style="position: relative; width: 460px">
+<div class="dialog-head"><h2>New project</h2><div class="muted" style="font-size: 12px; margin-top: 2px">Process Development workspace</div></div>
+<div class="dialog-body">
+<div class="field"><label for="np1">Name</label><input id="np1" class="input" value="AAV5 capsid screening"></div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div class="field"><label>Client</label><div class="select">CL-021<span class="muted">▾</span></div></div>
+<div class="field"><label>Modality</label><div class="select">AAV<span class="muted">▾</span></div></div>
+<div class="field"><label>Stage</label><div class="select">Process development<span class="muted">▾</span></div></div>
+<div class="field"><label>Lead</label><div class="select">Gareth P.<span class="muted">▾</span></div></div></div>
+<div class="field"><label>Start from</label>
+<label class="check"><input type="radio" name="sf" checked="checked">Empty project</label>
+<label class="check"><input type="radio" name="sf">Copy structure of <b style="font-weight: 500">&nbsp;AAV9 process transfer&nbsp;</b> (milestones, members, protocols; no records)</label></div>
+<div class="field"><label>Default reviewer</label><div class="select">Mei L.<span class="muted">▾</span></div><span class="hint">Reviews and signatures go to this person unless an experiment names another.</span></div></div>
+<div class="dialog-foot"><x-import component-from-global-scope="Sheetbase.Button">Cancel</x-import><x-import component-from-global-scope="Sheetbase.Button" variant="primary">Create project</x-import></div>
+</div></div><div style="display: flex; flex-direction: column; gap: 8px">
+<div style="font-size: 12px; font-weight: 600">Register sample · validation error on location</div>
+<div class="dialog" role="dialog" aria-label="Register sample" style="position: relative; width: 520px">
+<div class="dialog-head"><h2>Register sample</h2><div class="muted" style="font-size: 12px; margin-top: 2px">Adds a record to the sample registry and prints its label</div></div>
+<div class="dialog-body">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
+<div class="field"><label>Type</label><div class="select">Dilution<span class="muted">▾</span></div></div>
+<div class="field"><label>Parent sample</label><div class="select"><span><span class="mono">SMP-2248</span> C-150 filtrate</span><span class="muted">▾</span></div></div></div>
+<div class="field"><label for="rs1">Name</label><input id="rs1" class="input" value="C-150 filtrate, 1:5 dilution"></div>
+<div style="display: grid; grid-template-columns: 1fr 110px 1fr; gap: 12px">
+<div class="field"><label for="rs2">Quantity</label><input id="rs2" class="input num" value="1.0"></div>
+<div class="field"><label>Unit</label><div class="select">mL<span class="muted">▾</span></div></div>
+<div class="field"><label for="rs3">Dilution factor</label><input id="rs3" class="input num" value="5"></div></div>
+<div class="field"><label for="rs4">Location</label><input id="rs4" class="input" value="F-2, box 14, A9" aria-invalid="true" aria-describedby="rs4e"><span class="err" id="rs4e">A9 holds SMP-2248. Next free position in box 14: B2.</span></div>
+<label class="check"><input type="checkbox" checked="checked">Print label on ZD-2 (Lab 2) after saving</label></div>
+<div class="dialog-foot"><x-import component-from-global-scope="Sheetbase.Button">Cancel</x-import><x-import component-from-global-scope="Sheetbase.Button" on-click="{{onSaved}}">Save and register another</x-import><x-import component-from-global-scope="Sheetbase.Button" variant="primary">Register SMP-2249</x-import></div>
+</div></div></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":820}}'>
+class Component extends DCLogic {
+componentDidMount() {
+const T = window.Sheetbase && window.Sheetbase.theme;
+if (T) this._off = T.subscribe(() => this.forceUpdate());
+this.forceUpdate();
+}
+componentWillUnmount() { if (this._off) this._off(); clearTimeout(this._tt); }
+renderVals() {
+const st = this.state || {};
+const SB = window.Sheetbase || {};
+const T = SB.theme;
+const theme = T ? T.resolved(this.props.theme) : (this.props.theme === 'dark' ? 'dark' : 'light');
+const menu = st.menu || null;
+const open = (k) => () => this.setState({ menu: menu === k ? null : k });
+const toast = (msg, action, tone) => () => {
+clearTimeout(this._tt);
+this.setState({ menu: null, toast: { msg, action: action || '', tone: tone || '' } });
+this._tt = setTimeout(() => this.setState({ toast: null }), 6000);
+};
+const tabs = (g, keys, def) => {
+const cur = st['t_' + g] || def;
+const o = { now: cur };
+keys.forEach((k) => { o[k] = { cls: k === cur ? 'on' : '', sel: String(k === cur), on: k === cur, off: k !== cur, pick: () => this.setState({ ['t_' + g]: k }) }; });
+return o;
+};
+const allRead = !!st.read;
+const v = {
+theme,
+themeIcon: theme === 'dark' ? 'sun' : 'moon',
+themeLabel: theme === 'dark' ? 'Switch to light' : 'Switch to dark',
+toggleTheme: () => { if (T) T.set(theme === 'dark' ? 'light' : 'dark'); this.forceUpdate(); },
+appearance: T ? T.get() : 'light',
+setAppearance: (x) => { if (T) T.set(x); this.forceUpdate(); },
+m: { any: !!menu, ws: menu === 'ws', new: menu === 'new', notif: menu === 'notif', account: menu === 'account', row: menu === 'row', more: menu === 'more' },
+exp: { ws: String(menu === 'ws'), new: String(menu === 'new'), notif: String(menu === 'notif'), account: String(menu === 'account'), row: String(menu === 'row'), more: String(menu === 'more') },
+open: { ws: open('ws'), new: open('new'), notif: open('notif'), account: open('account'), row: open('row'), more: open('more') },
+close: () => this.setState({ menu: null }),
+allRead, unread: !allRead,
+markRead: () => this.setState({ read: true }),
+bellClass: allRead ? '' : 'ib-badge',
+bellLabel: allRead ? 'Notifications' : 'Notifications, 4 unread',
+hasToast: !!st.toast,
+toastMsg: st.toast ? st.toast.msg : '',
+toastAction: st.toast ? st.toast.action : '',
+toastTone: st.toast ? st.toast.tone : '',
+dismissToast: () => { clearTimeout(this._tt); this.setState({ toast: null }); },
+onSaved: toast('Changes saved', 'Undo'),
+onCopied: toast('Link copied'),
+onSent: toast('Request sent'),
+onExported: toast('Export started. You will get a link when it is ready.'),
+onAdded: toast('Added'),
+onSubmitted: toast('Submitted for review. Your reviewer has been notified.'),
+onPrinted: toast('Sent to label printer ZD-2 (Lab 2)'),
+onRerun: toast('Running\u2026 results update when it finishes'),
+onRemoved: toast('Removed', 'Undo'),
+onFailed: toast('Couldn’t save. Check your connection and try again.', 'Retry', 'bad')
+};
+return v;
+}
+}
+</script>
+</body>
+</html>

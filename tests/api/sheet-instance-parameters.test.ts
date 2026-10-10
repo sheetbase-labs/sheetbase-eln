@@ -10,8 +10,6 @@ config({ path: ['.env.local', '.env'] })
 
 const WS = '17000000-0000-4000-8000-000000000001'
 const OWNER = 'sheet-instance-parameter-api-owner'
-const SCHEMA = '17000000-0000-4000-8000-000000000002'
-const SCHEMA_VERSION = '17000000-0000-4000-8000-000000000003'
 const DATASET = '17000000-0000-4000-8000-000000000004'
 const PARAMETER = '17000000-0000-4000-8000-000000000005'
 const BINDING = '17000000-0000-4000-8000-000000000006'
@@ -19,6 +17,7 @@ const COLUMN = '17000000-0000-4000-8000-000000000007'
 const FIELD = '17000000-0000-4000-8000-000000000008'
 const SECRET = process.env.PGRST_JWT_SECRET ?? ''
 let admin: Client
+let schemaVersionId: string
 
 function proxy(request: Request, path: string) {
   return handleProxyRequest(request, path, {
@@ -50,7 +49,7 @@ function configuration() {
       required: true,
       type: {
         kind: 'dataset',
-        contract: { mode: 'exact', schemaVersionId: SCHEMA_VERSION },
+        contract: { mode: 'exact', schemaVersionId },
       },
       constraints: {},
     },
@@ -129,12 +128,15 @@ async function cleanup() {
     )
     await admin.query(`delete from api.datasets where workspace_id=$1`, [WS])
     await admin.query(
-      `delete from api.dataset_schema_version_fields where schema_version_id=$1`,
-      [SCHEMA_VERSION],
+      `delete from api.dataset_schema_version_fields where schema_version_id in
+       (select v.id from api.dataset_schema_versions v join api.dataset_schema_definitions d
+        on d.id=v.schema_id where d.workspace_id=$1)`,
+      [WS],
     )
     await admin.query(
-      `delete from api.dataset_schema_versions where schema_id=$1`,
-      [SCHEMA],
+      `delete from api.dataset_schema_versions where schema_id in
+       (select id from api.dataset_schema_definitions where workspace_id=$1)`,
+      [WS],
     )
     await admin.query(
       `delete from api.dataset_schema_definitions where workspace_id=$1`,
@@ -185,25 +187,35 @@ beforeAll(async () => {
     `insert into api.workspace_memberships(workspace_id,user_id,role) values($1,$2,'owner')`,
     [WS, OWNER],
   )
-  await admin.query(
-    `insert into api.dataset_schema_definitions(id,workspace_id,key,name,lifecycle) values($1,$2,'api_source','API source','active')`,
-    [SCHEMA, WS],
+  const created = await proxy(
+    request('rpc/create_dataset_schema_definition', {
+      p_workspace_id: WS,
+      p_key: 'api_source',
+      p_name: 'API source',
+      p_fields: [
+        {
+          field_id: FIELD,
+          key: 'result',
+          label: 'Result',
+          logical_type: 'text',
+          nullable: true,
+        },
+      ],
+    }),
+    'rpc/create_dataset_schema_definition',
   )
-  await admin.query(
-    `insert into api.dataset_schema_versions(id,schema_id,version) values($1,$2,1)`,
-    [SCHEMA_VERSION, SCHEMA],
+  expect(created.status).toBe(200)
+  schemaVersionId = (await created.json()).schema_version_id
+  const published = await proxy(
+    request('rpc/publish_dataset_schema_version', {
+      p_schema_version_id: schemaVersionId,
+    }),
+    'rpc/publish_dataset_schema_version',
   )
-  await admin.query(
-    `insert into api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,lifecycle,display_order) values($1,$2,'result','Result','text','active',0)`,
-    [SCHEMA_VERSION, FIELD],
-  )
-  await admin.query(
-    `update api.dataset_schema_versions set lifecycle='active',published_at=now() where id=$1`,
-    [SCHEMA_VERSION],
-  )
+  expect(published.status).toBe(200)
   await admin.query(
     `insert into api.datasets(id,workspace_id,schema_version_id,name) values($1,$2,$3,'API candidate')`,
-    [DATASET, WS, SCHEMA_VERSION],
+    [DATASET, WS, schemaVersionId],
   )
 })
 
@@ -266,7 +278,7 @@ describe('Definition-derived Sheet Instance HTTP API contract', () => {
       datasetId: DATASET,
       resolution: {
         compatibilityMode: 'exact',
-        candidateSchemaVersionId: SCHEMA_VERSION,
+        candidateSchemaVersionId: schemaVersionId,
       },
     })
     expect(instance.state.resolutionProvenance).toMatchObject({

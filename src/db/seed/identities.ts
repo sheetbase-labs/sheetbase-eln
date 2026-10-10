@@ -148,3 +148,41 @@ export const DEMO_TEMPLATE_IDS = {
   // the locked/historical overview state.
   experimentRevision: '00000000-0000-4000-8000-0000000001b0',
 } as const
+
+// DSYS-05 — UI system v3 design seed stable identities. 0x0300–0x0fff.
+//
+// The design seed reuses these across runs so a reseed converges. IDs that the
+// canonical RPCs generate themselves (sheet instances, folders, connectors,
+// reports, revisions, submissions, signatures) are matched by their stable
+// natural key instead.
+export const DESIGN_SESSION_IDS = {
+  gareth: 'design-session-gareth',
+  priya: 'design-session-priya',
+  mei: 'design-session-mei',
+  sam: 'design-session-sam',
+} as const
+
+// API tokens shown by Settings → API and SDK. The tokens table has no create
+// RPC (the server issues credentials itself), so the seed writes these rows
+// directly with a stable id: one active and unused, one expiring, and one
+// already expired.
+export const DESIGN_CREDENTIAL_IDS = {
+  unused: '00000000-0000-4000-8000-000000000700',
+  expiring: '00000000-0000-4000-8000-000000000701',
+  expired: '00000000-0000-4000-8000-000000000702',
+} as const
+
+// DSYS-05 — the Document-management webhook and its failing delivery history
+// (IntegrationDeliveries). Deliveries have no create RPC (the delivery engine
+// owns that), so the seed writes them directly with stable ids, like the
+// tokens above.
+export const DESIGN_WEBHOOK_IDS = {
+  subscription: '00000000-0000-4000-8000-000000000730',
+  deliveries: [
+    '00000000-0000-4000-8000-000000000731',
+    '00000000-0000-4000-8000-000000000732',
+    '00000000-0000-4000-8000-000000000733',
+    '00000000-0000-4000-8000-000000000734',
+    '00000000-0000-4000-8000-000000000735',
+  ],
+} as const

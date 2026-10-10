@@ -5,7 +5,11 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  prepareTestDatabase,
+  grantProjectAccess,
+} from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000303a'
 const WS_B = '00000000-0000-4000-8000-00000000303b'
@@ -34,10 +38,9 @@ async function asAuthenticated(
   const client = await asRole('authenticator')
   clients.push(client)
   await client.query('SET ROLE authenticated')
-  await client.query(
-    "SELECT set_config('request.jwt.claims', $1, false)",
-    [claims(userId, workspaceId)],
-  )
+  await client.query("SELECT set_config('request.jwt.claims', $1, false)", [
+    claims(userId, workspaceId),
+  ])
   return client
 }
 
@@ -83,10 +86,17 @@ beforeAll(async () => {
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_A}', '${MEMBER_A}', 'member'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'ops3-a', 'OPS003 A'),
-      ('${PROJ_B}', '${WS_B}', 'ops3-b', 'OPS003 B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'ops3-a', 'OPS003 A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'ops3-b', 'OPS003 B', '${OWNER_B}')`,
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJ_A,
+    userId: MEMBER_A,
+    canView: true,
+    canEdit: true,
+  })
 })
 
 afterAll(async () => {
@@ -116,10 +126,12 @@ describe('OPS-003 create_plate_design', () => {
   it('rejects an invalid format', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     await expectDenied(
-      owner.query(
-        `SELECT * FROM api.create_plate_design($1, $2, $3, $4)`,
-        [WS_A, 'Invalid plate', PROJ_A, '384_well'],
-      ),
+      owner.query(`SELECT * FROM api.create_plate_design($1, $2, $3, $4)`, [
+        WS_A,
+        'Invalid plate',
+        PROJ_A,
+        '384_well',
+      ]),
       'SB005',
     )
   })
@@ -147,11 +159,19 @@ describe('OPS-003 save_plate_design', () => {
       design.id,
       wells(
         {
-          wellCode: 'A1', row: 0, col: 0, role: 'sample',
-          sampleRecordId: sample.id, sampleIdentifier: 'S-1',
-          sampleTitle: 'Linked sample', replicate: 1, volumeValue: 20,
-          volumeUnit: 'uL', concentrationValue: 2.5,
-          concentrationUnit: 'ng/uL', notes: 'primary',
+          wellCode: 'A1',
+          row: 0,
+          col: 0,
+          role: 'sample',
+          sampleRecordId: sample.id,
+          sampleIdentifier: 'S-1',
+          sampleTitle: 'Linked sample',
+          replicate: 1,
+          volumeValue: 20,
+          volumeUnit: 'uL',
+          concentrationValue: 2.5,
+          concentrationUnit: 'ng/uL',
+          notes: 'primary',
         },
         { wellCode: 'A2', row: 0, col: 1, role: 'positive_control' },
         { wellCode: 'B1', row: 1, col: 0, role: 'blank' },
@@ -164,8 +184,11 @@ describe('OPS-003 save_plate_design', () => {
     )
     expect(rows).toHaveLength(3)
     expect(rows[0]).toMatchObject({
-      well_code: 'A1', role: 'sample', sample_record_id: sample.id,
-      replicate: 1, volume_value: '20',
+      well_code: 'A1',
+      role: 'sample',
+      sample_record_id: sample.id,
+      replicate: 1,
+      volume_value: '20',
     })
   })
 
@@ -174,18 +197,26 @@ describe('OPS-003 save_plate_design', () => {
     const design = await createDesign(owner, 'Replacement')
     const first = await owner.query(
       `SELECT * FROM api.save_plate_design($1, $2::jsonb, NULL, $3)`,
-      [design.id, wells(
-        { wellCode: 'A1', row: 0, col: 0, role: 'empty' },
-        { wellCode: 'A2', row: 0, col: 1, role: 'empty' },
-        { wellCode: 'A3', row: 0, col: 2, role: 'empty' },
-      ), design.metadata_version],
+      [
+        design.id,
+        wells(
+          { wellCode: 'A1', row: 0, col: 0, role: 'empty' },
+          { wellCode: 'A2', row: 0, col: 1, role: 'empty' },
+          { wellCode: 'A3', row: 0, col: 2, role: 'empty' },
+        ),
+        design.metadata_version,
+      ],
     )
     const second = await owner.query(
       `SELECT * FROM api.save_plate_design($1, $2::jsonb, NULL, $3)`,
-      [design.id, wells(
-        { wellCode: 'B1', row: 1, col: 0, role: 'negative_control' },
-        { wellCode: 'B2', row: 1, col: 1, role: 'blank' },
-      ), first.rows[0].metadata_version],
+      [
+        design.id,
+        wells(
+          { wellCode: 'B1', row: 1, col: 0, role: 'negative_control' },
+          { wellCode: 'B2', row: 1, col: 1, role: 'blank' },
+        ),
+        first.rows[0].metadata_version,
+      ],
     )
     expect(first.rows[0].metadata_version).toBe(design.metadata_version + 1)
     expect(second.rows[0].metadata_version).toBe(design.metadata_version + 2)
@@ -197,8 +228,16 @@ describe('OPS-003 save_plate_design', () => {
   })
 
   it.each([
-    ['out-of-bounds well', { wellCode: 'Z1', row: 8, col: 0, role: 'empty' }, 'SB017'],
-    ['invalid role', { wellCode: 'A1', row: 0, col: 0, role: 'unknown' }, 'SB019'],
+    [
+      'out-of-bounds well',
+      { wellCode: 'Z1', row: 8, col: 0, role: 'empty' },
+      'SB017',
+    ],
+    [
+      'invalid role',
+      { wellCode: 'A1', row: 0, col: 0, role: 'unknown' },
+      'SB019',
+    ],
   ])('rejects an %s', async (_label, well, code) => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const design = await createDesign(owner, `Validation ${code}`)
@@ -236,7 +275,13 @@ describe('OPS-003 save_plate_design', () => {
     await expectDenied(
       owner.query(`SELECT * FROM api.save_plate_design($1, $2::jsonb)`, [
         design.id,
-        wells({ wellCode: 'A1', row: 0, col: 0, role: 'sample', sampleRecordId: rows[0].id }),
+        wells({
+          wellCode: 'A1',
+          row: 0,
+          col: 0,
+          role: 'sample',
+          sampleRecordId: rows[0].id,
+        }),
       ]),
       'SB009',
     )
@@ -250,7 +295,13 @@ describe('OPS-003 save_plate_design', () => {
     await expectDenied(
       ownerA.query(`SELECT * FROM api.save_plate_design($1, $2::jsonb)`, [
         design.id,
-        wells({ wellCode: 'A1', row: 0, col: 0, role: 'sample', sampleRecordId: sampleB.id }),
+        wells({
+          wellCode: 'A1',
+          row: 0,
+          col: 0,
+          role: 'sample',
+          sampleRecordId: sampleB.id,
+        }),
       ]),
       'SB016',
     )
@@ -266,25 +317,43 @@ describe('OPS-003 concurrent edits', () => {
     const attempts = await Promise.allSettled([
       editorA.query(
         `SELECT * FROM api.save_plate_design($1, $2::jsonb, NULL, $3)`,
-        [design.id, wells({ wellCode: 'A1', row: 0, col: 0, role: 'sample' }), design.metadata_version],
+        [
+          design.id,
+          wells({ wellCode: 'A1', row: 0, col: 0, role: 'sample' }),
+          design.metadata_version,
+        ],
       ),
       editorB.query(
         `SELECT * FROM api.save_plate_design($1, $2::jsonb, NULL, $3)`,
-        [design.id, wells({ wellCode: 'A2', row: 0, col: 1, role: 'blank' }), design.metadata_version],
+        [
+          design.id,
+          wells({ wellCode: 'A2', row: 0, col: 1, role: 'blank' }),
+          design.metadata_version,
+        ],
       ),
     ])
     const winner = attempts.find((result) => result.status === 'fulfilled')
     const loser = attempts.find((result) => result.status === 'rejected')
     expect(winner?.status).toBe('fulfilled')
-    expect(loser).toMatchObject({ status: 'rejected', reason: { code: 'SB001' } })
+    expect(loser).toMatchObject({
+      status: 'rejected',
+      reason: { code: 'SB001' },
+    })
 
-    if (winner?.status !== 'fulfilled') throw new Error('concurrent save had no winner')
+    if (winner?.status !== 'fulfilled')
+      throw new Error('concurrent save had no winner')
     const retryClient = attempts[0].status === 'rejected' ? editorA : editorB
     const { rows: retried } = await retryClient.query(
       `SELECT * FROM api.save_plate_design($1, $2::jsonb, NULL, $3)`,
-      [design.id, wells({ wellCode: 'C1', row: 2, col: 0, role: 'empty' }), winner.value.rows[0].metadata_version],
+      [
+        design.id,
+        wells({ wellCode: 'C1', row: 2, col: 0, role: 'empty' }),
+        winner.value.rows[0].metadata_version,
+      ],
     )
-    expect(retried[0].metadata_version).toBe(winner.value.rows[0].metadata_version + 1)
+    expect(retried[0].metadata_version).toBe(
+      winner.value.rows[0].metadata_version + 1,
+    )
   })
 })
 
@@ -322,7 +391,7 @@ describe('OPS-003 RLS and workspace isolation', () => {
         design.id,
         wells({ wellCode: 'A1', row: 0, col: 0, role: 'empty' }),
       ]),
-      'SB016',
+      '42501',
     )
   })
 })
@@ -332,11 +401,28 @@ describe('OPS-003 plate layout templates', () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const created = await owner.query(
       `SELECT * FROM api.save_plate_layout_template($1, $2, $3, $4, $5, $6, $7::jsonb)`,
-      [WS_A, 'Controls', 'Initial', '96_well', 8, 12, JSON.stringify({ controls: ['A1'] })],
+      [
+        WS_A,
+        'Controls',
+        'Initial',
+        '96_well',
+        8,
+        12,
+        JSON.stringify({ controls: ['A1'] }),
+      ],
     )
     const updated = await owner.query(
       `SELECT * FROM api.save_plate_layout_template($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,
-      [WS_A, 'Controls v2', 'Updated', '96_well', 8, 12, JSON.stringify({ controls: ['A1', 'A2'] }), created.rows[0].id],
+      [
+        WS_A,
+        'Controls v2',
+        'Updated',
+        '96_well',
+        8,
+        12,
+        JSON.stringify({ controls: ['A1', 'A2'] }),
+        created.rows[0].id,
+      ],
     )
     expect(updated.rows[0]).toMatchObject({
       id: created.rows[0].id,
@@ -380,9 +466,17 @@ describe('OPS-003 change events', () => {
        ORDER BY created_at`,
       [WS_A, design.id],
     )
-    expect(rows).toEqual(expect.arrayContaining([
-      expect.objectContaining({ entity_type: 'plate_design', operation: 'create' }),
-      expect.objectContaining({ entity_type: 'plate_well', operation: 'create' }),
-    ]))
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_type: 'plate_design',
+          operation: 'create',
+        }),
+        expect.objectContaining({
+          entity_type: 'plate_well',
+          operation: 'create',
+        }),
+      ]),
+    )
   })
 })

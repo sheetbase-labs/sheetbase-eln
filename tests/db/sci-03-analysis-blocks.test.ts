@@ -9,7 +9,7 @@ import pg from 'pg'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, ensureSessions } from './helpers'
 
 const WS_A = crypto.randomUUID()
 const PROJECT_A = crypto.randomUUID()
@@ -149,6 +149,7 @@ beforeAll(async () => {
     `INSERT INTO api.workspace_memberships(workspace_id,user_id,role)
      VALUES ('${WS_A}','${USER_A}','owner')`,
   )
+  await ensureSessions(migrator, [USER_A])
   await migrator.query(
     `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES
      ('${USER_B}','SCI 03 B','sci-03-b@sheetbase.test',true)`,
@@ -158,8 +159,12 @@ beforeAll(async () => {
      VALUES ('${WS_A}','${USER_B}','member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title)
-     VALUES ('${PROJECT_A}','${WS_A}','sci-03-a','SCI 03 A')`,
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id)
+     VALUES ('${PROJECT_A}','${WS_A}','sci-03-a','SCI 03 A','${USER_A}')`,
+  )
+  await migrator.query(
+    `INSERT INTO internal.session(id,token,"userId","expiresAt") VALUES ('sci-03-session','sci-03-session',$1,now()+interval '1 hour') ON CONFLICT (id) DO NOTHING`,
+    [USER_A],
   )
   await migrator.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({
@@ -565,6 +570,11 @@ describe('SCI-03 submission idempotency recovery', () => {
     result?: { idempotent: boolean; revision: { id: string } }
     error?: Error
   }> {
+    // The RPC requires a live matching session for the losing request.
+    await migrator.query(
+      `INSERT INTO internal.session(id,token,"userId","expiresAt") VALUES ($1,$1,$2,now()+interval '1 hour') ON CONFLICT (id) DO NOTHING`,
+      [`race-${key}`, USER_A],
+    )
     const loser = await asRole('authenticator')
     clients.push(loser)
     await loser.query('SET ROLE authenticated')

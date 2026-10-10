@@ -18,7 +18,7 @@ import {
   EmptyAnalysisState,
   ExportPanel,
   SavedViewsPanel,
-} from './analysis'
+} from './analysis/new'
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
@@ -318,6 +318,7 @@ function view(overrides: Partial<AnalysisViewWire> = {}): AnalysisViewWire {
     workspace_id: 'ws-1',
     owner_user_id: 'u-1',
     name: 'pH over time',
+    display_id: null,
     version: 1,
     spec: spec(),
     source_revisions: [
@@ -408,6 +409,7 @@ describe('ExportPanel', () => {
         selectedViewId={null}
         views={[]}
         user={{ id: 'u-1', name: 'Alice' }}
+        workspaceId="ws-1"
         materialised={{
           state: { kind: 'ok' },
           columns: [],
@@ -435,8 +437,8 @@ describe('DataTableAlternative', () => {
     const { container } = render(
       <DataTableAlternative materialised={null as never} loading />,
     )
-    // Skeleton renders as a div with class containing "animate-pulse".
-    expect(container.querySelector('.animate-pulse')).toBeTruthy()
+    // The v3 Skeleton renders as a div with the skeleton surface token.
+    expect(container.querySelector('.bg-skeleton')).toBeTruthy()
   })
 
   it('renders a no-data message for a non-ok state', () => {

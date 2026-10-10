@@ -1,0 +1,24 @@
+Pipelines
+Pipelines
+9 New pipeline
+All 9 Mine 3 Needs attention 2 Scheduled 4 Drafts 2
+| | ID | Pipeline | Version | Starts on | Last run | Keeps | Owner
+| PL-0007 | Clarification step yield | v3 | New DS-0311 snapshot · manual | Succeeded · 10:12 | Nothing · proposes a figure | Gareth P.
+| PL-0014 | Full/empty ratio from AUC traces | v2 | Manual | Failed at step 3 · 09:48 | Snapshot of DS-0306 | Mei L.
+| PL-0003 | Ambr 250 daily import check | v5 | Daily 09:10 | Waiting for a person · 09:12 | Nothing · asks for units | Gareth P.
+| PL-0011 | Plate reader PR-01 export | v4 | Webhook from PR-01 | Succeeded · 10:11 | Snapshot of DS-0311 | Mei L.
+| PL-0009 | Weekly stability summary | v2 | Mondays 07:00 | Succeeded · 21 Sep | Snapshot of DS-0301 | Priya S.
+| PL-0005 | Material expiry reminders | v1 | Daily 06:00 | Succeeded · 06:00 | Nothing · inbox items | Tom H.
+| PL-0015 | HEK293 viability trend | draft | Manual | Never run | Not set | Mei L.
+| PL-0016 | TFF flux decay fit | draft | New DS-0314 snapshot | Never run | Nothing | Tom H.
+8 of 9 · a pipeline keeps nothing unless its outputs say so
+PL-0007 · v3 Clarification step yield
+Joins ELISA titre to the filter runs, calculates step yield per load, fits it and proposes an updated Figure 1 in EXP-0142.
+Run now Open
+Recent runs
+#148 · event 10:12 · 38 s #147 · manual Yesterday · 41 s #146 · event 23 Sep · 6 s #145 · event 23 Sep · 39 s
+Allowed to
+Read DS-0310 and DS-0311
+Propose blocks in AAV9 process transfer notebooks
+Send to Teams channel #aav9-process
+Never signs, submits, approves or deletes.

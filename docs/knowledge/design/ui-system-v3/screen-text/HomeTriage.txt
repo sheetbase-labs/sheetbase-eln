@@ -1,0 +1,70 @@
+Inbox
+Inbox
+Everything waiting on you, across projects
+Notification settings
+Mark all seen
+Needs action 8 Following 5 Done today 2
+All types
+Reviews 3
+Data issues 2
+Runs 1
+Signatures 1
+Materials 1
+Sorted by due date · J / K to move
+Today 4
+Review DS-0305 HEK293 WCB viability panel Submitted by Mei L. · 23 Sep, 15:18
+HEK293 cell bank characterisation Due today Review
+Data issue DS-0311 Turbidity out 61.5 NTU is outside 0–50 NTU Blocks review of EXP-0142 · row 88
+AAV9 process transfer Today Resolve
+Run ELISA plate 4, capsid titre, 11:30 Plate reader PR-01 · EXP-0142 · includes C-150 repeat
+AAV9 process transfer 11:30 Open run
+Signature EXP-0136 Witness signature requested Requested by Mei L. · meaning “Witnessed”
+AAV9 process transfer Today Sign…
+Next 7 days 4
+Review EXP-0138 Transfection ratio, PEI:DNA sweep Submitted by Priya S. · 24 Sep, 16:40 · 2nd review
+AAV9 process transfer 29 Sep Review
+Review EXP-0131 Day 7 stability pull, 2–8 °C Submitted by Tom H. · 24 Sep, 11:02
+LVV stability, 2–8 °C hold 28 Sep Review
+Data issue DS-0298 2 columns missing units “Osmolality”, “Glucose” · required before submission
+Ambr 250 perfusion scale-down 30 Sep Add units
+Material MAT-0420 Filter train C lot expires Referenced by EXP-0142 · no replacement lot registered
+AAV9 process transfer 1 Oct View lot
+Later · 3 items
+Following 5
+Review EXP-0131 Day 7 stability pull, 2–8 °C Mei L. is reviewing · you are a collaborator
+LVV stability, 2–8 °C hold 28 Sep Open
+Run AN-0057 Step yield and turbidity by filter load Re-runs when DS-0311 changes · last run 24 Sep
+AAV9 process transfer — Open
+Import DS-0311 Plate 4 results from PR-01 Expected after the 11:30 run · auto-imports
+AAV9 process transfer Today Open
+Material MAT-0420 Filter train C lot L-77310 Expires 1 Oct · no replacement lot yet
+AAV9 process transfer 1 Oct Open
+Model MDL-0012 Clarification run v5 Waiting for QA approval · Anna B.
+Process Development 30 Sep Open
+Done today 2
+Signed EXP-0138 Transfection ratio, PEI:DNA sweep You approved version 2 · 10:52
+AAV9 process transfer 10:52 Open
+Resolved EXP-0142 Conflict on Clarification runs, row 6 Kept Priya’s blank-corrected value · 10:31
+AAV9 process transfer 10:31 Open
+Review requested · due 29 Sep
+Transfection ratio, PEI:DNA sweep
+EXP-0138 · AAV9 process transfer · Priya S.
+Open in review Reassign
+Since your last review
+Method text edited 1 block
+Values changed in “Harvest titre” 1 cell
+Your comments resolved 2 of 3
+Record
+Status
+Review, round 2
+Protocol
+PRT-018 v2
+Datasets
+DS-0302 ddPCR titre, DS-0303 ViCell
+Validation
+No errors
+Signature
+Meaning “Reviewed”; password required
+Open comment
+You 22 Sep
+State the DNA mass per cell, not only the ratio, so the result transfers to the 50 L scale.

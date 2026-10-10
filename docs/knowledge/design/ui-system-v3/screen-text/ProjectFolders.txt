@@ -1,0 +1,16 @@
+Project folders
+Projects / PRJ-0217 AAV9 process transfer
+Overview
+In progress Client CL-017 Lead Gareth P.
+Upstream Transfection Harvest Downstream Clarification TFF and polish Analytical Reports for CL-017 Unfiled New folder
+Clarification
+Downstream · 7 items Move… New…
+| | | | Name | Kind | Status | Owner | Updated
+| | | Harvest clarification: depth filter screening | Notebook · EXP-0142 | In progress | Gareth P. | 09:32
+| | | Harvest clarification: 50 L confirmation run | Notebook · EXP-0145 | Draft | Gareth P. | 09:40
+| | | Clarification working sheet | Sheet · SHT-0019 | Working | Gareth P. | 09:40
+| | | ELISA capsid titre and turbidity | Dataset · DS-0311 | 1 out of range | Gareth P. | 10:11
+| | | Filtration pressure log | Dataset · DS-0310 | Valid | Gareth P. | 23 Sep
+| | | Step yield and turbidity by filter load | Analysis · AN-0057 | Draft v3 | Gareth P. | 09:32
+| | | Clarification step yield | Pipeline · PL-0007 | Last run succeeded | Gareth P. | 10:12
+Folders only organise. Moving an item keeps its ID, links, history and access; nothing that cites it breaks. An item lives in one folder and can appear in searches and lists everywhere.

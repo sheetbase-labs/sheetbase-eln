@@ -6,7 +6,7 @@
  * - Same-origin TanStack Start / Vite module scripts (`<Scripts />`).
  * - One inline theme/density bootstrap in `src/routes/__root.tsx`.
  * - TanStack `ScriptOnce` may emit additional inline scripts during SSR.
- * - Handsontable and HyperFormula load as same-origin client chunks.
+ * - The grid engine loads as same-origin client chunks.
  * - GitHub OAuth is a same-origin POST then a top-level navigation; it does
  *   not need github.com in `connect-src` or `form-action`.
  * - Live events use same-origin `EventSource` (`/api/events`).

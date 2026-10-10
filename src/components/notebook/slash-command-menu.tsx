@@ -3,6 +3,8 @@ import * as React from 'react'
 import { BLOCK_PICKER_GROUPS, BLOCK_PICKER_OPTIONS } from './block-picker'
 import type { BlockPickerOption } from './block-picker'
 import { cn } from '#/lib/utils'
+import { Icon } from '#/components/v3/icons'
+import { Kbd } from '#/components/v3/ui/kbd'
 
 /**
  * Slash command menu — a Notion-style floating dropdown that appears when
@@ -14,6 +16,10 @@ import { cn } from '#/lib/utils'
  * reports the selected type via `onSelect`. All keyboard handling
  * (Arrow/Enter/Escape) is driven by the parent editor, which owns the
  * `selectedIndex` and calls `onSelect` / `onClose`.
+ *
+ * EXP-04.3 — the chrome follows `canvas/NbEditing.dc.html`: the menu is
+ * titled "Insert block", grouped in the shared catalogue's design order, and
+ * marks the highlighted entry with the design's ↵ hint.
  */
 export interface SlashCommandMenuProps {
   query: string
@@ -52,10 +58,10 @@ export function SlashCommandMenu({
   if (filtered.length === 0) {
     return (
       <div
-        className="z-50 w-72 rounded-lg border bg-popover p-3 text-sm text-muted-foreground shadow-md"
+        className="z-50 w-72 rounded-lg border bg-popover p-3 text-sm text-fg-muted shadow-md"
         style={style}
         role="listbox"
-        aria-label="Block types"
+        aria-label="Insert block"
       >
         No matching block types
       </div>
@@ -69,20 +75,23 @@ export function SlashCommandMenu({
       className="z-50 max-h-80 w-72 overflow-y-auto rounded-lg border bg-popover p-1 shadow-md"
       style={style}
       role="listbox"
-      aria-label="Block types"
+      aria-label="Insert block"
     >
+      <p className="px-2 py-1 text-[11px] font-medium text-fg-muted">
+        Insert block
+      </p>
       {BLOCK_PICKER_GROUPS.map((group) => {
         const items = filtered.filter((opt) => opt.group === group.id)
         if (items.length === 0) return null
         return (
           <div key={group.id} className="mb-1">
-            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
               {group.label}
             </p>
             {items.map((opt) => {
               optionIndex += 1
               const index = optionIndex
-              const Icon = opt.icon
+              const iconName = opt.icon
               const active = index === selectedIndex
               return (
                 <button
@@ -100,25 +109,32 @@ export function SlashCommandMenu({
                   className={cn(
                     'flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors',
                     active
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-popover-foreground hover:bg-accent/50',
+                      ? 'bg-selection text-fg'
+                      : 'text-fg hover:bg-surface-hover',
                   )}
                 >
-                  <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0">
+                  <Icon
+                    name={iconName}
+                    size={16}
+                    className="mt-0.5 shrink-0 text-fg-muted"
+                  />
+                  <span className="min-w-0 flex-1">
                     <span className="block font-medium">{opt.label}</span>
-                    <span className="block text-xs text-muted-foreground">
+                    <span className="block text-xs text-fg-muted">
                       {opt.description}
                     </span>
                   </span>
+                  {active ? (
+                    <Kbd className="mt-0.5 shrink-0 self-center">↵</Kbd>
+                  ) : null}
                 </button>
               )
             })}
           </div>
         )
       })}
-      <p className="border-t px-2 py-1.5 text-[10px] text-muted-foreground">
-        ↑↓ to move · Enter to insert · Esc to close
+      <p className="border-t px-2 py-1.5 text-[10px] text-fg-muted">
+        ↑ ↓ to move · Enter to insert · Esc to close
       </p>
     </div>
   )

@@ -2,7 +2,7 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, grantProjectAccess } from './helpers'
 
 const WS_A = '13000000-0000-4000-8000-000000000001'
 const WS_B = '13000000-0000-4000-8000-000000000002'
@@ -61,7 +61,11 @@ async function actor(user: string, workspace: string) {
   clients.push(client)
   await client.query('set role authenticated')
   await client.query(`select set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ sub: user, workspace_id: workspace }),
+    JSON.stringify({
+      sub: user,
+      workspace_id: workspace,
+      role: 'authenticated',
+    }),
   ])
   return client
 }
@@ -182,9 +186,16 @@ beforeAll(async () => {
     [WS_A, WS_B, OWNER, MEMBER, OUTSIDER],
   )
   await migrator.query(
-    `insert into api.projects(id,workspace_id,key,title) values ($1,$3,'si-project-a','A'),($2,$4,'si-project-b','B')`,
-    [PROJECT_A, PROJECT_B, WS_A, WS_B],
+    `insert into api.projects(id,workspace_id,key,title,lead_user_id) values ($1,$3,'si-project-a','A',$5),($2,$4,'si-project-b','B',$6)`,
+    [PROJECT_A, PROJECT_B, WS_A, WS_B, OWNER, OUTSIDER],
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS_A,
+    projectId: PROJECT_A,
+    userId: MEMBER,
+    canView: true,
+    canEdit: true,
+  })
   await migrator.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id) values ($1,$3,$5,'experiment','SI-A','A',$7),($2,$4,$6,'experiment','SI-B','B',$8)`,
     [RECORD_A, RECORD_B, WS_A, WS_B, PROJECT_A, PROJECT_B, OWNER, OUTSIDER],
@@ -208,10 +219,10 @@ describe('Sheet Instance durability and authority', () => {
         [WS_A, projectId, recordId, JSON.stringify(state())],
       )
     await expect(createWithContext(PROJECT_B, null)).rejects.toMatchObject({
-      code: 'SB073',
+      code: '42501',
     })
     await expect(createWithContext(PROJECT_A, RECORD_B)).rejects.toMatchObject({
-      code: 'SB073',
+      code: '42501',
     })
     const instance = (await createWithContext(PROJECT_A, RECORD_A)).rows[0]
       .result
@@ -246,7 +257,7 @@ describe('Sheet Instance durability and authority', () => {
     })
     for (const id of [datasetB, crypto.randomUUID()]) {
       await expect(createBound(datasetBinding(id))).rejects.toMatchObject({
-        code: 'SB073',
+        code: '42501',
       })
     }
     for (const id of [RECORD_B, crypto.randomUUID()]) {
@@ -258,7 +269,7 @@ describe('Sheet Instance durability and authority', () => {
           recordId: id,
           policy: 'live',
         }),
-      ).rejects.toMatchObject({ code: 'SB073' })
+      ).rejects.toMatchObject({ code: '42501' })
     }
     await expect(
       createBound(datasetBinding(otherDatasetA, versionA)),
@@ -719,12 +730,18 @@ describe('Sheet Instance durability and authority', () => {
     expect(
       (
         await migrator.query(
-          `select tgname,tgenabled,count(*)::integer count from pg_trigger where tgrelid='api.sheet_instances'::regclass and not tgisinternal group by tgname,tgenabled`,
+          `select tgname,tgenabled,count(*)::integer count from pg_trigger where tgrelid='api.sheet_instances'::regclass and not tgisinternal group by tgname,tgenabled order by tgname`,
         )
       ).rows,
     ).toEqual([
       { tgname: 'change_event_sheet_instances', tgenabled: 'O', count: 1 },
+      // SET-01.3: the workspace editing rule is enforced on this table too.
+      { tgname: 'enforce_change_reason', tgenabled: 'O', count: 1 },
       { tgname: 'guard_sheet_instance', tgenabled: 'O', count: 1 },
+      { tgname: 'prevent_sheet_display_id_change', tgenabled: 'O', count: 1 },
+      { tgname: 'sheet_instances_assign_display_id', tgenabled: 'O', count: 1 },
+      // SRCH-01.2: the cell index follows the instance state.
+      { tgname: 'sync_sheet_cell_search', tgenabled: 'O', count: 1 },
     ])
     expect(
       (

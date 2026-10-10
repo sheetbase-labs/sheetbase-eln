@@ -76,7 +76,11 @@ async function actor(userId: string, workspaceId: string) {
   clients.push(client)
   await client.query('set role authenticated')
   await client.query(`select set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ sub: userId, workspace_id: workspaceId }),
+    JSON.stringify({
+      sub: userId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }),
   ])
   return client
 }
@@ -279,8 +283,8 @@ beforeAll(async () => {
     [WS_A, WS_B, OWNER_A, OWNER_B],
   )
   await migrator.query(
-    `insert into api.projects(id,workspace_id,key,title) values($1,$3,'parameter-a','A'),($2,$4,'parameter-b','B')`,
-    [PROJECT_A, PROJECT_B, WS_A, WS_B],
+    `insert into api.projects(id,workspace_id,key,title,lead_user_id) values($1,$3,'parameter-a','A',$5),($2,$4,'parameter-b','B',$6)`,
+    [PROJECT_A, PROJECT_B, WS_A, WS_B, OWNER_A, OWNER_B],
   )
 })
 
@@ -390,7 +394,7 @@ describe('server-authoritative Parameter resolution', () => {
           ? {
               ...field,
               relationship: {
-                target: { kind: 'model', modelKey: 'reagent' },
+                target: { kind: 'model', modelKey: 'material' },
                 cardinality: 'one',
               },
             }

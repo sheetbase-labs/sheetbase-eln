@@ -1,0 +1,19 @@
+---
+id: subtask-128
+title: PROJ-01.3 — List UI
+type: subtask
+status: done
+priority: high
+created: "2026-09-27"
+updated: "2026-09-28"
+parent: task-125
+tags:
+  - PROJ-01.3
+  - PROJ
+---
+
+# PROJ-01.3 — List UI
+
+Step 3 of 4 in [PROJ-01](../../tasks/PROJ.md#proj-01--project-properties-and-list); the full step text is under “Steps” there.
+
+## Work Log

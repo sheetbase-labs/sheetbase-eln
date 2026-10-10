@@ -67,7 +67,6 @@ async function clean() {
   )
   await admin.query(`DELETE FROM api.records WHERE workspace_id=$1`, [WS])
   await admin.query(`DELETE FROM api.projects WHERE workspace_id=$1`, [WS])
-  await admin.query(`DELETE FROM api.change_events WHERE workspace_id=$1`, [WS])
   await admin.query(
     `DELETE FROM api.workspace_change_seq WHERE workspace_id=$1`,
     [WS],
@@ -128,7 +127,7 @@ test.beforeAll(async () => {
     [SAMPLE, WS, PROJECT, USER],
   )
   await admin.query(
-    `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) VALUES ($1,$2,$3,'reagent','RGT-2025-0001','TaqMan qPCR kit','available',$4)`,
+    `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) VALUES ($1,$2,$3,'material','RGT-2025-0001','TaqMan qPCR kit','available',$4)`,
     [REAGENT, WS, PROJECT, USER],
   )
   await admin.query(
@@ -462,7 +461,7 @@ test.beforeAll(async () => {
   // record_links
   for (const [targetId, kind, ident, linkType] of [
     [SAMPLE, 'sample', 'SMP-2025-0001', 'sample'],
-    [REAGENT, 'reagent', 'RGT-2025-0001', 'reagent'],
+    [REAGENT, 'material', 'RGT-2025-0001', 'material'],
     [PROTOCOL, 'protocol_template', 'PRT-2025-0001', 'protocol'],
     [FILE_REC, 'file', 'FILE-2025-0001', 'file'],
   ] as const) {

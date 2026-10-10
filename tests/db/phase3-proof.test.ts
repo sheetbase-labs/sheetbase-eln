@@ -25,7 +25,7 @@ import * as schema from '#/db/schema'
 import { createCredential, mintApiClientToken } from '#/lib/api-credentials'
 import { resolveExternalToken } from '#/lib/external-token'
 import type { ProxyPath } from '#/lib/postgrest-path'
-import { migratorUrl, prepareTestDatabase } from './helpers'
+import { migratorUrl, prepareTestDatabase, testDatabaseName } from './helpers'
 
 const SECRET =
   process.env.PGRST_JWT_SECRET ?? 'test-jwt-secret-at-least-32-chars!!'
@@ -62,8 +62,8 @@ beforeAll(async () => {
       ('${WS}', '${MEMBER}', 'member')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ}', '${WS}', 'phase3-proj', 'Phase3 Project')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ}', '${WS}', 'phase3-proj', 'Phase3 Project', '${OWNER}')`,
   )
 })
 
@@ -108,7 +108,7 @@ async function asApiClient(
   const url = new URL(process.env.PGRST_DB_URI ?? '')
   url.hostname = 'localhost'
   url.port = process.env.POSTGRES_PORT ?? '5432'
-  url.pathname = '/sheetbase_test'
+  url.pathname = `/${testDatabaseName()}`
   const client = new Client({ connectionString: url.toString() })
   await client.connect()
   clients.push(client)
@@ -202,7 +202,7 @@ describe('ELN-008 Phase 3 acceptance proof', () => {
       )`,
     )
     recordId = result.record.id
-    expect(result.record.identifier).toMatch(/^EXP-\d{4}-\d{4}$/)
+    expect(result.record.identifier).toMatch(/^EXP-\d{4}$/)
     expect(result.record.kind).toBe('experiment')
     expect(result.record.status).toBe('in-progress')
     expect(result.blocks).toHaveLength(2)

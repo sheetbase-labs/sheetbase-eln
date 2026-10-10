@@ -1,0 +1,424 @@
+import { useMemo } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { Checkbox } from '#/components/v3/ui/checkbox'
+import { Input } from '#/components/v3/ui/input'
+import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
+import {
+  Table,
+  TableBody,
+  TableBox,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '#/components/v3/ui/table'
+import { ValueActions } from '#/components/v3/datasets/value-actions'
+import type { RepeatSourceSample } from '#/components/v3/datasets/value-actions'
+import { datasetListQueryKeys } from '#/components/v3/datasets/datasets-data'
+import { hasCapability } from '#/lib/capability'
+import {
+  buildFlagIndex,
+  fetchActiveDatasetFlags,
+  flagKey,
+} from '#/lib/dataset-flags'
+import { notebookDataClient } from '#/lib/notebook-data'
+import { cn } from '#/lib/utils'
+import { useDatasetVersions } from '../$datasetId'
+
+interface RowValuePayload {
+  datasetVersionId: string
+  datasetId: string
+  schemaVersionId: string
+  totalCount: number
+  offset: number
+  limit: number
+  rows: { rowId: string; revision: number; values: Record<string, unknown> }[]
+}
+
+interface FieldWire {
+  field_id: string
+  key: string
+  label: string
+  logical_type: string
+  display_order: number
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** UI port (roadmap-4/ui-app3): the dataset Rows grid, wired to
+ * query_dataset_version_rows + schema fields, with selected-value actions for
+ * marking a value out of range, clearing a flag and requesting a repeat. Row
+ * numbers are page positions: the model stores no row number. */
+export const Route = createFileRoute('/datasets/$datasetId/rows')({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): {
+    q?: string
+    flagged?: boolean
+    row?: string
+    field?: string
+    snapshot?: string
+  } => ({
+    q: typeof search.q === 'string' ? search.q : undefined,
+    flagged: search.flagged === true || search.flagged === 'true' || undefined,
+    row: typeof search.row === 'string' ? search.row : undefined,
+    field: typeof search.field === 'string' ? search.field : undefined,
+    snapshot: typeof search.snapshot === 'string' ? search.snapshot : undefined,
+  }),
+  component: Rows,
+})
+
+function Rows() {
+  const { datasetId } = Route.useParams()
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const { context } = Route.useRouteContext()
+  const queryClient = useQueryClient()
+  const versions = useDatasetVersions(datasetId)
+  const version =
+    (versions.data ?? []).find((v) => v.id === search.snapshot) ??
+    versions.data?.at(0)
+
+  const canWrite = hasCapability(context.workspace?.role, 'record.create')
+
+  const rowsQuery = useQuery({
+    queryKey: ['ui-port', 'dataset-rows', version?.id],
+    queryFn: () =>
+      notebookDataClient.rpc<RowValuePayload>('query_dataset_version_rows', {
+        p_dataset_version_id: version!.id,
+        p_limit: 100,
+        p_offset: 0,
+      }),
+    enabled: Boolean(version),
+  })
+  const payload = rowsQuery.data
+
+  const fieldsQuery = useQuery({
+    queryKey: ['ui-port', 'dataset-fields', payload?.schemaVersionId],
+    queryFn: () =>
+      notebookDataClient.list<FieldWire>(
+        'dataset_schema_version_fields',
+        `?schema_version_id=eq.${payload!.schemaVersionId}&order=display_order.asc&select=field_id,key,label,logical_type,display_order`,
+      ),
+    enabled: Boolean(payload?.schemaVersionId),
+  })
+
+  const flagsQuery = useQuery({
+    queryKey: ['ui-port', 'dataset-flags', datasetId],
+    queryFn: () => fetchActiveDatasetFlags(notebookDataClient, datasetId),
+  })
+  const fields = fieldsQuery.data ?? []
+  const flags = flagsQuery.data ?? []
+  const flagIndex = useMemo(() => buildFlagIndex(flags), [flags])
+
+  const q = (search.q ?? '').trim().toLowerCase()
+  const rows = payload?.rows ?? []
+  const visible = rows.filter((r) => {
+    if (search.flagged && !flags.some((f) => f.rowId === r.rowId)) return false
+    if (!q) return true
+    return Object.values(r.values).some((v) =>
+      String(v).toLowerCase().includes(q),
+    )
+  })
+  const selected = visible.find((r) => r.rowId === search.row) ?? visible.at(0)
+  const selectedField =
+    fields.find((f) => f.field_id === search.field) ?? fields.at(0)
+
+  const refresh = (versionId: string | undefined) => {
+    void queryClient.invalidateQueries({
+      queryKey: ['ui-port', 'dataset-flags', datasetId],
+    })
+    void queryClient.invalidateQueries({
+      queryKey: datasetListQueryKeys.page,
+    })
+    if (versionId) {
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'dataset-rows', versionId],
+      })
+    }
+  }
+
+  // A repeat is requested from a source sample. The row links to it either by a
+  // reference field (record id) or by a text field whose value matches a sample
+  // identifier. When neither resolves, the action stays disabled.
+  const sourceSample = useRowSourceSample(selected, fields)
+
+  if (!version) {
+    return (
+      <div className="px-6 py-4">
+        <EmptyState
+          icon="table"
+          title="No snapshot to read rows from"
+          body="Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot."
+        />
+      </div>
+    )
+  }
+
+  const selectedValue = selectedField
+    ? selected?.values[selectedField.field_id]
+    : undefined
+  const selectedFlags =
+    selected && selectedField
+      ? flags.filter(
+          (f) =>
+            f.rowId === selected.rowId && f.fieldId === selectedField.field_id,
+        )
+      : []
+
+  return (
+    <>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-2 md:px-6">
+          <label className="block w-full sm:w-[220px]">
+            <span className="sr-only">Search rows</span>
+            <Input
+              type="search"
+              placeholder="Search rows"
+              value={search.q ?? ''}
+              className="h-[26px] text-label max-md:h-10"
+              onChange={(e) =>
+                void navigate({
+                  to: '/datasets/$datasetId/rows',
+                  params: { datasetId },
+                  search: (s) => ({ ...s, q: e.target.value || undefined }),
+                  replace: true,
+                })
+              }
+            />
+          </label>
+          <label className="flex items-center gap-2 text-label max-md:min-h-10 sm:ml-2">
+            <Checkbox
+              checked={!!search.flagged}
+              onCheckedChange={(v) =>
+                void navigate({
+                  to: '/datasets/$datasetId/rows',
+                  params: { datasetId },
+                  search: (s) => ({ ...s, flagged: v ? true : undefined }),
+                  replace: true,
+                })
+              }
+            />
+            Only flagged rows ({flags.length})
+          </label>
+          <span className="flex-1" />
+          <Muted className="max-lg:hidden">
+            Snapshot {version.label} · read-only; values change only by import
+          </Muted>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-auto px-4 pb-3 md:px-6">
+          {visible.length ? (
+            <TableBox className="mt-3">
+              <Table className="min-w-max">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-16">Row</TableHead>
+                    {fields.map((f) => (
+                      <TableHead
+                        key={f.field_id}
+                        align={f.logical_type === 'text' ? undefined : 'right'}
+                      >
+                        {f.label}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visible.map((r, i) => {
+                    const rowFlagged = flags.some((f) => f.rowId === r.rowId)
+                    return (
+                      <TableRow
+                        key={r.rowId}
+                        selected={r.rowId === selected?.rowId}
+                        className="cursor-pointer"
+                        onClick={() =>
+                          void navigate({
+                            to: '/datasets/$datasetId/rows',
+                            params: { datasetId },
+                            search: (s) => ({ ...s, row: r.rowId }),
+                            replace: true,
+                          })
+                        }
+                      >
+                        <TableCell className="num text-fg-muted">
+                          {i + 1}
+                          {rowFlagged ? (
+                            <span className="ml-1 text-danger">•</span>
+                          ) : null}
+                        </TableCell>
+                        {fields.map((f) => {
+                          const value = r.values[f.field_id]
+                          const cellFlag = flagIndex.get(
+                            flagKey(r.rowId, f.field_id),
+                          )
+                          return (
+                            <TableCell
+                              key={f.field_id}
+                              align={
+                                f.logical_type === 'text' ? undefined : 'right'
+                              }
+                              className={cn(cellFlag && 'text-danger-text')}
+                            >
+                              {value == null ? '—' : String(value)}
+                            </TableCell>
+                          )
+                        })}
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableBox>
+          ) : (
+            <EmptyState
+              icon="search"
+              title="No rows match"
+              body="Search looks at the values shown; the flagged filter keeps rows with any flagged value."
+            />
+          )}
+          <div className="num py-2 text-label text-fg-muted">
+            {visible.length} of {payload?.totalCount ?? 0} rows
+            {selected ? ` · row ${visible.indexOf(selected) + 1} selected` : ''}
+          </div>
+        </div>
+      </div>
+
+      {selected ? (
+        <Inspector aria-label="Row details" className="w-[320px]">
+          <InspectorSection title={`Row ${visible.indexOf(selected) + 1}`}>
+            <Muted className="mb-2">
+              Row numbers are page positions; the model stores no row number.
+              Select a value to act on it.
+            </Muted>
+            <div className="flex flex-col">
+              {fields.map((f) => {
+                const value = selected.values[f.field_id]
+                const cellFlag = flagIndex.get(
+                  flagKey(selected.rowId, f.field_id),
+                )
+                const isSelected = f.field_id === selectedField?.field_id
+                return (
+                  <button
+                    key={f.field_id}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() =>
+                      void navigate({
+                        to: '/datasets/$datasetId/rows',
+                        params: { datasetId },
+                        search: (s) => ({ ...s, field: f.field_id }),
+                        replace: true,
+                      })
+                    }
+                    className={cn(
+                      'flex cursor-pointer items-center justify-between gap-2 rounded-sm border-0 bg-transparent px-1.5 py-1 text-left text-label hover:bg-surface-hover',
+                      isSelected && 'bg-selection font-medium',
+                    )}
+                  >
+                    <span className="text-fg-muted">{f.label}</span>
+                    <span
+                      className={cn(
+                        'num truncate',
+                        cellFlag && 'text-danger-text',
+                      )}
+                    >
+                      {value == null ? '—' : String(value)}
+                      {cellFlag ? ' •' : ''}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </InspectorSection>
+
+          {selectedField ? (
+            <InspectorSection title="Selected value">
+              <div className="mb-2 flex items-baseline gap-2">
+                <span className="num text-title font-medium">
+                  {selectedValue == null ? '—' : String(selectedValue)}
+                </span>
+                <span className="text-label text-fg-muted">
+                  {selectedField.label}
+                </span>
+              </div>
+              <ValueActions
+                datasetId={datasetId}
+                rowId={selected.rowId}
+                fieldId={selectedField.field_id}
+                fieldLabel={selectedField.label}
+                value={selectedValue}
+                flags={selectedFlags}
+                canWrite={canWrite}
+                sourceSample={sourceSample.data ?? null}
+                onChanged={() => refresh(version.id)}
+              />
+            </InspectorSection>
+          ) : null}
+        </Inspector>
+      ) : null}
+    </>
+  )
+}
+
+/**
+ * Resolve the source sample for a repeat from the selected row: a `reference`
+ * field value that is a Sample record id, or a text value matching a Sample
+ * identifier. Returns `null` when nothing resolves; the action then explains
+ * itself rather than guessing a source.
+ */
+function useRowSourceSample(
+  row: RowValuePayload['rows'][number] | undefined,
+  fields: FieldWire[],
+) {
+  const referenceIds = fields
+    .filter((f) => f.logical_type === 'reference')
+    .map((f) => row?.values[f.field_id])
+    .filter((v): v is string => typeof v === 'string' && UUID_RE.test(v))
+
+  const sampleTexts = fields
+    .filter((f) => /sample/i.test(f.key) || /sample/i.test(f.label))
+    .map((f) => row?.values[f.field_id])
+    .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+
+  const enabled = referenceIds.length > 0 || sampleTexts.length > 0
+
+  return useQuery({
+    queryKey: [
+      'ui-port',
+      'dataset-row-source-sample',
+      JSON.stringify({ referenceIds, sampleTexts }),
+    ],
+    enabled,
+    staleTime: 60_000,
+    queryFn: async (): Promise<RepeatSourceSample | null> => {
+      if (referenceIds.length) {
+        const byId = await notebookDataClient.list<
+          Pick<RepeatSourceSample, 'id' | 'identifier'>
+        >(
+          'records',
+          `?kind=eq.sample&id=in.(${referenceIds.join(
+            ',',
+          )})&select=id,identifier&limit=1`,
+        )
+        if (byId[0]) return byId[0]
+      }
+      for (const identifier of sampleTexts.slice(0, 3)) {
+        const byText = await notebookDataClient.list<
+          Pick<RepeatSourceSample, 'id' | 'identifier'>
+        >(
+          'records',
+          `?kind=eq.sample&identifier=eq.${encodeURIComponent(
+            identifier,
+          )}&select=id,identifier&limit=1`,
+        )
+        if (byText[0]) return byText[0]
+      }
+      return null
+    },
+  })
+}

@@ -173,7 +173,7 @@ describe('isLinkAllowed', () => {
       isLinkAllowed(rules, {
         sourceModelKey: 'experiment',
         linkType: 'sample',
-        targetModelKey: 'reagent',
+        targetModelKey: 'material',
       }),
     ).toBe(false)
   })
@@ -184,7 +184,7 @@ describe('isLinkAllowed', () => {
       isLinkAllowed(rules, {
         sourceModelKey: 'sample',
         linkType: 'sample',
-        targetModelKey: 'reagent',
+        targetModelKey: 'material',
       }),
     ).toBe(true)
   })
@@ -212,16 +212,18 @@ describe('allowedTargetModels / allowedLinkTypes', () => {
       'sample',
       'protocol',
     ])
-    expect(allowedTargetModels(rules, 'experiment', 'reagent')).toEqual([])
+    expect(allowedTargetModels(rules, 'experiment', 'material')).toEqual([])
   })
 })
 
 describe('isReferenceTargetAllowed', () => {
   it('is unrestricted without rules and aggregates across link types with rules', () => {
-    expect(isReferenceTargetAllowed([], 'experiment', 'reagent')).toBe(true)
+    expect(isReferenceTargetAllowed([], 'experiment', 'material')).toBe(true)
     const rules = [rule({ linkType: 'sample', targetModelKey: 'sample' })]
     expect(isReferenceTargetAllowed(rules, 'experiment', 'sample')).toBe(true)
-    expect(isReferenceTargetAllowed(rules, 'experiment', 'reagent')).toBe(false)
+    expect(isReferenceTargetAllowed(rules, 'experiment', 'material')).toBe(
+      false,
+    )
   })
 })
 
@@ -296,7 +298,7 @@ describe('server rejection matchers', () => {
       isRelationshipNotAllowedError({
         code: '400',
         message:
-          'link type sample to model reagent is not allowed for model experiment',
+          'link type sample to model material is not allowed for model experiment',
       }),
     ).toBe(true)
     expect(isRelationshipNotAllowedError({ code: 'SB002', message: 'x' })).toBe(
@@ -335,7 +337,7 @@ describe('rulesForLinkType', () => {
       }),
     ]
     expect(rulesForLinkType(rules, 'experiment', 'sample')).toHaveLength(1)
-    expect(rulesForLinkType(rules, 'experiment', 'reagent')).toHaveLength(0)
+    expect(rulesForLinkType(rules, 'experiment', 'material')).toHaveLength(0)
   })
 })
 

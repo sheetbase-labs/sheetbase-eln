@@ -11,7 +11,7 @@
 import { ASSISTANCE_NOTE } from '#/lib/assist-explain'
 import type { AssistPhrasing } from '#/lib/assist-explain'
 import type { AssistDraftProposal } from '#/lib/assist-drafts'
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 
 export function DraftProposalPanel({
   proposal,
@@ -31,7 +31,7 @@ export function DraftProposalPanel({
   return (
     <section
       aria-label={`Proposal: ${proposal.title}`}
-      className="space-y-2 rounded-md border bg-muted/20 p-2 text-xs"
+      className="space-y-2 rounded-md border bg-surface-muted/20 p-2 text-xs"
     >
       <p
         role="note"
@@ -45,7 +45,7 @@ export function DraftProposalPanel({
       <ProposalPreview proposal={proposal} />
       {phrasing ? (
         <blockquote className="space-y-1 rounded border border-dashed p-2">
-          <p className="font-medium text-muted-foreground">
+          <p className="font-medium text-fg-muted">
             Assistance phrasing ({phrasing.model}) — verify against the
             citations
           </p>
@@ -53,10 +53,10 @@ export function DraftProposalPanel({
         </blockquote>
       ) : null}
       <div className="space-y-1">
-        <p className="font-medium text-muted-foreground">Cited sources</p>
+        <p className="font-medium text-fg-muted">Cited sources</p>
         <ul className="space-y-1">
           {proposal.citations.map((citation, index) => (
-            <li key={index} className="text-muted-foreground">
+            <li key={index} className="text-fg-muted">
               <span className="font-mono">[{citation.label}]</span>{' '}
               {citation.detail}
               {citation.deepLink ? (
@@ -69,7 +69,7 @@ export function DraftProposalPanel({
           ))}
         </ul>
       </div>
-      <p className="text-muted-foreground">{ASSISTANCE_NOTE}</p>
+      <p className="text-fg-muted">{ASSISTANCE_NOTE}</p>
       <div className="flex gap-2">
         <Button type="button" size="sm" disabled={accepting} onClick={onAccept}>
           {acceptLabel ?? defaultAcceptLabel(proposal)}
@@ -77,7 +77,7 @@ export function DraftProposalPanel({
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           disabled={accepting}
           onClick={onDiscard}
         >
@@ -104,7 +104,7 @@ function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
     case 'notebook_text':
       return (
         <div className="space-y-1">
-          <p className="font-medium text-muted-foreground">
+          <p className="font-medium text-fg-muted">
             Draft preview (rich_text block)
           </p>
           <p className="whitespace-pre-wrap rounded border p-2">
@@ -115,7 +115,7 @@ function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
     case 'import_mapping':
       return (
         <div className="space-y-1">
-          <p className="font-medium text-muted-foreground">
+          <p className="font-medium text-fg-muted">
             Mapping preview ({proposal.mappedCount} mapped,{' '}
             {proposal.ignoredCount} ignored)
           </p>
@@ -129,9 +129,9 @@ function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
                     {suggestion.mapping.field.label}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground">ignored</span>
+                  <span className="text-fg-muted">ignored</span>
                 )}{' '}
-                <span className="text-muted-foreground">
+                <span className="text-fg-muted">
                   [{suggestion.confidence}] {suggestion.reason}
                 </span>
               </li>
@@ -142,7 +142,7 @@ function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
     case 'chart_config':
       return (
         <div className="space-y-1">
-          <p className="font-medium text-muted-foreground">
+          <p className="font-medium text-fg-muted">
             Chart preview ({proposal.spec.type})
           </p>
           <p className="rounded border p-2">

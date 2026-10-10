@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
+
+import { channelBody } from './notification-channels'
 import { computeBackoff, attemptDelivery } from './webhook-delivery'
 
 // This suite exercises pure delivery helpers, but the module imports the
@@ -60,6 +62,39 @@ describe('attemptDelivery', () => {
       )
       expect(result.success).toBe(true)
       expect(result.responseStatus).toBe(200)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('posts a Teams card, not the signed JSON, to a Teams destination', async () => {
+    // PIPE-05's check: a run summary reaches a Teams channel. The destination's type decides
+    // the body, so what arrives is a MessageCard the channel can render - posting the signed
+    // JSON would be a 400 the engine could not tell from a transient failure.
+    const seen: Array<{ url: string; body: string }> = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init: { body: string }) => {
+        seen.push({ url, body: init.body })
+        return new Response('1', { status: 200 })
+      }),
+    )
+    try {
+      const body = channelBody('teams', {
+        schemaVersion: '1',
+        eventType: 'pipeline.run.completed',
+        eventId: 'event-1',
+        workspaceId: 'ws-1',
+        runId: 'run-1',
+        definitionVersionId: 'dv-1',
+        result: { rowCount: 3, outputLabel: 'Turbidity results' },
+      })
+      const result = await attemptDelivery(HOOK, body, 'sha256=abc', 5000)
+      expect(result.success).toBe(true)
+      expect(seen[0].url).toBe(HOOK)
+      const card = JSON.parse(seen[0].body)
+      expect(card['@type']).toBe('MessageCard')
+      expect(seen[0].body).toContain('run-1')
     } finally {
       vi.unstubAllGlobals()
     }

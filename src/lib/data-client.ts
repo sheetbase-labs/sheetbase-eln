@@ -21,6 +21,9 @@ interface ErrorEnvelope {
 
 const API_BASE = '/api/db'
 
+/** SET-01.3 — the request header the editing-rule triggers read. */
+export const CHANGE_REASON_HEADER = 'x-sheetbase-change-reason'
+
 export class DataClientError extends Error {
   readonly code: string
   readonly status: number
@@ -78,11 +81,14 @@ export interface DataClient {
    * Cheap total count for a resource query. Uses PostgREST's
    * `Prefer: count=exact` + `Range: 0-0` so at most one row is transferred
    * and the total is read from the `Content-Range` header
-   * (`0-0/<total>`). Falls back to counting the returned rows when the
-   * header is absent (e.g. a proxy that strips it).
+   * (`0-0/<total>`, including empty totals). Rejects responses without an exact total.
    */
   count: (resource: string, query?: string) => Promise<number>
-  rpc: <T>(name: string, args: Record<string, unknown>) => Promise<T>
+  rpc: <T>(
+    name: string,
+    args: Record<string, unknown>,
+    options?: { changeReason?: string },
+  ) => Promise<T>
   insert: <T>(resource: string, row: Record<string, unknown>) => Promise<T>
   patch: <T>(
     resource: string,
@@ -137,34 +143,52 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         },
       })
       const contentRange = response.headers.get('content-range')
-      if (contentRange) {
-        const match = contentRange.match(/\/(\d+)$/)
-        if (match) {
-          // Drain the body so the connection can be reused.
-          await response.text().catch(() => {})
-          return Number(match[1])
-        }
+      // Drain successful and invalid-count responses, without hiding stream
+      // failures or mistaking a one-row response for the exact total.
+      await response.text()
+      const match = contentRange?.match(/^(?:(\d+)-(\d+)|\*)\/(\d+)$/)
+      const total = match ? Number(match[3]) : NaN
+      const start = match?.[1] === undefined ? null : Number(match[1])
+      const end = match?.[2] === undefined ? null : Number(match[2])
+      if (
+        !Number.isSafeInteger(total) ||
+        (start !== null &&
+          end !== null &&
+          (!Number.isSafeInteger(start) ||
+            !Number.isSafeInteger(end) ||
+            start > end ||
+            end >= total))
+      ) {
+        throw new DataClientError(
+          'invalid_count',
+          'The server did not return an exact count.',
+          response.status,
+        )
       }
-      // No count header: count whatever was returned.
-      try {
-        const rows = (await response.json()) as unknown[]
-        return rows.length
-      } catch {
-        return 0
-      }
+      return total
     },
 
-    async rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
+    async rpc<T>(
+      name: string,
+      args: Record<string, unknown>,
+      options?: { changeReason?: string },
+    ): Promise<T> {
+      const headers: Record<string, string> = {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        prefer: 'return=representation',
+      }
+      // SET-01.3: a workspace can require a reason for changing a saved value;
+      // the reason travels in the header the write triggers read.
+      if (options?.changeReason)
+        headers[CHANGE_REASON_HEADER] = options.changeReason
       const response = await request(`/rpc/${name}`, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          accept: 'application/json',
-          prefer: 'return=representation',
-        },
+        headers,
         body: JSON.stringify(args),
       })
-      return (await response.json()) as T
+      // Native PostgREST void functions succeed with 204 and no JSON body.
+      return (response.status === 204 ? undefined : await response.json()) as T
     },
 
     async insert<T>(

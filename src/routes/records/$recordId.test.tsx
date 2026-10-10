@@ -7,6 +7,7 @@ import { SheetProvenanceLine } from '#/components/sheet/canonical-sheet-workspac
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import { notebookQueryKeys } from '#/lib/notebook-data'
+import * as commentsData from '#/lib/comments-data'
 
 import {
   ArchivedBanner,
@@ -19,7 +20,7 @@ import {
   NotebookUnavailableState,
   PermissionRestrictedState,
   StickyRecordHeader,
-} from './$recordId'
+} from './$recordId/notebook'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 
 // Record router Link invocations so tests can assert canonical destinations.
@@ -322,6 +323,7 @@ describe('StickyRecordHeader — lock state', () => {
             submitted_session_id: 's',
             submitted_role: 'scientist',
             submitted_at: '2026-08-19T00:00:00.000Z',
+            due_at: null,
             idempotency_key: 'k',
             created_at: '2026-08-19T00:00:00.000Z',
             updated_at: '2026-08-19T00:00:00.000Z',
@@ -362,6 +364,7 @@ describe('StickyRecordHeader — lock state', () => {
             submitted_session_id: 's',
             submitted_role: 'scientist',
             submitted_at: '2026-08-19T00:00:00.000Z',
+            due_at: null,
             idempotency_key: 'k',
             created_at: '2026-08-19T00:00:00.000Z',
             updated_at: '2026-08-19T00:00:00.000Z',
@@ -408,6 +411,39 @@ describe('NotebookCanvas — locked record', () => {
 })
 
 describe('NotebookCanvas', () => {
+  it('renders view-only for a reader without record.create (EXP-04.5)', () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <NotebookCanvas
+          record={record}
+          blocks={[
+            {
+              id: 'b1',
+              recordId: record.id,
+              type: 'rich_text',
+              payload: { doc: { type: 'doc', content: [] } },
+              payloadSchemaVersion: 1,
+              order: 0,
+              version: 1,
+            },
+          ]}
+          isLoading={false}
+          error={null}
+          onRetry={() => {}}
+          client={{} as unknown as DataClient}
+          queryClient={client}
+          viewOnly
+        />
+      </QueryClientProvider>,
+    )
+    // The editable path is never handed to a viewer: no add-block control,
+    // even though the record is neither archived nor locked.
+    expect(screen.queryByText('+ Block')).toBeNull()
+  })
+
   it('shows a loading state', () => {
     const { container } = render(
       <NotebookCanvas
@@ -608,11 +644,11 @@ describe('NotebookInspector', () => {
         />
       </QueryClientProvider>,
     )
-    // Three mockup tabs
+    // Canonical inspector tabs retain the existing metadata view.
     expect(screen.getByRole('tab', { name: 'Properties' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'History' })).toBeTruthy()
     expect(screen.getByRole('tab', { name: 'Activity' })).toBeTruthy()
-    expect(screen.queryByRole('tab', { name: 'Comments' })).toBeNull()
+    expect(screen.getByRole('tab', { name: 'Comments' })).toBeTruthy()
     // Properties is the default; identifier appears in PropertyList
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
     // Tags render as outline badges within Properties
@@ -634,6 +670,87 @@ describe('NotebookInspector', () => {
     )
     expect(screen.getByText('Submitted — evidence frozen')).toBeTruthy()
     expect(screen.queryByText('Working')).toBeNull()
+  })
+
+  it('lists Record comments through the visibility-checked RPC without inventing a root target', async () => {
+    const fetch = vi
+      .spyOn(commentsData, 'fetchCommentsForRecord')
+      .mockResolvedValue([])
+    const queryClient = new QueryClient()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={record}
+          links={[]}
+          linksLoading={false}
+          defaultTab="comments"
+          canEditMetadata
+        />
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByText('No comments yet on this Record.'),
+    ).toBeTruthy()
+    expect(fetch).toHaveBeenCalledWith(expect.anything(), record.id)
+    expect(
+      screen.queryByRole('textbox', { name: 'New comment body' }),
+    ).toBeNull()
+    fetch.mockRestore()
+  })
+
+  it('reads historical comments only from the exact loaded revision', async () => {
+    const live = vi
+      .spyOn(commentsData, 'fetchCommentsForRecord')
+      .mockResolvedValue([])
+    const frozen = vi
+      .spyOn(commentsData, 'fetchCommentsForRevision')
+      .mockResolvedValue([])
+    const queryClient = new QueryClient()
+    render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={record}
+          links={[]}
+          linksLoading={false}
+          defaultTab="comments"
+          isHistorical
+          commentsRevisionId="historical-1"
+          revisionEvidence={{ blocks: [], links: [] }}
+          canEditMetadata
+        />
+      </QueryClientProvider>,
+    )
+    expect(
+      await screen.findByText('No comments yet on this revision.'),
+    ).toBeTruthy()
+    expect(frozen).toHaveBeenCalledWith(expect.anything(), 'historical-1')
+    expect(live).not.toHaveBeenCalled()
+    expect(
+      screen.queryByRole('textbox', { name: 'New comment body' }),
+    ).toBeNull()
+    live.mockRestore()
+    frozen.mockRestore()
+  })
+
+  it('does not fall back to live comments when historical evidence is missing', () => {
+    const live = vi
+      .spyOn(commentsData, 'fetchCommentsForRecord')
+      .mockResolvedValue([])
+    render(
+      <NotebookInspector
+        record={record}
+        links={[]}
+        linksLoading={false}
+        defaultTab="comments"
+        isHistorical
+        commentsRevisionId="historical-1"
+      />,
+    )
+    expect(
+      screen.getByText('Comments are unavailable without revision evidence.'),
+    ).toBeTruthy()
+    expect(live).not.toHaveBeenCalled()
+    live.mockRestore()
   })
 
   it('shows In review when a submission is active and the record is unlocked', () => {
@@ -978,7 +1095,7 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Undo' }))
 
@@ -1062,7 +1179,7 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
-    await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(cachedIds()).toEqual(['b2'])
 

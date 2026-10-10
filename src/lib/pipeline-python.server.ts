@@ -3,14 +3,28 @@ import {
   EXECUTION_TIMEOUT_SECONDS,
   INPUT_FIELD_LIMIT,
   INPUT_ROW_LIMIT,
+  PAYLOAD_BYTE_LIMIT,
   RESULT_CELL_LIMIT,
+  formatByteSize,
 } from './pipeline-limits'
 
 export interface PythonTransformInput {
   statement: string
+  /**
+   * PIPE-04.1: where the runner keeps the files this step returns. Omitted, the step
+   * returns no files — the runner only collects a declared output directory when it is
+   * told which run the files belong to.
+   */
+  artefactKey?: string
   runtime?: string
   inputs: Record<string, Record<string, unknown>[]>
   parameters: Record<string, unknown>
+}
+
+/** One file a Python step produced, as the runner reports it. */
+export interface PythonArtefact {
+  name: string
+  size: number
 }
 
 export interface PythonTransformResult {
@@ -18,6 +32,30 @@ export interface PythonTransformResult {
   logs: string[]
   /** Immutable image identity returned by the trusted runner, for run provenance. */
   runtime: string
+  /**
+   * PIPE-04.1: files the step wrote to the declared output directory, with their sizes.
+   * The bytes stay with the runner; a run records what was produced and where.
+   */
+  files?: PythonArtefact[]
+  /**
+   * Measured payload usage of the step: the serialized request size, the
+   * response size, and the result row/cell counts. Always present from the real
+   * client; optional so an alternate `executePython` implementation that does
+   * not measure can be injected in tests. See PIPE-04.3.
+   */
+  usage?: PythonTransformUsage
+}
+
+/** Measured payload usage of one Python step (bytes and result shape). */
+export interface PythonTransformUsage {
+  /** Bytes of the JSON request body (pipeline inputs, parameters and code). */
+  inputBytes: number
+  /** Bytes of the JSON result body returned by the runner. */
+  outputBytes: number
+  /** Rows returned by the step. */
+  rows: number
+  /** Cells (field values across all rows) returned by the step. */
+  cells: number
 }
 
 export class PipelinePythonError extends Error {
@@ -35,25 +73,50 @@ export class PipelinePythonError extends Error {
   }
 }
 
-const MAX_BYTES = 32 * 1024 * 1024
 const MAX_LOG_BYTES = 64 * 1024
 const DIGEST_IMAGE = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/
 const isObject = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
-function countCells(rows: unknown): number {
-  if (!Array.isArray(rows) || rows.length > INPUT_ROW_LIMIT)
-    throw new PipelinePythonError('Python row limit exceeded.')
-  let count = 0
+/**
+ * Validate row shape and count rows/cells, naming the measured number in any
+ * limit failure so a rejected step reports what was hit, not just that a limit
+ * exists.
+ */
+function measureRows(
+  rows: unknown,
+  side: 'input' | 'result',
+): { rows: number; cells: number } {
+  const label = side === 'input' ? 'Python input' : 'Python result'
+  const code = side === 'input' ? 'input_too_large' : 'output_too_large'
+  if (!Array.isArray(rows))
+    throw new PipelinePythonError(
+      `${label} must be a list of row objects.`,
+      code,
+    )
+  if (rows.length > INPUT_ROW_LIMIT)
+    throw new PipelinePythonError(
+      `${label} has ${rows.length} rows, over the ${INPUT_ROW_LIMIT} row limit.`,
+      code,
+    )
+  let cells = 0
   for (const row of rows) {
     if (!isObject(row))
-      throw new PipelinePythonError('Python must return row objects.')
+      throw new PipelinePythonError(`${label} must contain row objects.`, code)
     const fields = Object.keys(row).length
-    count += fields
-    if (fields > INPUT_FIELD_LIMIT || count > RESULT_CELL_LIMIT)
-      throw new PipelinePythonError('Python field or cell limit exceeded.')
+    cells += fields
+    if (fields > INPUT_FIELD_LIMIT)
+      throw new PipelinePythonError(
+        `${label} has a row with ${fields} fields, over the ${INPUT_FIELD_LIMIT} field limit.`,
+        code,
+      )
+    if (cells > RESULT_CELL_LIMIT)
+      throw new PipelinePythonError(
+        `${label} has ${cells} cells, over the ${RESULT_CELL_LIMIT} cell limit.`,
+        code,
+      )
   }
-  return count
+  return { rows: rows.length, cells }
 }
 
 function serialize(input: PythonTransformInput): string {
@@ -69,12 +132,13 @@ function serialize(input: PythonTransformInput): string {
   let rows = 0
   let cells = 0
   for (const values of Object.values(input.inputs)) {
-    cells += countCells(values)
-    rows += values.length
+    const measured = measureRows(values, 'input')
+    cells += measured.cells
+    rows += measured.rows
   }
   if (rows > INPUT_ROW_LIMIT || cells > RESULT_CELL_LIMIT)
     throw new PipelinePythonError(
-      'Python input exceeds row or cell limit.',
+      `Python input has ${rows} rows and ${cells} cells, over the ${INPUT_ROW_LIMIT} row or ${RESULT_CELL_LIMIT} cell limit.`,
       'input_too_large',
     )
   let body: string
@@ -95,22 +159,28 @@ function serialize(input: PythonTransformInput): string {
       'Python inputs and parameters must contain finite JSON values.',
     )
   }
-  if (Buffer.byteLength(body) > MAX_BYTES)
+  const bytes = Buffer.byteLength(body)
+  if (bytes > PAYLOAD_BYTE_LIMIT)
     throw new PipelinePythonError(
-      'Python input exceeds 32 MiB.',
+      `Python input is ${formatByteSize(bytes)}, over the ${formatByteSize(PAYLOAD_BYTE_LIMIT)} limit.`,
       'input_too_large',
     )
   return body
 }
 
-async function boundedJson(response: Response): Promise<unknown> {
-  if (
-    !response.body ||
-    Number(response.headers.get('content-length')) > MAX_BYTES
-  )
+async function boundedJson(
+  response: Response,
+): Promise<{ value: unknown; bytes: number }> {
+  const declared = Number(response.headers.get('content-length'))
+  if (declared > PAYLOAD_BYTE_LIMIT)
     throw new PipelinePythonError(
-      'Python response exceeds its size limit.',
+      `Python response declares ${formatByteSize(declared)}, over the ${formatByteSize(PAYLOAD_BYTE_LIMIT)} limit.`,
       'output_too_large',
+    )
+  if (!response.body)
+    throw new PipelinePythonError(
+      'Python runner returned an empty response.',
+      'runner_unavailable',
     )
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
@@ -120,16 +190,19 @@ async function boundedJson(response: Response): Promise<unknown> {
       const next = await reader.read()
       if (next.done) break
       bytes += next.value.byteLength
-      if (bytes > MAX_BYTES) {
+      if (bytes > PAYLOAD_BYTE_LIMIT) {
         await reader.cancel()
         throw new PipelinePythonError(
-          'Python response exceeds 32 MiB.',
+          `Python response is ${formatByteSize(bytes)}, over the ${formatByteSize(PAYLOAD_BYTE_LIMIT)} limit.`,
           'output_too_large',
         )
       }
       chunks.push(next.value)
     }
-    return JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
+    return {
+      value: JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown,
+      bytes,
+    }
   } catch (error) {
     if (error instanceof PipelinePythonError) throw error
     if (
@@ -147,6 +220,39 @@ async function boundedJson(response: Response): Promise<unknown> {
   } finally {
     reader.releaseLock()
   }
+}
+
+/**
+ * PIPE-04.2 — release a run's artefacts, keeping them only if the run says so.
+ *
+ * A failure here is reported, not swallowed: artefacts that were meant to be discarded and
+ * were not are a privacy problem, and artefacts that were meant to be kept and were not are a
+ * lost figure. The caller decides what to do about it; this only says what happened.
+ */
+export async function releasePythonArtefacts(
+  artefactKey: string,
+  keep: boolean,
+): Promise<void> {
+  const runnerUrl = process.env.PIPELINE_PYTHON_RUNNER_URL
+  const token = process.env.PIPELINE_PYTHON_RUNNER_TOKEN
+  if (!runnerUrl || !token || token.length < 32) return
+  const url = new URL(runnerUrl)
+  url.pathname = '/artefacts/release'
+  const response = await fetch(url, {
+    method: 'POST',
+    redirect: 'error',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ key: artefactKey, keep }),
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!response.ok)
+    throw new PipelinePythonError(
+      `The Python runner did not release this run's files (${response.status}).`,
+      'runner_unavailable',
+    )
 }
 
 export async function executePythonTransform(
@@ -206,7 +312,7 @@ export async function executePythonTransform(
       'runner_unavailable',
     )
   }
-  const result = await boundedJson(response)
+  const { value: result, bytes: outputBytes } = await boundedJson(response)
   if (!response.ok) {
     const message =
       isObject(result) && typeof result.error === 'string'
@@ -235,20 +341,45 @@ export async function executePythonTransform(
       'The runner returned a different Python runtime than the pinned version.',
       'runner_unavailable',
     )
-  countCells(result.rows)
+  // PIPE-04.1: the runner reports the files it collected, if the step declared a key.
+  const files = Array.isArray(result.files)
+    ? (result.files as unknown[]).map((entry) => {
+        if (
+          !isObject(entry) ||
+          typeof entry.name !== 'string' ||
+          typeof entry.size !== 'number'
+        )
+          throw new PipelinePythonError(
+            'Python runner reported a malformed file entry.',
+          )
+        return { name: entry.name, size: entry.size }
+      })
+    : []
+
+  const measured = measureRows(result.rows, 'result')
+  const logBytes = Array.isArray(result.logs)
+    ? Buffer.byteLength(result.logs.join('\n'))
+    : 0
   if (
     !Array.isArray(result.logs) ||
     result.logs.some((line) => typeof line !== 'string') ||
-    Buffer.byteLength(result.logs.join('\n')) > MAX_LOG_BYTES
+    logBytes > MAX_LOG_BYTES
   )
     throw new PipelinePythonError(
-      'Python log output exceeds its limit.',
+      `Python log output is ${formatByteSize(logBytes)}, over the ${formatByteSize(MAX_LOG_BYTES)} limit.`,
       'output_too_large',
     )
   return {
     rows: result.rows as Record<string, unknown>[],
     logs: result.logs as string[],
     runtime: result.runtime,
+    files,
+    usage: {
+      inputBytes: Buffer.byteLength(body),
+      outputBytes,
+      rows: measured.rows,
+      cells: measured.cells,
+    },
   }
 }
 
@@ -278,7 +409,7 @@ export async function getPythonRuntime(): Promise<string> {
       redirect: 'error',
       signal: AbortSignal.timeout(15_000),
     })
-    const result = await boundedJson(response)
+    const { value: result } = await boundedJson(response)
     if (
       !response.ok ||
       !isObject(result) ||

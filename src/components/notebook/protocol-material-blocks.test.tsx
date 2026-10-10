@@ -183,7 +183,7 @@ const materialItems = [
   {
     id: 'captured-1',
     materialRecordId: 'record-1',
-    kind: 'reagent' as const,
+    kind: 'material' as const,
     identifier: 'REA-001',
     title: 'Archived buffer',
     quantity: 12.5,
@@ -203,7 +203,7 @@ const materialItems = [
   {
     id: 'captured-3',
     materialRecordId: 'record-missing',
-    kind: 'reagent' as const,
+    kind: 'material' as const,
     identifier: 'REA-003',
     title: 'Missing reagent',
     quantity: 4,
@@ -216,7 +216,7 @@ function currentRecord(overrides: Partial<NotebookRecord>): NotebookRecord {
   return {
     id: 'record-1',
     projectId: 'project-1',
-    kind: 'reagent',
+    kind: 'material',
     identifier: 'REA-001',
     title: 'Current title',
     status: 'active',
@@ -267,12 +267,12 @@ describe('SCI-002 materials preview', () => {
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.queryByRole('checkbox')).toBeNull()
     // NOTE-03: each material stays openable on its canonical surface by
-    // stable UUID — reagents via /reagents, samples via /samples. The
+    // stable UUID — materials via /materials, samples via /samples. The
     // unresolvable record ("Unavailable") deliberately offers no link.
     const openLinks = screen.getAllByRole('link', { name: 'Open' })
     expect(openLinks).toHaveLength(2)
     expect(openLinks.map((link) => link.getAttribute('href'))).toEqual([
-      '/reagents?selected=record-1',
+      '/materials?selected=record-1',
       '/samples?selected=record-2',
     ])
   })

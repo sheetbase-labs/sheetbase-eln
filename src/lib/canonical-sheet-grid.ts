@@ -1,15 +1,26 @@
 import { composedSheetGridMatrix } from './composed-sheet-grid'
 import type { ComposedSheetGridColumn } from './composed-sheet-grid'
-import type { ComposedSheetSnapshot } from './sheet-composition-data'
+import type {
+  ComposedSheetRow,
+  ComposedSheetSnapshot,
+} from './sheet-composition-data'
 import { fieldEditorPresentation } from './field-presentation'
 import type { FieldEditorPresentation } from './field-presentation'
 import type { FieldDefinition, FieldOption } from './field-definition'
 import { parseQuantityNumericValue } from './field-value-validation'
-import { sheetLocalValueError } from './sheet-local-data'
+import type { SheetDefinitionConfiguration } from './sheet-definition'
 import type { SheetInstance } from './sheet-instance-data'
 import type { SheetPresentation } from './sheet-instance'
+import { sheetLocalValueError } from './sheet-local-data'
 
 export type CanonicalSheetColumnOrigin = 'bound' | 'local' | 'calculation'
+
+/** EXP-04.2 — group header for columns that exist only in this Sheet. */
+export const SHEET_LOCAL_GROUP = 'This experiment'
+/** EXP-04.2 — group header for derived columns. */
+export const SHEET_DERIVED_GROUP = 'Derived'
+/** EXP-04.2 — fallback group header when a bound source cannot be named. */
+const SHEET_BOUND_GROUP_FALLBACK = 'Dataset'
 
 export interface CanonicalSheetGridColumn {
   id: string
@@ -18,6 +29,18 @@ export interface CanonicalSheetGridColumn {
   field: FieldDefinition | null
   presentation: FieldEditorPresentation
   editable: boolean
+  /**
+   * EXP-04.2 — header group naming the column's source: its Dataset binding's
+   * parameter label for bound columns, `This experiment` for local columns and
+   * `Derived` for calculated ones.
+   */
+  group: string
+  /**
+   * EXP-04.2 — `Source` badge label for bound columns, naming the dataset and
+   * snapshot (`<dataset> · rev <n>`). Absent for local/calculated columns,
+   * whose badge falls back to its kind.
+   */
+  sourceLabel?: string
 }
 
 export interface CanonicalSheetGridMatrix {
@@ -34,21 +57,24 @@ function activeLocalFields(instance: SheetInstance) {
 }
 
 function localColumn(field: FieldDefinition): CanonicalSheetGridColumn {
+  const calculation = field.computation.mode === 'computed'
   return {
     id: field.fieldId,
     label: field.label,
-    origin: field.computation.mode === 'computed' ? 'calculation' : 'local',
+    origin: calculation ? 'calculation' : 'local',
     field,
     presentation: fieldEditorPresentation(field.logicalType, {
       relationshipTarget: field.relationship?.target.kind ?? null,
     }),
-    editable: field.computation.mode !== 'computed',
+    editable: !calculation,
+    group: calculation ? SHEET_DERIVED_GROUP : SHEET_LOCAL_GROUP,
   }
 }
 
 function boundColumn(
   column: ComposedSheetGridColumn,
   field: FieldDefinition | null,
+  source: { group: string; sourceLabel?: string },
 ): CanonicalSheetGridColumn {
   return {
     id: column.id,
@@ -57,7 +83,44 @@ function boundColumn(
     field,
     presentation: column.presentation,
     editable: column.editable,
+    group: source.group,
+    sourceLabel: source.sourceLabel,
   }
+}
+
+/**
+ * EXP-04.2 — the source name a bound column's binding resolves to: the label
+ * of the Dataset parameter the Definition binds, falling back to the binding
+ * key so a header is never blank.
+ */
+function bindingSourceName(
+  configuration: SheetDefinitionConfiguration | undefined,
+  bindingId: string,
+): string | undefined {
+  if (!configuration) return undefined
+  const binding = configuration.bindings.find((item) => item.id === bindingId)
+  if (!binding) return undefined
+  const parameter = configuration.parameters.find(
+    (item) => item.id === binding.parameterId,
+  )
+  return parameter?.label ?? binding.key
+}
+
+/**
+ * EXP-04.2 — the snapshot revision read for a binding, from the first composed
+ * row that resolves it. Undefined when the Sheet has no composed rows yet.
+ */
+function bindingSnapshotRevision(
+  rows: readonly ComposedSheetRow[],
+  bindingId: string,
+): number | undefined {
+  for (const row of rows) {
+    for (const source of row.sources) {
+      if (source.bindingId === bindingId && source.sourceKind === 'dataset')
+        return source.datasetRevision
+    }
+  }
+  return undefined
 }
 
 /** GRID-03 — editor/paste input for a timestamp field. The grid has no
@@ -152,8 +215,37 @@ export function canonicalSheetGridMatrix(input: {
         (item) => [item.id, item.field] as const,
       ),
     )
+    // EXP-04.2: a bound column's header group and `Source` badge name the
+    // Dataset its binding resolves to, plus the snapshot revision the
+    // composition read. Both are column-stable properties of the pinned
+    // Definition and its displayed rows.
+    const configuration = input.composition.definitionConfiguration
+    const definitionBindings = new Map<string, string>()
+    for (const item of configuration?.columns ?? []) {
+      if (item.source.kind === 'bound')
+        definitionBindings.set(item.id, item.source.bindingId)
+    }
+    const boundSource = (columnId: string) => {
+      const bindingId = definitionBindings.get(columnId)
+      if (!bindingId) return { group: SHEET_BOUND_GROUP_FALLBACK }
+      const name = bindingSourceName(configuration, bindingId)
+      const revision = bindingSnapshotRevision(
+        input.composition!.rows,
+        bindingId,
+      )
+      const group = name ?? SHEET_BOUND_GROUP_FALLBACK
+      return {
+        group,
+        sourceLabel:
+          revision === undefined ? name : `${group} · rev ${revision}`,
+      }
+    }
     const bound = composed.columns.map((column) =>
-      boundColumn(column, definitionFields.get(column.id) ?? null),
+      boundColumn(
+        column,
+        definitionFields.get(column.id) ?? null,
+        boundSource(column.id),
+      ),
     )
     const boundIds = new Set(bound.map((column) => column.id))
     const extraLocal = localFields
@@ -282,14 +374,14 @@ export function applySheetPresentation(
 
 /**
  * GRID-02/GRID-03 — resolve a change set (paste, fill, clear, single edit)
- * against the typed column contract before Handsontable applies anything.
+ * against the typed column contract before the grid applies anything.
  * Every value is coerced through `parseSheetCellInput` (canonical category
  * option, UTC instant, thousands-separated number) and validated. A bulk or
  * single write is accepted only when every target cell is editable and every
  * value parses and validates; otherwise the whole operation fails closed, so
  * the visible grid can never diverge from the authoritative state. The
  * returned change list carries the coerced canonical values for the caller to
- * apply back onto Handsontable's change array.
+ * apply back onto the grid's change array.
  */
 export type BulkChangeRejection =
   | { kind: 'read_only_column'; label: string }
@@ -348,8 +440,8 @@ export function firstBulkChangeRejection(
  * GRID-02 — compute the change list for a "clear contents" bulk operation.
  *
  * Returns `[row, col, null]` triples for every editable, non-empty cell in
- * the selection (Handsontable's `setDataAtCell` change format reads element
- * `[2]` as the new value). Read-only/derived columns and already-empty cells
+ * the selection (the bulk change format reads element `[2]` as the new value).
+ * Read-only/derived columns and already-empty cells
  * are skipped, so clearing never mints phantom spare-row entries and the
  * workspace `beforeChange` validation remains the fail-closed gate for
  * required fields. Column resolution mirrors GRID-02's `toPhysicalRow` row
@@ -420,7 +512,7 @@ export function categoryCellDisplayText(
 }
 
 /**
- * GRID-04 — typed mapping between Handsontable 18's Filters plugin state and
+ * GRID-04 — typed mapping between the grid Filters plugin state and
  * `presentation.filters`.
  *
  * The plugin's condition collection is deterministic and serialisable:
@@ -460,7 +552,7 @@ function isFilterValue(
 }
 
 /**
- * GRID-04 — convert a Handsontable `afterFilter` conditions stack into
+ * GRID-04 — convert a grid `afterFilter` conditions stack into
  * canonical `presentation.filters`. Column coordinates resolve through the
  * composed matrix's physical column order; only equality-shaped conditions
  * under a plain AND group are captured (the `true`/`false` checkbox conditions

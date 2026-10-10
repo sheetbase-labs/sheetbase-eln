@@ -1,6 +1,6 @@
 /**
  * ScientificRecordLinker — the minimal SCI-001 integration that lets a
- * notebook workflow find and link a sample, reagent or protocol record.
+ * notebook workflow find and link a sample, material or protocol record.
  *
  * Combines the RecordPicker with the existing `create_record_link` RPC. The
  * caller provides the source notebook record id and the active links; the
@@ -18,9 +18,9 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
 import { useState } from 'react'
 
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { RecordPicker } from './record-picker'
 import { ScientificRecordSummary } from './scientific-record-summary'
@@ -78,7 +78,7 @@ export interface ScientificRecordLinkerProps {
 
 const KIND_OPTIONS: { kind: ScientificRecordKind; label: string }[] = [
   { kind: 'sample', label: 'Sample' },
-  { kind: 'reagent', label: 'Reagent' },
+  { kind: 'material', label: 'Material' },
   { kind: 'protocol_template', label: 'Protocol' },
 ]
 
@@ -204,7 +204,7 @@ export function ScientificRecordLinker({
           aria-expanded={open}
           aria-controls="sci-001-linker-picker"
         >
-          <Plus className="size-3" aria-hidden /> Link record
+          <Icon name="plus" size={12} /> Link record
         </Button>
       </div>
 

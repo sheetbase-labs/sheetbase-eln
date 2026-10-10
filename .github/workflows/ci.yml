@@ -21,6 +21,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  # Read the private @sheetbase-labs/* packages from GitHub Packages.
+  packages: read
 
 env:
   # Non-secret placeholders so server-env validation passes at import and
@@ -31,6 +33,8 @@ env:
   PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
   BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
   PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
+  # Reads the private @sheetbase-labs/* packages from GitHub Packages.
+  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   static:
@@ -49,6 +53,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 11.9.0
+
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -78,6 +85,9 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 11.9.0
+
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -122,6 +132,9 @@ jobs:
         with:
           version: 11.9.0
 
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -159,8 +172,81 @@ jobs:
         with:
           version: 11.9.0
 
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build
         run: pnpm build
+
+  # DSYS-06: exact-parity gate. Renders the vendored design with the same
+  # Chromium the parity project uses, seeds the design data, and compares each
+  # migrated screen with its render. Pending coverage and visual differences
+  # fail this job; neither is an accepted exception.
+  parity:
+    name: Visual parity
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
+      MIGRATION_DATABASE_URL: postgresql://migrator:sheetbase-ci@localhost:5432/sheetbase
+      PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
+      BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
+      PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
+      SHEETBASE_DEV_AUTH_FREE: 'false'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Start PostgreSQL and PostgREST
+        run: docker compose -f compose.yaml up -d postgres postgrest
+
+      - name: Wait for PostgreSQL
+        run: |
+          for _ in $(seq 1 30); do
+            if docker compose -f compose.yaml exec -T postgres pg_isready -U sheetbase >/dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          echo "PostgreSQL did not become ready" >&2
+          exit 1
+
+      - name: Migrate and seed the design data
+        run: |
+          pnpm db:migrate
+          pnpm db:seed:design
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Render the design reference
+        run: pnpm design:render
+
+      # Includes parity-drift.spec.ts: clean reference, +1px padding rejection,
+      # then restored reference. No expected failures or tolerance override.
+      - name: Run parity and one-pixel negative control
+        run: pnpm exec playwright test --project=parity --reporter=list,./tests/visual/parity-reporter.ts
+
+      - name: Upload visual diffs and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-diffs
+          path: test-results/
+          if-no-files-found: ignore

@@ -1,15 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type {
-  CellChange,
-  CellValue,
-  ChangeSource,
-  ColumnSettings,
-  RangeType,
-} from 'handsontable'
-import type Handsontable from 'handsontable/base'
 import {
-  FormulaReferenceEditor,
   shiftFormulaReferences,
   toA1,
 } from '#/components/sheet/formula-reference-editor'
@@ -18,37 +9,32 @@ import {
   FunctionAutocompleteDropdown,
   useFunctionAutocomplete,
 } from '#/components/sheet/function-autocomplete'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  AlertCircle,
-  MoreHorizontal,
-  RotateCcw,
-  Settings,
-} from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Dialog, DialogContent, DialogHeader } from '#/components/v3/ui/dialog'
 import {
-  Badge,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  Field,
-  FieldLabel,
-  Input,
-  Separator,
-  Spinner,
-  Textarea,
-} from '#/components/ui'
-import { SheetbaseGrid } from './sheetbase-grid'
+} from '#/components/v3/ui/dropdown-menu'
+import { Input } from '#/components/v3/ui/input'
+import { Textarea } from '#/components/v3/inventory/list'
+import { Icon } from '#/components/v3/icons'
+import { SheetbaseTableGrid } from './sheetbase-grid'
+import type {
+  SheetbaseGridCellChange,
+  SheetbaseGridCellValue,
+  SheetbaseGridClipboardRange,
+  SheetbaseGridColumn,
+  SheetbaseGridHandle,
+  SheetbaseGridMenuEntry,
+  SheetbaseGridSelection,
+  SheetbaseGridWriteSource,
+} from './sheetbase-grid'
 import { ScientificApiInspector } from './scientific-api-inspector'
 import { ScientificTransferPanel } from './scientific-transfer-panel'
 import {
@@ -80,15 +66,12 @@ import type {
 } from '#/lib/scientific-sheet-data'
 import { SchemaBadge } from '#/components/dataset-schema/schema-badge'
 import { upgradeScientificSchema } from '#/lib/dataset-schema-data'
-import { scientificSheetName } from '#/lib/scientific-workbook'
 import type {
   ScientificWorkbook,
   WorkbookCellAddress,
   WorkbookResult,
   WorkbookTable,
 } from '#/lib/scientific-workbook'
-import { createSheetbaseHyperFormula } from '#/lib/hyperformula-profile'
-import type { HyperFormula } from 'hyperformula'
 import { useNotebookScientificWorkbook } from '#/components/notebook/scientific-workbook-provider'
 import { GridOperationCoordinator } from '#/lib/grid-operation-coordinator'
 import type {
@@ -202,7 +185,7 @@ function writeColumnPreferences(key: string, value: unknown): void {
  * table data changes, so a `tableWorkbook` reference held across a render can
  * briefly predate the row/column identity it is asked to look up. An
  * unguarded `locate()` throws `Unknown stable cell identity.` and crashes
- * render, which cascades into Handsontable's destroy path (`Cannot read
+ * render, which cascades into the grid's teardown path (`Cannot read
  * properties of undefined (reading 'off')`). Returning `null` lets the UI
  * degrade gracefully until the rebuilt workbook arrives.
  *
@@ -235,26 +218,26 @@ function SaveStatusIndicator({
   if (status === 'saving' || status === 'retrying')
     return (
       <span
-        className="flex items-center gap-1 text-muted-foreground"
+        className="flex items-center gap-1 text-fg-muted"
         aria-label={status === 'retrying' ? 'Retrying save' : 'Saving'}
       >
-        <Spinner className="size-3" />
+        <Icon name="clock" size={12} className="animate-spin" />
         {status === 'retrying' ? 'Offline/Retrying…' : 'Saving…'}
       </span>
     )
   if (status === 'error')
     return (
       <span
-        className="flex items-center gap-1 text-destructive"
+        className="flex items-center gap-1 text-danger-text"
         aria-label="Save failed"
       >
-        <AlertCircle className="size-3" />
+        <Icon name="warn" className="size-3" />
         Save failed
         <Button
           type="button"
-          variant="ghost"
+          variant="quiet"
           size="sm"
-          className="h-5 px-1.5 text-[10px] text-destructive"
+          className="h-5 px-1.5 text-[10px] text-danger-text"
           onClick={onRetry}
         >
           <RotateCcw className="size-3" />
@@ -265,10 +248,10 @@ function SaveStatusIndicator({
   if (status === 'saved')
     return (
       <span
-        className="flex items-center gap-1 text-success-foreground"
+        className="flex items-center gap-1 text-success-text-foreground"
         aria-label="Saved"
       >
-        <Check className="size-3" />
+        <Icon name="check" className="size-3" />
         Saved
       </span>
     )
@@ -289,11 +272,11 @@ const LOGICAL_TYPES: ScientificLogicalType[] = [
  * shadcn Select primitive in this project, so we style the native control with
  * the same tokens as `Input`. */
 const selectClass =
-  'h-8 rounded-md border border-input bg-background px-2 text-xs shadow-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
+  'h-8 rounded-md border border-border bg-surface px-2 text-xs shadow-xs outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50'
 
 /** Native checkbox styled to match the design system (no Checkbox primitive). */
 const checkboxClass =
-  'size-4 rounded border-input text-primary accent-primary focus-visible:ring-2 focus-visible:ring-ring/50'
+  'size-4 rounded border-border text-primary accent-primary focus-visible:ring-2 focus-visible:ring-ring/50'
 
 type Confirmation =
   | {
@@ -444,23 +427,22 @@ function SchemaConfigurator({
 
   return (
     <div className="space-y-5">
-      <DialogHeader>
-        <DialogTitle className="font-display">Configure sheet</DialogTitle>
-        <DialogDescription>
-          Rename the sheet, add columns, and manage units, validation and schema
-          lifecycle. Display labels can change; stable identities remain.
-        </DialogDescription>
-      </DialogHeader>
+      <DialogHeader
+        title="Configure sheet"
+        description="Rename the sheet, add columns, and manage units, validation and schema lifecycle. Display labels can change; stable identities remain."
+      />
 
       {formulaDependencies.length ? (
-        <p className="text-xs text-warning-foreground" role="status">
+        <p className="text-xs text-warning-text" role="status">
           {new Set(formulaDependencies.map((item) => item.formula_id)).size}{' '}
           persisted formula(s) depend on this sheet
         </p>
       ) : null}
 
-      <Field>
-        <FieldLabel htmlFor="sheet-name">Sheet name</FieldLabel>
+      <div className="space-y-1">
+        <label className="text-label text-fg-muted" htmlFor="sheet-name">
+          Sheet name
+        </label>
         <div className="flex items-center gap-2">
           <Input
             id="sheet-name"
@@ -472,7 +454,7 @@ function SchemaConfigurator({
           <Button
             type="button"
             size="sm"
-            variant="subtle"
+            variant="quiet"
             disabled={disabled || !name.trim() || name === table.name}
             onClick={() =>
               schemaMutation.mutate((v) =>
@@ -488,24 +470,30 @@ function SchemaConfigurator({
             Save name
           </Button>
         </div>
-      </Field>
+      </div>
 
-      <Separator />
+      <hr className="border-border" />
 
       <div className="space-y-3">
-        <FieldLabel>Add column</FieldLabel>
+        <label className="text-label font-medium text-fg-muted">
+          Add column
+        </label>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="new-col-label">Label</FieldLabel>
+          <div className="space-y-1">
+            <label className="text-label text-fg-muted" htmlFor="new-col-label">
+              Label
+            </label>
             <Input
               id="new-col-label"
               aria-label="New column label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
             />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="new-col-type">Type</FieldLabel>
+          </div>
+          <div className="space-y-1">
+            <label className="text-label text-fg-muted" htmlFor="new-col-type">
+              Type
+            </label>
             <select
               id="new-col-type"
               aria-label="New column type"
@@ -517,7 +505,7 @@ function SchemaConfigurator({
                 <option key={value}>{value}</option>
               ))}
             </select>
-          </Field>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-xs">
           <label className="flex items-center gap-2">
@@ -548,10 +536,10 @@ function SchemaConfigurator({
           ) : null}
         </div>
         {type === 'category' ? (
-          <Field>
-            <FieldLabel htmlFor="cat-options">
+          <div className="space-y-1">
+            <label className="text-label text-fg-muted" htmlFor="cat-options">
               Category options (one per line)
-            </FieldLabel>
+            </label>
             <Textarea
               id="cat-options"
               aria-label="Category options"
@@ -559,15 +547,17 @@ function SchemaConfigurator({
               onChange={(e) => setOptions(e.target.value)}
               className="min-h-24"
             />
-          </Field>
+          </div>
         ) : null}
-        <details className="rounded-md border bg-muted/20 p-2 text-xs">
-          <summary className="cursor-pointer font-medium text-muted-foreground">
+        <details className="rounded-md border bg-surface-muted/20 p-2 text-xs">
+          <summary className="cursor-pointer font-medium text-fg-muted">
             Advanced · custom JSON
           </summary>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="unit-json">Unit JSON</FieldLabel>
+            <div className="space-y-1">
+              <label className="text-label text-fg-muted" htmlFor="unit-json">
+                Unit JSON
+              </label>
               <Textarea
                 id="unit-json"
                 aria-label="Unit JSON"
@@ -576,9 +566,14 @@ function SchemaConfigurator({
                 onChange={(e) => setUnit(e.target.value)}
                 className="min-h-20 font-mono"
               />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="validation-json">Validation JSON</FieldLabel>
+            </div>
+            <div className="space-y-1">
+              <label
+                className="text-label text-fg-muted"
+                htmlFor="validation-json"
+              >
+                Validation JSON
+              </label>
               <Textarea
                 id="validation-json"
                 aria-label="Validation JSON"
@@ -587,7 +582,7 @@ function SchemaConfigurator({
                 onChange={(e) => setValidation(e.target.value)}
                 className="min-h-20 font-mono"
               />
-            </Field>
+            </div>
           </div>
         </details>
         <Button type="button" size="sm" disabled={disabled} onClick={addColumn}>
@@ -595,15 +590,15 @@ function SchemaConfigurator({
         </Button>
       </div>
 
-      <Separator />
+      <hr className="border-border" />
 
       <div className="space-y-2">
-        <FieldLabel>Columns</FieldLabel>
+        <label className="text-label font-medium text-fg-muted">Columns</label>
         <ol className="space-y-1.5" aria-label="Columns">
           {table.columns.map((column, index) => (
             <li
               key={column.id}
-              className="flex flex-wrap items-center gap-2 rounded-md border bg-card/40 p-2"
+              className="flex flex-wrap items-center gap-2 rounded-md border bg-surface/40 p-2"
             >
               <Input
                 aria-label={`Label for ${column.label}`}
@@ -622,8 +617,8 @@ function SchemaConfigurator({
                 }}
                 className="h-8 min-w-36 flex-1"
               />
-              <Badge variant="secondary">{column.logical_type}</Badge>
-              <Badge variant="outline">
+              <Badge variant="chg">{column.logical_type}</Badge>
+              <Badge variant="kind">
                 {column.nullable ? 'nullable' : 'required'}
               </Badge>
               <select
@@ -669,8 +664,8 @@ function SchemaConfigurator({
               </select>
               <Button
                 type="button"
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 aria-label="Move left"
                 disabled={disabled || index === 0}
                 onClick={() =>
@@ -685,12 +680,12 @@ function SchemaConfigurator({
                   )
                 }
               >
-                <ChevronLeft className="size-4" />
+                <Icon name="chevronRight" className="size-4 rotate-180" />
               </Button>
               <Button
                 type="button"
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 aria-label="Move right"
                 disabled={disabled || index === table.columns.length - 1}
                 onClick={() =>
@@ -705,11 +700,11 @@ function SchemaConfigurator({
                   )
                 }
               >
-                <ChevronRight className="size-4" />
+                <Icon name="chevronRight" className="size-4" />
               </Button>
               <Button
                 type="button"
-                variant="ghost"
+                variant="quiet"
                 size="sm"
                 disabled={
                   disabled ||
@@ -743,7 +738,7 @@ function SchemaConfigurator({
           ))}
         </ol>
         {rowMutationPending || draftColumnIds.size > 0 ? (
-          <p role="status" className="text-xs text-warning-foreground">
+          <p role="status" className="text-xs text-warning-text">
             Save or discard pending row changes before converting or retiring
             columns.
           </p>
@@ -774,7 +769,7 @@ function SchemaConfigurator({
               ).size
             }
           </p>
-          <p className="text-muted-foreground">
+          <p className="text-fg-muted">
             This can affect formulas and API clients. The stable field remains{' '}
             {confirmation.column.field_name}.
           </p>
@@ -782,7 +777,7 @@ function SchemaConfigurator({
             <Button
               type="button"
               size="sm"
-              variant="destructive"
+              variant="danger"
               disabled={
                 disabled ||
                 rowMutationPending ||
@@ -815,7 +810,7 @@ function SchemaConfigurator({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={disabled}
               onClick={() => {
                 setConfirmation(null)
@@ -834,9 +829,9 @@ function SchemaConfigurator({
         </p>
       ) : null}
 
-      <Separator />
+      <hr className="border-border" />
 
-      <details className="rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground">
+      <details className="rounded-md border bg-surface-muted/20 p-2 text-xs text-fg-muted">
         <summary className="cursor-pointer font-medium">Developer info</summary>
         <div className="mt-2 space-y-2">
           <p>
@@ -862,61 +857,42 @@ function SchemaConfigurator({
 }
 
 /**
- * Built-in context-menu item keys for the editable scientific sheet. Only
- * operations that are backed by the data model are included — column
- * insert/remove and read-only toggle are omitted because they would mutate
- * Handsontable locally without persisting. The full ordered item list
- * (including custom items) is assembled in the settings memo where custom
- * callbacks can access component state.
+ * COMP-06 — the vendor-neutral column contract. Formula-reference editing is
+ * requested with `formula`; the wrapper builds the engine's editor.
  */
-const GRID_CONTEXT_MENU_ITEMS: readonly string[] = Object.freeze([
-  'row_above',
-  'row_below',
-  'remove_row',
-  '---------',
-  'cut',
-  'copy',
-  'paste',
-])
-
-function columnSettings(
+function sheetbaseColumn(
   column: ScientificColumnWire,
   readOnly: boolean,
-): ColumnSettings {
-  const base: ColumnSettings = { data: column.field_name }
+): SheetbaseGridColumn {
+  const unitSuffix =
+    column.unit && typeof column.unit === 'object' && 'symbol' in column.unit
+      ? ` (${String(column.unit.symbol)})`
+      : ''
   const presentation = fieldEditorPresentation(column.logical_type)
-  // Use the formula reference editor for editable columns so users can
-  // point-and-click cell references while entering formulas (type =, click a
-  // cell → its A1 reference is inserted). Read-only mode keeps the default
-  // editor since no editing occurs. Pass the class directly (not a string
-  // name) to bypass Handsontable's global editor registry, which may not
-  // resolve correctly across dynamically-imported bundles.
-  const formulaEditor = !readOnly ? { editor: FormulaReferenceEditor } : {}
+  const base: Omit<SheetbaseGridColumn, 'type'> = {
+    id: column.id,
+    label: `${column.label}${unitSuffix}`,
+    source: 'bound',
+    readOnly,
+  }
   if (presentation.kind === 'number')
     return {
       ...base,
-      type: 'numeric',
-      numericFormat: {
-        pattern:
-          column.format ?? (column.logical_type === 'decimal' ? '0.00' : '0'),
-      },
-      ...formulaEditor,
+      type: 'number',
+      numberFormat:
+        column.format ?? (column.logical_type === 'decimal' ? '0.00' : '0'),
+      formula: !readOnly,
     }
   if (presentation.kind === 'checkbox') return { ...base, type: 'checkbox' }
   if (presentation.kind === 'date')
-    return {
-      ...base,
-      type: 'date',
-      dateFormat: 'YYYY-MM-DD',
-      correctFormat: false,
-    }
+    return { ...base, type: 'date', dateFormat: 'YYYY-MM-DD' }
   if (presentation.kind === 'category-select')
     return {
       ...base,
-      type: 'dropdown',
-      source: column.options.map((o) => o.label),
+      type: 'select',
+      options: column.options.map((option) => option.label),
     }
-  return { ...base, type: 'text', ...formulaEditor }
+  return { ...base, type: 'text', formula: !readOnly }
 }
 
 export function ScientificSheetBlock({
@@ -958,16 +934,6 @@ export function ScientificSheetBlock({
       })
     },
   })
-  const hotRef = useRef<Handsontable | null>(null)
-  // Stable callback for the grid's onReady event. This MUST be stable
-  // (useCallback with no deps) so that SheetbaseGridClient's memo check
-  // passes — otherwise every parent re-render (selection change, draft
-  // update, etc.) would flow through as a new onReady prop, break the
-  // memo, re-render HotTable, and trigger updateSettings, which kills
-  // ongoing interactions like the autofill drag.
-  const handleGridReady = useCallback((instance: Handsontable | null) => {
-    hotRef.current = instance
-  }, [])
   const queryClient = useQueryClient()
   const tableQuery = useQuery({
     queryKey: scientificQueryKeys.table(tableId),
@@ -1077,37 +1043,6 @@ export function ScientificSheetBlock({
   }, [allRowsQuery.data, formulaByCell, formulasQuery.data, table])
   const workbook = useNotebookScientificWorkbook(block.id, workbookTable)
   const tableWorkbook = workbook?.hasTable(tableId) ? workbook : null
-  // Dedicated HyperFormula engine for the Handsontable formulas plugin.
-  // We can't share the ScientificWorkbook engine because it gets rebuilt/
-  // destroyed when query data changes, while Handsontable retains the
-  // reference. This dedicated instance lives for the lifetime of this table
-  // and is configured with the Sheetbase profile (correct functions, date
-  // handling, precision, etc.). The formulas plugin syncs grid data into
-  // this engine automatically.
-  const gridEngine = useMemo<HyperFormula | null>(() => {
-    if (!table) return null
-    // The formulas plugin requires the sheet to already exist in the engine.
-    // Without this, the plugin cannot map grid cells to HyperFormula cells,
-    // so formula evaluation, copy-paste formula preservation, and autofill
-    // translation all silently fail (cells show computed values instead of
-    // formula expressions).
-    try {
-      const engine = createSheetbaseHyperFormula()
-      const sheetName = scientificSheetName(table.id)
-      if (!engine.doesSheetExist(sheetName)) engine.addSheet(sheetName)
-      return engine
-    } catch {
-      return null
-    }
-  }, [table?.id])
-  // Destroy the engine when the table changes or the component unmounts.
-  useEffect(() => {
-    const engine = gridEngine
-    if (!engine) return
-    return () => {
-      engine.destroy()
-    }
-  }, [gridEngine])
 
   const calculationProblem =
     (allRowsQuery.data?.length ?? 0) > 10_000
@@ -1480,24 +1415,22 @@ export function ScientificSheetBlock({
 
   // gridData: canonical rows + formula overlays, WITHOUT drafts.
   //
-  // This is the data passed to Handsontable via settings.data. It is
-  // deliberately NOT overlaid with draft (optimistic) values because
-  // Handsontable's editor already writes optimistic values to its internal
-  // data source via saveValue(). If we also put drafts in settings.data,
-  // every setDrafts() call (fired synchronously inside afterChange, which
-  // fires inside super.finishEditing()) would give settings.data a new array
-  // identity. That causes the HotTable wrapper to call updateSettings({data}),
-  // which triggers loadData(), which disrupts the editor mid-commit — the
-  // editor is in WAITING state (validation pending) and never completes its
-  // close cycle. The editor stays open, blocking autofill and all other
-  // grid interactions.
+  // This is the data passed to the grid's `rows` prop. It is deliberately NOT
+  // overlaid with draft (optimistic) values because the grid's own editor
+  // already writes optimistic values to its internal data source as the edit
+  // commits. If we also put drafts in the rows prop, every setDrafts() call
+  // (fired synchronously inside the change hook) would give the rows array a
+  // new identity. The adapter would then push a `replaceData` into the live
+  // grid mid-commit, disrupting the editor while its validation is still
+  // pending so it never completes its close cycle — leaving the editor open
+  // and blocking autofill and all other grid interactions.
   //
-  // By keeping drafts OUT of gridData, settings.data keeps the same array
-  // reference across draft changes. The settings memo doesn't recompute,
-  // HotTable doesn't call updateSettings, and the editor closes normally.
-  // Drafts are still tracked in React state (for refetch recovery and
-  // coordinator cleanup) and overlaid in `localRows` for the footer row
-  // count and localRowsRef — just not in the data passed to Handsontable.
+  // By keeping drafts OUT of gridData, the rows prop keeps the same array
+  // reference across draft changes, so the adapter does not re-push data
+  // during a commit. Drafts are still tracked in React state (for refetch
+  // recovery and coordinator cleanup) and overlaid in `localRows` for the
+  // footer row count and localRowsRef — just not in the data passed to the
+  // grid.
   const gridData = useMemo(() => {
     const detached: Array<Record<string, unknown>> = (
       allRowsQuery.data ?? []
@@ -1516,11 +1449,10 @@ export function ScientificSheetBlock({
         const formula = formulaByCell.get(`${row.id}/${column.id}`)
         if (!formula) continue
         // Same-sheet formulas (no `!` cross-sheet prefix) are injected as
-        // engine expressions so the Handsontable formulas plugin recognises
-        // the cell as a formula, computes it inline, and — crucially —
-        // enables formula-preserving copy-paste and autofill. This does NOT
-        // require `tableWorkbook`: the grid's own `gridEngine` (configured
-        // in `formulasConfig`) evaluates the expression.
+        // engine expressions so the grid recognises the cell as a formula,
+        // computes it inline, and — crucially — enables formula-preserving
+        // copy-paste and autofill. This does NOT require `tableWorkbook`:
+        // the grid evaluates the expression on its own sheet.
         const isSameSheet =
           formula.status === 'supported' &&
           !!formula.engine_expression &&
@@ -1546,7 +1478,7 @@ export function ScientificSheetBlock({
 
   // localRows: gridData + draft overlays. Used for localRowsRef (read by
   // afterChange/afterSelectionEnd callbacks to get row IDs) and the footer
-  // row count. NOT passed to Handsontable — see gridData comment above.
+  // row count. NOT passed to the grid — see gridData comment above.
   const localRows = useMemo(() => {
     const detached = gridData.map((row) => ({ ...row }))
     for (const draft of Object.values(drafts)) {
@@ -1573,6 +1505,13 @@ export function ScientificSheetBlock({
   const copySourceRef = useRef<{ startRow: number; startCol: number } | null>(
     null,
   )
+  // COMP-06.3: the table backend hands back a neutral imperative handle; the
+  // Add-row path uses it to select and reveal the row it just appended.
+  const gridHandleRef = useRef<SheetbaseGridHandle | null>(null)
+  const handleGridReady = useCallback((handle: SheetbaseGridHandle | null) => {
+    gridHandleRef.current = handle
+  }, [])
+  const revealRowRef = useRef<number | null>(null)
   // Add Row: creates a provisional row optimistically in the query cache,
   // registers it with the coordinator for persistence, and selects its
   // first editable cell. The coordinator sends the insert RPC and swaps
@@ -1580,21 +1519,11 @@ export function ScientificSheetBlock({
   const addRow = useCallback(() => {
     if (readOnly || !table) return
     const provisionalId = `prov:${crypto.randomUUID()}`
-    queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => [
-      ...old,
-      { id: provisionalId, version: 0 },
-    ])
+    queryClient.setQueryData<ScientificRowWire[]>(allRowsKey, (old = []) => {
+      revealRowRef.current = old.length
+      return [...old, { id: provisionalId, version: 0 }]
+    })
     coordinator.registerProvisionalRow(provisionalId)
-    // Select the first editable cell of the new row after the grid re-renders.
-    setTimeout(() => {
-      const hot = hotRef.current
-      if (!hot) return
-      const rowIndex = hot.countRows() - 1
-      if (table.columns.length > 0) {
-        hot.selectCell(rowIndex, 0, rowIndex, 0, true)
-        hot.scrollViewportTo(rowIndex, 0, false, false)
-      }
-    }, 0)
   }, [readOnly, table, coordinator, queryClient, allRowsKey])
   // Row deletion: captures row IDs before removal, then persists via
   // deleteScientificRows. If the DB trigger blocks deletion (formula
@@ -1659,7 +1588,7 @@ export function ScientificSheetBlock({
   const handleAfterRemoveRow = useCallback(
     async (_rowIndex: number, _amount: number, source: string) => {
       if (readOnly || !table) return
-      if (source === 'auto' || source === 'loadData') return
+      if (source === 'formula' || source === 'load') return
       const rowIds = removedRowIdsRef.current
       removedRowIdsRef.current = []
       if (rowIds.length === 0) return
@@ -1673,7 +1602,7 @@ export function ScientificSheetBlock({
         void refreshCalculationRef.current(true)
       } catch (error) {
         // The DB trigger blocks deletion of rows with formula dependencies.
-        // Refetch to restore the row in the grid (Handsontable already
+        // Refetch to restore the row in the grid (the grid already
         // removed it locally) and surface the error. Drafts are preserved
         // because they live in React state, not the query cache.
         await queryClient.invalidateQueries({ queryKey: allRowsKey })
@@ -1705,25 +1634,63 @@ export function ScientificSheetBlock({
   // object references on every re-render. Without this, React reconciliation
   // (e.g. setSelected from afterSelectionEnd) would give HotTable "changed"
   // props and reinitialize the grid, killing the cell editor.
-  const gridColumns = useMemo(
-    () => table?.columns.map((col) => columnSettings(col, readOnly)) ?? [],
+  // COMP-06 step 1: the caller speaks Sheetbase terms only. Column types,
+  // formula editing, the formula-reference clipboard and row-removal
+  // persistence are expressed neutrally; the wrapper owns the engine mapping.
+  const sheetColumns = useMemo(
+    () =>
+      table?.columns.map((column) => sheetbaseColumn(column, readOnly)) ?? [],
     [table?.columns, readOnly],
   )
-  const gridColHeaders = useMemo(
+  // gridData keeps the same value identity across draft changes (see the
+  // gridData comment): the neutral rows are derived from it without overlaying
+  // drafts, so the editor commit cycle is never disrupted.
+  const sheetRows = useMemo(
     () =>
-      table?.columns.map((c) => {
-        const unitSuffix =
-          c.unit && typeof c.unit === 'object' && 'symbol' in c.unit
-            ? ` (${String(c.unit.symbol)})`
-            : ''
-        return `${c.label}${unitSuffix}`
-      }) ?? [],
-    [table?.columns],
+      table
+        ? gridData.map((row) => ({
+            id: typeof row.id === 'string' ? String(row.id) : undefined,
+            cells: table.columns.map(
+              (column) => row[column.field_name] ?? null,
+            ),
+          }))
+        : [],
+    [gridData, table],
   )
   const columnWidthsKey = `sheetbase:column-widths:${tableId}`
   const columnOrderKey = `sheetbase:column-order:${tableId}`
+  // The first editable column is where an added row lands its active cell.
+  const firstEditableColumnIndex = useMemo(
+    () =>
+      sheetColumns.findIndex(
+        (column) => !column.readOnly && column.source !== 'calculated',
+      ),
+    [sheetColumns],
+  )
+  // Select and reveal a row the Add-row path appended, once the rebuilt rows
+  // have reached the engine (the child's `replaceData` effect runs first).
+  useEffect(() => {
+    const handle = gridHandleRef.current
+    const target = revealRowRef.current
+    if (!handle || target == null) return
+    revealRowRef.current = null
+    if (firstEditableColumnIndex < 0) return
+    const rowIndex = Math.min(target, Math.max(0, sheetRows.length - 1))
+    handle.selectCell(rowIndex, firstEditableColumnIndex)
+    handle.scrollCellIntoView(rowIndex, firstEditableColumnIndex)
+  }, [sheetRows.length, firstEditableColumnIndex])
+  const insertRows = useCallback(
+    (amount: number) => {
+      for (let index = 0; index < amount; index += 1) addRow()
+    },
+    [addRow],
+  )
+  const handleRowsInserted = useCallback(
+    (_rowIndex: number, amount: number) => insertRows(amount),
+    [insertRows],
+  )
   const initialColumnWidths = useMemo(() => {
-    if (!table) return true
+    if (!table) return undefined
     const stored = readColumnPreferences<Partial<Record<string, number>>>(
       columnWidthsKey,
       {},
@@ -1733,71 +1700,51 @@ export function ScientificSheetBlock({
     )
   }, [columnWidthsKey, table])
   const initialColumnOrder = useMemo(() => {
-    if (!table) return true
+    if (!table) return undefined
     const stored = readColumnPreferences<string[]>(columnOrderKey, [])
     const currentIds = new Set(table.columns.map((column) => column.id))
-    const orderedIds = [
+    return [
       ...stored.filter((id) => currentIds.has(id)),
       ...table.columns
         .map((column) => column.id)
         .filter((id) => !stored.includes(id)),
     ]
-    return orderedIds.map((id) =>
-      table.columns.findIndex((column) => column.id === id),
-    )
   }, [columnOrderKey, table])
-  const formulasConfig = useMemo(() => {
-    if (!gridEngine || !table) return undefined
-    try {
-      return {
-        engine: gridEngine,
-        sheetName: scientificSheetName(table.id),
-      }
-    } catch {
-      return undefined
-    }
-  }, [gridEngine, table?.id])
-  // Memoize the afterChange handler so it doesn't get a new function
-  // reference on every render (which would reconfigure the grid).
-  const handleAfterChange = useCallback(
-    (changes: CellChange[] | null, source: ChangeSource) => {
-      if (readOnly || !changes || source === 'loadData') return
-      // Skip formula strings recalculated by the formulas plugin from
-      // internal operations — only persist user-initiated edits.
-      if (source === 'auto') return
+
+  // Memoize the change handler so it doesn't get a new function reference on
+  // every render (which would reconfigure the grid and can kill the editor).
+  const handleCellsChange = useCallback(
+    (
+      changes: readonly SheetbaseGridCellChange[],
+      source: SheetbaseGridWriteSource,
+    ) => {
+      if (readOnly || source === 'load' || source === 'formula') return
       const generation = ++nextGeneration.current
       const rows = localRowsRef.current
-      const cells: CoordinatorCell[] = changes.flatMap(
-        ([rowIndex, property, , raw]) => {
-          const column = table!.columns.find(
-            (candidate) => candidate.field_name === String(property),
-          )
-          if (!column) return []
-          const rowId =
-            typeof rows[rowIndex]?.id === 'string'
-              ? String(rows[rowIndex].id)
-              : null
-          return [
-            {
-              rowIndex,
-              rowId,
-              columnId: column.id,
-              fieldName: column.field_name,
-              raw,
-              generation,
-            },
-          ]
-        },
-      )
+      const cells: CoordinatorCell[] = changes.flatMap((change) => {
+        const column = table?.columns.find(
+          (candidate) => candidate.id === change.columnId,
+        )
+        if (!column || !table) return []
+        const rowId =
+          change.rowId ??
+          (typeof rows[change.rowIndex]?.id === 'string'
+            ? String(rows[change.rowIndex].id)
+            : null)
+        return [
+          {
+            rowIndex: change.rowIndex,
+            rowId,
+            columnId: column.id,
+            fieldName: column.field_name,
+            raw: change.next,
+            generation,
+          },
+        ]
+      })
       // Defer setDrafts() to a microtask so the React state update does not
-      // interfere with the Handsontable editor commit cycle. afterChange
-      // fires synchronously inside super.finishEditing() → saveValue(). If
-      // setDrafts() triggers a synchronous re-render (even via React's
-      // automatic batching in React 19, which processes batched updates
-      // after the current synchronous code), it could disrupt the editor
-      // while it is in WAITING state (validation pending). By deferring to
-      // queueMicrotask(), we ensure the state update runs after the
-      // synchronous editor close cycle completes.
+      // interfere with the editor commit cycle (it fires synchronously inside
+      // the editor's finishEditing → saveValue path).
       queueMicrotask(() => {
         setDrafts((current) => {
           const next = { ...current }
@@ -1812,38 +1759,40 @@ export function ScientificSheetBlock({
     },
     [readOnly, table, coordinator],
   )
-  // Memoize afterSelectionEnd so it's stable across renders. Handsontable
-  // passes the full selection rect as (row, column, row2, column2).
-  const handleAfterSelectionEnd = useCallback(
-    (row: number, columnIndex: number) => {
-      const rows = localRowsRef.current
-      const rowId =
-        typeof rows[row]?.id === 'string' ? String(rows[row].id) : null
-      const physicalColumn =
-        hotRef.current?.toPhysicalColumn(columnIndex) ?? columnIndex
-      const column = table!.columns.at(physicalColumn)
-      setSelectedCoords({ row, col: columnIndex })
+
+  // Memoize selection handling so it stays stable across renders.
+  const handleSelectionChange = useCallback(
+    (selection: SheetbaseGridSelection | null) => {
+      if (!selection || !table) return
+      const column = table.columns.find(
+        (candidate) => candidate.id === selection.columnId,
+      )
+      const displayIndex = table.columns.findIndex(
+        (candidate) => candidate.id === selection.columnId,
+      )
+      const rowId = selection.rowId ?? null
+      setSelectedCoords({ row: selection.rowIndex, col: displayIndex })
       setSelected(
         rowId && column
-          ? { tableId: table!.id, rowId, columnId: column.id }
+          ? { tableId: table.id, rowId, columnId: column.id }
           : null,
       )
-      // Don't show "Save the row before adding a formula" — provisional
-      // rows (prov:…) and spare rows have no rowId, but the user can
-      // still enter formulas. The coordinator handles persistence for
-      // provisional rows; spare-row edits become inserts automatically.
+      // Don't show "Save the row before adding a formula" — provisional rows
+      // (prov:…) and spare rows have no rowId, but the user can still enter
+      // formulas. The coordinator handles persistence for provisional rows;
+      // spare-row edits become inserts automatically.
       if (!rowId) setFormulaStatus('')
     },
     [table],
   )
+
   const preserveFormulaClipboard = useCallback(
-    (data: CellValue[][], coords: RangeType[]) => {
-      const start = coords.at(0)
-      if (!start || !table) return
-      // Record the source start for paste-time reference translation
+    (data: SheetbaseGridCellValue[][], range: SheetbaseGridClipboardRange) => {
+      if (!table) return
+      // Record the source start for paste-time reference translation.
       copySourceRef.current = {
-        startRow: start.startRow,
-        startCol: start.startCol,
+        startRow: range.startRow,
+        startCol: range.startColumn,
       }
       const rows = localRowsRef.current
       for (let rowOffset = 0; rowOffset < data.length; rowOffset++) {
@@ -1852,17 +1801,17 @@ export function ScientificSheetBlock({
           colOffset < (data[rowOffset]?.length ?? 0);
           colOffset++
         ) {
-          const rowIndex = start.startRow + rowOffset
+          const rowIndex = range.startRow + rowOffset
           const row = rows.at(rowIndex)
-          const visualColumn = start.startCol + colOffset
-          const physicalColumn =
-            hotRef.current?.toPhysicalColumn(visualColumn) ?? visualColumn
-          const column = table.columns.at(physicalColumn)
+          // Resolve the display column through its stable id (the adapter may
+          // apply a persisted column order), falling back to the natural order.
+          const columnId = range.columnIds?.[colOffset]
+          const column = columnId
+            ? table.columns.find((candidate) => candidate.id === columnId)
+            : table.columns.at(range.startColumn + colOffset)
           if (!row || !column || typeof row.id !== 'string') continue
           const formula = formulaByCellRef.current.get(`${row.id}/${column.id}`)
-          const source =
-            formula?.source_expression ??
-            hotRef.current?.getSourceDataAtCell(rowIndex, physicalColumn)
+          const source = formula?.source_expression ?? row[column.field_name]
           if (typeof source === 'string' && source.startsWith('='))
             data[rowOffset][colOffset] = source
         }
@@ -1870,177 +1819,84 @@ export function ScientificSheetBlock({
     },
     [table],
   )
-  const handleAfterColumnResize = useCallback(
-    (newSize: number, visualColumn: number) => {
-      if (!table) return
-      const physicalColumn =
-        hotRef.current?.toPhysicalColumn(visualColumn) ?? visualColumn
-      const column = table.columns.at(physicalColumn)
-      if (!column) return
+
+  const handlePaste = useCallback(
+    (
+      data: SheetbaseGridCellValue[][],
+      target: { row: number; column: number },
+    ) => {
+      // Translate relative A1 references in pasted formulas by the row/column
+      // offset between the copy source and paste target.
+      const source = copySourceRef.current
+      const rowOffset = source ? target.row - source.startRow : 0
+      const colOffset = source ? target.column - source.startCol : 0
+      for (const row of data)
+        for (let column = 0; column < row.length; column++) {
+          const value = row[column]
+          if (typeof value === 'string' && value.startsWith('='))
+            row[column] = shiftFormulaReferences(value, rowOffset, colOffset)
+        }
+      // Clear so a subsequent external paste doesn't use a stale offset.
+      copySourceRef.current = null
+    },
+    [],
+  )
+
+  const handleColumnResize = useCallback(
+    (columnId: string, newSize: number) => {
       const widths = readColumnPreferences<Partial<Record<string, number>>>(
         columnWidthsKey,
         {},
       )
       writeColumnPreferences(columnWidthsKey, {
         ...widths,
-        [column.id]: newSize,
+        [columnId]: newSize,
       })
     },
-    [columnWidthsKey, table],
+    [columnWidthsKey],
   )
-  const handleAfterColumnMove = useCallback(
-    (
-      _moved: number[],
-      _finalIndex: number,
-      _dropIndex: number | undefined,
-      _possible: boolean,
-      orderChanged: boolean,
-    ) => {
-      const hot = hotRef.current
-      if (!orderChanged || !hot || !table) return
-      const ids = Array.from({ length: hot.countCols() }, (_, visualColumn) => {
-        const physicalColumn = hot.toPhysicalColumn(visualColumn)
-        return table.columns[physicalColumn]?.id
-      }).filter((id): id is string => typeof id === 'string')
-      writeColumnPreferences(columnOrderKey, ids)
+
+  const handleColumnOrderChange = useCallback(
+    (columnIds: string[]) => {
+      writeColumnPreferences(columnOrderKey, columnIds)
     },
-    [columnOrderKey, table],
+    [columnOrderKey],
   )
-  // Memoize the complete settings object so the React wrapper doesn't
-  // call updateSettings on every render. This is critical: without it,
-  // any state change (selected, formulaStatus, drafts) re-creates the
-  // settings object, causing HotTable to reconfigure and kill the editor.
-  const settings = useMemo(
-    () =>
-      table
-        ? {
-            data: gridData,
-            columns: gridColumns,
-            colHeaders: gridColHeaders,
-            rowHeaders: true,
-            minSpareRows: !readOnly ? 1 : 0,
-            height: Math.min(
-              Math.max(
-                (gridData.length + 1) * 30 + 40,
-                table.columns.length > 0 ? 80 : 48,
-              ),
-              600,
-            ),
-            readOnly,
-            fillHandle: !readOnly,
-            // Only truthful, persisted operations are exposed. The full
-            // ordered item list matches the requested layout:
-            //   Insert row above/below → Remove row(s) → separator
-            //   Cut/Copy/Paste → Clear contents → separator
-            //   Undo/Redo → separator → Configure columns
-            // Custom items (clear contents, configure columns) need
-            // component-state access so they are defined here rather than in
-            // the frozen constant.
-            contextMenu: readOnly
-              ? false
-              : {
-                  items: [
-                    ...GRID_CONTEXT_MENU_ITEMS,
-                    {
-                      name: 'Clear contents',
-                      callback: function (this: {
-                        getSelected: () => number[][] | null
-                        setDataAtCell: (
-                          changes: Array<[number, number, unknown]>,
-                        ) => void
-                      }) {
-                        const ranges = this.getSelected()
-                        if (!ranges) return
-                        const changes: Array<[number, number, unknown]> = []
-                        for (const [sR, sC, eR, eC] of ranges) {
-                          const startRow = Math.min(sR, eR)
-                          const endRow = Math.max(sR, eR)
-                          const startCol = Math.min(sC, eC)
-                          const endCol = Math.max(sC, eC)
-                          for (let r = startRow; r <= endRow; r++)
-                            for (let c = startCol; c <= endCol; c++)
-                              changes.push([r, c, null])
-                        }
-                        if (changes.length) this.setDataAtCell(changes)
-                      },
-                    },
-                    '---------',
-                    'undo',
-                    'redo',
-                    '---------',
-                    {
-                      name: 'Configure columns…',
-                      callback: () => setConfigurationOpen(true),
-                    },
-                  ],
-                },
-            stretchH: 'all' as const,
-            manualColumnResize: initialColumnWidths,
-            manualColumnMove: initialColumnOrder,
-            formulas: formulasConfig,
-            beforeCopy: preserveFormulaClipboard,
-            beforeCut: preserveFormulaClipboard,
-            beforePaste: (data: CellValue[][], coords: RangeType[]) => {
-              // Translate relative A1 references in pasted formulas by the
-              // row/column offset between the copy source and paste target.
-              const target = coords.at(0)
-              const source = copySourceRef.current
-              const rowOffset =
-                source && target ? target.startRow - source.startRow : 0
-              const colOffset =
-                source && target ? target.startCol - source.startCol : 0
-              for (const row of data)
-                for (let column = 0; column < row.length; column++) {
-                  const value = row[column]
-                  if (typeof value === 'string' && value.startsWith('='))
-                    row[column] = shiftFormulaReferences(
-                      value,
-                      rowOffset,
-                      colOffset,
-                    )
-                }
-              // Clear so a subsequent external paste doesn't use a stale offset
-              copySourceRef.current = null
-            },
-            afterChange: handleAfterChange,
-            afterSelectionEnd: handleAfterSelectionEnd,
-            afterColumnResize: handleAfterColumnResize,
-            afterColumnMove: handleAfterColumnMove,
-            beforeRemoveRow: handleBeforeRemoveRow,
-            afterRemoveRow: handleAfterRemoveRow,
-          }
-        : null,
-    [
-      table,
-      gridData,
-      gridColumns,
-      gridColHeaders,
-      formulasConfig,
-      initialColumnWidths,
-      initialColumnOrder,
-      readOnly,
-      handleAfterChange,
-      handleAfterSelectionEnd,
-      preserveFormulaClipboard,
-      handleAfterColumnResize,
-      handleAfterColumnMove,
-      handleBeforeRemoveRow,
-      handleAfterRemoveRow,
+
+  const contextMenu = useMemo<SheetbaseGridMenuEntry[]>(
+    () => [
+      'insert-row-above',
+      'insert-row-below',
+      'remove-row',
+      'separator',
+      'cut',
+      'copy',
+      'paste',
+      { id: 'clear-contents', label: 'Clear contents', skipEmpty: false },
+      'separator',
+      'undo',
+      'redo',
+      'separator',
+      {
+        id: 'configure-columns',
+        label: 'Configure columns…',
+        onSelect: () => setConfigurationOpen(true),
+      },
     ],
+    [],
   )
   if (!tableId) return <p role="alert">Invalid sheet block.</p>
   if (tableQuery.isPending || (table && allRowsQuery.isPending))
     return <p role="status">Loading scientific sheet…</p>
   if (tableQuery.isError || allRowsQuery.isError)
     return <p role="alert">Could not load scientific sheet.</p>
-  if (!table || !settings)
-    return <p role="alert">Scientific sheet not found.</p>
+  if (!table) return <p role="alert">Scientific sheet not found.</p>
   return (
     <div className="group/sheet border-t border-border/50 pt-1.5">
       {issues.length ? (
         <ul
           role="alert"
-          className="mb-2 space-y-0.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+          className="mb-2 space-y-0.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-danger-text"
         >
           {issues.map((issue) => (
             <li key={issue.key} data-cell={issue.key}>
@@ -2052,7 +1908,7 @@ export function ScientificSheetBlock({
       {calculationProblem ? (
         <p
           role="alert"
-          className="mb-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+          className="mb-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-danger-text"
         >
           {calculationProblem}
         </p>
@@ -2080,15 +1936,15 @@ export function ScientificSheetBlock({
       {readOnly ? null : (
         <section
           aria-label="Formula bar"
-          className="mb-2 flex items-center gap-1.5 border-y bg-muted/20 px-3 py-2 text-xs"
+          className="mb-2 flex items-center gap-1.5 border-y bg-surface-muted/20 px-3 py-2 text-xs"
         >
           <span
-            className="flex h-5 w-12 shrink-0 items-center justify-center rounded bg-background font-mono text-[10px] font-semibold text-muted-foreground"
+            className="flex h-5 w-12 shrink-0 items-center justify-center rounded bg-surface font-mono text-[10px] font-semibold text-fg-muted"
             aria-label="Active cell address"
           >
             {selectedCoords ? toA1(selectedCoords.row, selectedCoords.col) : ''}
           </span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted font-mono text-[10px] font-semibold italic text-muted-foreground">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-muted font-mono text-[10px] font-semibold italic text-fg-muted">
             fx
           </span>
           <div className="relative flex-1">
@@ -2123,26 +1979,53 @@ export function ScientificSheetBlock({
           {exponentHint ? (
             <span
               role="status"
-              className="shrink-0 text-[10px] text-muted-foreground italic"
+              className="shrink-0 text-[10px] text-fg-muted italic"
             >
               ** converted to ^
             </span>
           ) : null}
           {formulaStatus ? (
-            <span role="status" className="text-muted-foreground">
+            <span role="status" className="text-fg-muted">
               {formulaStatus}
             </span>
           ) : null}
         </section>
       )}
 
-      <SheetbaseGrid
-        settings={settings}
+      <SheetbaseTableGrid
+        columns={sheetColumns}
+        rows={sheetRows}
         ariaLabel={table.name}
+        rowHeaders
+        readOnly={readOnly}
+        spareRows={readOnly ? 0 : 1}
+        stretch="all"
+        height={Math.min(
+          Math.max(
+            (gridData.length + 1) * 30 + 40,
+            table.columns.length > 0 ? 80 : 48,
+          ),
+          600,
+        )}
+        initialColumnWidths={initialColumnWidths}
+        columnOrder={initialColumnOrder}
+        clipboard={{
+          onCopy: preserveFormulaClipboard,
+          onCut: preserveFormulaClipboard,
+          onPaste: handlePaste,
+        }}
+        contextMenuItems={readOnly ? false : contextMenu}
+        onCellsChange={handleCellsChange}
+        onSelectionChange={handleSelectionChange}
+        onColumnResize={handleColumnResize}
+        onColumnOrderChange={handleColumnOrderChange}
+        onBeforeRowsRemove={handleBeforeRemoveRow}
+        onRowsRemoved={handleAfterRemoveRow}
+        onRowsInserted={handleRowsInserted}
         onReady={handleGridReady}
       />
 
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-fg-muted">
         <div className="flex items-center gap-2">
           <span>
             {localRows.length} {localRows.length === 1 ? 'row' : 'rows'}
@@ -2158,7 +2041,7 @@ export function ScientificSheetBlock({
           {!readOnly ? (
             <Button
               type="button"
-              variant="subtle"
+              variant="quiet"
               size="sm"
               className="h-7 text-xs"
               aria-label="Add row"
@@ -2167,44 +2050,50 @@ export function ScientificSheetBlock({
               + Add row
             </Button>
           ) : null}
-          <Button variant="ghost" size="sm" className="h-7 text-xs" asChild>
-            <a href={`/datasets?dataset=${encodeURIComponent(tableId)}`}>
-              Explore dataset
-            </a>
+          <Button
+            variant="quiet"
+            size="sm"
+            className="h-7 text-xs"
+            render={
+              <a href={`/datasets?dataset=${encodeURIComponent(tableId)}`} />
+            }
+          >
+            Explore dataset
           </Button>
           {!readOnly ? (
             <Button
               type="button"
-              variant="ghost"
-              size="icon-sm"
+              variant="quiet"
+              size="icon"
               aria-label="Configure table"
               onClick={() => setConfigurationOpen(true)}
             >
-              <Settings className="size-4" />
+              <Icon name="settings" className="size-4" />
             </Button>
           ) : null}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label="Sheet tools"
-              >
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="quiet"
+                  size="icon"
+                  aria-label="Sheet tools"
+                  icon="more"
+                />
+              }
+            />
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setTransferOpen(true)}>
+              <DropdownMenuItem onClick={() => setTransferOpen(true)}>
                 Export CSV
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setInspectorOpen(true)}>
+              <DropdownMenuItem onClick={() => setInspectorOpen(true)}>
                 API inspector
               </DropdownMenuItem>
               {readOnly ? null : (
                 <DropdownMenuItem
                   disabled={calculationResultsQuery.isFetching}
-                  onSelect={() => void refreshCalculation()}
+                  onClick={() => void refreshCalculation()}
                 >
                   Recalculate
                 </DropdownMenuItem>
@@ -2239,13 +2128,10 @@ export function ScientificSheetBlock({
 
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Sheet export</DialogTitle>
-            <DialogDescription>
-              Export this Sheet with schema and unit metadata. Laboratory file
-              import lives on Datasets and Records, not leftover scientific CSV.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogHeader
+            title="Sheet export"
+            description="Export this Sheet with schema and unit metadata. Laboratory file import lives on Datasets and Records, not leftover scientific CSV."
+          />
           <ScientificTransferPanel
             table={table}
             rows={allRowsQuery.data ?? []}
@@ -2256,12 +2142,10 @@ export function ScientificSheetBlock({
 
       <Dialog open={inspectorOpen} onOpenChange={setInspectorOpen}>
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>API inspector</DialogTitle>
-            <DialogDescription>
-              Sheet identity, fields, and authenticated request examples.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogHeader
+            title="API inspector"
+            description="Sheet identity, fields, and authenticated request examples."
+          />
           <ScientificApiInspector
             table={table}
             selectedRowId={selected?.rowId}

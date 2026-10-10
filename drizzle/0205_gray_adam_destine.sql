@@ -1,0 +1,1 @@
+ALTER TABLE "api"."user_preferences" ADD COLUMN "digest_last_sent_on" date;

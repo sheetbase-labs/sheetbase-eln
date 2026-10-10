@@ -1,0 +1,54 @@
+Protocol PRT-021
+Protocols / PRT-021
+Depth-filter clarification screen
+Version 3 ▾ Export PDF New experiment from this
+Effective since 2 Sep 2026 Owner Gareth P. AAV · downstream Periodic review due 2 Sep 2027
+Document Template 6 sections Versions 3 Used by 4 Training 5/6
+1 · Purpose
+Screen depth-filter trains for clarification of AAV harvest at constant flux and select a train and maximum load for scale-up.
+2 · Parameters
+| | Parameter | Value | Unit | Tolerance
+| Flux | 100 | LMH | ± 5
+| Load points | 50, 100, 150 | L/m² | —
+| Harvest hold | 2–8 | °C | ≤ 14 days
+| Pressure logging | every 10 | L/m² | —
+3 · Procedure
+Equilibrate each filter train with 50 L/m² PBS. Record the flush volume.
+Load harvest at constant flux. Log pressure every 10 L/m².
+Collect filtrate at each load point into labelled tubes (register each as a sample).
+Measure turbidity on TB-02 and capsid titre by ELISA (method EM-004).
+Calculate step yield against the feed titre.
+4 · Acceptance criteria
+Capsid step yield ≥ 80 % and filtrate turbidity ≤ 20 NTU at the selected load.
+Versions
+3
+| | Version | Status | Effective | Change
+| v3 | Effective | 2 Sep 2026 | Flux fixed at 100 LMH; 150 L/m² load point; turbidity criterion
+| v2 | Superseded | 10 Jun 2026 | Added pressure logging
+| v1 | Superseded | 2 Mar 2026 | First issue
+Used by
+4
+| | Experiment | Version | Status
+| EXP-0142 Harvest clarification: depth filter screening | v3 | In progress
+| EXP-0145 Harvest clarification: 50 L confirmation run | v3 | Draft
+| EXP-0126 Depth filter screen, AAV8 | v2 | Approved
+| EXP-0117 Depth filter screen, pilot | v2 | Approved
+Training on v3
+5 of 6 Remind Sam R.
+| | Person | Status | Date
+| Gareth P. | Read and acknowledged | 2 Sep
+| Priya S. | Read and acknowledged | 3 Sep
+| Mei L. | Read and acknowledged | 3 Sep
+| Tom H. | Read and acknowledged | 8 Sep
+| Anna B. | Read and acknowledged | 4 Sep
+| Sam R. | Not yet read | Due 2 Oct
+Approvals, version 3
+Gareth P. · Authored 28 Aug
+Mei L. · Technical review 30 Aug
+QA · Approved 1 Sep
+Changes from v2
+Flux fixed at 100 LMH (was 80–120). Added 150 L/m² load point. Turbidity limit 20 NTU added to criteria.
+Training
+5 of 6 users trained. Sam R. must read and acknowledge v3 before starting an experiment from it.
+Used by
+EXP-0142 · in progress EXP-0145 · draft 2 more on v2 (approved)

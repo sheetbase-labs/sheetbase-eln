@@ -233,7 +233,7 @@ describe('lineageNodeDestination', () => {
           revisionId: 'rev-9',
         }),
       ),
-    ).toBe('/reviews/rev-9')
+    ).toBe('/review/rev-9')
     expect(
       lineageNodeDestination(
         makeNode({
@@ -243,7 +243,7 @@ describe('lineageNodeDestination', () => {
           revisionId: 'rev-9',
         }),
       ),
-    ).toBe('/reviews/rev-9')
+    ).toBe('/review/rev-9')
     expect(
       lineageNodeDestination(
         makeNode({
@@ -253,7 +253,7 @@ describe('lineageNodeDestination', () => {
           revisionId: 'rev-9',
         }),
       ),
-    ).toBe('/reviews/rev-9')
+    ).toBe('/review/rev-9')
   })
 
   it('falls back to the live record when an evidence node has no revision', () => {

@@ -25,6 +25,8 @@ const deploymentInputSchema = z.object({
   GITHUB_CLIENT_ID: z.string().min(1).optional(),
   GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
   SHEETBASE_DEV_AUTH_FREE: z.boolean().default(false),
+  /** Test seam: pins the application's notion of now (see src/lib/clock.ts). */
+  SHEETBASE_NOW: z.string().datetime({ offset: true }).optional(),
 })
 
 export interface DeploymentConfig {
@@ -51,6 +53,12 @@ export function validateDeploymentConfig(
     parsed.SHEETBASE_ENV !== 'development'
   ) {
     throw new Error('SHEETBASE_DEV_AUTH_FREE is only allowed in development')
+  }
+
+  if (parsed.SHEETBASE_NOW && deployed) {
+    throw new Error(
+      'SHEETBASE_NOW is a test seam and is only allowed outside staging and production',
+    )
   }
 
   if (deployed) {

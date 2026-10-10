@@ -66,6 +66,8 @@ export interface FavouriteItem {
   identifier: string | null
   destination: string
   createdAt: string
+  /** Project lifecycle status, when the favourite is a project. */
+  status?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -270,7 +272,7 @@ export async function resolveFavouriteItems(
       idsByKind.has('project')
         ? client.list<ProjectWire>(
             'projects',
-            `?id=in.(${idsByKind.get('project')!.join(',')})&select=id,key,title,archived_at`,
+            `?id=in.(${idsByKind.get('project')!.join(',')})&select=id,key,title,status,archived_at`,
           )
         : Promise.resolve([]),
       idsByKind.has('notebook_template')
@@ -313,7 +315,12 @@ export async function resolveFavouriteItems(
   const projectById = new Map(
     projectRows.map((p) => [
       p.id,
-      { key: p.key, title: p.title, openable: p.archived_at === null },
+      {
+        key: p.key,
+        title: p.title,
+        status: p.status,
+        openable: p.archived_at === null,
+      },
     ]),
   )
 
@@ -361,6 +368,7 @@ export async function resolveFavouriteItems(
           label: project.title,
           identifier: project.key,
           destination: projectPath(favourite.id),
+          status: project.status,
         })
         break
       }

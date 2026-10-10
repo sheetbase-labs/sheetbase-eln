@@ -116,9 +116,9 @@ beforeAll(async () => {
     ('${WS_A}','sci-005-a','SCI 005 A'),('${WS_B}','sci-005-b','SCI 005 B')`)
   await migrator.query(`INSERT INTO api.workspace_memberships(workspace_id,user_id,role) VALUES
     ('${WS_A}','${USER_A}','owner'),('${WS_B}','${USER_B}','owner')`)
-  await migrator.query(`INSERT INTO api.projects(id,workspace_id,key,title) VALUES
-    ('${PROJECT_A}','${WS_A}','sci-005-a','SCI 005 A'),
-    ('${PROJECT_B}','${WS_B}','sci-005-b','SCI 005 B')`)
+  await migrator.query(`INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES
+    ('${PROJECT_A}','${WS_A}','sci-005-a','SCI 005 A','${USER_A}'),
+    ('${PROJECT_B}','${WS_B}','sci-005-b','SCI 005 B','${USER_B}')`)
 })
 
 afterAll(async () => {

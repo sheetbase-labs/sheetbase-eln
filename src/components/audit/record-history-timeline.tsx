@@ -4,18 +4,16 @@ import {
   GitCommit,
   History,
   ListChecks,
-  Lock,
-  MessageSquare,
-  PenLine,
   Undo2,
-  Upload,
   XCircle,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { AuditTrail } from './audit-trail'
 import type { AuditEvent } from './audit-trail'
-import { Button, Skeleton } from '#/components/ui'
+import type { IconName } from '#/components/icons'
+import { Button } from '#/components/v3/ui/button'
+import { Skeleton } from '#/components/v3/ui/skeleton'
 import type { TimelineEventWire } from '#/lib/sign-002'
 
 /**
@@ -44,15 +42,15 @@ export interface RecordHistoryTimelineProps {
   refreshing?: boolean
 }
 
-const DECISION_ICONS: Partial<Record<string, LucideIcon>> = {
+const DECISION_ICONS: Partial<Record<string, IconName | LucideIcon>> = {
   approve: CheckCircle2,
   reject: XCircle,
   request_changes: Undo2,
   withdraw: Undo2,
 }
 
-const OPERATION_ICONS: Partial<Record<string, LucideIcon>> = {
-  create: Upload,
+const OPERATION_ICONS: Partial<Record<string, IconName | LucideIcon>> = {
+  create: 'upload',
   update: History,
   move: History,
   delete: History,
@@ -63,7 +61,7 @@ const OPERATION_ICONS: Partial<Record<string, LucideIcon>> = {
   quarantine: History,
   resolve: History,
   reopen: History,
-  lock: Lock,
+  lock: 'lock',
   amend: GitCommit,
 }
 
@@ -94,12 +92,12 @@ function relativeTime(ts: string): string {
   return new Date(then).toLocaleDateString()
 }
 
-function pickIcon(event: TimelineEventWire): LucideIcon {
+function pickIcon(event: TimelineEventWire): IconName | LucideIcon {
   switch (event.type) {
     case 'signature':
-      return PenLine
+      return 'edit'
     case 'comment':
-      return MessageSquare
+      return 'comment'
     case 'check':
       return ListChecks
     case 'submission':
@@ -117,8 +115,35 @@ function pickIcon(event: TimelineEventWire): LucideIcon {
 
 function detailPhrase(event: TimelineEventWire): string {
   switch (event.type) {
-    case 'change_event':
+    case 'change_event': {
+      // Captured facts (for example a protocol deviation's frozen and recorded
+      // step text) name themselves, so the row says what changed rather than
+      // repeating the operation.
+      const payload = event.payload
+      const captured =
+        typeof payload === 'object' &&
+        payload !== null &&
+        'changes' in payload &&
+        typeof payload.changes === 'object' &&
+        payload.changes !== null
+          ? payload.changes
+          : null
+      if (captured !== null) {
+        const labels: string[] = []
+        for (const change of Object.values(captured)) {
+          if (
+            typeof change === 'object' &&
+            change !== null &&
+            'label' in change &&
+            typeof change.label === 'string'
+          ) {
+            labels.push(change.label)
+          }
+        }
+        if (labels.length > 0) return labels.join(', ')
+      }
       return String(event.operation ?? '')
+    }
     case 'revision':
       return String(event.reason ?? '')
     case 'submission':
@@ -185,12 +210,12 @@ export function RecordHistoryTimeline({
   if (error) {
     return (
       <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-        <p role="alert" className="text-sm text-destructive">
+        <p role="alert" className="text-sm text-danger-text">
           Could not load the record history.
         </p>
         {onRefresh ? (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={onRefresh}
             disabled={refreshing}
@@ -209,14 +234,14 @@ export function RecordHistoryTimeline({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">Complete history</h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-fg-muted">
             Creation, edits, submissions, comments, checks, signatures and
             amendments — in the order they happened.
           </p>
         </div>
         {onRefresh ? (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={onRefresh}
             disabled={refreshing}
@@ -227,7 +252,7 @@ export function RecordHistoryTimeline({
       </div>
       <AuditTrail events={mapped} totalCount={mapped.length} />
       {revisionId ? (
-        <p className="font-mono text-xs text-muted-foreground/70">
+        <p className="font-mono text-xs text-fg-muted/70">
           Revision {revisionId.slice(0, 12)}…
           {integrityDigest
             ? ` · integrity ${integrityDigest.slice(0, 16)}…`

@@ -61,6 +61,8 @@ import {
 import { PLATE_MAP_SPEC_VERSION, validatePlateMapSpec } from './plate-map'
 import type { PlateMapSpec, PlateMapSpecError } from './plate-map'
 import { sampleSeriesForRender } from './visualisation-pipeline'
+import { filterRowsByFlags } from './dataset-flags'
+import type { DatasetValueFlag } from './dataset-flags'
 
 // ---------------------------------------------------------------------------
 // VIEW-04 — stable embed config, metadata, compare hand-off, export stamps
@@ -267,6 +269,8 @@ export function representationSourceIdentity(
 export interface RepresentationTableInput {
   columns: ChartColumn[]
   rows: Record<string, unknown>[]
+  /** DSET-01.2 — active value flags; flagged values are excluded by default. */
+  flags?: DatasetValueFlag[]
 }
 
 export type RepresentationMaterialised =
@@ -306,16 +310,26 @@ export function materialiseRepresentation(
   switch (handle.config.kind) {
     case 'chart': {
       const { config: spec } = requireConfigKind(handle, 'chart')
+      // DSET-01.2 — exclude flagged values the chart uses.
+      const usedFields = Object.values(spec.fields)
+        .map((binding) => binding?.fieldId)
+        .filter((fieldId): fieldId is string => typeof fieldId === 'string')
+      const rows = filterRowsByFlags(input.rows, input.flags ?? [], usedFields)
       return {
         kind: 'chart',
-        materialised: materialiseChart(spec, input.columns, input.rows),
+        materialised: materialiseChart(spec, input.columns, rows),
       }
     }
     case 'analysis': {
       const { config: definition } = requireConfigKind(handle, 'analysis')
       return {
         kind: 'analysis',
-        outcome: runAnalysis(definition, input.columns, input.rows),
+        outcome: runAnalysis(
+          definition,
+          input.columns,
+          input.rows,
+          input.flags ?? [],
+        ),
       }
     }
     case 'plate_map': {
@@ -421,7 +435,12 @@ export function reconstructFrozenRepresentation(
       }
       return {
         kind: 'analysis',
-        outcome: runAnalysis(frozen.definition, input.columns, input.rows),
+        outcome: runAnalysis(
+          frozen.definition,
+          input.columns,
+          input.rows,
+          input.flags ?? [],
+        ),
       }
     }
     case 'plate_map': {

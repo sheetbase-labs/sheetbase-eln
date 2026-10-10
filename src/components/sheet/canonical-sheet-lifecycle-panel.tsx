@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Workflow } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
-import { Badge, Button, Input, Label } from '#/components/ui'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
+import { Input } from '#/components/v3/ui/input'
 import { DataClientError } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import {
@@ -68,7 +70,9 @@ function defaultExtractionSelection(
 }
 
 export function configurationDefinitionHref(definitionId: string) {
-  return `/configure?kind=definition&id=${encodeURIComponent(definitionId)}`
+  // UI port: a definition is a dataset schema definition, so it opens in the
+  // ported Models area rather than the legacy Configure workspace.
+  return `/models/${encodeURIComponent(definitionId)}`
 }
 
 export function CanonicalSheetLifecyclePanel({
@@ -233,7 +237,7 @@ export function CanonicalSheetLifecyclePanel({
         name: result.definition.name,
       })
       setStatus(
-        `Extracted draft Definition “${result.definition.name}”. Continue in Configure to review and publish it.`,
+        `Extracted draft Definition “${result.definition.name}”. Continue in Models to review and publish it.`,
       )
       await queryClient.invalidateQueries({ queryKey: ['sheet-definitions'] })
     },
@@ -352,14 +356,14 @@ export function CanonicalSheetLifecyclePanel({
         <Button
           type="button"
           size="sm"
-          variant="ghost"
+          variant="quiet"
           onClick={() => setOpen((value) => !value)}
         >
           {open ? 'Hide sources and reuse' : 'Sources, extract, upgrade'}
         </Button>
         {upgradeAvailability.status === 'upgrade-available' &&
         upgradeAvailability.latestVersion ? (
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="kind" className="text-xs">
             Upgrade available · v{upgradeAvailability.latestVersion.version}
           </Badge>
         ) : null}
@@ -370,14 +374,14 @@ export function CanonicalSheetLifecyclePanel({
             <legend className="px-1 text-xs font-medium">
               Bind Dataset / adopt Definition
             </legend>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-fg-muted">
               Adoption composes this Instance with a published Definition. It is
               not field promotion.
             </p>
-            <Label className="space-y-1 text-xs">
+            <label className="space-y-1 text-xs">
               <span>Sheet Definition</span>
               <select
-                className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                className="flex h-8 w-full rounded-md border border-border bg-surface px-2 text-sm"
                 value={definitionId}
                 onChange={(event) => {
                   setDefinitionId(event.target.value)
@@ -392,11 +396,11 @@ export function CanonicalSheetLifecyclePanel({
                   </option>
                 ))}
               </select>
-            </Label>
-            <Label className="space-y-1 text-xs">
+            </label>
+            <label className="space-y-1 text-xs">
               <span>Published version</span>
               <select
-                className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                className="flex h-8 w-full rounded-md border border-border bg-surface px-2 text-sm"
                 value={selectedVersion?.id ?? ''}
                 onChange={(event) => setDefinitionVersionId(event.target.value)}
                 aria-label="Published Sheet Definition version"
@@ -408,12 +412,12 @@ export function CanonicalSheetLifecyclePanel({
                   </option>
                 ))}
               </select>
-            </Label>
+            </label>
             {datasetParameter ? (
-              <Label className="space-y-1 text-xs">
+              <label className="space-y-1 text-xs">
                 <span>Dataset for {datasetParameter.label}</span>
                 <select
-                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="flex h-8 w-full rounded-md border border-border bg-surface px-2 text-sm"
                   value={datasetId}
                   onChange={(event) => setDatasetId(event.target.value)}
                   aria-label="Dataset binding"
@@ -427,31 +431,32 @@ export function CanonicalSheetLifecyclePanel({
                 </select>
                 {datasetId ? (
                   <Button
-                    asChild
-                    variant="outline"
+                    render={
+                      <Link
+                        to="/datasets"
+                        search={{
+                          dataset: datasetId,
+                          archived: false,
+                          tab: 'pipelines',
+                        }}
+                      />
+                    }
+                    nativeButton={false}
+                    variant="secondary"
                     size="sm"
                     className="mt-1 w-full"
                   >
-                    <Link
-                      to="/datasets"
-                      search={{
-                        dataset: datasetId,
-                        archived: false,
-                        tab: 'pipelines',
-                      }}
-                    >
-                      <Workflow className="size-3.5" /> Run Pipelines on this
-                      Dataset
-                    </Link>
+                    <Icon name="pipeline" className="size-3.5" /> Run Pipelines
+                    on this Dataset
                   </Button>
                 ) : null}
-              </Label>
+              </label>
             ) : null}
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={adoptPreview.isPending}
                 onClick={() => adoptPreview.mutate()}
               >
@@ -471,7 +476,7 @@ export function CanonicalSheetLifecyclePanel({
             <legend className="px-1 text-xs font-medium">
               Extract, upgrade, materialise
             </legend>
-            <Label className="space-y-1 text-xs">
+            <label className="space-y-1 text-xs">
               <span>Definition key</span>
               <Input
                 className="h-8"
@@ -479,8 +484,8 @@ export function CanonicalSheetLifecyclePanel({
                 onChange={(event) => setExtractKey(event.target.value)}
                 placeholder="assay_results"
               />
-            </Label>
-            <Label className="space-y-1 text-xs">
+            </label>
+            <label className="space-y-1 text-xs">
               <span>Definition name</span>
               <Input
                 className="h-8"
@@ -488,12 +493,12 @@ export function CanonicalSheetLifecyclePanel({
                 onChange={(event) => setExtractName(event.target.value)}
                 placeholder={instance.name}
               />
-            </Label>
+            </label>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={extract.isPending}
                 onClick={() => extract.mutate()}
               >
@@ -502,7 +507,7 @@ export function CanonicalSheetLifecyclePanel({
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={publishExtracted.isPending}
                 onClick={() => publishExtracted.mutate()}
               >
@@ -511,7 +516,7 @@ export function CanonicalSheetLifecyclePanel({
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={upgradePreview.isPending}
                 onClick={() => upgradePreview.mutate()}
               >
@@ -520,14 +525,14 @@ export function CanonicalSheetLifecyclePanel({
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={upgrade.isPending}
                 onClick={() => upgrade.mutate()}
               >
                 Apply upgrade
               </Button>
             </div>
-            <Label className="space-y-1 text-xs">
+            <label className="space-y-1 text-xs">
               <span>Materialised Dataset name</span>
               <Input
                 className="h-8"
@@ -535,12 +540,12 @@ export function CanonicalSheetLifecyclePanel({
                 onChange={(event) => setMaterializeName(event.target.value)}
                 placeholder={`${instance.name} output`}
               />
-            </Label>
+            </label>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={materializePreview.isPending}
                 onClick={() => materializePreview.mutate()}
               >
@@ -549,7 +554,7 @@ export function CanonicalSheetLifecyclePanel({
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={materialize.isPending}
                 onClick={() => materialize.mutate()}
               >
@@ -570,13 +575,13 @@ export function CanonicalSheetLifecyclePanel({
                   className="font-medium text-primary underline-offset-4 hover:underline"
                   href={configurationDefinitionHref(extractedDefinition.id)}
                 >
-                  Continue in Configure
+                  Continue in Models
                 </a>
               ) : null}
             </div>
           ) : null}
           {combinedError ? (
-            <p className="text-xs text-destructive md:col-span-2" role="alert">
+            <p className="text-xs text-danger-text md:col-span-2" role="alert">
               {combinedError}
             </p>
           ) : null}

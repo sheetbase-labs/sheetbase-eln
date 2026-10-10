@@ -5,13 +5,21 @@
  * Version identity.
  */
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Workflow } from 'lucide-react'
 
-import { Button, Input, Label, Select } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { NativeSelect } from '#/components/v3/projects/select'
+import { Icon } from '#/components/v3/icons'
 import { createDataClient } from '#/lib/data-client'
 import { formatRelativeTime } from '#/lib/notebook-data'
+import {
+  agentOperationQueryKeys,
+  decideAgentOperation,
+  executeAgentOperation,
+  proposalRevision,
+} from '#/lib/agent-operations'
 import {
   listPipelineRunOutputs,
   listRecentPipelineRuns,
@@ -20,6 +28,12 @@ import {
 import type { PipelineRunWire } from '#/lib/pipelines/types'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import type { PipelineOutputBlockPayload } from './pipeline-output-block-preview'
+import {
+  PipelineProposalAbsent,
+  PipelineProposalBlock,
+  PipelineProposalUnreadable,
+  usePipelineProposalQuery,
+} from './pipeline-output-block-proposal'
 
 const dataClient = createDataClient()
 
@@ -46,6 +60,70 @@ export function PipelineOutputBlockEditor({
   const [touched, setTouched] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // PIPE-03: a proposal pinned to this block. The decision RPCs are the
+  // authority; the UI only offers what the row's status allows.
+  const proposalId = initial.proposalId ?? null
+  const proposalQuery = usePipelineProposalQuery(proposalId)
+  const queryClient = useQueryClient()
+  const [actionError, setActionError] = useState<string | null>(null)
+  const proposal = proposalQuery.data ?? null
+
+  // The decision RPCs are the authority; after one lands, clear the refusal
+  // and re-read rather than trusting a client-side merge.
+  const settleProposal = () => {
+    setActionError(null)
+    void queryClient.invalidateQueries({
+      queryKey: agentOperationQueryKeys.proposals,
+    })
+  }
+  const decide = useMutation({
+    mutationFn: ({
+      target,
+      revision,
+      decision,
+      reason,
+    }: {
+      target: string
+      revision: number
+      decision: 'approve' | 'reject'
+      reason?: string | null
+    }) =>
+      decideAgentOperation(dataClient, {
+        proposalId: target,
+        expectedRevision: revision,
+        decision,
+        reason: reason ?? null,
+      }),
+    onSuccess: settleProposal,
+    onError: (error) =>
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'The decision could not be saved.',
+      ),
+  })
+  const execute = useMutation({
+    mutationFn: (target: { id: string; revision: number }) =>
+      executeAgentOperation(dataClient, {
+        proposalId: target.id,
+        expectedRevision: target.revision,
+      }),
+    onSuccess: settleProposal,
+    onError: (error) =>
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'The change could not be applied.',
+      ),
+  })
+
+  const pendingDecision = decide.isPending ? decide.variables.decision : null
+  const pending: 'approve' | 'reject' | 'execute' | null = pendingDecision
+    ? pendingDecision
+    : execute.isPending
+      ? 'execute'
+      : null
+
   const runsQuery = useQuery({
     queryKey: ['pipelines', 'recent-runs'],
     queryFn: () => listRecentPipelineRuns(dataClient, 20),
@@ -63,13 +141,17 @@ export function PipelineOutputBlockEditor({
   async function chooseRun(nextRunId: string) {
     setRunId(nextRunId)
     setTouched(true)
+    const proposalLink = initial.proposalId
+      ? { proposalId: initial.proposalId }
+      : {}
     if (!nextRunId) {
-      await persist({})
+      await persist(proposalLink)
       return
     }
     const outputs = await listPipelineRunOutputs(dataClient, nextRunId)
     const first = outputs.length > 0 ? outputs[0] : null
     await persist({
+      ...proposalLink,
       runId: nextRunId,
       datasetId: first?.dataset_id ?? null,
       datasetVersionId: first?.dataset_version_id ?? null,
@@ -99,14 +181,55 @@ export function PipelineOutputBlockEditor({
   return (
     <div className="space-y-3 rounded-md border p-3">
       <div className="flex items-center gap-2">
-        <Workflow className="text-primary size-4" aria-hidden="true" />
+        <Icon
+          name="pipeline"
+          size={16}
+          className="text-link"
+          aria-hidden="true"
+        />
         <span className="text-sm font-medium">Pipeline output reference</span>
       </div>
 
-      <Label className="space-y-1 text-xs">
-        <span>Pipeline run</span>
-        <Select
-          className="text-sm"
+      {proposal ? (
+        <PipelineProposalBlock
+          proposal={proposal}
+          runId={runId || proposal.preview.target.id || null}
+          currentOutput={
+            runId
+              ? `run ${runId.slice(0, 8)}${initial.label ? ` — ${initial.label}` : ''}`
+              : null
+          }
+          readOnly={Boolean(readOnly)}
+          pending={pending}
+          error={actionError}
+          onDecide={(decision, reason) =>
+            decide.mutate({
+              target: proposal.id,
+              revision: proposalRevision(proposal),
+              decision,
+              reason,
+            })
+          }
+          onExecute={() =>
+            execute.mutate({
+              id: proposal.id,
+              revision: proposalRevision(proposal),
+            })
+          }
+        />
+      ) : null}
+      {!proposalId ? <PipelineProposalAbsent /> : null}
+      {proposalId && !proposal && proposalQuery.isPending ? (
+        <p className="text-fg-muted text-xs" role="status">
+          Loading the linked proposal…
+        </p>
+      ) : null}
+      {proposalId && !proposal && !proposalQuery.isPending ? (
+        <PipelineProposalUnreadable />
+      ) : null}
+
+      <Field label="Pipeline run">
+        <NativeSelect
           value={runId}
           onChange={(event) => void chooseRun(event.target.value)}
           aria-label="Pipeline run"
@@ -118,11 +241,11 @@ export function PipelineOutputBlockEditor({
               {run.id.slice(0, 8)} · {status(run)}
             </option>
           ))}
-        </Select>
-      </Label>
+        </NativeSelect>
+      </Field>
 
       {selected ? (
-        <div className="text-muted-foreground space-y-1 text-xs">
+        <div className="text-fg-muted space-y-1 text-xs">
           <p>
             {outputsQuery.data?.length
               ? `Pins Dataset Version ${outputsQuery.data[0].dataset_version_id.slice(0, 8)} — ${outputsQuery.data[0].label}`
@@ -131,7 +254,7 @@ export function PipelineOutputBlockEditor({
           <Link
             to="/pipelines/runs/$runId"
             params={{ runId: selected.id }}
-            className="text-primary underline-offset-2 hover:underline"
+            className="text-link underline-offset-2 hover:underline"
           >
             Inspect run
           </Link>
@@ -139,10 +262,9 @@ export function PipelineOutputBlockEditor({
       ) : null}
 
       {runId ? (
-        <Label className="space-y-1 text-xs">
-          <span>Or paste a run id</span>
+        <Field label="Or paste a run id">
           <Input
-            className="font-mono text-xs"
+            className="mono"
             value={runId}
             onChange={(event) => setRunId(event.target.value)}
             onBlur={() => {
@@ -151,7 +273,7 @@ export function PipelineOutputBlockEditor({
             aria-label="Pipeline run id"
             disabled={readOnly}
           />
-        </Label>
+        </Field>
       ) : null}
 
       {!readOnly && (
@@ -159,14 +281,18 @@ export function PipelineOutputBlockEditor({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={saving || !touched}
-            onClick={() => void persist({})}
+            onClick={() =>
+              void persist(
+                initial.proposalId ? { proposalId: initial.proposalId } : {},
+              )
+            }
           >
             Clear reference
           </Button>
           {offline ? (
-            <span className="text-muted-foreground text-xs">
+            <span className="text-fg-muted text-xs">
               offline — changes will sync
             </span>
           ) : null}

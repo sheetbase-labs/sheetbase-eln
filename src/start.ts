@@ -25,6 +25,52 @@ const pipelineSchedulerMiddleware = createMiddleware().server(
   },
 )
 
+// WORK-03.4: email outbox + daily digest sweep.
+const emailSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startEmailScheduler } = await import('#/lib/email-scheduler.server')
+  startEmailScheduler()
+  return next()
+})
+
+// DSET-04.2: Dataset snapshot retention sweep. Calls
+// api.prune_dataset_versions on an interval with the privileged app
+// connection; guarded like the pipeline scheduler and never started under
+// test runners unless explicitly enabled.
+const datasetRetentionSchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startDatasetRetentionScheduler } =
+      await import('#/lib/dataset-retention-scheduler.server')
+    startDatasetRetentionScheduler()
+    return next()
+  },
+)
+
+// LAB-02 step 1: sample hold-limit sweep. Calls
+// api.sweep_sample_hold_limits on an interval with the privileged app
+// connection; guarded like the pipeline/dataset schedulers and never started
+// under test runners unless explicitly enabled.
+const sampleHoldSchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startSampleHoldScheduler } =
+      await import('#/lib/sample-hold.server')
+    startSampleHoldScheduler()
+    return next()
+  },
+)
+
+// WORK-03.2: reagent expiry sweep, the producer for the material_expiring
+// notification. Writes one system change event per lot inside the warning
+// window; guarded like the other schedulers and never started under test
+// runners unless explicitly enabled.
+const reagentExpirySchedulerMiddleware = createMiddleware().server(
+  async ({ next }) => {
+    const { startReagentExpiryScheduler } =
+      await import('#/lib/reagent-expiry.server')
+    startReagentExpiryScheduler()
+    return next()
+  },
+)
+
 // API-06: webhook delivery engine. LISTENs for change events, matches
 // active subscriptions, and attempts signed HTTP POST delivery with
 // retries and auto-disablement. Started lazily per-process.
@@ -81,6 +127,10 @@ export const startInstance = createStart(() => ({
   requestMiddleware: [
     securityHeadersMiddleware,
     pipelineSchedulerMiddleware,
+    emailSchedulerMiddleware,
+    datasetRetentionSchedulerMiddleware,
+    sampleHoldSchedulerMiddleware,
+    reagentExpirySchedulerMiddleware,
     webhookDeliveryMiddleware,
     csrfMiddleware,
   ],

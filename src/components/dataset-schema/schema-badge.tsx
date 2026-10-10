@@ -3,9 +3,11 @@
  * editor header. Shows the bound schema name and revision, and an
  * "Upgrade available" indicator when a newer published revision exists.
  */
-import { ArrowUpCircle, Database, Loader2 } from 'lucide-react'
+import { ArrowUpCircle, Loader2 } from 'lucide-react'
 
-import { Badge, Button } from '#/components/ui'
+import { Icon } from '#/components/icons'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import type { ScientificDatasetSchemaBinding } from '#/lib/scientific-sheet-data'
 
 export interface SchemaBadgeProps {
@@ -27,14 +29,14 @@ export function SchemaBadge({
 
   return (
     <div className="flex items-center gap-2">
-      <Badge variant="secondary" className="gap-1.5">
-        <Database className="size-3" aria-hidden="true" />
+      <Badge variant="chg" className="gap-1.5">
+        <Icon name="database" className="size-3" aria-hidden="true" />
         {schema.name}
-        <span className="text-muted-foreground">rev {schema.revision}</span>
+        <span className="text-fg-muted">rev {schema.revision}</span>
       </Badge>
       {upgradeAvailable && onUpgrade && (
         <Button
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={onUpgrade}
           disabled={upgrading}
@@ -51,7 +53,7 @@ export function SchemaBadge({
         </Button>
       )}
       {upgradeAvailable && !onUpgrade && (
-        <Badge variant="outline" className="gap-1.5 text-warning-foreground">
+        <Badge variant="chg" className="gap-1.5 text-warning-foreground">
           <ArrowUpCircle className="size-3" aria-hidden="true" />
           Upgrade available
         </Badge>

@@ -112,6 +112,10 @@ export interface AgentOperationPolicy {
   target_id: string | null
   limits: Record<string, unknown>
   enabled: boolean
+  reason: string | null
+  signed_by_user_id: string | null
+  signed_meaning: string | null
+  signed_at: string | null
   created_by_user_id: string
   updated_by_user_id: string
   created_at: string
@@ -238,12 +242,28 @@ export async function listAgentOperationProposals(
   )
 }
 
+/**
+ * Read one proposal by id (PIPE-03 notebook proposal block). Returns null when
+ * the row is absent or not readable for the caller rather than throwing, so a
+ * block linked to a withdrawn proposal renders an honest "not available" state.
+ */
+export async function fetchAgentOperationProposal(
+  client: DataClient,
+  proposalId: string,
+): Promise<AgentOperationProposal | null> {
+  const rows = await client.list<AgentOperationProposal>(
+    'agent_operation_proposals',
+    `?select=${PROPOSAL_FIELDS}&id=eq.${encodeURIComponent(proposalId)}`,
+  )
+  return rows.at(0) ?? null
+}
+
 export async function listAgentOperationPolicies(
   client: DataClient,
 ): Promise<AgentOperationPolicy[]> {
   return client.list(
     'agent_operation_policies',
-    '?select=id,workspace_id,name,credential_id,operation_kind,target_type,target_id,limits,enabled,created_by_user_id,updated_by_user_id,created_at,updated_at&order=created_at.desc',
+    '?select=id,workspace_id,name,credential_id,operation_kind,target_type,target_id,limits,enabled,reason,signed_by_user_id,signed_meaning,signed_at,created_by_user_id,updated_by_user_id,created_at,updated_at&order=created_at.desc',
   )
 }
 
@@ -257,6 +277,8 @@ export async function createAgentOperationPolicy(
     targetType: AgentOperationPolicyTargetType
     targetId: string | null
     maxAffectedRows: number
+    reason: string
+    meaning: string
   },
 ): Promise<AgentOperationPolicy> {
   return client.rpc('create_agent_operation_policy', {
@@ -267,6 +289,8 @@ export async function createAgentOperationPolicy(
     p_target_id: input.targetId,
     p_credential_id: input.credentialId,
     p_limits: { maxAffectedRows: input.maxAffectedRows },
+    p_reason: input.reason,
+    p_meaning: input.meaning,
   })
 }
 
@@ -319,6 +343,8 @@ export async function executeAgentOperation(
 
 export const agentOperationQueryKeys = {
   proposals: ['agent-operations', 'proposals'] as const,
+  proposal: (proposalId: string) =>
+    ['agent-operations', 'proposals', proposalId] as const,
   policies: ['agent-operations', 'policies'] as const,
   events: (proposalId: string) =>
     ['agent-operations', 'proposals', proposalId, 'events'] as const,

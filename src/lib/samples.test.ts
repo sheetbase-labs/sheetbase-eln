@@ -15,9 +15,11 @@ import {
   computeSampleSummaries,
   isLowStock,
   parseSampleProperties,
+  recordSampleLabelPrint,
   samplePropertiesPayload,
   toSampleRecord,
 } from './samples'
+import type { DataClient } from './data-client'
 import type { RecordWire } from './notebook-data'
 import type { RegistryQuery } from './registry'
 
@@ -278,5 +280,42 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
     expect(built).not.toContain('limit=')
     expect(built).not.toContain('order=')
     expect(built).not.toContain('select=')
+  })
+})
+
+describe('recordSampleLabelPrint', () => {
+  it('records the print as its own sample event, with the label note', async () => {
+    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const client = {
+      rpc: (name: string, args: Record<string, unknown>) => {
+        calls.push({ name, args })
+        return Promise.resolve({
+          id: 'ev-1',
+          operation: 'print',
+          notes: 'Printed label SMP-2231',
+          created_at: '2026-10-10T00:00:00.000Z',
+        })
+      },
+    } as unknown as DataClient
+
+    const sample = await recordSampleLabelPrint(client, {
+      recordId: 's-1',
+      expectedMetadataVersion: 7,
+      identifier: 'SMP-2231',
+    })
+
+    // LAB-05.2: printing records its own event rather than editing the sample.
+    expect(calls).toEqual([
+      {
+        name: 'record_sample_label_print',
+        args: {
+          p_record_id: 's-1',
+          p_expected_metadata_version: 7,
+          p_note: 'Printed label SMP-2231',
+        },
+      },
+    ])
+    // The appended sample_events row comes back.
+    expect(sample.operation).toBe('print')
   })
 })

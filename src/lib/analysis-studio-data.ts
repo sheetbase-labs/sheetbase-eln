@@ -14,6 +14,7 @@
  */
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
+import { serializeChartSvg as serializePackageChartSvg } from '@sheetbase-labs/sheetbase-explorer'
 import {
   fetchDatasetSummaries,
   datasetExplorerDataClient,
@@ -118,6 +119,7 @@ export interface AnalysisViewWire {
   workspace_id: string
   owner_user_id: string
   name: string
+  display_id: string | null
   version: number
   spec: ChartSpec
   source_revisions: SourceRevision[]
@@ -411,14 +413,23 @@ export function exportChartSvg(
   if (!svgEl) {
     return `<!-- Sheetbase Analysis Studio: no chart rendered at export time -->`
   }
-  const clone = svgEl.cloneNode(true) as SVGSVGElement
-  clone.setAttribute('width', String(settings.width))
-  clone.setAttribute('height', String(settings.height))
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  // The figure is drawn by sheetbase-explorer, so serialise it through the
+  // package's export helper, then stamp the export preset's dimensions and
+  // provenance on top of the returned document.
+  const routed = svgEl.parentElement
+    ? serializePackageChartSvg(svgEl.parentElement)
+    : undefined
+  const base = routed ?? new XMLSerializer().serializeToString(svgEl)
+  const parsed = new DOMParser().parseFromString(base, 'image/svg+xml')
+  const root = parsed.documentElement
+  root.setAttribute('width', String(settings.width))
+  root.setAttribute('height', String(settings.height))
+  root.setAttribute('viewBox', `0 0 ${settings.width} ${settings.height}`)
+  root.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   if (settings.theme === 'dark') {
-    clone.setAttribute('data-theme', 'dark')
+    root.setAttribute('data-theme', 'dark')
   }
-  const serialised = new XMLSerializer().serializeToString(clone)
+  const serialised = new XMLSerializer().serializeToString(root)
   const comment = provenance
     ? `\n<!-- Sheetbase Analysis Studio export\nview: ${provenance.viewName}${provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''} v${provenance.viewVersion ?? '?'}\nexported by ${provenance.exportedBy} at ${provenance.exportedAt}\nsources: ${provenance.sourceRevisions.map((r) => r.datasetId.slice(0, 8)).join(', ')}\n-->\n`
     : ''

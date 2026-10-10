@@ -2,7 +2,7 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
-import { prepareTestDatabase } from './helpers'
+import { prepareTestDatabase, grantProjectAccess } from './helpers'
 
 const WS = '00000000-0000-4000-8000-00000000e104'
 const PROJECT = '00000000-0000-4000-8000-00000000e114'
@@ -24,12 +24,7 @@ async function actor(userId: string) {
   return client
 }
 
-async function field(
-  client: Client,
-  model: string,
-  key: string,
-  type: string,
-) {
+async function field(client: Client, model: string, key: string, type: string) {
   const { rows } = await client.query(
     `select * from api.create_model_field($1,$2,$3,$3,$4,true,null,'{}'::jsonb)`,
     [WS, model, key, type],
@@ -48,8 +43,15 @@ beforeAll(async () => {
     insert into api.workspace_memberships(workspace_id,user_id,role) values
       ('${WS}','${OWNER}','owner'),
       ('${WS}','${MEMBER}','member');
-    insert into api.projects(id,workspace_id,key,title)
-      values('${PROJECT}','${WS}','m04','M04')`)
+    insert into api.projects(id,workspace_id,key,title,lead_user_id)
+      values('${PROJECT}','${WS}','m04','M04','${OWNER}')`)
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: MEMBER,
+    canView: true,
+    canEdit: true,
+  })
 })
 
 afterAll(async () => {
@@ -100,7 +102,12 @@ async function seedConsumers(owner: Client, tag: string) {
         WS,
         `m04_result_${tag}`,
         JSON.stringify([
-          { key: 'titre', label: 'Titre', logical_type: 'decimal', nullable: true },
+          {
+            key: 'titre',
+            label: 'Titre',
+            logical_type: 'decimal',
+            nullable: true,
+          },
         ]),
       ],
     )

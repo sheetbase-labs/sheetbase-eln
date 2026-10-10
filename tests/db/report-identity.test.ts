@@ -56,9 +56,9 @@ beforeAll(async () => {
     [WS_A, OWNER_A, WS_B, OWNER_B],
   )
   await migrator.query(
-    `INSERT INTO api.projects (id,workspace_id,key,title) VALUES
-       ($1,$2,'RPTA','Report project A')`,
-    [PROJECT_A, WS_A],
+    `INSERT INTO api.projects (id,workspace_id,key,title,lead_user_id) VALUES
+       ($1,$2,'RPTA','Report project A',$3)`,
+    [PROJECT_A, WS_A, OWNER_A],
   )
 })
 
@@ -223,7 +223,7 @@ describe('REPORT-001 canonical Report identity', () => {
         WS_A,
         report.id,
       ]),
-      'SB033',
+      '42501',
     )
   })
 })

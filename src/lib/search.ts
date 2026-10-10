@@ -50,7 +50,7 @@ export interface SearchResultWire {
 // ---------------------------------------------------------------------------
 
 export type SearchResultType =
-  'record' | 'file' | 'dataset' | 'sheet' | 'template'
+  'record' | 'file' | 'dataset' | 'sheet' | 'template' | 'comment'
 
 /** Object classes the global search covers. */
 export const SEARCH_RESULT_TYPES = [
@@ -59,6 +59,7 @@ export const SEARCH_RESULT_TYPES = [
   'dataset',
   'sheet',
   'template',
+  'comment',
 ] as const
 
 export type MatchedField =
@@ -68,6 +69,7 @@ export type MatchedField =
   | 'status'
   | 'tags'
   | 'block_text'
+  | 'comment_body'
   | 'file_metadata'
   | 'properties'
   | 'relationship'
@@ -75,6 +77,7 @@ export type MatchedField =
 
 export interface SearchResult {
   resultType: SearchResultType
+  /** Object-class identity; comment hits carry a Comment UUID, not a Record UUID. */
   recordId: string
   kind: string
   identifier: string
@@ -119,7 +122,7 @@ export const SEARCHABLE_KINDS = [
   'protocol_template',
   'report',
   'sample',
-  'reagent',
+  'material',
   'file',
   'notebook_template',
   'study',
@@ -152,7 +155,7 @@ export function toSearchResult(row: SearchResultWire): SearchResult {
     matchedContext: row.matched_context,
     matchedField: row.matched_field as MatchedField,
     rank: Number(row.rank),
-    deepLink: searchResultDestination(resultType, row.kind, row.record_id),
+    deepLink: searchResultDestination(resultType, row.record_id, row.deep_link),
     totalCount: Number(row.total_count),
   }
 }
@@ -186,6 +189,269 @@ export function buildSearchRpcArgs(
 }
 
 // ---------------------------------------------------------------------------
+// Result grouping (SRCH-02).
+//
+// One grouping shared by the results page and the ⌘K palette so the two
+// surfaces never disagree about which section a result belongs to.
+// ---------------------------------------------------------------------------
+
+export const SEARCH_RESULT_GROUPS = [
+  'Samples',
+  'Sheet and dataset rows',
+  'Notebook text and comments',
+  'Records',
+  'Files',
+  'Templates',
+] as const
+
+export type SearchResultGroup = (typeof SEARCH_RESULT_GROUPS)[number]
+
+/**
+ * Canonical design section for a result. Samples win over the generic Records
+ * bucket; rows and notebook text win over their owning record.
+ */
+export function searchResultGroup(result: SearchResult): SearchResultGroup {
+  if (result.resultType === 'file') return 'Files'
+  if (result.resultType === 'template') return 'Templates'
+  if (result.resultType === 'dataset' || result.resultType === 'sheet')
+    return 'Sheet and dataset rows'
+  if (
+    result.resultType === 'comment' ||
+    result.matchedField === 'block_text' ||
+    result.matchedField === 'comment_body'
+  )
+    return 'Notebook text and comments'
+  if (result.kind === 'sample') return 'Samples'
+  return 'Records'
+}
+
+export interface SearchResultGroupBucket {
+  group: SearchResultGroup
+  /** Results shown for this group (at most `maxPerGroup`). */
+  results: SearchResult[]
+  /** Results in this group before truncation. */
+  total: number
+}
+
+/**
+ * Group results into the design sections, preserving canonical group order and
+ * input order within each group. `maxPerGroup` truncates the displayed rows
+ * (the palette uses this) while `total` stays honest for the header count.
+ */
+export function groupSearchResults(
+  results: SearchResult[],
+  maxPerGroup?: number,
+): SearchResultGroupBucket[] {
+  const buckets = new Map<SearchResultGroup, SearchResult[]>()
+  for (const result of results) {
+    const group = searchResultGroup(result)
+    const list = buckets.get(group)
+    if (list) list.push(result)
+    else buckets.set(group, [result])
+  }
+  return SEARCH_RESULT_GROUPS.filter((group) => buckets.has(group)).map(
+    (group) => {
+      const list = buckets.get(group) ?? []
+      const limit =
+        maxPerGroup && maxPerGroup > 0
+          ? Math.min(maxPerGroup, list.length)
+          : list.length
+      return { group, results: list.slice(0, limit), total: list.length }
+    },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Scope filtering (SRCH-02).
+//
+// The `search` RPC pushes `p_project_id` down for records, datasets and
+// sheets, but Notebook Templates are workspace-level and ignore it. Filtering
+// the returned page by project keeps a project-scoped palette or results page
+// honest.
+// ---------------------------------------------------------------------------
+
+/** The sentinel scope value meaning "search every project". */
+export const SEARCH_SCOPE_ALL = 'all'
+
+export function filterBySearchScope(
+  results: SearchResult[],
+  projectId?: string | null,
+): SearchResult[] {
+  if (!projectId) return results
+  return results.filter((result) => result.projectId === projectId)
+}
+
+// ---------------------------------------------------------------------------
+// New-tab URL (SRCH-02).
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve a result or action destination to an absolute URL for
+ * `window.open(..., '_blank')`. Pure so the new-tab behaviour is testable
+ * without a browser.
+ */
+export function searchResultNewTabUrl(
+  deepLink: string,
+  origin: string,
+): string {
+  try {
+    return new URL(deepLink, origin).toString()
+  } catch {
+    return deepLink
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Contextual actions (SRCH-02).
+//
+// Actions are registered by result kind, exactly as the design's "Actions"
+// section. They are rendered below the grouped results and only offered when
+// the current page proves the kind is present.
+// ---------------------------------------------------------------------------
+
+export interface SearchContextAction {
+  id: string
+  label: string
+  /** Route path without a query string, e.g. `/samples`. */
+  to: string
+  /** Router search params for the destination. */
+  search?: Record<string, string | number | boolean>
+}
+
+/** Build the href for an action, used for the ⌘↵ new-tab case. */
+export function searchActionHref(action: SearchContextAction): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(action.search ?? {})) {
+    params.set(key, String(value))
+  }
+  const query = params.toString()
+  return query ? `${action.to}?${query}` : action.to
+}
+
+/**
+ * Derive contextual actions from the current RPC page. A sample result offers
+ * the sample register flow; the identifier in the label is the matched
+ * sample, not the raw query.
+ */
+export function contextualSearchActions(
+  results: SearchResult[],
+): SearchContextAction[] {
+  const actions: SearchContextAction[] = []
+  const seen = new Set<string>()
+  for (const result of results) {
+    if (result.resultType !== 'record' || result.kind !== 'sample') continue
+    const id = `register-sample-${result.identifier}`
+    if (seen.has(id)) continue
+    seen.add(id)
+    actions.push({
+      id,
+      label: `Register a sample from ${result.identifier}…`,
+      to: '/samples',
+      search: { new: true },
+    })
+  }
+  return actions
+}
+
+// ---------------------------------------------------------------------------
+// URL filters → RPC filters (SRCH-02).
+// ---------------------------------------------------------------------------
+
+/** Page size for the results page, passed through as `p_limit`/`p_offset`. */
+export const SEARCH_PAGE_SIZE = 20
+
+export interface SearchUrlFilterInput {
+  q?: string
+  /** Facet chips (group labels) selected on the results page. */
+  type?: string[]
+  /** Selected project IDs. Multiple selections fall back to client filtering. */
+  project?: string[]
+  updated?: 'any' | '7d'
+  archived?: boolean
+}
+
+/** Start-of-day UTC anchor so the same URL yields a stable RPC date filter. */
+function updatedDateFrom(
+  updated: SearchUrlFilterInput['updated'],
+): string | undefined {
+  if (updated !== '7d') return undefined
+  const from = new Date()
+  from.setUTCHours(0, 0, 0, 0)
+  from.setUTCDate(from.getUTCDate() - 7)
+  return from.toISOString()
+}
+
+/**
+ * Map URL facets onto the single-valued RPC filters. The RPC accepts one
+ * `p_result_type` and one `p_kind`; only an unambiguous single facet is pushed
+ * down. Everything else stays a client-side filter so results are never lost.
+ */
+export function urlFiltersToSearchFilters(
+  input: SearchUrlFilterInput,
+  offset: number,
+  limit = SEARCH_PAGE_SIZE,
+): SearchFilters {
+  const filters: SearchFilters = {
+    query: input.q ?? '',
+    limit,
+    offset,
+  }
+  const project = input.project ?? []
+  const type = input.type ?? []
+  if (project.length === 1) filters.projectId = project[0]
+  if (type.length === 1) {
+    switch (type[0]) {
+      case 'Files':
+        filters.resultType = 'file'
+        break
+      case 'Templates':
+        filters.resultType = 'template'
+        break
+      case 'Records':
+        filters.resultType = 'record'
+        break
+      case 'Samples':
+        filters.kind = 'sample'
+        break
+      default:
+        break
+    }
+  }
+  const dateFrom = updatedDateFrom(input.updated)
+  if (dateFrom) filters.dateFrom = dateFrom
+  return filters
+}
+
+/**
+ * Apply the URL facets to an RPC page. The server narrowing can be a superset
+ * (for example `Records` still returns samples), so this is the authoritative
+ * filter that matches the design's facet semantics.
+ */
+export function filterSearchResults(
+  results: SearchResult[],
+  input: SearchUrlFilterInput,
+): SearchResult[] {
+  const type = input.type ?? []
+  const project = input.project ?? []
+  const dateFrom = updatedDateFrom(input.updated)
+  const dateFromMs = dateFrom ? Date.parse(dateFrom) : undefined
+  return results.filter((result) => {
+    if (type.length && !type.includes(searchResultGroup(result))) return false
+    if (
+      project.length &&
+      (!result.projectId || !project.includes(result.projectId))
+    )
+      return false
+    if (!input.archived && result.archived) return false
+    if (dateFromMs !== undefined) {
+      const updated = Date.parse(result.updatedAt)
+      if (!Number.isNaN(updated) && updated < dateFromMs) return false
+    }
+    return true
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Deep link generation.
 // ---------------------------------------------------------------------------
 
@@ -195,10 +461,10 @@ export function buildSearchRpcArgs(
  */
 export function searchResultDeepLink(
   resultType: SearchResultType,
-  kind: string,
   recordId: string,
+  ownerScopedLink?: string,
 ): string {
-  return searchResultDestination(resultType, kind, recordId)
+  return searchResultDestination(resultType, recordId, ownerScopedLink)
 }
 
 /**
@@ -246,6 +512,7 @@ export const MATCHED_FIELD_LABELS: Record<MatchedField, string> = {
   status: 'Matched in status',
   tags: 'Matched in tags',
   block_text: 'Matched in notebook text',
+  comment_body: 'Matched in comment',
   file_metadata: 'Matched in file metadata',
   properties: 'Matched in properties',
   relationship: 'Matched in relationship',
@@ -658,6 +925,7 @@ export function deriveSuggestions(
   // 3. Type suggestions: if results span multiple kinds, offer to filter.
   const kindCounts = new Map<string, number>()
   for (const r of results) {
+    if (r.resultType === 'comment') continue
     kindCounts.set(r.kind, (kindCounts.get(r.kind) ?? 0) + 1)
   }
   if (kindCounts.size > 1) {
@@ -684,7 +952,7 @@ function kindLabelForSuggestion(kind: string): string {
   const labels: Record<string, string> = {
     experiment: 'Experiments',
     sample: 'Samples',
-    reagent: 'Reagents',
+    material: 'Materials',
     protocol_template: 'Protocols',
     report: 'Reports',
     file: 'Files',
@@ -764,4 +1032,76 @@ export function serializeSearchUrl(
   params: Partial<SearchUrlParams>,
 ): SearchUrlParams {
   return { ...SEARCH_URL_DEFAULTS, ...params }
+}
+
+// ---------------------------------------------------------------------------
+// "Did you mean" (SRCH-01.4)
+// ---------------------------------------------------------------------------
+
+export interface DidYouMeanSuggestion {
+  id: string
+  kind: string
+  identifier: string
+  title: string
+  similarity: number
+}
+
+export async function searchDidYouMean(
+  client: DataClient,
+  query: string,
+  includeArchived = false,
+): Promise<DidYouMeanSuggestion[]> {
+  return client.rpc<DidYouMeanSuggestion[]>('search_did_you_mean', {
+    p_query: query,
+    p_limit: 5,
+    p_include_archived: includeArchived,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Cell and file-content search (SRCH-01.2, SRCH-01.3)
+// ---------------------------------------------------------------------------
+
+export interface CellMatch {
+  dataset_id: string
+  dataset_version_id: string
+  dataset_name: string
+  row_id: string
+  field_label: string
+  value_text: string
+  snippet: string
+  rank: number
+}
+
+export async function searchCells(
+  client: DataClient,
+  query: string,
+  limit = 20,
+): Promise<CellMatch[]> {
+  return client.rpc<CellMatch[]>('search_cells', {
+    p_query: query,
+    p_limit: limit,
+  })
+}
+
+export interface FileContentHit {
+  file_id: string
+  record_id: string
+  identifier: string
+  display_name: string
+  line_number: number
+  line_text: string
+  snippet: string
+  rank: number
+}
+
+export async function searchFileContents(
+  client: DataClient,
+  query: string,
+  limit = 20,
+): Promise<FileContentHit[]> {
+  return client.rpc<FileContentHit[]>('search_file_contents', {
+    p_query: query,
+    p_limit: limit,
+  })
 }

@@ -29,7 +29,12 @@ import {
 } from '#/lib/webhook-delivery'
 import { buildEventPayload, mapEventType } from '#/lib/webhook-events'
 import { signPayload } from '#/lib/webhook-signing'
-import { prepareTestDatabase, setActorJwt, TEST_DATABASE } from './helpers'
+import {
+  prepareTestDatabase,
+  setActorJwt,
+  TEST_DATABASE,
+  testDatabaseName,
+} from './helpers'
 
 const WS_A = '0e030000-0000-4000-8000-000000000a01'
 const WS_B = '0e030000-0000-4000-8000-000000000b02'
@@ -46,7 +51,7 @@ const subscriptionByWs: Record<string, string> = {}
 
 function superuserTestUrl(): string {
   const url = new URL(process.env.DATABASE_URL!)
-  url.pathname = `/${TEST_DATABASE}`
+  url.pathname = `/${testDatabaseName()}`
   return url.toString()
 }
 
@@ -127,7 +132,8 @@ function pipelineConfig(schemaVersionId: string): Record<string, unknown> {
     inputs: [{ name: 'measurements', required: true }],
     transform: {
       language: 'sql',
-      statement: 'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+      statement:
+        'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
     },
     output: {
       mode: 'create',
@@ -275,8 +281,18 @@ beforeAll(async () => {
   const prepared = await prepareTestDatabase()
   migrator = prepared.migrator
   asRole = prepared.asRole
-  const a = await setupWorkspace(WS_A, OWNER_A, 'iso-a', '11111111-1111-4111-8111-111111111111')
-  const b = await setupWorkspace(WS_B, OWNER_B, 'iso-b', '22222222-2222-4222-8222-222222222222')
+  const a = await setupWorkspace(
+    WS_A,
+    OWNER_A,
+    'iso-a',
+    '11111111-1111-4111-8111-111111111111',
+  )
+  const b = await setupWorkspace(
+    WS_B,
+    OWNER_B,
+    'iso-b',
+    '22222222-2222-4222-8222-222222222222',
+  )
   pipeDefByWs = { [WS_A]: a.pipeDefId, [WS_B]: b.pipeDefId }
 })
 
@@ -464,8 +480,12 @@ describe('EVENT-03 workspace isolation', () => {
 
     const ownerA = await actor(OWNER_A, WS_A)
     const ownerB = await actor(OWNER_B, WS_B)
-    const subsA = await ownerA.query(`select key from api.webhook_subscriptions`)
-    const subsB = await ownerB.query(`select key from api.webhook_subscriptions`)
+    const subsA = await ownerA.query(
+      `select key from api.webhook_subscriptions`,
+    )
+    const subsB = await ownerB.query(
+      `select key from api.webhook_subscriptions`,
+    )
     expect(subsA.rows.map((r) => r.key)).toEqual(['iso-hook-iso-a'])
     expect(subsB.rows.map((r) => r.key)).toEqual(['iso-hook-iso-b'])
 
@@ -595,10 +615,9 @@ describe('EVENT-03 workspace isolation', () => {
     const { rows: change } = await migrator.query<{
       entity_type: string
       operation: string
-    }>(
-      `select entity_type, operation from api.change_events where id = $1`,
-      [eventId],
-    )
+    }>(`select entity_type, operation from api.change_events where id = $1`, [
+      eventId,
+    ])
     const payload = buildEventPayload(
       {
         id: eventId,

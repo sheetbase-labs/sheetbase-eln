@@ -22,8 +22,10 @@ migration; nobody hand-edits a shared database.
 ```bash
 # 1. Edit src/db/schema.ts
 
-# 2. Generate the migration
-pnpm db:generate
+# 2. Prepare the migration. Plain `pnpm db:generate` cannot diff here - there is no
+#    committed snapshot baseline - so it emits a full-schema migration. Use --custom
+#    and write the SQL, or let Drizzle write it and then delete the unrelated bulk.
+pnpm db:generate --custom --name <change>
 
 # 3. Review the generated SQL in drizzle/ — every line.
 #    Check: correct types, constraints, indexes, no unintended drops,
@@ -50,12 +52,16 @@ pnpm services:up
 # Apply the full migration history from scratch
 pnpm db:migrate
 
-# Confirm the schema matches the migration history
-pnpm db:generate   # must produce no new migration
+# Confirm the history applies to an empty database. This is the check that matters:
+# every migration runs in order with no error. Do not use plain `pnpm db:generate`
+# here - with no committed snapshot it always reports a full-schema migration.
+pnpm test:db
 ```
 
-If step 6 generates a new migration, the committed history and the declared
-schema disagree. Fix before marking the ticket complete.
+The database test layer builds a fresh template by replaying the whole journal,
+so a green `pnpm test:db` proves the history applies cleanly. If a migration
+errors, the history and the declared schema disagree. Fix before marking the
+ticket complete.
 
 ## Snapshots
 
@@ -63,25 +69,47 @@ schema disagree. Fix before marking the ticket complete.
 `drizzle/meta/*_snapshot.json`.
 
 `pnpm db:generate` diffs `src/db/schema.ts` against the **latest** snapshot.
-Kit writes a full-database JSON file on each generate, so intermediate
-snapshots are optional copies, not runtime history.
+Kit writes a full-database JSON file on each generate, so each snapshot is a
+complete schema dump that grows with the schema — the 270 files once committed
+here came to 203 MB and 6.8M lines.
 
 This repository:
 
 - commits SQL for every journal entry (required);
 - commits `_journal.json` (required);
-- keeps a sparse snapshot chain: historical pre-CORE files through `0023`,
-  the last Kit generate at `0087`, and the current schema checkpoint
-  `0110_snapshot.json`;
-- does **not** keep a snapshot per custom SQL migration (`0088`–`0109`).
+- does **not** commit snapshots at all (`drizzle/meta/*_snapshot.json` is
+  gitignored). Kit writes them locally on each generate; they are working
+  state, not history.
 
-`0110_core_schema_snapshot_checkpoint.sql` is a no-op. It exists so the
-journal and the current generate baseline stay aligned after CORE custom SQL
-that Kit did not snapshot. Do not replace it with `CREATE TABLE` for objects
-those migrations already created.
+**Consequence, and the reason for the rule above.** With no committed
+snapshot, `pnpm db:generate` has no baseline to diff against and emits a
+_full-schema_ migration describing the entire database. That is not a usable
+migration. It was also true before the snapshots were removed: they had drifted
+far behind `src/db/schema.ts` (271 snapshots for 420 journal entries, because
+the `--custom` migrations never wrote one), so `generate` emitted a full-schema
+migration even with all of them present.
 
-When `schema.ts` changes, run `pnpm db:generate` as usual. The new snapshot
-will chain from `0110`.
+**So schema changes take the custom path**, which needs no snapshot at all:
+
+```bash
+# 1. Edit src/db/schema.ts for anything Drizzle can express,
+#    or write the change as SQL directly.
+
+# 2. Prepare an empty migration and write the SQL by hand
+pnpm db:generate --custom --name <change>
+
+# 3. Review every line, then apply and verify as in the normal flow
+pnpm db:migrate
+```
+
+Do not run plain `pnpm db:generate` expecting a diff, and do not treat its
+output as a migration. The check the normal flow relies on is `pnpm test:db`
+replaying the whole journal against an empty database, not the old "must
+produce no new migration" rule, which the absent baseline makes meaningless.
+
+`0110_core_schema_snapshot_checkpoint.sql` is a no-op kept for the migration
+sequence. Do not replace it with `CREATE TABLE` for objects those migrations
+already created.
 
 ## Rollback and recovery notes
 

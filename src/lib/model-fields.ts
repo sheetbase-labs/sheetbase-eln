@@ -37,6 +37,9 @@ export interface ModelFieldDefinition {
   relationship?: FieldRelationship | null
   lifecycle: 'draft' | 'backfilling' | 'active' | 'retired'
   options: ModelFieldOption[]
+  /** When the definition was created; drives the "added after this record"
+   * banner on a record page. */
+  createdAt?: string | null
   /** Canonical semantic projection of this persisted Model field. */
   definition?: FieldDefinition
 }
@@ -70,6 +73,7 @@ interface DefinitionWire {
   category_source: PersistedModelFieldCategorySource | null
   relationship: FieldRelationship | null
   lifecycle: ModelFieldDefinition['lifecycle']
+  created_at: string | null
 }
 
 interface OptionWire {
@@ -121,6 +125,7 @@ export async function fetchModelFields(
       categorySource: definition.category_source,
       relationship: definition.relationship,
       lifecycle: definition.lifecycle,
+      createdAt: definition.created_at,
       options: (optionsByDefinition.get(definition.id) ?? []).map((option) => ({
         id: option.id,
         key: option.key,

@@ -1,10 +1,10 @@
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 
 export function PrintNotebookButton({ className }: { className?: string }) {
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="secondary"
       className={className}
       data-print-hide
       onClick={() => window.print()}

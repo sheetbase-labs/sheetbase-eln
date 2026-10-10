@@ -194,7 +194,11 @@ beforeAll(async () => {
   ] as const) {
     await client.query('set role authenticated')
     await client.query(`select set_config('request.jwt.claims',$1,false)`, [
-      JSON.stringify({ sub: user, workspace_id: WS }),
+      JSON.stringify({
+        sub: user,
+        workspace_id: WS,
+        role: 'authenticated',
+      }),
     ])
   }
 })
@@ -600,6 +604,202 @@ describe('controlled composed Sheet calculations', () => {
         }),
       ]),
     )
+    const record = (
+      await migrator.query(
+        `insert into api.records(workspace_id,kind,identifier,title,created_by_user_id)
+       values($1,'experiment','FROZEN-CALC','Frozen calculations',$2) returning id`,
+        [WS, OWNER],
+      )
+    ).rows[0].id
+    await owner.query(
+      `select api.insert_sheet_instance_block($1,null,null,$2)`,
+      [record, instance.id],
+    )
+    await owner.query(`select set_config('request.jwt.claims',$1,false)`, [
+      JSON.stringify({
+        sub: OWNER,
+        workspace_id: WS,
+        role: 'authenticated',
+        session_id: 'frozen-calculation-owner',
+      }),
+    ])
+    async function freeze(key: string) {
+      await migrator.query(`select set_config('request.jwt.claims',$1,false)`, [
+        JSON.stringify({
+          sub: OWNER,
+          workspace_id: WS,
+          role: 'authenticated',
+          session_id: 'frozen-calculation-owner',
+        }),
+      ])
+      const snapshot = (
+        await migrator.query(
+          `select internal.build_revision_envelope($1) envelope`,
+          [record],
+        )
+      ).rows[0].envelope
+      const revision = (
+        await migrator.query(
+          `insert into api.revisions(record_id,workspace_id,structure_version,metadata_version,
+          metadata_snapshot,block_snapshot,canonical_snapshot,integrity_algorithm,reason,created_by_user_id)
+         values($1,$2,1,1,$3,$4,$3,'sha256','validate',$5) returning id,integrity_digest`,
+          [
+            record,
+            WS,
+            JSON.stringify(snapshot),
+            JSON.stringify(snapshot.blocks),
+            OWNER,
+          ],
+        )
+      ).rows[0]
+      await migrator.query(
+        `select internal.persist_revision_sheet_evidence($1)`,
+        [revision.id],
+      )
+      const evidence = (
+        await owner.query(
+          `select composed_grid from api.revision_sheet_evidence where revision_id=$1`,
+          [revision.id],
+        )
+      ).rows[0].composed_grid
+      const checks = (
+        await owner.query(
+          `select api.run_revision_checks($1,'default-scientific-checks',1,true,$2) result`,
+          [revision.id, key],
+        )
+      ).rows[0].result
+      expect(checks.inputDigest).toBe(revision.integrity_digest)
+      return { revision, evidence, checks }
+    }
+    const frozenCurrent = await freeze('frozen-current')
+    expect(frozenCurrent.evidence.rowKeys).toEqual([composition.rows[0].rowKey])
+    expect(frozenCurrent.evidence.rows).toEqual([[4, 8, 9]])
+    expect(frozenCurrent.evidence.calculations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: DEFINITION_CALCULATION,
+          scope: 'definition',
+          expression: { language: 'sheetbase-formula-v1', source: '=A1*2' },
+          results: [
+            expect.objectContaining({ calculationStatus: 'current', value: 8 }),
+          ],
+        }),
+        expect.objectContaining({
+          id: CROSS_SCOPE_CALCULATION,
+          scope: 'instance',
+          results: [
+            expect.objectContaining({ calculationStatus: 'current', value: 9 }),
+          ],
+        }),
+      ]),
+    )
+    expect(
+      frozenCurrent.checks.results.find(
+        (item: { key: string }) => item.key === 'formula-no-stale-results',
+      ).status,
+    ).toBe('pass')
+    await migrator.query(
+      `update internal.sheet_instance_calculation_results set result_kind='error',value=null,error_code='EVALUATION' where instance_id=$1`,
+      [instance.id],
+    )
+    const frozenError = await freeze('frozen-error')
+    expect(
+      frozenError.checks.results.find(
+        (item: { key: string }) => item.key === 'formula-no-stale-results',
+      ),
+    ).toMatchObject({
+      status: 'fail',
+      evidence: {
+        staleFormulas: expect.arrayContaining([
+          expect.objectContaining({ calculationStatus: 'error' }),
+        ]),
+      },
+    })
+    await migrator.query(
+      `update api.dataset_rows set revision=revision+1 where id=$1`,
+      [datasetRow.id],
+    )
+    const frozenStale = await freeze('frozen-stale')
+    expect(
+      frozenStale.evidence.calculations[0].results[0].calculationStatus,
+    ).toBe('stale')
+    expect(
+      frozenStale.checks.results.find(
+        (item: { key: string }) => item.key === 'formula-no-stale-results',
+      ),
+    ).toMatchObject({
+      status: 'fail',
+      evidence: {
+        staleFormulas: expect.arrayContaining([
+          expect.objectContaining({ calculationStatus: 'stale' }),
+        ]),
+      },
+    })
+    await migrator.query(
+      `delete from internal.sheet_instance_calculation_results where instance_id=$1`,
+      [instance.id],
+    )
+    const frozenMissing = await freeze('frozen-missing')
+    expect(
+      frozenMissing.checks.results.find(
+        (item: { key: string }) => item.key === 'formula-no-stale-results',
+      ),
+    ).toMatchObject({
+      status: 'fail',
+      evidence: {
+        missingResults: expect.arrayContaining([
+          expect.objectContaining({ reason: 'no_cached_result' }),
+        ]),
+      },
+    })
+    const retained = (
+      await owner.query(
+        `select composed_grid from api.revision_sheet_evidence where revision_id=$1`,
+        [frozenCurrent.revision.id],
+      )
+    ).rows[0].composed_grid
+    expect(retained).toEqual(frozenCurrent.evidence)
+    await migrator.query(
+      `select internal.persist_revision_sheet_evidence($1)`,
+      [frozenCurrent.revision.id],
+    )
+    expect(
+      (
+        await owner.query(
+          `select composed_grid from api.revision_sheet_evidence where revision_id=$1`,
+          [frozenCurrent.revision.id],
+        )
+      ).rows[0].composed_grid,
+    ).toEqual(retained)
+    await outsider.query(`select set_config('request.jwt.claims',$1,false)`, [
+      JSON.stringify({
+        sub: OUTSIDER,
+        workspace_id: WS,
+        role: 'authenticated',
+        session_id: 'frozen-calculation-outsider',
+      }),
+    ])
+    expect(
+      (
+        await outsider.query(
+          `select composed_grid from api.revision_sheet_evidence where revision_id=$1`,
+          [frozenCurrent.revision.id],
+        )
+      ).rows,
+    ).toEqual([])
+    await expect(
+      outsider.query(
+        `select api.run_revision_checks($1,'default-scientific-checks',1,true,'frozen-outsider')`,
+        [frozenCurrent.revision.id],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+    const rerun = (
+      await owner.query(
+        `select api.run_revision_checks($1,'default-scientific-checks',1,true,'frozen-current-rerun') result`,
+        [frozenCurrent.revision.id],
+      )
+    ).rows[0].result
+    expect(rerun.results).toEqual(frozenCurrent.checks.results)
     expect(resolved.revision).toBe(2)
   })
 

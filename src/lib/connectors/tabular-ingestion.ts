@@ -32,7 +32,8 @@
  */
 import type { DataClient } from '../data-client'
 import { describeImportRpcCode } from '../import-commit'
-import { createDataset, commitDatasetRowBatchAtomic } from '../dataset-product'
+import { createDataset } from '../dataset-product'
+import type { DatasetCommitResult } from '../dataset-product'
 import { mapImportSheet, suggestImportMappings } from '../import-mapping'
 import type { ImportColumnMapping, ImportTargetField } from '../import-mapping'
 import { ConnectorExecutionError } from './enterprise/errors'
@@ -184,6 +185,7 @@ async function mapValidateCommitStages(input: {
   sheetName: string
   parserIdentity: string
   runId: string
+  sourceProvenance: Record<string, unknown>
   payload: ParsedTabularPayload
   log: StageLog
 }): Promise<{ rowCount: number; datasetId: string; datasetRevision?: number }> {
@@ -286,21 +288,47 @@ async function mapValidateCommitStages(input: {
     rowId: row.rowId,
     values: row.values,
   }))
-  const committed = await commitDatasetRowBatchAtomic(client, {
-    datasetId,
-    expectedRevision: expectedRevision ?? 1,
-    rows,
-    // Retry-safe: the same run re-uses the same atomic receipt key.
-    idempotencyKey: `connector-run-${input.runId}`,
-  }).catch((error) => {
-    const message = error instanceof Error ? error.message : String(error)
+  const identity = /^(.*)@(\d+)$/.exec(input.parserIdentity)
+  if (!identity)
     throw new ConnectorStepError(
-      /Dataset import rejected/i.test(message)
-        ? 'validation_failed'
-        : 'commit_failed',
-      message,
+      'parser_required',
+      'A versioned parser identity is required.',
     )
+  const parser = await client.rpc<{
+    parserId: string
+    parserVersionId: string
+  }>('ensure_parser', {
+    p_workspace_id: input.workspaceId,
+    p_key: identity[1],
+    p_name: identity[1],
+    p_format: 'csv',
+    p_version: Number(identity[2]),
+    p_signature: { engine: input.parserIdentity },
+    p_status: 'draft',
   })
+  const committed = await client
+    .rpc<DatasetCommitResult>('commit_dataset_import', {
+      p_dataset_id: datasetId,
+      p_expected_dataset_revision: expectedRevision ?? 1,
+      p_rows: rows,
+      p_idempotency_key: `connector-run-${input.runId}`,
+      p_file_id: null,
+      p_mapping: mappings,
+      p_outcome: { total: rows.length, added: rows.length },
+      p_parser_id: parser.parserId,
+      p_parser_version_id: parser.parserVersionId,
+      p_connector_run_id: input.runId,
+      p_source_provenance: input.sourceProvenance,
+    })
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error)
+      throw new ConnectorStepError(
+        /Dataset import rejected/i.test(message)
+          ? 'validation_failed'
+          : 'commit_failed',
+        message,
+      )
+    })
   if (!committed.ok) {
     const first = committed.errors?.[0]
     throw new ConnectorStepError(
@@ -415,6 +443,11 @@ export async function ingestTabularPayload(
           sheetName: input.sheetName,
           parserIdentity: input.parserIdentity,
           runId: run.id,
+          sourceProvenance: {
+            source: input.source,
+            fileRecordId: input.fileRecordId ?? null,
+            checksum: contentSha256,
+          },
           payload: resolved,
           log,
         })
@@ -743,6 +776,11 @@ export async function ingestExternalPayload(
         sheetName: input.sheetName,
         parserIdentity: input.parserIdentity,
         runId: run.id,
+        sourceProvenance: {
+          source: content.source,
+          fileRecordId,
+          checksum: content.contentSha256,
+        },
         payload: resolved,
         log,
       })

@@ -2,7 +2,7 @@
 
 Sheetbase is a scientific data workspace and electronic laboratory notebook. The Notebook provides scientific context; Excel-like Sheets are the primary structured-data interaction surface; PostgreSQL remains authoritative.
 
-> **Development knowledge:** start with [`docs/knowledge/README.md`](./docs/knowledge/README.md). Product, design, ADRs, Roadmaps 1–3, historical concepts/mockups and dated competitor research are standardised there.
+> **Development knowledge:** start with [`docs/knowledge/README.md`](./docs/knowledge/README.md). Product, design, ADRs, Roadmaps 1–4, historical concepts/mockups and dated competitor research are standardised there.
 
 ## Stack
 
@@ -65,8 +65,9 @@ docs/knowledge/
 ├── DESIGN.md
 ├── ROADMAP.md
 ├── roadmap-1/        # complete
-├── roadmap-2/        # nearly complete
-├── roadmap-3/        # strategic direction
+├── roadmap-2/        # active scope recorded closed; GOV-02 deferred
+├── roadmap-3/        # merged implementation with qualified acceptance
+├── roadmap-4/        # active; reconciled remaining tasks
 ├── decisions/        # ADRs + decision context
 ├── product/
 ├── architecture/
@@ -79,9 +80,11 @@ docs/knowledge/
 
 ## Current roadmap state
 
-- **Roadmap 1 / Core Data Workspace:** complete; see [`docs/knowledge/roadmap-1/`](./docs/knowledge/roadmap-1/).
-- **Roadmap 2 / Product & Platform Consolidation:** complete; see [`docs/knowledge/NEXT.md`](./docs/knowledge/NEXT.md).
-- **Roadmap 3:** strategic direction defined; see [`docs/knowledge/roadmap-3/README.md`](./docs/knowledge/roadmap-3/README.md).
+Roadmaps 1 and 2 retain recorded closure with documented deferrals; Roadmap 3
+has merged implementation with qualified acceptance. **Roadmap 4 is active and
+incomplete**, reconciled on 2 October 2026. See [current work](docs/knowledge/NEXT.md)
+and the [Roadmap 4 evidence register](docs/knowledge/roadmap-4/RECONCILIATION.md).
+[Roadmap 5](plans/roadmap-5/README.md) remains a proposal.
 
 ## Core mental model
 

@@ -1,20 +1,27 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ZodError } from 'zod'
 
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
+import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
+import { useUnsyncedCellState } from '#/components/offline/offline-edits'
+import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import {
-  Badge,
   Popover,
   PopoverContent,
   PopoverTrigger,
+} from '#/components/v3/ui/popover'
+import {
   Table,
   TableBody,
+  TableBox,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '#/components/ui'
+} from '#/components/v3/ui/table'
 import { DataClientError } from '#/lib/data-client'
 import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
@@ -29,6 +36,8 @@ import {
   sheetDefinitionDataClient,
 } from '#/lib/sheet-definition-data'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
+import { sheetCommentAnchorSchema } from '#/lib/sheet-comment-anchor'
+import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import {
   fetchSheetInstance,
   sheetInstanceDataClient,
@@ -37,39 +46,96 @@ import {
 export function NotebookSheetBlock({
   block,
   record,
+  readOnly = false,
   frozenEvidence,
+  onCellSelectionChange,
 }: {
   block: NotebookBlock
   record: NotebookRecord
   readOnly?: boolean
-  frozenEvidence?: FrozenSheetEvidence
+  /** null means historical evidence was expected but is unavailable. */
+  frozenEvidence?: FrozenSheetEvidence | null
+  /**
+   * EXP-04.4: the live Sheet's selected cell, lifted to the host so the
+   * Notebook inspector can describe it. Absent on frozen evidence.
+   */
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
-  const instanceId = sheetBlockInstanceId(block.payload)
-  if (!instanceId) {
+  if (frozenEvidence) {
+    return <FrozenSheetEvidencePanel evidence={frozenEvidence} />
+  }
+  if (frozenEvidence === null || record.lockedAt) {
     return (
-      <p className="p-3 text-sm text-muted-foreground" role="status">
-        This block has no Sheet Instance.
+      <p className="p-3 text-sm text-fg-muted" role="status">
+        Frozen Sheet evidence is unavailable. Live values are not shown for this
+        revision.
       </p>
     )
   }
-  if (frozenEvidence) {
-    return <FrozenSheetEvidencePanel evidence={frozenEvidence} />
+  const instanceId = sheetBlockInstanceId(block.payload)
+  if (!instanceId) {
+    return (
+      <p className="p-3 text-sm text-fg-muted" role="status">
+        This block has no Sheet Instance.
+      </p>
+    )
   }
   return (
     <NotebookInstanceSheetEmbed
       instanceId={instanceId}
       projectId={record.projectId}
       recordId={record.id}
+      readOnly={readOnly}
+      onCellSelectionChange={onCellSelectionChange}
     />
   )
 }
 
 export function FrozenSheetEvidencePanel({
   evidence,
+  onCommentTarget,
 }: {
   evidence: FrozenSheetEvidence
+  onCommentTarget?: (anchor: SheetCommentAnchor) => void
 }) {
   const grid = frozenSheetGridFromEvidence(evidence)
+  const [selection, setSelection] = useState<{
+    start: { row: number; column: number }
+    end: { row: number; column: number }
+  } | null>(null)
+  const [targetKind, setTargetKind] =
+    useState<SheetCommentAnchor['targetKind']>('sheet_cell')
+  const target =
+    selection && grid.rowKeys
+      ? sheetCommentAnchorSchema.safeParse({
+          targetKind,
+          target: {
+            instanceId: evidence.instanceId,
+            rowKeys:
+              targetKind === 'sheet_range'
+                ? grid.rowKeys
+                    .slice(
+                      Math.min(selection.start.row, selection.end.row),
+                      Math.max(selection.start.row, selection.end.row) + 1,
+                    )
+                    .sort()
+                : [grid.rowKeys[selection.end.row]],
+            fieldIds:
+              targetKind === 'sheet_row'
+                ? []
+                : targetKind === 'sheet_range'
+                  ? grid.columns
+                      .slice(
+                        Math.min(selection.start.column, selection.end.column),
+                        Math.max(selection.start.column, selection.end.column) +
+                          1,
+                      )
+                      .map((column) => column.id)
+                      .sort()
+                  : [grid.columns[selection.end.column]?.id],
+          },
+        })
+      : null
   const origin =
     evidence.sourceDefinitionVersionId === null
       ? 'Ad hoc Sheet'
@@ -86,12 +152,12 @@ export function FrozenSheetEvidencePanel({
         <p className="text-xs font-medium" role="status">
           Frozen submitted Sheet evidence
         </p>
-        <Badge variant="success" className="text-xs">
+        <Badge variant="add" className="text-xs">
           Read-only
         </Badge>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Reconstructed from the approved revision, not the live Sheet. {origin}
+      <p className="text-xs text-fg-muted">
+        Reconstructed from the submitted revision, not the live Sheet. {origin}
         {bindingCount > 0
           ? ` · ${bindingCount} Dataset binding${bindingCount === 1 ? '' : 's'}`
           : ''}
@@ -100,42 +166,148 @@ export function FrozenSheetEvidencePanel({
           : ''}
         .
       </p>
+      {onCommentTarget ? (
+        grid.rowKeys ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs text-fg-muted">
+              Comment target
+              <select
+                aria-label="Frozen comment target"
+                value={targetKind}
+                onChange={(event) => {
+                  const kind = event.target.value
+                  if (
+                    kind === 'sheet_cell' ||
+                    kind === 'sheet_row' ||
+                    kind === 'sheet_range'
+                  )
+                    setTargetKind(kind)
+                }}
+                className="ml-2 rounded border bg-surface px-2 py-1 text-fg"
+              >
+                <option value="sheet_cell">Cell</option>
+                <option value="sheet_row">Row</option>
+                <option value="sheet_range">Range</option>
+              </select>
+            </label>
+            <Button
+              size="sm"
+              disabled={!target?.success}
+              onClick={() => {
+                if (target?.success) onCommentTarget(target.data)
+              }}
+            >
+              Comment on frozen selection
+            </Button>
+            <p className="text-xs text-fg-muted">
+              Select a cell. Shift-click another cell to extend a range.
+            </p>
+            {target?.success ? (
+              <p className="text-xs text-fg" role="status">
+                Selected target: {target.data.target.rowKeys.length}{' '}
+                {target.data.target.rowKeys.length === 1 ? 'row' : 'rows'}
+                {targetKind === 'sheet_row'
+                  ? ''
+                  : ` · ${target.data.target.fieldIds.length} ${target.data.target.fieldIds.length === 1 ? 'field' : 'fields'}`}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-xs text-fg-muted" role="status">
+            Cell comments are unavailable because this historical evidence has
+            no stable row identities.
+          </p>
+        )
+      ) : null}
       {grid.columns.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-fg-muted">
           No local columns were frozen with this Sheet.
         </p>
       ) : (
-        <Table aria-label="Frozen Sheet" containerClassName="rounded-md border">
-          <TableHeader>
-            <TableRow>
-              {grid.columns.map((column) => (
-                <TableHead key={column.id}>{column.label}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {grid.rows.length === 0 ? (
+        <TableBox className="rounded-md border">
+          <Table aria-label="Frozen Sheet">
+            <TableHeader>
               <TableRow>
-                <TableCell
-                  colSpan={grid.columns.length}
-                  className="text-muted-foreground"
-                >
-                  No local rows were frozen with this Sheet.
-                </TableCell>
+                {grid.columns.map((column) => (
+                  <TableHead key={column.id}>{column.label}</TableHead>
+                ))}
               </TableRow>
-            ) : (
-              grid.rows.map((row, rowIndex) => (
-                <TableRow key={rowIndex}>
-                  {row.map((cell, cellIndex) => (
-                    <TableCell key={grid.columns[cellIndex]?.id ?? cellIndex}>
-                      {cell || '—'}
-                    </TableCell>
-                  ))}
+            </TableHeader>
+            <TableBody>
+              {grid.rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={grid.columns.length}
+                    className="text-fg-muted"
+                  >
+                    No local rows were frozen with this Sheet.
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                grid.rows.map((row, rowIndex) => (
+                  <TableRow key={rowIndex}>
+                    {row.map((cell, cellIndex) => (
+                      <TableCell key={grid.columns[cellIndex]?.id ?? cellIndex}>
+                        {onCommentTarget && grid.rowKeys ? (
+                          <button
+                            type="button"
+                            className="w-full rounded px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-selection aria-pressed:ring-1 aria-pressed:ring-primary"
+                            aria-label={`Select ${grid.columns[cellIndex]?.label} row ${rowIndex + 1}`}
+                            aria-pressed={
+                              selection !== null &&
+                              (targetKind === 'sheet_row'
+                                ? rowIndex === selection.end.row
+                                : targetKind === 'sheet_cell'
+                                  ? rowIndex === selection.end.row &&
+                                    cellIndex === selection.end.column
+                                  : rowIndex >=
+                                      Math.min(
+                                        selection.start.row,
+                                        selection.end.row,
+                                      ) &&
+                                    rowIndex <=
+                                      Math.max(
+                                        selection.start.row,
+                                        selection.end.row,
+                                      ) &&
+                                    cellIndex >=
+                                      Math.min(
+                                        selection.start.column,
+                                        selection.end.column,
+                                      ) &&
+                                    cellIndex <=
+                                      Math.max(
+                                        selection.start.column,
+                                        selection.end.column,
+                                      ))
+                            }
+                            onClick={(event) => {
+                              const position = {
+                                row: rowIndex,
+                                column: cellIndex,
+                              }
+                              setSelection((current) => ({
+                                start:
+                                  event.shiftKey && current
+                                    ? current.start
+                                    : position,
+                                end: position,
+                              }))
+                            }}
+                          >
+                            {cell || '—'}
+                          </button>
+                        ) : (
+                          cell || '—'
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableBox>
       )}
     </div>
   )
@@ -170,15 +342,21 @@ function NotebookInstanceSheetEmbed({
   instanceId,
   projectId,
   recordId,
+  readOnly,
+  onCellSelectionChange,
 }: {
   instanceId: string
   projectId: string | null
   recordId: string
+  readOnly: boolean
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
   const instance = useQuery({
     queryKey: ['sheet-instance', instanceId],
     queryFn: () => fetchSheetInstance(instanceId, sheetInstanceDataClient),
   })
+  // EXP-05.2: paint `unsynced` on cells with a local draft.
+  const unsyncedCellState = useUnsyncedCellState(instanceId)
   const embeddings = useQuery({
     queryKey: ['sheet-instance-embeddings', instanceId],
     queryFn: () =>
@@ -207,7 +385,7 @@ function NotebookInstanceSheetEmbed({
 
   if (instance.isPending) {
     return (
-      <p className="p-3 text-sm text-muted-foreground" role="status">
+      <p className="p-3 text-sm text-fg-muted" role="status">
         Loading Sheet…
       </p>
     )
@@ -233,15 +411,13 @@ function NotebookInstanceSheetEmbed({
   return (
     <div className="flex min-h-[24rem] flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
-        <h3 className="text-sm font-medium text-foreground">
-          {instance.data.name}
-        </h3>
-        <span className="text-xs text-muted-foreground">{definitionLabel}</span>
+        <h3 className="text-sm font-medium text-fg">{instance.data.name}</h3>
+        <span className="text-xs text-fg-muted">{definitionLabel}</span>
         {sharedCount > 1 ? (
           <SharedNotebooksBadge others={others} total={sharedCount} />
         ) : null}
         {instance.data.lifecycle === 'archived' ? (
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="kind" className="text-xs">
             Archived
           </Badge>
         ) : null}
@@ -249,16 +425,16 @@ function NotebookInstanceSheetEmbed({
         canonical ?projectId context so it opens with the same write
         affordances as the embed. */}
         <Link
-          className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          to="/sheets/$instanceId"
-          params={{ instanceId }}
+          className="ml-auto text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
+          to="/sheets/$sheetId"
+          params={{ sheetId: instanceId }}
           search={{ projectId: projectId ?? undefined }}
         >
           Open full sheet
         </Link>
       </div>
       {!projectId ? (
-        <p className="px-1 text-xs text-muted-foreground" role="status">
+        <p className="px-1 text-xs text-fg-muted" role="status">
           This Notebook has no project, so Records cannot be created or linked
           here. The Sheet remains readable.
         </p>
@@ -267,7 +443,13 @@ function NotebookInstanceSheetEmbed({
         <CanonicalSheetWorkspace
           instanceId={instanceId}
           projectId={projectId}
-          readOnly={!projectId || instance.data.lifecycle !== 'active'}
+          readOnly={
+            readOnly || !projectId || instance.data.lifecycle !== 'active'
+          }
+          cellState={({ rowId, columnId }) =>
+            unsyncedCellState(rowId, columnId)
+          }
+          onCellSelectionChange={onCellSelectionChange}
         />
       </div>
     </div>
@@ -284,23 +466,25 @@ function SharedNotebooksBadge({
   const extra = Math.max(0, total - 1)
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex"
-          aria-label={`Shared with ${extra} other Notebook${extra === 1 ? '' : 's'}`}
-        >
-          <Badge variant="info" className="cursor-pointer text-xs">
-            Shared · {extra} other Notebook{extra === 1 ? '' : 's'}
-          </Badge>
-        </button>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className="inline-flex"
+            aria-label={`Shared with ${extra} other Notebook${extra === 1 ? '' : 's'}`}
+          />
+        }
+      >
+        <Badge variant="kind" className="cursor-pointer text-xs">
+          Shared · {extra} other Notebook{extra === 1 ? '' : 's'}
+        </Badge>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-0">
         <p className="border-b px-3 py-2 text-xs font-medium">Also used in</p>
         <ul className="max-h-64 overflow-y-auto py-1">
           {others.map((item) => (
             <li key={item.recordId} className="px-3 py-1.5 text-sm">
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="font-mono text-xs text-fg-muted">
                 {item.identifier}
               </span>
               <span className="mt-0.5 block truncate">{item.title}</span>

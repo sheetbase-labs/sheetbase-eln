@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { AlertTriangle, FlaskConical } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import {
   Alert,
   AlertDescription,
@@ -23,7 +23,7 @@ export const Alerts: Story = {
     <div className="grid gap-2">
       {(['default', 'info', 'warning', 'destructive'] as const).map((v) => (
         <Alert key={v} variant={v}>
-          <AlertTriangle />
+          <Icon name="warn" />
           <AlertTitle>{v} result</AlertTitle>
           <AlertDescription>
             Three measurements are outside the validated range.
@@ -49,7 +49,7 @@ export const EmptyState: Story = {
   render: () => (
     <Empty>
       <EmptyIcon>
-        <FlaskConical />
+        <Icon name="flask" />
       </EmptyIcon>
       <EmptyTitle>No experiments yet</EmptyTitle>
       <EmptyDescription>

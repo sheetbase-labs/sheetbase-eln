@@ -126,11 +126,9 @@ describe('CanonicalSheetLifecyclePanel', () => {
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
 
     const continueLink = await screen.findByRole('link', {
-      name: 'Continue in Configure',
+      name: 'Continue in Models',
     })
-    expect(continueLink.getAttribute('href')).toBe(
-      '/configure?kind=definition&id=definition-1',
-    )
+    expect(continueLink.getAttribute('href')).toBe('/models/definition-1')
     await waitFor(() => expect(extractDraft).toHaveBeenCalledTimes(1))
   })
   it('surfaces an upgrade badge when a newer published Definition version exists', async () => {

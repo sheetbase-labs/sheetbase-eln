@@ -10,42 +10,70 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as AgentOperationsRouteImport } from './routes/agent-operations'
 import { Route as AnalysisRouteImport } from './routes/analysis'
-import { Route as CalendarRouteImport } from './routes/calendar'
-import { Route as ConfigureRouteImport } from './routes/configure'
+import { Route as ClientPortalRouteImport } from './routes/client-portal'
 import { Route as DatasetsRouteImport } from './routes/datasets'
+import { Route as ExperimentsRouteImport } from './routes/experiments'
 import { Route as FoundationsRouteImport } from './routes/foundations'
-import { Route as InstrumentMonitorRouteImport } from './routes/instrument-monitor'
-import { Route as IntegrationsRouteImport } from './routes/integrations'
-import { Route as LineageRouteImport } from './routes/lineage'
+import { Route as HelpRouteImport } from './routes/help'
+import { Route as ImportRouteImport } from './routes/import'
+import { Route as InboxRouteImport } from './routes/inbox'
+import { Route as InstrumentsRouteImport } from './routes/instruments'
+import { Route as MaterialsRouteImport } from './routes/materials'
+import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
-import { Route as PlannerRouteImport } from './routes/planner'
-import { Route as PlateDesignerRouteImport } from './routes/plate-designer'
 import { Route as ProjectsRouteImport } from './routes/projects'
-import { Route as ReagentsRouteImport } from './routes/reagents'
-import { Route as ReportBuilderRouteImport } from './routes/report-builder'
-import { Route as ReviewsRouteImport } from './routes/reviews'
+import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as SamplesRouteImport } from './routes/samples'
+import { Route as ScanRouteImport } from './routes/scan'
+import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SheetbaseComponentsRouteImport } from './routes/sheetbase-components'
 import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as StorageRouteImport } from './routes/storage'
 import { Route as TemplatesRouteImport } from './routes/templates'
-import { Route as AdminSectionRouteImport } from './routes/admin/$section'
+import { Route as AnalysisIndexRouteImport } from './routes/analysis/index'
+import { Route as AnalysisAnalysisIdRouteImport } from './routes/analysis/$analysisId'
+import { Route as AnalysisNewRouteImport } from './routes/analysis/new'
 import { Route as ApiCalculationsRouteImport } from './routes/api/calculations'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiFormulasRouteImport } from './routes/api/formulas'
 import { Route as ApiMetricsRouteImport } from './routes/api/metrics'
 import { Route as ApiSheetCalculationsRouteImport } from './routes/api/sheet-calculations'
+import { Route as DatasetsDatasetIdRouteImport } from './routes/datasets/$datasetId'
 import { Route as DocsNameRouteImport } from './routes/docs/$name'
-import { Route as IntegrationsConnectorIdRouteImport } from './routes/integrations/$connectorId'
-import { Route as PipelinesDefinitionIdRouteImport } from './routes/pipelines/$definitionId'
+import { Route as EvidenceRevisionIdRouteImport } from './routes/evidence/$revisionId'
+import { Route as ExperimentsExpIdRouteImport } from './routes/experiments/$expId'
+import { Route as ExperimentsNewRouteImport } from './routes/experiments/new'
+import { Route as HelpIndexRouteImport } from './routes/help/index'
+import { Route as HelpRecordsRouteImport } from './routes/help/records'
+import { Route as HelpShortcutsRouteImport } from './routes/help/shortcuts'
+import { Route as InstrumentsInstrumentIdRouteImport } from './routes/instruments/$instrumentId'
+import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
+import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
+import { Route as PipelinesAgentsRouteImport } from './routes/pipelines/agents'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
+import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$protocolId'
+import { Route as RIdentifierRouteImport } from './routes/r/$identifier'
+import { Route as ReadingsNewRouteImport } from './routes/readings/new'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
-import { Route as ReviewsRevisionIdRouteImport } from './routes/reviews/$revisionId'
-import { Route as SheetsInstanceIdRouteImport } from './routes/sheets/$instanceId'
+import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionId'
+import { Route as SamplesSampleIdRouteImport } from './routes/samples/$sampleId'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsAccessRouteImport } from './routes/settings/access'
+import { Route as SettingsApiRouteImport } from './routes/settings/api'
+import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
+import { Route as SettingsDiagnosticsRouteImport } from './routes/settings/diagnostics'
+import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
+import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
+import { Route as SettingsMembersRouteImport } from './routes/settings/members'
+import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
+import { Route as SettingsProfileRouteImport } from './routes/settings/profile'
+import { Route as SettingsSignaturesRouteImport } from './routes/settings/signatures'
+import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
+import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
+import { Route as SheetsNewRouteImport } from './routes/sheets/new'
+import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
 import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
@@ -54,11 +82,58 @@ import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
+import { Route as ApiImportCommitRouteImport } from './routes/api/import/commit'
+import { Route as ApiImportFilesRouteImport } from './routes/api/import/files'
+import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
+import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
+import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
+import { Route as ApiSignaturesStepUpRouteImport } from './routes/api/signatures/step-up'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
+import { Route as DatasetsDatasetIdIndexRouteImport } from './routes/datasets/$datasetId/index'
+import { Route as DatasetsDatasetIdCompareRouteImport } from './routes/datasets/$datasetId/compare'
+import { Route as DatasetsDatasetIdRowsRouteImport } from './routes/datasets/$datasetId/rows'
+import { Route as DatasetsDatasetIdSnapshotsRouteImport } from './routes/datasets/$datasetId/snapshots'
+import { Route as ExperimentsExpIdIndexRouteImport } from './routes/experiments/$expId/index'
+import { Route as ExperimentsExpIdDatasetsRouteImport } from './routes/experiments/$expId/datasets'
+import { Route as ExperimentsExpIdFilesRouteImport } from './routes/experiments/$expId/files'
+import { Route as ExperimentsExpIdHistoryRouteImport } from './routes/experiments/$expId/history'
+import { Route as ExperimentsExpIdNotebookRouteImport } from './routes/experiments/$expId/notebook'
+import { Route as ExperimentsExpIdOverviewRouteImport } from './routes/experiments/$expId/overview'
+import { Route as ExperimentsExpIdResultsRouteImport } from './routes/experiments/$expId/results'
+import { Route as ExperimentsExpIdSamplesRouteImport } from './routes/experiments/$expId/samples'
+import { Route as ModelsModelIdIndexRouteImport } from './routes/models/$modelId/index'
+import { Route as ModelsModelIdDatasetsRouteImport } from './routes/models/$modelId/datasets'
+import { Route as ModelsModelIdEditRouteImport } from './routes/models/$modelId/edit'
+import { Route as ModelsModelIdFieldsRouteImport } from './routes/models/$modelId/fields'
+import { Route as ModelsModelIdRecordsRouteImport } from './routes/models/$modelId/records'
+import { Route as ModelsModelIdRelationsRouteImport } from './routes/models/$modelId/relations'
+import { Route as ModelsModelIdRulesRouteImport } from './routes/models/$modelId/rules'
+import { Route as ModelsModelIdUsageRouteImport } from './routes/models/$modelId/usage'
+import { Route as ModelsModelIdVersionsRouteImport } from './routes/models/$modelId/versions'
+import { Route as PipelinesPipelineIdIndexRouteImport } from './routes/pipelines/$pipelineId/index'
+import { Route as PipelinesPipelineIdStepsRouteImport } from './routes/pipelines/$pipelineId/steps'
+import { Route as PipelinesPipelineIdTriggersRouteImport } from './routes/pipelines/$pipelineId/triggers'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
-import { Route as RecordsRecordIdOverviewRouteImport } from './routes/records/$recordId/overview'
+import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
+import { Route as ProjectsProjectIdFilesRouteImport } from './routes/projects/$projectId/files'
+import { Route as ProjectsProjectIdFoldersRouteImport } from './routes/projects/$projectId/folders'
+import { Route as ProjectsProjectIdMembersRouteImport } from './routes/projects/$projectId/members'
+import { Route as ProjectsProjectIdMilestonesRouteImport } from './routes/projects/$projectId/milestones'
+import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId/settings'
+import { Route as RecordsRecordIdIndexRouteImport } from './routes/records/$recordId/index'
+import { Route as RecordsRecordIdNotebookRouteImport } from './routes/records/$recordId/notebook'
+import { Route as SamplesSampleIdIndexRouteImport } from './routes/samples/$sampleId/index'
+import { Route as SamplesSampleIdHistoryRouteImport } from './routes/samples/$sampleId/history'
+import { Route as SamplesSampleIdLineageRouteImport } from './routes/samples/$sampleId/lineage'
+import { Route as SamplesSampleIdMeasurementsRouteImport } from './routes/samples/$sampleId/measurements'
+import { Route as SamplesSampleIdUsageRouteImport } from './routes/samples/$sampleId/usage'
+import { Route as SettingsIntegrationsConnectorIdRouteImport } from './routes/settings/integrations/$connectorId'
+import { Route as TemplatesTemplateIdIndexRouteImport } from './routes/templates/$templateId/index'
+import { Route as TemplatesTemplateIdInUseRouteImport } from './routes/templates/$templateId/in-use'
+import { Route as TemplatesTemplateIdUpdateRouteImport } from './routes/templates/$templateId/update'
+import { Route as TemplatesTemplateIdVersionsRouteImport } from './routes/templates/$templateId/versions'
 import { Route as ApiCollaborationResolveRoomsRouteImport } from './routes/api/collaboration/resolve.rooms'
 import { Route as ApiCollaborationResolveUsersRouteImport } from './routes/api/collaboration/resolve.users'
 import { Route as ApiExportDatasetVersionIdRouteImport } from './routes/api/export/dataset-version/$id'
@@ -68,6 +143,14 @@ import { Route as ApiExportSheetInstanceIdRouteImport } from './routes/api/expor
 import { Route as ApiFilesFileIdDownloadRouteImport } from './routes/api/files/$fileId/download'
 import { Route as ApiFilesFileIdUploadRouteImport } from './routes/api/files/$fileId/upload'
 import { Route as ApiPipelinesWebhookDefinitionIdRouteImport } from './routes/api/pipelines/webhook.$definitionId'
+import { Route as ModelsModelIdRecordsIndexRouteImport } from './routes/models/$modelId/records/index'
+import { Route as ModelsModelIdRecordsRecordIdRouteImport } from './routes/models/$modelId/records/$recordId'
+import { Route as ModelsModelIdRecordsNewRouteImport } from './routes/models/$modelId/records/new'
+import { Route as PipelinesPipelineIdRunsIndexRouteImport } from './routes/pipelines/$pipelineId/runs/index'
+import { Route as PipelinesPipelineIdRunsRunIdRouteImport } from './routes/pipelines/$pipelineId/runs/$runId'
+import { Route as RecordsRecordIdEvidenceRevisionIdRouteImport } from './routes/records/$recordId/evidence/$revisionId'
+import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
+import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 
 const IndexRoute = IndexRouteImport.update({
@@ -75,29 +158,14 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AgentOperationsRoute = AgentOperationsRouteImport.update({
-  id: '/agent-operations',
-  path: '/agent-operations',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AnalysisRoute = AnalysisRouteImport.update({
   id: '/analysis',
   path: '/analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CalendarRoute = CalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConfigureRoute = ConfigureRouteImport.update({
-  id: '/configure',
-  path: '/configure',
+const ClientPortalRoute = ClientPortalRouteImport.update({
+  id: '/client-portal',
+  path: '/client-portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsRoute = DatasetsRouteImport.update({
@@ -105,24 +173,44 @@ const DatasetsRoute = DatasetsRouteImport.update({
   path: '/datasets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExperimentsRoute = ExperimentsRouteImport.update({
+  id: '/experiments',
+  path: '/experiments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FoundationsRoute = FoundationsRouteImport.update({
   id: '/foundations',
   path: '/foundations',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InstrumentMonitorRoute = InstrumentMonitorRouteImport.update({
-  id: '/instrument-monitor',
-  path: '/instrument-monitor',
+const HelpRoute = HelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IntegrationsRoute = IntegrationsRouteImport.update({
-  id: '/integrations',
-  path: '/integrations',
+const ImportRoute = ImportRouteImport.update({
+  id: '/import',
+  path: '/import',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LineageRoute = LineageRouteImport.update({
-  id: '/lineage',
-  path: '/lineage',
+const InboxRoute = InboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstrumentsRoute = InstrumentsRouteImport.update({
+  id: '/instruments',
+  path: '/instruments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MaterialsRoute = MaterialsRouteImport.update({
+  id: '/materials',
+  path: '/materials',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelsRoute = ModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PipelinesRoute = PipelinesRouteImport.update({
@@ -130,39 +218,29 @@ const PipelinesRoute = PipelinesRouteImport.update({
   path: '/pipelines',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PlannerRoute = PlannerRouteImport.update({
-  id: '/planner',
-  path: '/planner',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlateDesignerRoute = PlateDesignerRouteImport.update({
-  id: '/plate-designer',
-  path: '/plate-designer',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReagentsRoute = ReagentsRouteImport.update({
-  id: '/reagents',
-  path: '/reagents',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReportBuilderRoute = ReportBuilderRouteImport.update({
-  id: '/report-builder',
-  path: '/report-builder',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReviewsRoute = ReviewsRouteImport.update({
-  id: '/reviews',
-  path: '/reviews',
+const ProtocolsRoute = ProtocolsRouteImport.update({
+  id: '/protocols',
+  path: '/protocols',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SamplesRoute = SamplesRouteImport.update({
   id: '/samples',
   path: '/samples',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScanRoute = ScanRouteImport.update({
+  id: '/scan',
+  path: '/scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ScheduleRoute = ScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -175,14 +253,14 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SheetbaseComponentsRoute = SheetbaseComponentsRouteImport.update({
+  id: '/sheetbase-components',
+  path: '/sheetbase-components',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StorageRoute = StorageRouteImport.update({
-  id: '/storage',
-  path: '/storage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TemplatesRoute = TemplatesRouteImport.update({
@@ -190,10 +268,20 @@ const TemplatesRoute = TemplatesRouteImport.update({
   path: '/templates',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminSectionRoute = AdminSectionRouteImport.update({
-  id: '/$section',
-  path: '/$section',
-  getParentRoute: () => AdminRoute,
+const AnalysisIndexRoute = AnalysisIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AnalysisRoute,
+} as any)
+const AnalysisAnalysisIdRoute = AnalysisAnalysisIdRouteImport.update({
+  id: '/$analysisId',
+  path: '/$analysisId',
+  getParentRoute: () => AnalysisRoute,
+} as any)
+const AnalysisNewRoute = AnalysisNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AnalysisRoute,
 } as any)
 const ApiCalculationsRoute = ApiCalculationsRouteImport.update({
   id: '/api/calculations',
@@ -220,19 +308,64 @@ const ApiSheetCalculationsRoute = ApiSheetCalculationsRouteImport.update({
   path: '/api/sheet-calculations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatasetsDatasetIdRoute = DatasetsDatasetIdRouteImport.update({
+  id: '/$datasetId',
+  path: '/$datasetId',
+  getParentRoute: () => DatasetsRoute,
+} as any)
 const DocsNameRoute = DocsNameRouteImport.update({
   id: '/docs/$name',
   path: '/docs/$name',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IntegrationsConnectorIdRoute = IntegrationsConnectorIdRouteImport.update({
-  id: '/$connectorId',
-  path: '/$connectorId',
-  getParentRoute: () => IntegrationsRoute,
+const EvidenceRevisionIdRoute = EvidenceRevisionIdRouteImport.update({
+  id: '/evidence/$revisionId',
+  path: '/evidence/$revisionId',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const PipelinesDefinitionIdRoute = PipelinesDefinitionIdRouteImport.update({
-  id: '/$definitionId',
-  path: '/$definitionId',
+const ExperimentsExpIdRoute = ExperimentsExpIdRouteImport.update({
+  id: '/$expId',
+  path: '/$expId',
+  getParentRoute: () => ExperimentsRoute,
+} as any)
+const ExperimentsNewRoute = ExperimentsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => ExperimentsRoute,
+} as any)
+const HelpIndexRoute = HelpIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => HelpRoute,
+} as any)
+const HelpRecordsRoute = HelpRecordsRouteImport.update({
+  id: '/records',
+  path: '/records',
+  getParentRoute: () => HelpRoute,
+} as any)
+const HelpShortcutsRoute = HelpShortcutsRouteImport.update({
+  id: '/shortcuts',
+  path: '/shortcuts',
+  getParentRoute: () => HelpRoute,
+} as any)
+const InstrumentsInstrumentIdRoute = InstrumentsInstrumentIdRouteImport.update({
+  id: '/$instrumentId',
+  path: '/$instrumentId',
+  getParentRoute: () => InstrumentsRoute,
+} as any)
+const ModelsModelIdRoute = ModelsModelIdRouteImport.update({
+  id: '/$modelId',
+  path: '/$modelId',
+  getParentRoute: () => ModelsRoute,
+} as any)
+const PipelinesPipelineIdRoute = PipelinesPipelineIdRouteImport.update({
+  id: '/$pipelineId',
+  path: '/$pipelineId',
+  getParentRoute: () => PipelinesRoute,
+} as any)
+const PipelinesAgentsRoute = PipelinesAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
   getParentRoute: () => PipelinesRoute,
 } as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
@@ -240,20 +373,110 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/$projectId',
   getParentRoute: () => ProjectsRoute,
 } as any)
+const ProtocolsProtocolIdRoute = ProtocolsProtocolIdRouteImport.update({
+  id: '/$protocolId',
+  path: '/$protocolId',
+  getParentRoute: () => ProtocolsRoute,
+} as any)
+const RIdentifierRoute = RIdentifierRouteImport.update({
+  id: '/r/$identifier',
+  path: '/r/$identifier',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReadingsNewRoute = ReadingsNewRouteImport.update({
+  id: '/readings/new',
+  path: '/readings/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RecordsRecordIdRoute = RecordsRecordIdRouteImport.update({
   id: '/records/$recordId',
   path: '/records/$recordId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReviewsRevisionIdRoute = ReviewsRevisionIdRouteImport.update({
-  id: '/$revisionId',
-  path: '/$revisionId',
-  getParentRoute: () => ReviewsRoute,
-} as any)
-const SheetsInstanceIdRoute = SheetsInstanceIdRouteImport.update({
-  id: '/sheets/$instanceId',
-  path: '/sheets/$instanceId',
+const ReviewRevisionIdRoute = ReviewRevisionIdRouteImport.update({
+  id: '/review/$revisionId',
+  path: '/review/$revisionId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SamplesSampleIdRoute = SamplesSampleIdRouteImport.update({
+  id: '/$sampleId',
+  path: '/$sampleId',
+  getParentRoute: () => SamplesRoute,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAccessRoute = SettingsAccessRouteImport.update({
+  id: '/access',
+  path: '/access',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsApiRoute = SettingsApiRouteImport.update({
+  id: '/api',
+  path: '/api',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsAuditRoute = SettingsAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsDiagnosticsRoute = SettingsDiagnosticsRouteImport.update({
+  id: '/diagnostics',
+  path: '/diagnostics',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsInstrumentsRoute = SettingsInstrumentsRouteImport.update({
+  id: '/instruments',
+  path: '/instruments',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsIntegrationsRoute = SettingsIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsMembersRoute = SettingsMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsProfileRoute = SettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsSignaturesRoute = SettingsSignaturesRouteImport.update({
+  id: '/signatures',
+  path: '/signatures',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsUsageRoute = SettingsUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SheetsSheetIdRoute = SheetsSheetIdRouteImport.update({
+  id: '/sheets/$sheetId',
+  path: '/sheets/$sheetId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SheetsNewRoute = SheetsNewRouteImport.update({
+  id: '/sheets/new',
+  path: '/sheets/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TemplatesTemplateIdRoute = TemplatesTemplateIdRouteImport.update({
+  id: '/$templateId',
+  path: '/$templateId',
+  getParentRoute: () => TemplatesRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -296,6 +519,31 @@ const ApiHealthReadyRoute = ApiHealthReadyRouteImport.update({
   path: '/api/health/ready',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiImportCommitRoute = ApiImportCommitRouteImport.update({
+  id: '/api/import/commit',
+  path: '/api/import/commit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImportFilesRoute = ApiImportFilesRouteImport.update({
+  id: '/api/import/files',
+  path: '/api/import/files',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImportReviewRoute = ApiImportReviewRouteImport.update({
+  id: '/api/import/review',
+  path: '/api/import/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiParsersRequestUpdateRoute = ApiParsersRequestUpdateRouteImport.update({
+  id: '/api/parsers/request-update',
+  path: '/api/parsers/request-update',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiParsersValidateRoute = ApiParsersValidateRouteImport.update({
+  id: '/api/parsers/validate',
+  path: '/api/parsers/validate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPipelinesExecuteRoute = ApiPipelinesExecuteRouteImport.update({
   id: '/api/pipelines/execute',
   path: '/api/pipelines/execute',
@@ -306,21 +554,249 @@ const ApiPipelinesRuntimeRoute = ApiPipelinesRuntimeRouteImport.update({
   path: '/api/pipelines/runtime',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSignaturesStepUpRoute = ApiSignaturesStepUpRouteImport.update({
+  id: '/api/signatures/step-up',
+  path: '/api/signatures/step-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTokenIndexRoute = ApiTokenIndexRouteImport.update({
   id: '/api/token/',
   path: '/api/token/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatasetsDatasetIdIndexRoute = DatasetsDatasetIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DatasetsDatasetIdRoute,
+} as any)
+const DatasetsDatasetIdCompareRoute =
+  DatasetsDatasetIdCompareRouteImport.update({
+    id: '/compare',
+    path: '/compare',
+    getParentRoute: () => DatasetsDatasetIdRoute,
+  } as any)
+const DatasetsDatasetIdRowsRoute = DatasetsDatasetIdRowsRouteImport.update({
+  id: '/rows',
+  path: '/rows',
+  getParentRoute: () => DatasetsDatasetIdRoute,
+} as any)
+const DatasetsDatasetIdSnapshotsRoute =
+  DatasetsDatasetIdSnapshotsRouteImport.update({
+    id: '/snapshots',
+    path: '/snapshots',
+    getParentRoute: () => DatasetsDatasetIdRoute,
+  } as any)
+const ExperimentsExpIdIndexRoute = ExperimentsExpIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
+const ExperimentsExpIdDatasetsRoute =
+  ExperimentsExpIdDatasetsRouteImport.update({
+    id: '/datasets',
+    path: '/datasets',
+    getParentRoute: () => ExperimentsExpIdRoute,
+  } as any)
+const ExperimentsExpIdFilesRoute = ExperimentsExpIdFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
+const ExperimentsExpIdHistoryRoute = ExperimentsExpIdHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
+const ExperimentsExpIdNotebookRoute =
+  ExperimentsExpIdNotebookRouteImport.update({
+    id: '/notebook',
+    path: '/notebook',
+    getParentRoute: () => ExperimentsExpIdRoute,
+  } as any)
+const ExperimentsExpIdOverviewRoute =
+  ExperimentsExpIdOverviewRouteImport.update({
+    id: '/overview',
+    path: '/overview',
+    getParentRoute: () => ExperimentsExpIdRoute,
+  } as any)
+const ExperimentsExpIdResultsRoute = ExperimentsExpIdResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
+const ExperimentsExpIdSamplesRoute = ExperimentsExpIdSamplesRouteImport.update({
+  id: '/samples',
+  path: '/samples',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
+const ModelsModelIdIndexRoute = ModelsModelIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
+const ModelsModelIdDatasetsRoute = ModelsModelIdDatasetsRouteImport.update({
+  id: '/datasets',
+  path: '/datasets',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
+const ModelsModelIdEditRoute = ModelsModelIdEditRouteImport.update({
+  id: '/edit',
+  path: '/edit',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
+const ModelsModelIdFieldsRoute = ModelsModelIdFieldsRouteImport.update({
+  id: '/fields',
+  path: '/fields',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
+const ModelsModelIdRecordsRoute = ModelsModelIdRecordsRouteImport.update({
+  id: '/records',
+  path: '/records',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
+const ModelsModelIdRelationsRoute = ModelsModelIdRelationsRouteImport.update({
+  id: '/relations',
+  path: '/relations',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
+const ModelsModelIdRulesRoute = ModelsModelIdRulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
+const ModelsModelIdUsageRoute = ModelsModelIdUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
+const ModelsModelIdVersionsRoute = ModelsModelIdVersionsRouteImport.update({
+  id: '/versions',
+  path: '/versions',
+  getParentRoute: () => ModelsModelIdRoute,
+} as any)
+const PipelinesPipelineIdIndexRoute =
+  PipelinesPipelineIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PipelinesPipelineIdRoute,
+  } as any)
+const PipelinesPipelineIdStepsRoute =
+  PipelinesPipelineIdStepsRouteImport.update({
+    id: '/steps',
+    path: '/steps',
+    getParentRoute: () => PipelinesPipelineIdRoute,
+  } as any)
+const PipelinesPipelineIdTriggersRoute =
+  PipelinesPipelineIdTriggersRouteImport.update({
+    id: '/triggers',
+    path: '/triggers',
+    getParentRoute: () => PipelinesPipelineIdRoute,
+  } as any)
 const PipelinesRunsRunIdRoute = PipelinesRunsRunIdRouteImport.update({
   id: '/runs/$runId',
   path: '/runs/$runId',
   getParentRoute: () => PipelinesRoute,
 } as any)
-const RecordsRecordIdOverviewRoute = RecordsRecordIdOverviewRouteImport.update({
-  id: '/overview',
-  path: '/overview',
+const ProjectsProjectIdIndexRoute = ProjectsProjectIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectsProjectIdRoute,
+} as any)
+const ProjectsProjectIdFilesRoute = ProjectsProjectIdFilesRouteImport.update({
+  id: '/files',
+  path: '/files',
+  getParentRoute: () => ProjectsProjectIdRoute,
+} as any)
+const ProjectsProjectIdFoldersRoute =
+  ProjectsProjectIdFoldersRouteImport.update({
+    id: '/folders',
+    path: '/folders',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const ProjectsProjectIdMembersRoute =
+  ProjectsProjectIdMembersRouteImport.update({
+    id: '/members',
+    path: '/members',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const ProjectsProjectIdMilestonesRoute =
+  ProjectsProjectIdMilestonesRouteImport.update({
+    id: '/milestones',
+    path: '/milestones',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const ProjectsProjectIdSettingsRoute =
+  ProjectsProjectIdSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const RecordsRecordIdIndexRoute = RecordsRecordIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => RecordsRecordIdRoute,
 } as any)
+const RecordsRecordIdNotebookRoute = RecordsRecordIdNotebookRouteImport.update({
+  id: '/notebook',
+  path: '/notebook',
+  getParentRoute: () => RecordsRecordIdRoute,
+} as any)
+const SamplesSampleIdIndexRoute = SamplesSampleIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SamplesSampleIdRoute,
+} as any)
+const SamplesSampleIdHistoryRoute = SamplesSampleIdHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => SamplesSampleIdRoute,
+} as any)
+const SamplesSampleIdLineageRoute = SamplesSampleIdLineageRouteImport.update({
+  id: '/lineage',
+  path: '/lineage',
+  getParentRoute: () => SamplesSampleIdRoute,
+} as any)
+const SamplesSampleIdMeasurementsRoute =
+  SamplesSampleIdMeasurementsRouteImport.update({
+    id: '/measurements',
+    path: '/measurements',
+    getParentRoute: () => SamplesSampleIdRoute,
+  } as any)
+const SamplesSampleIdUsageRoute = SamplesSampleIdUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => SamplesSampleIdRoute,
+} as any)
+const SettingsIntegrationsConnectorIdRoute =
+  SettingsIntegrationsConnectorIdRouteImport.update({
+    id: '/$connectorId',
+    path: '/$connectorId',
+    getParentRoute: () => SettingsIntegrationsRoute,
+  } as any)
+const TemplatesTemplateIdIndexRoute =
+  TemplatesTemplateIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => TemplatesTemplateIdRoute,
+  } as any)
+const TemplatesTemplateIdInUseRoute =
+  TemplatesTemplateIdInUseRouteImport.update({
+    id: '/in-use',
+    path: '/in-use',
+    getParentRoute: () => TemplatesTemplateIdRoute,
+  } as any)
+const TemplatesTemplateIdUpdateRoute =
+  TemplatesTemplateIdUpdateRouteImport.update({
+    id: '/update',
+    path: '/update',
+    getParentRoute: () => TemplatesTemplateIdRoute,
+  } as any)
+const TemplatesTemplateIdVersionsRoute =
+  TemplatesTemplateIdVersionsRouteImport.update({
+    id: '/versions',
+    path: '/versions',
+    getParentRoute: () => TemplatesTemplateIdRoute,
+  } as any)
 const ApiCollaborationResolveRoomsRoute =
   ApiCollaborationResolveRoomsRouteImport.update({
     id: '/api/collaboration/resolve/rooms',
@@ -371,6 +847,52 @@ const ApiPipelinesWebhookDefinitionIdRoute =
     path: '/api/pipelines/webhook/$definitionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ModelsModelIdRecordsIndexRoute =
+  ModelsModelIdRecordsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ModelsModelIdRecordsRoute,
+  } as any)
+const ModelsModelIdRecordsRecordIdRoute =
+  ModelsModelIdRecordsRecordIdRouteImport.update({
+    id: '/$recordId',
+    path: '/$recordId',
+    getParentRoute: () => ModelsModelIdRecordsRoute,
+  } as any)
+const ModelsModelIdRecordsNewRoute = ModelsModelIdRecordsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => ModelsModelIdRecordsRoute,
+} as any)
+const PipelinesPipelineIdRunsIndexRoute =
+  PipelinesPipelineIdRunsIndexRouteImport.update({
+    id: '/runs/',
+    path: '/runs/',
+    getParentRoute: () => PipelinesPipelineIdRoute,
+  } as any)
+const PipelinesPipelineIdRunsRunIdRoute =
+  PipelinesPipelineIdRunsRunIdRouteImport.update({
+    id: '/runs/$runId',
+    path: '/runs/$runId',
+    getParentRoute: () => PipelinesPipelineIdRoute,
+  } as any)
+const RecordsRecordIdEvidenceRevisionIdRoute =
+  RecordsRecordIdEvidenceRevisionIdRouteImport.update({
+    id: '/evidence/$revisionId',
+    path: '/evidence/$revisionId',
+    getParentRoute: () => RecordsRecordIdRoute,
+  } as any)
+const ApiClientPortalRecordsRecordIdPdfRoute =
+  ApiClientPortalRecordsRecordIdPdfRouteImport.update({
+    id: '/api/client-portal/records/$recordId/pdf',
+    path: '/api/client-portal/records/$recordId/pdf',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiExportRecordIdAuditRoute = ApiExportRecordIdAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => ApiExportRecordIdRoute,
+} as any)
 const ApiExportRevisionIdPackageRoute =
   ApiExportRevisionIdPackageRouteImport.update({
     id: '/api/export/revision/$id/package',
@@ -380,42 +902,70 @@ const ApiExportRevisionIdPackageRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
-  '/agent-operations': typeof AgentOperationsRoute
-  '/analysis': typeof AnalysisRoute
-  '/calendar': typeof CalendarRoute
-  '/configure': typeof ConfigureRoute
-  '/datasets': typeof DatasetsRoute
+  '/analysis': typeof AnalysisRouteWithChildren
+  '/client-portal': typeof ClientPortalRoute
+  '/datasets': typeof DatasetsRouteWithChildren
+  '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
-  '/instrument-monitor': typeof InstrumentMonitorRoute
-  '/integrations': typeof IntegrationsRouteWithChildren
-  '/lineage': typeof LineageRoute
+  '/help': typeof HelpRouteWithChildren
+  '/import': typeof ImportRoute
+  '/inbox': typeof InboxRoute
+  '/instruments': typeof InstrumentsRouteWithChildren
+  '/materials': typeof MaterialsRoute
+  '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
-  '/planner': typeof PlannerRoute
-  '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
-  '/reagents': typeof ReagentsRoute
-  '/report-builder': typeof ReportBuilderRoute
-  '/reviews': typeof ReviewsRouteWithChildren
-  '/samples': typeof SamplesRoute
+  '/protocols': typeof ProtocolsRouteWithChildren
+  '/samples': typeof SamplesRouteWithChildren
+  '/scan': typeof ScanRoute
+  '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
+  '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
-  '/storage': typeof StorageRoute
-  '/templates': typeof TemplatesRoute
-  '/admin/$section': typeof AdminSectionRoute
+  '/templates': typeof TemplatesRouteWithChildren
+  '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
+  '/analysis/new': typeof AnalysisNewRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
-  '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
-  '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
+  '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
+  '/experiments/new': typeof ExperimentsNewRoute
+  '/help/records': typeof HelpRecordsRoute
+  '/help/shortcuts': typeof HelpShortcutsRoute
+  '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
+  '/models/$modelId': typeof ModelsModelIdRouteWithChildren
+  '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
+  '/pipelines/agents': typeof PipelinesAgentsRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
+  '/r/$identifier': typeof RIdentifierRoute
+  '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
-  '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
-  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/review/$revisionId': typeof ReviewRevisionIdRoute
+  '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
+  '/settings/access': typeof SettingsAccessRoute
+  '/settings/api': typeof SettingsApiRoute
+  '/settings/audit': typeof SettingsAuditRoute
+  '/settings/diagnostics': typeof SettingsDiagnosticsRoute
+  '/settings/instruments': typeof SettingsInstrumentsRoute
+  '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
+  '/settings/members': typeof SettingsMembersRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/profile': typeof SettingsProfileRoute
+  '/settings/signatures': typeof SettingsSignaturesRoute
+  '/settings/usage': typeof SettingsUsageRoute
+  '/sheets/$sheetId': typeof SheetsSheetIdRoute
+  '/sheets/new': typeof SheetsNewRoute
+  '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
+  '/analysis/': typeof AnalysisIndexRoute
+  '/help/': typeof HelpIndexRoute
+  '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -424,60 +974,132 @@ export interface FileRoutesByFullPath {
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
+  '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/files': typeof ApiImportFilesRoute
+  '/api/import/review': typeof ApiImportReviewRoute
+  '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
+  '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
+  '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
+  '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
+  '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
+  '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
+  '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
+  '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
+  '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
+  '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
+  '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
+  '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
+  '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
+  '/models/$modelId/edit': typeof ModelsModelIdEditRoute
+  '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
+  '/models/$modelId/records': typeof ModelsModelIdRecordsRouteWithChildren
+  '/models/$modelId/relations': typeof ModelsModelIdRelationsRoute
+  '/models/$modelId/rules': typeof ModelsModelIdRulesRoute
+  '/models/$modelId/usage': typeof ModelsModelIdUsageRoute
+  '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
+  '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
+  '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
-  '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
+  '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
+  '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
+  '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
+  '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
+  '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
+  '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
+  '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
+  '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
+  '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
+  '/settings/integrations/$connectorId': typeof SettingsIntegrationsConnectorIdRoute
+  '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
+  '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
+  '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/datasets/$datasetId/': typeof DatasetsDatasetIdIndexRoute
+  '/experiments/$expId/': typeof ExperimentsExpIdIndexRoute
+  '/models/$modelId/': typeof ModelsModelIdIndexRoute
+  '/pipelines/$pipelineId/': typeof PipelinesPipelineIdIndexRoute
+  '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
+  '/records/$recordId/': typeof RecordsRecordIdIndexRoute
+  '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
+  '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
-  '/api/export/record/$id': typeof ApiExportRecordIdRoute
+  '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
+  '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
+  '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
+  '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
+  '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
+  '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
+  '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
+  '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
-  '/agent-operations': typeof AgentOperationsRoute
-  '/analysis': typeof AnalysisRoute
-  '/calendar': typeof CalendarRoute
-  '/configure': typeof ConfigureRoute
-  '/datasets': typeof DatasetsRoute
+  '/client-portal': typeof ClientPortalRoute
+  '/datasets': typeof DatasetsRouteWithChildren
+  '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
-  '/instrument-monitor': typeof InstrumentMonitorRoute
-  '/integrations': typeof IntegrationsRouteWithChildren
-  '/lineage': typeof LineageRoute
+  '/import': typeof ImportRoute
+  '/inbox': typeof InboxRoute
+  '/instruments': typeof InstrumentsRouteWithChildren
+  '/materials': typeof MaterialsRoute
+  '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
-  '/planner': typeof PlannerRoute
-  '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
-  '/reagents': typeof ReagentsRoute
-  '/report-builder': typeof ReportBuilderRoute
-  '/reviews': typeof ReviewsRouteWithChildren
-  '/samples': typeof SamplesRoute
+  '/protocols': typeof ProtocolsRouteWithChildren
+  '/samples': typeof SamplesRouteWithChildren
+  '/scan': typeof ScanRoute
+  '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
-  '/settings': typeof SettingsRoute
+  '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
-  '/storage': typeof StorageRoute
-  '/templates': typeof TemplatesRoute
-  '/admin/$section': typeof AdminSectionRoute
+  '/templates': typeof TemplatesRouteWithChildren
+  '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
+  '/analysis/new': typeof AnalysisNewRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
   '/docs/$name': typeof DocsNameRoute
-  '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
-  '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
-  '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
-  '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
-  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
+  '/experiments/new': typeof ExperimentsNewRoute
+  '/help/records': typeof HelpRecordsRoute
+  '/help/shortcuts': typeof HelpShortcutsRoute
+  '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
+  '/pipelines/agents': typeof PipelinesAgentsRoute
+  '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
+  '/r/$identifier': typeof RIdentifierRoute
+  '/readings/new': typeof ReadingsNewRoute
+  '/review/$revisionId': typeof ReviewRevisionIdRoute
+  '/settings/access': typeof SettingsAccessRoute
+  '/settings/api': typeof SettingsApiRoute
+  '/settings/audit': typeof SettingsAuditRoute
+  '/settings/diagnostics': typeof SettingsDiagnosticsRoute
+  '/settings/instruments': typeof SettingsInstrumentsRoute
+  '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
+  '/settings/members': typeof SettingsMembersRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/profile': typeof SettingsProfileRoute
+  '/settings/signatures': typeof SettingsSignaturesRoute
+  '/settings/usage': typeof SettingsUsageRoute
+  '/sheets/$sheetId': typeof SheetsSheetIdRoute
+  '/sheets/new': typeof SheetsNewRoute
+  '/analysis': typeof AnalysisIndexRoute
+  '/help': typeof HelpIndexRoute
+  '/settings': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -486,61 +1108,143 @@ export interface FileRoutesByTo {
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
+  '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/files': typeof ApiImportFilesRoute
+  '/api/import/review': typeof ApiImportReviewRoute
+  '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
+  '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
+  '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
+  '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
+  '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
+  '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
+  '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
+  '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
+  '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
+  '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
+  '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
+  '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
+  '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
+  '/models/$modelId/edit': typeof ModelsModelIdEditRoute
+  '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
+  '/models/$modelId/relations': typeof ModelsModelIdRelationsRoute
+  '/models/$modelId/rules': typeof ModelsModelIdRulesRoute
+  '/models/$modelId/usage': typeof ModelsModelIdUsageRoute
+  '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
+  '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
+  '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
-  '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
+  '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
+  '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
+  '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
+  '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
+  '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
+  '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
+  '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
+  '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
+  '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
+  '/settings/integrations/$connectorId': typeof SettingsIntegrationsConnectorIdRoute
+  '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
+  '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
+  '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
   '/api/token': typeof ApiTokenIndexRoute
+  '/datasets/$datasetId': typeof DatasetsDatasetIdIndexRoute
+  '/experiments/$expId': typeof ExperimentsExpIdIndexRoute
+  '/models/$modelId': typeof ModelsModelIdIndexRoute
+  '/pipelines/$pipelineId': typeof PipelinesPipelineIdIndexRoute
+  '/projects/$projectId': typeof ProjectsProjectIdIndexRoute
+  '/records/$recordId': typeof RecordsRecordIdIndexRoute
+  '/samples/$sampleId': typeof SamplesSampleIdIndexRoute
+  '/templates/$templateId': typeof TemplatesTemplateIdIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
-  '/api/export/record/$id': typeof ApiExportRecordIdRoute
+  '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
+  '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
+  '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
+  '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
+  '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
+  '/models/$modelId/records': typeof ModelsModelIdRecordsIndexRoute
+  '/pipelines/$pipelineId/runs': typeof PipelinesPipelineIdRunsIndexRoute
+  '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRouteWithChildren
-  '/agent-operations': typeof AgentOperationsRoute
-  '/analysis': typeof AnalysisRoute
-  '/calendar': typeof CalendarRoute
-  '/configure': typeof ConfigureRoute
-  '/datasets': typeof DatasetsRoute
+  '/analysis': typeof AnalysisRouteWithChildren
+  '/client-portal': typeof ClientPortalRoute
+  '/datasets': typeof DatasetsRouteWithChildren
+  '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
-  '/instrument-monitor': typeof InstrumentMonitorRoute
-  '/integrations': typeof IntegrationsRouteWithChildren
-  '/lineage': typeof LineageRoute
+  '/help': typeof HelpRouteWithChildren
+  '/import': typeof ImportRoute
+  '/inbox': typeof InboxRoute
+  '/instruments': typeof InstrumentsRouteWithChildren
+  '/materials': typeof MaterialsRoute
+  '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
-  '/planner': typeof PlannerRoute
-  '/plate-designer': typeof PlateDesignerRoute
   '/projects': typeof ProjectsRouteWithChildren
-  '/reagents': typeof ReagentsRoute
-  '/report-builder': typeof ReportBuilderRoute
-  '/reviews': typeof ReviewsRouteWithChildren
-  '/samples': typeof SamplesRoute
+  '/protocols': typeof ProtocolsRouteWithChildren
+  '/samples': typeof SamplesRouteWithChildren
+  '/scan': typeof ScanRoute
+  '/schedule': typeof ScheduleRoute
   '/search': typeof SearchRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
+  '/sheetbase-components': typeof SheetbaseComponentsRoute
   '/sign-in': typeof SignInRoute
-  '/storage': typeof StorageRoute
-  '/templates': typeof TemplatesRoute
-  '/admin/$section': typeof AdminSectionRoute
+  '/templates': typeof TemplatesRouteWithChildren
+  '/analysis/$analysisId': typeof AnalysisAnalysisIdRoute
+  '/analysis/new': typeof AnalysisNewRoute
   '/api/calculations': typeof ApiCalculationsRoute
   '/api/events': typeof ApiEventsRoute
   '/api/formulas': typeof ApiFormulasRoute
   '/api/metrics': typeof ApiMetricsRoute
   '/api/sheet-calculations': typeof ApiSheetCalculationsRoute
+  '/datasets/$datasetId': typeof DatasetsDatasetIdRouteWithChildren
   '/docs/$name': typeof DocsNameRoute
-  '/integrations/$connectorId': typeof IntegrationsConnectorIdRoute
-  '/pipelines/$definitionId': typeof PipelinesDefinitionIdRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/evidence/$revisionId': typeof EvidenceRevisionIdRoute
+  '/experiments/$expId': typeof ExperimentsExpIdRouteWithChildren
+  '/experiments/new': typeof ExperimentsNewRoute
+  '/help/records': typeof HelpRecordsRoute
+  '/help/shortcuts': typeof HelpShortcutsRoute
+  '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
+  '/models/$modelId': typeof ModelsModelIdRouteWithChildren
+  '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
+  '/pipelines/agents': typeof PipelinesAgentsRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
+  '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
+  '/r/$identifier': typeof RIdentifierRoute
+  '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
-  '/reviews/$revisionId': typeof ReviewsRevisionIdRoute
-  '/sheets/$instanceId': typeof SheetsInstanceIdRoute
+  '/review/$revisionId': typeof ReviewRevisionIdRoute
+  '/samples/$sampleId': typeof SamplesSampleIdRouteWithChildren
+  '/settings/access': typeof SettingsAccessRoute
+  '/settings/api': typeof SettingsApiRoute
+  '/settings/audit': typeof SettingsAuditRoute
+  '/settings/diagnostics': typeof SettingsDiagnosticsRoute
+  '/settings/instruments': typeof SettingsInstrumentsRoute
+  '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
+  '/settings/members': typeof SettingsMembersRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/profile': typeof SettingsProfileRoute
+  '/settings/signatures': typeof SettingsSignaturesRoute
+  '/settings/usage': typeof SettingsUsageRoute
+  '/sheets/$sheetId': typeof SheetsSheetIdRoute
+  '/sheets/new': typeof SheetsNewRoute
+  '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
+  '/analysis/': typeof AnalysisIndexRoute
+  '/help/': typeof HelpIndexRoute
+  '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
@@ -549,62 +1253,145 @@ export interface FileRoutesById {
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
+  '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/files': typeof ApiImportFilesRoute
+  '/api/import/review': typeof ApiImportReviewRoute
+  '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
+  '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
+  '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
+  '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
+  '/datasets/$datasetId/snapshots': typeof DatasetsDatasetIdSnapshotsRoute
+  '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
+  '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
+  '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
+  '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
+  '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
+  '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
+  '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
+  '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
+  '/models/$modelId/edit': typeof ModelsModelIdEditRoute
+  '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
+  '/models/$modelId/records': typeof ModelsModelIdRecordsRouteWithChildren
+  '/models/$modelId/relations': typeof ModelsModelIdRelationsRoute
+  '/models/$modelId/rules': typeof ModelsModelIdRulesRoute
+  '/models/$modelId/usage': typeof ModelsModelIdUsageRoute
+  '/models/$modelId/versions': typeof ModelsModelIdVersionsRoute
+  '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
+  '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
-  '/records/$recordId/overview': typeof RecordsRecordIdOverviewRoute
+  '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
+  '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
+  '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
+  '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
+  '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
+  '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
+  '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
+  '/samples/$sampleId/measurements': typeof SamplesSampleIdMeasurementsRoute
+  '/samples/$sampleId/usage': typeof SamplesSampleIdUsageRoute
+  '/settings/integrations/$connectorId': typeof SettingsIntegrationsConnectorIdRoute
+  '/templates/$templateId/in-use': typeof TemplatesTemplateIdInUseRoute
+  '/templates/$templateId/update': typeof TemplatesTemplateIdUpdateRoute
+  '/templates/$templateId/versions': typeof TemplatesTemplateIdVersionsRoute
   '/api/token/': typeof ApiTokenIndexRoute
+  '/datasets/$datasetId/': typeof DatasetsDatasetIdIndexRoute
+  '/experiments/$expId/': typeof ExperimentsExpIdIndexRoute
+  '/models/$modelId/': typeof ModelsModelIdIndexRoute
+  '/pipelines/$pipelineId/': typeof PipelinesPipelineIdIndexRoute
+  '/projects/$projectId/': typeof ProjectsProjectIdIndexRoute
+  '/records/$recordId/': typeof RecordsRecordIdIndexRoute
+  '/samples/$sampleId/': typeof SamplesSampleIdIndexRoute
+  '/templates/$templateId/': typeof TemplatesTemplateIdIndexRoute
   '/api/collaboration/resolve/rooms': typeof ApiCollaborationResolveRoomsRoute
   '/api/collaboration/resolve/users': typeof ApiCollaborationResolveUsersRoute
   '/api/export/dataset-version/$id': typeof ApiExportDatasetVersionIdRoute
   '/api/export/dataset/$id': typeof ApiExportDatasetIdRoute
-  '/api/export/record/$id': typeof ApiExportRecordIdRoute
+  '/api/export/record/$id': typeof ApiExportRecordIdRouteWithChildren
   '/api/export/sheet-instance/$id': typeof ApiExportSheetInstanceIdRoute
   '/api/files/$fileId/download': typeof ApiFilesFileIdDownloadRoute
   '/api/files/$fileId/upload': typeof ApiFilesFileIdUploadRoute
   '/api/pipelines/webhook/$definitionId': typeof ApiPipelinesWebhookDefinitionIdRoute
+  '/models/$modelId/records/$recordId': typeof ModelsModelIdRecordsRecordIdRoute
+  '/models/$modelId/records/new': typeof ModelsModelIdRecordsNewRoute
+  '/pipelines/$pipelineId/runs/$runId': typeof PipelinesPipelineIdRunsRunIdRoute
+  '/records/$recordId/evidence/$revisionId': typeof RecordsRecordIdEvidenceRevisionIdRoute
+  '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
+  '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
+  '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/admin'
-    | '/agent-operations'
     | '/analysis'
-    | '/calendar'
-    | '/configure'
+    | '/client-portal'
     | '/datasets'
+    | '/experiments'
     | '/foundations'
-    | '/instrument-monitor'
-    | '/integrations'
-    | '/lineage'
+    | '/help'
+    | '/import'
+    | '/inbox'
+    | '/instruments'
+    | '/materials'
+    | '/models'
     | '/pipelines'
-    | '/planner'
-    | '/plate-designer'
     | '/projects'
-    | '/reagents'
-    | '/report-builder'
-    | '/reviews'
+    | '/protocols'
     | '/samples'
+    | '/scan'
+    | '/schedule'
     | '/search'
     | '/settings'
+    | '/sheetbase-components'
     | '/sign-in'
-    | '/storage'
     | '/templates'
-    | '/admin/$section'
+    | '/analysis/$analysisId'
+    | '/analysis/new'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
     | '/api/metrics'
     | '/api/sheet-calculations'
+    | '/datasets/$datasetId'
     | '/docs/$name'
-    | '/integrations/$connectorId'
-    | '/pipelines/$definitionId'
+    | '/evidence/$revisionId'
+    | '/experiments/$expId'
+    | '/experiments/new'
+    | '/help/records'
+    | '/help/shortcuts'
+    | '/instruments/$instrumentId'
+    | '/models/$modelId'
+    | '/pipelines/$pipelineId'
+    | '/pipelines/agents'
     | '/projects/$projectId'
+    | '/protocols/$protocolId'
+    | '/r/$identifier'
+    | '/readings/new'
     | '/records/$recordId'
-    | '/reviews/$revisionId'
-    | '/sheets/$instanceId'
+    | '/review/$revisionId'
+    | '/samples/$sampleId'
+    | '/settings/access'
+    | '/settings/api'
+    | '/settings/audit'
+    | '/settings/diagnostics'
+    | '/settings/instruments'
+    | '/settings/integrations'
+    | '/settings/members'
+    | '/settings/notifications'
+    | '/settings/profile'
+    | '/settings/signatures'
+    | '/settings/usage'
+    | '/sheets/$sheetId'
+    | '/sheets/new'
+    | '/templates/$templateId'
+    | '/analysis/'
+    | '/help/'
+    | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -613,11 +1400,58 @@ export interface FileRouteTypes {
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
+    | '/api/import/commit'
+    | '/api/import/files'
+    | '/api/import/review'
+    | '/api/parsers/request-update'
+    | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/api/signatures/step-up'
+    | '/datasets/$datasetId/compare'
+    | '/datasets/$datasetId/rows'
+    | '/datasets/$datasetId/snapshots'
+    | '/experiments/$expId/datasets'
+    | '/experiments/$expId/files'
+    | '/experiments/$expId/history'
+    | '/experiments/$expId/notebook'
+    | '/experiments/$expId/overview'
+    | '/experiments/$expId/results'
+    | '/experiments/$expId/samples'
+    | '/models/$modelId/datasets'
+    | '/models/$modelId/edit'
+    | '/models/$modelId/fields'
+    | '/models/$modelId/records'
+    | '/models/$modelId/relations'
+    | '/models/$modelId/rules'
+    | '/models/$modelId/usage'
+    | '/models/$modelId/versions'
+    | '/pipelines/$pipelineId/steps'
+    | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
-    | '/records/$recordId/overview'
+    | '/projects/$projectId/files'
+    | '/projects/$projectId/folders'
+    | '/projects/$projectId/members'
+    | '/projects/$projectId/milestones'
+    | '/projects/$projectId/settings'
+    | '/records/$recordId/notebook'
+    | '/samples/$sampleId/history'
+    | '/samples/$sampleId/lineage'
+    | '/samples/$sampleId/measurements'
+    | '/samples/$sampleId/usage'
+    | '/settings/integrations/$connectorId'
+    | '/templates/$templateId/in-use'
+    | '/templates/$templateId/update'
+    | '/templates/$templateId/versions'
     | '/api/token/'
+    | '/datasets/$datasetId/'
+    | '/experiments/$expId/'
+    | '/models/$modelId/'
+    | '/pipelines/$pipelineId/'
+    | '/projects/$projectId/'
+    | '/records/$recordId/'
+    | '/samples/$sampleId/'
+    | '/templates/$templateId/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -627,46 +1461,71 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/api/pipelines/webhook/$definitionId'
+    | '/models/$modelId/records/$recordId'
+    | '/models/$modelId/records/new'
+    | '/pipelines/$pipelineId/runs/$runId'
+    | '/records/$recordId/evidence/$revisionId'
+    | '/models/$modelId/records/'
+    | '/pipelines/$pipelineId/runs/'
+    | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
-    | '/agent-operations'
-    | '/analysis'
-    | '/calendar'
-    | '/configure'
+    | '/client-portal'
     | '/datasets'
+    | '/experiments'
     | '/foundations'
-    | '/instrument-monitor'
-    | '/integrations'
-    | '/lineage'
+    | '/import'
+    | '/inbox'
+    | '/instruments'
+    | '/materials'
+    | '/models'
     | '/pipelines'
-    | '/planner'
-    | '/plate-designer'
     | '/projects'
-    | '/reagents'
-    | '/report-builder'
-    | '/reviews'
+    | '/protocols'
     | '/samples'
+    | '/scan'
+    | '/schedule'
     | '/search'
-    | '/settings'
+    | '/sheetbase-components'
     | '/sign-in'
-    | '/storage'
     | '/templates'
-    | '/admin/$section'
+    | '/analysis/$analysisId'
+    | '/analysis/new'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
     | '/api/metrics'
     | '/api/sheet-calculations'
     | '/docs/$name'
-    | '/integrations/$connectorId'
-    | '/pipelines/$definitionId'
-    | '/projects/$projectId'
-    | '/records/$recordId'
-    | '/reviews/$revisionId'
-    | '/sheets/$instanceId'
+    | '/evidence/$revisionId'
+    | '/experiments/new'
+    | '/help/records'
+    | '/help/shortcuts'
+    | '/instruments/$instrumentId'
+    | '/pipelines/agents'
+    | '/protocols/$protocolId'
+    | '/r/$identifier'
+    | '/readings/new'
+    | '/review/$revisionId'
+    | '/settings/access'
+    | '/settings/api'
+    | '/settings/audit'
+    | '/settings/diagnostics'
+    | '/settings/instruments'
+    | '/settings/integrations'
+    | '/settings/members'
+    | '/settings/notifications'
+    | '/settings/profile'
+    | '/settings/signatures'
+    | '/settings/usage'
+    | '/sheets/$sheetId'
+    | '/sheets/new'
+    | '/analysis'
+    | '/help'
+    | '/settings'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -675,11 +1534,57 @@ export interface FileRouteTypes {
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
+    | '/api/import/commit'
+    | '/api/import/files'
+    | '/api/import/review'
+    | '/api/parsers/request-update'
+    | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/api/signatures/step-up'
+    | '/datasets/$datasetId/compare'
+    | '/datasets/$datasetId/rows'
+    | '/datasets/$datasetId/snapshots'
+    | '/experiments/$expId/datasets'
+    | '/experiments/$expId/files'
+    | '/experiments/$expId/history'
+    | '/experiments/$expId/notebook'
+    | '/experiments/$expId/overview'
+    | '/experiments/$expId/results'
+    | '/experiments/$expId/samples'
+    | '/models/$modelId/datasets'
+    | '/models/$modelId/edit'
+    | '/models/$modelId/fields'
+    | '/models/$modelId/relations'
+    | '/models/$modelId/rules'
+    | '/models/$modelId/usage'
+    | '/models/$modelId/versions'
+    | '/pipelines/$pipelineId/steps'
+    | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
-    | '/records/$recordId/overview'
+    | '/projects/$projectId/files'
+    | '/projects/$projectId/folders'
+    | '/projects/$projectId/members'
+    | '/projects/$projectId/milestones'
+    | '/projects/$projectId/settings'
+    | '/records/$recordId/notebook'
+    | '/samples/$sampleId/history'
+    | '/samples/$sampleId/lineage'
+    | '/samples/$sampleId/measurements'
+    | '/samples/$sampleId/usage'
+    | '/settings/integrations/$connectorId'
+    | '/templates/$templateId/in-use'
+    | '/templates/$templateId/update'
+    | '/templates/$templateId/versions'
     | '/api/token'
+    | '/datasets/$datasetId'
+    | '/experiments/$expId'
+    | '/models/$modelId'
+    | '/pipelines/$pipelineId'
+    | '/projects/$projectId'
+    | '/records/$recordId'
+    | '/samples/$sampleId'
+    | '/templates/$templateId'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -689,46 +1594,82 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/api/pipelines/webhook/$definitionId'
+    | '/models/$modelId/records/$recordId'
+    | '/models/$modelId/records/new'
+    | '/pipelines/$pipelineId/runs/$runId'
+    | '/records/$recordId/evidence/$revisionId'
+    | '/models/$modelId/records'
+    | '/pipelines/$pipelineId/runs'
+    | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
   id:
     | '__root__'
     | '/'
-    | '/admin'
-    | '/agent-operations'
     | '/analysis'
-    | '/calendar'
-    | '/configure'
+    | '/client-portal'
     | '/datasets'
+    | '/experiments'
     | '/foundations'
-    | '/instrument-monitor'
-    | '/integrations'
-    | '/lineage'
+    | '/help'
+    | '/import'
+    | '/inbox'
+    | '/instruments'
+    | '/materials'
+    | '/models'
     | '/pipelines'
-    | '/planner'
-    | '/plate-designer'
     | '/projects'
-    | '/reagents'
-    | '/report-builder'
-    | '/reviews'
+    | '/protocols'
     | '/samples'
+    | '/scan'
+    | '/schedule'
     | '/search'
     | '/settings'
+    | '/sheetbase-components'
     | '/sign-in'
-    | '/storage'
     | '/templates'
-    | '/admin/$section'
+    | '/analysis/$analysisId'
+    | '/analysis/new'
     | '/api/calculations'
     | '/api/events'
     | '/api/formulas'
     | '/api/metrics'
     | '/api/sheet-calculations'
+    | '/datasets/$datasetId'
     | '/docs/$name'
-    | '/integrations/$connectorId'
-    | '/pipelines/$definitionId'
+    | '/evidence/$revisionId'
+    | '/experiments/$expId'
+    | '/experiments/new'
+    | '/help/records'
+    | '/help/shortcuts'
+    | '/instruments/$instrumentId'
+    | '/models/$modelId'
+    | '/pipelines/$pipelineId'
+    | '/pipelines/agents'
     | '/projects/$projectId'
+    | '/protocols/$protocolId'
+    | '/r/$identifier'
+    | '/readings/new'
     | '/records/$recordId'
-    | '/reviews/$revisionId'
-    | '/sheets/$instanceId'
+    | '/review/$revisionId'
+    | '/samples/$sampleId'
+    | '/settings/access'
+    | '/settings/api'
+    | '/settings/audit'
+    | '/settings/diagnostics'
+    | '/settings/instruments'
+    | '/settings/integrations'
+    | '/settings/members'
+    | '/settings/notifications'
+    | '/settings/profile'
+    | '/settings/signatures'
+    | '/settings/usage'
+    | '/sheets/$sheetId'
+    | '/sheets/new'
+    | '/templates/$templateId'
+    | '/analysis/'
+    | '/help/'
+    | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
@@ -737,11 +1678,58 @@ export interface FileRouteTypes {
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
+    | '/api/import/commit'
+    | '/api/import/files'
+    | '/api/import/review'
+    | '/api/parsers/request-update'
+    | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/runtime'
+    | '/api/signatures/step-up'
+    | '/datasets/$datasetId/compare'
+    | '/datasets/$datasetId/rows'
+    | '/datasets/$datasetId/snapshots'
+    | '/experiments/$expId/datasets'
+    | '/experiments/$expId/files'
+    | '/experiments/$expId/history'
+    | '/experiments/$expId/notebook'
+    | '/experiments/$expId/overview'
+    | '/experiments/$expId/results'
+    | '/experiments/$expId/samples'
+    | '/models/$modelId/datasets'
+    | '/models/$modelId/edit'
+    | '/models/$modelId/fields'
+    | '/models/$modelId/records'
+    | '/models/$modelId/relations'
+    | '/models/$modelId/rules'
+    | '/models/$modelId/usage'
+    | '/models/$modelId/versions'
+    | '/pipelines/$pipelineId/steps'
+    | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
-    | '/records/$recordId/overview'
+    | '/projects/$projectId/files'
+    | '/projects/$projectId/folders'
+    | '/projects/$projectId/members'
+    | '/projects/$projectId/milestones'
+    | '/projects/$projectId/settings'
+    | '/records/$recordId/notebook'
+    | '/samples/$sampleId/history'
+    | '/samples/$sampleId/lineage'
+    | '/samples/$sampleId/measurements'
+    | '/samples/$sampleId/usage'
+    | '/settings/integrations/$connectorId'
+    | '/templates/$templateId/in-use'
+    | '/templates/$templateId/update'
+    | '/templates/$templateId/versions'
     | '/api/token/'
+    | '/datasets/$datasetId/'
+    | '/experiments/$expId/'
+    | '/models/$modelId/'
+    | '/pipelines/$pipelineId/'
+    | '/projects/$projectId/'
+    | '/records/$recordId/'
+    | '/samples/$sampleId/'
+    | '/templates/$templateId/'
     | '/api/collaboration/resolve/rooms'
     | '/api/collaboration/resolve/users'
     | '/api/export/dataset-version/$id'
@@ -751,42 +1739,54 @@ export interface FileRouteTypes {
     | '/api/files/$fileId/download'
     | '/api/files/$fileId/upload'
     | '/api/pipelines/webhook/$definitionId'
+    | '/models/$modelId/records/$recordId'
+    | '/models/$modelId/records/new'
+    | '/pipelines/$pipelineId/runs/$runId'
+    | '/records/$recordId/evidence/$revisionId'
+    | '/models/$modelId/records/'
+    | '/pipelines/$pipelineId/runs/'
+    | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRouteWithChildren
-  AgentOperationsRoute: typeof AgentOperationsRoute
-  AnalysisRoute: typeof AnalysisRoute
-  CalendarRoute: typeof CalendarRoute
-  ConfigureRoute: typeof ConfigureRoute
-  DatasetsRoute: typeof DatasetsRoute
+  AnalysisRoute: typeof AnalysisRouteWithChildren
+  ClientPortalRoute: typeof ClientPortalRoute
+  DatasetsRoute: typeof DatasetsRouteWithChildren
+  ExperimentsRoute: typeof ExperimentsRouteWithChildren
   FoundationsRoute: typeof FoundationsRoute
-  InstrumentMonitorRoute: typeof InstrumentMonitorRoute
-  IntegrationsRoute: typeof IntegrationsRouteWithChildren
-  LineageRoute: typeof LineageRoute
+  HelpRoute: typeof HelpRouteWithChildren
+  ImportRoute: typeof ImportRoute
+  InboxRoute: typeof InboxRoute
+  InstrumentsRoute: typeof InstrumentsRouteWithChildren
+  MaterialsRoute: typeof MaterialsRoute
+  ModelsRoute: typeof ModelsRouteWithChildren
   PipelinesRoute: typeof PipelinesRouteWithChildren
-  PlannerRoute: typeof PlannerRoute
-  PlateDesignerRoute: typeof PlateDesignerRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
-  ReagentsRoute: typeof ReagentsRoute
-  ReportBuilderRoute: typeof ReportBuilderRoute
-  ReviewsRoute: typeof ReviewsRouteWithChildren
-  SamplesRoute: typeof SamplesRoute
+  ProtocolsRoute: typeof ProtocolsRouteWithChildren
+  SamplesRoute: typeof SamplesRouteWithChildren
+  ScanRoute: typeof ScanRoute
+  ScheduleRoute: typeof ScheduleRoute
   SearchRoute: typeof SearchRoute
-  SettingsRoute: typeof SettingsRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
+  SheetbaseComponentsRoute: typeof SheetbaseComponentsRoute
   SignInRoute: typeof SignInRoute
-  StorageRoute: typeof StorageRoute
-  TemplatesRoute: typeof TemplatesRoute
+  TemplatesRoute: typeof TemplatesRouteWithChildren
   ApiCalculationsRoute: typeof ApiCalculationsRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiFormulasRoute: typeof ApiFormulasRoute
   ApiMetricsRoute: typeof ApiMetricsRoute
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   DocsNameRoute: typeof DocsNameRoute
+  EvidenceRevisionIdRoute: typeof EvidenceRevisionIdRoute
+  RIdentifierRoute: typeof RIdentifierRoute
+  ReadingsNewRoute: typeof ReadingsNewRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
-  SheetsInstanceIdRoute: typeof SheetsInstanceIdRoute
+  ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
+  SheetsSheetIdRoute: typeof SheetsSheetIdRoute
+  SheetsNewRoute: typeof SheetsNewRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
@@ -795,18 +1795,25 @@ export interface RootRouteChildren {
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
+  ApiImportCommitRoute: typeof ApiImportCommitRoute
+  ApiImportFilesRoute: typeof ApiImportFilesRoute
+  ApiImportReviewRoute: typeof ApiImportReviewRoute
+  ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
+  ApiParsersValidateRoute: typeof ApiParsersValidateRoute
   ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
   ApiPipelinesRuntimeRoute: typeof ApiPipelinesRuntimeRoute
+  ApiSignaturesStepUpRoute: typeof ApiSignaturesStepUpRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
   ApiCollaborationResolveRoomsRoute: typeof ApiCollaborationResolveRoomsRoute
   ApiCollaborationResolveUsersRoute: typeof ApiCollaborationResolveUsersRoute
   ApiExportDatasetVersionIdRoute: typeof ApiExportDatasetVersionIdRoute
   ApiExportDatasetIdRoute: typeof ApiExportDatasetIdRoute
-  ApiExportRecordIdRoute: typeof ApiExportRecordIdRoute
+  ApiExportRecordIdRoute: typeof ApiExportRecordIdRouteWithChildren
   ApiExportSheetInstanceIdRoute: typeof ApiExportSheetInstanceIdRoute
   ApiFilesFileIdDownloadRoute: typeof ApiFilesFileIdDownloadRoute
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
   ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
+  ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
 }
 
@@ -819,20 +1826,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/agent-operations': {
-      id: '/agent-operations'
-      path: '/agent-operations'
-      fullPath: '/agent-operations'
-      preLoaderRoute: typeof AgentOperationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/analysis': {
       id: '/analysis'
       path: '/analysis'
@@ -840,18 +1833,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/calendar': {
-      id: '/calendar'
-      path: '/calendar'
-      fullPath: '/calendar'
-      preLoaderRoute: typeof CalendarRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/configure': {
-      id: '/configure'
-      path: '/configure'
-      fullPath: '/configure'
-      preLoaderRoute: typeof ConfigureRouteImport
+    '/client-portal': {
+      id: '/client-portal'
+      path: '/client-portal'
+      fullPath: '/client-portal'
+      preLoaderRoute: typeof ClientPortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets': {
@@ -861,6 +1847,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DatasetsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/experiments': {
+      id: '/experiments'
+      path: '/experiments'
+      fullPath: '/experiments'
+      preLoaderRoute: typeof ExperimentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/foundations': {
       id: '/foundations'
       path: '/foundations'
@@ -868,25 +1861,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FoundationsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/instrument-monitor': {
-      id: '/instrument-monitor'
-      path: '/instrument-monitor'
-      fullPath: '/instrument-monitor'
-      preLoaderRoute: typeof InstrumentMonitorRouteImport
+    '/help': {
+      id: '/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/integrations': {
-      id: '/integrations'
-      path: '/integrations'
-      fullPath: '/integrations'
-      preLoaderRoute: typeof IntegrationsRouteImport
+    '/import': {
+      id: '/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof ImportRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/lineage': {
-      id: '/lineage'
-      path: '/lineage'
-      fullPath: '/lineage'
-      preLoaderRoute: typeof LineageRouteImport
+    '/inbox': {
+      id: '/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof InboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/instruments': {
+      id: '/instruments'
+      path: '/instruments'
+      fullPath: '/instruments'
+      preLoaderRoute: typeof InstrumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/materials': {
+      id: '/materials'
+      path: '/materials'
+      fullPath: '/materials'
+      preLoaderRoute: typeof MaterialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/models': {
+      id: '/models'
+      path: '/models'
+      fullPath: '/models'
+      preLoaderRoute: typeof ModelsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pipelines': {
@@ -896,20 +1910,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PipelinesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/planner': {
-      id: '/planner'
-      path: '/planner'
-      fullPath: '/planner'
-      preLoaderRoute: typeof PlannerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/plate-designer': {
-      id: '/plate-designer'
-      path: '/plate-designer'
-      fullPath: '/plate-designer'
-      preLoaderRoute: typeof PlateDesignerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/projects': {
       id: '/projects'
       path: '/projects'
@@ -917,25 +1917,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reagents': {
-      id: '/reagents'
-      path: '/reagents'
-      fullPath: '/reagents'
-      preLoaderRoute: typeof ReagentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/report-builder': {
-      id: '/report-builder'
-      path: '/report-builder'
-      fullPath: '/report-builder'
-      preLoaderRoute: typeof ReportBuilderRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reviews': {
-      id: '/reviews'
-      path: '/reviews'
-      fullPath: '/reviews'
-      preLoaderRoute: typeof ReviewsRouteImport
+    '/protocols': {
+      id: '/protocols'
+      path: '/protocols'
+      fullPath: '/protocols'
+      preLoaderRoute: typeof ProtocolsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/samples': {
@@ -943,6 +1929,20 @@ declare module '@tanstack/react-router' {
       path: '/samples'
       fullPath: '/samples'
       preLoaderRoute: typeof SamplesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/scan': {
+      id: '/scan'
+      path: '/scan'
+      fullPath: '/scan'
+      preLoaderRoute: typeof ScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/schedule': {
+      id: '/schedule'
+      path: '/schedule'
+      fullPath: '/schedule'
+      preLoaderRoute: typeof ScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -959,18 +1959,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sheetbase-components': {
+      id: '/sheetbase-components'
+      path: '/sheetbase-components'
+      fullPath: '/sheetbase-components'
+      preLoaderRoute: typeof SheetbaseComponentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign-in': {
       id: '/sign-in'
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/storage': {
-      id: '/storage'
-      path: '/storage'
-      fullPath: '/storage'
-      preLoaderRoute: typeof StorageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/templates': {
@@ -980,12 +1980,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/$section': {
-      id: '/admin/$section'
-      path: '/$section'
-      fullPath: '/admin/$section'
-      preLoaderRoute: typeof AdminSectionRouteImport
-      parentRoute: typeof AdminRoute
+    '/analysis/': {
+      id: '/analysis/'
+      path: '/'
+      fullPath: '/analysis/'
+      preLoaderRoute: typeof AnalysisIndexRouteImport
+      parentRoute: typeof AnalysisRoute
+    }
+    '/analysis/$analysisId': {
+      id: '/analysis/$analysisId'
+      path: '/$analysisId'
+      fullPath: '/analysis/$analysisId'
+      preLoaderRoute: typeof AnalysisAnalysisIdRouteImport
+      parentRoute: typeof AnalysisRoute
+    }
+    '/analysis/new': {
+      id: '/analysis/new'
+      path: '/new'
+      fullPath: '/analysis/new'
+      preLoaderRoute: typeof AnalysisNewRouteImport
+      parentRoute: typeof AnalysisRoute
     }
     '/api/calculations': {
       id: '/api/calculations'
@@ -1022,6 +2036,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSheetCalculationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/datasets/$datasetId': {
+      id: '/datasets/$datasetId'
+      path: '/$datasetId'
+      fullPath: '/datasets/$datasetId'
+      preLoaderRoute: typeof DatasetsDatasetIdRouteImport
+      parentRoute: typeof DatasetsRoute
+    }
     '/docs/$name': {
       id: '/docs/$name'
       path: '/docs/$name'
@@ -1029,18 +2050,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsNameRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/integrations/$connectorId': {
-      id: '/integrations/$connectorId'
-      path: '/$connectorId'
-      fullPath: '/integrations/$connectorId'
-      preLoaderRoute: typeof IntegrationsConnectorIdRouteImport
-      parentRoute: typeof IntegrationsRoute
+    '/evidence/$revisionId': {
+      id: '/evidence/$revisionId'
+      path: '/evidence/$revisionId'
+      fullPath: '/evidence/$revisionId'
+      preLoaderRoute: typeof EvidenceRevisionIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/pipelines/$definitionId': {
-      id: '/pipelines/$definitionId'
-      path: '/$definitionId'
-      fullPath: '/pipelines/$definitionId'
-      preLoaderRoute: typeof PipelinesDefinitionIdRouteImport
+    '/experiments/$expId': {
+      id: '/experiments/$expId'
+      path: '/$expId'
+      fullPath: '/experiments/$expId'
+      preLoaderRoute: typeof ExperimentsExpIdRouteImport
+      parentRoute: typeof ExperimentsRoute
+    }
+    '/experiments/new': {
+      id: '/experiments/new'
+      path: '/new'
+      fullPath: '/experiments/new'
+      preLoaderRoute: typeof ExperimentsNewRouteImport
+      parentRoute: typeof ExperimentsRoute
+    }
+    '/help/': {
+      id: '/help/'
+      path: '/'
+      fullPath: '/help/'
+      preLoaderRoute: typeof HelpIndexRouteImport
+      parentRoute: typeof HelpRoute
+    }
+    '/help/records': {
+      id: '/help/records'
+      path: '/records'
+      fullPath: '/help/records'
+      preLoaderRoute: typeof HelpRecordsRouteImport
+      parentRoute: typeof HelpRoute
+    }
+    '/help/shortcuts': {
+      id: '/help/shortcuts'
+      path: '/shortcuts'
+      fullPath: '/help/shortcuts'
+      preLoaderRoute: typeof HelpShortcutsRouteImport
+      parentRoute: typeof HelpRoute
+    }
+    '/instruments/$instrumentId': {
+      id: '/instruments/$instrumentId'
+      path: '/$instrumentId'
+      fullPath: '/instruments/$instrumentId'
+      preLoaderRoute: typeof InstrumentsInstrumentIdRouteImport
+      parentRoute: typeof InstrumentsRoute
+    }
+    '/models/$modelId': {
+      id: '/models/$modelId'
+      path: '/$modelId'
+      fullPath: '/models/$modelId'
+      preLoaderRoute: typeof ModelsModelIdRouteImport
+      parentRoute: typeof ModelsRoute
+    }
+    '/pipelines/$pipelineId': {
+      id: '/pipelines/$pipelineId'
+      path: '/$pipelineId'
+      fullPath: '/pipelines/$pipelineId'
+      preLoaderRoute: typeof PipelinesPipelineIdRouteImport
+      parentRoute: typeof PipelinesRoute
+    }
+    '/pipelines/agents': {
+      id: '/pipelines/agents'
+      path: '/agents'
+      fullPath: '/pipelines/agents'
+      preLoaderRoute: typeof PipelinesAgentsRouteImport
       parentRoute: typeof PipelinesRoute
     }
     '/projects/$projectId': {
@@ -1050,6 +2127,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof ProjectsRoute
     }
+    '/protocols/$protocolId': {
+      id: '/protocols/$protocolId'
+      path: '/$protocolId'
+      fullPath: '/protocols/$protocolId'
+      preLoaderRoute: typeof ProtocolsProtocolIdRouteImport
+      parentRoute: typeof ProtocolsRoute
+    }
+    '/r/$identifier': {
+      id: '/r/$identifier'
+      path: '/r/$identifier'
+      fullPath: '/r/$identifier'
+      preLoaderRoute: typeof RIdentifierRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/readings/new': {
+      id: '/readings/new'
+      path: '/readings/new'
+      fullPath: '/readings/new'
+      preLoaderRoute: typeof ReadingsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/records/$recordId': {
       id: '/records/$recordId'
       path: '/records/$recordId'
@@ -1057,19 +2155,124 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecordsRecordIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reviews/$revisionId': {
-      id: '/reviews/$revisionId'
-      path: '/$revisionId'
-      fullPath: '/reviews/$revisionId'
-      preLoaderRoute: typeof ReviewsRevisionIdRouteImport
-      parentRoute: typeof ReviewsRoute
-    }
-    '/sheets/$instanceId': {
-      id: '/sheets/$instanceId'
-      path: '/sheets/$instanceId'
-      fullPath: '/sheets/$instanceId'
-      preLoaderRoute: typeof SheetsInstanceIdRouteImport
+    '/review/$revisionId': {
+      id: '/review/$revisionId'
+      path: '/review/$revisionId'
+      fullPath: '/review/$revisionId'
+      preLoaderRoute: typeof ReviewRevisionIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/samples/$sampleId': {
+      id: '/samples/$sampleId'
+      path: '/$sampleId'
+      fullPath: '/samples/$sampleId'
+      preLoaderRoute: typeof SamplesSampleIdRouteImport
+      parentRoute: typeof SamplesRoute
+    }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/access': {
+      id: '/settings/access'
+      path: '/access'
+      fullPath: '/settings/access'
+      preLoaderRoute: typeof SettingsAccessRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/api': {
+      id: '/settings/api'
+      path: '/api'
+      fullPath: '/settings/api'
+      preLoaderRoute: typeof SettingsApiRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/audit': {
+      id: '/settings/audit'
+      path: '/audit'
+      fullPath: '/settings/audit'
+      preLoaderRoute: typeof SettingsAuditRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/diagnostics': {
+      id: '/settings/diagnostics'
+      path: '/diagnostics'
+      fullPath: '/settings/diagnostics'
+      preLoaderRoute: typeof SettingsDiagnosticsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/instruments': {
+      id: '/settings/instruments'
+      path: '/instruments'
+      fullPath: '/settings/instruments'
+      preLoaderRoute: typeof SettingsInstrumentsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/integrations': {
+      id: '/settings/integrations'
+      path: '/integrations'
+      fullPath: '/settings/integrations'
+      preLoaderRoute: typeof SettingsIntegrationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/members': {
+      id: '/settings/members'
+      path: '/members'
+      fullPath: '/settings/members'
+      preLoaderRoute: typeof SettingsMembersRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/notifications': {
+      id: '/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/profile': {
+      id: '/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/signatures': {
+      id: '/settings/signatures'
+      path: '/signatures'
+      fullPath: '/settings/signatures'
+      preLoaderRoute: typeof SettingsSignaturesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/usage': {
+      id: '/settings/usage'
+      path: '/usage'
+      fullPath: '/settings/usage'
+      preLoaderRoute: typeof SettingsUsageRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/sheets/$sheetId': {
+      id: '/sheets/$sheetId'
+      path: '/sheets/$sheetId'
+      fullPath: '/sheets/$sheetId'
+      preLoaderRoute: typeof SheetsSheetIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sheets/new': {
+      id: '/sheets/new'
+      path: '/sheets/new'
+      fullPath: '/sheets/new'
+      preLoaderRoute: typeof SheetsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/templates/$templateId': {
+      id: '/templates/$templateId'
+      path: '/$templateId'
+      fullPath: '/templates/$templateId'
+      preLoaderRoute: typeof TemplatesTemplateIdRouteImport
+      parentRoute: typeof TemplatesRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -1127,6 +2330,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthReadyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/import/commit': {
+      id: '/api/import/commit'
+      path: '/api/import/commit'
+      fullPath: '/api/import/commit'
+      preLoaderRoute: typeof ApiImportCommitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/import/files': {
+      id: '/api/import/files'
+      path: '/api/import/files'
+      fullPath: '/api/import/files'
+      preLoaderRoute: typeof ApiImportFilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/import/review': {
+      id: '/api/import/review'
+      path: '/api/import/review'
+      fullPath: '/api/import/review'
+      preLoaderRoute: typeof ApiImportReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parsers/request-update': {
+      id: '/api/parsers/request-update'
+      path: '/api/parsers/request-update'
+      fullPath: '/api/parsers/request-update'
+      preLoaderRoute: typeof ApiParsersRequestUpdateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parsers/validate': {
+      id: '/api/parsers/validate'
+      path: '/api/parsers/validate'
+      fullPath: '/api/parsers/validate'
+      preLoaderRoute: typeof ApiParsersValidateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/pipelines/execute': {
       id: '/api/pipelines/execute'
       path: '/api/pipelines/execute'
@@ -1141,12 +2379,187 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPipelinesRuntimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/signatures/step-up': {
+      id: '/api/signatures/step-up'
+      path: '/api/signatures/step-up'
+      fullPath: '/api/signatures/step-up'
+      preLoaderRoute: typeof ApiSignaturesStepUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/token/': {
       id: '/api/token/'
       path: '/api/token'
       fullPath: '/api/token/'
       preLoaderRoute: typeof ApiTokenIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/datasets/$datasetId/': {
+      id: '/datasets/$datasetId/'
+      path: '/'
+      fullPath: '/datasets/$datasetId/'
+      preLoaderRoute: typeof DatasetsDatasetIdIndexRouteImport
+      parentRoute: typeof DatasetsDatasetIdRoute
+    }
+    '/datasets/$datasetId/compare': {
+      id: '/datasets/$datasetId/compare'
+      path: '/compare'
+      fullPath: '/datasets/$datasetId/compare'
+      preLoaderRoute: typeof DatasetsDatasetIdCompareRouteImport
+      parentRoute: typeof DatasetsDatasetIdRoute
+    }
+    '/datasets/$datasetId/rows': {
+      id: '/datasets/$datasetId/rows'
+      path: '/rows'
+      fullPath: '/datasets/$datasetId/rows'
+      preLoaderRoute: typeof DatasetsDatasetIdRowsRouteImport
+      parentRoute: typeof DatasetsDatasetIdRoute
+    }
+    '/datasets/$datasetId/snapshots': {
+      id: '/datasets/$datasetId/snapshots'
+      path: '/snapshots'
+      fullPath: '/datasets/$datasetId/snapshots'
+      preLoaderRoute: typeof DatasetsDatasetIdSnapshotsRouteImport
+      parentRoute: typeof DatasetsDatasetIdRoute
+    }
+    '/experiments/$expId/': {
+      id: '/experiments/$expId/'
+      path: '/'
+      fullPath: '/experiments/$expId/'
+      preLoaderRoute: typeof ExperimentsExpIdIndexRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/datasets': {
+      id: '/experiments/$expId/datasets'
+      path: '/datasets'
+      fullPath: '/experiments/$expId/datasets'
+      preLoaderRoute: typeof ExperimentsExpIdDatasetsRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/files': {
+      id: '/experiments/$expId/files'
+      path: '/files'
+      fullPath: '/experiments/$expId/files'
+      preLoaderRoute: typeof ExperimentsExpIdFilesRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/history': {
+      id: '/experiments/$expId/history'
+      path: '/history'
+      fullPath: '/experiments/$expId/history'
+      preLoaderRoute: typeof ExperimentsExpIdHistoryRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/notebook': {
+      id: '/experiments/$expId/notebook'
+      path: '/notebook'
+      fullPath: '/experiments/$expId/notebook'
+      preLoaderRoute: typeof ExperimentsExpIdNotebookRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/overview': {
+      id: '/experiments/$expId/overview'
+      path: '/overview'
+      fullPath: '/experiments/$expId/overview'
+      preLoaderRoute: typeof ExperimentsExpIdOverviewRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/results': {
+      id: '/experiments/$expId/results'
+      path: '/results'
+      fullPath: '/experiments/$expId/results'
+      preLoaderRoute: typeof ExperimentsExpIdResultsRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/samples': {
+      id: '/experiments/$expId/samples'
+      path: '/samples'
+      fullPath: '/experiments/$expId/samples'
+      preLoaderRoute: typeof ExperimentsExpIdSamplesRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/models/$modelId/': {
+      id: '/models/$modelId/'
+      path: '/'
+      fullPath: '/models/$modelId/'
+      preLoaderRoute: typeof ModelsModelIdIndexRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
+    '/models/$modelId/datasets': {
+      id: '/models/$modelId/datasets'
+      path: '/datasets'
+      fullPath: '/models/$modelId/datasets'
+      preLoaderRoute: typeof ModelsModelIdDatasetsRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
+    '/models/$modelId/edit': {
+      id: '/models/$modelId/edit'
+      path: '/edit'
+      fullPath: '/models/$modelId/edit'
+      preLoaderRoute: typeof ModelsModelIdEditRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
+    '/models/$modelId/fields': {
+      id: '/models/$modelId/fields'
+      path: '/fields'
+      fullPath: '/models/$modelId/fields'
+      preLoaderRoute: typeof ModelsModelIdFieldsRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
+    '/models/$modelId/records': {
+      id: '/models/$modelId/records'
+      path: '/records'
+      fullPath: '/models/$modelId/records'
+      preLoaderRoute: typeof ModelsModelIdRecordsRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
+    '/models/$modelId/relations': {
+      id: '/models/$modelId/relations'
+      path: '/relations'
+      fullPath: '/models/$modelId/relations'
+      preLoaderRoute: typeof ModelsModelIdRelationsRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
+    '/models/$modelId/rules': {
+      id: '/models/$modelId/rules'
+      path: '/rules'
+      fullPath: '/models/$modelId/rules'
+      preLoaderRoute: typeof ModelsModelIdRulesRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
+    '/models/$modelId/usage': {
+      id: '/models/$modelId/usage'
+      path: '/usage'
+      fullPath: '/models/$modelId/usage'
+      preLoaderRoute: typeof ModelsModelIdUsageRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
+    '/models/$modelId/versions': {
+      id: '/models/$modelId/versions'
+      path: '/versions'
+      fullPath: '/models/$modelId/versions'
+      preLoaderRoute: typeof ModelsModelIdVersionsRouteImport
+      parentRoute: typeof ModelsModelIdRoute
+    }
+    '/pipelines/$pipelineId/': {
+      id: '/pipelines/$pipelineId/'
+      path: '/'
+      fullPath: '/pipelines/$pipelineId/'
+      preLoaderRoute: typeof PipelinesPipelineIdIndexRouteImport
+      parentRoute: typeof PipelinesPipelineIdRoute
+    }
+    '/pipelines/$pipelineId/steps': {
+      id: '/pipelines/$pipelineId/steps'
+      path: '/steps'
+      fullPath: '/pipelines/$pipelineId/steps'
+      preLoaderRoute: typeof PipelinesPipelineIdStepsRouteImport
+      parentRoute: typeof PipelinesPipelineIdRoute
+    }
+    '/pipelines/$pipelineId/triggers': {
+      id: '/pipelines/$pipelineId/triggers'
+      path: '/triggers'
+      fullPath: '/pipelines/$pipelineId/triggers'
+      preLoaderRoute: typeof PipelinesPipelineIdTriggersRouteImport
+      parentRoute: typeof PipelinesPipelineIdRoute
     }
     '/pipelines/runs/$runId': {
       id: '/pipelines/runs/$runId'
@@ -1155,12 +2568,131 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PipelinesRunsRunIdRouteImport
       parentRoute: typeof PipelinesRoute
     }
-    '/records/$recordId/overview': {
-      id: '/records/$recordId/overview'
-      path: '/overview'
-      fullPath: '/records/$recordId/overview'
-      preLoaderRoute: typeof RecordsRecordIdOverviewRouteImport
+    '/projects/$projectId/': {
+      id: '/projects/$projectId/'
+      path: '/'
+      fullPath: '/projects/$projectId/'
+      preLoaderRoute: typeof ProjectsProjectIdIndexRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/files': {
+      id: '/projects/$projectId/files'
+      path: '/files'
+      fullPath: '/projects/$projectId/files'
+      preLoaderRoute: typeof ProjectsProjectIdFilesRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/folders': {
+      id: '/projects/$projectId/folders'
+      path: '/folders'
+      fullPath: '/projects/$projectId/folders'
+      preLoaderRoute: typeof ProjectsProjectIdFoldersRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/members': {
+      id: '/projects/$projectId/members'
+      path: '/members'
+      fullPath: '/projects/$projectId/members'
+      preLoaderRoute: typeof ProjectsProjectIdMembersRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/milestones': {
+      id: '/projects/$projectId/milestones'
+      path: '/milestones'
+      fullPath: '/projects/$projectId/milestones'
+      preLoaderRoute: typeof ProjectsProjectIdMilestonesRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/settings': {
+      id: '/projects/$projectId/settings'
+      path: '/settings'
+      fullPath: '/projects/$projectId/settings'
+      preLoaderRoute: typeof ProjectsProjectIdSettingsRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/records/$recordId/': {
+      id: '/records/$recordId/'
+      path: '/'
+      fullPath: '/records/$recordId/'
+      preLoaderRoute: typeof RecordsRecordIdIndexRouteImport
       parentRoute: typeof RecordsRecordIdRoute
+    }
+    '/records/$recordId/notebook': {
+      id: '/records/$recordId/notebook'
+      path: '/notebook'
+      fullPath: '/records/$recordId/notebook'
+      preLoaderRoute: typeof RecordsRecordIdNotebookRouteImport
+      parentRoute: typeof RecordsRecordIdRoute
+    }
+    '/samples/$sampleId/': {
+      id: '/samples/$sampleId/'
+      path: '/'
+      fullPath: '/samples/$sampleId/'
+      preLoaderRoute: typeof SamplesSampleIdIndexRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/samples/$sampleId/history': {
+      id: '/samples/$sampleId/history'
+      path: '/history'
+      fullPath: '/samples/$sampleId/history'
+      preLoaderRoute: typeof SamplesSampleIdHistoryRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/samples/$sampleId/lineage': {
+      id: '/samples/$sampleId/lineage'
+      path: '/lineage'
+      fullPath: '/samples/$sampleId/lineage'
+      preLoaderRoute: typeof SamplesSampleIdLineageRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/samples/$sampleId/measurements': {
+      id: '/samples/$sampleId/measurements'
+      path: '/measurements'
+      fullPath: '/samples/$sampleId/measurements'
+      preLoaderRoute: typeof SamplesSampleIdMeasurementsRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/samples/$sampleId/usage': {
+      id: '/samples/$sampleId/usage'
+      path: '/usage'
+      fullPath: '/samples/$sampleId/usage'
+      preLoaderRoute: typeof SamplesSampleIdUsageRouteImport
+      parentRoute: typeof SamplesSampleIdRoute
+    }
+    '/settings/integrations/$connectorId': {
+      id: '/settings/integrations/$connectorId'
+      path: '/$connectorId'
+      fullPath: '/settings/integrations/$connectorId'
+      preLoaderRoute: typeof SettingsIntegrationsConnectorIdRouteImport
+      parentRoute: typeof SettingsIntegrationsRoute
+    }
+    '/templates/$templateId/': {
+      id: '/templates/$templateId/'
+      path: '/'
+      fullPath: '/templates/$templateId/'
+      preLoaderRoute: typeof TemplatesTemplateIdIndexRouteImport
+      parentRoute: typeof TemplatesTemplateIdRoute
+    }
+    '/templates/$templateId/in-use': {
+      id: '/templates/$templateId/in-use'
+      path: '/in-use'
+      fullPath: '/templates/$templateId/in-use'
+      preLoaderRoute: typeof TemplatesTemplateIdInUseRouteImport
+      parentRoute: typeof TemplatesTemplateIdRoute
+    }
+    '/templates/$templateId/update': {
+      id: '/templates/$templateId/update'
+      path: '/update'
+      fullPath: '/templates/$templateId/update'
+      preLoaderRoute: typeof TemplatesTemplateIdUpdateRouteImport
+      parentRoute: typeof TemplatesTemplateIdRoute
+    }
+    '/templates/$templateId/versions': {
+      id: '/templates/$templateId/versions'
+      path: '/versions'
+      fullPath: '/templates/$templateId/versions'
+      preLoaderRoute: typeof TemplatesTemplateIdVersionsRouteImport
+      parentRoute: typeof TemplatesTemplateIdRoute
     }
     '/api/collaboration/resolve/rooms': {
       id: '/api/collaboration/resolve/rooms'
@@ -1225,6 +2757,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPipelinesWebhookDefinitionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/models/$modelId/records/': {
+      id: '/models/$modelId/records/'
+      path: '/'
+      fullPath: '/models/$modelId/records/'
+      preLoaderRoute: typeof ModelsModelIdRecordsIndexRouteImport
+      parentRoute: typeof ModelsModelIdRecordsRoute
+    }
+    '/models/$modelId/records/$recordId': {
+      id: '/models/$modelId/records/$recordId'
+      path: '/$recordId'
+      fullPath: '/models/$modelId/records/$recordId'
+      preLoaderRoute: typeof ModelsModelIdRecordsRecordIdRouteImport
+      parentRoute: typeof ModelsModelIdRecordsRoute
+    }
+    '/models/$modelId/records/new': {
+      id: '/models/$modelId/records/new'
+      path: '/new'
+      fullPath: '/models/$modelId/records/new'
+      preLoaderRoute: typeof ModelsModelIdRecordsNewRouteImport
+      parentRoute: typeof ModelsModelIdRecordsRoute
+    }
+    '/pipelines/$pipelineId/runs/': {
+      id: '/pipelines/$pipelineId/runs/'
+      path: '/runs'
+      fullPath: '/pipelines/$pipelineId/runs/'
+      preLoaderRoute: typeof PipelinesPipelineIdRunsIndexRouteImport
+      parentRoute: typeof PipelinesPipelineIdRoute
+    }
+    '/pipelines/$pipelineId/runs/$runId': {
+      id: '/pipelines/$pipelineId/runs/$runId'
+      path: '/runs/$runId'
+      fullPath: '/pipelines/$pipelineId/runs/$runId'
+      preLoaderRoute: typeof PipelinesPipelineIdRunsRunIdRouteImport
+      parentRoute: typeof PipelinesPipelineIdRoute
+    }
+    '/records/$recordId/evidence/$revisionId': {
+      id: '/records/$recordId/evidence/$revisionId'
+      path: '/evidence/$revisionId'
+      fullPath: '/records/$recordId/evidence/$revisionId'
+      preLoaderRoute: typeof RecordsRecordIdEvidenceRevisionIdRouteImport
+      parentRoute: typeof RecordsRecordIdRoute
+    }
+    '/api/client-portal/records/$recordId/pdf': {
+      id: '/api/client-portal/records/$recordId/pdf'
+      path: '/api/client-portal/records/$recordId/pdf'
+      fullPath: '/api/client-portal/records/$recordId/pdf'
+      preLoaderRoute: typeof ApiClientPortalRecordsRecordIdPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/export/record/$id/audit': {
+      id: '/api/export/record/$id/audit'
+      path: '/audit'
+      fullPath: '/api/export/record/$id/audit'
+      preLoaderRoute: typeof ApiExportRecordIdAuditRouteImport
+      parentRoute: typeof ApiExportRecordIdRoute
+    }
     '/api/export/revision/$id/package': {
       id: '/api/export/revision/$id/package'
       path: '/api/export/revision/$id/package'
@@ -1235,35 +2823,198 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AdminRouteChildren {
-  AdminSectionRoute: typeof AdminSectionRoute
+interface AnalysisRouteChildren {
+  AnalysisAnalysisIdRoute: typeof AnalysisAnalysisIdRoute
+  AnalysisNewRoute: typeof AnalysisNewRoute
+  AnalysisIndexRoute: typeof AnalysisIndexRoute
 }
 
-const AdminRouteChildren: AdminRouteChildren = {
-  AdminSectionRoute: AdminSectionRoute,
+const AnalysisRouteChildren: AnalysisRouteChildren = {
+  AnalysisAnalysisIdRoute: AnalysisAnalysisIdRoute,
+  AnalysisNewRoute: AnalysisNewRoute,
+  AnalysisIndexRoute: AnalysisIndexRoute,
 }
 
-const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
-
-interface IntegrationsRouteChildren {
-  IntegrationsConnectorIdRoute: typeof IntegrationsConnectorIdRoute
-}
-
-const IntegrationsRouteChildren: IntegrationsRouteChildren = {
-  IntegrationsConnectorIdRoute: IntegrationsConnectorIdRoute,
-}
-
-const IntegrationsRouteWithChildren = IntegrationsRoute._addFileChildren(
-  IntegrationsRouteChildren,
+const AnalysisRouteWithChildren = AnalysisRoute._addFileChildren(
+  AnalysisRouteChildren,
 )
 
+interface DatasetsDatasetIdRouteChildren {
+  DatasetsDatasetIdCompareRoute: typeof DatasetsDatasetIdCompareRoute
+  DatasetsDatasetIdRowsRoute: typeof DatasetsDatasetIdRowsRoute
+  DatasetsDatasetIdSnapshotsRoute: typeof DatasetsDatasetIdSnapshotsRoute
+  DatasetsDatasetIdIndexRoute: typeof DatasetsDatasetIdIndexRoute
+}
+
+const DatasetsDatasetIdRouteChildren: DatasetsDatasetIdRouteChildren = {
+  DatasetsDatasetIdCompareRoute: DatasetsDatasetIdCompareRoute,
+  DatasetsDatasetIdRowsRoute: DatasetsDatasetIdRowsRoute,
+  DatasetsDatasetIdSnapshotsRoute: DatasetsDatasetIdSnapshotsRoute,
+  DatasetsDatasetIdIndexRoute: DatasetsDatasetIdIndexRoute,
+}
+
+const DatasetsDatasetIdRouteWithChildren =
+  DatasetsDatasetIdRoute._addFileChildren(DatasetsDatasetIdRouteChildren)
+
+interface DatasetsRouteChildren {
+  DatasetsDatasetIdRoute: typeof DatasetsDatasetIdRouteWithChildren
+}
+
+const DatasetsRouteChildren: DatasetsRouteChildren = {
+  DatasetsDatasetIdRoute: DatasetsDatasetIdRouteWithChildren,
+}
+
+const DatasetsRouteWithChildren = DatasetsRoute._addFileChildren(
+  DatasetsRouteChildren,
+)
+
+interface ExperimentsExpIdRouteChildren {
+  ExperimentsExpIdDatasetsRoute: typeof ExperimentsExpIdDatasetsRoute
+  ExperimentsExpIdFilesRoute: typeof ExperimentsExpIdFilesRoute
+  ExperimentsExpIdHistoryRoute: typeof ExperimentsExpIdHistoryRoute
+  ExperimentsExpIdNotebookRoute: typeof ExperimentsExpIdNotebookRoute
+  ExperimentsExpIdOverviewRoute: typeof ExperimentsExpIdOverviewRoute
+  ExperimentsExpIdResultsRoute: typeof ExperimentsExpIdResultsRoute
+  ExperimentsExpIdSamplesRoute: typeof ExperimentsExpIdSamplesRoute
+  ExperimentsExpIdIndexRoute: typeof ExperimentsExpIdIndexRoute
+}
+
+const ExperimentsExpIdRouteChildren: ExperimentsExpIdRouteChildren = {
+  ExperimentsExpIdDatasetsRoute: ExperimentsExpIdDatasetsRoute,
+  ExperimentsExpIdFilesRoute: ExperimentsExpIdFilesRoute,
+  ExperimentsExpIdHistoryRoute: ExperimentsExpIdHistoryRoute,
+  ExperimentsExpIdNotebookRoute: ExperimentsExpIdNotebookRoute,
+  ExperimentsExpIdOverviewRoute: ExperimentsExpIdOverviewRoute,
+  ExperimentsExpIdResultsRoute: ExperimentsExpIdResultsRoute,
+  ExperimentsExpIdSamplesRoute: ExperimentsExpIdSamplesRoute,
+  ExperimentsExpIdIndexRoute: ExperimentsExpIdIndexRoute,
+}
+
+const ExperimentsExpIdRouteWithChildren =
+  ExperimentsExpIdRoute._addFileChildren(ExperimentsExpIdRouteChildren)
+
+interface ExperimentsRouteChildren {
+  ExperimentsExpIdRoute: typeof ExperimentsExpIdRouteWithChildren
+  ExperimentsNewRoute: typeof ExperimentsNewRoute
+}
+
+const ExperimentsRouteChildren: ExperimentsRouteChildren = {
+  ExperimentsExpIdRoute: ExperimentsExpIdRouteWithChildren,
+  ExperimentsNewRoute: ExperimentsNewRoute,
+}
+
+const ExperimentsRouteWithChildren = ExperimentsRoute._addFileChildren(
+  ExperimentsRouteChildren,
+)
+
+interface HelpRouteChildren {
+  HelpRecordsRoute: typeof HelpRecordsRoute
+  HelpShortcutsRoute: typeof HelpShortcutsRoute
+  HelpIndexRoute: typeof HelpIndexRoute
+}
+
+const HelpRouteChildren: HelpRouteChildren = {
+  HelpRecordsRoute: HelpRecordsRoute,
+  HelpShortcutsRoute: HelpShortcutsRoute,
+  HelpIndexRoute: HelpIndexRoute,
+}
+
+const HelpRouteWithChildren = HelpRoute._addFileChildren(HelpRouteChildren)
+
+interface InstrumentsRouteChildren {
+  InstrumentsInstrumentIdRoute: typeof InstrumentsInstrumentIdRoute
+}
+
+const InstrumentsRouteChildren: InstrumentsRouteChildren = {
+  InstrumentsInstrumentIdRoute: InstrumentsInstrumentIdRoute,
+}
+
+const InstrumentsRouteWithChildren = InstrumentsRoute._addFileChildren(
+  InstrumentsRouteChildren,
+)
+
+interface ModelsModelIdRecordsRouteChildren {
+  ModelsModelIdRecordsRecordIdRoute: typeof ModelsModelIdRecordsRecordIdRoute
+  ModelsModelIdRecordsNewRoute: typeof ModelsModelIdRecordsNewRoute
+  ModelsModelIdRecordsIndexRoute: typeof ModelsModelIdRecordsIndexRoute
+}
+
+const ModelsModelIdRecordsRouteChildren: ModelsModelIdRecordsRouteChildren = {
+  ModelsModelIdRecordsRecordIdRoute: ModelsModelIdRecordsRecordIdRoute,
+  ModelsModelIdRecordsNewRoute: ModelsModelIdRecordsNewRoute,
+  ModelsModelIdRecordsIndexRoute: ModelsModelIdRecordsIndexRoute,
+}
+
+const ModelsModelIdRecordsRouteWithChildren =
+  ModelsModelIdRecordsRoute._addFileChildren(ModelsModelIdRecordsRouteChildren)
+
+interface ModelsModelIdRouteChildren {
+  ModelsModelIdDatasetsRoute: typeof ModelsModelIdDatasetsRoute
+  ModelsModelIdEditRoute: typeof ModelsModelIdEditRoute
+  ModelsModelIdFieldsRoute: typeof ModelsModelIdFieldsRoute
+  ModelsModelIdRecordsRoute: typeof ModelsModelIdRecordsRouteWithChildren
+  ModelsModelIdRelationsRoute: typeof ModelsModelIdRelationsRoute
+  ModelsModelIdRulesRoute: typeof ModelsModelIdRulesRoute
+  ModelsModelIdUsageRoute: typeof ModelsModelIdUsageRoute
+  ModelsModelIdVersionsRoute: typeof ModelsModelIdVersionsRoute
+  ModelsModelIdIndexRoute: typeof ModelsModelIdIndexRoute
+}
+
+const ModelsModelIdRouteChildren: ModelsModelIdRouteChildren = {
+  ModelsModelIdDatasetsRoute: ModelsModelIdDatasetsRoute,
+  ModelsModelIdEditRoute: ModelsModelIdEditRoute,
+  ModelsModelIdFieldsRoute: ModelsModelIdFieldsRoute,
+  ModelsModelIdRecordsRoute: ModelsModelIdRecordsRouteWithChildren,
+  ModelsModelIdRelationsRoute: ModelsModelIdRelationsRoute,
+  ModelsModelIdRulesRoute: ModelsModelIdRulesRoute,
+  ModelsModelIdUsageRoute: ModelsModelIdUsageRoute,
+  ModelsModelIdVersionsRoute: ModelsModelIdVersionsRoute,
+  ModelsModelIdIndexRoute: ModelsModelIdIndexRoute,
+}
+
+const ModelsModelIdRouteWithChildren = ModelsModelIdRoute._addFileChildren(
+  ModelsModelIdRouteChildren,
+)
+
+interface ModelsRouteChildren {
+  ModelsModelIdRoute: typeof ModelsModelIdRouteWithChildren
+}
+
+const ModelsRouteChildren: ModelsRouteChildren = {
+  ModelsModelIdRoute: ModelsModelIdRouteWithChildren,
+}
+
+const ModelsRouteWithChildren =
+  ModelsRoute._addFileChildren(ModelsRouteChildren)
+
+interface PipelinesPipelineIdRouteChildren {
+  PipelinesPipelineIdStepsRoute: typeof PipelinesPipelineIdStepsRoute
+  PipelinesPipelineIdTriggersRoute: typeof PipelinesPipelineIdTriggersRoute
+  PipelinesPipelineIdIndexRoute: typeof PipelinesPipelineIdIndexRoute
+  PipelinesPipelineIdRunsRunIdRoute: typeof PipelinesPipelineIdRunsRunIdRoute
+  PipelinesPipelineIdRunsIndexRoute: typeof PipelinesPipelineIdRunsIndexRoute
+}
+
+const PipelinesPipelineIdRouteChildren: PipelinesPipelineIdRouteChildren = {
+  PipelinesPipelineIdStepsRoute: PipelinesPipelineIdStepsRoute,
+  PipelinesPipelineIdTriggersRoute: PipelinesPipelineIdTriggersRoute,
+  PipelinesPipelineIdIndexRoute: PipelinesPipelineIdIndexRoute,
+  PipelinesPipelineIdRunsRunIdRoute: PipelinesPipelineIdRunsRunIdRoute,
+  PipelinesPipelineIdRunsIndexRoute: PipelinesPipelineIdRunsIndexRoute,
+}
+
+const PipelinesPipelineIdRouteWithChildren =
+  PipelinesPipelineIdRoute._addFileChildren(PipelinesPipelineIdRouteChildren)
+
 interface PipelinesRouteChildren {
-  PipelinesDefinitionIdRoute: typeof PipelinesDefinitionIdRoute
+  PipelinesPipelineIdRoute: typeof PipelinesPipelineIdRouteWithChildren
+  PipelinesAgentsRoute: typeof PipelinesAgentsRoute
   PipelinesRunsRunIdRoute: typeof PipelinesRunsRunIdRoute
 }
 
 const PipelinesRouteChildren: PipelinesRouteChildren = {
-  PipelinesDefinitionIdRoute: PipelinesDefinitionIdRoute,
+  PipelinesPipelineIdRoute: PipelinesPipelineIdRouteWithChildren,
+  PipelinesAgentsRoute: PipelinesAgentsRoute,
   PipelinesRunsRunIdRoute: PipelinesRunsRunIdRoute,
 }
 
@@ -1271,74 +3022,221 @@ const PipelinesRouteWithChildren = PipelinesRoute._addFileChildren(
   PipelinesRouteChildren,
 )
 
+interface ProjectsProjectIdRouteChildren {
+  ProjectsProjectIdFilesRoute: typeof ProjectsProjectIdFilesRoute
+  ProjectsProjectIdFoldersRoute: typeof ProjectsProjectIdFoldersRoute
+  ProjectsProjectIdMembersRoute: typeof ProjectsProjectIdMembersRoute
+  ProjectsProjectIdMilestonesRoute: typeof ProjectsProjectIdMilestonesRoute
+  ProjectsProjectIdSettingsRoute: typeof ProjectsProjectIdSettingsRoute
+  ProjectsProjectIdIndexRoute: typeof ProjectsProjectIdIndexRoute
+}
+
+const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
+  ProjectsProjectIdFilesRoute: ProjectsProjectIdFilesRoute,
+  ProjectsProjectIdFoldersRoute: ProjectsProjectIdFoldersRoute,
+  ProjectsProjectIdMembersRoute: ProjectsProjectIdMembersRoute,
+  ProjectsProjectIdMilestonesRoute: ProjectsProjectIdMilestonesRoute,
+  ProjectsProjectIdSettingsRoute: ProjectsProjectIdSettingsRoute,
+  ProjectsProjectIdIndexRoute: ProjectsProjectIdIndexRoute,
+}
+
+const ProjectsProjectIdRouteWithChildren =
+  ProjectsProjectIdRoute._addFileChildren(ProjectsProjectIdRouteChildren)
+
 interface ProjectsRouteChildren {
-  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRouteWithChildren
 }
 
 const ProjectsRouteChildren: ProjectsRouteChildren = {
-  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  ProjectsProjectIdRoute: ProjectsProjectIdRouteWithChildren,
 }
 
 const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
   ProjectsRouteChildren,
 )
 
-interface ReviewsRouteChildren {
-  ReviewsRevisionIdRoute: typeof ReviewsRevisionIdRoute
+interface ProtocolsRouteChildren {
+  ProtocolsProtocolIdRoute: typeof ProtocolsProtocolIdRoute
 }
 
-const ReviewsRouteChildren: ReviewsRouteChildren = {
-  ReviewsRevisionIdRoute: ReviewsRevisionIdRoute,
+const ProtocolsRouteChildren: ProtocolsRouteChildren = {
+  ProtocolsProtocolIdRoute: ProtocolsProtocolIdRoute,
 }
 
-const ReviewsRouteWithChildren =
-  ReviewsRoute._addFileChildren(ReviewsRouteChildren)
+const ProtocolsRouteWithChildren = ProtocolsRoute._addFileChildren(
+  ProtocolsRouteChildren,
+)
+
+interface SamplesSampleIdRouteChildren {
+  SamplesSampleIdHistoryRoute: typeof SamplesSampleIdHistoryRoute
+  SamplesSampleIdLineageRoute: typeof SamplesSampleIdLineageRoute
+  SamplesSampleIdMeasurementsRoute: typeof SamplesSampleIdMeasurementsRoute
+  SamplesSampleIdUsageRoute: typeof SamplesSampleIdUsageRoute
+  SamplesSampleIdIndexRoute: typeof SamplesSampleIdIndexRoute
+}
+
+const SamplesSampleIdRouteChildren: SamplesSampleIdRouteChildren = {
+  SamplesSampleIdHistoryRoute: SamplesSampleIdHistoryRoute,
+  SamplesSampleIdLineageRoute: SamplesSampleIdLineageRoute,
+  SamplesSampleIdMeasurementsRoute: SamplesSampleIdMeasurementsRoute,
+  SamplesSampleIdUsageRoute: SamplesSampleIdUsageRoute,
+  SamplesSampleIdIndexRoute: SamplesSampleIdIndexRoute,
+}
+
+const SamplesSampleIdRouteWithChildren = SamplesSampleIdRoute._addFileChildren(
+  SamplesSampleIdRouteChildren,
+)
+
+interface SamplesRouteChildren {
+  SamplesSampleIdRoute: typeof SamplesSampleIdRouteWithChildren
+}
+
+const SamplesRouteChildren: SamplesRouteChildren = {
+  SamplesSampleIdRoute: SamplesSampleIdRouteWithChildren,
+}
+
+const SamplesRouteWithChildren =
+  SamplesRoute._addFileChildren(SamplesRouteChildren)
+
+interface SettingsIntegrationsRouteChildren {
+  SettingsIntegrationsConnectorIdRoute: typeof SettingsIntegrationsConnectorIdRoute
+}
+
+const SettingsIntegrationsRouteChildren: SettingsIntegrationsRouteChildren = {
+  SettingsIntegrationsConnectorIdRoute: SettingsIntegrationsConnectorIdRoute,
+}
+
+const SettingsIntegrationsRouteWithChildren =
+  SettingsIntegrationsRoute._addFileChildren(SettingsIntegrationsRouteChildren)
+
+interface SettingsRouteChildren {
+  SettingsAccessRoute: typeof SettingsAccessRoute
+  SettingsApiRoute: typeof SettingsApiRoute
+  SettingsAuditRoute: typeof SettingsAuditRoute
+  SettingsDiagnosticsRoute: typeof SettingsDiagnosticsRoute
+  SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
+  SettingsIntegrationsRoute: typeof SettingsIntegrationsRouteWithChildren
+  SettingsMembersRoute: typeof SettingsMembersRoute
+  SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+  SettingsProfileRoute: typeof SettingsProfileRoute
+  SettingsSignaturesRoute: typeof SettingsSignaturesRoute
+  SettingsUsageRoute: typeof SettingsUsageRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsAccessRoute: SettingsAccessRoute,
+  SettingsApiRoute: SettingsApiRoute,
+  SettingsAuditRoute: SettingsAuditRoute,
+  SettingsDiagnosticsRoute: SettingsDiagnosticsRoute,
+  SettingsInstrumentsRoute: SettingsInstrumentsRoute,
+  SettingsIntegrationsRoute: SettingsIntegrationsRouteWithChildren,
+  SettingsMembersRoute: SettingsMembersRoute,
+  SettingsNotificationsRoute: SettingsNotificationsRoute,
+  SettingsProfileRoute: SettingsProfileRoute,
+  SettingsSignaturesRoute: SettingsSignaturesRoute,
+  SettingsUsageRoute: SettingsUsageRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
+
+interface TemplatesTemplateIdRouteChildren {
+  TemplatesTemplateIdInUseRoute: typeof TemplatesTemplateIdInUseRoute
+  TemplatesTemplateIdUpdateRoute: typeof TemplatesTemplateIdUpdateRoute
+  TemplatesTemplateIdVersionsRoute: typeof TemplatesTemplateIdVersionsRoute
+  TemplatesTemplateIdIndexRoute: typeof TemplatesTemplateIdIndexRoute
+}
+
+const TemplatesTemplateIdRouteChildren: TemplatesTemplateIdRouteChildren = {
+  TemplatesTemplateIdInUseRoute: TemplatesTemplateIdInUseRoute,
+  TemplatesTemplateIdUpdateRoute: TemplatesTemplateIdUpdateRoute,
+  TemplatesTemplateIdVersionsRoute: TemplatesTemplateIdVersionsRoute,
+  TemplatesTemplateIdIndexRoute: TemplatesTemplateIdIndexRoute,
+}
+
+const TemplatesTemplateIdRouteWithChildren =
+  TemplatesTemplateIdRoute._addFileChildren(TemplatesTemplateIdRouteChildren)
+
+interface TemplatesRouteChildren {
+  TemplatesTemplateIdRoute: typeof TemplatesTemplateIdRouteWithChildren
+}
+
+const TemplatesRouteChildren: TemplatesRouteChildren = {
+  TemplatesTemplateIdRoute: TemplatesTemplateIdRouteWithChildren,
+}
+
+const TemplatesRouteWithChildren = TemplatesRoute._addFileChildren(
+  TemplatesRouteChildren,
+)
 
 interface RecordsRecordIdRouteChildren {
-  RecordsRecordIdOverviewRoute: typeof RecordsRecordIdOverviewRoute
+  RecordsRecordIdNotebookRoute: typeof RecordsRecordIdNotebookRoute
+  RecordsRecordIdIndexRoute: typeof RecordsRecordIdIndexRoute
+  RecordsRecordIdEvidenceRevisionIdRoute: typeof RecordsRecordIdEvidenceRevisionIdRoute
 }
 
 const RecordsRecordIdRouteChildren: RecordsRecordIdRouteChildren = {
-  RecordsRecordIdOverviewRoute: RecordsRecordIdOverviewRoute,
+  RecordsRecordIdNotebookRoute: RecordsRecordIdNotebookRoute,
+  RecordsRecordIdIndexRoute: RecordsRecordIdIndexRoute,
+  RecordsRecordIdEvidenceRevisionIdRoute:
+    RecordsRecordIdEvidenceRevisionIdRoute,
 }
 
 const RecordsRecordIdRouteWithChildren = RecordsRecordIdRoute._addFileChildren(
   RecordsRecordIdRouteChildren,
 )
 
+interface ApiExportRecordIdRouteChildren {
+  ApiExportRecordIdAuditRoute: typeof ApiExportRecordIdAuditRoute
+}
+
+const ApiExportRecordIdRouteChildren: ApiExportRecordIdRouteChildren = {
+  ApiExportRecordIdAuditRoute: ApiExportRecordIdAuditRoute,
+}
+
+const ApiExportRecordIdRouteWithChildren =
+  ApiExportRecordIdRoute._addFileChildren(ApiExportRecordIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRouteWithChildren,
-  AgentOperationsRoute: AgentOperationsRoute,
-  AnalysisRoute: AnalysisRoute,
-  CalendarRoute: CalendarRoute,
-  ConfigureRoute: ConfigureRoute,
-  DatasetsRoute: DatasetsRoute,
+  AnalysisRoute: AnalysisRouteWithChildren,
+  ClientPortalRoute: ClientPortalRoute,
+  DatasetsRoute: DatasetsRouteWithChildren,
+  ExperimentsRoute: ExperimentsRouteWithChildren,
   FoundationsRoute: FoundationsRoute,
-  InstrumentMonitorRoute: InstrumentMonitorRoute,
-  IntegrationsRoute: IntegrationsRouteWithChildren,
-  LineageRoute: LineageRoute,
+  HelpRoute: HelpRouteWithChildren,
+  ImportRoute: ImportRoute,
+  InboxRoute: InboxRoute,
+  InstrumentsRoute: InstrumentsRouteWithChildren,
+  MaterialsRoute: MaterialsRoute,
+  ModelsRoute: ModelsRouteWithChildren,
   PipelinesRoute: PipelinesRouteWithChildren,
-  PlannerRoute: PlannerRoute,
-  PlateDesignerRoute: PlateDesignerRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
-  ReagentsRoute: ReagentsRoute,
-  ReportBuilderRoute: ReportBuilderRoute,
-  ReviewsRoute: ReviewsRouteWithChildren,
-  SamplesRoute: SamplesRoute,
+  ProtocolsRoute: ProtocolsRouteWithChildren,
+  SamplesRoute: SamplesRouteWithChildren,
+  ScanRoute: ScanRoute,
+  ScheduleRoute: ScheduleRoute,
   SearchRoute: SearchRoute,
-  SettingsRoute: SettingsRoute,
+  SettingsRoute: SettingsRouteWithChildren,
+  SheetbaseComponentsRoute: SheetbaseComponentsRoute,
   SignInRoute: SignInRoute,
-  StorageRoute: StorageRoute,
-  TemplatesRoute: TemplatesRoute,
+  TemplatesRoute: TemplatesRouteWithChildren,
   ApiCalculationsRoute: ApiCalculationsRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiFormulasRoute: ApiFormulasRoute,
   ApiMetricsRoute: ApiMetricsRoute,
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   DocsNameRoute: DocsNameRoute,
+  EvidenceRevisionIdRoute: EvidenceRevisionIdRoute,
+  RIdentifierRoute: RIdentifierRoute,
+  ReadingsNewRoute: ReadingsNewRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
-  SheetsInstanceIdRoute: SheetsInstanceIdRoute,
+  ReviewRevisionIdRoute: ReviewRevisionIdRoute,
+  SheetsSheetIdRoute: SheetsSheetIdRoute,
+  SheetsNewRoute: SheetsNewRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
@@ -1347,18 +3245,26 @@ const rootRouteChildren: RootRouteChildren = {
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
+  ApiImportCommitRoute: ApiImportCommitRoute,
+  ApiImportFilesRoute: ApiImportFilesRoute,
+  ApiImportReviewRoute: ApiImportReviewRoute,
+  ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
+  ApiParsersValidateRoute: ApiParsersValidateRoute,
   ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
   ApiPipelinesRuntimeRoute: ApiPipelinesRuntimeRoute,
+  ApiSignaturesStepUpRoute: ApiSignaturesStepUpRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
   ApiCollaborationResolveRoomsRoute: ApiCollaborationResolveRoomsRoute,
   ApiCollaborationResolveUsersRoute: ApiCollaborationResolveUsersRoute,
   ApiExportDatasetVersionIdRoute: ApiExportDatasetVersionIdRoute,
   ApiExportDatasetIdRoute: ApiExportDatasetIdRoute,
-  ApiExportRecordIdRoute: ApiExportRecordIdRoute,
+  ApiExportRecordIdRoute: ApiExportRecordIdRouteWithChildren,
   ApiExportSheetInstanceIdRoute: ApiExportSheetInstanceIdRoute,
   ApiFilesFileIdDownloadRoute: ApiFilesFileIdDownloadRoute,
   ApiFilesFileIdUploadRoute: ApiFilesFileIdUploadRoute,
   ApiPipelinesWebhookDefinitionIdRoute: ApiPipelinesWebhookDefinitionIdRoute,
+  ApiClientPortalRecordsRecordIdPdfRoute:
+    ApiClientPortalRecordsRecordIdPdfRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
 }
 export const routeTree = rootRouteImport

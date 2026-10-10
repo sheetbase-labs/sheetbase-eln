@@ -1,0 +1,1293 @@
+diff --git a/src/components/v3/projects/project-data.ts b/src/components/v3/projects/project-data.ts
+index 9ab79b3a..a97cadf3 100644
+--- a/src/components/v3/projects/project-data.ts
++++ b/src/components/v3/projects/project-data.ts
+@@ -1,6 +1,8 @@
+ import { useQuery } from '@tanstack/react-query'
+ 
+ import { createDataClient } from '#/lib/data-client'
++import type { ChangeEventRecordWire } from '#/lib/notebook-data'
++import type { AuditEventWire } from '#/lib/audit-history'
+ 
+ /** UI port: shared access to `project_list_summary` for the Projects area.
+  * The list and the detail layout/children all read the same cached query. */
+@@ -11,6 +13,7 @@ export interface ProjectSummary {
+   title: string
+   status: string
+   displayId: string | null
++  clientId: string | null
+   clientCode: string | null
+   clientName: string | null
+   modality: string | null
+@@ -32,6 +35,7 @@ interface SummaryWire {
+   title: string
+   status: string
+   display_id: string | null
++  client_id: string | null
+   client_code: string | null
+   client_name: string | null
+   modality: string | null
+@@ -57,6 +61,7 @@ export function toProjectSummary(row: SummaryWire): ProjectSummary {
+     title: row.title,
+     status: row.status,
+     displayId: row.display_id,
++    clientId: row.client_id,
+     clientCode: row.client_code,
+     clientName: row.client_name,
+     modality: row.modality,
+@@ -121,6 +126,32 @@ export async function fetchProjectMembers(
+   })
+ }
+ 
++export async function fetchProjectActivity(
++  projectId: string,
++): Promise<AuditEventWire[]> {
++  const events = await projectDataClient.list<
++    ChangeEventRecordWire & { sequence: string }
++  >(
++    'change_events',
++    `?project_id=eq.${encodeURIComponent(projectId)}&order=sequence.desc&limit=3&select=id,sequence,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at`,
++  )
++  return events.map((event) => ({
++    id: event.id,
++    sequence: Number(event.sequence),
++    entityType: event.entity_type,
++    entityUuid: event.entity_uuid,
++    operation: event.operation,
++    recordId: event.record_id,
++    projectId,
++    actorUserId: event.actor_user_id,
++    actorName: null,
++    actorCredentialId: null,
++    clientId: null,
++    payload: event.payload,
++    createdAt: event.created_at,
++  }))
++}
++
+ export async function fetchWorkspaceMemberIdentities(): Promise<
+   WorkspaceMemberIdentity[]
+ > {
+@@ -134,6 +165,49 @@ export const workspaceMemberQueryKeys = {
+   identities: ['ui-port', 'workspace-members'] as const,
+ }
+ 
++export interface ProjectDetailsInput {
++  title: string
++  clientId: string | null
++  modality: string | null
++  stage: string | null
++  leadUserId: string | null
++  defaultReviewerUserId: string | null
++  agreementReference: string | null
++  startedOn: string | null
++}
++
++function projectDetailsArgs(input: ProjectDetailsInput) {
++  return {
++    p_title: input.title.trim(),
++    p_client_id: input.clientId,
++    p_modality: input.modality,
++    p_stage: input.stage,
++    p_lead_user_id: input.leadUserId,
++    p_default_reviewer_user_id: input.defaultReviewerUserId,
++    p_agreement_reference: input.agreementReference,
++    p_started_on: input.startedOn,
++  }
++}
++
++export function createProject(input: ProjectDetailsInput) {
++  return projectDataClient.rpc<{ id: string; revision: string }>(
++    'create_project',
++    projectDetailsArgs(input),
++  )
++}
++
++/** The canonical RPC replaces all properties, so always send a full snapshot. */
++export function updateProjectDetails(
++  project: Pick<ProjectSummary, 'id' | 'revision'>,
++  input: ProjectDetailsInput,
++) {
++  return projectDataClient.rpc('update_project_details', {
++    p_project_id: project.id,
++    p_expected_revision: project.revision,
++    ...projectDetailsArgs(input),
++  })
++}
++
+ /** Workspace member display names, keyed by user id. Shared by screens that
+  * name the person behind a record (schedule bookers, model/template owners). */
+ export function useWorkspaceMemberNames() {
+@@ -239,9 +313,15 @@ export function useProjectMilestones(projectId: string) {
+     enabled: projectId.length > 0,
+     staleTime: 30_000,
+     queryFn: async (): Promise<ProjectMilestone[]> => {
+-      const tasks = await projectDataClient.list<{ id: string }>(
++      const tasks = await projectDataClient.list<{
++        id: string
++        task_type: string
++        title: string
++        status: string
++        due_at: string | null
++      }>(
+         'study_tasks',
+-        `?project_id=eq.${encodeURIComponent(projectId)}&select=id`,
++        `?project_id=eq.${encodeURIComponent(projectId)}&select=id,task_type,title,status,due_at&order=due_at.asc.nullslast,id.asc`,
+       )
+       if (tasks.length === 0) return []
+       const ids = tasks.map((t) => t.id)
+@@ -257,14 +337,31 @@ export function useProjectMilestones(projectId: string) {
+         )
+         rows.push(...part)
+       }
+-      return rows.map((r) => ({
+-        id: r.id,
+-        name: r.name,
+-        status: r.status,
+-        dueAt: r.due_at,
+-        linkedRecordId: r.linked_record_id,
+-        linkedRecordIdentifier: r.linked_record_identifier,
+-      }))
++      return [
++        ...tasks
++          .filter((task) => task.task_type === 'milestone')
++          .map((task) => ({
++            id: task.id,
++            name: task.title,
++            status:
++              task.status === 'completed'
++                ? 'delivered'
++                : task.status === 'not_started'
++                  ? 'planned'
++                  : task.status,
++            dueAt: task.due_at,
++            linkedRecordId: null,
++            linkedRecordIdentifier: null,
++          })),
++        ...rows.map((r) => ({
++          id: r.id,
++          name: r.name,
++          status: r.status,
++          dueAt: r.due_at,
++          linkedRecordId: r.linked_record_id,
++          linkedRecordIdentifier: r.linked_record_identifier,
++        })),
++      ].sort((a, b) => (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999'))
+     },
+   })
+ }
+diff --git a/src/components/v3/projects/projects-page.test.tsx b/src/components/v3/projects/projects-page.test.tsx
+index 2a86c0e8..20de387f 100644
+--- a/src/components/v3/projects/projects-page.test.tsx
++++ b/src/components/v3/projects/projects-page.test.tsx
+@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
+ import { afterEach, describe, expect, it, vi } from 'vitest'
+ 
+ import { ProjectsPage } from './projects-page'
++import type { ProjectsSearch } from './projects-page'
+ import type { ProjectRow } from './types'
+ 
+ vi.mock('@tanstack/react-router', () => ({
+@@ -29,12 +30,17 @@ function row(overrides: Partial<ProjectRow> = {}): ProjectRow {
+   }
+ }
+ 
+-function renderPage(projects: ProjectRow[]) {
++function renderPage(
++  projects: ProjectRow[],
++  search: ProjectsSearch = {},
++  meId?: string,
++) {
+   return render(
+     <ProjectsPage
+       projects={projects}
+       me="Gareth P."
+-      search={{}}
++      meId={meId}
++      search={search}
+       setSearch={() => {}}
+       onCreate={() => {}}
+     />,
+@@ -67,4 +73,45 @@ describe('ProjectsPage', () => {
+     renderPage([])
+     expect(screen.getByText('No projects yet')).toBeTruthy()
+   })
++
++  it('the explicit Archived URL view includes archives but excludes active projects', () => {
++    renderPage(
++      [row(), row({ id: 'PRJ-0170', name: 'Old project', archived: true })],
++      { tab: 'archived' },
++    )
++    expect(
++      screen.getByRole('button', { name: 'Show details for Old project' }),
++    ).toBeTruthy()
++    expect(
++      screen.queryByRole('button', {
++        name: 'Show details for AAV9 process transfer',
++      }),
++    ).toBeNull()
++    expect(
++      screen.queryByRole('button', {
++        name: 'Remove filter: status is not Archived',
++      }),
++    ).toBeNull()
++  })
++
++  it('Mine uses the lead identity, not duplicate display names, and fields come from URL state', () => {
++    renderPage(
++      [
++        row({ leadUserId: 'me' }),
++        row({
++          id: 'PRJ-0214',
++          name: 'Other Gareth project',
++          leadUserId: 'other',
++        }),
++      ],
++      { tab: 'mine', fields: 'stage,experiments' },
++      'me',
++    )
++    expect(screen.queryByText('Other Gareth project')).toBeNull()
++    expect(screen.queryByRole('columnheader', { name: 'Stage' })).toBeNull()
++    expect(
++      screen.queryByRole('columnheader', { name: 'Experiments' }),
++    ).toBeNull()
++    expect(screen.getByRole('columnheader', { name: 'Client' })).toBeTruthy()
++  })
+ })
+diff --git a/src/components/v3/projects/projects-page.tsx b/src/components/v3/projects/projects-page.tsx
+index db3b667d..6e6975f0 100644
+--- a/src/components/v3/projects/projects-page.tsx
++++ b/src/components/v3/projects/projects-page.tsx
+@@ -1,4 +1,5 @@
+-import { useState } from 'react'
++import { useEffect, useState } from 'react'
++import { useQuery } from '@tanstack/react-query'
+ import { Link } from '@tanstack/react-router'
+ import type { LinkProps } from '@tanstack/react-router'
+ import { Button } from '#/components/v3/ui/button'
+@@ -40,7 +41,16 @@ import { SearchTabs } from './search-tabs'
+ import { MobileList, stickyCol } from './mobile-list'
+ import { FilterChip } from './chip'
+ import { NativeSelect } from './select'
+-import { stages } from './options'
++import { modalities, stages } from './options'
++import type { ProjectDetailsInput } from './project-data'
++import {
++  fetchProjectMembers,
++  fetchProjectActivity,
++  useProjectMilestones,
++  projectDataClient,
++} from './project-data'
++import { fetchRecordsForProject, notebookQueryKeys } from '#/lib/notebook-data'
++import { describeAuditEvent } from '#/lib/audit-history'
+ import type { ProjectRow } from './types'
+ import { cn } from '#/lib/utils'
+ 
+@@ -63,16 +73,15 @@ export interface ProjectsSearch {
+   q?: string
+   archived?: boolean
+   stage?: string
++  client?: string
++  modality?: string
++  fields?: string
+   sort?: ProjectsSort
+   group?: 'none' | 'stage' | 'lead'
+   new?: boolean
+ }
+ 
+-export interface NewProjectInput {
+-  title: string
+-  clientId?: string
+-  stage?: string
+-}
++export type NewProjectInput = ProjectDetailsInput
+ 
+ /**
+  * UI port (branch roadmap-4/ui-app3): sheetbase-app-3's Projects screen, wired
+@@ -82,36 +91,51 @@ export interface NewProjectInput {
+ export function ProjectsPage({
+   projects,
+   me,
++  meId,
++  canCreate = true,
++  loading = false,
++  error = null,
++  onRetry,
+   search,
+   setSearch,
+   onCreate,
+   creating = false,
+   createError = null,
+   clientOptions = [],
++  memberOptions = [],
+ }: {
+   projects: ProjectRow[]
+   me: string
++  meId?: string
++  canCreate?: boolean
++  loading?: boolean
++  error?: string | null
++  onRetry?: () => void
+   search: ProjectsSearch
+   setSearch: (patch: Partial<ProjectsSearch>) => void
+   onCreate: (input: NewProjectInput) => void
+   creating?: boolean
+   createError?: string | null
+   clientOptions?: { id: string; label: string }[]
++  memberOptions?: { id: string; label: string }[]
+ }) {
+   const tab: ProjectsTab = search.tab ?? 'all'
+-  const includeArchived = !!search.archived
++  const includeArchived = tab === 'archived' || !!search.archived
+   const sort: ProjectsSort = search.sort ?? 'updated'
+   const group = search.group ?? 'none'
+-  const [hidden, setHidden] = useState<Set<string>>(new Set())
++  const hidden = new Set(search.fields?.split(',').filter(Boolean) ?? [])
+   const [checked, setChecked] = useState<Set<string>>(new Set())
+   const [active, setActive] = useState<string | null>(null)
+   const [draftQ, setDraftQ] = useState(search.q ?? '')
++  useEffect(() => setDraftQ(search.q ?? ''), [search.q])
+ 
+   const inTab = (p: ProjectRow, t: ProjectsTab) =>
+     t === 'all'
+       ? true
+       : t === 'mine'
+-        ? p.lead === me
++        ? meId
++          ? p.leadUserId === meId
++          : p.lead === me
+         : t === 'inprogress'
+           ? p.status.tone === 'progress'
+           : t === 'inreview'
+@@ -127,13 +151,15 @@ export function ProjectsPage({
+     (p) =>
+       inTab(p, tab) &&
+       matchesQ(p) &&
+-      (!search.stage || p.stage === search.stage),
++      (!search.stage || p.stage === search.stage) &&
++      (!search.client || p.client === search.client) &&
++      (!search.modality || p.modality === search.modality),
+   )
+   const rows = base
+     .filter((p) => includeArchived || !p.archived)
+     .sort((a, b) =>
+       sort === 'updated'
+-        ? b.updated - a.updated
++        ? b.updated - a.updated || b.id.localeCompare(a.id)
+         : sort === 'id'
+           ? b.id.localeCompare(a.id)
+           : a.name.localeCompare(b.name),
+@@ -141,10 +167,15 @@ export function ProjectsPage({
+   const archivedHidden = includeArchived
+     ? 0
+     : base.filter((p) => p.archived).length
+-  const activeRow = projects.find((p) => p.id === active) ?? null
+-  const filterCount = (includeArchived ? 0 : 1) + (search.stage ? 1 : 0)
++  const activeRow = rows.find((p) => p.id === active) ?? null
++  const filterCount =
++    (includeArchived ? 0 : 1) +
++    (search.stage ? 1 : 0) +
++    (search.client ? 1 : 0) +
++    (search.modality ? 1 : 0)
+   const cols = [
+     { key: 'client' as const, label: 'Client' },
++    { key: 'modality' as const, label: 'Modality' },
+     { key: 'stage' as const, label: 'Stage' },
+     { key: 'lead' as const, label: 'Lead' },
+     { key: 'experiments' as const, label: 'Experiments' },
+@@ -173,39 +204,87 @@ export function ProjectsPage({
+               {projects.length}
+             </span>
+             <span className="flex-1" />
+-            <Button variant="primary" onClick={() => setSearch({ new: true })}>
++            <Button
++              variant="primary"
++              disabled={!canCreate || loading}
++              onClick={() => setSearch({ new: true })}
++            >
+               New project
+             </Button>
+           </div>
+           {projects.length ? (
+-            <SearchTabs
+-              className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0"
+-              label="Project views"
+-              tabs={tabs.map((t) => ({
+-                key: t,
+-                label: tabLabel[t],
+-                count: counts[t],
+-                active: t === tab,
+-                link: {
+-                  to: '/projects',
+-                  search: {
+-                    ...search,
+-                    tab: t === 'all' ? undefined : t,
+-                  },
+-                } as LinkProps,
+-              }))}
+-            />
++            <>
++              <SearchTabs
++                className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0 max-lg:hidden"
++                label="Project views"
++                tabs={tabs.map((t) => ({
++                  key: t,
++                  label: tabLabel[t],
++                  count: counts[t],
++                  active: t === tab,
++                  link: {
++                    to: '/projects',
++                    search: {
++                      ...search,
++                      tab: t === 'all' ? undefined : t,
++                    },
++                  } as LinkProps,
++                }))}
++              />
++              <div className="flex items-center gap-5 lg:hidden">
++                <SearchTabs
++                  label="Project views"
++                  tabs={tabs.slice(0, 3).map((t) => ({
++                    key: t,
++                    label: tabLabel[t],
++                    count: counts[t],
++                    active: tab === t,
++                    link: {
++                      to: '/projects',
++                      search: { ...search, tab: t === 'all' ? undefined : t },
++                    } as LinkProps,
++                  }))}
++                />
++                <DropdownMenu>
++                  <DropdownMenuTrigger render={<Button variant="quiet" />}>
++                    More <Icon name="chevronDown" size={12} />
++                  </DropdownMenuTrigger>
++                  <DropdownMenuContent>
++                    {tabs.slice(3).map((t) => (
++                      <DropdownMenuItem
++                        key={t}
++                        onClick={() => setSearch({ tab: t })}
++                      >
++                        {tabLabel[t]} {counts[t]}
++                      </DropdownMenuItem>
++                    ))}
++                  </DropdownMenuContent>
++                </DropdownMenu>
++              </div>
++            </>
+           ) : null}
+         </header>
+ 
+-        {projects.length ? (
++        {error ? (
++          <div
++            role="alert"
++            className="flex flex-col items-center gap-3 px-4 py-14 text-center"
++          >
++            <h2 className="text-doc">Projects could not be loaded</h2>
++            <p className="m-0 text-fg-muted">{error}</p>
++            <Button onClick={onRetry}>Try again</Button>
++          </div>
++        ) : loading ? (
++          <p role="status" className="px-6 py-10 text-fg-muted">
++            Loading projects…
++          </p>
++        ) : projects.length ? (
+           <>
+             <div className="flex items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
+               <DropdownMenu>
+-                <DropdownMenuTrigger
+-                  render={<Button variant="quiet" className="max-lg:hidden" />}
+-                >
+-                  Sort: {sorts[sort]}
++                <DropdownMenuTrigger render={<Button variant="quiet" />}>
++                  <span className="max-lg:hidden">Sort: {sorts[sort]}</span>
++                  <span className="lg:hidden">Sort</span>
+                   <Icon name="chevronDown" size={12} />
+                 </DropdownMenuTrigger>
+                 <DropdownMenuContent className="w-[180px]">
+@@ -258,6 +337,30 @@ export function ProjectsPage({
+                       {s}
+                     </DropdownMenuItem>
+                   ))}
++                  {(['client', 'modality'] as const).map((field) => (
++                    <div key={field}>
++                      <DropdownMenuSeparator />
++                      <DropdownMenuLabel>
++                        {field === 'client' ? 'Client is' : 'Modality is'}
++                      </DropdownMenuLabel>
++                      {[...new Set(projects.map((project) => project[field]))]
++                        .sort()
++                        .map((value) => (
++                          <DropdownMenuItem
++                            key={value}
++                            icon={search[field] === value ? 'check' : undefined}
++                            onClick={() =>
++                              setSearch({
++                                [field]:
++                                  search[field] === value ? undefined : value,
++                              })
++                            }
++                          >
++                            {value}
++                          </DropdownMenuItem>
++                        ))}
++                    </div>
++                  ))}
+                 </DropdownMenuContent>
+               </DropdownMenu>
+               <DropdownMenu>
+@@ -322,26 +425,32 @@ export function ProjectsPage({
+                 </DropdownMenuTrigger>
+                 <DropdownMenuContent align="end" className="w-[200px]">
+                   <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+-                  {(['client', 'stage', 'lead', 'experiments'] as const).map(
+-                    (k) => (
+-                      <DropdownMenuItem
+-                        key={k}
+-                        closeOnClick={false}
+-                        icon={hidden.has(k) ? undefined : 'check'}
+-                        className={hidden.has(k) ? 'pl-[30px]' : ''}
+-                        onClick={() =>
+-                          setHidden((h) => {
+-                            const n = new Set(h)
+-                            if (n.has(k)) n.delete(k)
+-                            else n.add(k)
+-                            return n
+-                          })
+-                        }
+-                      >
+-                        {k[0].toUpperCase() + k.slice(1)}
+-                      </DropdownMenuItem>
+-                    ),
+-                  )}
++                  {(
++                    [
++                      'client',
++                      'modality',
++                      'stage',
++                      'lead',
++                      'experiments',
++                    ] as const
++                  ).map((k) => (
++                    <DropdownMenuItem
++                      key={k}
++                      closeOnClick={false}
++                      icon={hidden.has(k) ? undefined : 'check'}
++                      className={hidden.has(k) ? 'pl-[30px]' : ''}
++                      onClick={() => {
++                        const next = new Set(hidden)
++                        if (next.has(k)) next.delete(k)
++                        else next.add(k)
++                        setSearch({
++                          fields: [...next].sort().join(',') || undefined,
++                        })
++                      }}
++                    >
++                      {k[0].toUpperCase() + k.slice(1)}
++                    </DropdownMenuItem>
++                  ))}
+                 </DropdownMenuContent>
+               </DropdownMenu>
+               <DropdownMenu>
+@@ -388,6 +497,18 @@ export function ProjectsPage({
+                     Stage is <b className="font-medium">{search.stage}</b>
+                   </FilterChip>
+                 ) : null}
++                {(['client', 'modality'] as const).map((field) =>
++                  search[field] ? (
++                    <FilterChip
++                      key={field}
++                      removeLabel={`Remove filter: ${field} is ${search[field]}`}
++                      onRemove={() => setSearch({ [field]: undefined })}
++                    >
++                      {field === 'client' ? 'Client' : 'Modality'} is{' '}
++                      <b className="font-medium">{search[field]}</b>
++                    </FilterChip>
++                  ) : null,
++                )}
+               </div>
+             ) : null}
+ 
+@@ -433,6 +554,9 @@ export function ProjectsPage({
+                     {cols.map((c) => (
+                       <TableHead
+                         key={c.key}
++                        className={
++                          c.key === 'modality' ? 'lg:hidden' : undefined
++                        }
+                         align={c.key === 'experiments' ? 'right' : undefined}
+                       >
+                         {c.label}
+@@ -507,6 +631,9 @@ export function ProjectsPage({
+                             {cols.map((c) => (
+                               <TableCell
+                                 key={c.key}
++                                className={
++                                  c.key === 'modality' ? 'lg:hidden' : undefined
++                                }
+                                 align={
+                                   c.key === 'experiments' ? 'right' : undefined
+                                 }
+@@ -534,16 +661,27 @@ export function ProjectsPage({
+                   includeArchived={includeArchived}
+                   archivedMatches={archivedHidden}
+                   onIncludeArchived={() => setSearch({ archived: true })}
+-                  onClear={() => setSearch({ q: undefined, stage: undefined })}
++                  onClear={() =>
++                    setSearch({
++                      q: undefined,
++                      stage: undefined,
++                      client: undefined,
++                      modality: undefined,
++                    })
++                  }
+                 />
+               ) : null}
+             </div>
+             <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
+-              <span>
++              <span className="max-lg:hidden">
+                 {rows.length} {rows.length === 1 ? 'project' : 'projects'}
+               </span>
++              <span className="lg:hidden">
++                {rows.length} projects · scroll sideways for all columns ·
++                project name stays pinned
++              </span>
+               {archivedHidden ? (
+-                <span className="max-md:hidden">
++                <span className="max-lg:hidden">
+                   {archivedHidden} archived hidden by filter
+                 </span>
+               ) : null}
+@@ -560,16 +698,22 @@ export function ProjectsPage({
+       </div>
+ 
+       {activeRow ? (
+-        <ProjectPeek p={activeRow} onClose={() => setActive(null)} />
++        <ProjectPeek
++          p={activeRow}
++          meId={meId}
++          memberOptions={memberOptions}
++          onClose={() => setActive(null)}
++        />
+       ) : null}
+ 
+       <NewProjectDialog
+-        open={!!search.new}
++        open={canCreate && !!search.new}
+         onOpenChange={(o) => setSearch({ new: o ? true : undefined })}
+         onCreate={onCreate}
+         creating={creating}
+         error={createError}
+         clientOptions={clientOptions}
++        memberOptions={memberOptions}
+       />
+     </div>
+   )
+@@ -644,20 +788,69 @@ function EmptyProjects({ onNew }: { onNew: () => void }) {
+   )
+ }
+ 
+-function ProjectPeek({ p, onClose }: { p: ProjectRow; onClose: () => void }) {
++function ProjectPeek({
++  p,
++  onClose,
++  meId,
++  memberOptions,
++}: {
++  p: ProjectRow
++  onClose: () => void
++  meId?: string
++  memberOptions: { id: string; label: string }[]
++}) {
++  const members = useQuery({
++    queryKey: ['project-members', p.uuid],
++    queryFn: () => fetchProjectMembers(p.uuid),
++  })
++  const milestones = useProjectMilestones(p.uuid)
++  const records = useQuery({
++    queryKey: notebookQueryKeys.records(p.uuid),
++    queryFn: () => fetchRecordsForProject(projectDataClient, p.uuid),
++  })
++  const activity = useQuery({
++    queryKey: ['project-activity', p.uuid],
++    queryFn: () => fetchProjectActivity(p.uuid),
++  })
++  const experiments = (records.data ?? [])
++    .filter((record) => record.kind === 'experiment')
++    .slice(0, 4)
++  const milestone = milestones.data?.find(
++    (item) => item.status !== 'delivered' && item.status !== 'cancelled',
++  )
++  const memberSummary = members.data?.length
++    ? `${members.data
++        .slice(0, 3)
++        .map((member) => member.name)
++        .join(
++          ', ',
++        )}${members.data.length > 3 ? ` +${members.data.length - 3}` : ''}`
++    : '—'
++  const date = (value: string, year = false) =>
++    new Date(value).toLocaleDateString('en-GB', {
++      day: 'numeric',
++      month: 'short',
++      ...(year ? { year: 'numeric' as const } : {}),
++      timeZone: 'UTC',
++    })
+   const details: [string, React.ReactNode][] = [
+-    ['ID', <span className="mono">{p.id}</span>],
+     ['Client', p.client],
+     ['Modality', p.modality],
+     ['Stage', p.stage],
+     ['Lead', p.lead],
+-    ['Experiments', String(p.experiments)],
+-    ...(p.milestone
+-      ? [['Milestone', p.milestone] as [string, React.ReactNode]]
++    ['Members', memberSummary],
++    ['Started', p.started ? date(p.started, true) : '—'],
++    ...(milestone
++      ? [
++          [
++            'Milestone',
++            `${milestone.name}${milestone.dueAt ? ` · ${date(milestone.dueAt)}` : ''}`,
++          ] as [string, React.ReactNode],
++        ]
+       : []),
+   ]
+   return (
+-    <Inspector aria-label="Project details" className="w-[320px]">
++    <Inspector aria-label="Project details" className="w-[300px]">
+       <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
+         <div className="flex items-center gap-1.5">
+           <span className="mono text-fg-muted">{p.id}</span>
+@@ -687,6 +880,85 @@ function ProjectPeek({ p, onClose }: { p: ProjectRow; onClose: () => void }) {
+       <InspectorSection title="Details">
+         <DescriptionList labelWidth={112} items={details} />
+       </InspectorSection>
++      <InspectorSection
++        title={
++          <span className="flex items-center gap-2">
++            Experiments{' '}
++            <span className="font-normal text-fg-muted">{p.experiments}</span>
++            <Link
++              to="/experiments"
++              search={{ q: p.name }}
++              className="ml-auto font-normal"
++            >
++              All
++            </Link>
++          </span>
++        }
++      >
++        <div className="flex flex-col gap-2">
++          {experiments.map((record) => (
++            <Link
++              key={record.id}
++              to="/records/$recordId/notebook"
++              params={{ recordId: record.id }}
++              className="flex flex-col gap-1 text-label"
++            >
++              <span>
++                <span className="mono">{record.identifier}</span> {record.title}
++              </span>
++              <span className="text-fg-muted">
++                {record.status.replaceAll('_', ' ')}
++              </span>
++            </Link>
++          ))}
++          {!experiments.length ? (
++            <span className="text-label text-fg-muted">
++              {records.isLoading
++                ? 'Loading experiments…'
++                : 'No experiments yet.'}
++            </span>
++          ) : null}
++        </div>
++      </InspectorSection>
++      <InspectorSection title="Recent activity">
++        <div className="flex flex-col gap-2 text-label">
++          {(activity.data ?? []).map((event) => {
++            const description = describeAuditEvent(event)
++            const actor =
++              event.actorUserId === meId
++                ? 'You'
++                : (memberOptions.find(
++                    (member) => member.id === event.actorUserId,
++                  )?.label ?? 'A collaborator')
++            return (
++              <div key={event.id} className="flex gap-2">
++                <time
++                  className="shrink-0 text-fg-muted"
++                  dateTime={event.createdAt}
++                >
++                  {date(event.createdAt)}
++                </time>
++                <span>
++                  {actor} {description.action} {description.subject}
++                </span>
++              </div>
++            )
++          })}
++          {!activity.data?.length ? (
++            <span className="text-fg-muted">
++              {activity.isLoading ? 'Loading activity…' : 'No recent activity.'}
++            </span>
++          ) : null}
++          {members.error ||
++          milestones.error ||
++          records.error ||
++          activity.error ? (
++            <p role="alert" className="m-0 text-danger-text">
++              Some project details could not be loaded.
++            </p>
++          ) : null}
++        </div>
++      </InspectorSection>
+     </Inspector>
+   )
+ }
+@@ -698,6 +970,7 @@ function NewProjectDialog({
+   creating,
+   error,
+   clientOptions,
++  memberOptions,
+ }: {
+   open: boolean
+   onOpenChange: (open: boolean) => void
+@@ -705,13 +978,19 @@ function NewProjectDialog({
+   creating: boolean
+   error: string | null
+   clientOptions: { id: string; label: string }[]
++  memberOptions: { id: string; label: string }[]
+ }) {
+   const [title, setTitle] = useState('')
+   const [clientId, setClientId] = useState('')
+   const [stage, setStage] = useState('')
++  const [modality, setModality] = useState('')
++  const [lead, setLead] = useState('')
++  const [reviewer, setReviewer] = useState('')
++  const [agreement, setAgreement] = useState('')
++  const [startedOn, setStartedOn] = useState('')
+   return (
+     <Dialog open={open} onOpenChange={onOpenChange}>
+-      <DialogContent className="w-[min(520px,calc(100vw-32px))]">
++      <DialogContent className="w-[min(460px,calc(100vw-32px))]">
+         <DialogHeader title="New project" />
+         <DialogBody>
+           <form
+@@ -722,12 +1001,17 @@ function NewProjectDialog({
+               if (!title.trim()) return
+               onCreate({
+                 title: title.trim(),
+-                clientId: clientId || undefined,
+-                stage: stage || undefined,
++                clientId: clientId || null,
++                stage: stage || null,
++                modality: modality || null,
++                leadUserId: lead || null,
++                defaultReviewerUserId: reviewer || null,
++                agreementReference: agreement || null,
++                startedOn: startedOn || null,
+               })
+             }}
+           >
+-            <Field label="Title">
++            <Field label="Name">
+               <Input
+                 value={title}
+                 onChange={(e) => setTitle(e.target.value)}
+@@ -736,32 +1020,96 @@ function NewProjectDialog({
+                 placeholder="e.g. Lentivector stability study"
+               />
+             </Field>
+-            <Field label="Client">
+-              <NativeSelect
+-                value={clientId}
+-                onChange={(e) => setClientId(e.target.value)}
+-              >
+-                <option value="">Internal</option>
+-                {clientOptions.map((c) => (
+-                  <option key={c.id} value={c.id}>
+-                    {c.label}
+-                  </option>
+-                ))}
+-              </NativeSelect>
+-            </Field>
+-            <Field label="Stage">
++            <div className="grid grid-cols-2 gap-3">
++              <Field label="Client">
++                <NativeSelect
++                  value={clientId}
++                  onChange={(e) => setClientId(e.target.value)}
++                >
++                  <option value="">Internal</option>
++                  {clientOptions.map((c) => (
++                    <option key={c.id} value={c.id}>
++                      {c.label}
++                    </option>
++                  ))}
++                </NativeSelect>
++              </Field>
++              <Field label="Modality">
++                <NativeSelect
++                  value={modality}
++                  onChange={(e) => setModality(e.target.value)}
++                >
++                  <option value="">—</option>
++                  {modalities.map((value) => (
++                    <option key={value} value={value}>
++                      {value}
++                    </option>
++                  ))}
++                </NativeSelect>
++              </Field>
++              <Field label="Stage">
++                <NativeSelect
++                  value={stage}
++                  onChange={(e) => setStage(e.target.value)}
++                >
++                  <option value="">—</option>
++                  {stages.map((s) => (
++                    <option key={s} value={s}>
++                      {s}
++                    </option>
++                  ))}
++                </NativeSelect>
++              </Field>
++              <Field label="Lead">
++                <NativeSelect
++                  value={lead}
++                  onChange={(e) => setLead(e.target.value)}
++                >
++                  <option value="">Not assigned</option>
++                  {memberOptions.map((member) => (
++                    <option key={member.id} value={member.id}>
++                      {member.label}
++                    </option>
++                  ))}
++                </NativeSelect>
++              </Field>
++            </div>
++            <Field
++              label="Default reviewer"
++              hint="Reviews and signatures go to this person unless an experiment names another."
++            >
+               <NativeSelect
+-                value={stage}
+-                onChange={(e) => setStage(e.target.value)}
++                value={reviewer}
++                onChange={(e) => setReviewer(e.target.value)}
+               >
+-                <option value="">—</option>
+-                {stages.map((s) => (
+-                  <option key={s} value={s}>
+-                    {s}
++                <option value="">Not assigned</option>
++                {memberOptions.map((member) => (
++                  <option key={member.id} value={member.id}>
++                    {member.label}
+                   </option>
+                 ))}
+               </NativeSelect>
+             </Field>
++            <details>
++              <summary className="cursor-pointer text-label">
++                Agreement and start date
++              </summary>
++              <div className="mt-3 grid grid-cols-2 gap-3">
++                <Field label="Agreement reference">
++                  <Input
++                    value={agreement}
++                    onChange={(e) => setAgreement(e.target.value)}
++                  />
++                </Field>
++                <Field label="Start date">
++                  <Input
++                    type="date"
++                    value={startedOn}
++                    onChange={(e) => setStartedOn(e.target.value)}
++                  />
++                </Field>
++              </div>
++            </details>
+             {error ? (
+               <p role="alert" className="m-0 text-label text-danger-text">
+                 {error}
+diff --git a/src/components/v3/projects/types.ts b/src/components/v3/projects/types.ts
+index dc72bfa1..e2328097 100644
+--- a/src/components/v3/projects/types.ts
++++ b/src/components/v3/projects/types.ts
+@@ -16,6 +16,8 @@ export type ProjectRow = {
+   modality: string
+   stage: string
+   lead: string
++  leadUserId?: string | null
++  revision?: string
+   experiments: number
+   status: { tone: Tone; label: string }
+   archived?: boolean
+diff --git a/src/routes/projects.tsx b/src/routes/projects.tsx
+index ae573399..07f7de05 100644
+--- a/src/routes/projects.tsx
++++ b/src/routes/projects.tsx
+@@ -14,6 +14,12 @@ import type {
+   ProjectRow,
+ } from '#/components/v3/projects/projects-page'
+ import { createDataClient, DataClientError } from '#/lib/data-client'
++import {
++  createProject,
++  fetchWorkspaceMemberIdentities,
++  workspaceMemberQueryKeys,
++} from '#/components/v3/projects/project-data'
++import { hasCapability } from '#/lib/capability'
+ 
+ /** UI port (roadmap-4/ui-app3): the Projects list from sheetbase-app-3, wired
+  * to the real `project_list_summary` / `create_project` RPCs. The old ELN list
+@@ -31,6 +37,8 @@ interface ProjectSummaryWire {
+   modality?: string | null
+   lead_user_id?: string | null
+   lead_name?: string | null
++  started_on?: string | null
++  revision: string
+   archived_at: string | null
+   updated_at: string
+   experiment_count?: number
+@@ -71,6 +79,9 @@ export function toProjectRow(row: ProjectSummaryWire): ProjectRow {
+     modality: row.modality ?? '—',
+     stage: row.stage ?? '—',
+     lead: row.lead_name ?? '—',
++    leadUserId: row.lead_user_id ?? null,
++    started: row.started_on ?? undefined,
++    revision: row.revision,
+     experiments: Number(row.experiment_count ?? 0),
+     status: statusOf(row.status),
+     archived: row.archived_at != null,
+@@ -94,6 +105,10 @@ export const Route = createFileRoute('/projects')({
+       archived:
+         search.archived === true || search.archived === 'true' || undefined,
+       stage: typeof search.stage === 'string' ? search.stage : undefined,
++      client: typeof search.client === 'string' ? search.client : undefined,
++      modality:
++        typeof search.modality === 'string' ? search.modality : undefined,
++      fields: typeof search.fields === 'string' ? search.fields : undefined,
+       sort:
+         search.sort === 'id' ||
+         search.sort === 'name' ||
+@@ -158,16 +173,7 @@ function ProjectsIndexRoute() {
+   })
+ 
+   const create = useMutation({
+-    mutationFn: async (input: {
+-      title: string
+-      clientId?: string
+-      stage?: string
+-    }) =>
+-      dataClient.rpc('create_project', {
+-        p_title: input.title,
+-        p_client_id: input.clientId ?? null,
+-        p_stage: input.stage ?? null,
+-      }),
++    mutationFn: createProject,
+     onSuccess: () => {
+       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
+       void navigate({
+@@ -177,6 +183,11 @@ function ProjectsIndexRoute() {
+     },
+   })
+ 
++  const members = useQuery({
++    queryKey: [...workspaceMemberQueryKeys.identities, context.workspace?.id],
++    queryFn: fetchWorkspaceMemberIdentities,
++  })
++
+   const projects = useMemo(
+     () => (query.data ?? []).map(toProjectRow),
+     [query.data],
+@@ -190,6 +201,11 @@ function ProjectsIndexRoute() {
+     <ProjectsPage
+       projects={projects}
+       me={context.user.name}
++      meId={context.user.id}
++      canCreate={hasCapability(context.workspace?.role, 'record.create')}
++      loading={query.isLoading}
++      error={query.error ? 'Projects could not be loaded. Try again.' : null}
++      onRetry={() => void query.refetch()}
+       search={search}
+       setSearch={(patch) =>
+         void navigate({
+@@ -208,6 +224,10 @@ function ProjectsIndexRoute() {
+             : null
+       }
+       clientOptions={clientOptions}
++      memberOptions={(members.data ?? []).map((member) => ({
++        id: member.user_id,
++        label: member.name,
++      }))}
+     />
+   )
+ }
+diff --git a/src/routes/projects/$projectId/settings.tsx b/src/routes/projects/$projectId/settings.tsx
+index e7bfbcbc..54e36a73 100644
+--- a/src/routes/projects/$projectId/settings.tsx
++++ b/src/routes/projects/$projectId/settings.tsx
+@@ -16,11 +16,14 @@ import {
+ } from '#/components/v3/ui/dialog'
+ import { toast } from '#/components/v3/ui/sonner'
+ import { NativeSelect } from '#/components/v3/projects/select'
+-import { stages } from '#/components/v3/projects/options'
++import { modalities, stages } from '#/components/v3/projects/options'
+ import {
+   projectDataClient,
+   PROJECTS_KEY,
+   useProjectSummary,
++  updateProjectDetails,
++  fetchWorkspaceMemberIdentities,
++  workspaceMemberQueryKeys,
+ } from '#/components/v3/projects/project-data'
+ import { DataClientError } from '#/lib/data-client'
+ 
+@@ -47,15 +50,28 @@ function ProjectSettings() {
+   const [clientId, setClientId] = useState('')
+   const [stage, setStage] = useState('')
+   const [agreement, setAgreement] = useState('')
++  const [modality, setModality] = useState('')
++  const [lead, setLead] = useState('')
++  const [reviewer, setReviewer] = useState('')
++  const [startedOn, setStartedOn] = useState('')
+ 
+   useEffect(() => {
+     if (!project) return
+     setName(project.title)
+-    setClientId('')
++    setClientId(project.clientId ?? '')
+     setStage(project.stage ?? '')
+     setAgreement(project.agreementReference ?? '')
++    setModality(project.modality ?? '')
++    setLead(project.leadUserId ?? '')
++    setReviewer(project.defaultReviewerUserId ?? '')
++    setStartedOn(project.startedOn ?? '')
+   }, [project?.id])
+ 
++  const members = useQuery({
++    queryKey: [...workspaceMemberQueryKeys.identities, context.workspace?.id],
++    queryFn: fetchWorkspaceMemberIdentities,
++  })
++
+   const clientsQuery = useQuery({
+     queryKey: ['clients', context.workspace?.id],
+     queryFn: () =>
+@@ -66,15 +82,20 @@ function ProjectSettings() {
+   })
+ 
+   const save = useMutation({
+-    mutationFn: () =>
+-      projectDataClient.rpc('update_project_details', {
+-        p_project_id: projectId,
+-        p_expected_revision: Number(project!.revision),
+-        p_title: name.trim(),
+-        p_client_id: clientId || null,
+-        p_stage: stage || null,
+-        p_agreement_reference: agreement || null,
+-      }),
++    mutationFn: () => {
++      if (!project || project.archivedAt)
++        throw new Error('An active project is required to edit details.')
++      return updateProjectDetails(project, {
++        title: name,
++        clientId: clientId || null,
++        modality: modality || null,
++        stage: stage || null,
++        leadUserId: lead || null,
++        defaultReviewerUserId: reviewer || null,
++        agreementReference: agreement || null,
++        startedOn: startedOn || null,
++      })
++    },
+     onSuccess: () => {
+       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
+       toast('Project settings saved')
+@@ -158,7 +179,10 @@ function ProjectSettings() {
+     <>
+       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
+         <Section title="Project details">
+-          <div className="flex flex-col gap-3.5">
++          <fieldset
++            disabled={!!project.archivedAt || saving}
++            className="m-0 flex flex-col gap-3.5 border-0 p-0"
++          >
+             <Field label="Name" required className="max-w-[520px]">
+               <Input value={name} onChange={(e) => setName(e.target.value)} />
+             </Field>
+@@ -189,6 +213,57 @@ function ProjectSettings() {
+                   ))}
+                 </NativeSelect>
+               </Field>
++              <Field label="Modality">
++                <NativeSelect
++                  value={modality}
++                  onChange={(e) => setModality(e.target.value)}
++                >
++                  <option value="">—</option>
++                  {[
++                    ...new Set([
++                      ...modalities,
++                      ...(modality ? [modality] : []),
++                    ]),
++                  ].map((value) => (
++                    <option key={value} value={value}>
++                      {value}
++                    </option>
++                  ))}
++                </NativeSelect>
++              </Field>
++              <Field label="Lead">
++                <NativeSelect
++                  value={lead}
++                  onChange={(e) => setLead(e.target.value)}
++                >
++                  <option value="">Not assigned</option>
++                  {(members.data ?? []).map((member) => (
++                    <option key={member.user_id} value={member.user_id}>
++                      {member.name}
++                    </option>
++                  ))}
++                </NativeSelect>
++              </Field>
++              <Field label="Default reviewer">
++                <NativeSelect
++                  value={reviewer}
++                  onChange={(e) => setReviewer(e.target.value)}
++                >
++                  <option value="">Not assigned</option>
++                  {(members.data ?? []).map((member) => (
++                    <option key={member.user_id} value={member.user_id}>
++                      {member.name}
++                    </option>
++                  ))}
++                </NativeSelect>
++              </Field>
++              <Field label="Start date">
++                <Input
++                  type="date"
++                  value={startedOn}
++                  onChange={(e) => setStartedOn(e.target.value)}
++                />
++              </Field>
+             </div>
+             <Field
+               label="Agreement reference"
+@@ -205,11 +280,11 @@ function ProjectSettings() {
+                 {saveError}
+               </p>
+             ) : null}
+-          </div>
++          </fieldset>
+           <div className="mt-3 flex gap-2">
+             <Button
+               variant="primary"
+-              disabled={saving || !name.trim()}
++              disabled={saving || !!project.archivedAt || !name.trim()}
+               onClick={() => save.mutate()}
+             >
+               {saving ? 'Saving…' : 'Save changes'}

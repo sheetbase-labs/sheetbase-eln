@@ -2,6 +2,8 @@
 import { spawn } from 'node:child_process'
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
+import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 export const LIMITS = Object.freeze({
@@ -11,7 +13,36 @@ export const LIMITS = Object.freeze({
   cells: 1_000_000,
   logBytes: 64 * 1024,
   timeoutMs: 60_000,
+  // PIPE-04.1: a function may return files, within bounds it can plan against.
+  files: 20,
+  fileBytes: 8 * 1024 * 1024,
 })
+
+/**
+ * PIPE-04.1 — the declared output directory a function writes files to.
+ *
+ * The container's only writable path is this tmpfs (the root is read-only), so a figure or
+ * table a function produces has to land here. The runner collects it after the run and
+ * reports each file with its size; what it does with the bytes is the artefact store's job
+ * (PIPE-04.2).
+ */
+export const OUTPUT_DIR = '/tmp/out'
+
+/**
+ * Where collected artefacts are kept on this host, per run. Read per call rather than at
+ * module load, so a deployment (or a test) can point it somewhere else without a restart.
+ */
+const artefactRoot = () =>
+  process.env.SHEETBASE_ARTEFACT_DIR ?? '/tmp/sheetbase-artefacts'
+
+/** Marks a run's artefacts as kept, so pruning leaves them alone. */
+const KEEP_MARKER = '.keep'
+
+/** How long an unkept artefact directory may sit before pruning removes it. */
+const ARTEFACT_TTL_MS = 24 * 60 * 60 * 1000
+
+/** A run key becomes a directory name, so it must not be able to escape the root. */
+export const ARTEFACT_KEY = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/
 export const DIGEST_IMAGE = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/
 const isObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -181,6 +212,108 @@ function docker(
   })
 }
 
+/**
+ * PIPE-04.1 — collect the files a function wrote to the declared output directory.
+ *
+ * `docker cp` reads a stopped container's filesystem, which is why this runs after the
+ * container exits and before it is removed. The bytes land under a per-run directory on this
+ * host; the response carries each file's name and size, never its contents, so a large figure
+ * does not travel through the run's JSON result.
+ *
+ * A run that exceeds the bounds is refused rather than truncated: half a figure is worse than
+ * a clear refusal, and the function can be told what the limits are.
+ */
+export async function collectOutputFiles(command, name, artefactKey) {
+  if (!ARTEFACT_KEY.test(artefactKey))
+    throw new RunnerError('Invalid artefact key.', 400, 'invalid_configuration')
+  // The key is the run, and a run can have several Python steps, so the directory is
+  // created once and each step's files accumulate in it. Clearing it here would make a
+  // second step's output replace the first's.
+  const destination = join(artefactRoot(), artefactKey)
+  await mkdir(destination, { recursive: true })
+
+  // A container that wrote nothing has no directory; that is not a failure.
+  const copied = await command(['cp', `${name}:${OUTPUT_DIR}/.`, destination])
+  if (copied.code !== 0) return []
+
+  const entries = await readdir(destination, { withFileTypes: true })
+  const files = entries.filter((entry) => entry.isFile())
+  if (files.length > LIMITS.files)
+    throw new RunnerError(
+      `The function returned ${files.length} files, over the ${LIMITS.files}-file limit.`,
+      422,
+      'output_too_large',
+    )
+  let total = 0
+  const collected = []
+  for (const entry of files) {
+    const path = join(destination, entry.name)
+    const stats = await stat(path)
+    total += stats.size
+    if (total > LIMITS.fileBytes)
+      throw new RunnerError(
+        `The function returned ${(total / (1024 * 1024)).toFixed(1)} MiB of files, over the ${(LIMITS.fileBytes / (1024 * 1024)).toFixed(1)} MiB limit.`,
+        422,
+        'output_too_large',
+      )
+    collected.push({ name: entry.name, size: stats.size, path })
+  }
+  return collected.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
+ * PIPE-04.2 — a run's artefacts are temporary unless it keeps them.
+ *
+ * They live under a per-run directory on this host, so releasing a run either deletes them or
+ * marks the directory as kept. Kept artefacts outlive the run because a proposal can reference
+ * one (PIPE-03), so the marker is a file rather than a database row: the runner owns the
+ * bytes, and a marker next to them cannot drift from what is actually there.
+ *
+ * A run that dies before releasing leaves its directory behind, which is what pruning is for:
+ * anything older than the window that was never kept is abandoned, not kept by accident.
+ */
+export async function releaseArtefacts(artefactKey, keep) {
+  if (!ARTEFACT_KEY.test(artefactKey))
+    throw new RunnerError('Invalid artefact key.', 400, 'invalid_configuration')
+  const directory = join(artefactRoot(), artefactKey)
+  if (keep) {
+    await writeFile(join(directory, KEEP_MARKER), new Date().toISOString())
+    return { kept: true }
+  }
+  await rm(directory, { recursive: true, force: true })
+  return { kept: false }
+}
+
+/** Delete unkept artefact directories older than the window. */
+export async function pruneArtefacts(
+  maxAgeMs = ARTEFACT_TTL_MS,
+  now = Date.now(),
+) {
+  let removed = 0
+  let kept = 0
+  let entries
+  try {
+    entries = await readdir(artefactRoot(), { withFileTypes: true })
+  } catch {
+    return { removed, kept }
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    const directory = join(artefactRoot(), entry.name)
+    const marker = await stat(join(directory, KEEP_MARKER)).catch(() => null)
+    if (marker) {
+      kept += 1
+      continue
+    }
+    const directoryStat = await stat(directory).catch(() => null)
+    if (!directoryStat) continue
+    if (now - directoryStat.mtimeMs < maxAgeMs) continue
+    await rm(directory, { recursive: true, force: true })
+    removed += 1
+  }
+  return { removed, kept }
+}
+
 export async function runDockerJob(job, image, command = docker) {
   validateJob(job)
   if (job.runtime !== undefined && job.runtime !== image)
@@ -225,7 +358,17 @@ export async function runDockerJob(job, image, command = docker) {
           : 'Python execution failed.',
       )
     validateResult(result)
-    return { rows: result.rows, logs: result.logs, runtime: image }
+    // PIPE-04.1: a function may also return files; they are collected before the
+    // container is removed, since a stopped container is only readable until then.
+    const files = job.artefactKey
+      ? await collectOutputFiles(command, name, job.artefactKey)
+      : []
+    return {
+      rows: result.rows,
+      logs: result.logs,
+      runtime: image,
+      files: files.map((file) => ({ name: file.name, size: file.size })),
+    }
   } finally {
     // Killing a Docker CLI process does not kill its container. Remove by our fixed name.
     let removed
@@ -293,6 +436,7 @@ export function createRunnerServer({
       }
       if (!(
         (request.method === 'POST' && request.url === '/execute') ||
+        (request.method === 'POST' && request.url === '/artefacts/release') ||
         (request.method === 'GET' && request.url === '/runtime')
       ))
         return send(404, { error: 'Not found.' })
@@ -302,6 +446,32 @@ export function createRunnerServer({
         return send(503, {
           error: 'Python runner requires administrator attention.',
         })
+      // PIPE-04.2: a run's artefacts are temporary unless it keeps them.
+      if (request.url === '/artefacts/release') {
+        const chunks = []
+        for await (const chunk of request) chunks.push(chunk)
+        let release
+        try {
+          release = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+        } catch {
+          return send(400, { error: 'Invalid JSON body.' })
+        }
+        if (
+          !isObject(release) ||
+          typeof release.key !== 'string' ||
+          typeof release.keep !== 'boolean'
+        )
+          return send(400, {
+            error: 'Provide an artefact key and whether to keep it.',
+          })
+        try {
+          return send(200, await releaseArtefacts(release.key, release.keep))
+        } catch (error) {
+          return send(error instanceof RunnerError ? error.status : 500, {
+            error: error instanceof Error ? error.message : 'Release failed.',
+          })
+        }
+      }
       if (request.method === 'GET') {
         try {
           await checkRuntime()

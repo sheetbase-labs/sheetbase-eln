@@ -1,0 +1,93 @@
+Review, EXP-0138
+Projects / AAV9 process transfer / EXP-0138
+Transfection ratio, PEI:DNA sweep
+In review, round 2 Owner Priya S. Protocol PRT-018 v2 Submitted 24 Sep 2026, 16:40 Due 29 Sep
+Overview Notebook Samples 8 Datasets 2 Files 1 History
+You are reviewing Read-only for you until returned or signed
+Show changes since round 1
+2 changes · 1 open comment ‹ Prev change Next change ›
+Objective
+Find the PEI:DNA ratio (w/w) that maximises AAV9 genome titre in HEK293 suspension culture at 1.0 µg DNA per mL, without viability at harvest falling below 80 %.
+Δ
+Method
+Cells were seeded at 2.0 × 10⁶ cells/mL in 125 mL shake flasks (30 mL working volume) and transfected with the triple-plasmid mix at 1.0 µg DNA/mL (0.5 pg DNA per cell) . PEI:DNA ratios of 1:1, 1.5:1, 2:1 and 3:1 (w/w) were run in duplicate. Harvest at 72 h; titre by qPCR genome titre by ddPCR ( DS-0302 ) , viability by ViCell ( DS-0303 ).
+Edited by Priya S., 24 Sep 15:41 · resolves your comment “State the DNA mass per cell…”
+Δ
+Transfection results Sheet · mean of 2 flasks · 4 rows
+| | | Condition | PEI:DNA (w/w) | Genome titre (vg/mL) | Viability at harvest (%) | Titre vs 2:1 (%) ƒx | Meets criteria ƒx
+| 1 | R1.0 | 1:1 | 3.1 × 10¹⁰ | 88.1 | 43.1 | Viability yes
+| 2 | R1.5 | 1.5:1 | 5.8 × 10¹⁰ | 85.4 | 80.6 | Viability yes
+| 3 | R2.0 | 2:1 | 6.9 × 10¹⁰ 7.2 × 10¹⁰ | 81.9 | 100.0 | Viability yes
+| 4 | R3.0 | 3:1 | 6.4 × 10¹⁰ | 72.6 | 88.9 | Viability no
+Change Row 3 · Genome titre · 6.9 × 10¹⁰ → 7.2 × 10¹⁰ vg/mL
+By Priya S. · 24 Sep 2026, 15:58
+Reason Dilution factor corrected in DS-0302 (1:100 → 1:104); recalculated from the instrument export
+Conclusion
+A 2:1 PEI:DNA ratio gave the highest genome titre (7.2 × 10¹⁰ vg/mL) with viability above 80 %. 3:1 reduced viability to 72.6 % with no titre gain. Recommend 2:1 for the 50 L engineering run.
+You draft · not sent
+With n = 2, is the 2:1 vs 3:1 titre difference outside ddPCR variability? Add the per-flask values or the assay CV.
+Edit Delete
+Summary
+Objective
+Find the PEI:DNA ratio that maximises AAV9 genome titre with viability ≥ 80 %.
+Protocol
+PRT-018 v2
+Owner
+Priya S.
+Reviewer
+Gareth P.
+Result
+2:1 PEI:DNA, 7.2 × 10¹⁰ vg/mL, viability 81.9 %
+Review
+Round 2 · 2 changes since round 1
+Checks before signing
+All required fields complete
+No validation errors
+Materials in date at time of use
+Samples
+8
+| | ID | Name | Type | Volume | Status
+| SMP-2232 | R1.0 flask A | Culture | 30 mL | Harvested
+| SMP-2233 | R1.0 flask B | Culture | 30 mL | Harvested
+| SMP-2234 | R1.5 flask A | Culture | 30 mL | Harvested
+| SMP-2235 | R1.5 flask B | Culture | 30 mL | Harvested
+| SMP-2237 | R2.0 flask A | Culture | 30 mL | Harvested
+| SMP-2239 | R2.0 flask B | Culture | 30 mL | Harvested
+| SMP-2251 | R3.0 flask A | Culture | 30 mL | Harvested
+| SMP-2252 | R3.0 flask B | Culture | 30 mL | Harvested
+Datasets
+2 All datasets
+| | ID | Name | Model | Rows | Validation
+| DS-0302 | ddPCR titre, transfection sweep | ddPCR titre v1 | 16 | Valid
+| DS-0303 | ViCell, harvest 72 h | ViCell v2 | 8 | Valid
+Files
+1
+| | Name | Kind | Size | Uploaded
+| ddPCR_titre_transfection_sweep.xlsx | Instrument export | 96 KB | Priya S. · 23 Sep
+History
+5 entries
+| | When | Who | Action | Detail
+| 24 Sep 16:40 | Priya S. | Submitted | Round 2
+| 24 Sep 15:58 | Priya S. | Edited cell | Row 3 genome titre 6.9 → 7.2 × 10¹⁰ · dilution factor corrected
+| 24 Sep 15:41 | Priya S. | Edited text | Method · resolves your comment
+| 22 Sep 10:12 | Gareth P. | Returned | Round 1 with 3 comments
+| 21 Sep 17:05 | Priya S. | Submitted | Round 1
+Review
+Template: Process development experiment v3
+Checklist 4 of 5
+Protocol version matches the approved plan
+Materials were in date and released
+All values carry units
+Calculations verified against source data
+Deviations recorded (none)
+Decision
+Approve
+Return with comments (1 draft)
+Signature meaning: “Reviewed”. You will be asked for your password. Signing locks this version; later edits create a new version.
+Return with 1 comment Save draft
+History
+24 Sep 16:40 Priya S. submitted round 2
+24 Sep 15:58 Priya S. changed Genome titre, row 3 6.9 → 7.2 × 10¹⁰ vg/mL · reason given
+24 Sep 15:41 Priya S. edited Method
+22 Sep 10:12 You returned round 1 with 3 comments
+21 Sep 17:05 Priya S. submitted round 1

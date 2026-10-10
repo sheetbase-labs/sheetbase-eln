@@ -1,0 +1,15 @@
+Help, records and signatures
+Home / Help How records, reviews and signatures work
+Every experiment, dataset and protocol moves through the same states. What you can change depends on the state, and every change is written to History with who, when, the old value and the reason.
+Draft Only you can see it In progress Team can edit; autosaves In review Locked for the author Approved · signed Locked; PDF and hash kept Returned Comments to resolve Amendment · version 2 Copy with a reason; new review
+Start
+Submit
+Sign
+Return
+Resubmit after edits
+Create amendment
+Signatures
+A signature is your password entered again at the moment of signing, plus a meaning: Authored, Reviewed, Approved or Witnessed. It is bound to one version of the record by its content hash, so any later change needs an amendment and a new signature.
+What reviewers see
+Reviewers see changes since their last review marked in the margin, can comment on any block or cell, and either sign or return the record with comments. They can’t edit the author’s content.
+Set up your signature Keyboard shortcuts

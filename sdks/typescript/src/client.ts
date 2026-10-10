@@ -23,11 +23,12 @@
  * ```
  */
 import {
-  HttpTransport,
-  type FetchLike,
-  type RequestOptions,
-  type TableHead,
+  HttpTransport
+  
+  
+  
 } from "./http.js";
+import type {FetchLike, RequestOptions, TableHead} from "./http.js";
 import { API_VERSION, VERSION } from "./version.js";
 import {
   AgentOperationsResource,

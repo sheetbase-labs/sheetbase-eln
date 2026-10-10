@@ -255,7 +255,7 @@ describe('ModelFieldInput with MODEL-03 rules', () => {
           modelKey: 'experiment',
           logicalType: 'reference',
           label: 'Reagent lot',
-          validation: { targetModelKey: 'reagent' },
+          validation: { targetModelKey: 'material' },
         })}
         value=""
         onChange={vi.fn()}
@@ -264,7 +264,7 @@ describe('ModelFieldInput with MODEL-03 rules', () => {
     )
     expect(screen.queryByRole('button', { name: 'Select record' })).toBeNull()
     expect(
-      screen.getByText(/experiment does not accept reagent references/i),
+      screen.getByText(/experiment does not accept material references/i),
     ).toBeTruthy()
   })
 
@@ -292,7 +292,7 @@ describe('ModelFieldInput with MODEL-03 rules', () => {
           modelKey: 'experiment',
           logicalType: 'reference',
           label: 'Reagent lot',
-          validation: { targetModelKey: 'reagent' },
+          validation: { targetModelKey: 'material' },
         })}
         value=""
         onChange={vi.fn()}

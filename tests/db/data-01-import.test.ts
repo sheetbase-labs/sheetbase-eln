@@ -24,7 +24,11 @@ async function actor(userId: string, workspaceId: string) {
   clients.push(client)
   await client.query('SET ROLE authenticated')
   await client.query(`select set_config('request.jwt.claims',$1,false)`, [
-    JSON.stringify({ sub: userId, workspace_id: workspaceId }),
+    JSON.stringify({
+      sub: userId,
+      workspace_id: workspaceId,
+      role: 'authenticated',
+    }),
   ])
   return client
 }
@@ -43,14 +47,17 @@ function pgDataClient(owner: Client): DataClient {
         )
         return result.rows[0].result
       }
-      if (name === 'commit_dataset_row_batch') {
+      if (name === 'commit_dataset_import') {
         const result = await owner.query(
-          `select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4) result`,
+          `select api.commit_dataset_import($1,$2,$3::jsonb,$4,$5,'{}','{}',$6,$7) result`,
           [
             args.p_dataset_id,
             args.p_expected_dataset_revision,
             JSON.stringify(args.p_rows),
             args.p_idempotency_key,
+            args.p_file_id,
+            args.p_parser_id,
+            args.p_parser_version_id,
           ],
         )
         return result.rows[0].result
@@ -107,11 +114,28 @@ async function createImportFixture(owner: Client) {
     width: null,
     options: [],
   }))
+  const parser = (
+    await owner.query(
+      `SELECT api.ensure_parser($1, $2, 'CSV fixture', 'csv', 1, '{}') result`,
+      [WS_A, key],
+    )
+  ).rows[0].result
+  const file = (
+    await owner.query(
+      `SELECT * FROM api.create_dataset_import_file($1, 'fixture.csv', 'text/csv', 20, $2, $3, 'csv', $4)`,
+      [WS_A, 'a'.repeat(64), key, dataset.id],
+    )
+  ).rows[0]
   return {
     datasetId: dataset.id as string,
     revision: Number(dataset.revision),
     schemaVersionId: dataset.schema_version_id as string,
     columns,
+    provenance: {
+      fileId: file.id,
+      parserId: parser.parserId,
+      parserVersionId: parser.parserVersionId,
+    },
   }
 }
 
@@ -153,6 +177,7 @@ describe('DATA-01 import against canonical Dataset writers', () => {
         datasetId: fixture.datasetId,
         expectedRevision: fixture.revision,
         schemaVersionId: fixture.schemaVersionId,
+        ...fixture.provenance,
       },
       mapped,
       'data-01-happy',
@@ -187,6 +212,7 @@ describe('DATA-01 import against canonical Dataset writers', () => {
         datasetId: fixture.datasetId,
         expectedRevision: fixture.revision,
         schemaVersionId: fixture.schemaVersionId,
+        ...fixture.provenance,
       },
       mapped,
       'data-01-coerce',
@@ -231,6 +257,7 @@ describe('DATA-01 import against canonical Dataset writers', () => {
         datasetId: fixture.datasetId,
         expectedRevision: fixture.revision,
         schemaVersionId: fixture.schemaVersionId,
+        ...fixture.provenance,
       },
       mapped,
       'data-01-mismatch',

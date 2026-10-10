@@ -342,7 +342,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
     ],
     properties: {
       p_project_id: uuid('Project UUID.'),
-      p_kind: text('Record kind, e.g. experiment, sample, reagent.'),
+      p_kind: text('Record kind, e.g. experiment, sample, material.'),
       p_title: text('Record title.'),
       p_status: text('Lifecycle status string.'),
       p_tags: { ...TEXT_ARRAY, description: 'Tags. Pass `[]` when unused.' },
@@ -1112,7 +1112,7 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
         ...TEXT,
         nullable: true,
         description:
-          'experiment, sample, reagent, protocol_template, report, file, notebook_template.',
+          'experiment, sample, material, protocol_template, report, file, notebook_template.',
       },
       p_status: { ...TEXT, nullable: true },
       p_owner_id: {
@@ -1468,12 +1468,20 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
   create_webhook_subscription: {
     summary: 'Create a webhook subscription',
     description:
-      'Creates a subscription in the JWT workspace. Returns the subscription row and a generated signing secret (returned exactly once). rate_limit_per_minute caps delivery attempts per rolling minute (deferred, never dropped); null = unlimited.',
-    required: ['p_workspace_id', 'p_key', 'p_url'],
+      'Creates a subscription in the JWT workspace. Returns the subscription row and, for a webhook or Teams destination, a generated signing secret (returned exactly once). An email destination names a recipient instead of a URL and gets no secret. rate_limit_per_minute caps delivery attempts per rolling minute (deferred, never dropped); null = unlimited.',
+    required: ['p_workspace_id', 'p_key'],
     properties: {
       p_workspace_id: uuid('Workspace UUID.'),
       p_key: text('Subscription key (lowercase, hyphenated, max 49 chars).'),
-      p_url: text('HTTPS webhook endpoint URL.'),
+      p_url: text(
+        'HTTPS webhook endpoint URL. Required for webhook and Teams destinations; must be omitted for an email destination.',
+      ),
+      p_channel_type: text(
+        "Destination type: 'webhook' (default), 'teams', or 'email'.",
+      ),
+      p_recipient_user_id: text(
+        'User id of the recipient. Required for an email destination and must be omitted otherwise.',
+      ),
       p_event_types: jsonArray(
         'JSON array of stable event type filters. Empty = all events.',
       ),

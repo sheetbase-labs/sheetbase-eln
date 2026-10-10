@@ -1,19 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import {
-  Activity,
-  Box,
-  Check,
-  FlaskConical,
-  Folder,
-  Moon,
-  Plus,
-  Search,
-  ShieldCheck,
-  Sun,
-  Table2,
-  UserRound,
-} from 'lucide-react'
 
+import { Icon, ICON_NAMES } from '#/components/icons'
 import { useTheme } from '#/components/theme-provider'
 import {
   RecordLink,
@@ -75,7 +62,7 @@ import { cn } from '#/lib/utils'
 
 /**
  * UI-001 visual review page. Shows the reconciled design tokens — colour,
- * typography, spacing, radius, focus rings — and the theme/density toggles
+ * typography, spacing, radius, focus rings — and the theme toggle
  * so a reviewer can compare production against DESIGN.md, the brand guide
  * mockup and the concept system without running Storybook.
  *
@@ -98,7 +85,7 @@ export const Route = createFileRoute('/foundations')({
 })
 
 function FoundationsPage() {
-  const { theme, setTheme, density, setDensity } = useTheme()
+  const { theme, setTheme } = useTheme()
   return (
     <div className="min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-6 py-10">
@@ -128,34 +115,14 @@ function FoundationsPage() {
                 onClick={() => setTheme('light')}
                 label="Light"
               >
-                <Sun className="size-3.5" /> Light
+                <Icon name="sun" className="size-3.5" /> Light
               </ToggleButton>
               <ToggleButton
                 active={theme === 'dark'}
                 onClick={() => setTheme('dark')}
                 label="Dark"
               >
-                <Moon className="size-3.5" /> Dark
-              </ToggleButton>
-            </div>
-            <div
-              role="group"
-              aria-label="Density"
-              className="flex items-center rounded-md border bg-card p-0.5"
-            >
-              <ToggleButton
-                active={density === 'comfortable'}
-                onClick={() => setDensity('comfortable')}
-                label="Comfortable"
-              >
-                Comfortable
-              </ToggleButton>
-              <ToggleButton
-                active={density === 'compact'}
-                onClick={() => setDensity('compact')}
-                label="Compact"
-              >
-                Compact
+                <Icon name="moon" className="size-3.5" /> Dark
               </ToggleButton>
             </div>
           </div>
@@ -172,16 +139,16 @@ function FoundationsPage() {
             ))}
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
-            <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+            <span className="rounded-full bg-success-wash px-2.5 py-0.5 text-xs font-medium text-success-text">
               In progress
             </span>
-            <span className="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-medium text-violet-700 dark:bg-violet-950/60 dark:text-violet-300">
+            <span className="rounded-full bg-review-wash px-2.5 py-0.5 text-xs font-medium text-review">
               Needs review
             </span>
-            <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950/60 dark:text-red-300">
+            <span className="rounded-full bg-danger-wash px-2.5 py-0.5 text-xs font-medium text-danger-text">
               Failed
             </span>
-            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+            <span className="rounded-full bg-warning-wash px-2.5 py-0.5 text-xs font-medium text-warning-text">
               Expired
             </span>
             <span className="rounded-full border px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
@@ -322,26 +289,16 @@ function FoundationsPage() {
         <Section
           id="icons"
           title="Iconography"
-          description="Lucide icons at 1.5–2px stroke, normally 16px within controls."
+          description="The UI system v3 icon set: 16px grid, 1.4px stroke, round caps and joins, currentColor."
         >
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9">
-            {[
-              FlaskConical,
-              Folder,
-              Table2,
-              Activity,
-              ShieldCheck,
-              UserRound,
-              Search,
-              Box,
-              Check,
-            ].map((Icon, i) => (
+            {ICON_NAMES.map((name) => (
               <div
-                key={i}
+                key={name}
                 className="flex aspect-square flex-col items-center justify-center gap-2 rounded-lg border bg-card"
               >
-                <Icon className="size-5" />
-                <span className="text-xs text-muted-foreground">16–20px</span>
+                <Icon name={name} size={20} />
+                <span className="text-xs text-muted-foreground">{name}</span>
               </div>
             ))}
           </div>
@@ -390,7 +347,7 @@ function FoundationsPage() {
         <Section
           id="shell"
           title="Application shell"
-          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/density/sign-out. The live shell wraps /projects; this is a framed taster, not a full re-render."
+          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/sign-out. The live shell wraps /projects; this is a framed taster, not a full re-render."
         >
           <AppShellPreview />
         </Section>
@@ -422,7 +379,7 @@ function FoundationsPage() {
         <footer className="mt-12 border-t pt-6 text-xs text-muted-foreground">
           Compare with <code>docs/knowledge/DESIGN.md</code>, the historical
           mockups and <code>docs/knowledge/design/ui-system-v2.md</code>. Toggle
-          theme and density in the header; preferences persist to localStorage.
+          theme in the header; preferences persist to localStorage.
         </footer>
       </div>
     </div>
@@ -538,22 +495,59 @@ function TokenSwatch({ name, value, varName }: TokenSwatchProps) {
 }
 
 const COLOUR_TOKENS: TokenSwatchProps[] = [
-  { name: 'Primary', value: 'oklch(0.55 0.19 255)', varName: '--primary' },
+  { name: 'Primary', value: 'oklch(0.551 0.188 256)', varName: '--primary' },
   {
-    name: 'Foreground',
-    value: 'oklch(0.19 0.018 260)',
+    name: 'Text',
+    value: 'oklch(0.19 0.018 259.7)',
     varName: '--foreground',
   },
-  { name: 'Muted', value: 'oklch(0.968 0.005 260)', varName: '--muted' },
-  { name: 'Border', value: 'oklch(0.91 0.009 260)', varName: '--border' },
   {
-    name: 'Destructive',
+    name: 'Text muted',
+    value: 'oklch(0.501 0.02 259.4)',
+    varName: '--muted-foreground',
+  },
+  {
+    name: 'Text faint',
+    value: 'oklch(0.55 0.019 259.4)',
+    varName: '--faint-foreground',
+  },
+  {
+    name: 'Danger',
     value: 'oklch(0.61 0.22 27)',
     varName: '--destructive',
   },
-  { name: 'Accent', value: 'oklch(0.95 0.018 255)', varName: '--accent' },
-  { name: 'Card', value: 'oklch(1 0 0)', varName: '--card' },
-  { name: 'Sidebar', value: 'oklch(0.982 0.004 260)', varName: '--sidebar' },
+  {
+    name: 'Warning',
+    value: 'oklch(0.761 0.159 77.7)',
+    varName: '--warning',
+  },
+  {
+    name: 'Success',
+    value: 'oklch(0.636 0.163 153.3)',
+    varName: '--success',
+  },
+  {
+    name: 'Selection',
+    value: 'oklch(0.95 0.018 258.4)',
+    varName: '--selection',
+  },
+  {
+    name: 'Review',
+    value: 'oklch(0.62 0.2 300.1)',
+    varName: '--review',
+  },
+  {
+    name: 'Analysis',
+    value: 'oklch(0.657 0.115 213)',
+    varName: '--analysis',
+  },
+  { name: 'Border', value: 'oklch(0.909 0.009 264.5)', varName: '--border' },
+  { name: 'Surface', value: 'oklch(1 0 89.9)', varName: '--card' },
+  {
+    name: 'Background',
+    value: 'oklch(0.995 0.003 286.4)',
+    varName: '--background',
+  },
 ]
 
 /**
@@ -635,21 +629,21 @@ function RecordPreview() {
                       type: 'Sample',
                       title: 'Sample 28',
                       meta: 'Cell line',
-                      icon: FlaskConical,
+                      icon: 'flask',
                     },
                     {
                       id: '2',
                       type: 'Protocol',
                       title: 'Stability assay SOP',
                       meta: 'v3',
-                      icon: Folder,
+                      icon: 'folder',
                     },
                     {
                       id: '3',
                       type: 'Dataset',
                       title: 'Raw qPCR',
                       meta: '12 wells',
-                      icon: Table2,
+                      icon: 'table',
                     },
                   ]}
                 />
@@ -693,7 +687,7 @@ function RecordPreview() {
                     },
                     {
                       id: '3',
-                      label: 'Reagent expiry',
+                      label: 'Material expiry',
                       state: 'warning' as const,
                       detail: 'Due in 10d',
                     },
@@ -809,11 +803,11 @@ function NotebookVizPreview() {
           legend={
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                <span className="inline-block size-2.5 rounded-[2px] bg-blue-500" />
+                <span className="inline-block size-2.5 rounded-[2px] bg-primary" />
                 Lot LWV-250601
               </span>
               <span className="inline-flex items-center gap-1">
-                <span className="inline-block size-2.5 rounded-[2px] bg-emerald-500" />
+                <span className="inline-block size-2.5 rounded-[2px] bg-success" />
                 Lot LWV-250602
               </span>
             </div>
@@ -857,7 +851,7 @@ function PrimitivesGrid() {
           <Button size="default">Default</Button>
           <Button size="lg">Large</Button>
           <Button size="icon" aria-label="Add">
-            <Plus className="size-4" />
+            <Icon name="plus" className="size-4" />
           </Button>
         </div>
       </Preview>
@@ -985,46 +979,67 @@ const CONTRAST_PAIRS: Array<{
   bgVar: string
 }> = [
   {
-    label: 'Foreground on background',
+    label: 'Text on background',
     fgVar: 'var(--foreground)',
     bgVar: 'var(--background)',
-    fg: { L: 0.19, C: 0.018, h: 260 },
-    bg: { L: 0.995, C: 0.002, h: 260 },
+    fg: { L: 0.19, C: 0.018, h: 259.7 },
+    bg: { L: 0.995, C: 0.003, h: 286.4 },
   },
   {
-    label: 'Muted-foreground on background',
+    label: 'Text muted on surface',
     fgVar: 'var(--muted-foreground)',
-    bgVar: 'var(--background)',
-    fg: { L: 0.5, C: 0.02, h: 260 },
-    bg: { L: 0.995, C: 0.002, h: 260 },
+    bgVar: 'var(--card)',
+    fg: { L: 0.501, C: 0.02, h: 259.4 },
+    bg: { L: 1, C: 0, h: 89.9 },
   },
   {
-    label: 'Muted-foreground on muted',
-    fgVar: 'var(--muted-foreground)',
+    label: 'Text faint on surface muted',
+    fgVar: 'var(--faint-foreground)',
     bgVar: 'var(--muted)',
-    fg: { L: 0.5, C: 0.02, h: 260 },
-    bg: { L: 0.968, C: 0.005, h: 260 },
+    fg: { L: 0.55, C: 0.019, h: 259.4 },
+    bg: { L: 0.979, C: 0.003, h: 264.5 },
   },
   {
-    label: 'Primary-foreground on primary',
+    label: 'On-accent on primary',
     fgVar: 'var(--primary-foreground)',
     bgVar: 'var(--primary)',
-    fg: { L: 0.985, C: 0.002, h: 255 },
-    bg: { L: 0.55, C: 0.19, h: 255 },
+    fg: { L: 1, C: 0, h: 89.9 },
+    bg: { L: 0.551, C: 0.188, h: 256 },
   },
   {
-    label: 'Destructive-foreground on destructive',
-    fgVar: 'var(--destructive-foreground)',
-    bgVar: 'var(--destructive)',
-    fg: { L: 0.985, C: 0.002, h: 27 },
-    bg: { L: 0.55, C: 0.21, h: 27 },
-  },
-  {
-    label: 'Foreground on card',
-    fgVar: 'var(--foreground)',
+    label: 'Link on surface',
+    fgVar: 'var(--link)',
     bgVar: 'var(--card)',
-    fg: { L: 0.19, C: 0.018, h: 260 },
-    bg: { L: 1, C: 0, h: 0 },
+    fg: { L: 0.551, C: 0.188, h: 256 },
+    bg: { L: 1, C: 0, h: 89.9 },
+  },
+  {
+    label: 'Danger text on danger wash',
+    fgVar: 'var(--danger-text)',
+    bgVar: 'var(--danger-wash)',
+    fg: { L: 0.5, C: 0.182, h: 29.5 },
+    bg: { L: 0.959, C: 0.017, h: 17.5 },
+  },
+  {
+    label: 'Warning text on warning wash',
+    fgVar: 'var(--warning-text)',
+    bgVar: 'var(--warning-wash)',
+    fg: { L: 0.508, C: 0.108, h: 73.3 },
+    bg: { L: 0.976, C: 0.031, h: 91 },
+  },
+  {
+    label: 'Success text on success wash',
+    fgVar: 'var(--success-text)',
+    bgVar: 'var(--success-wash)',
+    fg: { L: 0.457, C: 0.108, h: 154 },
+    bg: { L: 0.954, C: 0.022, h: 164.5 },
+  },
+  {
+    label: 'Inverse text on inverse background',
+    fgVar: 'var(--inverse-text)',
+    bgVar: 'var(--inverse-bg)',
+    fg: { L: 1, C: 0, h: 89.9 },
+    bg: { L: 0.19, C: 0.018, h: 259.7 },
   },
 ]
 
@@ -1052,7 +1067,7 @@ function ContrastGrid() {
               <span
                 className={cn(
                   'font-semibold',
-                  aa === 'pass' ? 'text-emerald-600' : 'text-red-600',
+                  aa === 'pass' ? 'text-success-text' : 'text-danger-text',
                 )}
               >
                 {aa === 'pass' ? 'AA pass' : 'AA fail'}
@@ -1287,14 +1302,14 @@ function AppShellPreview() {
               <span aria-hidden="true">/</span>
               <span className="text-foreground">EXP-2174</span>
               <span className="ml-auto inline-flex items-center gap-1 rounded-md border px-2 py-0.5">
-                <Search className="size-3" /> Search
+                <Icon name="search" className="size-3" /> Search
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
               The live shell wraps{' '}
               <code className="text-foreground">/projects</code> with a
               fixed/collapsible sidebar, mobile Sheet navigation, command
-              palette, theme/density/sign-out and an optional inspector pane.
+              palette, theme/sign-out and an optional inspector pane.
             </p>
           </div>
         </div>

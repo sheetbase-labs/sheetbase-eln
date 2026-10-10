@@ -85,9 +85,9 @@ beforeAll(async () => {
       ('${WS_B}', '${OWNER_B}', 'owner')`,
   )
   await migrator.query(
-    `INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'sci003-a', 'SCI003 Project A'),
-      ('${PROJ_B}', '${WS_B}', 'sci003-b', 'SCI003 Project B')`,
+    `INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'sci003-a', 'SCI003 Project A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'sci003-b', 'SCI003 Project B', '${OWNER_B}')`,
   )
 })
 
@@ -155,12 +155,18 @@ async function insertFileObjectRaw(
   ownerId: string,
   status = 'active',
 ): Promise<string> {
-  const { rows } = await conn.query(
+  // No RETURNING: the restrictive read policy resolves the new row through a
+  // STABLE access function, which uses the statement snapshot and so cannot see
+  // the row this statement is inserting.
+  await conn.query(
     `INSERT INTO api.file_objects
       (workspace_id, record_id, storage_key, display_name, media_type, byte_size, status, storage_backend, created_by_user_id, updated_by_user_id)
-     VALUES ($1, $2, $3, 'file.csv', 'text/csv', 128, $4, 'local', $5, $5)
-     RETURNING id::text`,
+     VALUES ($1, $2, $3, 'file.csv', 'text/csv', 128, $4, 'local', $5, $5)`,
     [workspaceId, recordId, storageKey, status, ownerId],
+  )
+  const { rows } = await conn.query(
+    `SELECT id::text FROM api.file_objects WHERE storage_key = $1`,
+    [storageKey],
   )
   return rows[0].id
 }
@@ -540,7 +546,7 @@ describe('SCI-003 create_file_upload transactional RPC', () => {
     )
     expect(rows).toHaveLength(1)
     expect(rows[0].record_id).toBeTruthy()
-    expect(rows[0].identifier).toMatch(/^FILE-\d{4}-\d{4}$/)
+    expect(rows[0].identifier).toMatch(/^FILE-\d{4}$/)
     expect(rows[0].file_object_id).toBe(fileObjectId)
     expect(rows[0].storage_key).toBe(storageKey)
 

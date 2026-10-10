@@ -1,0 +1,59 @@
+Projects
+Projects
+24
+Import
+New project
+All 24 Mine 6 In progress 9 In review 3 Archived 12
+Table
+Filter · 1
+Sort: Updated
+Group
+Search projects
+Fields
+Status is not Archived
++ Add filter
+|
+|
+| ID | Project | Client | Stage | Lead | Experiments | Status
+| | PRJ-0217 | AAV9 process transfer | CL-017 | Tech transfer | Gareth P. | 14 | In progress
+| | PRJ-0214 | LVV stability, 2–8 °C hold | CL-009 | Process development | Priya S. | 9 | In review
+| | PRJ-0211 | CAR-T expansion media screen | CL-022 | Process development | Tom H. | 21 | In progress
+| | PRJ-0209 | AAV full/empty assay qualification | Internal | Analytical development | Mei L. | 6 | Complete
+| | PRJ-0205 | Ambr 250 perfusion scale-down | Internal | Process development | Gareth P. | 18 | In progress
+| | PRJ-0203 | LVV transfection optimisation | CL-009 | Process development | Priya S. | 11 | On hold
+| | PRJ-0198 | HEK293 cell bank characterisation | CL-014 | Analytical development | Mei L. | 7 | In review
+| | PRJ-0196 | AAV8 TFF concentration | CL-017 | Process development | Tom H. | 12 | In progress
+| | PRJ-0192 | Capsid ELISA method transfer | CL-011 | Tech transfer | Mei L. | 5 | Complete
+| | PRJ-0188 | T-cell activation reagent comparison | CL-022 | Process development | Tom H. | 8 | Complete
+| | PRJ-0185 | Plasmid lot release panel | Internal | QC | Priya S. | 4 | In progress
+| | PRJ-0181 | LVV downstream chromatography | CL-009 | Process development | Gareth P. | 15 | On hold
+| Archived projects are read-only. 12 archived projects are hidden by the “Status is not Archived” filter. Include archived
+12 projects 12 archived hidden by filter 1 selected
+PRJ-0217
+AAV9 process transfer
+In progress Open project
+Details
+Client
+CL-017
+Modality
+AAV9
+Stage
+Tech transfer
+Lead
+Gareth P.
+Members
+Gareth P., Priya S., Mei L. +2
+Started
+3 Aug 2026
+Milestone
+50 L engineering run · 6 Nov
+Experiments
+14 All
+EXP-0142 Harvest clarification In progress
+EXP-0138 Transfection ratio sweep In review
+EXP-0136 Seeding density at transfection Approved
+EXP-0133 Harvest timing: 48, 72 and 96 h Approved
+Recent activity
+09:32 You edited EXP-0142 sheet, row 9
+24 Sep Priya S. submitted EXP-0138 for review
+19 Sep Mei L. approved EXP-0136

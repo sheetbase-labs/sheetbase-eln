@@ -1,0 +1,44 @@
+Project settings, AAV9 process transfer
+Projects / PRJ-0217
+AAV9 process transfer
+Members
+New experiment
+In progress Client CL-017 AAV9 Tech transfer Lead Gareth P. Started 3 Aug 2026
+Overview Experiments 14 Samples 86 Datasets 23 Files 17 Members 5 Settings
+Project details
+Name
+Client CL-017 ▾
+Modality AAV9 ▾
+Stage Tech transfer ▾
+Default reviewer Mei L. ▾
+Agreement reference Shown on exported PDFs and the client portal.
+Records
+Only effective protocols can start experiments Drafts and retired versions can’t be used as templates here.
+Require a reviewer who didn’t author the record Share approved records with the client portal automatically When off, the lead shares each record by hand.
+Save changes Cancel
+Archive project
+Archiving makes every record read-only and removes the project from lists. Signed records stay available for audit. 1 experiment is still in progress. Archive…
+Details
+ID
+PRJ-0217
+Client
+CL-017
+Modality
+AAV9
+Stage
+Tech transfer
+Agreement
+MSA-017 · SOW-04
+Default reviewer
+Mei L.
+Members
+5 Manage
+Gareth P. Lead
+Priya S. Editor
+Mei L. Reviewer
+Sam R. Editor · joined today
+QA group Viewer
+Client access
+CL-017 sees approved records only, through the client portal. 2 client users.
+Open reviews
+EXP-0138 · due 29 Sep · you

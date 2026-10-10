@@ -1,150 +1,92 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
-import { KeyRound } from 'lucide-react'
-
-import { useShell } from '#/components/app-shell'
-import { SettingsApiTokens } from '#/components/settings/settings-api-tokens'
-import { Button } from '#/components/ui'
 import {
-  createPersonalTokenFn,
-  listPersonalTokensFn,
-  personalTokenQueryKey,
-  revokePersonalTokenFn,
-  rotatePersonalTokenFn,
-} from '#/lib/personal-api-tokens'
-import type { CreatedPersonalTokenWire } from '#/lib/personal-api-tokens'
-import type { Scope } from '#/lib/api-credential-scopes'
+  Link,
+  Outlet,
+  createFileRoute,
+  redirect,
+  useLocation,
+} from '@tanstack/react-router'
 
+import { cn } from '#/lib/utils'
+import { settingsNavForRole } from '#/components/v3/settings/settings-nav'
+import type { SettingsNavItem } from '#/components/v3/settings/settings-nav'
+
+/** UI port (roadmap-4/ui-app3): the settings shell. Sections are grouped
+ * workspace / account exactly as app-3, and the nav lists only routes that
+ * exist so no link 404s. SHELL-01.2: workspace administration sections are
+ * omitted for a role that cannot open them (see `settings-nav.ts`). */
 export const Route = createFileRoute('/settings')({
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) {
+      throw redirect({ to: '/sign-in' })
+    }
     return { context }
   },
-  component: SettingsRoute,
+  component: SettingsLayout,
 })
 
-function SettingsRoute() {
+function SettingsLayout() {
+  const { pathname } = useLocation()
   const { context } = Route.useRouteContext()
-  const queryClient = useQueryClient()
-  const workspaceId = context.workspace?.id ?? ''
-  const [revealed, setRevealed] = useState<CreatedPersonalTokenWire | null>(
-    null,
-  )
-
-  useShell({
-    context: {
-      workspace: context.workspace ? { name: context.workspace.name } : null,
-      user: {
-        name: context.user.name,
-        email: context.user.email,
-        role: context.workspace?.role,
-      },
-    },
-  })
-
-  const query = useQuery({
-    queryKey: personalTokenQueryKey(context.user.id, workspaceId),
-    queryFn: () => listPersonalTokensFn({ data: { workspaceId } }),
-    enabled: Boolean(workspaceId),
-  })
-
-  const invalidate = () =>
-    queryClient.invalidateQueries({
-      queryKey: personalTokenQueryKey(context.user.id, workspaceId),
-    })
-
-  const createToken = useMutation({
-    mutationFn: ({
-      name,
-      scopes,
-      expiresAt,
-    }: {
-      name: string
-      scopes: Scope[]
-      expiresAt: string | null
-    }) =>
-      createPersonalTokenFn({
-        data: { workspaceId, name, scopes, expiresAt },
-      }),
-    onSuccess: (created) => {
-      setRevealed(created)
-      invalidate()
-    },
-  })
-
-  const revokeToken = useMutation({
-    mutationFn: (tokenId: string) =>
-      revokePersonalTokenFn({ data: { workspaceId, tokenId } }),
-    onSuccess: invalidate,
-  })
-
-  const rotateToken = useMutation({
-    mutationFn: (tokenId: string) =>
-      rotatePersonalTokenFn({ data: { workspaceId, tokenId } }),
-    onSuccess: (created) => {
-      setRevealed(created)
-      invalidate()
-    },
-  })
-
+  const { workspace, account } = settingsNavForRole(context.workspace?.role)
+  const item = (i: SettingsNavItem) => {
+    const on = i.match(pathname)
+    return (
+      <Link
+        key={i.label}
+        {...i.link}
+        aria-current={on ? 'page' : undefined}
+        className={cn(
+          'block rounded-md px-2.5 py-1.5 text-body text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline',
+          on && 'bg-selection font-medium hover:bg-selection',
+        )}
+      >
+        {i.label}
+      </Link>
+    )
+  }
   return (
-    <div className="space-y-8">
-      <div className="space-y-1">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <KeyRound className="size-4" /> Settings
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Personal API tokens act as you. Workspace service credentials are
-          managed by owners in{' '}
-          <Link
-            to="/admin/$section"
-            params={{ section: 'api-credentials' }}
-            search={{ model: undefined }}
-            className="font-medium text-primary hover:underline"
-          >
-            Administration
-          </Link>
-          .
-        </p>
+    <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
+      <nav
+        aria-label="Settings"
+        className="hidden w-[220px] shrink-0 flex-col gap-px overflow-y-auto border-r border-border-subtle px-3 py-4 lg:flex"
+      >
+        {workspace.length > 0 ? (
+          <div className="px-2.5 pb-1 pt-2 text-label font-medium text-fg-muted">
+            Workspace
+          </div>
+        ) : null}
+        {workspace.map(item)}
+        <div className="px-2.5 pb-1 pt-4 text-label font-medium text-fg-muted">
+          Account
+        </div>
+        {account.map(item)}
+      </nav>
+      <nav
+        aria-label="Settings sections"
+        className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border-subtle px-4 py-2 [scrollbar-width:none] md:px-6 lg:hidden"
+      >
+        {[...workspace, ...account].map((i) => {
+          const on = i.match(pathname)
+          return (
+            <Link
+              key={i.label}
+              {...i.link}
+              aria-current={on ? 'page' : undefined}
+              className={cn(
+                'inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-border px-3 text-label text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-md:h-9',
+                on &&
+                  'border-selection-border bg-selection font-medium hover:bg-selection',
+              )}
+            >
+              {i.label}
+            </Link>
+          )
+        })}
+      </nav>
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto">
+        <Outlet />
       </div>
-
-      {createToken.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {createToken.error instanceof Error
-            ? createToken.error.message
-            : 'Could not create the token.'}
-        </p>
-      )}
-
-      {query.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : (
-        <SettingsApiTokens
-          tokens={query.data ?? []}
-          revealed={revealed}
-          onCreate={(name, scopes, expiresAt) =>
-            createToken.mutate({ name, scopes, expiresAt })
-          }
-          onRevoke={(tokenId) => revokeToken.mutate(tokenId)}
-          onRotate={(tokenId) => rotateToken.mutate(tokenId)}
-          onDismissRevealed={() => setRevealed(null)}
-        />
-      )}
-
-      {query.isError ? (
-        <Button
-          variant="outline"
-          onClick={() =>
-            void queryClient.invalidateQueries({
-              queryKey: personalTokenQueryKey(context.user.id, workspaceId),
-            })
-          }
-        >
-          Retry
-        </Button>
-      ) : null}
     </div>
   )
 }

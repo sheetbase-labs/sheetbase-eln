@@ -1,0 +1,49 @@
+Project members, AAV9 process transfer
+Projects / PRJ-0217
+AAV9 process transfer
+Members
+New experiment
+In progress Client CL-017 AAV9 Tech transfer Lead Gareth P. Started 3 Aug 2026
+Overview Experiments 14 Samples 86 Datasets 23 Files 17 Members 5 Settings
+Team
+5 Add people
+| | Person | Project role | Access | Groups | Training | Added |
+| Gareth P. gareth.p | Lead | Editor | Process Development leads | Current | 3 Aug | Change role…
+| Priya S. priya.s | Scientist | Editor | Upstream | Current | 3 Aug | Change role…
+| Mei L. mei.l | Default reviewer | Reviewer | Analytical | Current | 3 Aug | Change role…
+| Sam R. sam.r | Scientist | Editor | Downstream | PRT-021 v3 to read | Today | Change role…
+| QA group 3 people | Oversight | Viewer | QA | — | 3 Aug | Change role…
+Client access
+2 Invite client user
+People from CL-017 see approved records through the client portal . They never see drafts, comments or raw data.
+| | Client user | Access | Can see | Added |
+| CL-017 · J. Kowalski | Client viewer | Approved records only | 23 Sep | Remove
+| CL-017 · R. Adeyemi | Client viewer | Approved records only | 12 Sep | Remove
+How access works
+Editor Creates and edits experiments, samples and datasets here. Signs as author.
+Reviewer Everything an editor can do, plus review and sign others’ records in this project.
+Viewer Reads, comments and exports. Can request edit access.
+Details
+ID
+PRJ-0217
+Client
+CL-017
+Modality
+AAV9
+Stage
+Tech transfer
+Agreement
+MSA-017 · SOW-04
+Default reviewer
+Mei L.
+Members
+5 Manage
+Gareth P. Lead
+Priya S. Editor
+Mei L. Reviewer
+Sam R. Editor · joined today
+QA group Viewer
+Client access
+CL-017 sees approved records only, through the client portal. 2 client users.
+Open reviews
+EXP-0138 · due 29 Sep · you

@@ -4,10 +4,7 @@
  * `validate_sheet_record_batch` / `create_model_record`.
  */
 import type { DataClient } from './data-client'
-import {
-  commitDatasetRowBatch,
-  validateDatasetRowBatch,
-} from './dataset-product'
+import { validateDatasetRowBatch } from './dataset-product'
 import type { DatasetCommitResult } from './dataset-product'
 import { assertPinnedSchemaVersion } from './import-mapping'
 import type { MappedImport } from './import-mapping'
@@ -18,6 +15,9 @@ export interface DatasetImportTarget {
   datasetId: string
   expectedRevision: number
   schemaVersionId: string
+  fileId: string
+  parserId: string
+  parserVersionId: string
 }
 
 export interface RecordImportTarget {
@@ -78,6 +78,7 @@ async function commitDatasetImport(
     operation: 'create' as const,
     rowId: row.rowId,
     values: row.values,
+    ...(row.plannedKey ? { plannedKey: row.plannedKey } : {}),
   }))
   const validated = await validateDatasetRowBatch(client, {
     datasetId: target.datasetId,
@@ -87,12 +88,20 @@ async function commitDatasetImport(
   if (!validated.ok) {
     return datasetReport(validated, target.schemaVersionId, 0)
   }
-  const committed = await commitDatasetRowBatch(client, {
-    datasetId: target.datasetId,
-    expectedRevision: target.expectedRevision,
-    rows,
-    idempotencyKey,
-  })
+  const committed = await client.rpc<DatasetCommitResult>(
+    'commit_dataset_import',
+    {
+      p_dataset_id: target.datasetId,
+      p_expected_dataset_revision: target.expectedRevision,
+      p_rows: rows,
+      p_idempotency_key: idempotencyKey,
+      p_file_id: target.fileId,
+      p_parser_id: target.parserId,
+      p_parser_version_id: target.parserVersionId,
+      p_mapping: {},
+      p_outcome: { total: rows.length, added: rows.length },
+    },
+  )
   return datasetReport(
     committed,
     target.schemaVersionId,
@@ -199,7 +208,7 @@ async function commitRecordImport(
 }
 
 function defaultRecordStatus(kind: string): string {
-  if (kind === 'sample' || kind === 'reagent') return 'available'
+  if (kind === 'sample' || kind === 'material') return 'available'
   return 'draft'
 }
 

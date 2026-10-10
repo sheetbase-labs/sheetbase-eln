@@ -2,7 +2,7 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
-import { prepareTestDatabase } from './helpers'
+import { grantProjectAccess, prepareTestDatabase } from './helpers'
 
 const WS = '06700000-0000-4000-8000-000000000001'
 const PROJECT = '06700000-0000-4000-8000-000000000002'
@@ -117,9 +117,37 @@ beforeAll(async () => {
     [WS, OWNER, MEMBER, REVIEWER],
   )
   await migrator.query(
-    `insert into api.projects(id,workspace_id,key,title) values ($1,$2,'C67','CORE-06.7')`,
-    [PROJECT, WS],
+    `insert into internal.session(id,token,"userId","expiresAt") values
+      ($1,$1,$2,now()+interval '1 hour'),
+      ($3,$3,$4,now()+interval '1 hour'),
+      ($5,$5,$6,now()+interval '1 hour')`,
+    [
+      `session-${OWNER}`,
+      OWNER,
+      `session-${MEMBER}`,
+      MEMBER,
+      `session-${REVIEWER}`,
+      REVIEWER,
+    ],
   )
+  await migrator.query(
+    `insert into api.projects(id,workspace_id,key,title,lead_user_id) values ($1,$2,'C67','CORE-06.7',$3)`,
+    [PROJECT, WS, OWNER],
+  )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: MEMBER,
+    canView: true,
+    canEdit: true,
+  })
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: REVIEWER,
+    canView: true,
+    canEdit: true,
+  })
 })
 
 afterAll(async () => {
@@ -148,7 +176,7 @@ describe('CORE-06.7 / 06.8 / 06.13 frozen Sheet evidence', () => {
     ).rows[0].result
     const publishedA = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [templateA.version.id, templateA.version.revision],
       )
     ).rows[0].result
@@ -159,7 +187,7 @@ describe('CORE-06.7 / 06.8 / 06.13 frozen Sheet evidence', () => {
       )
     ).rows[0].result
     await owner.query(
-      `select api.publish_notebook_template_version($1,$2)`,
+      `select api.publish_notebook_template_version($1,$2,'Published for test')`,
       [templateB.version.id, templateB.version.revision],
     )
 
@@ -238,7 +266,10 @@ describe('CORE-06.7 / 06.8 / 06.13 frozen Sheet evidence', () => {
         live.revision,
         crypto.randomUUID(),
         JSON.stringify([
-          { operation: 'add', field: field(crypto.randomUUID(), 'observation') },
+          {
+            operation: 'add',
+            field: field(crypto.randomUUID(), 'observation'),
+          },
         ]),
       ],
     )

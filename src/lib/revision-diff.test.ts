@@ -8,12 +8,201 @@ import {
 import { diffRevisionEnvelopes } from './revision-diff'
 
 describe('diffRevisionEnvelopes', () => {
+  it('does not invent cell additions when only one revision has stable row identities', () => {
+    const historical = revisionFixture()
+    historical.scientificTables = []
+    historical.formulas = []
+    historical.sheetEvidence = [
+      {
+        blockId: 'historical-sheet',
+        instanceId: 'instance',
+        instanceRevision: 1,
+        sourceDefinitionVersionId: 'definition',
+        datasetBindings: [],
+        instanceState: {},
+        composedGrid: { columns: [{ id: 'recovery' }], rows: [[81.25], [100]] },
+      },
+    ]
+    const current = structuredClone(historical)
+    current.sheetEvidence![0].composedGrid = {
+      columns: [{ id: 'recovery' }],
+      rowKeys: ['day0', 'day28'],
+      rows: [[100], [79.125]],
+    }
+    for (const [before, after] of [
+      [historical, current],
+      [current, historical],
+    ]) {
+      const diff = diffRevisionEnvelopes(before, after)
+      expect(diff.unavailableSheetComparisons).toEqual(['historical-sheet'])
+      expect(diff.changes).toEqual([])
+      expect(diff.tableSummaries).toEqual([])
+      expect(diff.unchanged).toBe(false)
+    }
+  })
+
+  it('compares persisted composed source cells by frozen row and column identities', () => {
+    const before = revisionFixture()
+    before.scientificTables = []
+    before.formulas = []
+    before.sheetEvidence = [
+      {
+        blockId: 'bound-sheet',
+        instanceId: 'instance',
+        instanceRevision: 1,
+        sourceDefinitionVersionId: 'definition',
+        datasetBindings: [],
+        instanceState: {},
+        composedGrid: {
+          columns: [
+            { id: 'time', label: 'Time' },
+            {
+              id: 'recovery',
+              label: 'Recovery',
+              quantity: { storageUnit: '%' },
+            },
+          ],
+          rowKeys: ['source:day0', 'source:day28'],
+          rows: [
+            [0, 100],
+            [28, 81.25],
+          ],
+        },
+      },
+    ]
+    const after = structuredClone(before)
+    after.sheetEvidence = [
+      {
+        ...before.sheetEvidence[0],
+        composedGrid: {
+          columns: [
+            {
+              id: 'recovery',
+              label: 'Recovery',
+              quantity: { storageUnit: '%' },
+            },
+            { id: 'time', label: 'Time' },
+          ],
+          rowKeys: ['source:day28', 'source:day0'],
+          rows: [
+            [79.125, 28],
+            [100, 0],
+          ],
+        },
+      },
+    ]
+    const diff = diffRevisionEnvelopes(before, after)
+    expect(diff.changes.filter((change) => change.rowId)).toEqual([
+      expect.objectContaining({
+        area: 'tables',
+        tableId: 'bound-sheet',
+        rowId: 'source:day28',
+        columnId: 'recovery',
+        before: 81.25,
+        after: 79.125,
+      }),
+    ])
+    expect(
+      diff.changes.filter((change) => change.kind === 'moved'),
+    ).toHaveLength(1)
+    expect(diff.tableSummaries[0]).toMatchObject({
+      modifiedCells: 1,
+      addedRows: 0,
+      removedRows: 0,
+      schemaChanges: 1,
+    })
+  })
+
+  it('compares frozen canonical Sheet cells by row key and field id, not display position', () => {
+    const before = revisionFixture()
+    before.scientificTables = []
+    before.formulas = []
+    before.sheetEvidence = [
+      {
+        blockId: 'sheet-block',
+        instanceId: 'sheet-instance',
+        instanceRevision: 2,
+        sourceDefinitionVersionId: null,
+        datasetBindings: [],
+        instanceState: {
+          localFields: [
+            {
+              fieldId: 'time',
+              key: 'time',
+              label: 'Time',
+              logicalType: 'integer',
+            },
+            {
+              fieldId: 'titer',
+              key: 'titer',
+              label: 'Log titer',
+              logicalType: 'decimal',
+            },
+          ],
+          localValues: {
+            day28: { time: 28, titer: 5.9 },
+            day0: { time: 0, titer: 7.2 },
+          },
+        },
+      },
+    ]
+    const after = structuredClone(before)
+    after.sheetEvidence = [
+      {
+        ...before.sheetEvidence[0],
+        instanceRevision: 3,
+        instanceState: {
+          localFields: [
+            {
+              fieldId: 'titer',
+              key: 'titer',
+              label: 'Log titer',
+              logicalType: 'decimal',
+            },
+            {
+              fieldId: 'time',
+              key: 'time',
+              label: 'Time',
+              logicalType: 'integer',
+            },
+          ],
+          localValues: {
+            day0: { time: 0, titer: 7.2 },
+            day28: { time: 28, titer: 5.7 },
+          },
+        },
+      },
+    ]
+    const diff = diffRevisionEnvelopes(before, after)
+    expect(diff.tableSummaries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tableId: 'sheet-block',
+          addedRows: 0,
+          removedRows: 0,
+          modifiedCells: 1,
+        }),
+      ]),
+    )
+    expect(diff.changes).toContainEqual(
+      expect.objectContaining({
+        area: 'tables',
+        tableId: 'sheet-block',
+        rowId: 'day28',
+        columnId: 'titer',
+        before: 5.9,
+        after: 5.7,
+      }),
+    )
+  })
+
   it('returns no meaningful changes for identical content or technical churn', () => {
     expect(diffRevisionEnvelopes(revisionFixture(), revisionFixture())).toEqual(
       {
         changes: [],
         counts: { added: 0, removed: 0, modified: 0, moved: 0 },
         tableSummaries: [],
+        unavailableSheetComparisons: [],
         unchanged: true,
       },
     )
@@ -21,6 +210,56 @@ describe('diffRevisionEnvelopes', () => {
       diffRevisionEnvelopes(revisionFixture(), technicalChurnRevisionFixture())
         .unchanged,
     ).toBe(true)
+  })
+
+  it('reports exact frozen Sheet calculation expression changes without evaluating formulas', () => {
+    const before = revisionFixture()
+    before.formulas = []
+    before.sheetEvidence = [
+      {
+        blockId: 'sheet-block',
+        instanceId: 'sheet-instance',
+        instanceRevision: 2,
+        sourceDefinitionVersionId: null,
+        datasetBindings: [],
+        instanceState: {
+          instanceCalculations: [
+            {
+              id: 'recovery',
+              label: 'Recovery',
+              lifecycle: 'active',
+              expression: {
+                language: 'sheetbase-formula-v1',
+                source: '=ROUND(A1 * 1.000, 4)',
+              },
+            },
+          ],
+        },
+      },
+    ]
+    const after = structuredClone(before)
+    after.sheetEvidence![0].instanceState = {
+      instanceCalculations: [
+        {
+          id: 'recovery',
+          label: 'Recovery',
+          lifecycle: 'active',
+          expression: {
+            language: 'sheetbase-formula-v1',
+            source: '=ROUND(A1 * 1.250, 4)',
+          },
+        },
+      ],
+    }
+    expect(diffRevisionEnvelopes(before, after).changes).toContainEqual(
+      expect.objectContaining({
+        area: 'formulas',
+        identity: 'sheet-block:recovery',
+        path: ['expression', 'source'],
+        before: '=ROUND(A1 * 1.000, 4)',
+        after: '=ROUND(A1 * 1.250, 4)',
+      }),
+    )
   })
 
   it('compares metadata, text and checklist state through reviewer values', () => {

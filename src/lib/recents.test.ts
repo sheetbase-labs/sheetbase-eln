@@ -2,15 +2,23 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildRecentItems,
+  describeRecentChange,
   fetchMyRecentSignals,
   fetchRecentItems,
+  recentStatusLabel,
   recordRecentView,
   resolveRecentItems,
   signalEventsFromChangeEvents,
 } from './recents'
 import type { DataClient } from './data-client'
 import type { ChangeEventRecordWire } from './notebook-data'
-import type { RecentObjectKind, RecentSignalEvent, RecentView } from './recents'
+import type {
+  DerivedRecentItem,
+  RecentItem,
+  RecentObjectKind,
+  RecentSignalEvent,
+  RecentView,
+} from './recents'
 
 // ---------------------------------------------------------------------------
 // Fixtures.
@@ -365,6 +373,100 @@ describe('resolveRecentItems', () => {
       derived('sheet', 's-gone'),
     ])
     expect(items).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Presentation helpers — last-change copy and canonical status labels.
+// ---------------------------------------------------------------------------
+
+describe('describeRecentChange', () => {
+  const item = (kind: RecentObjectKind, signal: RecentItem['signal']) =>
+    ({ kind, signal }) as Pick<RecentItem, 'kind' | 'signal'>
+
+  it('describes the newest action in the user’s words', () => {
+    expect(describeRecentChange(item('record', 'edited'))).toBe('Edited record')
+    expect(describeRecentChange(item('dataset', 'viewed'))).toBe(
+      'Viewed dataset',
+    )
+    expect(describeRecentChange(item('sheet', 'edited'))).toBe('Edited sheet')
+    expect(describeRecentChange(item('project', 'viewed'))).toBe(
+      'Viewed project',
+    )
+    expect(describeRecentChange(item('notebook_template', 'viewed'))).toBe(
+      'Viewed template',
+    )
+    expect(describeRecentChange(item('record', 'reviewed'))).toBe(
+      'Submitted for review',
+    )
+  })
+})
+
+describe('recentStatusLabel', () => {
+  it('maps canonical statuses and title-cases unknown ones', () => {
+    expect(recentStatusLabel({ status: 'in_progress' })).toBe('In progress')
+    expect(recentStatusLabel({ status: 'active' })).toBe('Active')
+    expect(recentStatusLabel({ status: 'archived' })).toBe('Archived')
+    expect(recentStatusLabel({ status: 'weird_state' })).toBe('Weird State')
+    expect(recentStatusLabel({ status: null })).toBeNull()
+  })
+})
+
+describe('resolveRecentItems status', () => {
+  function client(rows: Record<string, unknown[]>): DataClient {
+    return {
+      list: (resource: string) => Promise.resolve(rows[resource] ?? []),
+    } as unknown as DataClient
+  }
+  const derivedItem = (
+    kind: RecentObjectKind,
+    id: string,
+  ): DerivedRecentItem => ({
+    kind,
+    id,
+    lastActivityAt: T1,
+    signal: 'edited',
+    viewedAt: null,
+    editedAt: T1,
+    reviewedAt: null,
+  })
+
+  it('carries the canonical status for records and lifecycle objects', async () => {
+    const items = await resolveRecentItems(
+      client({
+        records: [
+          {
+            id: 'r-1',
+            kind: 'experiment',
+            identifier: 'EXP-1',
+            title: 'Run one',
+            status: 'in_progress',
+            archived_at: null,
+            deleted_at: null,
+          },
+        ],
+        datasets: [{ id: 'd-1', name: 'Assay', lifecycle: 'active' }],
+        projects: [
+          {
+            id: 'p-1',
+            key: 'LV-1',
+            title: 'Study',
+            status: 'active',
+            archived_at: null,
+          },
+        ],
+      }),
+      [
+        derivedItem('record', 'r-1'),
+        derivedItem('dataset', 'd-1'),
+        derivedItem('project', 'p-1'),
+      ],
+    )
+    expect(items.map((i) => [i.kind, i.status])).toEqual([
+      ['record', 'in_progress'],
+      ['dataset', 'active'],
+      ['project', 'active'],
+    ])
   })
 })
 

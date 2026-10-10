@@ -427,3 +427,30 @@ describe('materialiseFrozenFacets', () => {
     expect(materialiseFrozenFacets(plain)).toBeNull()
   })
 })
+
+describe('flagged-value exclusion (DSET-01.2)', () => {
+  it('drops a row whose charted field is flagged', () => {
+    const dataset: ResolvedDataset = {
+      ...makeDataset(),
+      rows: [
+        { c1: 0, c2: 7.2, c3: '4 °C', __sheetbaseRowId: 'r1' },
+        { c1: 28, c2: 5.9, c3: '4 °C', __sheetbaseRowId: 'r2' },
+      ],
+      flags: [
+        {
+          id: 'f1',
+          datasetId: DATASET_ID,
+          rowId: 'r2',
+          fieldId: 'c2',
+          kind: 'out_of_range',
+          reason: 'Above top standard',
+          comment: null,
+          setAt: '2026-09-25T09:40:00Z',
+        },
+      ],
+    }
+    const result = materialiseLiveChart(lineSpec(), dataset)
+    expect(result.rows).toHaveLength(1)
+    expect(result.rows[0].c2).toBe(7.2)
+  })
+})

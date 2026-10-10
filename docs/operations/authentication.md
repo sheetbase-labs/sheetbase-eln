@@ -50,6 +50,92 @@ the disposable database, storage and manual tunnel setup.
   `get-session`, `sign-out`.
 - `/api/db/*` — same-origin PostgREST proxy (see [Data API boundary](#data-api-boundary)).
 
+## Signing credential routes
+
+The following Better Auth HTTP paths return 404: `verify-password`,
+`change-password`, `request-password-reset`, `reset-password`, `sign-in/email`,
+and `sign-up/email`. These paths are disabled in `src/lib/auth.ts`. Better Auth's
+`setPassword` API is server-only and has no HTTP route.
+The application HTTP catchall also blocks the `reset-password/` token subtree.
+Better Auth's `disabledPaths` matches exact pathnames, not wildcard or parameter
+patterns. Trusted server calls to `auth.api.resetPassword` remain available.
+
+Disabling email sign-in alone does not close password verification, password
+changes, or redemption of an existing reset token. Those HTTP operations must
+not bypass the signing lockout or first-password enrolment authorisation.
+Better Auth's trusted server APIs remain available for the governed flow.
+GitHub sign-in and session lookup remain unchanged.
+
+### Identity, enrolment and recovery
+
+In **Settings → Electronic signatures**, the target requests verification with
+`request_signature_identity_verification()`. A different active owner/admin
+independently checks identity and email, then calls
+`verify_signature_identity(p_user_id, p_email)`. The email must exactly match
+the target's current account email. An initial workspace owner receives no
+self-verification exemption: invite another administrator first.
+
+Verification authorises that target's requested live session for 15 minutes.
+The target requests an enrolment or recovery secret from
+`POST /api/signatures/step-up`. The secret is delivered immediately to the
+independently verified email, expires in five minutes, and is bound to the
+user, session, workspace, purpose and independent authorisation. Only its
+SHA-256 hash is stored. Reissue invalidates older secrets, including when
+delivery fails. No secret belongs in the notification outbox, browser/admin
+responses or logs.
+
+First enrolment uses Better Auth's server-only `setPassword` and refuses an
+existing credential. Recovery repeats independent verification and spends the
+authorisation before calling Better Auth's trusted `requestPasswordReset` and
+`resetPassword` APIs. The configured reset callback redeems the library-owned
+token only inside that server-only recovery scope; it does not send a public
+reset link. Recovery revokes outstanding signing grants, certifications and
+old sessions. Sign in again and recertify afterwards.
+
+A credential-operation failure does not restore the spent authorisation.
+Request fresh independent verification before retrying. Better Auth may fail
+after changing credentials (for example, during session revocation); a failed
+response is not proof that the old password remains valid.
+
+### Password evidence and certification
+
+The step-up endpoint accepts same-origin POST requests with a real Better Auth
+session. It never uses the auth-free demo identity. Passwords are verified by
+Better Auth, not by application-owned hashes or a second credential engine.
+Three consecutive failures create a durable, user-wide 15-minute lockout and
+an audit entry, invalidate outstanding grants, and commit even on denial.
+Successful verification resets the consecutive-failure count.
+
+`purpose: "certify"` returns a five-minute single-use token. The database
+`certify_signature(p_workspace_id, 1, p_signing_token)` requires independent
+identity verification, the current verified email and that password evidence.
+The user agrees to the displayed statement before certification. Historical
+self-certifications do not meet the new gate; their stored evidence is not
+rewritten.
+
+`purpose: "sign"` additionally requires `submissionId` and `revisionDigest`.
+`sign_revision` requires its fifth `p_signing_token` argument, exact
+submission/digest binding, current certification and the existing reviewer,
+writer, approval, checks, name-confirmation and revision guards. Consumption
+and immutable signature insertion are atomic; the new evidence records
+`auth_method: "password"`. Historical signature rows remain unchanged.
+`purpose: "practice"` is consumed by `practice_signature(p_signing_token)` and
+records an authentication event, not a real record signature.
+
+The endpoint returns `{token, expiresAt, authMethod: "password"}` only for
+password evidence. Secret requests return `{delivered: true, expiresAt}`;
+credential completion returns `{completed: true, signInAgain}`. Enrolment and
+recovery never return the email secret or Better Auth reset token.
+
+The SMTP transport in `src/lib/email-delivery.server.ts` uses implicit TLS on
+port 465 and requires STARTTLS on other ports. It requires TLS 1.2 or later,
+validates certificates, and refuses plaintext fallback. The local handshake
+tests prove these controls, not production SMTP delivery or provider step-up.
+Missing SMTP configuration, a missing transport, or failed delivery must deny
+enrolment. GitHub OAuth is sign-in only, not fresh provider assurance. No IdP
+step-up is configured; unsupported provider requests fail closed. Live SMTP and
+IdP acceptance remain separate from the local password/transport proof.
+
 ## Data API boundary
 
 The browser never talks to PostgREST directly. Authenticated CRUD goes to
@@ -79,9 +165,9 @@ defensive — missing, empty or malformed claims yield `NULL`, never an error.
 
 ## Cookie policy
 
-Session cookies are HTTP-only and `SameSite=Lax` (Lax permits the OAuth
-callback round-trip while blocking cross-site POSTs). `Secure` is enabled
-only in production, where HTTPS exists. The cookie value is the session
+Session cookies are HTTP-only, `SameSite=None` and `Secure`, matching the current
+Better Auth configuration for the cross-site OAuth callback. Signing POSTs
+additionally require the request's Origin to match its URL origin. The cookie value is the session
 token signed with `BETTER_AUTH_SECRET`; the token itself is the credential
 looked up in `internal.session`.
 
@@ -100,6 +186,11 @@ unauthenticated access against a real database without live GitHub calls:
 sessions are written directly to the identity tables, exactly what the OAuth
 callback does after consent, and cookies are signed with the same HMAC
 format Better Auth uses.
+
+The same suite checks the restricted HTTP password routes and verifies local
+passwords through Better Auth's server API without creating another session.
+Its `setPassword` call provisions a test fixture, not a product enrolment flow.
+It does not prove GitHub provider step-up or live SMTP delivery.
 
 `tests/db/postgrest-claims.test.ts` proves the AUTH-003 claim contract: a
 token minted by `mintPostgrestToken` is verified with the server secret and,

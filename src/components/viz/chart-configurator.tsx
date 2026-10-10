@@ -1,24 +1,17 @@
 import {
   BarChart3,
-  Box,
   Grid3x3,
   LineChart as LineChartIcon,
-  Plus,
   ScatterChart,
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
-import {
-  Button,
-  ButtonGroup,
-  Field,
-  FieldGroup,
-  FieldLabel,
-  Input,
-  Select,
-} from '#/components/ui'
+import { Icon } from '#/components/icons'
+import { Button } from '#/components/v3/ui/button'
+import { Input } from '#/components/v3/ui/input'
+import { NativeSelect } from '#/components/v3/projects/select'
 import {
   CARTESIAN_CHART_TYPES,
   CHART_TYPES,
@@ -106,8 +99,8 @@ export function ChartConfigurator({
     grouped_bar: <BarChart3 className="size-3.5" aria-hidden />,
     stacked_bar: <BarChart3 className="size-3.5" aria-hidden />,
     histogram: <BarChart3 className="size-3.5 rotate-90" aria-hidden />,
-    box: <Box className="size-3.5" aria-hidden />,
-    violin: <Box className="size-3.5" aria-hidden />,
+    box: <Icon name="box" className="size-3.5" aria-hidden />,
+    violin: <Icon name="box" className="size-3.5" aria-hidden />,
     strip: <ScatterChart className="size-3.5" aria-hidden />,
     summary: <BarChart3 className="size-3.5" aria-hidden />,
     heatmap: <Grid3x3 className="size-3.5" aria-hidden />,
@@ -335,8 +328,8 @@ export function ChartConfigurator({
     <Button
       key={type}
       type="button"
-      variant={spec.type === type ? 'default' : 'outline'}
-      size={layout === 'rail' ? 'icon-sm' : 'sm'}
+      variant={spec.type === type ? 'primary' : 'secondary'}
+      size={layout === 'rail' ? 'icon' : 'sm'}
       role="radio"
       aria-checked={spec.type === type}
       aria-label={CHART_TYPE_LABELS[type]}
@@ -364,14 +357,14 @@ export function ChartConfigurator({
       <div className="flex flex-wrap items-center gap-2" data-print-hide>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={proposeFromDataset}
         >
           Propose chart
         </Button>
         {proposalStatus ? (
-          <p className="text-xs text-muted-foreground">{proposalStatus}</p>
+          <p className="text-xs text-fg-muted">{proposalStatus}</p>
         ) : null}
       </div>
       {chartProposal ? (
@@ -384,15 +377,15 @@ export function ChartConfigurator({
           onDiscard={() => setChartProposal(null)}
         />
       ) : null}
-      <FieldGroup
+      <div
         className={
           layout === 'rail'
             ? 'flex flex-col gap-3'
             : 'flex flex-wrap items-end gap-3'
         }
       >
-        <Field className={layout === 'rail' ? 'w-full' : 'min-w-fit shrink-0'}>
-          <FieldLabel>Chart type</FieldLabel>
+        <div className={layout === 'rail' ? 'w-full' : 'min-w-fit shrink-0'}>
+          <label className="text-label text-fg-muted">Chart type</label>
           {layout === 'rail' ? (
             <div
               role="radiogroup"
@@ -402,25 +395,32 @@ export function ChartConfigurator({
               {typeButtons}
             </div>
           ) : (
-            <ButtonGroup role="radiogroup" aria-label="Chart type">
+            <div
+              role="radiogroup"
+              aria-label="Chart type"
+              className="flex items-center gap-1"
+            >
               {typeButtons}
-            </ButtonGroup>
+            </div>
           )}
-        </Field>
+        </div>
         {fields.map((field) => (
-          <Field
+          <div
             key={field.key}
             className={layout === 'rail' ? 'w-full' : 'min-w-36 flex-1'}
           >
-            <FieldLabel htmlFor={`${idPrefix}-${field.key}`}>
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-${field.key}`}
+            >
               {field.label}
-            </FieldLabel>
-            <Select
+            </label>
+            <NativeSelect
               id={`${idPrefix}-${field.key}`}
               aria-label={field.ariaLabel}
               value={field.value}
               onChange={(event) => setField(field.key, event.target.value)}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               {field.empty ? <option value="">{field.empty}</option> : null}
               {field.columns.map((column) => (
@@ -428,16 +428,19 @@ export function ChartConfigurator({
                   {column.label}
                 </option>
               ))}
-            </Select>
-          </Field>
+            </NativeSelect>
+          </div>
         ))}
-      </FieldGroup>
-      <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor={`${idPrefix}-aggregation`}>
+      </div>
+      <div className="flex flex-wrap items-end gap-3 pt-2.5">
+        <div className="min-w-36 flex-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor={`${idPrefix}-aggregation`}
+          >
             Aggregation
-          </FieldLabel>
-          <Select
+          </label>
+          <NativeSelect
             id={`${idPrefix}-aggregation`}
             aria-label="Aggregation function"
             value={
@@ -448,7 +451,7 @@ export function ChartConfigurator({
             onChange={(event) =>
               setTransformation('aggregate', event.target.value)
             }
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           >
             <option value="">None (raw rows)</option>
             <option value="mean">Mean (by x)</option>
@@ -456,13 +459,16 @@ export function ChartConfigurator({
             <option value="min">Minimum (by x)</option>
             <option value="max">Maximum (by x)</option>
             <option value="count">Count (by x)</option>
-          </Select>
-        </Field>
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor={`${idPrefix}-normalisation`}>
+          </NativeSelect>
+        </div>
+        <div className="min-w-36 flex-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor={`${idPrefix}-normalisation`}
+          >
             Normalisation
-          </FieldLabel>
-          <Select
+          </label>
+          <NativeSelect
             id={`${idPrefix}-normalisation`}
             aria-label="Normalisation method"
             value={
@@ -473,24 +479,27 @@ export function ChartConfigurator({
             onChange={(event) =>
               setTransformation('normalise', event.target.value)
             }
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           >
             <option value="">None</option>
             <option value="percent_of_max">Percent of maximum</option>
             <option value="z_score">Z-score</option>
-          </Select>
-        </Field>
+          </NativeSelect>
+        </div>
         {errorColumns.length ? (
-          <Field className="min-w-40 flex-1">
-            <FieldLabel htmlFor={`${idPrefix}-error-column`}>
+          <div className="min-w-40 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-error-column`}
+            >
               Error bars
-            </FieldLabel>
-            <Select
+            </label>
+            <NativeSelect
               id={`${idPrefix}-error-column`}
               aria-label="Error bar column"
               value={spec.overlays.errorBars?.fieldId ?? ''}
               onChange={(event) => setErrorBarColumn(event.target.value)}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               <option value="">None</option>
               {errorColumns.map((column) => (
@@ -498,14 +507,19 @@ export function ChartConfigurator({
                   {column.label}
                 </option>
               ))}
-            </Select>
-          </Field>
+            </NativeSelect>
+          </div>
         ) : null}
-      </FieldGroup>
-      <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor={`${idPrefix}-fit`}>Linear fit</FieldLabel>
-          <Select
+      </div>
+      <div className="flex flex-wrap items-end gap-3 pt-2.5">
+        <div className="min-w-36 flex-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor={`${idPrefix}-fit`}
+          >
+            Linear fit
+          </label>
+          <NativeSelect
             id={`${idPrefix}-fit`}
             aria-label="Linear fit"
             value={spec.overlays.fit?.method === 'ols' ? 'ols' : ''}
@@ -525,15 +539,20 @@ export function ChartConfigurator({
                 },
               })
             }
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           >
             <option value="">None</option>
             <option value="ols">OLS linear</option>
-          </Select>
-        </Field>
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor={`${idPrefix}-error-source`}>Interval</FieldLabel>
-          <Select
+          </NativeSelect>
+        </div>
+        <div className="min-w-36 flex-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor={`${idPrefix}-error-source`}
+          >
+            Interval
+          </label>
+          <NativeSelect
             id={`${idPrefix}-error-source`}
             aria-label="Error bar interval"
             value={
@@ -562,21 +581,24 @@ export function ChartConfigurator({
                 },
               })
             }}
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           >
             <option value="">None</option>
             <option value="sd">Grouped SD</option>
             <option value="sem">Grouped SEM</option>
             <option value="ci">Grouped 95% CI</option>
             <option value="field">Explicit field</option>
-          </Select>
-        </Field>
-      </FieldGroup>
-      <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
-        <Field className="min-w-36 flex-1">
-          <FieldLabel htmlFor={`${idPrefix}-ref-hline`}>
+          </NativeSelect>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-end gap-3 pt-2.5">
+        <div className="min-w-36 flex-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor={`${idPrefix}-ref-hline`}
+          >
             Horizontal reference
-          </FieldLabel>
+          </label>
           <Input
             id={`${idPrefix}-ref-hline`}
             aria-label="Horizontal reference"
@@ -610,15 +632,20 @@ export function ChartConfigurator({
                 },
               })
             }}
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
             placeholder="None"
           />
-        </Field>
-      </FieldGroup>
+        </div>
+      </div>
       {spec.type === 'histogram' ? (
-        <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
-          <Field className="min-w-32 flex-1">
-            <FieldLabel htmlFor={`${idPrefix}-histogram-bins`}>Bins</FieldLabel>
+        <div className="flex flex-wrap items-end gap-3 pt-2.5">
+          <div className="min-w-32 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-histogram-bins`}
+            >
+              Bins
+            </label>
             <Input
               id={`${idPrefix}-histogram-bins`}
               aria-label="Histogram bin count"
@@ -636,13 +663,16 @@ export function ChartConfigurator({
                   binWidth: undefined,
                 })
               }
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             />
-          </Field>
-          <Field className="min-w-32 flex-1">
-            <FieldLabel htmlFor={`${idPrefix}-histogram-bin-width`}>
+          </div>
+          <div className="min-w-32 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-histogram-bin-width`}
+            >
               Bin width (overrides bins)
-            </FieldLabel>
+            </label>
             <Input
               id={`${idPrefix}-histogram-bin-width`}
               aria-label="Histogram bin width"
@@ -658,18 +688,21 @@ export function ChartConfigurator({
                       : Number(event.target.value),
                 })
               }
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             />
-          </Field>
-        </FieldGroup>
+          </div>
+        </div>
       ) : null}
       {spec.type === 'heatmap' ? (
-        <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
-          <Field className="min-w-36 flex-1">
-            <FieldLabel htmlFor={`${idPrefix}-heatmap-aggregate`}>
+        <div className="flex flex-wrap items-end gap-3 pt-2.5">
+          <div className="min-w-36 flex-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-heatmap-aggregate`}
+            >
               Cell value
-            </FieldLabel>
-            <Select
+            </label>
+            <NativeSelect
               id={`${idPrefix}-heatmap-aggregate`}
               aria-label="Heatmap cell aggregation"
               value={spec.typeParams.heatmap?.aggregate ?? 'count'}
@@ -687,21 +720,24 @@ export function ChartConfigurator({
                       },
                 )
               }}
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             >
               {HEATMAP_AGGREGATES.map((a) => (
                 <option key={a} value={a}>
                   {a === 'count' ? 'Row count' : `${a} of value field`}
                 </option>
               ))}
-            </Select>
-          </Field>
+            </NativeSelect>
+          </div>
           {(spec.typeParams.heatmap?.aggregate ?? 'count') !== 'count' ? (
-            <Field className="min-w-36 flex-1">
-              <FieldLabel htmlFor={`${idPrefix}-heatmap-value-field`}>
+            <div className="min-w-36 flex-1">
+              <label
+                className="text-label text-fg-muted"
+                htmlFor={`${idPrefix}-heatmap-value-field`}
+              >
                 Value field
-              </FieldLabel>
-              <Select
+              </label>
+              <NativeSelect
                 id={`${idPrefix}-heatmap-value-field`}
                 aria-label="Heatmap value field"
                 value={spec.typeParams.heatmap?.valueField?.fieldId ?? ''}
@@ -713,7 +749,7 @@ export function ChartConfigurator({
                     valueField: column ? { fieldId: column.id } : null,
                   })
                 }}
-                className="h-8 bg-background"
+                className="h-8 bg-surface"
               >
                 <option value="">Select a numeric column</option>
                 {numericColumns.map((column) => (
@@ -721,13 +757,16 @@ export function ChartConfigurator({
                     {column.label}
                   </option>
                 ))}
-              </Select>
-            </Field>
+              </NativeSelect>
+            </div>
           ) : null}
-          <Field className="min-w-24">
-            <FieldLabel htmlFor={`${idPrefix}-heatmap-xbins`}>
+          <div className="min-w-24">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-heatmap-xbins`}
+            >
               X bins
-            </FieldLabel>
+            </label>
             <Input
               id={`${idPrefix}-heatmap-xbins`}
               aria-label="Heatmap x bin count"
@@ -740,13 +779,16 @@ export function ChartConfigurator({
                   xBins: Math.max(2, Number(event.target.value) || 10),
                 })
               }
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             />
-          </Field>
-          <Field className="min-w-24">
-            <FieldLabel htmlFor={`${idPrefix}-heatmap-ybins`}>
+          </div>
+          <div className="min-w-24">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor={`${idPrefix}-heatmap-ybins`}
+            >
               Y bins
-            </FieldLabel>
+            </label>
             <Input
               id={`${idPrefix}-heatmap-ybins`}
               aria-label="Heatmap y bin count"
@@ -759,22 +801,25 @@ export function ChartConfigurator({
                   yBins: Math.max(2, Number(event.target.value) || 10),
                 })
               }
-              className="h-8 bg-background"
+              className="h-8 bg-surface"
             />
-          </Field>
-        </FieldGroup>
+          </div>
+        </div>
       ) : null}
-      <FieldGroup className="flex flex-wrap items-end gap-3 pt-2.5">
-        <Field className="min-w-40 flex-1">
-          <FieldLabel htmlFor={`${idPrefix}-facet`}>
+      <div className="flex flex-wrap items-end gap-3 pt-2.5">
+        <div className="min-w-40 flex-1">
+          <label
+            className="text-label text-fg-muted"
+            htmlFor={`${idPrefix}-facet`}
+          >
             Facet by (optional)
-          </FieldLabel>
-          <Select
+          </label>
+          <NativeSelect
             id={`${idPrefix}-facet`}
             aria-label="Facet column"
             value={spec.fields.facet?.fieldId ?? ''}
             onChange={(event) => setField('facet', event.target.value)}
-            className="h-8 bg-background"
+            className="h-8 bg-surface"
           >
             <option value="">No facets</option>
             {categoryColumns.map((column) => (
@@ -782,19 +827,19 @@ export function ChartConfigurator({
                 {column.label}
               </option>
             ))}
-          </Select>
-        </Field>
-      </FieldGroup>
+          </NativeSelect>
+        </div>
+      </div>
       {CARTESIAN_CHART_TYPES.includes(spec.type) ? (
         <div className="space-y-2 pt-2.5">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="text-xs font-medium text-fg-muted">
               Annotations ({(spec.display.annotations ?? []).length}/
               {MAX_ANNOTATIONS})
             </p>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               disabled={
                 (spec.display.annotations ?? []).length >= MAX_ANNOTATIONS
@@ -806,13 +851,18 @@ export function ChartConfigurator({
                 ])
               }
             >
-              <Plus /> Add annotation
+              <Icon name="plus" /> Add annotation
             </Button>
           </div>
           {(spec.display.annotations ?? []).map((annotation, i) => (
             <div key={i} className="flex items-end gap-2">
-              <Field className="w-20">
-                <FieldLabel htmlFor={`${idPrefix}-ann-${i}-x`}>X</FieldLabel>
+              <div className="w-20">
+                <label
+                  className="text-label text-fg-muted"
+                  htmlFor={`${idPrefix}-ann-${i}-x`}
+                >
+                  X
+                </label>
                 <Input
                   id={`${idPrefix}-ann-${i}-x`}
                   aria-label={`Annotation ${i + 1} x`}
@@ -826,11 +876,16 @@ export function ChartConfigurator({
                       ),
                     )
                   }
-                  className="h-8 bg-background"
+                  className="h-8 bg-surface"
                 />
-              </Field>
-              <Field className="w-20">
-                <FieldLabel htmlFor={`${idPrefix}-ann-${i}-y`}>Y</FieldLabel>
+              </div>
+              <div className="w-20">
+                <label
+                  className="text-label text-fg-muted"
+                  htmlFor={`${idPrefix}-ann-${i}-y`}
+                >
+                  Y
+                </label>
                 <Input
                   id={`${idPrefix}-ann-${i}-y`}
                   aria-label={`Annotation ${i + 1} y`}
@@ -844,13 +899,16 @@ export function ChartConfigurator({
                       ),
                     )
                   }
-                  className="h-8 bg-background"
+                  className="h-8 bg-surface"
                 />
-              </Field>
-              <Field className="flex-1">
-                <FieldLabel htmlFor={`${idPrefix}-ann-${i}-label`}>
+              </div>
+              <div className="flex-1">
+                <label
+                  className="text-label text-fg-muted"
+                  htmlFor={`${idPrefix}-ann-${i}-label`}
+                >
                   Label
-                </FieldLabel>
+                </label>
                 <Input
                   id={`${idPrefix}-ann-${i}-label`}
                   aria-label={`Annotation ${i + 1} label`}
@@ -862,13 +920,13 @@ export function ChartConfigurator({
                       ),
                     )
                   }
-                  className="h-8 bg-background"
+                  className="h-8 bg-surface"
                 />
-              </Field>
+              </div>
               <Button
                 type="button"
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 aria-label={`Remove annotation ${i + 1}`}
                 onClick={() =>
                   setAnnotations(

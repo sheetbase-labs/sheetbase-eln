@@ -1,0 +1,102 @@
+Experiment notebook
+Projects / AAV9 process transfer / EXP-0142
+Harvest clarification: depth filter screening
+Share
+Submit for review
+In progress Owner Gareth P. Started 21 Sep 2026 Protocol PRT-021 v3 Client CL-017 Saved 09:32
+Overview Notebook Samples 12 Datasets 2 Results Files 4 History
+Template Depth-filter clarification screen has a new version (v4). This notebook stays on v3 until you choose. Review v4
+Objective
+Screen three depth-filter trains for clarification of AAV9 harvest lot HL-0934 and select one for the 50 L tech-transfer run. Acceptance: capsid step yield ≥ 80 % with filtrate turbidity ≤ 20 NTU.
+Materials
+| SMP-2231 | Harvest lot HL-0934 | Cell harvest | 15.0 L | Released
+| MAT-0418 | Filter train A, two-stage depth | Consumable | 0.023 m² | In date
+| MAT-0419 | Filter train B, two-stage depth | Consumable | 0.023 m² | In date
+| MAT-0420 | Filter train C, single-stage depth | Consumable | 0.023 m² | Expires 1 Oct
+Method
+Harvest was held at 2–8 °C and filtered at a constant flux of 100 LMH. Filtrate was sampled at 50, 100 and 150 L/m² for turbidity and capsid titre (ELISA, method EM-004). Feed titre 8.6 × 10¹¹ cp/mL.
+Clarification runs
+Sheet · model Clarification run v4 · 9 rows
+Filter Sort Fields
+|
+| | Run · this experiment | Measured · DS-0311 ELISA / turbidity | Derived
+| | Condition | Filter train | Load (L/m²) | Turbidity out (NTU) | Capsid titre (cp/mL) | Step yield (%) ƒx | Meets criteria ƒx
+| 1 | A-50 | MAT-0418 A | 50 | 6.2 | 7.4 × 10¹¹ | 86.0 | Yes
+| 2 | A-100 | MAT-0418 A | 100 | 9.8 | 7.1 × 10¹¹ | 82.6 | Yes
+| 3 | A-150 | MAT-0418 A | 150 | 18.4 | 6.5 × 10¹¹ | 75.6 | No · yield
+| 4 | B-50 | MAT-0419 B | 50 | 4.1 | 7.8 × 10¹¹ | 90.7 | Yes
+| 5 | B-100 | MAT-0419 B | 100 | 5.6 | 7.6 × 10¹¹ | 88.4 | Yes
+| 6 | B-150 | MAT-0419 B | 150 | 8.9 | 7.3 × 10¹¹ | 84.9 | Yes
+| 7 | C-50 | MAT-0420 C | 50 | 12.7 | 6.9 × 10¹¹ | 80.2 | Yes
+| 8 | C-100 | MAT-0420 C | 100 | 24.3 | 6.2 × 10¹¹ | 72.1 | No · both
+| 9 | C-150 | MAT-0420 C | 150 | 61.5 | 5.4 × 10¹¹ | 62.8 | No · both
+| + | New run — type a condition or paste rows
+1 validation error C9 · Turbidity out Feed titre 8.6 × 10¹¹ cp/mL used for step yield
+Proposed update from pipeline PL-0007, run #148. A new Figure 1 from DS-0311 snapshot S-15, which adds plate 4. Nothing here changes until you accept it. Compare Reject Accept
+Step yield by filter load Analysis AN-0057 · from “Clarification runs”
+Train A
+Train B
+Train C
+Target ≥ 80 %
+60 70 80 90
+50 100 150
+Load (L/m²)
+Step yield (%)
+flagged
+Figure 1. Capsid step yield by filter load, flux 100 LMH. Hollow marker: turbidity value outside the allowed range in DS-0311; yield shown but excluded from the decision.
+Observations
+Train B held ≥ 84 % step yield across all loads with filtrate turbidity below 10 NTU. Train A fell below target at 150 L/m². Train C breached the 20 NTU limit above 50 L/m²; the 150 L/m² turbidity reading is outside the assay range and needs a repeat at 1:5 dilution.
+Result summary
+Selected train
+B ( MAT-0419 )
+Max load
+150 L/m²
+Step yield, train B
+84.9–90.7 %
+Filtrate turbidity, train B
+4.1–8.9 NTU
+Decision
+Pending review
++ Add block
+Text, sheet, chart, record, file… or type “/”
+Properties Comments 2 History
+Selected cell
+Clarification runs · row 9 · Turbidity out
+61.5 NTU
+Outside allowed range Allowed 0–50 NTU. Repeat the reading at a higher dilution, or record it as out of range with a reason.
+Request repeat Mark out of range…
+Provenance
+Dataset
+DS-0311 row 88
+Instrument
+Turbidimeter TB-02
+Captured
+24 Sep 2026, 16:04
+Entered by
+Import, PR-01 export
+Edited
+—
+Column
+Field
+Turbidity out
+Type
+Number, 1 dp
+Unit
+NTU
+Validation
+0 ≤ value ≤ 50
+Required
+Yes
+Source
+Linked from DS-0311
+Comments on this row
+Priya S. 09:05
+Can we repeat C at 150 with a 1:5 dilution?
+You 09:31
+Yes. Queued for plate 4 at 11:30.
+Open 1 Resolved 3
+On Observations
+Priya S. 09:05 Can we repeat C at 150 with a 1:5 dilution?
+You 09:31 Yes. Queued for plate 4 at 11:30.
+Reply Resolve
+Mention someone with @ to notify them. Comments stay with the record but aren’t part of the signed content.

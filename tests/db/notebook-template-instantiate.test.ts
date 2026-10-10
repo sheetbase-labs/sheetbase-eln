@@ -1,8 +1,17 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { parseNotebookTemplateConfiguration } from '#/lib/notebook-template'
+import {
+  buildParameterInputs,
+  defaultParameterDrafts,
+} from '#/lib/parameter-input'
 import { validSheetDefinitionConfiguration } from '../fixtures/sheet-definition'
-import { expectDenied, prepareTestDatabase } from './helpers'
+import {
+  expectDenied,
+  prepareTestDatabase,
+  grantProjectAccess,
+} from './helpers'
 
 const WS = '06500000-0000-4000-8000-000000000001'
 const OTHER_WS = '06500000-0000-4000-8000-000000000002'
@@ -22,6 +31,10 @@ const PLACEMENT_OPTIONAL = '06500000-0000-4000-8000-000000000016'
 const NARRATIVE_ONLY = '06500000-0000-4000-8000-000000000017'
 const PLACEMENT_A = '06500000-0000-4000-8000-000000000018'
 const PLACEMENT_B = '06500000-0000-4000-8000-000000000019'
+const PLACEMENT_DEFAULT = '06500000-0000-4000-8000-000000000021'
+const NARRATIVE_V1 = '06500000-0000-4000-8000-000000000022'
+const NARRATIVE_V3 = '06500000-0000-4000-8000-000000000023'
+const TEMPLATE_DEFAULT_PARAM = '06500000-0000-4000-8000-000000000024'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -156,6 +169,56 @@ function narrativeOnlyTemplateConfig() {
   }
 }
 
+/**
+ * A Template whose only parameter declares a scalar default and maps onto the
+ * definition's optional scalar. The definition parameter declares no default,
+ * so any value on the instantiated Sheet Instance must have come from the
+ * Template's declared default.
+ */
+function templateWithDeclaredScalarDefault(
+  definitionVersionId: string,
+  defaultValue: string,
+  placementId = PLACEMENT_DEFAULT,
+) {
+  return {
+    formatVersion: 1,
+    parameters: [
+      {
+        id: TEMPLATE_DEFAULT_PARAM,
+        key: 'note_default',
+        label: 'Note default',
+        required: false,
+        type: { kind: 'scalar', valueType: 'text' },
+        defaultValue,
+        constraints: {},
+      },
+    ],
+    placements: [
+      {
+        id: placementId,
+        kind: 'sheet',
+        order: 1,
+        definitionVersionId,
+        parameterMappings: [
+          {
+            templateParameterId: TEMPLATE_DEFAULT_PARAM,
+            definitionParameterId: DEF_OPTIONAL_PARAM,
+          },
+        ],
+      },
+    ],
+  }
+}
+
+/** The canonical instantiate inputs the retired create-notebook dialog built. */
+function canonicalTemplateInputs(configuration: unknown) {
+  const parsed = parseNotebookTemplateConfiguration(configuration)
+  return buildParameterInputs(
+    parsed.parameters,
+    defaultParameterDrafts(parsed.parameters),
+  )
+}
+
 function dualSheetConfig(definitionVersionId: string) {
   return {
     formatVersion: 1,
@@ -224,16 +287,23 @@ beforeAll(async () => {
     [WS, OWNER, MEMBER, OTHER_WS, OTHER],
   )
   await migrator.query(
-    `insert into api.projects(id,workspace_id,key,title) values
-      ($1,$3,'C65','CORE-06.5'),
-      ($2,$4,'C65O','CORE-06.5 other')`,
-    [PROJECT, OTHER_PROJECT, WS, OTHER_WS],
+    `insert into api.projects(id,workspace_id,key,title,lead_user_id) values
+      ($1,$3,'C65','CORE-06.5',$5),
+      ($2,$4,'C65O','CORE-06.5 other',$6)`,
+    [PROJECT, OTHER_PROJECT, WS, OTHER_WS, OWNER, OTHER],
   )
   await migrator.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id)
      values ($1,$2,$3,'experiment','C65-B','Share target',$4)`,
     [RECORD_B, WS, PROJECT, OWNER],
   )
+  await grantProjectAccess(migrator, {
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: MEMBER,
+    canView: true,
+    canEdit: true,
+  })
 })
 
 afterAll(async () => {
@@ -266,7 +336,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -312,7 +382,8 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
         `select api.instantiate_notebook_template_version($1,$2,'Nope','[]'::jsonb,'other')`,
         [published.id, PROJECT],
       ),
-      'SB090',
+      // The 0323 entry guard fails closed before the template validation.
+      '42501',
     )
 
     const required = (
@@ -345,7 +416,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const requiredPublished = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [required.version.id, required.version.revision],
       )
     ).rows[0].result
@@ -430,7 +501,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v1 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -453,7 +524,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v2 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [v2draft.id, v2draft.revision],
       )
     ).rows[0].result
@@ -549,7 +620,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v1 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -632,7 +703,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -694,7 +765,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v1 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -733,7 +804,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v2 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [v2draft.id, v2draft.revision],
       )
     ).rows[0].result
@@ -878,7 +949,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -1110,7 +1181,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v1 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -1152,7 +1223,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const v2 = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [v2draft.id, v2draft.revision],
       )
     ).rows[0].result
@@ -1233,15 +1304,14 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
 
     const recordCount = async () =>
-      (
-        await member.query(`select count(*)::int count from api.records`)
-      ).rows[0].count as number
+      (await member.query(`select count(*)::int count from api.records`))
+        .rows[0].count as number
     const before = await recordCount()
 
     // Required inputs fail closed naming the missing key; nothing is created.
@@ -1305,9 +1375,9 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     const sheets = result.composition.filter(
       (entry: { kind: string }) => entry.kind === 'sheet',
     )
-    expect(sheets.map((entry: { placementId: string }) => entry.placementId)).toEqual(
-      [PLACEMENT_A, PLACEMENT_B],
-    )
+    expect(
+      sheets.map((entry: { placementId: string }) => entry.placementId),
+    ).toEqual([PLACEMENT_A, PLACEMENT_B])
     for (const entry of sheets) {
       expect(entry.definitionVersionId).toBe(local.version.id)
       expect(entry.instanceId).toBeTruthy()
@@ -1395,7 +1465,7 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const published = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
@@ -1407,15 +1477,14 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
     ).rows[0].result
     const emptyPublished = (
       await owner.query(
-        `select to_jsonb(api.publish_notebook_template_version($1,$2)) result`,
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
         [empty.version.id, empty.version.revision],
       )
     ).rows[0].result
 
     const recordCount = async () =>
-      (
-        await member.query(`select count(*)::int count from api.records`)
-      ).rows[0].count as number
+      (await member.query(`select count(*)::int count from api.records`))
+        .rows[0].count as number
     const before = await recordCount()
     const attempt = (versionId: string, inputs: unknown, key: string) =>
       member.query(
@@ -1493,5 +1562,284 @@ describe('CORE-06.5 / 06.6 / 06.10 instantiate, share and upgrade', () => {
       'SB091',
     )
     expect(await recordCount()).toBe(before)
+  })
+
+  // SHEET-04.1 (REUSE-02): the retired create-notebook dialog pre-filled a
+  // Template Version's declared scalar defaults and submitted them through
+  // `defaultParameterDrafts` + `buildParameterInputs`. This pins the equivalent
+  // acceptance against the code that exists now: those declared defaults are
+  // what instantiation applies, and an explicit draft still overrides them.
+  it('applies a declared Template parameter default on instantiation', async () => {
+    const owner = await actor(OWNER, WS)
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'reuse02_defaults_def','REUSE-02 defaults',null,$2::jsonb) result`,
+        [WS, JSON.stringify(optionalScalarDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+    const config = templateWithDeclaredScalarDefault(
+      definition.version.id,
+      'declared-in-template',
+    )
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'reuse02_defaults_nb','REUSE-02 defaults notebook',null,$2::jsonb) result`,
+        [WS, JSON.stringify(config)],
+      )
+    ).rows[0].result
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+
+    const parsed = parseNotebookTemplateConfiguration(config)
+    expect(defaultParameterDrafts(parsed.parameters)).toEqual({
+      [TEMPLATE_DEFAULT_PARAM]: 'declared-in-template',
+    })
+    const inputs = canonicalTemplateInputs(config)
+    expect(inputs).toEqual([
+      {
+        parameterId: TEMPLATE_DEFAULT_PARAM,
+        kind: 'scalar',
+        value: 'declared-in-template',
+      },
+    ])
+
+    const parameterValues = async (recordId: string) =>
+      (
+        await owner.query(
+          `select i.state->'parameterValues' parameter_values
+             from api.blocks b
+             join api.sheet_instances i on i.id = (b.payload->>'instanceId')::uuid
+            where b.record_id = $1 and b.type = 'sheet'`,
+          [recordId],
+        )
+      ).rows[0].parameter_values
+
+    const applied = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Declared default',$3::jsonb,'reuse02-default-applied') result`,
+        [published.id, PROJECT, JSON.stringify(inputs)],
+      )
+    ).rows[0].result
+    expect(await parameterValues(applied.record.id)).toEqual([
+      expect.objectContaining({
+        parameterId: DEF_OPTIONAL_PARAM,
+        kind: 'scalar',
+        value: 'declared-in-template',
+        source: 'supplied',
+      }),
+    ])
+
+    // A visible, overridable draft wins over the declared default.
+    const overridden = buildParameterInputs(parsed.parameters, {
+      [TEMPLATE_DEFAULT_PARAM]: 'typed-override',
+    })
+    const second = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Overridden default',$3::jsonb,'reuse02-default-overridden') result`,
+        [published.id, PROJECT, JSON.stringify(overridden)],
+      )
+    ).rows[0].result
+    expect(await parameterValues(second.record.id)).toEqual([
+      expect.objectContaining({
+        parameterId: DEF_OPTIONAL_PARAM,
+        kind: 'scalar',
+        value: 'typed-override',
+        source: 'supplied',
+      }),
+    ])
+  })
+
+  // SHEET-04.1 (REUSE-02/REUSE-03): a Template Version update never rewrites
+  // existing work. It applies only the new version's placements while the
+  // existing Sheet Instance, its resolved parameters and its blocks survive.
+  it('preserves an existing Notebook while a Template Version update applies its changes', async () => {
+    const owner = await actor(OWNER, WS)
+    const definition = (
+      await owner.query(
+        `select api.create_sheet_definition($1,'reuse02_preserve_def','REUSE-02 preserve',null,$2::jsonb) result`,
+        [WS, JSON.stringify(optionalScalarDefinitionConfiguration())],
+      )
+    ).rows[0].result
+    await owner.query(`select api.publish_sheet_definition_version($1,$2)`, [
+      definition.version.id,
+      definition.version.revision,
+    ])
+
+    const narrativePayload = {
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'authored in v1' }],
+          },
+        ],
+      },
+    }
+    const v1Base = templateWithDeclaredScalarDefault(
+      definition.version.id,
+      'kept-default',
+    )
+    const v1Config = {
+      ...v1Base,
+      placements: [
+        ...v1Base.placements,
+        {
+          id: NARRATIVE_V1,
+          kind: 'narrative',
+          order: 2,
+          blockType: 'rich_text',
+          payload: narrativePayload,
+        },
+      ],
+    }
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,'reuse02_preserve_nb','REUSE-02 preserve notebook',null,$2::jsonb) result`,
+        [WS, JSON.stringify(v1Config)],
+      )
+    ).rows[0].result
+    const v1 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    const notebook = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'Preserved notebook',$3::jsonb,'reuse02-preserve-v1') result`,
+        [v1.id, PROJECT, JSON.stringify(canonicalTemplateInputs(v1Config))],
+      )
+    ).rows[0].result
+
+    const before = (
+      await owner.query(
+        `select b.id block_id, i.id instance_id, i.state
+           from api.blocks b
+           join api.sheet_instances i on i.id = (b.payload->>'instanceId')::uuid
+          where b.record_id = $1 and b.type = 'sheet'`,
+        [notebook.record.id],
+      )
+    ).rows[0]
+    const narrativeBefore = (
+      await owner.query(
+        `select id, payload from api.blocks
+          where record_id = $1 and type = 'rich_text'
+          order by "order" limit 1`,
+        [notebook.record.id],
+      )
+    ).rows[0]
+
+    const v2Draft = (
+      await owner.query(
+        `select to_jsonb(api.create_notebook_template_version($1,$2,$3::jsonb)) result`,
+        [
+          created.template.id,
+          created.template.revision,
+          JSON.stringify({
+            ...v1Config,
+            placements: [
+              ...v1Config.placements,
+              {
+                id: NARRATIVE_V3,
+                kind: 'narrative',
+                order: 3,
+                blockType: 'rich_text',
+                payload: {
+                  doc: { type: 'doc', content: [{ type: 'paragraph' }] },
+                },
+              },
+            ],
+          }),
+        ],
+      )
+    ).rows[0].result
+    const v2 = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published for test')) result`,
+        [v2Draft.id, v2Draft.revision],
+      )
+    ).rows[0].result
+
+    // Publishing v2 leaves the notebook pinned to v1 until it is applied.
+    const pinned = (
+      await owner.query(
+        `select source_notebook_template_version_id source, structure_version
+           from api.records where id = $1`,
+        [notebook.record.id],
+      )
+    ).rows[0]
+    expect(pinned.source).toBe(v1.id)
+
+    const preview = (
+      await owner.query(
+        `select api.preview_notebook_template_upgrade($1,$2) result`,
+        [notebook.record.id, v2.id],
+      )
+    ).rows[0].result
+    expect(preview.automatic).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'placement-added',
+          placementId: NARRATIVE_V3,
+        }),
+      ]),
+    )
+    expect(preview.conflicts).toEqual([])
+
+    const applied = (
+      await owner.query(
+        `select api.apply_notebook_template_upgrade($1,$2,$3,'[]'::jsonb,'[]'::jsonb) result`,
+        [notebook.record.id, pinned.structure_version, v2.id],
+      )
+    ).rows[0].result
+    expect(applied.record.source_notebook_template_version_id).toBe(v2.id)
+
+    // The version's change lands...
+    const blocksAfter = (
+      await owner.query(
+        `select type, id, payload from api.blocks
+          where record_id = $1 order by "order", id`,
+        [notebook.record.id],
+      )
+    ).rows
+    expect(blocksAfter.map((row: { type: string }) => row.type)).toEqual([
+      'sheet',
+      'rich_text',
+      'rich_text',
+    ])
+
+    // ...while the existing Sheet Instance keeps its identity, its declared
+    // default and its whole working state, and the v1 narrative is untouched.
+    const sheetAfter = blocksAfter[0]
+    expect(sheetAfter.id).toBe(before.block_id)
+    expect(sheetAfter.payload.instanceId).toBe(before.instance_id)
+    const stateAfter = (
+      await owner.query(`select state from api.sheet_instances where id = $1`, [
+        before.instance_id,
+      ])
+    ).rows[0].state
+    expect(stateAfter).toEqual(before.state)
+    expect(stateAfter.parameterValues).toEqual([
+      expect.objectContaining({
+        parameterId: DEF_OPTIONAL_PARAM,
+        value: 'kept-default',
+        source: 'supplied',
+      }),
+    ])
+    const narrativeAfter = blocksAfter.find(
+      (row: { id: string }) => row.id === narrativeBefore.id,
+    )
+    expect(narrativeAfter).toBeTruthy()
+    expect(narrativeAfter.payload).toEqual(narrativeBefore.payload)
+    expect(narrativeAfter.payload).toEqual(narrativePayload)
   })
 })

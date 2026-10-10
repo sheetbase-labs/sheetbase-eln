@@ -11,7 +11,7 @@ import {
   toA1,
   toA1Range,
 } from './formula-reference-editor'
-import type { HotLike } from './formula-reference-editor'
+import type { ReferenceGridHost } from './formula-reference-editor'
 
 /** jsdom converts hex border colours to rgb(...) — normalise for assertions. */
 function hexToRgb(hex: string): string {
@@ -147,37 +147,50 @@ describe('buildReference', () => {
   })
 })
 
-/** Build a mocked HotLike backed by an in-memory grid of TD elements. */
-function mockHot(cellGrid: HTMLTableCellElement[][]): {
-  hot: HotLike
+/**
+ * Build a mocked grid host backed by an in-memory cell layer of `gridcell`
+ * elements (the engine renders data cells as `div[role="gridcell"]`).
+ */
+function mockGrid(cellGrid: HTMLElement[][]): {
+  hot: ReferenceGridHost
   root: HTMLElement
-  coordsSpy: ReturnType<typeof vi.fn>
 } {
   const doc = document
   const root = doc.createElement('div')
+  root.className = 'grid-canvas'
   doc.body.appendChild(root)
-  for (const row of cellGrid) for (const cell of row) root.appendChild(cell)
+  for (const row of cellGrid) for (const node of row) root.appendChild(node)
 
-  const coordsSpy = vi.fn((el: HTMLElement) => {
-    for (let r = 0; r < cellGrid.length; r++) {
-      const c = cellGrid[r].indexOf(el as HTMLTableCellElement)
-      if (c !== -1) return { row: r, col: c }
-    }
-    return null
-  })
-  const hot: HotLike = {
+  const hot: ReferenceGridHost = {
     rootElement: root,
     rootDocument: doc,
-    getCoords: coordsSpy,
+    getCoords: (el) => {
+      for (let r = 0; r < cellGrid.length; r++) {
+        const c = cellGrid[r].indexOf(el)
+        if (c !== -1) return { row: r, col: c }
+      }
+      return null
+    },
     getCell: (row, col) => cellGrid[row]?.[col] ?? null,
     countRows: () => cellGrid.length,
     countCols: () => cellGrid[0]?.length ?? 0,
   }
-  return { hot, root, coordsSpy }
+  return { hot, root }
 }
 
-function td(): HTMLTableCellElement {
-  return document.createElement('td')
+/** A rendered data cell, as the engine marks it in the DOM. */
+function cell(): HTMLElement {
+  const element = document.createElement('div')
+  element.setAttribute('role', 'gridcell')
+  return element
+}
+
+/** A rendered piece of grid chrome (header, corner, fill handle). */
+function chrome(role: string, className = ''): HTMLElement {
+  const element = document.createElement('div')
+  element.setAttribute('role', role)
+  if (className) element.className = className
+  return element
 }
 
 function pointer(
@@ -229,10 +242,10 @@ afterEach(() => {
 describe('ReferencePicker', () => {
   it('inserts a single-cell reference on a click without a drag', () => {
     const cells = [
-      [td(), td(), td()],
-      [td(), td(), td()],
+      [cell(), cell(), cell()],
+      [cell(), cell(), cell()],
     ]
-    const { hot, root } = mockHot(cells)
+    const { hot, root } = mockGrid(cells)
     // Anchor the editor's textarea centre somewhere harmless for elementFromPoint.
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
@@ -264,8 +277,8 @@ describe('ReferencePicker', () => {
   })
 
   it('inserts a range reference after a click-drag and outlines the range', () => {
-    const cells = Array.from({ length: 5 }, () => [td()])
-    const { hot, root } = mockHot(cells)
+    const cells = Array.from({ length: 5 }, () => [cell()])
+    const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -311,10 +324,10 @@ describe('ReferencePicker', () => {
 
   it('assigns a new colour to each subsequent reference', () => {
     const cells = [
-      [td(), td(), td()],
-      [td(), td(), td()],
+      [cell(), cell(), cell()],
+      [cell(), cell(), cell()],
     ]
-    const { hot, root } = mockHot(cells)
+    const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -344,10 +357,10 @@ describe('ReferencePicker', () => {
 
   it('keeps all committed references until clearAllHighlights removes them', () => {
     const cells = [
-      [td(), td()],
-      [td(), td()],
+      [cell(), cell()],
+      [cell(), cell()],
     ]
-    const { hot, root } = mockHot(cells)
+    const { hot, root } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -367,9 +380,9 @@ describe('ReferencePicker', () => {
     expect(picker.references).toHaveLength(0)
   })
 
-  it('lets clicks on headers and grid chrome pass through to Handsontable', () => {
-    const cells = [[td()]]
-    const { hot } = mockHot(cells)
+  it('lets clicks on headers and grid chrome pass through to the grid', () => {
+    const cells = [[cell()]]
+    const { hot } = mockGrid(cells)
     const refocus = vi.fn()
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
@@ -378,9 +391,9 @@ describe('ReferencePicker', () => {
       refocusEditor: refocus,
     })
 
-    // A TH header element is not a TD — the event must pass through so
-    // Handsontable features like autofill work even with a stale editor.
-    const header = document.createElement('th')
+    // A column header is not a data cell — the event must pass through so grid
+    // features like autofill work even with a stale editor.
+    const header = chrome('columnheader')
     hot.rootElement.appendChild(header)
     const event = pointer('pointerdown', header)
     picker.onPointerDown(event)
@@ -388,24 +401,25 @@ describe('ReferencePicker', () => {
     expect(inserted).toHaveLength(0)
     expect(picker.references).toHaveLength(0)
     expect(picker.isDragging).toBe(false)
-    // The click is NOT swallowed — Handsontable receives it.
+    // The click is NOT swallowed — the grid receives it.
     expect(event.stopPropagation).not.toHaveBeenCalled()
     expect(event.preventDefault).not.toHaveBeenCalled()
     expect(refocus).not.toHaveBeenCalled()
   })
 
-  it('lets clicks on the fill handle (wtBorder.corner) pass through', () => {
-    const cells = [[td()]]
-    const { hot } = mockHot(cells)
+  it('lets clicks on the fill handle pass through', () => {
+    const cells = [[cell()]]
+    const { hot } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
       refocusEditor: vi.fn(),
     })
 
-    // The fill handle is a div, not a TD — it must never be suppressed.
-    const fillHandle = document.createElement('div')
-    fillHandle.className = 'wtBorder current corner'
+    // The fill handle is a button, not a data cell — it must never be
+    // suppressed.
+    const fillHandle = document.createElement('button')
+    fillHandle.className = 'fill-handle'
     hot.rootElement.appendChild(fillHandle)
     const event = pointer('pointerdown', fillHandle)
     picker.onPointerDown(event)
@@ -415,8 +429,8 @@ describe('ReferencePicker', () => {
   })
 
   it('does not intercept clicks outside its own grid', () => {
-    const cells = [[td()]]
-    const { hot } = mockHot(cells)
+    const cells = [[cell()]]
+    const { hot } = mockGrid(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -424,19 +438,19 @@ describe('ReferencePicker', () => {
       refocusEditor: vi.fn(),
     })
 
-    const outside = document.createElement('td')
+    const outside = cell()
     document.body.appendChild(outside)
     const event = pointer('pointerdown', outside)
     picker.onPointerDown(event)
 
-    // Outside clicks are left for Handsontable/the page to handle.
+    // Outside clicks are left for the grid/the page to handle.
     expect(event.stopPropagation).not.toHaveBeenCalled()
     expect(inserted).toHaveLength(0)
   })
 
   it('reset clears references, drag state, and the preview overlay', () => {
-    const cells = [[td(), td()]]
-    const { hot, root } = mockHot(cells)
+    const cells = [[cell(), cell()]]
+    const { hot, root } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -453,8 +467,8 @@ describe('ReferencePicker', () => {
   })
 
   it('repositionHighlights updates overlay positions from cell geometry', () => {
-    const cells = [[td(), td()]]
-    const { hot, root } = mockHot(cells)
+    const cells = [[cell(), cell()]]
+    const { hot, root } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -483,8 +497,8 @@ describe('ReferencePicker', () => {
   })
 
   it('suppresses mousedown inside the grid without starting a pick', () => {
-    const cells = [[td(), td()]]
-    const { hot } = mockHot(cells)
+    const cells = [[cell(), cell()]]
+    const { hot } = mockGrid(cells)
     const refocus = vi.fn()
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
@@ -506,66 +520,52 @@ describe('ReferencePicker', () => {
   })
 
   it('does not suppress mousedown on grid chrome (fill handle, headers)', () => {
-    const cells = [[td()]]
-    const { hot } = mockHot(cells)
+    const cells = [[cell()]]
+    const { hot } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
       refocusEditor: vi.fn(),
     })
 
-    // Fill handle is a div, not a TD — must not be suppressed.
-    const fillHandle = document.createElement('div')
-    fillHandle.className = 'wtBorder current corner'
+    // The fill handle is a button, not a data cell — must not be suppressed.
+    const fillHandle = document.createElement('button')
+    fillHandle.className = 'fill-handle'
     hot.rootElement.appendChild(fillHandle)
     expect(picker.suppressMouseDown(mouseEvent(fillHandle))).toBe(false)
 
-    // TH header is not a TD — must not be suppressed.
-    const header = document.createElement('th')
+    // A column header is not a data cell — must not be suppressed.
+    const header = chrome('columnheader')
     hot.rootElement.appendChild(header)
     expect(picker.suppressMouseDown(mouseEvent(header))).toBe(false)
   })
 
-  it('lets fill handle pass through even if it were a TD with corner/wtBorder class', () => {
-    // Defense in depth: even if a future Handsontable version uses a TD for
-    // the fill handle, the explicit class check catches it.
-    const cells = [[td()]]
-    const { hot } = mockHot(cells)
+  it('suppresses mousedown on content nested inside a data cell', () => {
+    const cells = [[cell()]]
+    const { hot } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
       refocusEditor: vi.fn(),
     })
 
-    // TD with 'corner' class — must not be suppressed.
-    const cornerTd = document.createElement('td')
-    cornerTd.className = 'wtBorder current corner'
-    hot.rootElement.appendChild(cornerTd)
-    expect(picker.suppressMouseDown(mouseEvent(cornerTd))).toBe(false)
-
-    // TD with 'wtBorder' class (no 'corner') — must not be suppressed.
-    const borderTd = document.createElement('td')
-    borderTd.className = 'wtBorder area'
-    hot.rootElement.appendChild(borderTd)
-    expect(picker.suppressMouseDown(mouseEvent(borderTd))).toBe(false)
-
-    // pointerdown on a TD with 'corner' class — must pass through.
-    const cornerEvent = pointer('pointerdown', cornerTd)
-    picker.onPointerDown(cornerEvent)
-    expect(cornerEvent.stopPropagation).not.toHaveBeenCalled()
-    expect(cornerEvent.preventDefault).not.toHaveBeenCalled()
+    // Cell content (a value span, validation badge) resolves to its enclosing
+    // gridcell, so a mousedown on it is suppressed like one on the cell.
+    const content = document.createElement('span')
+    cells[0][0].appendChild(content)
+    expect(picker.suppressMouseDown(mouseEvent(content))).toBe(true)
   })
 
   it('does not suppress mousedown outside its own grid', () => {
-    const cells = [[td()]]
-    const { hot } = mockHot(cells)
+    const cells = [[cell()]]
+    const { hot } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
       refocusEditor: vi.fn(),
     })
 
-    const outside = document.createElement('td')
+    const outside = cell()
     document.body.appendChild(outside)
     const event = mouseEvent(outside)
     expect(picker.suppressMouseDown(event)).toBe(false)
@@ -573,8 +573,8 @@ describe('ReferencePicker', () => {
   })
 
   it('aborts an in-progress drag on pointercancel without committing', () => {
-    const cells = [[td(), td()]]
-    const { hot, root } = mockHot(cells)
+    const cells = [[cell(), cell()]]
+    const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -596,8 +596,8 @@ describe('ReferencePicker', () => {
   })
 
   it('abortDrag is idempotent when no drag is in progress', () => {
-    const cells = [[td()]]
-    const { hot } = mockHot(cells)
+    const cells = [[cell()]]
+    const { hot } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -609,8 +609,8 @@ describe('ReferencePicker', () => {
   })
 
   it('rejects non-primary and non-left-button pointerdowns without picking', () => {
-    const cells = [[td(), td()]]
-    const { hot } = mockHot(cells)
+    const cells = [[cell(), cell()]]
+    const { hot } = mockGrid(cells)
     const refocus = vi.fn()
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
@@ -642,8 +642,8 @@ describe('ReferencePicker', () => {
   })
 
   it('ignores pointermove/pointerup from a different pointer id', () => {
-    const cells = [[td(), td()]]
-    const { hot } = mockHot(cells)
+    const cells = [[cell(), cell()]]
+    const { hot } = mockGrid(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -680,10 +680,10 @@ describe('ReferencePicker', () => {
 describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
   it('inserts a single-cell reference without starting a drag', () => {
     const cells = [
-      [td(), td(), td()],
-      [td(), td(), td()],
+      [cell(), cell(), cell()],
+      [cell(), cell(), cell()],
     ]
-    const { hot, root } = mockHot(cells)
+    const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
     const refocus = vi.fn()
     const picker = new ReferencePicker(hot, {
@@ -715,8 +715,8 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
   })
 
   it('inserts and highlights a keyboard-selected range', () => {
-    const cells = Array.from({ length: 4 }, () => [td()])
-    const { hot, root } = mockHot(cells)
+    const cells = Array.from({ length: 4 }, () => [cell()])
+    const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -737,10 +737,10 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
 
   it('assigns cycling colours across mixed pointer and keyboard picks', () => {
     const cells = [
-      [td(), td(), td()],
-      [td(), td(), td()],
+      [cell(), cell(), cell()],
+      [cell(), cell(), cell()],
     ]
-    const { hot, root } = mockHot(cells)
+    const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -767,10 +767,10 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
 
   it('popLastReference removes the last reference and its overlay', () => {
     const cells = [
-      [td(), td(), td()],
-      [td(), td(), td()],
+      [cell(), cell(), cell()],
+      [cell(), cell(), cell()],
     ]
-    const { hot, root } = mockHot(cells)
+    const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
@@ -798,8 +798,8 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
   })
 
   it('popLastReference returns null when there are no references', () => {
-    const cells = [[td()]]
-    const { hot } = mockHot(cells)
+    const cells = [[cell()]]
+    const { hot } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -810,10 +810,10 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
 
   it('pickCell after popLastReference reuses the same colour index', () => {
     const cells = [
-      [td(), td(), td()],
-      [td(), td(), td()],
+      [cell(), cell(), cell()],
+      [cell(), cell(), cell()],
     ]
-    const { hot, root } = mockHot(cells)
+    const { hot, root } = mockGrid(cells)
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),

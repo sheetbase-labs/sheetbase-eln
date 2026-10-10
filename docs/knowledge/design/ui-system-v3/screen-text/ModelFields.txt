@@ -1,0 +1,39 @@
+Model fields
+Models / MDL-0019 Cell bank
+Edit fields New cell bank
+Published v4 Record model ID prefix CB- Owner Mei L.
+Records 38 Fields 12 Versions 4
+| | Field | Key | Type | Unit | Required | Rule | Since
+| Name | name | Text | — | Yes | Unique | v1
+| Cell line | cell_line | Choice · 4 options | — | Yes | — | v1
+| Passage | passage | Number, whole | — | Yes | Working banks ≤ 30 | v2
+| Parent bank | parent | Record link · Cell bank | — | Working banks | — | v1
+| Vials | vials | Number, whole | vials | Yes | > 0 | v1
+| Vials left | vials_left | ƒx vials − withdrawals | vials | — | Can’t go below 0 | v3
+| Location | location | Record link · Storage location | — | Yes | — | v1
+| Frozen on | frozen_on | Date | — | Yes | Not in the future | v1
+| Status | status | Choice · workflow | — | Yes | See release rule | v1
+| Sterility | sterility | Choice · Negative, Positive | — | To release | — | v1
+| Mycoplasma | mycoplasma | Choice · Negative, Positive, Pending | — | To release | — | v4
+| Identity (STR) | str_identity | Text | — | To release | — | v2
+Record rules
+Release needs sterility, mycoplasma and identity (STR) recorded, sterility and mycoplasma Negative, and QA approval.
+Working banks (parent set) must be at passage 30 or lower.
+Vials left can’t go below 0; a withdrawal that would do so is refused.
+Field
+Mycoplasma
+mycoplasma · added in v4, 19 Sep, Mei L.
+Definition
+Type
+Choice
+Options
+Negative, Positive, Pending
+Required
+Before status can be Released
+Source
+QC LIMS, or by hand
+In records
+7 recorded · 31 not recorded
+Records released before v4 keep their release
+Changing a field
+Edits go into a draft v5. Published v4 stays in use until the draft is approved; values already recorded never change.

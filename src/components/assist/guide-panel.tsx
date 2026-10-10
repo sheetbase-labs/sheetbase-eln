@@ -9,7 +9,7 @@
  * operation) and navigation is plain links. Marked as assistance throughout.
  */
 import type { GuideAcceptKey, GuidedWorkflow } from '#/lib/assist-guide'
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 
 import { ExplainPanel } from './explain-panel'
 
@@ -31,9 +31,9 @@ export function GuidePanel({
   return (
     <section
       aria-label={`Guide: ${workflow.title}`}
-      className="space-y-2 rounded-md border bg-muted/20 p-2 text-xs"
+      className="space-y-2 rounded-md border bg-surface-muted/20 p-2 text-xs"
     >
-      <p className="rounded border border-dashed p-1.5 text-muted-foreground">
+      <p className="rounded border border-dashed p-1.5 text-fg-muted">
         {workflow.marking.badge}
       </p>
       <h4 className="font-semibold">{workflow.title}</h4>
@@ -52,16 +52,13 @@ export function GuidePanel({
               <p className="font-medium">
                 {index + 1}. {step.title}
               </p>
-              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
+              <span className="rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[11px]">
                 {STATE_LABEL[step.state]}
               </span>
             </div>
-            <p className="text-muted-foreground">{step.detail}</p>
+            <p className="text-fg-muted">{step.detail}</p>
             {step.objects.map((object) => (
-              <p
-                key={`${object.kind}:${object.id}`}
-                className="text-muted-foreground"
-              >
+              <p key={`${object.kind}:${object.id}`} className="text-fg-muted">
                 <span className="font-mono">
                   [{object.kind} {object.id}]
                 </span>{' '}
@@ -81,7 +78,7 @@ export function GuidePanel({
                         key={action.label}
                         href={action.target.href}
                         title={action.target.hint}
-                        className="inline-flex h-7 items-center justify-center rounded-md border px-2.5 font-medium no-underline hover:bg-muted"
+                        className="inline-flex h-7 items-center justify-center rounded-md border px-2.5 font-medium no-underline hover:bg-surface-muted"
                       >
                         {action.label}
                       </a>
@@ -92,7 +89,7 @@ export function GuidePanel({
                     <Button
                       key={action.label}
                       size="sm"
-                      variant="outline"
+                      variant="secondary"
                       title={action.target.hint}
                       disabled={accepting}
                       onClick={() => onAccept(acceptKey)}
@@ -106,7 +103,7 @@ export function GuidePanel({
           </li>
         ))}
       </ol>
-      <p className="text-muted-foreground">{workflow.marking.note}</p>
+      <p className="text-fg-muted">{workflow.marking.note}</p>
     </section>
   )
 }

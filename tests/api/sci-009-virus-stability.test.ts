@@ -20,12 +20,12 @@ import { composeSections } from '#/lib/overview'
 import { toBlock, type BlockWire } from '#/lib/notebook-data'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
-import { createScientificTableAsMigrator } from '../db/helpers'
 import {
   LocalFileStorage,
   setObjectStorageForTesting,
 } from '#/lib/file-storage'
 import { handleUpload, handleUploadAuthorize } from '#/lib/file-routes'
+import { grantFixtureProjectAccess } from './project-fixtures'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -46,8 +46,9 @@ let sample: any
 let reagent: any
 let protocol: any
 let experiment: any
-let sheetTable: any
-let sheetCols: any
+let dataset: { id: string; revision: number; schema_version_id: string }
+let sheetInstance: { id: string }
+let sheetCols: { x: { id: string }; y: { id: string }; series: { id: string } }
 let liveChartBlock: any
 let frozenChartBlock: any
 let fileMeta: any
@@ -60,21 +61,6 @@ async function clean(): Promise<void> {
   )
   await admin.query(
     `DELETE FROM internal.revision_file_objects WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  // Drop generated scientific tables in these workspaces before removing the
-  // blocks they reference (scientific_tables.block_id is ON DELETE RESTRICT).
-  const generated = await admin.query<{ resource_name: string }>(
-    `SELECT resource_name FROM api.scientific_tables WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  for (const row of generated.rows) {
-    if (/^sheet_[a-z2-7]{26}$/.test(row.resource_name)) {
-      await admin.query(`DROP TABLE IF EXISTS api.${row.resource_name}`)
-    }
-  }
-  await admin.query(
-    `DELETE FROM api.scientific_tables WHERE workspace_id IN ($1,$2)`,
     [WS_A, WS_B],
   )
   await admin.query(
@@ -98,10 +84,85 @@ async function clean(): Promise<void> {
     `DELETE FROM api.file_objects WHERE workspace_id IN ($1,$2)`,
     [WS_A, WS_B],
   )
+  // Canonical immutable resources are removed only during fixture teardown.
+  // DDL is transactional so an error cannot leave a guard disabled.
+  await admin.query('BEGIN')
+  try {
+    const guarded = [
+      'sheet_instances',
+      'sheet_definition_versions',
+      'sheet_definitions',
+      'dataset_version_flags',
+      'dataset_version_values',
+      'dataset_version_rows',
+      'dataset_versions',
+      'dataset_schema_version_fields',
+      'dataset_schema_versions',
+    ]
+    for (const table of guarded)
+      await admin.query(`ALTER TABLE api.${table} DISABLE TRIGGER USER`)
+    await admin.query(
+      'DELETE FROM api.sheet_instances WHERE workspace_id IN ($1,$2)',
+      [WS_A, WS_B],
+    )
+    await admin.query(
+      'DELETE FROM api.sheet_definition_versions WHERE definition_id IN (SELECT id FROM api.sheet_definitions WHERE workspace_id IN ($1,$2))',
+      [WS_A, WS_B],
+    )
+    await admin.query(
+      'DELETE FROM api.sheet_definitions WHERE workspace_id IN ($1,$2)',
+      [WS_A, WS_B],
+    )
+    for (const table of [
+      'dataset_version_flags',
+      'dataset_version_values',
+      'dataset_version_rows',
+    ])
+      await admin.query(
+        `DELETE FROM api.${table} WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id IN ($1,$2))`,
+        [WS_A, WS_B],
+      )
+    await admin.query(
+      'DELETE FROM api.dataset_versions WHERE workspace_id IN ($1,$2)',
+      [WS_A, WS_B],
+    )
+    await admin.query(
+      'DELETE FROM api.datasets WHERE workspace_id IN ($1,$2)',
+      [WS_A, WS_B],
+    )
+    await admin.query(
+      'DELETE FROM api.dataset_schema_definitions WHERE workspace_id IN ($1,$2)',
+      [WS_A, WS_B],
+    )
+    for (const table of guarded)
+      await admin.query(`ALTER TABLE api.${table} ENABLE TRIGGER USER`)
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
   await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
     WS_A,
     WS_B,
   ])
+  // Fixture-only teardown; never leave the immutable-definition guard off.
+  await admin.query('BEGIN')
+  try {
+    await admin.query(
+      'ALTER TABLE api.record_field_definitions DISABLE TRIGGER model_definition_guard',
+    )
+    await admin.query(
+      'DELETE FROM api.record_field_definitions WHERE workspace_id IN ($1,$2)',
+      [WS_A, WS_B],
+    )
+    await admin.query(
+      'ALTER TABLE api.record_field_definitions ENABLE TRIGGER model_definition_guard',
+    )
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
   await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
     WS_A,
     WS_B,
@@ -165,17 +226,22 @@ async function createRecord(
   title: string,
   status = 'draft',
   properties: Record<string, unknown> = {},
+  customFields: Record<string, unknown> = {},
 ) {
-  const res = await rpc('create_record', user, workspace, {
+  const res = await rpc('create_model_record', user, workspace, {
     p_project_id: project,
     p_kind: kind,
     p_title: title,
     p_status: status,
     p_tags: [],
     p_properties: properties,
+    p_custom_fields: customFields,
   })
-  expect(res.status).toBe(200)
-  return res.json()
+  expect(res.status, await res.clone().text()).toBe(200)
+  const record = await res.json()
+  expect(record.custom_fields).toEqual(customFields)
+  expect(record.properties).toEqual(properties)
+  return record
 }
 
 async function insertBlock(
@@ -262,17 +328,17 @@ function richTextDoc(heading: string, paragraph: string) {
   }
 }
 
-function chartPayload(tableId: string, cols: Record<string, any>) {
+function chartPayload(datasetId: string, cols: typeof sheetCols) {
   return {
     title: 'Vector genome copy number (qPCR)',
     spec: {
       specVersion: 1,
       type: 'line',
-      datasets: [{ tableId }],
+      datasets: [{ datasetId }],
       fields: {
-        x: { columnId: cols.x.id, fieldName: cols.x.field_name },
-        y: { columnId: cols.y.id, fieldName: cols.y.field_name },
-        series: { columnId: cols.series.id, fieldName: cols.series.field_name },
+        x: { fieldId: cols.x.id },
+        y: { fieldId: cols.y.id },
+        series: { fieldId: cols.series.id },
         color: null,
         size: null,
       },
@@ -370,8 +436,44 @@ beforeAll(async () => {
       ($3,$4,'sci009b','SCI 009 API B')`,
     [PROJECT_A, WS_A, PROJECT_B, WS_B],
   )
+  for (const [projectId, workspaceId, userId] of [
+    [PROJECT_A, WS_A, USER_A],
+    [PROJECT_B, WS_B, USER_B],
+  ])
+    await grantFixtureProjectAccess({
+      client: admin,
+      projectId,
+      workspaceId,
+      userId,
+      canEdit: true,
+      canReview: true,
+      canManage: true,
+    })
 
   // --- Build the Virus Stability notebook through ordinary RPCs. ---
+
+  for (const [key, type] of [
+    ['construct', 'text'],
+    ['batch', 'text'],
+    ['concentration', 'decimal'],
+  ]) {
+    const definition = await rpc(
+      'create_and_activate_model_field',
+      USER_A,
+      WS_A,
+      {
+        p_workspace_id: WS_A,
+        p_model_key: 'sample',
+        p_field_name: key,
+        p_label: key,
+        p_logical_type: type,
+        p_nullable: true,
+        p_default_value: null,
+        p_validation: {},
+      },
+    )
+    expect(definition.status, await definition.clone().text()).toBe(200)
+  }
 
   // Linked registry records.
   sample = await createRecord(
@@ -381,23 +483,23 @@ beforeAll(async () => {
     'sample',
     'LVV-CAR-T drug substance',
     'available',
+    { storageLocation: '4 °C' },
     {
       construct: 'LVV-CAR-T',
       batch: 'LVV-250601',
       concentration: 2.31e7,
-      storage: '4 °C',
     },
   )
   reagent = await createRecord(
     USER_A,
     WS_A,
     PROJECT_A,
-    'reagent',
+    'material',
     'TaqMan qPCR kit',
     'available',
     {
       supplier: 'Acme Biosystems',
-      catalog_no: 'TAQ-1000',
+      catalogNo: 'TAQ-1000',
       lot: 'TG-2604',
       storage: '-20 °C',
     },
@@ -470,7 +572,7 @@ beforeAll(async () => {
       {
         id: 'mat-reagent',
         materialRecordId: reagent.id,
-        kind: 'reagent',
+        kind: 'material',
         identifier: reagent.identifier,
         title: reagent.title,
         quantity: 20,
@@ -555,44 +657,91 @@ beforeAll(async () => {
     allBlockIds.push(step.id)
   }
 
-  // 8. sheet — scientific sheet with HyperFormula-ready columns + rows
-  res = await insertBlock(USER_A, WS_A, experiment, 'sheet', {})
-  expect(res.status).toBe(200)
-  json = await res.json()
-  const sheetBlock = json.block
-  experiment.structure_version = json.structure_version
-  allBlockIds.push(json.block.id)
-
-  const built = await createScientificTableAsMigrator(
-    admin,
+  // 8. Canonical Dataset-backed Sheet with scientific quantity metadata.
+  sheetCols = {
+    x: { id: crypto.randomUUID() },
+    y: { id: crypto.randomUUID() },
+    series: { id: crypto.randomUUID() },
+  }
+  const fields = [
+    {
+      fieldId: sheetCols.x.id,
+      key: 'time',
+      label: 'Time (days)',
+      logicalType: 'decimal',
+      quantity: { kind: 'duration', dimension: 'time', storageUnit: 'd' },
+    },
+    {
+      fieldId: sheetCols.y.id,
+      key: 'titer',
+      label: 'Log titer',
+      logicalType: 'decimal',
+      quantity: {
+        kind: 'log_titer',
+        dimension: 'dimensionless',
+        storageUnit: 'log10',
+      },
+    },
+    {
+      fieldId: sheetCols.series.id,
+      key: 'condition',
+      label: 'Condition',
+      logicalType: 'text',
+      quantity: null,
+    },
+  ].map((field) => ({
+    ...field,
+    description: null,
+    nullable: true,
+    defaultValue: null,
+    cardinality: 'one',
+    validation: {},
+    category: null,
+    relationship: null,
+    computation: { mode: 'stored' },
+    lifecycle: 'active',
+  }))
+  const schemaRes = await rpc(
+    'create_dataset_schema_definition',
     USER_A,
     WS_A,
-    sheetBlock.id,
-    'Stability readings (qPCR)',
-    [
-      {
-        label: 'Time (days)',
-        logical_type: 'decimal',
-        unit: { code: 'd', symbol: 'd' },
-      },
-      {
-        label: 'Log titer',
-        logical_type: 'decimal',
-        unit: { code: 'log10', symbol: 'log₁₀' },
-      },
-      { label: 'Condition', logical_type: 'text' },
-    ],
+    {
+      p_workspace_id: WS_A,
+      p_key: 'sci_stability',
+      p_name: 'Stability readings (qPCR)',
+      p_description: null,
+      p_fields: fields.map(
+        ({ fieldId, key, label, logicalType, quantity }) => ({
+          fieldId,
+          key,
+          label,
+          logicalType,
+          ...(quantity ? { quantity } : {}),
+        }),
+      ),
+    },
   )
-  sheetTable = built.table
-  const byLabel = Object.fromEntries(
-    built.columns.map((c: any) => [c.label, c]),
-  )
-  sheetCols = {
-    x: byLabel['Time (days)'],
-    y: byLabel['Log titer'],
-    series: byLabel['Condition'],
-  }
-
+  expect(schemaRes.status, await schemaRes.clone().text()).toBe(200)
+  const schema = await schemaRes.json()
+  const published = await rpc('publish_dataset_schema_version', USER_A, WS_A, {
+    p_schema_version_id: schema.schema_version_id,
+  })
+  expect(published.status, await published.clone().text()).toBe(200)
+  const datasetRes = await proxy('datasets', USER_A, WS_A, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify({
+      workspace_id: WS_A,
+      primary_project_id: PROJECT_A,
+      schema_version_id: schema.schema_version_id,
+      name: 'Stability readings (qPCR)',
+    }),
+  })
+  expect(datasetRes.status, await datasetRes.clone().text()).toBe(201)
+  ;[dataset] = await datasetRes.json()
   const sheetRows = [
     [0, 7.2, '4 °C'],
     [7, 7.0, '4 °C'],
@@ -603,18 +752,134 @@ beforeAll(async () => {
     [14, 6.7, '−20 °C'],
     [28, 6.4, '−20 °C'],
   ] as const
-  for (const [t, logTiter, condition] of sheetRows) {
-    const rowRes = await proxy(sheetTable.resource_name, USER_A, WS_A, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        [sheetCols.x.field_name]: t,
-        [sheetCols.y.field_name]: logTiter,
-        [sheetCols.series.field_name]: condition,
-      }),
-    })
-    expect(rowRes.status).toBe(201)
-  }
+  const rowRes = await rpc('commit_dataset_row_batch', USER_A, WS_A, {
+    p_dataset_id: dataset.id,
+    p_expected_dataset_revision: dataset.revision,
+    p_idempotency_key: crypto.randomUUID(),
+    p_rows: sheetRows.map(([time, titer, condition]) => ({
+      operation: 'create',
+      rowId: crypto.randomUUID(),
+      values: {
+        [sheetCols.x.id]: time,
+        [sheetCols.y.id]: titer,
+        [sheetCols.series.id]: condition,
+      },
+    })),
+  })
+  expect(rowRes.status, await rowRes.clone().text()).toBe(200)
+  const parameterId = crypto.randomUUID()
+  const bindingId = crypto.randomUUID()
+  const definitionRes = await rpc('create_sheet_definition', USER_A, WS_A, {
+    p_workspace_id: WS_A,
+    p_key: 'sci_stability_sheet',
+    p_name: 'Stability readings',
+    p_description: null,
+    p_configuration: {
+      formatVersion: 1,
+      parameters: [
+        {
+          id: parameterId,
+          key: 'readings',
+          label: 'Readings',
+          required: true,
+          type: {
+            kind: 'dataset',
+            contract: {
+              mode: 'exact',
+              schemaVersionId: schema.schema_version_id,
+            },
+          },
+          constraints: {},
+        },
+      ],
+      bindings: [{ id: bindingId, key: 'readings', parameterId }],
+      rowIdentity: {
+        kind: 'composite',
+        columnIds: [sheetCols.x.id, sheetCols.series.id],
+      },
+      joins: [],
+      columns: fields.map((field) => ({
+        id: field.fieldId,
+        field,
+        source: { kind: 'bound', bindingId, sourceFieldId: field.fieldId },
+      })),
+      calculations: [],
+      writeBackRules: [],
+      actions: [],
+      presentation: {
+        columnOrder: Object.values(sheetCols).map((col) => col.id),
+        hiddenColumnIds: [],
+        columnWidths: {},
+        frozenColumnCount: 0,
+        density: 'standard',
+      },
+    },
+  })
+  expect(definitionRes.status, await definitionRes.clone().text()).toBe(200)
+  const definition = await definitionRes.json()
+  const definitionPublished = await rpc(
+    'publish_sheet_definition_version',
+    USER_A,
+    WS_A,
+    {
+      p_version_id: definition.version.id,
+      p_expected_revision: definition.version.revision,
+    },
+  )
+  expect(
+    definitionPublished.status,
+    await definitionPublished.clone().text(),
+  ).toBe(200)
+  const instanceRes = await rpc(
+    'create_sheet_instance_from_definition',
+    USER_A,
+    WS_A,
+    {
+      p_workspace_id: WS_A,
+      p_name: 'Stability readings',
+      p_description: null,
+      p_source_definition_version_id: definition.version.id,
+      p_project_id: PROJECT_A,
+      p_notebook_record_id: experiment.id,
+      p_state: {
+        bindings: [],
+        localFields: [],
+        localValues: {},
+        calculationOverrides: {},
+        presentation: {
+          columnOrder: [],
+          hiddenColumnIds: [],
+          columnWidths: {},
+          frozenColumnCount: 0,
+          density: 'standard',
+        },
+        provenance: { createdFrom: 'definition_version' },
+      },
+      p_parameter_inputs: [
+        { parameterId, kind: 'dataset', datasetId: dataset.id },
+      ],
+    },
+  )
+  expect(instanceRes.status, await instanceRes.clone().text()).toBe(200)
+  const instance = await instanceRes.json()
+  const resolved = await rpc(
+    'resolve_sheet_instance_row_identity',
+    USER_A,
+    WS_A,
+    { p_instance_id: instance.id, p_expected_revision: instance.revision },
+  )
+  expect(resolved.status, await resolved.clone().text()).toBe(200)
+  sheetInstance = await resolved.json()
+  const embedded = await rpc('insert_sheet_instance_block', USER_A, WS_A, {
+    p_record_id: experiment.id,
+    p_instance_id: sheetInstance.id,
+    p_expected_structure_version: experiment.structure_version,
+    p_after_block_id: null,
+  })
+  expect(embedded.status, await embedded.clone().text()).toBe(200)
+  json = await embedded.json()
+  experiment.structure_version = json.structure_version
+  allBlockIds.push(json.block.id)
 
   // 9. chart — live chart referencing the scientific sheet
   res = await insertBlock(
@@ -622,7 +887,7 @@ beforeAll(async () => {
     WS_A,
     experiment,
     'chart',
-    chartPayload(sheetTable.id, sheetCols),
+    chartPayload(dataset.id, sheetCols),
   )
   expect(res.status).toBe(200)
   json = await res.json()
@@ -636,7 +901,7 @@ beforeAll(async () => {
     WS_A,
     experiment,
     'chart',
-    chartPayload(sheetTable.id, sheetCols),
+    chartPayload(dataset.id, sheetCols),
   )
   expect(res.status).toBe(200)
   json = await res.json()
@@ -706,7 +971,7 @@ beforeAll(async () => {
   // exists) since the relation is the same either way.
   for (const [target, kind, linkType] of [
     [sample, 'sample', 'sample'],
-    [reagent, 'reagent', 'reagent'],
+    [reagent, 'material', 'material'],
   ] as const) {
     const linkRes = await rpc('create_record_link', USER_A, WS_A, {
       p_source_record_id: experiment.id,
@@ -811,37 +1076,221 @@ describe('SCI-009 Virus Stability end-to-end API acceptance', () => {
     })
   })
 
-  it('verifies the scientific sheet has HyperFormula-ready rows and a generated REST resource', async () => {
-    // The generated table resource is readable through the proxy.
+  it('reads all scientific rows through the canonical Dataset and composed Sheet', async () => {
     const rowsRes = await proxy(
-      `${sheetTable.resource_name}?order=id.asc`,
+      `dataset_rows?dataset_id=eq.${dataset.id}`,
       USER_A,
       WS_A,
     )
     expect(rowsRes.status).toBe(200)
     const rows = await rowsRes.json()
     expect(rows).toHaveLength(8)
-    const firstPoint = rows.find(
-      (r: any) =>
-        r[sheetCols.x.field_name] === 0 &&
-        r[sheetCols.series.field_name] === '4 °C',
-    )
-    expect(firstPoint).toBeDefined()
-    expect(firstPoint).toMatchObject({ [sheetCols.y.field_name]: 7.2 })
-    // The generated table metadata is readable through its RPC.
-    const metaRes = await rpc('scientific_table_metadata', USER_A, WS_A, {
-      p_table_id: sheetTable.id,
+    const composed = await rpc('query_sheet_instance_rows', USER_A, WS_A, {
+      p_instance_id: sheetInstance.id,
+      p_limit: 200,
+      p_offset: 0,
     })
-    expect(metaRes.status).toBe(200)
+    expect(composed.status, await composed.clone().text()).toBe(200)
+    const { rows: points } = await composed.json()
+    expect(points).toHaveLength(8)
+    expect(
+      new Set(
+        points.map((point: { identityValues: unknown[] }) =>
+          JSON.stringify(point.identityValues),
+        ),
+      ).size,
+    ).toBe(8)
+    expect(
+      points.map(
+        (point: { sources: Array<{ values: unknown }> }) =>
+          point.sources[0].values,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          [sheetCols.x.id]: 0,
+          [sheetCols.y.id]: 7.2,
+          [sheetCols.series.id]: '4 °C',
+        },
+        {
+          [sheetCols.x.id]: 7,
+          [sheetCols.y.id]: 7.0,
+          [sheetCols.series.id]: '4 °C',
+        },
+        {
+          [sheetCols.x.id]: 14,
+          [sheetCols.y.id]: 6.6,
+          [sheetCols.series.id]: '4 °C',
+        },
+        {
+          [sheetCols.x.id]: 28,
+          [sheetCols.y.id]: 5.9,
+          [sheetCols.series.id]: '4 °C',
+        },
+        {
+          [sheetCols.x.id]: 0,
+          [sheetCols.y.id]: 7.1,
+          [sheetCols.series.id]: '−20 °C',
+        },
+        {
+          [sheetCols.x.id]: 7,
+          [sheetCols.y.id]: 6.9,
+          [sheetCols.series.id]: '−20 °C',
+        },
+        {
+          [sheetCols.x.id]: 14,
+          [sheetCols.y.id]: 6.7,
+          [sheetCols.series.id]: '−20 °C',
+        },
+        {
+          [sheetCols.x.id]: 28,
+          [sheetCols.y.id]: 6.4,
+          [sheetCols.series.id]: '−20 °C',
+        },
+      ]),
+    )
   })
 
-  it('freezes a chart through the transactional RPC with materialized data', async () => {
+  it('freezes chart source provenance, scientific rows and quantity metadata', async () => {
     expect(frozenChartBlock.payload.frozen).toBeTruthy()
     expect(frozenChartBlock.payload.frozen.frozenByUserId).toBe(USER_A)
     expect(
       frozenChartBlock.payload.frozen.datasetProvenance[0].datasetVersionId,
     ).toMatch(/^[0-9a-f-]{36}$/i)
+    expect(frozenChartBlock.payload.frozen.datasetProvenance[0]).toMatchObject({
+      datasetId: dataset.id,
+      rowCount: 8,
+    })
+    const versionId =
+      frozenChartBlock.payload.frozen.datasetProvenance[0].datasetVersionId
+    const frozenRows = await proxy(
+      `dataset_version_rows?dataset_version_id=eq.${versionId}`,
+      USER_A,
+      WS_A,
+    )
+    expect(frozenRows.status).toBe(200)
+    expect(await frozenRows.json()).toHaveLength(8)
+    const valuesPath = `dataset_version_values?dataset_version_id=eq.${versionId}&order=row_id.asc,field_id.asc`
+    const frozenValues = await proxy(valuesPath, USER_A, WS_A)
+    expect(frozenValues.status).toBe(200)
+    const cells: Array<{
+      row_id: string
+      field_id: string
+      text_value: string | null
+      numeric_value: number | null
+    }> = await frozenValues.json()
+    expect(cells).toHaveLength(24)
+    const points = new Map<string, Record<string, string | number>>()
+    for (const cell of cells) {
+      const point = points.get(cell.row_id) ?? {}
+      point[cell.field_id] = cell.text_value ?? Number(cell.numeric_value)
+      points.set(cell.row_id, point)
+    }
+    expect([...points.values()]).toEqual(
+      expect.arrayContaining([
+        {
+          [sheetCols.x.id]: 0,
+          [sheetCols.y.id]: 7.2,
+          [sheetCols.series.id]: '4 °C',
+        },
+        {
+          [sheetCols.x.id]: 7,
+          [sheetCols.y.id]: 7.0,
+          [sheetCols.series.id]: '4 °C',
+        },
+        {
+          [sheetCols.x.id]: 14,
+          [sheetCols.y.id]: 6.6,
+          [sheetCols.series.id]: '4 °C',
+        },
+        {
+          [sheetCols.x.id]: 28,
+          [sheetCols.y.id]: 5.9,
+          [sheetCols.series.id]: '4 °C',
+        },
+        {
+          [sheetCols.x.id]: 0,
+          [sheetCols.y.id]: 7.1,
+          [sheetCols.series.id]: '−20 °C',
+        },
+        {
+          [sheetCols.x.id]: 7,
+          [sheetCols.y.id]: 6.9,
+          [sheetCols.series.id]: '−20 °C',
+        },
+        {
+          [sheetCols.x.id]: 14,
+          [sheetCols.y.id]: 6.7,
+          [sheetCols.series.id]: '−20 °C',
+        },
+        {
+          [sheetCols.x.id]: 28,
+          [sheetCols.y.id]: 6.4,
+          [sheetCols.series.id]: '−20 °C',
+        },
+      ]),
+    )
+    const version = await proxy(
+      `dataset_versions?id=eq.${versionId}&select=schema_version_id`,
+      USER_A,
+      WS_A,
+    )
+    expect(version.status).toBe(200)
+    const [source] = await version.json()
+    const fields = await proxy(
+      `dataset_schema_version_fields?schema_version_id=eq.${source.schema_version_id}&select=field_id,quantity`,
+      USER_A,
+      WS_A,
+    )
+    expect(fields.status).toBe(200)
+    expect(await fields.json()).toEqual(
+      expect.arrayContaining([
+        {
+          field_id: sheetCols.x.id,
+          quantity: { kind: 'duration', dimension: 'time', storageUnit: 'd' },
+        },
+        {
+          field_id: sheetCols.y.id,
+          quantity: {
+            kind: 'log_titer',
+            dimension: 'dimensionless',
+            storageUnit: 'log10',
+          },
+        },
+      ]),
+    )
     expect(frozenChartBlock.payload.frozen.data.series).toEqual([])
+    const datasetRead = await proxy(
+      `datasets?id=eq.${dataset.id}`,
+      USER_A,
+      WS_A,
+    )
+    expect(datasetRead.status).toBe(200)
+    const [current] = await datasetRead.json()
+    const target = [...points].find(
+      ([, point]) =>
+        point[sheetCols.x.id] === 28 && point[sheetCols.series.id] === '4 °C',
+    )!
+    const rowRead = await proxy(`dataset_rows?id=eq.${target[0]}`, USER_A, WS_A)
+    expect(rowRead.status).toBe(200)
+    const [currentRow] = await rowRead.json()
+    const edited = await rpc('commit_dataset_row_batch', USER_A, WS_A, {
+      p_dataset_id: dataset.id,
+      p_expected_dataset_revision: current.revision,
+      p_idempotency_key: crypto.randomUUID(),
+      p_rows: [
+        {
+          operation: 'update',
+          rowId: target[0],
+          expectedRevision: Number(currentRow.revision),
+          values: { [sheetCols.y.id]: 4.2 },
+        },
+      ],
+    })
+    expect(edited.status, await edited.clone().text()).toBe(200)
+    const retained = await proxy(valuesPath, USER_A, WS_A)
+    expect(retained.status).toBe(200)
+    expect(await retained.json()).toEqual(cells)
     // Live chart remains unfrozen.
     const liveRead = await proxy(
       `blocks?id=eq.${liveChartBlock.id}`,
@@ -1007,7 +1456,7 @@ describe('SCI-009 Virus Stability end-to-end API acceptance', () => {
     expect(r.status).toBe(200)
     expect((await r.json()).length).toBeGreaterThanOrEqual(1)
     r = await proxy(
-      `records?kind=eq.reagent&project_id=eq.${PROJECT_A}`,
+      `records?kind=eq.material&project_id=eq.${PROJECT_A}`,
       USER_A,
       WS_A,
     )
@@ -1033,11 +1482,17 @@ describe('SCI-009 Virus Stability end-to-end API acceptance', () => {
       media_type: 'text/csv',
     })
 
-    // Scientific table metadata RPC
-    r = await rpc('scientific_table_metadata', USER_A, WS_A, {
-      p_table_id: sheetTable.id,
-    })
+    // Canonical Sheet Instance and Dataset schema are ordinary REST objects.
+    r = await proxy(`sheet_instances?id=eq.${sheetInstance.id}`, USER_A, WS_A)
     expect(r.status).toBe(200)
+    expect(await r.json()).toHaveLength(1)
+    r = await proxy(
+      `dataset_schema_version_fields?schema_version_id=eq.${dataset.schema_version_id}`,
+      USER_A,
+      WS_A,
+    )
+    expect(r.status).toBe(200)
+    expect(await r.json()).toHaveLength(3)
 
     // Chart blocks
     r = await proxy(
@@ -1082,8 +1537,11 @@ describe('SCI-009 Virus Stability end-to-end API acceptance', () => {
     expect(r.status).toBe(200)
     expect(await r.json()).toEqual([])
 
-    // Cross-workspace cannot read the generated scientific table rows.
-    r = await proxy(sheetTable.resource_name, USER_B, WS_B)
+    // Cross-workspace cannot read canonical Dataset rows or the Sheet Instance.
+    r = await proxy(`dataset_rows?dataset_id=eq.${dataset.id}`, USER_B, WS_B)
+    expect(r.status).toBe(200)
+    expect(await r.json()).toEqual([])
+    r = await proxy(`sheet_instances?id=eq.${sheetInstance.id}`, USER_B, WS_B)
     expect(r.status).toBe(200)
     expect(await r.json()).toEqual([])
 

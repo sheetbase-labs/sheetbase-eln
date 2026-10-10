@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Info } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import {
   Tooltip,
@@ -20,7 +20,7 @@ const Demo = ({ open = false }) => (
     <Tooltip open={open || undefined}>
       <TooltipTrigger asChild>
         <Button variant="outline" size="icon" aria-label="More information">
-          <Info />
+          <Icon name="info" />
         </Button>
       </TooltipTrigger>
       <TooltipContent>View experiment details</TooltipContent>

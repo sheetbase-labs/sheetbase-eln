@@ -1,0 +1,33 @@
+Sample, consumed
+Samples / SMP-2210
+LVV harvest H-22
+Export lineage
+Consumed Viral harvest LVV downstream chromatography
+Details Lineage Usage Measurements History
+Fully used on 11 Sep by Gareth P. in EXP-0139 (AEX resin screen). The record stays for lineage and audit.
+Registered volume
+900 mL
+Current volume
+0 mL
+Last withdrawal
+11 Sep 2026 · 420 mL · EXP-0139
+Derived samples
+14 fractions (SMP-2211 … 2224)
+Location
+—
+Lineage
+SMP-2210 LVV harvest H-22
+This sample · consumed 11 Sep Consumed
+├ SMP-2211 … 2224 AEX fractions (14)
+Fractionated in EXP-0139 Stored
+Harvested in EXP-0121
+Usage
+Fully used in EXP-0139 (AEX resin screen). The last withdrawal, 420 mL on 11 Sep, emptied it.
+Measurements
+| | Measurement | Value | Unit | Result
+| Infectious titre | 1.8 × 10⁷ | TU/mL | Recorded
+| Turbidity | 42 | NTU | Recorded
+History
+| | When | Who | Action | Detail
+| 11 Sep 10:40 | Gareth P. | Consumed | Volume 420 → 0 mL for EXP-0139
+| 2 Sep 15:00 | Priya S. | Registered | 900 mL, CR-2 shelf 2

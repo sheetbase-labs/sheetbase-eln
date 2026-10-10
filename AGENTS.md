@@ -14,6 +14,7 @@ Before substantial product, domain or roadmap work, read [`docs/knowledge/NEXT.m
 - `docs/knowledge/roadmap-1/` — recorded complete; local NEXT is historical
 - `docs/knowledge/roadmap-2/` — active scope recorded closed; GOV-02 deferred
 - `docs/knowledge/roadmap-3/` — Waves A–C implementation merged; Wave D proposed/deferred
+- `docs/knowledge/roadmap-4/` — proposed; self-contained, with its own `NEXT.md`, `CHECKLIST.md` and nod task tracker (`pnpm roadmap …`); read its `GUIDE.md` before taking a task
 - `docs/knowledge/decisions/` — ADRs; check proposed versus accepted status
 - `docs/knowledge/concepts/` — historical runnable concepts/prototypes
 - `docs/knowledge/mockups/` — historical visual design/product artefacts
@@ -65,13 +66,13 @@ independent copies. The notebook design/QA pilot is defined in
 
 ## Database
 
-| Command              | Purpose                                    |
-| -------------------- | ------------------------------------------ |
-| `pnpm db:migrate`    | Apply Drizzle migrations                   |
-| `pnpm db:generate`   | Generate new migration from schema changes |
-| `pnpm db:seed:demo`  | Seed demo data                             |
-| `pnpm db:seed:month` | Seed month-scale data                      |
-| `pnpm db:fresh`      | Reset + migrate + seed                     |
+| Command                     | Purpose                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm db:migrate`           | Apply Drizzle migrations                                                                                                    |
+| `pnpm db:generate --custom` | Prepare a migration; write the SQL by hand (plain `db:generate` has no snapshot baseline and emits a full-schema migration) |
+| `pnpm db:seed:demo`         | Seed demo data                                                                                                              |
+| `pnpm db:seed:month`        | Seed month-scale data                                                                                                       |
+| `pnpm db:fresh`             | Reset + migrate + seed                                                                                                      |
 
 Migrations are in `drizzle/` (55 files, 0000–0054). Schema source:
 `src/db/schema.ts`. Migration config: `drizzle.config.ts`. The migration
@@ -146,10 +147,10 @@ Set `SHEETBASE_APP_IMAGE` to a previous `@sha256` digest and run `pnpm deploy:ap
 
 The Hostinger VPS is the shared delivery target. It has two separate Docker surfaces; do not combine their Compose projects, databases, volumes, or environment files.
 
-| Surface | Public URL | Purpose | How it deploys |
-| --- | --- | --- | --- |
-| Production | `https://app.sheetbase.co.uk` | Real authenticated app | Automatically from `main` via `.github/workflows/deploy.yml` |
-| Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual dispatch of `.github/workflows/deploy-dev.yml` |
+| Surface     | Public URL                    | Purpose                                | How it deploys                                               |
+| ----------- | ----------------------------- | -------------------------------------- | ------------------------------------------------------------ |
+| Production  | `https://app.sheetbase.co.uk` | Real authenticated app                 | Automatically from `main` via `.github/workflows/deploy.yml` |
+| Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual dispatch of `.github/workflows/deploy-dev.yml`        |
 
 ### Development environment
 
@@ -178,5 +179,8 @@ For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development
 - **API boundary:** browser data goes through the same-origin `/api/db/*` proxy, never directly to PostgREST.
 - **Auth:** Better Auth with GitHub OAuth and database-backed sessions.
 - **Testing:** Vitest for unit/integration, Playwright for E2E, real PostgreSQL for DB tests.
-- **Migrations:** use `pnpm db:generate`; do not hand-edit generated SQL.
+- **Migrations:** use `pnpm db:generate --custom` and write the SQL by hand. Plain
+  `pnpm db:generate` has no committed snapshot baseline and emits a full-schema
+  migration, so it is not the schema-diff path here. Do not hand-edit SQL that a
+  generate produced; hand-written migrations are the normal case.
 - **Deployment:** image references are digest-pinned.

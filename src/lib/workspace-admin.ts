@@ -24,6 +24,8 @@ export type WorkspaceRole =
   | 'analyst'
   | 'reviewer'
   | 'viewer'
+  /** ADR-0049: an external client viewer, scoped to one client's portal. */
+  | 'client_viewer'
 export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired'
 export type RegistrationMode = 'open' | 'invitation_only'
 export type ProjectAccessLevel = 'owner' | 'editor' | 'viewer'
@@ -33,6 +35,7 @@ export interface WorkspaceMemberWire {
   workspace_id: string
   user_id: string
   role: WorkspaceRole
+  client_id?: string | null
   suspended_at: string | null
   created_at: string
   updated_at: string
@@ -43,6 +46,7 @@ export interface WorkspaceInvitationWire {
   workspace_id: string
   email: string
   role: WorkspaceRole
+  client_id?: string | null
   status: InvitationStatus
   expires_at: string
   accepted_at: string | null
@@ -108,6 +112,7 @@ export interface WorkspaceMember {
   workspaceId: string
   userId: string
   role: WorkspaceRole
+  clientId?: string | null
   suspendedAt: string | null
   createdAt: string
   updatedAt: string
@@ -118,6 +123,7 @@ export interface WorkspaceInvitation {
   workspaceId: string
   email: string
   role: WorkspaceRole
+  clientId?: string | null
   status: InvitationStatus
   expiresAt: string
   acceptedAt: string | null
@@ -183,6 +189,7 @@ export const toWorkspaceMember = (w: WorkspaceMemberWire): WorkspaceMember => ({
   workspaceId: w.workspace_id,
   userId: w.user_id,
   role: w.role,
+  clientId: w.client_id ?? null,
   suspendedAt: w.suspended_at,
   createdAt: w.created_at,
   updatedAt: w.updated_at,
@@ -195,6 +202,7 @@ export const toWorkspaceInvitation = (
   workspaceId: w.workspace_id,
   email: w.email,
   role: w.role,
+  clientId: w.client_id ?? null,
   status: w.status,
   expiresAt: w.expires_at,
   acceptedAt: w.accepted_at,
@@ -283,9 +291,26 @@ export async function fetchWorkspaceMembers(
 ): Promise<WorkspaceMember[]> {
   const rows = await c.list<WorkspaceMemberWire>(
     'workspace_memberships',
-    filter('workspace_id', workspaceId, 'created_at.asc'),
+    `${filter('workspace_id', workspaceId, 'created_at.asc')}&select=id,workspace_id,user_id,role,client_id,suspended_at,created_at,updated_at`,
   )
   return rows.map(toWorkspaceMember)
+}
+
+export interface ClientSummary {
+  id: string
+  code: string
+  name: string
+}
+
+export async function fetchClients(
+  c: DataClient,
+  workspaceId: string,
+): Promise<ClientSummary[]> {
+  const rows = await c.list<{ id: string; code: string; name: string }>(
+    'clients',
+    `${filter('workspace_id', workspaceId, 'code.asc')}&select=id,code,name`,
+  )
+  return rows
 }
 
 export async function fetchInvitations(
@@ -350,6 +375,7 @@ export async function createInvitation(
     email: string
     role: WorkspaceRole
     expiresAfterDays: number
+    clientId?: string | null
   },
 ): Promise<{ invitation: WorkspaceInvitation; token: string }> {
   const result = await c.rpc<WorkspaceInvitationWire & { token: string }>(
@@ -359,6 +385,7 @@ export async function createInvitation(
       p_email: input.email,
       p_role: input.role,
       p_expires_after_days: input.expiresAfterDays,
+      p_client_id: input.clientId ?? null,
     },
   )
   return { invitation: toWorkspaceInvitation(result), token: result.token }
@@ -398,12 +425,18 @@ async function memberRpc(
 
 export async function changeMemberRole(
   c: DataClient,
-  input: { workspaceId: string; userId: string; newRole: WorkspaceRole },
+  input: {
+    workspaceId: string
+    userId: string
+    newRole: WorkspaceRole
+    clientId?: string | null
+  },
 ): Promise<WorkspaceMemberWire> {
   return c.rpc('change_member_role', {
     p_workspace_id: input.workspaceId,
     p_user_id: input.userId,
     p_new_role: input.newRole,
+    p_client_id: input.clientId ?? null,
   })
 }
 
@@ -518,6 +551,7 @@ export const WORKSPACE_ROLE_LABELS: Record<WorkspaceRole, string> = {
   analyst: 'Analyst',
   reviewer: 'Reviewer',
   viewer: 'Viewer',
+  client_viewer: 'Client viewer',
 }
 
 /** Invitation and member-role copy. Viewer is read-only (GOV-01). */
@@ -535,17 +569,20 @@ export const WORKSPACE_ROLE_DESCRIPTIONS: Record<WorkspaceRole, string> = {
     'Member-class scientific work. Same data capabilities as Member; review assignment is separate from this role.',
   viewer:
     'Read-only. Cannot create, link or upgrade records, Sheets or Datasets.',
+  client_viewer:
+    'External client. Sees only approved records explicitly shared to their client portal; never drafts, comments, raw data or files.',
 }
 
 export const WORKSPACE_ROLE_TOKENS: Record<WorkspaceRole, string> = {
-  owner: 'bg-purple-100 text-purple-700',
-  admin: 'bg-blue-100 text-blue-700',
-  member: 'bg-slate-100 text-slate-700',
-  steward: 'bg-teal-100 text-teal-800',
-  scientist: 'bg-emerald-100 text-emerald-700',
-  analyst: 'bg-cyan-100 text-cyan-700',
-  reviewer: 'bg-amber-100 text-amber-700',
-  viewer: 'bg-zinc-100 text-zinc-600',
+  owner: 'bg-review-wash text-review',
+  admin: 'bg-selection text-info',
+  member: 'bg-muted text-muted-foreground',
+  steward: 'bg-success-wash text-success-text',
+  scientist: 'bg-success-wash text-success-text',
+  analyst: 'bg-selection text-info',
+  reviewer: 'bg-warning-wash text-warning-text',
+  client_viewer: 'bg-review-wash text-review',
+  viewer: 'bg-muted text-muted-foreground',
 }
 
 export const INVITATION_STATUS_LABELS: Record<InvitationStatus, string> = {
@@ -556,10 +593,10 @@ export const INVITATION_STATUS_LABELS: Record<InvitationStatus, string> = {
 }
 
 export const INVITATION_STATUS_TOKENS: Record<InvitationStatus, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  accepted: 'bg-emerald-100 text-emerald-700',
-  revoked: 'bg-red-100 text-red-700',
-  expired: 'bg-zinc-100 text-zinc-600',
+  pending: 'bg-warning-wash text-warning-text',
+  accepted: 'bg-success-wash text-success-text',
+  revoked: 'bg-danger-wash text-danger-text',
+  expired: 'bg-muted text-muted-foreground',
 }
 
 export const PROJECT_ACCESS_LABELS: Record<ProjectAccessLevel, string> = {
@@ -569,9 +606,9 @@ export const PROJECT_ACCESS_LABELS: Record<ProjectAccessLevel, string> = {
 }
 
 export const PROJECT_ACCESS_TOKENS: Record<ProjectAccessLevel, string> = {
-  owner: 'bg-purple-100 text-purple-700',
-  editor: 'bg-blue-100 text-blue-700',
-  viewer: 'bg-zinc-100 text-zinc-600',
+  owner: 'bg-review-wash text-review',
+  editor: 'bg-selection text-info',
+  viewer: 'bg-muted text-muted-foreground',
 }
 
 export const REGISTRATION_MODE_LABELS: Record<RegistrationMode, string> = {

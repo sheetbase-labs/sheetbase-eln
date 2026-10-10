@@ -1,0 +1,67 @@
+Model editor
+Models / MDL-0012
+Clarification run
+Discard draft
+Preview as sheet
+Submit v5 for approval…
+Draft v5, based on v4 Measurement model Owner Gareth P. Draft saved 10:48
+Fields 10 Rules 3 Relations 2 Versions 4 Usage 23
+2 changes from v4
+Added Flux
+Changed Turbidity out · range
+Compare with v4
+| | | Name | Key | Type | Unit | Required | Validation |
+| ⋮⋮ | Condition | condition | Text | — | Yes | Unique per experiment |
+| ⋮⋮ | Sample | sample | Link · Sample | — | No | Status is not Consumed |
+| ⋮⋮ | Filter train | filter_train | Link · Material lot | — | Yes | Lot in date on run date |
+| ⋮⋮ | Load | load | Number · 0 dp | L/m² | Yes | 0–500 |
+| ⋮⋮ | Flux | flux | Number · 0 dp | LMH | No | 10–300 · default 100 | Added
+| ⋮⋮ | ΔP end | dp_end | Number · 2 dp | bar | No | 0–3 |
+| ⋮⋮ | Turbidity out | turbidity_out | Number · 1 dp | NTU | Yes | 0–50 0–100 | Changed
+| ⋮⋮ | Capsid titre | capsid_titre | Number · scientific, 2 sf | cp/mL | No | > 0 |
+| ⋮⋮ | Step yield ƒx | step_yield | Formula · 1 dp | % | — | — |
+| ⋮⋮ | Meets criteria ƒx | meets_criteria | Formula · Yes/No | — | — | — |
++ Add field
+Rules
+3
+| | Rule | Applies to | Effect
+| Turbidity out within allowed range | Turbidity out | Flag value, block submission until resolved
+| Load must be one of the protocol load points | Load | Warn
+| Filter train must be a released material | Filter train | Block
+Relations
+2
+| | Field | Links to | Cardinality
+| Sample | Sample record (MDL-0004) | One
+| Filter train | Material lot (MDL-0005) | One
+Versions
+4
+| | Version | Status | Date | Change
+| v5 | Draft | Today | Added Flux; Turbidity range 0–100
+| v4 | Published | 22 Sep | Added Load (L/m²)
+| v3 | Superseded | 2 Sep | Linked turbidity to DS model
+| v2 | Superseded | 14 Aug | Units made required
+Usage
+23 experiments
+| | Where | Count | Version
+| Records | 214 | v4 (88 on older versions)
+| Experiments | 23 | 3 open
+| Protocol templates | 1 | PRT-021 v3
+Field · Turbidity out
+Name Turbidity out
+Key (locked once published) turbidity_out
+Type Number ▾
+Unit NTU ▾
+Precision 1 dp ▾
+Required Yes ▾
+Allowed range
+0
+to 100
+NTU
+Was 0–50 in v4
+Reason for change required
+Impact
+214 records use v4. They keep 0–50 unless migrated.
+In 3 open experiments, migrating would clear 1 validation error (EXP-0142 row 9, 61.5 NTU).
+New records only
+Also migrate open experiments (3)
+Publishing v5 needs approval from QA. Signed records always keep the model version they were signed with.

@@ -62,9 +62,9 @@ beforeAll(async () => {
      INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
       ('${WS_A}', '${OWNER_A}', 'owner'),
       ('${WS_B}', '${OWNER_B}', 'owner');
-     INSERT INTO api.projects (id, workspace_id, key, title) VALUES
-      ('${PROJ_A}', '${WS_A}', 'c04a', 'CORE-04 A'),
-      ('${PROJ_B}', '${WS_B}', 'c04b', 'CORE-04 B')`,
+     INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
+      ('${PROJ_A}', '${WS_A}', 'c04a', 'CORE-04 A', '${OWNER_A}'),
+      ('${PROJ_B}', '${WS_B}', 'c04b', 'CORE-04 B', '${OWNER_B}')`,
   )
   const owner = await asAuthenticated(OWNER_A, WS_A)
   await owner.query(
@@ -247,7 +247,7 @@ describe('Sheet Record validate-without-commit', () => {
           ]),
         ],
       ),
-    ).rejects.toThrow(/42501|not found|membership/i)
+    ).rejects.toThrow(/42501|not found|membership|access denied/i)
 
     await expect(
       owner.query(
@@ -357,7 +357,7 @@ describe('atomic create+link and bulk commit', () => {
       ok: true,
       notebookRecordLink: false,
     })
-    expect(created.rows[0].result.identifier).toMatch(/^SMP-\d{4}-\d{4}$/)
+    expect(created.rows[0].result.identifier).toMatch(/^SMP-\d{4}$/)
     const linked = await migrator.query(
       `select reference_id::text as sample from api.dataset_row_values where row_id=$1 and field_id=$2`,
       [dataset.rowId, SAMPLE_FIELD],
@@ -441,9 +441,7 @@ describe('atomic create+link and bulk commit', () => {
       }),
     ])
     const createdId = firstCommit.rows[0].result.rows[0].recordId as string
-    expect(firstCommit.rows[0].result.rows[0].identifier).toMatch(
-      /^SMP-\d{4}-\d{4}$/,
-    )
+    expect(firstCommit.rows[0].result.rows[0].identifier).toMatch(/^SMP-\d{4}$/)
     const replay = await owner.query(
       `select api.commit_sheet_record_batch($1,'sample',$2::jsonb,$3) result`,
       [PROJ_A, JSON.stringify(payload), retry],
@@ -509,6 +507,6 @@ describe('atomic create+link and bulk commit', () => {
         `select api.commit_sheet_record_batch($1,'sample',$2::jsonb,$3)`,
         [PROJ_A, JSON.stringify(payload), 'outsider'],
       ),
-    ).rejects.toThrow(/42501|not found|membership/i)
+    ).rejects.toThrow(/42501|not found|membership|access denied/i)
   })
 })

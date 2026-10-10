@@ -1,4 +1,4 @@
-import { PencilLine } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { cn } from '#/lib/utils'
 import { useOthers } from '#/lib/collaboration/liveblocks.config'
@@ -80,7 +80,7 @@ function BlockCoEditBadgeInner({
         className,
       )}
     >
-      <PencilLine className="size-3" aria-hidden="true" />
+      <Icon name="edit" className="size-3" aria-hidden="true" />
       {names.join(', ')} {names.length === 1 ? 'is' : 'are'} editing here
     </span>
   )

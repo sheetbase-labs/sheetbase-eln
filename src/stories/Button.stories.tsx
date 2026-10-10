@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Loader2, Plus } from 'lucide-react'
+// Loader2 is a spinner; the v3 set has no spinner icon.
+import { Loader2 } from 'lucide-react'
 
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 
 const meta = {
@@ -19,7 +21,7 @@ export const Destructive: Story = { args: { variant: 'destructive' } }
 export const WithIcon: Story = {
   render: () => (
     <Button>
-      <Plus /> Create experiment
+      <Icon name="plus" /> Create experiment
     </Button>
   ),
 }
@@ -52,7 +54,7 @@ export const Sizes: Story = {
       <Button>Default</Button>
       <Button size="lg">Large</Button>
       <Button size="icon" aria-label="Add">
-        <Plus />
+        <Icon name="plus" />
       </Button>
     </div>
   ),

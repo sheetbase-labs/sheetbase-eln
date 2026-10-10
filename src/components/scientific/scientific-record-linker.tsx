@@ -18,9 +18,9 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
 import { useState } from 'react'
 
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { RecordPicker } from './record-picker'
 import { ScientificRecordSummary } from './scientific-record-summary'
@@ -204,7 +204,7 @@ export function ScientificRecordLinker({
           aria-expanded={open}
           aria-controls="sci-001-linker-picker"
         >
-          <Plus className="size-3" aria-hidden /> Link record
+          <Icon name="plus" size={12} /> Link record
         </Button>
       </div>
 

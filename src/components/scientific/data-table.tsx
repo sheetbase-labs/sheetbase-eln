@@ -11,6 +11,7 @@ import type {
   SortingState,
   VisibilityState,
 } from '@tanstack/react-table'
+// Sort-direction arrows; the v3 set has no equivalents.
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 
 import { Button } from '#/components/v3/ui/button'

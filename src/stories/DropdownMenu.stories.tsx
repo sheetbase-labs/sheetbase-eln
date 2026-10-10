@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Copy, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+// Trash2 (delete) has no v3 equivalent.
+import { Trash2 } from 'lucide-react'
+
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import {
   DropdownMenu,
@@ -24,18 +27,18 @@ export const Default: Story = {
     <DropdownMenu defaultOpen>
       <DropdownMenuTrigger asChild>
         <Button variant="outline">
-          <MoreHorizontal />
+          <Icon name="more" />
           Actions
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuLabel>Record actions</DropdownMenuLabel>
         <DropdownMenuItem>
-          <Pencil />
+          <Icon name="edit" />
           Edit<DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem>
-          <Copy />
+          <Icon name="copy" />
           Duplicate
         </DropdownMenuItem>
         <DropdownMenuSeparator />

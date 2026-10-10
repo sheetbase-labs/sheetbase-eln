@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { BarChart3, LayoutGrid, Table2 } from 'lucide-react'
+// LayoutGrid (gallery view) has no v3 equivalent.
+import { LayoutGrid } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { Icon } from '#/components/icons'
 import { ToggleGroup, ToggleGroupItem } from '#/components/ui/toggle-group'
 
 const meta = {
@@ -23,9 +25,9 @@ function Frame({ children }: { children: ReactNode }) {
 }
 
 const views = [
-  { value: 'table', label: 'Table', icon: Table2 },
-  { value: 'chart', label: 'Chart', icon: BarChart3 },
-  { value: 'gallery', label: 'Gallery', icon: LayoutGrid },
+  { value: 'table', label: 'Table', icon: () => <Icon name="table" /> },
+  { value: 'chart', label: 'Chart', icon: () => <Icon name="chart" /> },
+  { value: 'gallery', label: 'Gallery', icon: () => <LayoutGrid /> },
 ] as const
 
 function MandatoryViewControl() {
@@ -84,10 +86,10 @@ export const WithCounts: Story = {
     <Frame>
       <ToggleGroup type="single" variant="outline" defaultValue="table">
         <ToggleGroupItem value="table">
-          <Table2 /> Table (142)
+          <Icon name="table" /> Table (142)
         </ToggleGroupItem>
         <ToggleGroupItem value="chart">
-          <BarChart3 /> Chart (12)
+          <Icon name="chart" /> Chart (12)
         </ToggleGroupItem>
         <ToggleGroupItem value="gallery">
           <LayoutGrid /> Gallery (36)

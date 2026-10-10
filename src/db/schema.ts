@@ -4119,6 +4119,40 @@ export const datasetCellSearch = api.table(
 )
 
 /**
+ * SRCH-01.2 — one row per Sheet Instance cell value, so sheet values are
+ * searchable with their column label the way dataset cells are. A trigger
+ * rebuilds an instance's rows whenever its state changes; the table is
+ * RLS-scoped to the workspace and read through `api.search_sheet_cells`.
+ */
+export const sheetCellSearch = api.table(
+  'sheet_cell_search',
+  {
+    instanceId: uuid('instance_id')
+      .notNull()
+      .references(() => sheetInstances.id, { onDelete: 'cascade' }),
+    rowKey: text('row_key').notNull(),
+    fieldId: text('field_id').notNull(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    projectId: uuid('project_id').references(() => projects.id, {
+      onDelete: 'cascade',
+    }),
+    fieldLabel: text('field_label').notNull(),
+    valueText: text('value_text').notNull(),
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(value_text, '') || ' ' || coalesce(field_label, ''))`,
+    ),
+  },
+  (table) => [
+    primaryKey({ columns: [table.instanceId, table.rowKey, table.fieldId] }),
+    index('idx_sheet_cell_search_vector').using('gin', table.searchVector),
+    index('idx_sheet_cell_search_workspace').on(table.workspaceId),
+    index('idx_sheet_cell_search_instance').on(table.instanceId),
+  ],
+)
+
+/**
  * dataset_version_keeps (DSET-04.3) — a manual "Keep" on an immutable snapshot.
  * The snapshot itself is frozen evidence, so the keep is stored beside it, one
  * row per version, and read by the retention function.

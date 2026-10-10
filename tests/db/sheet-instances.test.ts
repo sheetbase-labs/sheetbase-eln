@@ -740,6 +740,8 @@ describe('Sheet Instance durability and authority', () => {
       { tgname: 'guard_sheet_instance', tgenabled: 'O', count: 1 },
       { tgname: 'prevent_sheet_display_id_change', tgenabled: 'O', count: 1 },
       { tgname: 'sheet_instances_assign_display_id', tgenabled: 'O', count: 1 },
+      // SRCH-01.2: the cell index follows the instance state.
+      { tgname: 'sync_sheet_cell_search', tgenabled: 'O', count: 1 },
     ])
     expect(
       (

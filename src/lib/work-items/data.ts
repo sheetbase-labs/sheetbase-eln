@@ -164,6 +164,7 @@ export function countByKind(
     review_requested: 0,
     witness_requested: 0,
     run_failed: 0,
+    run_waiting: 0,
     data_issue: 0,
     material_expiring: 0,
     approval_requested: 0,

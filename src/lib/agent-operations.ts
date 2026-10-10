@@ -242,6 +242,22 @@ export async function listAgentOperationProposals(
   )
 }
 
+/**
+ * Read one proposal by id (PIPE-03 notebook proposal block). Returns null when
+ * the row is absent or not readable for the caller rather than throwing, so a
+ * block linked to a withdrawn proposal renders an honest "not available" state.
+ */
+export async function fetchAgentOperationProposal(
+  client: DataClient,
+  proposalId: string,
+): Promise<AgentOperationProposal | null> {
+  const rows = await client.list<AgentOperationProposal>(
+    'agent_operation_proposals',
+    `?select=${PROPOSAL_FIELDS}&id=eq.${encodeURIComponent(proposalId)}`,
+  )
+  return rows.at(0) ?? null
+}
+
 export async function listAgentOperationPolicies(
   client: DataClient,
 ): Promise<AgentOperationPolicy[]> {
@@ -327,6 +343,8 @@ export async function executeAgentOperation(
 
 export const agentOperationQueryKeys = {
   proposals: ['agent-operations', 'proposals'] as const,
+  proposal: (proposalId: string) =>
+    ['agent-operations', 'proposals', proposalId] as const,
   policies: ['agent-operations', 'policies'] as const,
   events: (proposalId: string) =>
     ['agent-operations', 'proposals', proposalId, 'events'] as const,

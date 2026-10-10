@@ -5,7 +5,7 @@
  * Version identity.
  */
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
@@ -15,6 +15,12 @@ import { Icon } from '#/components/v3/icons'
 import { createDataClient } from '#/lib/data-client'
 import { formatRelativeTime } from '#/lib/notebook-data'
 import {
+  agentOperationQueryKeys,
+  decideAgentOperation,
+  executeAgentOperation,
+  proposalRevision,
+} from '#/lib/agent-operations'
+import {
   listPipelineRunOutputs,
   listRecentPipelineRuns,
   pipelineQueryKeys,
@@ -22,6 +28,12 @@ import {
 import type { PipelineRunWire } from '#/lib/pipelines/types'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import type { PipelineOutputBlockPayload } from './pipeline-output-block-preview'
+import {
+  PipelineProposalAbsent,
+  PipelineProposalBlock,
+  PipelineProposalUnreadable,
+  usePipelineProposalQuery,
+} from './pipeline-output-block-proposal'
 
 const dataClient = createDataClient()
 
@@ -48,6 +60,70 @@ export function PipelineOutputBlockEditor({
   const [touched, setTouched] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // PIPE-03: a proposal pinned to this block. The decision RPCs are the
+  // authority; the UI only offers what the row's status allows.
+  const proposalId = initial.proposalId ?? null
+  const proposalQuery = usePipelineProposalQuery(proposalId)
+  const queryClient = useQueryClient()
+  const [actionError, setActionError] = useState<string | null>(null)
+  const proposal = proposalQuery.data ?? null
+
+  // The decision RPCs are the authority; after one lands, clear the refusal
+  // and re-read rather than trusting a client-side merge.
+  const settleProposal = () => {
+    setActionError(null)
+    void queryClient.invalidateQueries({
+      queryKey: agentOperationQueryKeys.proposals,
+    })
+  }
+  const decide = useMutation({
+    mutationFn: ({
+      target,
+      revision,
+      decision,
+      reason,
+    }: {
+      target: string
+      revision: number
+      decision: 'approve' | 'reject'
+      reason?: string | null
+    }) =>
+      decideAgentOperation(dataClient, {
+        proposalId: target,
+        expectedRevision: revision,
+        decision,
+        reason: reason ?? null,
+      }),
+    onSuccess: settleProposal,
+    onError: (error) =>
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'The decision could not be saved.',
+      ),
+  })
+  const execute = useMutation({
+    mutationFn: (target: { id: string; revision: number }) =>
+      executeAgentOperation(dataClient, {
+        proposalId: target.id,
+        expectedRevision: target.revision,
+      }),
+    onSuccess: settleProposal,
+    onError: (error) =>
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'The change could not be applied.',
+      ),
+  })
+
+  const pendingDecision = decide.isPending ? decide.variables.decision : null
+  const pending: 'approve' | 'reject' | 'execute' | null = pendingDecision
+    ? pendingDecision
+    : execute.isPending
+      ? 'execute'
+      : null
+
   const runsQuery = useQuery({
     queryKey: ['pipelines', 'recent-runs'],
     queryFn: () => listRecentPipelineRuns(dataClient, 20),
@@ -65,13 +141,17 @@ export function PipelineOutputBlockEditor({
   async function chooseRun(nextRunId: string) {
     setRunId(nextRunId)
     setTouched(true)
+    const proposalLink = initial.proposalId
+      ? { proposalId: initial.proposalId }
+      : {}
     if (!nextRunId) {
-      await persist({})
+      await persist(proposalLink)
       return
     }
     const outputs = await listPipelineRunOutputs(dataClient, nextRunId)
     const first = outputs.length > 0 ? outputs[0] : null
     await persist({
+      ...proposalLink,
       runId: nextRunId,
       datasetId: first?.dataset_id ?? null,
       datasetVersionId: first?.dataset_version_id ?? null,
@@ -109,6 +189,44 @@ export function PipelineOutputBlockEditor({
         />
         <span className="text-sm font-medium">Pipeline output reference</span>
       </div>
+
+      {proposal ? (
+        <PipelineProposalBlock
+          proposal={proposal}
+          runId={runId || proposal.preview.target.id || null}
+          currentOutput={
+            runId
+              ? `run ${runId.slice(0, 8)}${initial.label ? ` — ${initial.label}` : ''}`
+              : null
+          }
+          readOnly={Boolean(readOnly)}
+          pending={pending}
+          error={actionError}
+          onDecide={(decision, reason) =>
+            decide.mutate({
+              target: proposal.id,
+              revision: proposalRevision(proposal),
+              decision,
+              reason,
+            })
+          }
+          onExecute={() =>
+            execute.mutate({
+              id: proposal.id,
+              revision: proposalRevision(proposal),
+            })
+          }
+        />
+      ) : null}
+      {!proposalId ? <PipelineProposalAbsent /> : null}
+      {proposalId && !proposal && proposalQuery.isPending ? (
+        <p className="text-fg-muted text-xs" role="status">
+          Loading the linked proposal…
+        </p>
+      ) : null}
+      {proposalId && !proposal && !proposalQuery.isPending ? (
+        <PipelineProposalUnreadable />
+      ) : null}
 
       <Field label="Pipeline run">
         <NativeSelect
@@ -165,7 +283,11 @@ export function PipelineOutputBlockEditor({
             size="sm"
             variant="secondary"
             disabled={saving || !touched}
-            onClick={() => void persist({})}
+            onClick={() =>
+              void persist(
+                initial.proposalId ? { proposalId: initial.proposalId } : {},
+              )
+            }
           >
             Clear reference
           </Button>

@@ -862,6 +862,19 @@ function validatePipelineOutput(payload: unknown): FieldErrors {
       })
     }
   }
+  // PIPE-03: the proposal this block renders, when a run's propose-mode action
+  // pins one here.
+  if (
+    payload.proposalId !== undefined &&
+    payload.proposalId !== null &&
+    !isUuid(payload.proposalId)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'proposalId',
+      message: 'proposalId must be an agent-operation proposal UUID',
+    })
+  }
   if (
     payload.label !== undefined &&
     payload.label !== null &&

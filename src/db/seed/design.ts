@@ -703,6 +703,75 @@ export const designSteps: Array<SeedStep> = [
                 ${'2026-09-23T00:00:00Z'})
         ON CONFLICT (source_record_id, target_identifier, link_type) DO NOTHING
       `)
+
+      // LAB-04.2: the lot's certificate of analysis is a file, not a text field.
+      // The file is a record of its own, created through the canonical upload RPC
+      // and linked to the lot, which is how the file surfaces anywhere else.
+      await withDesignClaims(
+        db,
+        DESIGN_USER_IDS.gareth,
+        DESIGN_WORKSPACE_IDS.processDevelopment,
+        async (client) => {
+          const existing = await client.query<{
+            id: string
+            identifier: string
+          }>(
+            `select r.id, r.identifier from api.records r
+               join api.file_objects f on f.record_id = r.id
+              where r.project_id = $1 and f.display_name = $2`,
+            ['00000000-0000-4000-8000-000000000320', 'CoA_L-77310.pdf'],
+          )
+          // create_file_upload returns a record composite, which the client sees as
+          // an opaque string; select its fields in the same statement instead.
+          // The upload RPC returns a record composite, which the client sees as an
+          // opaque string; look the file up by its file object id instead. An
+          // existing certificate is reused, so a reseed does not re-upload it.
+          if ((existing.rowCount ?? 0) === 0) {
+            await client.query(
+              'select api.create_file_upload($1,$2,$3,$4,$5,$6,$7,$8)',
+              [
+                '00000000-0000-4000-8000-000000000320',
+                'CoA_L-77310.pdf',
+                'application/pdf',
+                148_912,
+                `${DESIGN_WORKSPACE_IDS.processDevelopment}/00000000-0000-4000-8000-0000000007a0/${'a'.padStart(32, '0')}`,
+                null,
+                'local',
+                '00000000-0000-4000-8000-0000000007a0',
+              ],
+            )
+          }
+          const created = await client.query<{
+            id: string
+            identifier: string
+          }>(
+            `select r.id, r.identifier from api.records r
+               join api.file_objects f on f.record_id = r.id
+              where f.id = $1`,
+            ['00000000-0000-4000-8000-0000000007a0'],
+          )
+          const file =
+            created.rows.at(0) ??
+            (existing.rows.at(0) as
+              { id: string; identifier: string } | undefined)
+          if (!file) throw new Error('certificate file not created')
+          await client.query(
+            `insert into api.record_links
+               (source_record_id, target_record_id, target_kind, target_identifier,
+                link_type, link_metadata, created_by_user_id)
+             values ($1,$2,'file',$3,'file',$4::jsonb,$5)
+             on conflict (source_record_id, target_identifier, link_type) do nothing`,
+            [
+              '00000000-0000-4000-8000-0000000003a8',
+              file.id,
+              file.identifier,
+              JSON.stringify({ relation: 'certificate' }),
+              DESIGN_USER_IDS.gareth,
+            ],
+          )
+        },
+        DESIGN_SESSION_IDS.gareth,
+      )
     },
   },
   {

@@ -626,6 +626,48 @@ export async function fetchReplacementLot(
     : null
 }
 
+export interface CertificateFile {
+  fileRecordId: string
+  identifier: string
+  displayName: string
+  mediaType: string | null
+}
+
+/**
+ * The lot's certificate of analysis (LAB-04.2). It is a file record linked to the
+ * lot, so the inspector shows the file rather than a text field.
+ */
+export async function fetchCertificateFile(
+  client: DataClient,
+  recordId: string,
+): Promise<CertificateFile | null> {
+  const links = await client.list<{ target_record_id: string | null }>(
+    'record_links',
+    `?source_record_id=eq.${encodeURIComponent(recordId)}&link_type=eq.file&limit=5` +
+      `&select=target_record_id`,
+  )
+  const target = links.find((link) => link.target_record_id)?.target_record_id
+  if (!target) return null
+  const [record] = await client.list<{ id: string; identifier: string }>(
+    'records',
+    `?id=eq.${encodeURIComponent(target)}&select=id,identifier`,
+  )
+  if (!record) return null
+  const [object] = await client.list<{
+    display_name: string
+    media_type: string | null
+  }>(
+    'file_objects',
+    `?record_id=eq.${encodeURIComponent(target)}&select=display_name,media_type&limit=1`,
+  )
+  return {
+    fileRecordId: record.id,
+    identifier: record.identifier,
+    displayName: object?.display_name ?? record.identifier,
+    mediaType: object?.media_type ?? null,
+  }
+}
+
 export function fetchReagentAttentionSummary(
   client: DataClient,
   expiryWarningDays = DEFAULT_EXPIRY_WARNING_DAYS,

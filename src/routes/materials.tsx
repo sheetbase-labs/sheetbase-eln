@@ -45,6 +45,7 @@ import {
 } from '#/components/v3/materials/materials-data'
 import type { MaterialListRow } from '#/components/v3/materials/materials-data'
 import {
+  fetchCertificateFile,
   fetchReplacementLot,
   fetchReagentUsage,
   recordReagentMovement,
@@ -217,6 +218,13 @@ function MaterialsList() {
   const replacementLink = useQuery({
     queryKey: ['ui-port', 'materials', 'replacement', sel?.id ?? ''],
     queryFn: () => fetchReplacementLot(notebookDataClient, sel!.id),
+    enabled: Boolean(sel),
+    staleTime: 15_000,
+  })
+
+  const certificate = useQuery({
+    queryKey: ['ui-port', 'materials', 'certificate', sel?.uuid ?? ''],
+    queryFn: () => fetchCertificateFile(notebookDataClient, sel!.uuid),
     enabled: Boolean(sel),
     staleTime: 15_000,
   })
@@ -433,7 +441,20 @@ function MaterialsList() {
                       ? `${sel.releasedBy} · ${dayLabel(sel.releasedAt)}`
                       : '—',
                   ],
-                  ['Certificate', sel.certificate ?? '—'],
+                  [
+                    'Certificate',
+                    certificate.data ? (
+                      <Link
+                        to="/records/$recordId"
+                        params={{ recordId: certificate.data.fileRecordId }}
+                        className="hover:underline"
+                      >
+                        {certificate.data.displayName}
+                      </Link>
+                    ) : (
+                      (sel.certificate ?? '—')
+                    ),
+                  ],
                   ['Stock', stockOfTotal(sel)],
                 ]}
               />

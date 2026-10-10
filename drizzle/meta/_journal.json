@@ -2547,6 +2547,13 @@
       "when": 1791621651442,
       "tag": "0365_instrument_qualifications",
       "breakpoints": true
+    },
+    {
+      "idx": 366,
+      "version": "7",
+      "when": 1791622568543,
+      "tag": "0366_booking_qualification_check",
+      "breakpoints": true
     }
   ]
 }

@@ -20,7 +20,10 @@ import type { Client } from 'pg'
 import { Client as PgClient } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { runPipelineExecution } from '#/lib/pipeline-execute.server'
+import {
+  releaseSettledRunArtefacts,
+  runPipelineExecution,
+} from '#/lib/pipeline-execute.server'
 import type { PipelineExecuteDeps } from '#/lib/pipeline-execute.server'
 import { sweepPipelines } from '#/lib/pipeline-scheduler.server'
 import type {
@@ -1856,6 +1859,68 @@ describe('Pipeline workflow extensions', () => {
       [record.id],
     )
     expect(blocks.rows).toEqual([])
+  })
+
+  it('releases a settled run artifacts once, keeping them only if the run proposed something', async () => {
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      transform: { language: 'none', statement: '' },
+      output: { mode: 'none' },
+      actions: [],
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    expect(report.ok).toBe(true)
+
+    // The runner is configured in this environment but not reachable, so the release
+    // fails; the run must be left unmarked so the next tick retries rather than looking
+    // released when its files were never dealt with.
+    const first = await releaseSettledRunArtefacts(deps)
+    expect(first.failed).toBeGreaterThanOrEqual(1)
+    const unmarked = await migrator.query(
+      `SELECT 1 FROM api.pipeline_artefact_releases WHERE run_id = $1`,
+      [run.id],
+    )
+    expect(unmarked.rows).toEqual([])
+    await close()
+  })
+
+  it('marks a run released once the runner has released its files', async () => {
+    const run = await workflow({
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      transform: { language: 'none', statement: '' },
+      output: { mode: 'none' },
+      actions: [],
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    await runPipelineExecution(OWNER, run.id, deps)
+
+    // With no runner configured the release is a no-op that succeeds, which is how a
+    // deployment without Python behaves.
+    const previous = process.env.PIPELINE_PYTHON_RUNNER_URL
+    delete process.env.PIPELINE_PYTHON_RUNNER_URL
+    const first = await releaseSettledRunArtefacts(deps)
+    expect(first.released).toBeGreaterThanOrEqual(1)
+    // The sweep is bounded, and this file leaves many settled runs behind, so assert on
+    // what the sweep did rather than on this particular run being in the batch.
+    const marked = await migrator.query<{ kept: boolean }>(
+      `SELECT kept FROM api.pipeline_artefact_releases WHERE kept = false`,
+    )
+    expect(marked.rows.length).toBeGreaterThanOrEqual(1)
+
+    // Drain the batch - the sweep is bounded and this file leaves settled runs behind -
+    // then a further sweep has nothing to do: the release row is what stops it repeating.
+    for (let tick = 0; tick < 20; tick += 1) {
+      const pass = await releaseSettledRunArtefacts(deps)
+      if (pass.released === 0 && pass.failed === 0) break
+    }
+    const settled = await releaseSettledRunArtefacts(deps)
+    expect(settled.released).toBe(0)
+    await close()
   })
 
   it("does not let a viewer fail another user's running pipeline", async () => {

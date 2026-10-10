@@ -222,6 +222,39 @@ async function boundedJson(
   }
 }
 
+/**
+ * PIPE-04.2 — release a run's artefacts, keeping them only if the run says so.
+ *
+ * A failure here is reported, not swallowed: artefacts that were meant to be discarded and
+ * were not are a privacy problem, and artefacts that were meant to be kept and were not are a
+ * lost figure. The caller decides what to do about it; this only says what happened.
+ */
+export async function releasePythonArtefacts(
+  artefactKey: string,
+  keep: boolean,
+): Promise<void> {
+  const runnerUrl = process.env.PIPELINE_PYTHON_RUNNER_URL
+  const token = process.env.PIPELINE_PYTHON_RUNNER_TOKEN
+  if (!runnerUrl || !token || token.length < 32) return
+  const url = new URL(runnerUrl)
+  url.pathname = '/artefacts/release'
+  const response = await fetch(url, {
+    method: 'POST',
+    redirect: 'error',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ key: artefactKey, keep }),
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!response.ok)
+    throw new PipelinePythonError(
+      `The Python runner did not release this run's files (${response.status}).`,
+      'runner_unavailable',
+    )
+}
+
 export async function executePythonTransform(
   input: PythonTransformInput,
 ): Promise<PythonTransformResult> {

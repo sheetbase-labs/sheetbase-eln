@@ -226,8 +226,10 @@ function docker(
 export async function collectOutputFiles(command, name, artefactKey) {
   if (!ARTEFACT_KEY.test(artefactKey))
     throw new RunnerError('Invalid artefact key.', 400, 'invalid_configuration')
+  // The key is the run, and a run can have several Python steps, so the directory is
+  // created once and each step's files accumulate in it. Clearing it here would make a
+  // second step's output replace the first's.
   const destination = join(artefactRoot(), artefactKey)
-  await rm(destination, { recursive: true, force: true })
   await mkdir(destination, { recursive: true })
 
   // A container that wrote nothing has no directory; that is not a failure.
@@ -283,7 +285,10 @@ export async function releaseArtefacts(artefactKey, keep) {
 }
 
 /** Delete unkept artefact directories older than the window. */
-export async function pruneArtefacts(maxAgeMs = ARTEFACT_TTL_MS, now = Date.now()) {
+export async function pruneArtefacts(
+  maxAgeMs = ARTEFACT_TTL_MS,
+  now = Date.now(),
+) {
   let removed = 0
   let kept = 0
   let entries
@@ -431,6 +436,7 @@ export function createRunnerServer({
       }
       if (!(
         (request.method === 'POST' && request.url === '/execute') ||
+        (request.method === 'POST' && request.url === '/artefacts/release') ||
         (request.method === 'GET' && request.url === '/runtime')
       ))
         return send(404, { error: 'Not found.' })
@@ -440,6 +446,32 @@ export function createRunnerServer({
         return send(503, {
           error: 'Python runner requires administrator attention.',
         })
+      // PIPE-04.2: a run's artefacts are temporary unless it keeps them.
+      if (request.url === '/artefacts/release') {
+        const chunks = []
+        for await (const chunk of request) chunks.push(chunk)
+        let release
+        try {
+          release = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+        } catch {
+          return send(400, { error: 'Invalid JSON body.' })
+        }
+        if (
+          !isObject(release) ||
+          typeof release.key !== 'string' ||
+          typeof release.keep !== 'boolean'
+        )
+          return send(400, {
+            error: 'Provide an artefact key and whether to keep it.',
+          })
+        try {
+          return send(200, await releaseArtefacts(release.key, release.keep))
+        } catch (error) {
+          return send(error instanceof RunnerError ? error.status : 500, {
+            error: error instanceof Error ? error.message : 'Release failed.',
+          })
+        }
+      }
       if (request.method === 'GET') {
         try {
           await checkRuntime()

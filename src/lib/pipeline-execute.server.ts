@@ -26,8 +26,12 @@
  * attempt to the failed run.
  */
 import { Client } from 'pg'
-import { PipelinePythonError, executePythonTransform } from './pipeline-python.server'
+import {
+  PipelinePythonError,
+  executePythonTransform,
+} from './pipeline-python.server'
 import type { PythonTransformUsage } from './pipeline-python.server'
+import { releasePythonArtefacts } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
 import type { QueryResultRow } from 'pg'
@@ -803,7 +807,11 @@ export async function resumePipelineRun(
     const answerError = validateConfirmAnswer(step.confirm, answer)
     if (answerError) {
       await conn.rollback()
-      return { ok: false, errorCode: 'invalid_answer', errorMessage: answerError }
+      return {
+        ok: false,
+        errorCode: 'invalid_answer',
+        errorMessage: answerError,
+      }
     }
     const decision = answer as PipelineConfirmAnswerInput
 
@@ -838,7 +846,9 @@ export async function resumePipelineRun(
         error instanceof Error ? error.message : 'The decision was rejected.'
       return {
         ok: false,
-        errorCode: /expire/i.test(message) ? 'prompt_expired' : 'invalid_answer',
+        errorCode: /expire/i.test(message)
+          ? 'prompt_expired'
+          : 'invalid_answer',
         errorMessage: message,
       }
     }
@@ -992,6 +1002,65 @@ export interface PipelineExpiryReport {
  * attributed to the pipeline, or fail the run. Temporary data is deleted in
  * every case. Safe to run repeatedly and concurrently.
  */
+/**
+ * PIPE-04.2 — a settled run's artefacts are temporary unless the run kept them.
+ *
+ * A sweep rather than a call at every exit: a run ends in several places (success, transform
+ * failure, cancellation, expiry) and an external HTTP call does not belong inside the
+ * transaction any of them holds. The sweep is idempotent - releasing an already-released run
+ * writes the same keep marker again - and it records that it released, so a settled run is not
+ * asked about on every tick.
+ *
+ * **Kept** means the run produced a proposal: a proposal can reference a file the run
+ * produced (PIPE-03), so discarding the files would leave the proposal pointing at nothing.
+ * Every other run's artefacts are deleted, which is what "temporary" means.
+ */
+export async function releaseSettledRunArtefacts(
+  deps: PipelineExecuteDeps,
+): Promise<{ released: number; kept: number; failed: number }> {
+  const conn = await deps.connect()
+  const report = { released: 0, kept: 0, failed: 0 }
+  try {
+    const { rows } = await conn.query<{ id: string; workspace_id: string }>(
+      `SELECT r.id, r.workspace_id FROM api.pipeline_runs r
+        WHERE r.status IN ('succeeded', 'failed', 'cancelled')
+          AND NOT EXISTS (
+            SELECT 1 FROM api.pipeline_artefact_releases rel WHERE rel.run_id = r.id
+          )
+        ORDER BY r.finished_at NULLS LAST
+        LIMIT 50`,
+    )
+    for (const run of rows) {
+      const proposed = await conn.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM api.agent_operation_proposals
+          WHERE workspace_id = $1 AND provenance->>'runId' = $2`,
+        [run.workspace_id, run.id],
+      )
+      const keep = Number(proposed.rows[0]?.n ?? '0') > 0
+      try {
+        await releasePythonArtefacts(run.id, keep)
+      } catch {
+        // Leave the run unmarked so the next tick retries: one unreachable runner must
+        // not stop the sweep, and a run whose files were not released must not look
+        // released.
+        report.failed += 1
+        continue
+      }
+      await conn.query(
+        `INSERT INTO api.pipeline_artefact_releases(run_id, workspace_id, kept)
+         VALUES ($1, $2, $3::boolean)
+         ON CONFLICT (run_id) DO NOTHING`,
+        [run.id, run.workspace_id, keep],
+      )
+      if (keep) report.kept += 1
+      else report.released += 1
+    }
+  } finally {
+    await conn.end().catch(() => {})
+  }
+  return report
+}
+
 export async function expirePipelinePrompts(
   deps: PipelineExecuteDeps,
   now: Date = new Date(),
@@ -1060,9 +1129,10 @@ export async function expirePipelinePrompts(
             'Nobody answered before the prompt expired; the proposal is applied and attributed to the pipeline.',
             { step: prompt.step_id },
           )
-          await conn.query(`DELETE FROM api.pipeline_run_prompts WHERE id = $1`, [
-            prompt.id,
-          ])
+          await conn.query(
+            `DELETE FROM api.pipeline_run_prompts WHERE id = $1`,
+            [prompt.id],
+          )
           await conn.query('SAVEPOINT sb_pipeline_work')
           const materializeStarted = Date.now()
           await materializeInputs(conn, run)
@@ -1080,11 +1150,17 @@ export async function expirePipelinePrompts(
           if (transform.kind === 'rows') {
             const observeStage = (stage: PipelineStage, ms: number) =>
               metrics.pipelineStageDuration.observe({ stage }, ms / 1000)
-            const finished = await finishExecution(conn, run, config, transform, {
-              startedAt: Date.now(),
-              materializeMs,
-              observeStage,
-            })
+            const finished = await finishExecution(
+              conn,
+              run,
+              config,
+              transform,
+              {
+                startedAt: Date.now(),
+                materializeMs,
+                observeStage,
+              },
+            )
             if (finished.ok) {
               metrics.pipelineRuns.inc({
                 trigger_kind: run.trigger_kind,
@@ -1128,9 +1204,10 @@ export async function expirePipelinePrompts(
             'Nobody answered before the prompt expired; the run failed.',
             { step: prompt.step_id },
           )
-          await conn.query(`DELETE FROM api.pipeline_run_prompts WHERE id = $1`, [
-            prompt.id,
-          ])
+          await conn.query(
+            `DELETE FROM api.pipeline_run_prompts WHERE id = $1`,
+            [prompt.id],
+          )
           await conn.commit()
           report.failed += 1
           continue
@@ -1520,6 +1597,9 @@ async function executeSteps(
       if (answerValues) inputs.answer = [answerValues]
       try {
         const result = await python({
+          // PIPE-04.2: the artefact key is the run, so every Python step's files land in
+          // one per-run directory the run releases when it settles.
+          artefactKey: run.id,
           statement: step.statement,
           inputs,
           parameters: run.parameters,
@@ -1592,7 +1672,8 @@ async function executeSteps(
       }
       if (decision.decision === 'skip')
         for (const name of step.confirm.skipSteps ?? []) skipped.add(name)
-      answerValues = (decision.values as Record<string, unknown> | undefined) ?? {}
+      answerValues =
+        (decision.values as Record<string, unknown> | undefined) ?? {}
       await provisionConfirmAnswer(conn, answerValues)
       await log(
         conn,

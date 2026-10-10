@@ -2904,6 +2904,13 @@
       "when": 1791665025390,
       "tag": "0416_promote_local_only",
       "breakpoints": true
+    },
+    {
+      "idx": 417,
+      "version": "7",
+      "when": 1791666378916,
+      "tag": "0417_pipeline_artefact_releases",
+      "breakpoints": true
     }
   ]
 }

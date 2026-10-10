@@ -35,6 +35,7 @@ import { env } from '#/env.server'
 import { metrics } from '#/lib/metrics'
 import {
   expirePipelinePrompts,
+  releaseSettledRunArtefacts,
   runPipelineExecution,
 } from './pipeline-execute.server'
 import type { PipelineExecuteDeps } from './pipeline-execute.server'
@@ -847,14 +848,15 @@ export function startPipelineScheduler(): void {
       // configured for a run that nobody answered. This path acts as the
       // pipeline, not a person, so a human session is never needed — and if
       // that ever changes it must fail loudly rather than act as a fake user.
-      await expirePipelinePrompts({
+      const sweepDeps = {
         getSession: async () => {
-          throw new Error(
-            'Expiring a pipeline prompt must not require a human session.',
-          )
+          throw new Error('A pipeline sweep must not require a human session.')
         },
         connect: defaultConnect,
-      })
+      }
+      await expirePipelinePrompts(sweepDeps)
+      // PIPE-04.2: a settled run's artefacts are temporary unless it kept them.
+      await releaseSettledRunArtefacts(sweepDeps)
     } catch (error) {
       // The sweep must never take the server down; failure is logged and
       // retried on the next interval.

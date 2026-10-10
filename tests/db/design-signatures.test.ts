@@ -41,7 +41,7 @@ it.each(['fresh', 'approved-but-unsigned'])(
     const seed = async () => {
       const result = await execute('pnpm', ['db:seed:design'], { env })
       expect(result.stdout).toContain(
-        'Seed complete: 43 step(s) applied idempotently.',
+        'Seed complete: 44 step(s) applied idempotently.',
       )
     }
     try {

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
-import { Pause, Play } from 'lucide-react'
 
+import { Icon } from '#/components/icons'
 import { PageHeader, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
@@ -128,11 +128,11 @@ function ConnectorDetailRoute() {
             >
               {connector.status === 'active' ? (
                 <>
-                  <Pause className="size-4" /> Pause
+                  <Icon name="pause" className="size-4" /> Pause
                 </>
               ) : (
                 <>
-                  <Play className="size-4" /> Activate
+                  <Icon name="play" className="size-4" /> Activate
                 </>
               )}
             </Button>

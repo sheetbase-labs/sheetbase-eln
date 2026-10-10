@@ -27,7 +27,6 @@ import {
 import { z } from 'zod'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Download } from 'lucide-react'
 
 import {
   CollaborationRoom,
@@ -2730,7 +2729,7 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
         href={`/api/export/revision/${revisionId}/package`}
         className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-center text-sm font-medium hover:bg-accent"
       >
-        <Download className="size-3.5 shrink-0" aria-hidden />
+        <Icon name="download" className="size-3.5 shrink-0" aria-hidden />
         Download evidence package (ZIP)
       </a>
     </section>

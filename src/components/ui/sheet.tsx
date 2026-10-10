@@ -1,9 +1,9 @@
 import * as React from 'react'
 import { Dialog as SheetPrimitive } from 'radix-ui'
-import { X } from 'lucide-react'
 import { cva } from 'class-variance-authority'
 import type { VariantProps } from 'class-variance-authority'
 
+import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 
 const Sheet = SheetPrimitive.Root
@@ -60,7 +60,7 @@ function SheetContent({
         {children}
         {showClose ? (
           <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 outline-none transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50">
-            <X className="size-4" />
+            <Icon name="x" className="size-4" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>
         ) : null}

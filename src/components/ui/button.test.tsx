@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { Plus } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { Button } from './button'
 
@@ -94,7 +94,7 @@ describe('Button', () => {
   it('supports an icon-only button when given an aria-label', () => {
     render(
       <Button size="iconOnly" aria-label="Add row">
-        <Plus />
+        <Icon name="plus" />
       </Button>,
     )
     const button = screen.getByRole('button', { name: 'Add row' })

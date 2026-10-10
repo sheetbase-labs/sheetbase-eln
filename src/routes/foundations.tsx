@@ -1,19 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import {
-  Activity,
-  Box,
-  Check,
-  FlaskConical,
-  Folder,
-  Moon,
-  Plus,
-  Search,
-  ShieldCheck,
-  Sun,
-  Table2,
-  UserRound,
-} from 'lucide-react'
 
+import { Icon, ICON_NAMES } from '#/components/icons'
 import { useTheme } from '#/components/theme-provider'
 import {
   RecordLink,
@@ -128,14 +115,14 @@ function FoundationsPage() {
                 onClick={() => setTheme('light')}
                 label="Light"
               >
-                <Sun className="size-3.5" /> Light
+                <Icon name="sun" className="size-3.5" /> Light
               </ToggleButton>
               <ToggleButton
                 active={theme === 'dark'}
                 onClick={() => setTheme('dark')}
                 label="Dark"
               >
-                <Moon className="size-3.5" /> Dark
+                <Icon name="moon" className="size-3.5" /> Dark
               </ToggleButton>
             </div>
           </div>
@@ -302,26 +289,16 @@ function FoundationsPage() {
         <Section
           id="icons"
           title="Iconography"
-          description="Lucide icons at 1.5–2px stroke, normally 16px within controls."
+          description="The UI system v3 icon set: 16px grid, 1.4px stroke, round caps and joins, currentColor."
         >
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-9">
-            {[
-              FlaskConical,
-              Folder,
-              Table2,
-              Activity,
-              ShieldCheck,
-              UserRound,
-              Search,
-              Box,
-              Check,
-            ].map((Icon, i) => (
+            {ICON_NAMES.map((name) => (
               <div
-                key={i}
+                key={name}
                 className="flex aspect-square flex-col items-center justify-center gap-2 rounded-lg border bg-card"
               >
-                <Icon className="size-5" />
-                <span className="text-xs text-muted-foreground">16–20px</span>
+                <Icon name={name} size={20} />
+                <span className="text-xs text-muted-foreground">{name}</span>
               </div>
             ))}
           </div>
@@ -874,7 +851,7 @@ function PrimitivesGrid() {
           <Button size="default">Default</Button>
           <Button size="lg">Large</Button>
           <Button size="icon" aria-label="Add">
-            <Plus className="size-4" />
+            <Icon name="plus" className="size-4" />
           </Button>
         </div>
       </Preview>
@@ -1325,7 +1302,7 @@ function AppShellPreview() {
               <span aria-hidden="true">/</span>
               <span className="text-foreground">EXP-2174</span>
               <span className="ml-auto inline-flex items-center gap-1 rounded-md border px-2 py-0.5">
-                <Search className="size-3" /> Search
+                <Icon name="search" className="size-3" /> Search
               </span>
             </div>
             <p className="text-xs text-muted-foreground">

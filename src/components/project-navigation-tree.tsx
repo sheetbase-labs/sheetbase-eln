@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
-import { FileText, Folder, FolderOpen } from 'lucide-react'
+import { FileText, FolderOpen } from 'lucide-react'
 
+import { Icon } from '#/components/icons'
 import { recordDestination } from '#/lib/navigation'
 import type {
   NotebookRecord,
@@ -98,7 +99,7 @@ function FolderBranch({
         className="flex min-h-8 items-center gap-2 px-2 text-xs font-medium text-muted-foreground"
         style={{ paddingLeft: `${depth * 12 + 20}px` }}
       >
-        <Folder className="size-3.5 shrink-0" aria-hidden="true" />
+        <Icon name="folder" className="size-3.5 shrink-0" aria-hidden="true" />
         <span className="truncate">{folder.name}</span>
       </div>
       {children.length > 0 || folderRecords.length > 0 ? (

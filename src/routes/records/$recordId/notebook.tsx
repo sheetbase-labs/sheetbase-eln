@@ -8,10 +8,11 @@ import {
   useRouterState,
   redirect,
 } from '@tanstack/react-router'
-import { Archive, FileWarning, Lock } from 'lucide-react'
+import { FileWarning } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { Icon } from '#/components/icons'
 import {
   ExtensionObjectActions,
   toExtensionPanelTabs,
@@ -1001,7 +1002,7 @@ export function StickyRecordHeader({
           }
         >
           {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
-            <Lock className="size-3" aria-hidden />
+            <Icon name="lock" className="size-3" aria-hidden />
           ) : null}
           {lifecycle}
         </span>
@@ -1411,7 +1412,11 @@ export function ArchivedBanner() {
       role="status"
       className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs"
     >
-      <Archive className="size-3.5 text-warning" aria-hidden="true" />
+      <Icon
+        name="archive"
+        className="size-3.5 text-warning"
+        aria-hidden="true"
+      />
       <span className="text-foreground">
         This notebook is archived. It is read-only until restored.
       </span>
@@ -1441,7 +1446,11 @@ export function LockedBanner({
       role="status"
       className="flex flex-wrap items-center gap-2 rounded-md border border-success bg-success/10 px-3 py-2 text-xs"
     >
-      <Lock className="size-3.5 text-success-text" aria-hidden="true" />
+      <Icon
+        name="lock"
+        className="size-3.5 text-success-text"
+        aria-hidden="true"
+      />
       <span className="text-foreground">
         This Notebook is submitted
         {record.lockedAt
@@ -2431,7 +2440,7 @@ export function PermissionRestrictedState() {
   return (
     <div className="max-w-md space-y-3 rounded-md border border-border bg-muted/30 p-6">
       <div className="flex items-center gap-2 text-muted-foreground">
-        <Lock className="size-4" aria-hidden="true" />
+        <Icon name="lock" className="size-4" aria-hidden="true" />
         <h2 className="text-base font-semibold text-foreground">
           Permission restricted
         </h2>

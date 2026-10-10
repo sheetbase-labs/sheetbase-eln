@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { MessageSquarePlus } from 'lucide-react'
 
+import { Icon } from '#/components/icons'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -305,7 +305,7 @@ export function CommentPanel({
               size="sm"
               disabled={!newBody.trim() || createMutation.isPending}
             >
-              <MessageSquarePlus className="size-3" aria-hidden="true" />
+              <Icon name="comment" className="size-3" aria-hidden="true" />
               {onDraftComment ? 'Add draft comment' : 'Add comment'}
             </Button>
             {createMutation.isPending ? (

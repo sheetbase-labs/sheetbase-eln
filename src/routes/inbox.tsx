@@ -139,6 +139,22 @@ export function itemLink(item: WorkItem) {
   return { to: '/inbox' as const }
 }
 
+/** The record page for an item, when it names one. */
+export function recordLink(item: WorkItem) {
+  return item.recordId
+    ? { to: '/records/$recordId' as const, params: { recordId: item.recordId } }
+    : { to: '/inbox' as const }
+}
+
+/**
+ * MOB-01.2 — reviewing and signing need more room than a phone has. The item
+ * still opens the full record there, with the reason stated rather than a
+ * silently narrower screen.
+ */
+export function reviewNeedsLargerScreen(item: WorkItem): boolean {
+  return item.kind === 'review_requested' || item.kind === 'witness_requested'
+}
+
 function Inbox() {
   const query = useWorkItems()
   const items = query.data ?? []
@@ -513,9 +529,32 @@ function Inbox() {
             />
           </InspectorSection>
           <InspectorSection title="Actions">
-            <Link {...itemLink(selected)} className="text-label">
-              Open
-            </Link>
+            {reviewNeedsLargerScreen(selected) ? (
+              <>
+                {/* MOB-01.2: on a phone a review or signing item opens the full
+                    record, and says why it is not the review surface. */}
+                <Link
+                  {...recordLink(selected)}
+                  className="text-label md:hidden"
+                >
+                  Open record
+                </Link>
+                <Link
+                  {...itemLink(selected)}
+                  className="text-label max-md:hidden"
+                >
+                  Open
+                </Link>
+                <p className="mt-1 text-label text-fg-muted md:hidden">
+                  Reviewing and signing need a larger screen. Open the record
+                  here, or continue on a desktop.
+                </p>
+              </>
+            ) : (
+              <Link {...itemLink(selected)} className="text-label">
+                Open
+              </Link>
+            )}
           </InspectorSection>
         </Inspector>
       ) : null}

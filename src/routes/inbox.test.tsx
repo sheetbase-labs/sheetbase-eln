@@ -2,7 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { itemKey, itemLink, Route, rowKey } from './inbox'
+import {
+  itemKey,
+  itemLink,
+  recordLink,
+  reviewNeedsLargerScreen,
+  Route,
+  rowKey,
+} from './inbox'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import type * as router from '@tanstack/react-router'
 import type * as workItems from '#/lib/work-items/data'
@@ -139,6 +146,31 @@ describe('Inbox witness presentation (REV-02)', () => {
     })
     fireEvent.click(getByRole('tab', { name: /^Following/ }))
     expect(queryByRole('button', { name: /Witness target/ })).toBeNull()
+  })
+})
+
+describe('MOB-01.2 review items on a phone', () => {
+  it('says a larger screen is needed for a review item, and not for a data issue', () => {
+    const { getByRole, getByText, queryByText } = renderInbox()
+    // The first needs-action row is the review request, and it is selected.
+    expect(getByText(/Reviewing and signing need a larger screen/)).toBeTruthy()
+    expect(getByText(/Open record/)).toBeTruthy()
+
+    fireEvent.click(getByRole('button', { name: /Second review/ }))
+    expect(queryByText(/Reviewing and signing need a larger screen/)).toBeNull()
+    expect(queryByText(/Open record/)).toBeNull()
+  })
+
+  it('keeps the review surface for the desktop link and the record for the phone', () => {
+    expect(reviewNeedsLargerScreen(items[0]!)).toBe(true)
+    expect(reviewNeedsLargerScreen(items[1]!)).toBe(false)
+    expect(recordLink(items[0]!)).toEqual({
+      to: '/records/$recordId',
+      params: { recordId: 'record-1' },
+    })
+    expect(recordLink({ ...items[1]!, recordId: null })).toEqual({
+      to: '/inbox',
+    })
   })
 })
 

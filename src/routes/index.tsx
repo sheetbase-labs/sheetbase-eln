@@ -483,6 +483,50 @@ function Home() {
           </div>
         ) : (
           <div className="flex flex-col gap-7 px-4 pb-8 pt-2 md:px-6">
+            {/* MOB-01.2: on a phone the inspector is a sheet behind a tap, so
+                today's bookings are page content — the first thing a bench user
+                needs is what they are doing next. */}
+            <div className="md:hidden">
+              <Section
+                title="Your bookings"
+                action={
+                  <Link to="/schedule" className="text-label">
+                    Full schedule
+                  </Link>
+                }
+              >
+                {bookings.length ? (
+                  <ul className="m-0 flex list-none flex-col p-0">
+                    {bookings.map((b) => (
+                      <li
+                        key={b.id}
+                        className="flex min-h-11 items-center gap-3 border-b border-border-subtle py-2 last:border-0"
+                      >
+                        <span className="num w-10 shrink-0 font-medium text-link">
+                          {new Date(b.starts_at).toLocaleTimeString('en-GB', {
+                            timeZone,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="font-medium">{b.title}</div>
+                          {b.location ? (
+                            <div className="text-label text-fg-muted">
+                              {b.location}
+                            </div>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="m-0 text-label text-fg-muted">
+                    Nothing scheduled today.
+                  </p>
+                )}
+              </Section>
+            </div>
             <nav
               aria-label="Summary"
               className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-border-subtle py-2.5"

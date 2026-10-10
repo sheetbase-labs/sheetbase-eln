@@ -636,6 +636,43 @@ export function recordReagentMovement(
   })
 }
 
+export interface RegisterReplacementLotInput {
+  recordId: string
+  lot: string
+  /** ISO date YYYY-MM-DD. */
+  expiry: string
+  quantity: number
+  unit?: string | null
+  reason?: string | null
+}
+
+export interface RegisterReplacementLotResult {
+  id: string
+  identifier: string
+  title: string
+  projectId: string | null
+  metadataVersion: number
+  lot: string
+  expiry: string
+  quantity: number
+  unit: string | null
+}
+
+/** A replacement is a sibling lot for the same material (LAB-04.2). */
+export function registerReplacementLot(
+  client: DataClient,
+  input: RegisterReplacementLotInput,
+): Promise<RegisterReplacementLotResult> {
+  return client.rpc<RegisterReplacementLotResult>('register_replacement_lot', {
+    p_reagent_record_id: input.recordId,
+    p_lot: input.lot,
+    p_expiry: input.expiry,
+    p_quantity: input.quantity,
+    p_unit: input.unit ?? null,
+    p_reason: input.reason ?? null,
+  })
+}
+
 export function archiveReagent(
   client: DataClient,
   recordId: string,

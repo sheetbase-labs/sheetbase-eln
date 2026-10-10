@@ -44,7 +44,11 @@ import {
   useReagentPage,
 } from '#/components/v3/materials/materials-data'
 import type { MaterialListRow } from '#/components/v3/materials/materials-data'
-import { fetchReagentUsage, recordReagentMovement } from '#/lib/reagent-data'
+import {
+  fetchReagentUsage,
+  recordReagentMovement,
+  registerReplacementLot,
+} from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 const tabs = ['instock', 'expiring', 'quarantine', 'expired'] as const
@@ -67,11 +71,9 @@ function shortDay(iso: string | null): string {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  })
+  return `${date.getUTCDate()} ${date
+    .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
+    .slice(0, 3)}`
 }
 
 /** "2 of 6 units": what is left of what was received. */
@@ -126,6 +128,7 @@ function MaterialsList() {
   const tab: MaterialTab = search.tab ?? 'instock'
   const [selected, setSelected] = useState<string | null>(null)
   const [receiveOpen, setReceiveOpen] = useState(false)
+  const [replacementOpen, setReplacementOpen] = useState(false)
 
   const rows = useMemo(
     () => (page.data?.rows ?? []).map(toMaterialListRow),
@@ -175,6 +178,38 @@ function MaterialsList() {
     },
     onError: (error: unknown) => {
       toast(error instanceof Error ? error.message : 'Could not quarantine lot')
+    },
+  })
+
+  const replacement = useMutation({
+    mutationFn: (input: {
+      lot: string
+      expiry: string
+      quantity: number
+      unit?: string
+      reason?: string
+    }) =>
+      registerReplacementLot(notebookDataClient, {
+        recordId: sel!.uuid,
+        lot: input.lot,
+        expiry: input.expiry,
+        quantity: input.quantity,
+        unit: input.unit ?? sel!.unit,
+        reason: input.reason,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: materialListQueryKeys.page,
+      })
+      toast('Replacement lot registered')
+      setReplacementOpen(false)
+    },
+    onError: (error: unknown) => {
+      toast(
+        error instanceof Error
+          ? error.message
+          : 'Could not register the replacement lot',
+      )
     },
   })
 
@@ -353,9 +388,19 @@ function MaterialsList() {
             ) : null}
             <div className="mt-2 flex flex-wrap gap-2">
               <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setReplacementOpen(true)}
+              >
+                Register replacement lot
+              </Button>
+              <Button
                 variant="secondary"
                 size="sm"
-                disabled={quarantine.isPending || sel.status.label.startsWith('Quarantine')}
+                disabled={
+                  quarantine.isPending ||
+                  sel.status.label.startsWith('Quarantine')
+                }
                 onClick={() => quarantine.mutate()}
               >
                 Quarantine
@@ -428,7 +473,113 @@ function MaterialsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={replacementOpen} onOpenChange={setReplacementOpen}>
+        <DialogContent className="w-[min(440px,calc(100vw-32px))]">
+          <DialogHeader
+            title="Register replacement lot"
+            description={sel ? `${sel.id} · ${sel.name}` : undefined}
+          />
+          <DialogBody>
+            <ReplacementForm
+              busy={replacement.isPending}
+              unit={sel?.unit ?? null}
+              onSubmit={(input) => replacement.mutate(input)}
+            />
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <Button
+              variant="primary"
+              type="submit"
+              form="replacement-lot-form"
+              disabled={replacement.isPending}
+            >
+              {replacement.isPending ? 'Registering…' : 'Register'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+  )
+}
+
+function ReplacementForm({
+  busy,
+  unit,
+  onSubmit,
+}: {
+  busy: boolean
+  unit: string | null
+  onSubmit: (input: {
+    lot: string
+    expiry: string
+    quantity: number
+    unit?: string
+    reason?: string
+  }) => void
+}) {
+  const [lot, setLot] = useState('')
+  const [expiry, setExpiry] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [unitValue, setUnitValue] = useState(unit ?? '')
+  const [reason, setReason] = useState('')
+  return (
+    <form
+      id="replacement-lot-form"
+      className="flex flex-col gap-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        const n = Number(quantity)
+        if (!lot.trim() || !expiry || !Number.isFinite(n) || n <= 0) return
+        onSubmit({
+          lot: lot.trim(),
+          expiry,
+          quantity: n,
+          unit: unitValue.trim() || undefined,
+          reason: reason.trim() || undefined,
+        })
+      }}
+    >
+      <Field label="Lot number" required>
+        <Input
+          value={lot}
+          onChange={(e) => setLot(e.target.value)}
+          autoFocus
+          disabled={busy}
+        />
+      </Field>
+      <Field label="Expiry" required>
+        <Input
+          type="date"
+          value={expiry}
+          onChange={(e) => setExpiry(e.target.value)}
+          disabled={busy}
+        />
+      </Field>
+      <Field label="Quantity" required>
+        <Input
+          type="number"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          disabled={busy}
+        />
+      </Field>
+      <Field label="Unit">
+        <Input
+          value={unitValue}
+          onChange={(e) => setUnitValue(e.target.value)}
+          disabled={busy}
+        />
+      </Field>
+      <Field label="Reason">
+        <Textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          disabled={busy}
+        />
+      </Field>
+    </form>
   )
 }
 

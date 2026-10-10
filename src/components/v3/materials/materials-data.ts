@@ -73,11 +73,7 @@ function lotStatus(
     return expiry && !Number.isNaN(expiry.getTime())
       ? {
           tone: 'bad',
-          label: `Expired ${expiry.toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-            timeZone: 'UTC',
-          })}`,
+          label: `Expired ${shortDate(expiry)}`,
         }
       : STATUS.expired
   }
@@ -94,17 +90,27 @@ function lotStatus(
     }
     return {
       tone: 'ok',
-      label: `Released · ${expiry.toLocaleDateString('en-GB', {
-        month: 'short',
-        year: 'numeric',
-        timeZone: 'UTC',
-      })}`,
+      label: `Released · ${shortMonth(expiry)} ${expiry.getUTCFullYear()}`,
     }
   }
-  return STATUS[reagent.status] ?? {
-    tone: 'none',
-    label: reagent.status.replace(/_/g, ' '),
-  }
+  return (
+    STATUS[reagent.status] ?? {
+      tone: 'none',
+      label: reagent.status.replace(/_/g, ' '),
+    }
+  )
+}
+
+/** Day and month, e.g. "1 Oct". */
+function shortDate(date: Date): string {
+  return `${date.getUTCDate()} ${shortMonth(date)}`
+}
+
+/** Three-letter month, e.g. "Sep" (the design never uses "Sept"). */
+function shortMonth(date: Date): string {
+  return date
+    .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
+    .slice(0, 3)
 }
 
 function formatDay(iso: string): string {

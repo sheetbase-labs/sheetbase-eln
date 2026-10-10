@@ -639,5 +639,84 @@ describe('CORE-05 governed evolution and promotion', () => {
         [created.id, LOCAL_FIELD, schema.schema_definition_id],
       ),
     ).rejects.toThrow()
+
+    // A second steward is needed: the requester cannot approve their own request.
+    await migrator!.query(
+      `insert into internal."user"(id,name,email,"emailVerified")
+       values('core-05-evo-steward-b','Second Steward','steward-b@sheetbase.test',true)`,
+    )
+    await migrator!.query(
+      `insert into api.workspace_memberships(workspace_id,user_id,role) values($1,$2,'steward')`,
+      [WS, 'core-05-evo-steward-b'],
+    )
+    const approver = await actor('core-05-evo-steward-b')
+
+    // A return settles the promotion as returned, recording the approver's reason and
+    // leaving the column local — which is the point of a return.
+    await approver.query(
+      `select api.return_approval_request($1,'show the raw values first')`,
+      [promotion.approvalRequestId],
+    )
+    const settled = (
+      await steward.query(`select api.apply_column_promotion($1,$2) result`, [
+        promotion.promotionId,
+        '00000000-0000-4000-8000-00000000c2fe',
+      ])
+    ).rows[0].result
+    expect(settled).toMatchObject({ state: 'returned', applied: false })
+    expect(String(settled.reason)).toContain('raw values')
+
+    const rowsAfterReturn = await migrator!.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM api.dataset_rows WHERE workspace_id = $1`,
+      [WS],
+    )
+    expect(rowsAfterReturn.rows[0]!.n).toBe(rowsBefore.rows[0]!.n)
+    const state = await migrator!.query<{ state: Record<string, unknown> }>(
+      `SELECT state FROM api.sheet_instances WHERE id = $1`,
+      [created.id],
+    )
+    const localFields = (state.rows[0]!.state.localFields ?? []) as Array<{
+      fieldId: string
+      lifecycle: string
+    }>
+    expect(
+      localFields.find((field) => field.fieldId === LOCAL_FIELD)?.lifecycle,
+    ).toBe('active')
+
+    // The field can be asked for again once the first request is settled, and applying
+    // is refused by the canonical materialization guard: a snapshot is sourced from the
+    // Sheet's dataset bindings, and a local-only Sheet has none. The promotion stays
+    // pending, so the caller can see it was not applied rather than believing it was.
+    // A second Definition, because the first request's draft version is still there:
+    // settling a promotion as returned does not discard the draft it forked.
+    const secondSchema = (
+      await steward.query(
+        `select api.create_dataset_schema_definition($1,'promo_req_schema2','Promo retry',null,'[]'::jsonb) result`,
+        [WS],
+      )
+    ).rows[0].result
+    await steward.query(`select api.publish_dataset_schema_version($1)`, [
+      secondSchema.schema_version_id,
+    ])
+    const second = (
+      await steward.query(
+        `select api.request_column_promotion($1,$2,'dataset_schema',$3,null,'try again','promo-req-3') result`,
+        [created.id, LOCAL_FIELD, secondSchema.schema_definition_id],
+      )
+    ).rows[0].result
+    await approver.query(`select api.approve_approval_request($1,'go ahead')`, [
+      second.approvalRequestId,
+    ])
+    await expect(
+      steward.query(`select api.apply_column_promotion($1,$2) result`, [
+        second.promotionId,
+        '00000000-0000-4000-8000-00000000c2ff',
+      ]),
+    ).rejects.toThrow(/composition sources/)
+    const stillPending = await migrator!.query<{ state: string }>(
+      `SELECT state FROM api.column_promotions WHERE id = $1`,
+      [second.promotionId],
+    )
+    expect(stillPending.rows[0]!.state).toBe('pending')
   })
 })

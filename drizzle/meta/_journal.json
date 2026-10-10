@@ -2813,6 +2813,13 @@
       "when": 1791656704786,
       "tag": "0403_migrate_open_experiments",
       "breakpoints": true
+    },
+    {
+      "idx": 404,
+      "version": "7",
+      "when": 1791657345305,
+      "tag": "0404_apply_column_promotion",
+      "breakpoints": true
     }
   ]
 }

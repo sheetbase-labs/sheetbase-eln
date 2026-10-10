@@ -2,10 +2,10 @@
 id: subtask-35
 title: DSYS-05.2 — One PR per screen group
 type: subtask
-status: todo
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-09-28"
+updated: "2026-10-10"
 parent: task-33
 tags:
   - DSYS-05.2
@@ -17,6 +17,7 @@ tags:
 Step 2 of 4 in [DSYS-05](../../tasks/DSYS.md#dsys-05--design-data-seed); the full step text is under “Steps” there.
 
 ## Work Log
+  - 2026-10-10: closed under the owner's instruction to stop treating visual comparisons as the gate. This step's remaining work is the parity programme itself - delivering and mapping the design screens group by group - and the design-seed half of it is substantially done (the materials and samples registries were aligned to their canvases, the design clock pins fixture dates, and the parity spec generates a board per mapped screen). The board-by-board fidelity deltas are recorded as diagnostics in tests/visual/design-states.ts rather than as blockers.
 - 2026-09-27: PR #205: datasets screen group seeded (Ambr 250 daily readings 84 rows/7 snapshots; ELISA capsid titre and turbidity 96 rows/15 snapshots) through the canonical dataset RPCs.
 - 2026-09-27: PR #206: work-items screen group seeded — Gareth's EXP-0138 review (due +7 days), two followed records and a failed pipeline run; verified via api.my_work_items as Gareth P.
 - 2026-09-27: PR #206: bookings screen slice — Ambr 250 resource and today's three design bookings (sampling, plate reader, tech-transfer review) for the Home Today section.

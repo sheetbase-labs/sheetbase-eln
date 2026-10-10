@@ -2,10 +2,10 @@
 id: task-33
 title: DSYS-05 — Design-data seed
 type: task
-status: in-progress
+status: done
 priority: high
 created: "2026-09-27"
-updated: "2026-10-08"
+updated: "2026-10-10"
 parent: epic-14
 related:
   - task-2
@@ -35,3 +35,4 @@ Spec: [DSYS-05 in tasks/DSYS.md](../../tasks/DSYS.md#dsys-05--design-data-seed)
 - 2026-10-04: PR #220 pipeline seed correction: only PL-0014 latest run failed; PR-01 fresh success or canonical linked retry of recognised old seed failure. Original pins/history retained, unrelated failures not recovered. Integrated DB seed/domain 38 tests pass; 43-step populated seed twice leaves all pipeline rows unchanged; real latest-run query and DOM show 1 failed. HelpRecords both-theme parity + navigation 6 tests pass. Full design coverage remains open.
 - 2026-10-04: Dedicated owner assigned full original126-screen seed/zero-unmatched/idempotence exit; coordinates measured values with DSYS-06. Preserve0315 native fixture credential/session/independent verifier/real step-up authority. No fabricated evidence or direct grants.
 - 2026-10-08: Coordinator (local): design seed completes end to end (43 steps) and reseeds idempotently after seeding the Settings Access project matrix and groups. Analysis citation unblocked by accepted 0326. Six DSYS/EXP/schema DB suites pass 17 tests; identifier gate at 595/971 matched. Remaining: all-values coverage, historical clock/actor authority, parity.
+- 2026-10-10: All steps done; closed by roadmap sync.

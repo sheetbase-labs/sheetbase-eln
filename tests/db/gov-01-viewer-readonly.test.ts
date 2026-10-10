@@ -185,7 +185,7 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
     for (const userId of [MEMBER, SCIENTIST, ANALYST, REVIEWER, STEWARD]) {
       const client = await actor(userId, WS_A)
       const created = await client.query(
-        `select id from api.create_record($1::uuid, 'experiment', $2, 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        `select id from api.create_record($1::uuid, 'experiment', $2, 'in_progress', ARRAY[]::text[], '{}'::jsonb)`,
         [PROJECT_A, `${userId} experiment`],
       )
       expect(created.rows[0].id).toBeTruthy()
@@ -195,7 +195,7 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
   it('denies viewer create_record, create_model_record, table inserts and updates', async () => {
     const member = await actor(MEMBER, WS_A)
     const created = await member.query(
-      `select id from api.create_record($1::uuid, 'experiment', 'Visible to viewer', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+      `select id from api.create_record($1::uuid, 'experiment', 'Visible to viewer', 'in_progress', ARRAY[]::text[], '{}'::jsonb)`,
       [PROJECT_A],
     )
     const recordId = created.rows[0].id as string
@@ -203,7 +203,7 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
 
     await expectDenied(
       viewer.query(
-        `select id from api.create_record($1::uuid, 'experiment', 'Viewer experiment', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        `select id from api.create_record($1::uuid, 'experiment', 'Viewer experiment', 'in_progress', ARRAY[]::text[], '{}'::jsonb)`,
         [PROJECT_A],
       ),
       '42501',
@@ -349,7 +349,7 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
   it('keeps workspace isolation for viewer reads and writes', async () => {
     const other = await actor(OTHER_OWNER, WS_B)
     const foreign = await other.query(
-      `select id from api.create_record($1::uuid, 'experiment', 'Foreign', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+      `select id from api.create_record($1::uuid, 'experiment', 'Foreign', 'in_progress', ARRAY[]::text[], '{}'::jsonb)`,
       [PROJECT_B],
     )
     const viewer = await actor(VIEWER, WS_A)
@@ -360,7 +360,7 @@ describe('GOV-01 viewer cannot mutate; other roles are not narrowed', () => {
     expect(leaked.rowCount).toBe(0)
     await expectDenied(
       viewer.query(
-        `select id from api.create_record($1::uuid, 'experiment', 'Cross', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        `select id from api.create_record($1::uuid, 'experiment', 'Cross', 'in_progress', ARRAY[]::text[], '{}'::jsonb)`,
         [PROJECT_B],
       ),
       '42501',

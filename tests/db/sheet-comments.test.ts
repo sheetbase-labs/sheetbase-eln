@@ -551,7 +551,7 @@ describe('SHEET-03 live comments use the existing PostgreSQL authority', () => {
     })
     const recordId = crypto.randomUUID()
     await migrator!.query(
-      `INSERT INTO api.records(id,workspace_id,kind,identifier,title,status,created_by_user_id) VALUES($1,$2,'experiment',$3,'Embedding record','draft',$4)`,
+      `INSERT INTO api.records(id,workspace_id,kind,identifier,title,status,created_by_user_id) VALUES($1,$2,'experiment',$3,'Embedding record','in_progress',$4)`,
       [recordId, WORKSPACE, `EXP-${recordId}`, OWNER],
     )
     await owner.query(
@@ -600,7 +600,7 @@ describe('SHEET-03 live comments use the existing PostgreSQL authority', () => {
     const member = await actor(MEMBER)
     const recordId = crypto.randomUUID()
     await migrator!.query(
-      `INSERT INTO api.records(id,workspace_id,kind,identifier,title,status,created_by_user_id) VALUES($1,$2,'experiment',$3,'Private context','draft',$4)`,
+      `INSERT INTO api.records(id,workspace_id,kind,identifier,title,status,created_by_user_id) VALUES($1,$2,'experiment',$3,'Private context','in_progress',$4)`,
       [recordId, WORKSPACE, `EXP-${recordId}`, OWNER],
     )
     const sheet = (
@@ -881,7 +881,7 @@ describe('SHEET-03 live comments use the existing PostgreSQL authority', () => {
     const sheet = await instance(owner)
     const recordId = crypto.randomUUID()
     await migrator!.query(
-      `INSERT INTO api.records(id,workspace_id,kind,identifier,title,status,created_by_user_id) VALUES($1,$2,'experiment',$3,'Frozen anchor','draft',$4)`,
+      `INSERT INTO api.records(id,workspace_id,kind,identifier,title,status,created_by_user_id) VALUES($1,$2,'experiment',$3,'Frozen anchor','in_progress',$4)`,
       [recordId, WORKSPACE, `EXP-${recordId}`, OWNER],
     )
     const block = (

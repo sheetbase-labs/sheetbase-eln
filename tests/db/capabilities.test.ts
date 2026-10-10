@@ -287,14 +287,14 @@ describe('CORE-05 capability resolver', () => {
   it('denies viewer record create while a member can still create', async () => {
     const member = await actor(MEMBER, WS_A)
     const created = await member.query(
-      `select id from api.create_record($1::uuid, 'experiment', 'Member experiment', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+      `select id from api.create_record($1::uuid, 'experiment', 'Member experiment', 'in_progress', ARRAY[]::text[], '{}'::jsonb)`,
       [PROJECT_A],
     )
     expect(created.rows[0].id).toBeTruthy()
     const viewer = await actor(VIEWER, WS_A)
     await expectDenied(
       viewer.query(
-        `select id from api.create_record($1::uuid, 'experiment', 'Viewer experiment', 'draft', ARRAY[]::text[], '{}'::jsonb)`,
+        `select id from api.create_record($1::uuid, 'experiment', 'Viewer experiment', 'in_progress', ARRAY[]::text[], '{}'::jsonb)`,
         [PROJECT_A],
       ),
       '42501',

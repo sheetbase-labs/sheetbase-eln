@@ -130,7 +130,7 @@ afterAll(async () => {
 async function input(workflowDefinitionKey = 'controlled-scientific-review') {
   const recordId = randomUUID()
   await admin.query(
-    `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment',$4,'Asymmetric author evidence','draft',$5)`,
+    `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment',$4,'Asymmetric author evidence','in_progress',$5)`,
     [recordId, workspaceId, projectId, `EXP-${recordId}`, author],
   )
   const preview = await actor.query(

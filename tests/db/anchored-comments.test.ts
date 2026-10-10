@@ -182,8 +182,8 @@ beforeAll(async () => {
     `INSERT INTO api.records
        (id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id)
      VALUES
-       ($1,$2,$3,'experiment','EXP-R4-A','Anchored experiment','draft',$4),
-       ($5,$6,$7,'experiment','EXP-R4-B','Other workspace','draft',$8)`,
+       ($1,$2,$3,'experiment','EXP-R4-A','Anchored experiment','in_progress',$4),
+       ($5,$6,$7,'experiment','EXP-R4-B','Other workspace','in_progress',$8)`,
     [RECORD_A, WS_A, PROJECT_A, OWNER_A, RECORD_B, WS_B, PROJECT_B, OWNER_B],
   )
   await migrator!.query(

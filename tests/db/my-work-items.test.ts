@@ -53,9 +53,9 @@ beforeAll(async () => {
     canEdit: true,
   })
   await migrator.query(
-    `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier, title, created_by_user_id) VALUES
-      ('${REVIEW_RECORD}', '${WS}', '${PROJECT}', 'experiment', 'EXP-W1', 'Awaiting review', '${SUBMITTER}'),
-      ('${FOLLOW_RECORD}', '${WS}', '${PROJECT}', 'experiment', 'EXP-W2', 'Followed record', '${SUBMITTER}')`,
+    `INSERT INTO api.records (id, workspace_id, project_id, kind, identifier, title, status, created_by_user_id) VALUES
+      ('${REVIEW_RECORD}', '${WS}', '${PROJECT}', 'experiment', 'EXP-W1', 'Awaiting review', 'in_progress', '${SUBMITTER}'),
+      ('${FOLLOW_RECORD}', '${WS}', '${PROJECT}', 'experiment', 'EXP-W2', 'Followed record', 'in_progress', '${SUBMITTER}')`,
   )
   await migrator.query(
     `INSERT INTO api.revisions (id, record_id, workspace_id, structure_version,

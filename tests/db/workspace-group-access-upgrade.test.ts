@@ -78,7 +78,7 @@ it.each([319, 324])(
       )
       const record = (
         await client.query<{ id: string }>(
-          `INSERT INTO api.records(workspace_id,project_id,kind,identifier,title,created_by_user_id) VALUES($1,$2,'experiment','EXP-SET-UP','Preserve notebook','set-upgrade-lead') RETURNING id`,
+          `INSERT INTO api.records(workspace_id,project_id,kind,identifier,title,status,created_by_user_id) VALUES($1,$2,'experiment','EXP-SET-UP','Preserve notebook','in_progress','set-upgrade-lead') RETURNING id`,
           [workspace, project],
         )
       ).rows[0].id

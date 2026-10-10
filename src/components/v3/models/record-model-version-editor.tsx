@@ -2,35 +2,56 @@ import { useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Muted } from '#/components/v3/ui/layout'
 import { Textarea } from '#/components/v3/inventory/list'
 import { NativeSelect } from '#/components/v3/projects/select'
 import { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
 import type { FieldLogicalType } from '#/lib/field-definition'
 import type {
+  ModelChangeScope,
   RecordModelVersion,
   RecordModelVersionDefinition,
 } from '#/lib/record-model-versions'
+import type { ModelFieldImpact } from './model-field-impact'
 
+type VersionField = RecordModelVersionDefinition['fields'][number]
+
+/**
+ * MDL-02.3 — the field editor, at the design's contract. A field's definition
+ * (type, unit, required, allowed range) is edited in place; the stable key is
+ * locked once the field has been published, and the editor says why. Applying
+ * the change needs a reason for change and the steward's migration scope, and
+ * the impact of the change is shown before it is applied.
+ */
 export function RecordModelVersionEditor({
   version,
+  impact,
+  publishedFieldNames = [],
+  publishedVersion,
   busy,
   onSave,
 }: {
   version: RecordModelVersion
+  impact: ModelFieldImpact
+  /** Keys already published: their identity is fixed, so the editor locks them. */
+  publishedFieldNames?: string[]
+  publishedVersion?: number | null
   busy: boolean
-  onSave: (definition: RecordModelVersionDefinition, reason: string) => void
+  onSave: (
+    definition: RecordModelVersionDefinition,
+    reason: string,
+    scope: ModelChangeScope,
+  ) => void
 }) {
   const [definition, setDefinition] = useState(version.definition)
   const [reason, setReason] = useState('')
+  const [scope, setScope] = useState<ModelChangeScope>('new-records-only')
   const [key, setKey] = useState('')
   const [label, setLabel] = useState('')
   const [logicalType, setLogicalType] = useState<FieldLogicalType>('text')
   const [error, setError] = useState<string | null>(null)
 
-  function updateField(
-    id: string,
-    patch: Partial<RecordModelVersionDefinition['fields'][number]>,
-  ) {
+  function updateField(id: string, patch: Partial<VersionField>) {
     setDefinition((current) => ({
       ...current,
       fields: current.fields.map((field) =>
@@ -39,107 +60,193 @@ export function RecordModelVersionEditor({
     }))
   }
 
+  function updateValidation(id: string, bound: 'min' | 'max', raw: string) {
+    const field = definition.fields.find((item) => item.id === id)
+    if (!field) return
+    const validation = { ...field.validation }
+    if (raw === '') delete validation[bound]
+    else validation[bound] = Number(raw)
+    updateField(id, { validation })
+  }
+
+  function updateUnit(id: string, unit: string) {
+    const field = definition.fields.find((item) => item.id === id)
+    if (!field) return
+    if (unit.trim() === '') {
+      updateField(id, { quantity: null })
+      return
+    }
+    const existingQuantity = field.quantity
+    const existing =
+      existingQuantity &&
+      typeof existingQuantity === 'object' &&
+      !Array.isArray(existingQuantity)
+        ? existingQuantity
+        : {}
+    updateField(id, {
+      quantity: {
+        ...existing,
+        kind: 'kind' in existing ? existing.kind : field.field_name,
+        dimension:
+          'dimension' in existing ? existing.dimension : field.field_name,
+        storageUnit: unit.trim(),
+      },
+    })
+  }
+
   return (
     <form
       className="flex flex-col gap-3"
       onSubmit={(event) => {
         event.preventDefault()
-        onSave(definition, reason.trim())
+        onSave(definition, reason.trim(), scope)
       }}
     >
       <p className="m-0 text-label text-fg-muted">
         Draft v{version.version}, revision {version.revision}. Published
         definitions and recorded values do not change.
       </p>
-      {definition.fields.map((field) => (
-        <fieldset
-          key={field.id}
-          disabled={busy}
-          className="flex flex-col gap-2 border-b border-border-subtle pb-3"
-        >
-          <legend className="mono text-label">{field.field_name}</legend>
-          <Field label="Label">
-            <Input
-              value={field.label}
-              required
-              onChange={(event) =>
-                updateField(field.id, { label: event.target.value })
+      {definition.fields.map((field) => {
+        const locked = publishedFieldNames.includes(field.field_name)
+        const numeric =
+          field.logical_type === 'integer' || field.logical_type === 'decimal'
+        const quantity = field.quantity
+        const unit =
+          quantity && typeof quantity === 'object' && 'storageUnit' in quantity
+            ? quantity.storageUnit
+            : undefined
+        return (
+          <fieldset
+            key={field.id}
+            disabled={busy}
+            className="flex flex-col gap-2 border-b border-border-subtle pb-3"
+          >
+            <legend className="mono text-label">{field.field_name}</legend>
+            <Field label="Label">
+              <Input
+                value={field.label}
+                required
+                onChange={(event) =>
+                  updateField(field.id, { label: event.target.value })
+                }
+              />
+            </Field>
+            <Field
+              label="Key"
+              hint={
+                locked
+                  ? `Locked: published in v${publishedVersion ?? '—'}, so it identifies this field on every saved record.`
+                  : 'Not yet published, so the key can still change.'
               }
-            />
-          </Field>
-          <div className="flex gap-3 text-label text-fg-muted">
-            <span>{field.logical_type}</span>
-          </div>
-          <label className="flex items-center gap-2 text-label">
-            <input
-              type="checkbox"
-              checked={!field.nullable}
-              onChange={(event) =>
-                updateField(field.id, { nullable: !event.target.checked })
-              }
-            />
-            Required for new records
-          </label>
-          {field.logical_type === 'integer' ||
-          field.logical_type === 'decimal' ? (
+            >
+              <Input
+                aria-label="Field key"
+                className="mono"
+                value={field.field_name}
+                disabled={locked}
+                onChange={(event) =>
+                  updateField(field.id, { field_name: event.target.value })
+                }
+              />
+            </Field>
             <div className="grid grid-cols-2 gap-2">
-              {(['min', 'max'] as const).map((bound) => (
-                <Field
-                  key={bound}
-                  label={bound === 'min' ? 'Minimum' : 'Maximum'}
+              <Field label="Type">
+                <NativeSelect
+                  aria-label="Field type"
+                  value={field.logical_type}
+                  onChange={(event) =>
+                    updateField(field.id, {
+                      logical_type:
+                        FIELD_LOGICAL_TYPES.find(
+                          (type) => type === event.target.value,
+                        ) ?? 'text',
+                    })
+                  }
                 >
+                  {FIELD_LOGICAL_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field label="Unit">
+                <Input
+                  aria-label="Unit"
+                  disabled={!numeric}
+                  placeholder={numeric ? 'e.g. NTU' : 'Not numeric'}
+                  value={typeof unit === 'string' ? unit : ''}
+                  onChange={(event) => updateUnit(field.id, event.target.value)}
+                />
+              </Field>
+            </div>
+            <label className="flex items-center gap-2 text-label">
+              <input
+                type="checkbox"
+                checked={!field.nullable}
+                onChange={(event) =>
+                  updateField(field.id, { nullable: !event.target.checked })
+                }
+              />
+              Required for new records
+            </label>
+            {numeric ? (
+              <div className="grid grid-cols-2 gap-2">
+                {(['min', 'max'] as const).map((bound) => (
+                  <Field
+                    key={bound}
+                    label={bound === 'min' ? 'Minimum' : 'Maximum'}
+                  >
+                    <Input
+                      type="number"
+                      step="any"
+                      value={
+                        typeof field.validation[bound] === 'number'
+                          ? String(field.validation[bound])
+                          : ''
+                      }
+                      onChange={(event) =>
+                        updateValidation(field.id, bound, event.target.value)
+                      }
+                    />
+                  </Field>
+                ))}
+                <Field label="Default for new records">
                   <Input
                     type="number"
                     step="any"
                     value={
-                      typeof field.validation[bound] === 'number'
-                        ? String(field.validation[bound])
+                      typeof field.default_value === 'number'
+                        ? String(field.default_value)
                         : ''
                     }
-                    onChange={(event) => {
-                      const validation = { ...field.validation }
-                      if (event.target.value === '') delete validation[bound]
-                      else validation[bound] = Number(event.target.value)
-                      updateField(field.id, { validation })
-                    }}
+                    onChange={(event) =>
+                      updateField(field.id, {
+                        default_value:
+                          event.target.value === ''
+                            ? null
+                            : Number(event.target.value),
+                      })
+                    }
                   />
                 </Field>
-              ))}
-              <Field label="Default for new records">
-                <Input
-                  type="number"
-                  step="any"
-                  value={
-                    typeof field.default_value === 'number'
-                      ? String(field.default_value)
-                      : ''
-                  }
-                  onChange={(event) =>
-                    updateField(field.id, {
-                      default_value:
-                        event.target.value === ''
-                          ? null
-                          : Number(event.target.value),
-                    })
-                  }
-                />
-              </Field>
-            </div>
-          ) : null}
-          <label className="flex items-center gap-2 text-label">
-            <input
-              type="checkbox"
-              checked={field.lifecycle === 'retired'}
-              onChange={(event) =>
-                updateField(field.id, {
-                  lifecycle: event.target.checked ? 'retired' : 'active',
-                })
-              }
-            />
-            Retire field, keep its identity and historical values
-          </label>
-        </fieldset>
-      ))}
+              </div>
+            ) : null}
+            <label className="flex items-center gap-2 text-label">
+              <input
+                type="checkbox"
+                checked={field.lifecycle === 'retired'}
+                onChange={(event) =>
+                  updateField(field.id, {
+                    lifecycle: event.target.checked ? 'retired' : 'active',
+                  })
+                }
+              />
+              Retire field, keep its identity and historical values
+            </label>
+          </fieldset>
+        )
+      })}
       <fieldset disabled={busy} className="grid grid-cols-2 gap-2">
         <legend className="mb-2 text-section">Add field</legend>
         <Field label="Stable key">
@@ -207,6 +314,47 @@ export function RecordModelVersionEditor({
           Add field
         </Button>
       </fieldset>
+
+      <section aria-label="Impact" className="flex flex-col gap-2">
+        <h3 className="m-0 text-section">Impact</h3>
+        <div className="flex flex-col gap-1 text-label text-fg-muted">
+          {impact.recordsOnEachVersion.map((row) => (
+            <span key={row.versionId}>
+              {row.recordCount} record{row.recordCount === 1 ? '' : 's'} use v
+              {row.version}. They keep their saved values unless migrated.
+            </span>
+          ))}
+          <span>
+            {impact.templates} template
+            {impact.templates === 1 ? '' : 's'} and {impact.sheets} sheet
+            {impact.sheets === 1 ? '' : 's'} depend on this model.
+          </span>
+        </div>
+        <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
+          <legend className="text-label font-medium text-fg">
+            What happens to existing records
+          </legend>
+          <label className="flex items-center gap-2 text-label">
+            <input
+              type="radio"
+              name="migration-scope"
+              checked={scope === 'new-records-only'}
+              onChange={() => setScope('new-records-only')}
+            />
+            New records only
+          </label>
+          <label className="flex items-center gap-2 text-label">
+            <input
+              type="radio"
+              name="migration-scope"
+              checked={scope === 'also-migrate-open-experiments'}
+              onChange={() => setScope('also-migrate-open-experiments')}
+            />
+            Also migrate open experiments ({impact.migratableRecords})
+          </label>
+        </fieldset>
+      </section>
+
       {error ? (
         <p role="alert" className="text-label text-danger-text">
           {error}
@@ -220,6 +368,9 @@ export function RecordModelVersionEditor({
           onChange={(event) => setReason(event.target.value)}
         />
       </Field>
+      {!reason.trim() ? (
+        <Muted>Enter a reason before the change can be applied.</Muted>
+      ) : null}
       <Button variant="primary" type="submit" disabled={busy || !reason.trim()}>
         {busy ? 'Saving…' : 'Save draft'}
       </Button>

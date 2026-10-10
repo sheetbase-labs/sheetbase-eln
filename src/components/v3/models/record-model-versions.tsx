@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -17,6 +17,7 @@ import {
 } from '#/components/v3/ui/table'
 import { hasCapability } from '#/lib/capability'
 import type { DataClient } from '#/lib/data-client'
+import { discoverModelImpact } from '#/lib/model-impact'
 import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import {
   RECORD_MODEL_VERSION_KIND,
@@ -26,7 +27,10 @@ import {
   publishRecordModelVersion,
   replaceRecordModelVersionDefinition,
 } from '#/lib/record-model-versions'
-import type { RecordModelVersionDefinition } from '#/lib/record-model-versions'
+import type {
+  ModelChangeScope,
+  RecordModelVersionDefinition,
+} from '#/lib/record-model-versions'
 import { useWorkspaceRecordModel } from './models-data'
 import { ModelApprovalPanel } from './model-approval-panel'
 import { useModelApprovalIndex } from './model-approval-data'
@@ -35,6 +39,7 @@ import {
   canPublishDraft,
   pendingRequest,
 } from './model-approval'
+import { buildModelFieldImpact } from './model-field-impact'
 import { RecordModelVersionEditor } from './record-model-version-editor'
 
 export function RecordModelVersions({
@@ -67,7 +72,20 @@ export function RecordModelVersions({
       modelId ? listRecordModelVersionUsage(client, modelId) : [],
     enabled: Boolean(modelId),
   })
+  const dependencies = useQuery({
+    queryKey: ['ui-port', 'record-models', 'impact', modelKey] as const,
+    queryFn: () => discoverModelImpact(client, modelKey),
+  })
   const rows = versions.data ?? []
+  const fieldImpact = useMemo(
+    () =>
+      buildModelFieldImpact(
+        rows,
+        usage.data ?? [],
+        dependencies.data?.dependencies ?? [],
+      ),
+    [rows, usage.data, dependencies.data],
+  )
   const approvals = useModelApprovalIndex(
     rows.map((version) => version.id),
     client,
@@ -113,12 +131,15 @@ export function RecordModelVersions({
     mutationFn: (input: {
       definition: RecordModelVersionDefinition
       reason: string
+      scope: ModelChangeScope
     }) => {
       if (!selected) throw new Error('Version not found.')
       return replaceRecordModelVersionDefinition(client, {
         versionId: selected.id,
         expectedRevision: selected.revision,
-        ...input,
+        definition: input.definition,
+        reason: input.reason,
+        migrationScope: input.scope,
       })
     },
     onSuccess: invalidate,
@@ -327,9 +348,14 @@ export function RecordModelVersions({
               <RecordModelVersionEditor
                 key={`${selected.id}:${selected.revision}`}
                 version={selected}
+                impact={fieldImpact}
+                publishedFieldNames={
+                  published?.definition.fields.map((f) => f.field_name) ?? []
+                }
+                publishedVersion={published?.version ?? null}
                 busy={save.isPending}
-                onSave={(definition, changeReason) =>
-                  save.mutate({ definition, reason: changeReason })
+                onSave={(definition, changeReason, scope) =>
+                  save.mutate({ definition, reason: changeReason, scope })
                 }
               />
             </InspectorSection>

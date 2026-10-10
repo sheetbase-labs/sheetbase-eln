@@ -14,6 +14,7 @@ import {
   createRecordModelVersion,
   listRecordModelVersions,
   recordModelVersionSchema,
+  replaceRecordModelVersionDefinition,
   upgradeRecordModelRecord,
 } from '#/lib/record-model-versions'
 import type { RecordModelVersion } from '#/lib/record-model-versions'
@@ -138,10 +139,48 @@ describe('Record Model version client contract', () => {
     )
   })
 
+  it('carries the chosen migration scope in the definition the apply RPC receives', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(version)))
+    const client = createDataClient(fetcher)
+    await replaceRecordModelVersionDefinition(client, {
+      versionId: VERSION_ID,
+      expectedRevision: 7,
+      definition: version.definition,
+      reason: 'Extend the range after service',
+      migrationScope: 'also-migrate-open-experiments',
+    })
+    expect(fetcher.mock.calls[0]?.[0]).toBe(
+      '/api/db/rpc/replace_record_model_version_definition',
+    )
+    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
+      p_version_id: VERSION_ID,
+      p_expected_revision: 7,
+      p_definition: {
+        ...version.definition,
+        migrationScope: 'also-migrate-open-experiments',
+      },
+      p_reason: 'Extend the range after service',
+    })
+  })
+
   it('edits a label and numeric range without changing stable keys or discarding semantic metadata', () => {
     const save = vi.fn()
     render(
-      <RecordModelVersionEditor version={version} busy={false} onSave={save} />,
+      <RecordModelVersionEditor
+        version={version}
+        impact={{
+          recordsOnEachVersion: [],
+          migratableRecords: 0,
+          templates: 0,
+          sheets: 0,
+        }}
+        publishedFieldNames={['viability']}
+        publishedVersion={1}
+        busy={false}
+        onSave={save}
+      />,
     )
     const field = screen.getAllByRole('group')[0]
     fireEvent.change(within(field).getByLabelText('Label'), {
@@ -169,6 +208,7 @@ describe('Record Model version client contract', () => {
         ],
       },
       'Narrow release range',
+      'new-records-only',
     )
   })
 

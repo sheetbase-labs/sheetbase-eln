@@ -5,6 +5,20 @@ import type { DataClient } from './data-client'
 
 export const RECORD_MODEL_VERSION_KIND = 'record_model_version'
 
+/**
+ * MDL-02.3 — the steward's choice, made after seeing the impact and before a
+ * field change is applied, about records pinned to an earlier version. It is
+ * carried on the versioned definition so the apply RPC receives and records
+ * it; publication itself never rewrites recorded values.
+ */
+export type ModelChangeScope =
+  'new-records-only' | 'also-migrate-open-experiments'
+
+export const MODEL_CHANGE_SCOPES: readonly ModelChangeScope[] = [
+  'new-records-only',
+  'also-migrate-open-experiments',
+]
+
 // IDs name canonical fields, not per-version copies. Unknown semantic metadata
 // is retained so editing a label cannot discard units, rules or relationships.
 const fieldSchema = z
@@ -89,13 +103,18 @@ export async function replaceRecordModelVersionDefinition(
     expectedRevision: number
     definition: RecordModelVersionDefinition
     reason: string
+    migrationScope?: ModelChangeScope
   },
 ) {
   return recordModelVersionSchema.parse(
     await client.rpc('replace_record_model_version_definition', {
       p_version_id: input.versionId,
       p_expected_revision: input.expectedRevision,
-      p_definition: input.definition,
+      // The scope travels in the definition payload, so the existing evolution
+      // RPC receives it. A definition-only edit leaves it untouched.
+      p_definition: input.migrationScope
+        ? { ...input.definition, migrationScope: input.migrationScope }
+        : input.definition,
       p_reason: input.reason,
     }),
   )

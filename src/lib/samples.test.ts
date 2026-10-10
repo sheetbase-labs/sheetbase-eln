@@ -284,31 +284,6 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
 })
 
 describe('recordSampleLabelPrint', () => {
-  const editedRow: RecordWire = {
-    id: 's-1',
-    workspace_id: 'ws-1',
-    project_id: null,
-    folder_id: null,
-    kind: 'sample',
-    identifier: 'SMP-2231',
-    title: 'Harvest lot HL-0934',
-    status: 'available',
-    tags: [],
-    structure_version: 1,
-    metadata_version: 8,
-    created_at: '2026-09-20T00:00:00.000Z',
-    updated_at: '2026-10-10T00:00:00.000Z',
-    archived_at: null,
-    deleted_at: null,
-    created_by_user_id: 'user-1',
-    updated_by_user_id: 'user-1',
-    properties: {},
-    custom_fields: {},
-    locked_at: null,
-    locked_by_revision_id: null,
-    source_notebook_template_version_id: null,
-  }
-
   it('records the print as its own sample event, with the label note', async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
     const client = {

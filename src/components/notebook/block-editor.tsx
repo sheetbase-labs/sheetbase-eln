@@ -42,19 +42,13 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Textarea } from '#/components/v3/inventory/list'
 import { NativeSelect } from '#/components/v3/projects/select'
 import {
-  Plus,
   Trash2,
   File as FileIcon,
-  FileText,
-  FileSpreadsheet,
   Image as ImageIcon,
   Snowflake,
-  Pencil,
-  Link2,
   Pin,
-  FlaskConical,
-  Beaker,
 } from 'lucide-react'
+import { Icon } from '#/components/icons'
 import { RecordPicker } from '#/components/scientific'
 import type { RecordPickerResult } from '#/components/scientific'
 import {
@@ -608,7 +602,7 @@ function ChecklistEditor({
         onClick={add}
         className="text-fg-muted"
       >
-        <Plus /> Add item
+        <Icon name="plus" /> Add item
       </Button>
       <AutosaveFooter
         status={a.status}
@@ -808,7 +802,7 @@ function LinkedRecordEditor({
         className={cn('flex flex-wrap items-center gap-2 text-sm', className)}
       >
         <Badge variant="kind" className="uppercase">
-          <Link2 className="size-3" />
+          <Icon name="link" className="size-3" />
           {a.draft.linkType}
         </Badge>
         <span className="font-medium text-fg">
@@ -1151,9 +1145,9 @@ function MaterialsEditor(props: BlockEditorProps) {
                   <p className="truncate text-sm font-medium">{item.title}</p>
                   <Badge variant="kind" className="shrink-0">
                     {item.kind === 'sample' ? (
-                      <FlaskConical className="size-3" />
+                      <Icon name="flask" className="size-3" />
                     ) : (
-                      <Beaker className="size-3" />
+                      <Icon name="tube" className="size-3" />
                     )}
                     {item.kind}
                   </Badge>
@@ -1224,7 +1218,11 @@ function MaterialsEditor(props: BlockEditorProps) {
                 setSelected(null)
               }}
             >
-              {value === 'sample' ? <FlaskConical /> : <Beaker />}
+              {value === 'sample' ? (
+                <Icon name="flask" />
+              ) : (
+                <Icon name="tube" />
+              )}
               {value === 'sample' ? 'Samples' : 'Reagents'}
             </Button>
           ))}
@@ -1300,7 +1298,7 @@ function MaterialsEditor(props: BlockEditorProps) {
                 setMaterialUnitSymbol('')
               }}
             >
-              <Plus /> Add material
+              <Icon name="plus" /> Add material
             </Button>
           </div>
         ) : null}
@@ -1370,14 +1368,14 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
     const mediaType = String(block.payload.mediaType ?? '')
     const byteSize = Number(block.payload.byteSize ?? 0)
     const fileRecordId = String(block.payload.fileRecordId ?? '')
-    const FileGlyph = fileIconFor(mediaType)
+    const fileGlyph = fileGlyphFor(mediaType)
     const showImage =
       Boolean(fileRecordId) && isInlinePreviewableImage(mediaType)
     return (
       <div className="space-y-2 py-1">
         <div className="flex items-center gap-3">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-muted text-fg-muted">
-            <FileGlyph className="size-4" />
+            {fileGlyph}
           </div>
           <div className="min-w-0 space-y-0.5">
             <p className="truncate text-sm font-medium">{name}</p>
@@ -1430,7 +1428,7 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
   return (
     <div className="space-y-3 rounded-md border border-dashed border-border bg-surface-muted/20 p-6 text-center">
       <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-surface text-fg-muted shadow-xs">
-        <FileText className="size-5" />
+        <Icon name="protocol" className="size-5" />
       </div>
       <div className="space-y-1">
         <p className="text-sm font-medium">Attach a file</p>
@@ -1466,18 +1464,18 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
   )
 }
 
-/** Pick a lucide file glyph from the media type. */
-function fileIconFor(mediaType: string) {
-  if (mediaType.startsWith('image/')) return ImageIcon
+/** Pick a file glyph from the media type. */
+function fileGlyphFor(mediaType: string) {
+  if (mediaType.startsWith('image/')) return <ImageIcon className="size-4" />
   if (
     mediaType.includes('spreadsheet') ||
     mediaType.includes('csv') ||
     mediaType.includes('excel')
   )
-    return FileSpreadsheet
+    return <Icon name="table" className="size-4" />
   if (mediaType.startsWith('text/') || mediaType === 'application/json')
-    return FileText
-  return FileIcon
+    return <Icon name="protocol" className="size-4" />
+  return <FileIcon className="size-4" />
 }
 
 // ---------------------------------------------------------------------------
@@ -1914,7 +1912,7 @@ function ChartBlockEditor({
                     size="sm"
                     onClick={() => void onUnfreezeChart()}
                   >
-                    <Pencil /> Unfreeze (edit live again)
+                    <Icon name="edit" /> Unfreeze (edit live again)
                   </Button>
                 ) : null}
               </>
@@ -2666,7 +2664,7 @@ function AnalysisBlockEditor({
                   size="sm"
                   onClick={() => void onUnfreezeAnalysis()}
                 >
-                  <Pencil /> Unfreeze (live again)
+                  <Icon name="edit" /> Unfreeze (live again)
                 </Button>
               ) : null}
             </>

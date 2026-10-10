@@ -9,14 +9,7 @@ import {
   FunctionAutocompleteDropdown,
   useFunctionAutocomplete,
 } from '#/components/sheet/function-autocomplete'
-import {
-  ChevronLeft,
-  ChevronRight,
-  Check,
-  AlertCircle,
-  RotateCcw,
-  Settings,
-} from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
 import { Badge } from '#/components/v3/ui/badge'
@@ -238,7 +231,7 @@ function SaveStatusIndicator({
         className="flex items-center gap-1 text-danger-text"
         aria-label="Save failed"
       >
-        <AlertCircle className="size-3" />
+        <Icon name="warn" className="size-3" />
         Save failed
         <Button
           type="button"
@@ -258,7 +251,7 @@ function SaveStatusIndicator({
         className="flex items-center gap-1 text-success-text-foreground"
         aria-label="Saved"
       >
-        <Check className="size-3" />
+        <Icon name="check" className="size-3" />
         Saved
       </span>
     )
@@ -687,7 +680,7 @@ function SchemaConfigurator({
                   )
                 }
               >
-                <ChevronLeft className="size-4" />
+                <Icon name="chevronRight" className="size-4 rotate-180" />
               </Button>
               <Button
                 type="button"
@@ -707,7 +700,7 @@ function SchemaConfigurator({
                   )
                 }
               >
-                <ChevronRight className="size-4" />
+                <Icon name="chevronRight" className="size-4" />
               </Button>
               <Button
                 type="button"
@@ -2075,7 +2068,7 @@ export function ScientificSheetBlock({
               aria-label="Configure table"
               onClick={() => setConfigurationOpen(true)}
             >
-              <Settings className="size-4" />
+              <Icon name="settings" className="size-4" />
             </Button>
           ) : null}
           <DropdownMenu>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Workflow } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
@@ -446,8 +446,8 @@ export function CanonicalSheetLifecyclePanel({
                     size="sm"
                     className="mt-1 w-full"
                   >
-                    <Workflow className="size-3.5" /> Run Pipelines on this
-                    Dataset
+                    <Icon name="pipeline" className="size-3.5" /> Run Pipelines
+                    on this Dataset
                   </Button>
                 ) : null}
               </label>

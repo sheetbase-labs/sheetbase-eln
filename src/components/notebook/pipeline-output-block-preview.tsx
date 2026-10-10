@@ -9,7 +9,7 @@
  * surface and never posts a decision itself.
  */
 import { Link } from '@tanstack/react-router'
-import { Workflow } from 'lucide-react'
+import { Icon } from '#/components/icons'
 
 import { Badge } from '#/components/v3/ui/badge'
 import {
@@ -74,7 +74,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
     return (
       <div className="space-y-2">
         <div className="text-fg-muted flex items-center gap-2 rounded-md border p-3 text-sm">
-          <Workflow className="size-4" aria-hidden="true" />
+          <Icon name="pipeline" className="size-4" aria-hidden="true" />
           Pipeline output block — attach a Pipeline run to pin its output here.
         </div>
         {proposalSection}
@@ -86,7 +86,8 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
     <div className="space-y-2">
       <div className="border-border flex items-center justify-between gap-3 rounded-md border p-3">
         <div className="flex min-w-0 items-center gap-2">
-          <Workflow
+          <Icon
+            name="pipeline"
             className="text-primary size-4 shrink-0"
             aria-hidden="true"
           />

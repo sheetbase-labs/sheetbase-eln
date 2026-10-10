@@ -9,7 +9,7 @@ import {
   redirect,
 } from '@tanstack/react-router'
 import { Archive, FileWarning, Lock } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
@@ -43,6 +43,12 @@ import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { NotebookDocument } from '#/components/notebook'
 import type { SaveResult } from '#/components/notebook'
+import {
+  canonicalCellFacts,
+  NotebookCellProperties,
+} from '#/components/notebook/notebook-inspector'
+import type { NotebookInspectorCellFacts } from '#/components/notebook/notebook-inspector'
+import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
 import { CommentPanel } from '#/components/comments'
 import { useLiveStatus } from '#/components/live/live-event-provider'
 import {
@@ -242,6 +248,38 @@ function historicalRevisionFromSearch(search: unknown): string | undefined {
   return undefined
 }
 
+/**
+ * EXP-04.4 — the notebook's selected Sheet cell, held at the route.
+ *
+ * The cell lives inside the Sheet workspace, so it is lifted here through the
+ * `onCellSelectionChange` callback and adapted into inspector facts; the
+ * inspector never reaches into the grid. Returns the stable callback the
+ * canvas needs and the Properties facts (`null` when nothing is selected, or
+ * when a historical view is pinned to frozen evidence).
+ */
+export function useNotebookCellFacts(options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options
+  const [selection, setSelection] = useState<SheetCellSelection | null>(null)
+  const onCellSelectionChange = useCallback(
+    (next: SheetCellSelection | null) => setSelection(next),
+    [],
+  )
+  const cell = useMemo(
+    () =>
+      enabled && selection
+        ? canonicalCellFacts({
+            column: selection.column,
+            value: selection.value,
+            valueState: selection.valueState,
+            rowLabel: `row ${selection.rowNumber}`,
+            blockLabel: selection.sheetName,
+          })
+        : null,
+    [enabled, selection],
+  )
+  return { cell, onCellSelectionChange }
+}
+
 function ExperimentNotebookRoute() {
   const { context } = Route.useRouteContext()
   const { recordId } = Route.useParams()
@@ -255,6 +293,11 @@ function ExperimentNotebookRoute() {
     : null
   const historicalRevisionId = useRouterState({
     select: (state) => historicalRevisionFromSearch(state.location.search),
+  })
+  // EXP-04.4: historical views are pinned to frozen evidence, so they never
+  // surface live selected-cell facts.
+  const { cell: selectedCell, onCellSelectionChange } = useNotebookCellFacts({
+    enabled: !historicalRevisionId,
   })
 
   const queryClient = useQueryClient()
@@ -633,6 +676,9 @@ function ExperimentNotebookRoute() {
             reviewActivity={reviewActivity}
             isHistorical={Boolean(historicalRevisionId)}
             extensionPanels={extensionPanelTabs}
+            /* EXP-04.4: the selected Sheet cell, lifted from the grid by
+               `useNotebookCellFacts` — null until a cell is selected. */
+            cell={selectedCell}
           />
         }
       >
@@ -728,6 +774,7 @@ function ExperimentNotebookRoute() {
                 !hasCapability(context.workspace?.role, 'record.create')
               }
               onUnsavedWorkChange={setHasUnsavedWork}
+              onCellSelectionChange={onCellSelectionChange}
             />
           )}
         </div>
@@ -1367,6 +1414,7 @@ export function NotebookCanvas({
   collaborationRole = 'viewer',
   outline,
   viewOnly = false,
+  onCellSelectionChange,
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
@@ -1392,6 +1440,13 @@ export function NotebookCanvas({
    * editable path that only the server would refuse.
    */
   viewOnly?: boolean
+  /**
+   * EXP-04.4: the selected Sheet cell, lifted to the route so the inspector
+   * can describe it. The view-only path publishes too — a viewer may select a
+   * cell to read its properties — while locked and historical notebooks mount
+   * frozen evidence instead of a grid, so they publish nothing.
+   */
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
   /** NOTE-04: notified with NotebookDocument's unsaved-work signal. */
   onUnsavedWorkChange?: (hasUnsavedWork: boolean) => void
 }) {
@@ -1443,6 +1498,7 @@ export function NotebookCanvas({
           client={client}
           collaborationWorkspaceId={collaborationWorkspaceId}
           collaborationRole={collaborationRole}
+          onCellSelectionChange={onCellSelectionChange}
         />
       )
     }
@@ -1457,6 +1513,7 @@ export function NotebookCanvas({
         onDuplicateBlock={async () => undefined}
         onDeleteBlock={async () => undefined}
         collaborationRole={collaborationRole}
+        onCellSelectionChange={onCellSelectionChange}
       />
     )
   }
@@ -1469,6 +1526,7 @@ export function NotebookCanvas({
       collaborationWorkspaceId={collaborationWorkspaceId}
       collaborationRole={collaborationRole}
       outline={outline}
+      onCellSelectionChange={onCellSelectionChange}
     />
   )
 }
@@ -1491,6 +1549,7 @@ function EditableNotebook({
   collaborationRole = 'viewer',
   outline,
   onUnsavedWorkChange,
+  onCellSelectionChange,
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
@@ -1504,6 +1563,8 @@ function EditableNotebook({
   outline?: NotebookOutlineControls
   /** NOTE-04: notified with NotebookDocument's unsaved-work signal. */
   onUnsavedWorkChange?: (hasUnsavedWork: boolean) => void
+  /** EXP-04.4: the selected Sheet cell, lifted to the route's inspector. */
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
   const blocksKey = notebookQueryKeys.blocks(record.id)
   const recordKey = notebookQueryKeys.record(record.id)
@@ -2050,6 +2111,7 @@ function EditableNotebook({
         collaborationRole={collaborationRole}
         collapsedSections={outline?.collapsedSections}
         onToggleSection={outline?.onToggleSection}
+        onCellSelectionChange={onCellSelectionChange}
       />
       <Dialog open={embedOpen} onOpenChange={setEmbedOpen}>
         <DialogContent>
@@ -2163,6 +2225,7 @@ function LockedNotebook({
   client,
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
+  onCellSelectionChange,
 }: {
   record: NotebookRecord
   blocks: NotebookBlockDomain[]
@@ -2171,6 +2234,8 @@ function LockedNotebook({
   collaborationWorkspaceId?: string
   /** COLLAB-02: workspace role hint for the block comment composer. */
   collaborationRole?: string
+  /** EXP-04.4: the selected Sheet cell, lifted to the route's inspector. */
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
   const revision = useQuery({
     queryKey: ['revision-sheet-evidence', record.id, record.lockedByRevisionId],
@@ -2202,6 +2267,7 @@ function LockedNotebook({
       onDeleteBlock={async () => undefined}
       collaborationWorkspaceId={collaborationWorkspaceId}
       collaborationRole={collaborationRole}
+      onCellSelectionChange={onCellSelectionChange}
     />
   )
 }
@@ -2578,6 +2644,7 @@ export function NotebookInspector({
   revisionEvidence,
   commentsRevisionId,
   outlineControls,
+  cell = null,
   /**
    * EXT-02: host-composed extension panel tabs, appended after the
    * canonical tabs. Empty (and always empty in historical mode) unless
@@ -2609,6 +2676,12 @@ export function NotebookInspector({
   commentsRevisionId?: string
   /** NOTE-02: section-collapse controls; absent on read-only/historical views. */
   outlineControls?: NotebookOutlineControls
+  /**
+   * EXP-04.4: the selected Sheet cell's facts. Rendered at the head of the
+   * Properties tab, above the record's own metadata. Null (the default) when
+   * nothing is selected, so the tab is unchanged.
+   */
+  cell?: NotebookInspectorCellFacts | null
   extensionPanels?: InspectorTab[]
 }) {
   const evidenceBlocks = isHistorical
@@ -2645,6 +2718,11 @@ export function NotebookInspector({
       label: 'Properties',
       content: (
         <div className="space-y-2">
+          {/* EXP-04.4: the selected Sheet cell — its value, validation,
+              provenance and column definition — heads the tab. The record's
+              own metadata below is unchanged, so the panel is an addition to
+              this live surface rather than a replacement of it. */}
+          {cell ? <NotebookCellProperties cell={cell} /> : null}
           {/* Core metadata — Type & Status as semantic badges, then
                   dense key-value rows matching the mockup's layout. */}
           <PropertyList>

@@ -60,7 +60,10 @@ import {
 } from '#/lib/sheet-presentation-view'
 import { ExportMenu } from '#/components/export/export-menu'
 import { ObjectHistoryDialog } from '#/components/audit'
-import type { BoundColumnProvenance } from '#/lib/sheet-bound-columns'
+import type {
+  BoundColumnProvenance,
+  BoundValueState,
+} from '#/lib/sheet-bound-columns'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import {
   createAdHocTextField,
@@ -214,16 +217,38 @@ function sheetbaseColumn(
   return { ...base, type: 'text' }
 }
 
+/**
+ * EXP-04.4 — the selected cell, resolved to what an inspector needs: the
+ * canonical column (carrying its `FieldDefinition`), the value the grid is
+ * showing and the bound value's provenance. The host receives this from the
+ * `onCellSelectionChange` callback rather than reaching into the grid, so the
+ * grid contract stays the grid's.
+ */
+export interface SheetCellSelection {
+  column: CanonicalSheetGridColumn
+  /** The cell's resolved value (local, calculated or composed). */
+  value: unknown
+  /** Bound provenance for the cell; null for local/calculated columns. */
+  valueState: BoundValueState | null
+  /** Sheet Instance name, for the host's context line. */
+  sheetName: string
+  /** 1-based row position, as the grid's row headers number it. */
+  rowNumber: number
+}
+
 export function CanonicalSheetWorkspace({
   instanceId,
   projectId,
   readOnly = false,
   commentId,
+  onCellSelectionChange,
 }: {
   instanceId: string
   projectId: string | null
   readOnly?: boolean
   commentId?: string
+  /** EXP-04.4: notified when the selected cell changes. */
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
   const { auth } = useRouteContext({ from: '__root__' })
   const instanceQuery = useQuery({
@@ -252,6 +277,7 @@ export function CanonicalSheetWorkspace({
       readOnly={readOnly}
       commentActor={auth}
       commentId={commentId}
+      onCellSelectionChange={onCellSelectionChange}
     />
   )
 }
@@ -294,12 +320,15 @@ export function CanonicalSheetEditor({
   readOnly = false,
   commentActor = null,
   commentId,
+  onCellSelectionChange,
 }: {
   instance: SheetInstance
   projectId: string | null
   readOnly?: boolean
   commentActor?: Pick<CurrentContext, 'user' | 'workspace'> | null
   commentId?: string
+  /** EXP-04.4: published on every change of the selected cell. */
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
   const queryClient = useQueryClient()
   const instanceRef = useRef(instance)
@@ -527,6 +556,41 @@ export function CanonicalSheetEditor({
     composedSnapshot?.boundProjection?.rows.find(
       (row) => row.rowKey === selectedRowKey,
     )?.values[selectedColumn?.id ?? ''] ?? null
+
+  // EXP-04.4: the grid's selection only names a row and column, so the value
+  // and bound provenance are resolved here and published to the host. The host
+  // (the Notebook inspector) describes the cell from these facts; it never
+  // reads grid internals.
+  //
+  // `commentSelection` holds the grid's own selection report (it also addresses
+  // Sheet comments) and is only ever set by that callback, whereas the editor's
+  // default cursor is just where a fresh Sheet starts. So an untouched Sheet
+  // publishes nothing — the inspector keeps describing the record — and a
+  // deselect or unmount publishes null so stale facts never survive.
+  const selectedCellValue = matrix.data[selected.row]?.[selected.col] ?? null
+  useEffect(() => {
+    if (!onCellSelectionChange) return
+    onCellSelectionChange(
+      commentSelection && selectedColumn
+        ? {
+            column: selectedColumn,
+            value: selectedCellValue,
+            valueState: provenance,
+            sheetName: instance.name,
+            rowNumber: selected.row + 1,
+          }
+        : null,
+    )
+    return () => onCellSelectionChange(null)
+  }, [
+    onCellSelectionChange,
+    commentSelection,
+    selectedColumn,
+    selectedCellValue,
+    provenance,
+    instance.name,
+    selected.row,
+  ])
 
   const localMutate = useMutation({
     mutationFn: (input: Parameters<typeof mutateSheetLocalState>[0]) =>

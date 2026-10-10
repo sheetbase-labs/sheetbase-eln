@@ -35,6 +35,7 @@ import { BlockEditor } from './block-editor'
 import type { AutosaveStatus, SaveResult } from './block-editor'
 import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 import type { FrozenSheetEvidence } from '#/lib/sheet-evidence'
+import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
 import {
   collapsedSectionBlockIds,
   collapsedSectionNodeIndexes,
@@ -188,6 +189,12 @@ export interface NotebookDocumentProps {
   onToggleSection?: (anchorId: string) => void
   frozenSheetEvidence?: Map<string, FrozenSheetEvidence>
   /**
+   * EXP-04.4: the selected cell of a live Sheet block, lifted out of the grid
+   * so the surrounding inspector can describe it. Null when the sheet has no
+   * selection (or its editor unmounted).
+   */
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
+  /**
    * COLLAB-02: active workspace id used to build block comment anchors;
    * omit to disable the affordance. Actual write access is enforced
    * server-side.
@@ -259,6 +266,7 @@ function NotebookDocumentContent({
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
   frozenSheetEvidence,
+  onCellSelectionChange,
   className,
   /** NOTE-02 section collapse — presentation state only, route-owned. */
   collapsedSections,
@@ -1167,6 +1175,7 @@ function NotebookDocumentContent({
                     block={block}
                     record={record}
                     readOnly={isReadOnly}
+                    onCellSelectionChange={onCellSelectionChange}
                     frozenEvidence={
                       frozenSheetEvidence
                         ? (frozenSheetEvidence.get(block.id) ?? null)

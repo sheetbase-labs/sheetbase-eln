@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { ZodError } from 'zod'
 
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
+import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -46,12 +47,18 @@ export function NotebookSheetBlock({
   record,
   readOnly = false,
   frozenEvidence,
+  onCellSelectionChange,
 }: {
   block: NotebookBlock
   record: NotebookRecord
   readOnly?: boolean
   /** null means historical evidence was expected but is unavailable. */
   frozenEvidence?: FrozenSheetEvidence | null
+  /**
+   * EXP-04.4: the live Sheet's selected cell, lifted to the host so the
+   * Notebook inspector can describe it. Absent on frozen evidence.
+   */
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
   if (frozenEvidence) {
     return <FrozenSheetEvidencePanel evidence={frozenEvidence} />
@@ -78,6 +85,7 @@ export function NotebookSheetBlock({
       projectId={record.projectId}
       recordId={record.id}
       readOnly={readOnly}
+      onCellSelectionChange={onCellSelectionChange}
     />
   )
 }
@@ -334,11 +342,13 @@ function NotebookInstanceSheetEmbed({
   projectId,
   recordId,
   readOnly,
+  onCellSelectionChange,
 }: {
   instanceId: string
   projectId: string | null
   recordId: string
   readOnly: boolean
+  onCellSelectionChange?: (selection: SheetCellSelection | null) => void
 }) {
   const instance = useQuery({
     queryKey: ['sheet-instance', instanceId],
@@ -433,6 +443,7 @@ function NotebookInstanceSheetEmbed({
           readOnly={
             readOnly || !projectId || instance.data.lifecycle !== 'active'
           }
+          onCellSelectionChange={onCellSelectionChange}
         />
       </div>
     </div>

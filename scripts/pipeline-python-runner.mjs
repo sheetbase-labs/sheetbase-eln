@@ -2,6 +2,8 @@
 import { spawn } from 'node:child_process'
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
+import { mkdir, readdir, rm, stat } from 'node:fs/promises'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 export const LIMITS = Object.freeze({
@@ -11,7 +13,27 @@ export const LIMITS = Object.freeze({
   cells: 1_000_000,
   logBytes: 64 * 1024,
   timeoutMs: 60_000,
+  // PIPE-04.1: a function may return files, within bounds it can plan against.
+  files: 20,
+  fileBytes: 8 * 1024 * 1024,
 })
+
+/**
+ * PIPE-04.1 — the declared output directory a function writes files to.
+ *
+ * The container's only writable path is this tmpfs (the root is read-only), so a figure or
+ * table a function produces has to land here. The runner collects it after the run and
+ * reports each file with its size; what it does with the bytes is the artefact store's job
+ * (PIPE-04.2).
+ */
+export const OUTPUT_DIR = '/tmp/out'
+
+/** Where collected artefacts are kept on this host, per run. */
+const ARTEFACT_ROOT =
+  process.env.SHEETBASE_ARTEFACT_DIR ?? '/tmp/sheetbase-artefacts'
+
+/** A run key becomes a directory name, so it must not be able to escape the root. */
+export const ARTEFACT_KEY = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/
 export const DIGEST_IMAGE = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/
 const isObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -181,6 +203,53 @@ function docker(
   })
 }
 
+/**
+ * PIPE-04.1 — collect the files a function wrote to the declared output directory.
+ *
+ * `docker cp` reads a stopped container's filesystem, which is why this runs after the
+ * container exits and before it is removed. The bytes land under a per-run directory on this
+ * host; the response carries each file's name and size, never its contents, so a large figure
+ * does not travel through the run's JSON result.
+ *
+ * A run that exceeds the bounds is refused rather than truncated: half a figure is worse than
+ * a clear refusal, and the function can be told what the limits are.
+ */
+export async function collectOutputFiles(command, name, artefactKey) {
+  if (!ARTEFACT_KEY.test(artefactKey))
+    throw new RunnerError('Invalid artefact key.', 400, 'invalid_configuration')
+  const destination = join(ARTEFACT_ROOT, artefactKey)
+  await rm(destination, { recursive: true, force: true })
+  await mkdir(destination, { recursive: true })
+
+  // A container that wrote nothing has no directory; that is not a failure.
+  const copied = await command(['cp', `${name}:${OUTPUT_DIR}/.`, destination])
+  if (copied.code !== 0) return []
+
+  const entries = await readdir(destination, { withFileTypes: true })
+  const files = entries.filter((entry) => entry.isFile())
+  if (files.length > LIMITS.files)
+    throw new RunnerError(
+      `The function returned ${files.length} files, over the ${LIMITS.files}-file limit.`,
+      422,
+      'output_too_large',
+    )
+  let total = 0
+  const collected = []
+  for (const entry of files) {
+    const path = join(destination, entry.name)
+    const stats = await stat(path)
+    total += stats.size
+    if (total > LIMITS.fileBytes)
+      throw new RunnerError(
+        `The function returned ${(total / (1024 * 1024)).toFixed(1)} MiB of files, over the ${(LIMITS.fileBytes / (1024 * 1024)).toFixed(1)} MiB limit.`,
+        422,
+        'output_too_large',
+      )
+    collected.push({ name: entry.name, size: stats.size, path })
+  }
+  return collected.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export async function runDockerJob(job, image, command = docker) {
   validateJob(job)
   if (job.runtime !== undefined && job.runtime !== image)
@@ -225,7 +294,17 @@ export async function runDockerJob(job, image, command = docker) {
           : 'Python execution failed.',
       )
     validateResult(result)
-    return { rows: result.rows, logs: result.logs, runtime: image }
+    // PIPE-04.1: a function may also return files; they are collected before the
+    // container is removed, since a stopped container is only readable until then.
+    const files = job.artefactKey
+      ? await collectOutputFiles(command, name, job.artefactKey)
+      : []
+    return {
+      rows: result.rows,
+      logs: result.logs,
+      runtime: image,
+      files: files.map((file) => ({ name: file.name, size: file.size })),
+    }
   } finally {
     // Killing a Docker CLI process does not kill its container. Remove by our fixed name.
     let removed

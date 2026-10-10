@@ -36,6 +36,8 @@ describe('isolated Python client', () => {
       rows: job.inputs.data,
       logs: ['Processed one row'],
       runtime,
+      // PIPE-04.1: the step declared no artefact key, so it returned no files.
+      files: [],
       usage: {
         inputBytes: Buffer.byteLength(JSON.stringify(job)),
         outputBytes: Buffer.byteLength(

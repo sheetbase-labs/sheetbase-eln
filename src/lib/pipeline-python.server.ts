@@ -10,9 +10,21 @@ import {
 
 export interface PythonTransformInput {
   statement: string
+  /**
+   * PIPE-04.1: where the runner keeps the files this step returns. Omitted, the step
+   * returns no files — the runner only collects a declared output directory when it is
+   * told which run the files belong to.
+   */
+  artefactKey?: string
   runtime?: string
   inputs: Record<string, Record<string, unknown>[]>
   parameters: Record<string, unknown>
+}
+
+/** One file a Python step produced, as the runner reports it. */
+export interface PythonArtefact {
+  name: string
+  size: number
 }
 
 export interface PythonTransformResult {
@@ -20,6 +32,11 @@ export interface PythonTransformResult {
   logs: string[]
   /** Immutable image identity returned by the trusted runner, for run provenance. */
   runtime: string
+  /**
+   * PIPE-04.1: files the step wrote to the declared output directory, with their sizes.
+   * The bytes stay with the runner; a run records what was produced and where.
+   */
+  files?: PythonArtefact[]
   /**
    * Measured payload usage of the step: the serialized request size, the
    * response size, and the result row/cell counts. Always present from the real
@@ -73,7 +90,10 @@ function measureRows(
   const label = side === 'input' ? 'Python input' : 'Python result'
   const code = side === 'input' ? 'input_too_large' : 'output_too_large'
   if (!Array.isArray(rows))
-    throw new PipelinePythonError(`${label} must be a list of row objects.`, code)
+    throw new PipelinePythonError(
+      `${label} must be a list of row objects.`,
+      code,
+    )
   if (rows.length > INPUT_ROW_LIMIT)
     throw new PipelinePythonError(
       `${label} has ${rows.length} rows, over the ${INPUT_ROW_LIMIT} row limit.`,
@@ -288,6 +308,21 @@ export async function executePythonTransform(
       'The runner returned a different Python runtime than the pinned version.',
       'runner_unavailable',
     )
+  // PIPE-04.1: the runner reports the files it collected, if the step declared a key.
+  const files = Array.isArray(result.files)
+    ? (result.files as unknown[]).map((entry) => {
+        if (
+          !isObject(entry) ||
+          typeof entry.name !== 'string' ||
+          typeof entry.size !== 'number'
+        )
+          throw new PipelinePythonError(
+            'Python runner reported a malformed file entry.',
+          )
+        return { name: entry.name, size: entry.size }
+      })
+    : []
+
   const measured = measureRows(result.rows, 'result')
   const logBytes = Array.isArray(result.logs)
     ? Buffer.byteLength(result.logs.join('\n'))
@@ -305,6 +340,7 @@ export async function executePythonTransform(
     rows: result.rows as Record<string, unknown>[],
     logs: result.logs as string[],
     runtime: result.runtime,
+    files,
     usage: {
       inputBytes: Buffer.byteLength(body),
       outputBytes,

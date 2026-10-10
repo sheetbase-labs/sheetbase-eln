@@ -82,11 +82,17 @@ API fixture passes ten canonical tests, but REV/SCI hooks still use retired
 scientific-table creation. Preserve those acceptance requirements while fixing
 the canonical workflows. Only one slice may add migrations at a time.
 
-Hosted CI currently stops during private package installation with 403,
-before tests run. An administrator must verify the ELN repository's Read
-grant in each consumed package's Manage Actions access and rerun CI. The orb
-credential works, but that does not establish workflow-token access or green
-hosted checks. Do not merge or deploy from local validation alone.
+Hosted CI has not executed on this branch. Every job of the latest run
+(`38093440681`, head `65adecad`) fails before its first step: `runner_id: 0`,
+no steps recorded, no logs retained, two seconds — and all 100 `CI` runs on the
+repository are recorded as failures. Hosted CI is therefore non-evidence in
+both directions: it establishes neither a pass nor a failure, so no acceptance
+claim may cite it. An administrator must check the organisation's Actions
+minutes and runner availability. The earlier diagnosis (a 403 during private
+package installation) does not match what current runs record, because no step
+runs at all. The orb credential works, but that does not establish
+workflow-token access or green hosted checks. Do not merge or deploy from local
+validation alone.
 
 Roadmap 5 remains a proposal. Its overlapping requirements keep their Roadmap 4
 owners; [the reconciliation](RECONCILIATION.md#roadmap-5-boundary) records that boundary.

@@ -5628,6 +5628,14 @@ export const userPreferences = api.table(
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
+    /**
+     * SET-03.1 — the profile fields the SettingsProfile board shows. Initials are
+     * derived from the name when unset; the time zone is validated against the
+     * database's zone names by a trigger in the migration SQL.
+     */
+    initials: text('initials'),
+    jobTitle: text('job_title'),
+    timezone: text('timezone'),
     /** WORK-03.1 — notification quiet hours (HH:MM) and daily digest time (HH:MM). */
     quietHoursStart: text('quiet_hours_start'),
     digestLastSentOn: date('digest_last_sent_on'),

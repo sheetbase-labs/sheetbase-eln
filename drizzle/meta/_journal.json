@@ -2589,6 +2589,20 @@
       "when": 1791628348020,
       "tag": "0371_file_version_chain",
       "breakpoints": true
+    },
+    {
+      "idx": 372,
+      "version": "7",
+      "when": 1791628603001,
+      "tag": "0372_huge_shard",
+      "breakpoints": true
+    },
+    {
+      "idx": 373,
+      "version": "7",
+      "when": 1791628612778,
+      "tag": "0373_user_profile_fields",
+      "breakpoints": true
     }
   ]
 }

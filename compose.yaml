@@ -15,6 +15,9 @@ services:
       POSTGREST_AUTHENTICATOR_PASSWORD: ${POSTGREST_AUTHENTICATOR_PASSWORD:?Set POSTGREST_AUTHENTICATOR_PASSWORD in .env.local}
       MIGRATOR_PASSWORD: ${MIGRATOR_PASSWORD:?Set MIGRATOR_PASSWORD in .env.local}
       FORMULA_WRITER_PASSWORD: ${FORMULA_WRITER_PASSWORD:?Set FORMULA_WRITER_PASSWORD in .env.local}
+    # The parallel test layers open one connection per fixture client, so the
+    # default 100 slots is not enough for a full local run.
+    command: ['postgres', '-c', 'max_connections=300']
     # Localhost only: the database is not reachable from other machines.
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'

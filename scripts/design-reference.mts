@@ -19,7 +19,8 @@
  */
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { mkdir, readFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 import { chromium } from 'playwright'
 
@@ -27,6 +28,8 @@ const DESIGN = resolve('docs/knowledge/design/ui-system-v3')
 const CANVAS = join(DESIGN, 'canvas')
 const OUT = resolve('tests/visual/design-reference')
 const THEMES = ['light', 'dark'] as const
+/** Boards rendered at once; the render is latency-bound. */
+const RENDER_CONCURRENCY = 4
 
 const FONTS = [
   { family: 'Inter', pkg: 'inter' },
@@ -97,7 +100,9 @@ async function main() {
   const canvas = JSON.parse(
     await readFile(join(CANVAS, 'canvas.json'), 'utf8'),
   ) as { boards: Record<string, Board> }
-  const wanted = new Set(process.argv.slice(2))
+  const wanted = new Set(
+    process.argv.slice(2).filter((arg) => !arg.startsWith('--')),
+  )
   const boards = Object.entries(canvas.boards)
     .map(([file, board]) => ({ name: file.replace(/\.dc\.html$/, ''), board }))
     .filter(({ name }) => wanted.size === 0 || wanted.has(name))
@@ -124,6 +129,49 @@ async function main() {
   const fonts = await fontCss(base)
 
   await mkdir(OUT, { recursive: true })
+
+  // Rendering every board takes minutes and is only needed when the design
+  // snapshot changes, so `--if-stale` (used by the parity command) reuses the
+  // references while they match the canvases, the runtime and this script.
+  const hash = createHash('sha256')
+  for (const dir of [
+    CANVAS,
+    join(DESIGN, 'design-system'),
+    join(DESIGN, 'runtime'),
+  ]) {
+    const names = (await readdir(dir, { recursive: true })).sort()
+    for (const name of names) {
+      const path = join(dir, name)
+      const info = await stat(path).catch(() => undefined)
+      if (!info?.isFile()) continue
+      hash.update(`${path}:${info.size}`)
+    }
+  }
+  hash.update(await readFile(new URL(import.meta.url)))
+  const renderHash = hash.digest('hex')
+  const marker = join(OUT, '.render-hash')
+  if (process.argv.includes('--if-stale')) {
+    const current = await readFile(marker, 'utf8').catch(() => '')
+    const expected = boards.flatMap(({ name }) =>
+      THEMES.map((theme) => join(OUT, `${name}-${theme}.png`)),
+    )
+    const present = (
+      await Promise.all(
+        expected.map((path) =>
+          stat(path).then(
+            (info) => info.size > 0,
+            () => false,
+          ),
+        ),
+      )
+    ).every(Boolean)
+    if (current.trim() === renderHash && present) {
+      console.log(`References are current (${expected.length} images)`)
+      server.close()
+      return
+    }
+  }
+
   const browser = await chromium.launch()
   let failures = 0
   try {
@@ -149,57 +197,72 @@ async function main() {
       await context.route('https://fonts.gstatic.com/**', (route) =>
         route.abort(),
       )
-      const page = await context.newPage()
-      const errors: string[] = []
-      page.on('pageerror', (error) => errors.push(error.message))
-
-      for (const { name, board } of boards) {
-        errors.length = 0
-        await page.setViewportSize({ width: board.w, height: board.h })
-        await page.goto(`${base}/${name}.dc.html`, { waitUntil: 'networkidle' })
-        await page.evaluate(() => document.fonts.ready)
-        const fontFaults = await page.evaluate(() => {
-          const faults: string[] = []
-          for (const face of document.fonts) {
-            if (face.status === 'error') {
-              faults.push(`${face.family} ${face.weight} failed`)
+      // Boards are independent, so each page renders a share of them; the
+      // render is latency-bound (navigate, fonts, screenshot), not CPU-bound.
+      const pages = await Promise.all(
+        Array.from({ length: RENDER_CONCURRENCY }, () => context.newPage()),
+      )
+      let nextBoard = 0
+      await Promise.all(
+        pages.map(async (page) => {
+          const errors: string[] = []
+          page.on('pageerror', (error) => errors.push(error.message))
+          for (;;) {
+            const index = nextBoard++
+            const entry = boards[index]
+            if (!entry) return
+            const { name, board } = entry
+            errors.length = 0
+            await page.setViewportSize({ width: board.w, height: board.h })
+            await page.goto(`${base}/${name}.dc.html`, {
+              waitUntil: 'networkidle',
+            })
+            await page.evaluate(() => document.fonts.ready)
+            const fontFaults = await page.evaluate(() => {
+              const faults: string[] = []
+              for (const face of document.fonts) {
+                if (face.status === 'error') {
+                  faults.push(`${face.family} ${face.weight} failed`)
+                }
+              }
+              // Every screen renders Latin text, so the synthesised `Inter` face
+              // must be usable; a `false` here means the screens fell back.
+              if (!document.fonts.check("16px 'Inter'")) {
+                faults.push('Inter is not loaded')
+              }
+              return faults
+            })
+            errors.push(...fontFaults)
+            await page.waitForTimeout(250)
+            await page.screenshot({
+              path: join(OUT, `${name}-${theme}.png`),
+              clip: { x: 0, y: 0, width: board.w, height: board.h },
+              animations: 'disabled',
+            })
+            if (name === 'States') {
+              // COMP-05 compares the installed filter package with this design
+              // border box, using the same 360 × 126 crop as COMP-04's fixture.
+              // Derive it from the reference, never from the app output.
+              await page.screenshot({
+                path: join(OUT, `States-filter-builder-${theme}.png`),
+                clip: { x: 557, y: 1089, width: 360, height: 126 },
+                animations: 'disabled',
+              })
+            }
+            if (errors.length > 0) {
+              failures += 1
+              console.error(`${name} (${theme}): ${errors.join('; ')}`)
             }
           }
-          // Every screen renders Latin text, so the synthesised `Inter` face
-          // must be usable; a `false` here means the screens fell back.
-          if (!document.fonts.check("16px 'Inter'")) {
-            faults.push('Inter is not loaded')
-          }
-          return faults
-        })
-        errors.push(...fontFaults)
-        await page.waitForTimeout(250)
-        await page.screenshot({
-          path: join(OUT, `${name}-${theme}.png`),
-          clip: { x: 0, y: 0, width: board.w, height: board.h },
-          animations: 'disabled',
-        })
-        if (name === 'States') {
-          // COMP-05 compares the installed filter package with this design
-          // border box, using the same 360 × 126 crop as COMP-04's fixture.
-          // Derive it from the reference, never from the app output.
-          await page.screenshot({
-            path: join(OUT, `States-filter-builder-${theme}.png`),
-            clip: { x: 557, y: 1089, width: 360, height: 126 },
-            animations: 'disabled',
-          })
-        }
-        if (errors.length > 0) {
-          failures += 1
-          console.error(`${name} (${theme}): ${errors.join('; ')}`)
-        }
-      }
+        }),
+      )
       await context.close()
     }
   } finally {
     await browser.close()
     server.close()
   }
+  if (failures === 0) await writeFile(marker, renderHash)
   console.log(
     `Rendered ${boards.length} screens × ${THEMES.length} themes to ${OUT}`,
   )

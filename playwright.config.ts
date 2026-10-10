@@ -25,6 +25,10 @@ export default defineConfig({
       // signed in as its design user.
       name: 'parity',
       testDir: 'tests/visual',
+      // The comparisons are generated from one spec file and are independent,
+      // so they parallelise across workers; without this Playwright keeps them
+      // in a single worker and the run stays serial.
+      fullyParallel: true,
       snapshotPathTemplate: '{testDir}/design-reference/{arg}{ext}',
       use: {
         baseURL: 'http://127.0.0.1:3200',

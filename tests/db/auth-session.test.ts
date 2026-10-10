@@ -285,6 +285,32 @@ describe('session lifecycle', () => {
     }
   })
 
+  it('applies the configured inactivity window to a new session', async () => {
+    // SET-03.3. The window is not merely declared: Better Auth stamps the expiry when it
+    // creates the session, and an idle window is one that is refreshed by activity, so the
+    // refresh interval has to be shorter than the window itself. Enforcement of the stamped
+    // expiry is covered by the expired-session case below.
+    const ctx = await (
+      auth as unknown as { $context: Promise<Record<string, unknown>> }
+    ).$context
+    const sessionOptions = (
+      auth as unknown as {
+        options: { session: { expiresIn: number; updateAge: number } }
+      }
+    ).options.session
+    expect(sessionOptions.expiresIn).toBe(30 * 60)
+    expect(sessionOptions.updateAge).toBeLessThan(sessionOptions.expiresIn)
+
+    const created = await (
+      ctx.internalAdapter as {
+        createSession: (userId: string) => Promise<{ expiresAt: Date }>
+      }
+    ).createSession(userId)
+    const windowMs = created.expiresAt.getTime() - Date.now()
+    expect(windowMs).toBeGreaterThan(29 * 60 * 1000)
+    expect(windowMs).toBeLessThanOrEqual(30 * 60 * 1000)
+  })
+
   it('rejects an expired session', async () => {
     await db
       .update(schema.session)

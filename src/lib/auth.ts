@@ -41,6 +41,16 @@ export function createAuth(database: typeof db = db) {
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(database, { provider: 'pg', schema: authSchema }),
     socialProviders,
+    // SET-03.3: the session expires after this much inactivity, and any activity within the
+    // refresh window pushes the expiry back. Better Auth treats `expiresIn` as an idle window
+    // when `updateAge` is smaller than it, which is what an unattended workstation needs: the
+    // session ends because nobody used it, not because a fixed period elapsed. Failed
+    // re-authentication is locked out separately, per DEC-04 (three attempts, fifteen minutes,
+    // with an audit entry), by the signing step-up boundary.
+    session: {
+      expiresIn: 60 * 30,
+      updateAge: 60 * 5,
+    },
     emailAndPassword: {
       enabled: false,
       resetPasswordTokenExpiresIn: 300,

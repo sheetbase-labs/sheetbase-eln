@@ -54,6 +54,7 @@ import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pip
 import { Route as PipelinesAgentsRouteImport } from './routes/pipelines/agents'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
 import { Route as ProtocolsProtocolIdRouteImport } from './routes/protocols/$protocolId'
+import { Route as RIdentifierRouteImport } from './routes/r/$identifier'
 import { Route as ReadingsNewRouteImport } from './routes/readings/new'
 import { Route as RecordsRecordIdRouteImport } from './routes/records/$recordId'
 import { Route as ReviewRevisionIdRouteImport } from './routes/review/$revisionId'
@@ -376,6 +377,11 @@ const ProtocolsProtocolIdRoute = ProtocolsProtocolIdRouteImport.update({
   id: '/$protocolId',
   path: '/$protocolId',
   getParentRoute: () => ProtocolsRoute,
+} as any)
+const RIdentifierRoute = RIdentifierRouteImport.update({
+  id: '/r/$identifier',
+  path: '/r/$identifier',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ReadingsNewRoute = ReadingsNewRouteImport.update({
   id: '/readings/new',
@@ -938,6 +944,7 @@ export interface FileRoutesByFullPath {
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
+  '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/review/$revisionId': typeof ReviewRevisionIdRoute
@@ -1074,6 +1081,7 @@ export interface FileRoutesByTo {
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
+  '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
   '/review/$revisionId': typeof ReviewRevisionIdRoute
   '/settings/access': typeof SettingsAccessRoute
@@ -1215,6 +1223,7 @@ export interface FileRoutesById {
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/projects/$projectId': typeof ProjectsProjectIdRouteWithChildren
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
+  '/r/$identifier': typeof RIdentifierRoute
   '/readings/new': typeof ReadingsNewRoute
   '/records/$recordId': typeof RecordsRecordIdRouteWithChildren
   '/review/$revisionId': typeof ReviewRevisionIdRoute
@@ -1361,6 +1370,7 @@ export interface FileRouteTypes {
     | '/pipelines/agents'
     | '/projects/$projectId'
     | '/protocols/$protocolId'
+    | '/r/$identifier'
     | '/readings/new'
     | '/records/$recordId'
     | '/review/$revisionId'
@@ -1497,6 +1507,7 @@ export interface FileRouteTypes {
     | '/instruments/$instrumentId'
     | '/pipelines/agents'
     | '/protocols/$protocolId'
+    | '/r/$identifier'
     | '/readings/new'
     | '/review/$revisionId'
     | '/settings/access'
@@ -1637,6 +1648,7 @@ export interface FileRouteTypes {
     | '/pipelines/agents'
     | '/projects/$projectId'
     | '/protocols/$protocolId'
+    | '/r/$identifier'
     | '/readings/new'
     | '/records/$recordId'
     | '/review/$revisionId'
@@ -1769,6 +1781,7 @@ export interface RootRouteChildren {
   ApiSheetCalculationsRoute: typeof ApiSheetCalculationsRoute
   DocsNameRoute: typeof DocsNameRoute
   EvidenceRevisionIdRoute: typeof EvidenceRevisionIdRoute
+  RIdentifierRoute: typeof RIdentifierRoute
   ReadingsNewRoute: typeof ReadingsNewRoute
   RecordsRecordIdRoute: typeof RecordsRecordIdRouteWithChildren
   ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
@@ -2120,6 +2133,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/protocols/$protocolId'
       preLoaderRoute: typeof ProtocolsProtocolIdRouteImport
       parentRoute: typeof ProtocolsRoute
+    }
+    '/r/$identifier': {
+      id: '/r/$identifier'
+      path: '/r/$identifier'
+      fullPath: '/r/$identifier'
+      preLoaderRoute: typeof RIdentifierRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/readings/new': {
       id: '/readings/new'
@@ -3211,6 +3231,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSheetCalculationsRoute: ApiSheetCalculationsRoute,
   DocsNameRoute: DocsNameRoute,
   EvidenceRevisionIdRoute: EvidenceRevisionIdRoute,
+  RIdentifierRoute: RIdentifierRoute,
   ReadingsNewRoute: ReadingsNewRoute,
   RecordsRecordIdRoute: RecordsRecordIdRouteWithChildren,
   ReviewRevisionIdRoute: ReviewRevisionIdRoute,

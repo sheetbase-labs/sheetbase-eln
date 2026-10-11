@@ -1,5 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 
+import {
+  CodeBlock,
+  PipelineSteps,
+  TemporaryArtefact,
+  TemporaryResultNote,
+} from '#/components/v3/pipelines/pipeline-code'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted, Section } from '#/components/v3/ui/layout'
@@ -20,8 +26,11 @@ import {
 } from '#/components/v3/pipelines/pipelines-data'
 
 /** UI port (roadmap-4/ui-app3): the pipeline Overview reads the current
- * version's configuration. Editing steps is deferred; the configuration is
- * shown exactly as stored. */
+ * version's configuration. Editing steps is deferred to the Steps tab; the
+ * configuration is shown exactly as stored. R5-SHELL-06 presents that
+ * configuration properly: code names its language and stays text, temporary
+ * stores are marked with the rule that ends them, and step navigation is the
+ * already-linkable `/pipelines/$pipelineId/steps` route. */
 export const Route = createFileRoute('/pipelines/$pipelineId/')({
   component: PipelineOverview,
 })
@@ -61,6 +70,12 @@ function PipelineOverview() {
   }
 
   const config = shown.configuration as ConfigShape
+  // R5-SHELL-06: what the run keeps, and where a person can act on its
+  // retention. Only an append output has a dataset to link to; a create output
+  // makes its dataset at run time.
+  const output = config.output
+  const keepsArtefact = Boolean(output && output.mode !== 'none')
+  const keptDatasetId = output?.mode === 'append' ? output.datasetId : undefined
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <div className="flex flex-col gap-5">
@@ -84,24 +99,34 @@ function PipelineOverview() {
 
         <Section title="Inputs" count={config.inputs?.length ?? 0}>
           {config.inputs?.length ? (
-            <TableBox>
-              <Table aria-label="Pipeline inputs">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Required</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {config.inputs.map((i) => (
-                    <TableRow key={i.name}>
-                      <TableCell className="mono">{i.name}</TableCell>
-                      <TableCell>{i.required ? 'Yes' : 'No'}</TableCell>
+            <div className="flex flex-col gap-2">
+              <TableBox>
+                <Table aria-label="Pipeline inputs">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Required</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableBox>
+                  </TableHeader>
+                  <TableBody>
+                    {config.inputs.map((i) => (
+                      <TableRow key={i.name}>
+                        <TableCell className="mono">{i.name}</TableCell>
+                        <TableCell>{i.required ? 'Yes' : 'No'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableBox>
+              <div className="flex flex-wrap items-center gap-2">
+                <TemporaryArtefact>Temporary tables</TemporaryArtefact>
+                <Muted className="text-caption">
+                  Each run pins the exact dataset version and copies it into a
+                  session temp table; the dataset itself is never changed. The
+                  table is dropped when the run ends.
+                </Muted>
+              </div>
+            </div>
           ) : (
             <Muted>No inputs declared.</Muted>
           )}
@@ -136,35 +161,59 @@ function PipelineOverview() {
 
         <Section title="Transform">
           {config.steps?.length ? (
-            <div className="flex flex-col gap-3">
-              {config.steps.map((s, i) => (
-                <div key={`${s.name}-${i}`} className="flex flex-col gap-1">
-                  <span className="text-label font-semibold">
-                    {i + 1} · {s.name} · {s.language}
-                  </span>
-                  <pre className="m-0 overflow-auto rounded-md border border-border bg-surface p-3 text-caption">
-                    <code>{s.statement}</code>
-                  </pre>
-                </div>
-              ))}
-            </div>
+            <PipelineSteps pipelineId={pipelineId} steps={config.steps} />
           ) : config.transform?.statement ? (
-            <pre className="m-0 overflow-auto rounded-md border border-border bg-surface p-3 text-caption">
-              <code>{config.transform.statement}</code>
-            </pre>
+            <div className="flex flex-col gap-1.5">
+              <CodeBlock
+                code={config.transform.statement}
+                language={config.transform.language}
+                label="Transform statement"
+              />
+              <TemporaryResultNote />
+            </div>
           ) : (
             <Muted>No transform statement.</Muted>
           )}
         </Section>
 
         <Section title="Output">
-          <Muted>
-            {config.output?.mode === 'none' || !config.output
-              ? 'Keeps nothing.'
-              : config.output.mode === 'append'
-                ? `Appends to dataset ${config.output.datasetId ?? ''} as ${config.output.datasetLabel ?? ''}.`
-                : `Creates a dataset${config.output.datasetName ? ` “${config.output.datasetName}”` : ''} labelled ${config.output.datasetLabel ?? ''}.`}
-          </Muted>
+          <div className="flex flex-col gap-1.5">
+            <Muted>
+              {!output || output.mode === 'none'
+                ? 'Keeps nothing.'
+                : output.mode === 'append'
+                  ? `Appends to dataset ${output.datasetId ?? ''} as ${output.datasetLabel ?? ''}.`
+                  : `Creates a dataset${output.datasetName ? ` “${output.datasetName}”` : ''} labelled ${output.datasetLabel ?? ''}.`}
+            </Muted>
+            {keepsArtefact ? (
+              <>
+                <Muted className="text-caption">
+                  Kept as a dataset snapshot, with the run as its source. The
+                  workspace retention policy decides when its rows can be
+                  removed: a snapshot on an active dataset, cited by a signed
+                  record or kept by hand is not removed. The dataset’s snapshots
+                  page states the exact dates.
+                </Muted>
+                {keptDatasetId ? (
+                  <Link
+                    to="/datasets/$datasetId/snapshots"
+                    params={{ datasetId: keptDatasetId }}
+                    className="text-link self-start text-label"
+                  >
+                    Snapshots and retention
+                  </Link>
+                ) : null}
+              </>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <TemporaryArtefact>Nothing kept</TemporaryArtefact>
+                <Muted className="text-caption">
+                  No dataset snapshot is written, so every step table is dropped
+                  when the run ends.
+                </Muted>
+              </div>
+            )}
+          </div>
         </Section>
 
         <Section title="Versions" count={list.length}>

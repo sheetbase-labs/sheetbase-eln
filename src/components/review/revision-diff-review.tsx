@@ -59,7 +59,7 @@ const KIND_META: Record<
   moved: { label: 'Moved', icon: 'move', variant: 'chg' },
 }
 
-const AREA_LABELS: Record<RevisionChange['area'], string> = {
+export const AREA_LABELS: Record<RevisionChange['area'], string> = {
   metadata: 'Record metadata',
   blocks: 'Block structure',
   text: 'Text',
@@ -80,7 +80,7 @@ type ReviewItem =
       visibleChanges: RevisionChange[]
     }
 
-function exactText(value: unknown): string {
+export function exactText(value: unknown): string {
   if (typeof value === 'string') return value
   if (value === null) return 'null'
   if (value === undefined) return 'Not present'
@@ -88,7 +88,7 @@ function exactText(value: unknown): string {
   return String(value)
 }
 
-function focusChange(target: HTMLElement | undefined) {
+export function focusChange(target: HTMLElement | undefined) {
   if (!target) return
   target.focus()
   const scrollIntoView: unknown = Reflect.get(target, 'scrollIntoView')
@@ -97,7 +97,7 @@ function focusChange(target: HTMLElement | undefined) {
   }
 }
 
-function KindBadge({ kind }: { kind: RevisionChangeKind }) {
+export function KindBadge({ kind }: { kind: RevisionChangeKind }) {
   const meta = KIND_META[kind]
   return (
     <Badge variant={meta.variant}>
@@ -131,7 +131,7 @@ function ChangeValue({
   )
 }
 
-function ChangeBody({ change }: { change: RevisionChange }) {
+export function ChangeBody({ change }: { change: RevisionChange }) {
   if (change.kind === 'moved') {
     return (
       <p className="mt-3 text-xs text-fg-muted">
@@ -152,7 +152,7 @@ function ChangeBody({ change }: { change: RevisionChange }) {
   )
 }
 
-function ChangeCard({
+export function ChangeCard({
   change,
   active,
 }: {

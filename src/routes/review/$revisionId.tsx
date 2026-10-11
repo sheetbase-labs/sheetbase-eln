@@ -41,9 +41,15 @@ import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
 import {
   commentsQueryKeys,
+  fetchCommentsForRecord,
   fetchCommentsForRevision,
   groupCommentsIntoThreads,
   threadState,
+} from '#/lib/comments-data'
+import type {
+  CommentTarget,
+  CommentTargetKind,
+  CommentWire,
 } from '#/lib/comments-data'
 import {
   returnWithCommentsLabel,
@@ -55,8 +61,12 @@ import type {
   ReviewCommentDrafts,
 } from '#/lib/review-comment-drafts'
 import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-block'
-import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
-import { ReviewCheckResults, RevisionDiffReview } from '#/components/review'
+import type { CanonicalRevisionEnvelope } from '#/lib/revision-diff'
+import {
+  ReviewCheckResults,
+  RevisionDiffReview,
+  RevisionDocumentReview,
+} from '#/components/review'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { StatusBadge } from '#/components/scientific/status-badge'
@@ -199,6 +209,32 @@ function RouteShell({
 // diff view.
 // ---------------------------------------------------------------------------
 
+/**
+ * R5-NOTE-01: the review workspace's pending comment target. It started as a
+ * frozen-Sheet selection (REV-004); the annotated document also anchors a
+ * comment to a block, a change or the whole revision, so the workspace carries
+ * the target kind and target the `create_comment` RPC validates.
+ */
+export type ReviewCommentTarget = {
+  targetKind: CommentTargetKind
+  target: CommentTarget
+}
+
+const COMMENT_TARGET_LABELS: Record<CommentTargetKind, string> = {
+  revision: 'the whole revision',
+  block: 'a block in the frozen revision',
+  table_region: 'a region of a scientific table',
+  diff: 'a change in this comparison',
+  sheet_cell: 'a frozen Sheet cell',
+  sheet_row: 'a frozen Sheet row',
+  sheet_range: 'a frozen Sheet range',
+}
+
+/** Human name for the pending comment target, shared with the comments tab. */
+export function commentTargetLabel(target: ReviewCommentTarget): string {
+  return COMMENT_TARGET_LABELS[target.targetKind]
+}
+
 const workspaceSearchSchema = z.object({
   tab: z.enum(['diff', 'comments', 'checks', 'history']).optional(),
   comparisonRevisionId: z.string().optional(),
@@ -304,7 +340,7 @@ export function ReviewWorkspaceRoute() {
   const activeTab = search.tab ?? 'diff'
   const [commentSelection, setCommentSelection] = useState<{
     revisionId: string
-    anchor: SheetCommentAnchor
+    anchor: ReviewCommentTarget
   } | null>(null)
   const commentAnchor =
     commentSelection?.revisionId === revisionId ? commentSelection.anchor : null
@@ -702,6 +738,17 @@ export function ReviewWorkspaceRoute() {
                 currentRevisionId={revisionId}
                 effectiveComparisonId={effectiveComparisonId}
                 onComparisonChange={navigateComparison}
+                recordId={recordId}
+                revisionComments={commentsQuery.data ?? []}
+                focusCommentId={search.commentId}
+                onOpenComment={(commentId) =>
+                  void navigate({
+                    to: '/review/$revisionId',
+                    params: { revisionId },
+                    search: { ...search, tab: 'comments', commentId },
+                    replace: true,
+                  })
+                }
                 onCommentTarget={
                   permission?.canReview === true ||
                   permission?.canWithdraw === true
@@ -727,8 +774,7 @@ export function ReviewWorkspaceRoute() {
                   {commentAnchor ? (
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <p className="text-xs text-fg-muted">
-                        New comment target: frozen{' '}
-                        {commentAnchor.targetKind.replace('sheet_', '')}.
+                        New comment target: {commentTargetLabel(commentAnchor)}.
                         Submitted identities only.
                       </p>
                       <Button
@@ -1185,18 +1231,76 @@ function DiffPanel({
   onComparisonChange,
   comparisonLoading,
   onCommentTarget,
+  onOpenComment,
+  recordId,
+  revisionComments,
+  focusCommentId,
 }: {
-  beforeEnvelope: ReturnType<typeof toCanonicalEnvelope> | null
-  afterEnvelope: ReturnType<typeof toCanonicalEnvelope> | null
+  beforeEnvelope: CanonicalRevisionEnvelope | null
+  afterEnvelope: CanonicalRevisionEnvelope | null
   revisionOptions: RevisionOptionWire[]
   currentRevisionId: string
   effectiveComparisonId: string | null
   onComparisonChange: (id: string | null) => void
   comparisonLoading: boolean
-  onCommentTarget?: (anchor: SheetCommentAnchor) => void
+  onCommentTarget?: (target: ReviewCommentTarget) => void
+  /** Comment → comments panel: reveal this thread beside the document. */
+  onOpenComment?: (commentId: string) => void
+  recordId: string | null
+  /** The frozen revision's own comments (the workspace's existing query). */
+  revisionComments: CommentWire[]
+  focusCommentId?: string
 }) {
   const comparableOptions = revisionOptions.filter(
     (option) => option.id !== currentRevisionId,
+  )
+  // R5-NOTE-01: the document reads by default; the change list stays one
+  // click away for reviews that are better read as a list of changes.
+  const [view, setView] = useState<'document' | 'changes'>('document')
+
+  /**
+   * R5-NOTE-01: an amendment creates a new revision, so a comment written
+   * against an earlier round is anchored to that earlier revision. The record
+   * read is the canonical `record_comments` RPC the comments panel already
+   * uses; only threads anchored to an older revision of this record are taken,
+   * and they are reported as no longer applying rather than re-anchored.
+   */
+  const reviewedAt = revisionOptions.find(
+    (option) => option.id === currentRevisionId,
+  )?.created_at
+  const recordCommentsQuery = useQuery({
+    queryKey: commentsQueryKeys.forRecord(recordId ?? ''),
+    queryFn: () => fetchCommentsForRecord(reviewsDataClient, recordId!),
+    enabled:
+      view === 'document' && recordId !== null && reviewedAt !== undefined,
+  })
+  const earlierComments = useMemo(() => {
+    if (!reviewedAt) return []
+    const reviewed = Date.parse(reviewedAt)
+    return (recordCommentsQuery.data ?? []).filter(
+      (comment) =>
+        comment.revision_id !== null &&
+        comment.revision_id !== currentRevisionId &&
+        Number.isFinite(reviewed) &&
+        Date.parse(
+          revisionOptions.find((option) => option.id === comment.revision_id)
+            ?.created_at ?? '',
+        ) < reviewed,
+    )
+  }, [currentRevisionId, recordCommentsQuery.data, reviewedAt, revisionOptions])
+  const revisionLabels = useMemo(() => {
+    const labels = new Map<string, string>()
+    for (const option of revisionOptions) {
+      labels.set(
+        option.id,
+        `${formatDate(option.created_at)} · ${option.reason}`,
+      )
+    }
+    return labels
+  }, [revisionOptions])
+  const documentComments = useMemo(
+    () => [...earlierComments, ...revisionComments],
+    [earlierComments, revisionComments],
   )
 
   if (!afterEnvelope) {
@@ -1234,14 +1338,53 @@ function DiffPanel({
             ))}
           </select>
         </div>
-        {comparisonLoading ? (
-          <span className="text-xs text-muted-foreground">
-            Loading comparison…
-          </span>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          {comparisonLoading ? (
+            <span className="text-xs text-muted-foreground">
+              Loading comparison…
+            </span>
+          ) : null}
+          <div
+            role="group"
+            aria-label="Reading view"
+            className="flex flex-wrap gap-1"
+          >
+            <Button
+              variant={view === 'document' ? 'primary' : 'secondary'}
+              size="sm"
+              aria-pressed={view === 'document'}
+              onClick={() => setView('document')}
+            >
+              Document
+            </Button>
+            <Button
+              variant={view === 'changes' ? 'primary' : 'secondary'}
+              size="sm"
+              aria-pressed={view === 'changes'}
+              onClick={() => setView('changes')}
+            >
+              Change list
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {!beforeEnvelope ? (
+      {view === 'document' ? (
+        <RevisionDocumentReview
+          after={afterEnvelope}
+          before={beforeEnvelope}
+          revisionId={currentRevisionId}
+          comparisonRevisionId={effectiveComparisonId}
+          beforeLabel="Earlier revision"
+          afterLabel="Submitted revision"
+          comments={documentComments}
+          focusCommentId={focusCommentId}
+          onOpenComment={onOpenComment}
+          onCommentTarget={onCommentTarget}
+          onSheetCommentTarget={onCommentTarget}
+          revisionLabels={revisionLabels}
+        />
+      ) : !beforeEnvelope ? (
         <>
           <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
             <h2 className="text-sm font-semibold">

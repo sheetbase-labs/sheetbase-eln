@@ -296,6 +296,7 @@ vi.mock('#/components/notebook/notebook-sheet-block', () => ({
 vi.mock('#/components/review', () => ({
   ReviewCheckResults: () => <div />,
   RevisionDiffReview: () => <div />,
+  RevisionDocumentReview: () => <div />,
 }))
 
 // jsdom does not implement ResizeObserver; radix UI reads it on mount.

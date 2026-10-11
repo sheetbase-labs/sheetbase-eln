@@ -111,6 +111,22 @@ produce no new migration" rule, which the absent baseline makes meaningless.
 sequence. Do not replace it with `CREATE TABLE` for objects those migrations
 already created.
 
+## Never apply a migration by hand
+
+Drizzle's migrator applies only the journal entries whose `when` is **newer than
+the newest `created_at` recorded in `drizzle.__drizzle_migrations`**. Applying a
+later migration manually (correctly, even) advances that watermark, so the next
+`pnpm db:migrate` reports success while applying **nothing** and every earlier
+pending migration stays unapplied. The database then drifts silently and features
+fail with `column ... does not exist` from PostgREST rather than a migration
+error — this cost an afternoon on 11 October 2026, when a hand-applied `0430` left
+`0424`'s `api.instruments.intake_method` missing and the instrument registry
+returning HTTP 400 with the ledger showing 386 of 429 entries.
+
+Use `pnpm db:migrate` (or `pnpm db:generate --custom` for a new migration) and
+let the migrator own the ledger. If the ledger has already been advanced out of
+order, the repair is `pnpm db:fresh` — a reset that replays the whole history.
+
 ## Rollback and recovery notes
 
 Drizzle migrations are forward-only. For any migration that drops or

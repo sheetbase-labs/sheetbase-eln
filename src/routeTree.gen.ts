@@ -49,6 +49,7 @@ import { Route as ExperimentsNewRouteImport } from './routes/experiments/new'
 import { Route as HelpIndexRouteImport } from './routes/help/index'
 import { Route as HelpRecordsRouteImport } from './routes/help/records'
 import { Route as HelpShortcutsRouteImport } from './routes/help/shortcuts'
+import { Route as ImportImportIdRouteImport } from './routes/import.$importId'
 import { Route as InstrumentsInstrumentIdRouteImport } from './routes/instruments/$instrumentId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
@@ -353,6 +354,11 @@ const HelpShortcutsRoute = HelpShortcutsRouteImport.update({
   id: '/shortcuts',
   path: '/shortcuts',
   getParentRoute: () => HelpRoute,
+} as any)
+const ImportImportIdRoute = ImportImportIdRouteImport.update({
+  id: '/$importId',
+  path: '/$importId',
+  getParentRoute: () => ImportRoute,
 } as any)
 const InstrumentsInstrumentIdRoute = InstrumentsInstrumentIdRouteImport.update({
   id: '/$instrumentId',
@@ -915,7 +921,7 @@ export interface FileRoutesByFullPath {
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRouteWithChildren
-  '/import': typeof ImportRoute
+  '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
@@ -945,6 +951,7 @@ export interface FileRoutesByFullPath {
   '/experiments/new': typeof ExperimentsNewRoute
   '/help/records': typeof HelpRecordsRoute
   '/help/shortcuts': typeof HelpShortcutsRoute
+  '/import/$importId': typeof ImportImportIdRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -1059,7 +1066,7 @@ export interface FileRoutesByTo {
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
-  '/import': typeof ImportRoute
+  '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
@@ -1086,6 +1093,7 @@ export interface FileRoutesByTo {
   '/experiments/new': typeof ExperimentsNewRoute
   '/help/records': typeof HelpRecordsRoute
   '/help/shortcuts': typeof HelpShortcutsRoute
+  '/import/$importId': typeof ImportImportIdRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
@@ -1196,7 +1204,7 @@ export interface FileRoutesById {
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRouteWithChildren
-  '/import': typeof ImportRoute
+  '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
@@ -1226,6 +1234,7 @@ export interface FileRoutesById {
   '/experiments/new': typeof ExperimentsNewRoute
   '/help/records': typeof HelpRecordsRoute
   '/help/shortcuts': typeof HelpShortcutsRoute
+  '/import/$importId': typeof ImportImportIdRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -1374,6 +1383,7 @@ export interface FileRouteTypes {
     | '/experiments/new'
     | '/help/records'
     | '/help/shortcuts'
+    | '/import/$importId'
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1515,6 +1525,7 @@ export interface FileRouteTypes {
     | '/experiments/new'
     | '/help/records'
     | '/help/shortcuts'
+    | '/import/$importId'
     | '/instruments/$instrumentId'
     | '/pipelines/agents'
     | '/protocols/$protocolId'
@@ -1654,6 +1665,7 @@ export interface FileRouteTypes {
     | '/experiments/new'
     | '/help/records'
     | '/help/shortcuts'
+    | '/import/$importId'
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1771,7 +1783,7 @@ export interface RootRouteChildren {
   ExperimentsRoute: typeof ExperimentsRouteWithChildren
   FoundationsRoute: typeof FoundationsRoute
   HelpRoute: typeof HelpRouteWithChildren
-  ImportRoute: typeof ImportRoute
+  ImportRoute: typeof ImportRouteWithChildren
   InboxRoute: typeof InboxRoute
   InstrumentsRoute: typeof InstrumentsRouteWithChildren
   MaterialsRoute: typeof MaterialsRoute
@@ -2111,6 +2123,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/help/shortcuts'
       preLoaderRoute: typeof HelpShortcutsRouteImport
       parentRoute: typeof HelpRoute
+    }
+    '/import/$importId': {
+      id: '/import/$importId'
+      path: '/$importId'
+      fullPath: '/import/$importId'
+      preLoaderRoute: typeof ImportImportIdRouteImport
+      parentRoute: typeof ImportRoute
     }
     '/instruments/$instrumentId': {
       id: '/instruments/$instrumentId'
@@ -2941,6 +2960,17 @@ const HelpRouteChildren: HelpRouteChildren = {
 
 const HelpRouteWithChildren = HelpRoute._addFileChildren(HelpRouteChildren)
 
+interface ImportRouteChildren {
+  ImportImportIdRoute: typeof ImportImportIdRoute
+}
+
+const ImportRouteChildren: ImportRouteChildren = {
+  ImportImportIdRoute: ImportImportIdRoute,
+}
+
+const ImportRouteWithChildren =
+  ImportRoute._addFileChildren(ImportRouteChildren)
+
 interface InstrumentsRouteChildren {
   InstrumentsInstrumentIdRoute: typeof InstrumentsInstrumentIdRoute
 }
@@ -3229,7 +3259,7 @@ const rootRouteChildren: RootRouteChildren = {
   ExperimentsRoute: ExperimentsRouteWithChildren,
   FoundationsRoute: FoundationsRoute,
   HelpRoute: HelpRouteWithChildren,
-  ImportRoute: ImportRoute,
+  ImportRoute: ImportRouteWithChildren,
   InboxRoute: InboxRoute,
   InstrumentsRoute: InstrumentsRouteWithChildren,
   MaterialsRoute: MaterialsRoute,

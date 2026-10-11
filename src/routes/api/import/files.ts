@@ -5,13 +5,18 @@
  */
 import { createFileRoute } from '@tanstack/react-router'
 
-import { handleImportFileUpload } from '#/lib/import/server'
+import {
+  handleImportFileRead,
+  handleImportFileUpload,
+} from '#/lib/import/server'
 
 const handler = ({ request }: { request: Request }) =>
-  handleImportFileUpload(request)
+  request.method === 'GET'
+    ? handleImportFileRead(request)
+    : handleImportFileUpload(request)
 
 export const Route = createFileRoute('/api/import/files')({
   server: {
-    handlers: { POST: handler },
+    handlers: { GET: handler, POST: handler },
   },
 })

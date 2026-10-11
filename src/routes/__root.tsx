@@ -229,6 +229,7 @@ function RootRouteComponent() {
     '/pipelines/$pipelineId/triggers',
     '/pipelines/$pipelineId/steps',
     '/import',
+    '/import/$importId',
     '/datasets',
     '/datasets/$datasetId',
     '/datasets/$datasetId/',

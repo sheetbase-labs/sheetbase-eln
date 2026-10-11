@@ -59,6 +59,8 @@ export interface ImportFileUploadResponse {
   byteSize: number
   checksum: string
   format: string
+  /** The target Dataset pinned when the file was stored, if one was chosen. */
+  datasetId: string | null
   parsed: boolean
   parseError?: string
   parser: ImportParserSummary | null

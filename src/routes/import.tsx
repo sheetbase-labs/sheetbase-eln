@@ -1,10 +1,10 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { ImportFlow } from '#/components/import/import-flow'
+import { ImportUploadFlow } from '#/components/import/import-flow'
 
-/** DSET-05 — the import route: the three-step Stepper (Upload → Map columns →
- * Review and import). Files are stored checksum-first and parsed on the
- * server; commit goes through the canonical Dataset batch writer. */
+/** DSET-05 / R5-SURF-04 — step 1: choose the target (an existing Dataset or a
+ * new one), store the file checksum-first and parse it on the server. The
+ * stored file's own route then carries the mapping and check steps. */
 export const Route = createFileRoute('/import')({
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -17,5 +17,6 @@ export const Route = createFileRoute('/import')({
 })
 
 function ImportPage() {
-  return <ImportFlow />
+  const { context } = Route.useRouteContext()
+  return <ImportUploadFlow workspaceId={context.workspace?.id ?? ''} />
 }

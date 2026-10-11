@@ -168,10 +168,10 @@ export async function hasOpenedHomeProject(
   )
 }
 
-export function homeAssignedProjects(
-  projects: { id: string; title: string }[],
+export function homeAssignedProjects<T extends { id: string; title: string }>(
+  projects: T[],
   assignments: ProjectAssignment[],
-) {
+): (T & { accessLevel: string })[] {
   return assignments.flatMap((assignment) => {
     if (!assignment.can_view) return []
     const project = projects.find((row) => row.id === assignment.project_id)
@@ -211,6 +211,7 @@ export async function fetchHomeCounts(
     experimentsInProgress,
     instrumentRuns,
     inbox,
+    unreadNotifications,
   ] = await Promise.all([
     client.count(
       'my_work_items',
@@ -231,6 +232,9 @@ export async function fetchHomeCounts(
       `?${workspace}&started_at=gte.${encodeURIComponent(range.start)}&started_at=lt.${encodeURIComponent(range.end)}`,
     ),
     client.count('my_work_items', '?state=in.(needs_action,overdue)'),
+    // R5-HOME-01: the same unread authority the notifications bell reads, so
+    // the quiet condition cannot call a page calm while the bell shows unread.
+    client.count('my_notifications', '?read_at=is.null'),
   ])
   return {
     reviews,
@@ -238,6 +242,7 @@ export async function fetchHomeCounts(
     experimentsInProgress,
     instrumentRuns,
     inbox,
+    unreadNotifications,
   }
 }
 

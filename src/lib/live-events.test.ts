@@ -196,10 +196,16 @@ describe('createLiveEventCoordinator', () => {
 
   it.each([
     ['instrument_run', ['home-counts', 'home-activity']],
-    ['calendar_booking', ['home-bookings', 'home-activity']],
+    ['calendar_booking', ['home-bookings', 'home-activity', 'home-resources']],
     [
       'review_decision',
-      ['home-counts', 'home-reviews', 'home-recents', 'home-activity'],
+      [
+        'home-counts',
+        'home-reviews',
+        'home-recents',
+        'home-activity',
+        'home-project-approvals',
+      ],
     ],
     [
       'dataset',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { firstRunProgress, firstRunSteps, recentTone } from '#/routes/index'
+import { recentTone } from '#/components/v3/home/home-quiet'
+import { firstRunProgress, firstRunSteps } from '#/routes/index'
 import { moveListSelection, rowKey } from '#/routes/inbox'
 import type { RecentItem } from '#/lib/recents'
 import type { WorkItem } from '#/lib/work-items/data'

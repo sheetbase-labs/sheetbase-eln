@@ -366,6 +366,9 @@ describe('Home exact totals', () => {
         expect(url.searchParams.get('state')).toBe('in.(needs_action,overdue)')
         total =
           url.searchParams.get('kind') === 'eq.review_requested' ? 257 : 280
+      } else if (url.pathname.endsWith('/my_notifications')) {
+        expect(url.searchParams.get('read_at')).toBe('is.null')
+        total = 3
       } else {
         throw new Error(`Unexpected Home authority: ${url.pathname}`)
       }
@@ -385,8 +388,9 @@ describe('Home exact totals', () => {
       experimentsInProgress: 1403,
       instrumentRuns: 2,
       inbox: 280,
+      unreadNotifications: 3,
     })
-    expect(urls).toHaveLength(5)
+    expect(urls).toHaveLength(6)
   })
 
   it('propagates unavailable counts instead of rendering empty or partial totals', async () => {

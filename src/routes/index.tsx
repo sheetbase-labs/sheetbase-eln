@@ -21,9 +21,14 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { experimentStatus } from '#/components/v3/experiments/experiments-data'
+import { HomeQuiet, recentTone } from '#/components/v3/home/home-quiet'
 import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
-import { fetchCalendarBookings, isSameDayInZone } from '#/lib/calendar'
+import {
+  fetchCalendarBookings,
+  fetchCalendarResources,
+  isSameDayInZone,
+  toCalendarBooking,
+} from '#/lib/calendar'
 import type { CalendarBookingWire } from '#/lib/calendar'
 import { formatRelativeTime, notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -31,13 +36,25 @@ import {
   fetchRecentItems,
   recentStatusLabel,
 } from '#/lib/recents'
-import type { RecentItem } from '#/lib/recents'
 import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
   signatureCertificationDataClient,
 } from '#/lib/signature-certification'
 import { describeAuditEvent, fetchAuditEvents } from '#/lib/audit-history'
+import {
+  buildComingUp,
+  continueWorkingItems,
+  fetchProjectApprovalProgress,
+  fetchUpcomingMilestones,
+  fetchUpcomingRecordEnds,
+  freeInstruments,
+  groupComingUp,
+  homePace,
+  homeUpcomingWindow,
+  homeWaitingItem,
+  pickUpItems,
+} from '#/lib/home-quiet'
 import {
   fetchHomeCounts,
   fetchHomeReviews,
@@ -145,17 +162,7 @@ export function firstRunProgress(steps: FirstRunStep[]): {
   return { done: steps.filter((step) => step.done).length, total: steps.length }
 }
 
-/** Status tone for a resolved recent item, from the same palette as the rest
- * of v3. Record statuses reuse the experiment status mapping; lifecycle
- * objects map active/archived directly. */
-export function recentTone(item: Pick<RecentItem, 'kind' | 'status'>): Tone {
-  if (item.kind === 'record') return experimentStatus(item.status ?? '').tone
-  if (item.status === 'active') return 'progress'
-  if (item.status === 'archived' || item.status === 'retired') return 'stored'
-  return 'none'
-}
-
-function Home() {
+export function Home() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id
   const userId = context.user.id
@@ -176,13 +183,25 @@ function Home() {
     enabled: Boolean(workspaceId),
   })
   const timeZone = workspaceQuery.data?.timezone ?? 'UTC'
-  const range = homeDayRange(new Date(), timeZone)
+  const now = new Date()
+  const range = homeDayRange(now, timeZone)
+  // R5-HOME-01: one booking read serves both the busy Home (today only) and
+  // the quiet Home's "Coming up" list, so the calm state adds no second read.
+  const upcomingWindow = homeUpcomingWindow(now, timeZone)
   const countsQuery = useQuery({
     queryKey: ['home-counts', workspaceId, userId, range.start, range.end],
     queryFn: () => fetchHomeCounts(notebookDataClient, workspaceId!, range),
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
   })
   const counts = countsQuery.data
+  const waitingCounts = counts
+    ? {
+        inbox: counts.inbox,
+        datasetsWithErrors: counts.datasetsWithErrors,
+        unreadNotifications: counts.unreadNotifications,
+      }
+    : null
+  const pace = waitingCounts ? homePace(waitingCounts) : 'busy'
   const bookingsQuery = useQuery({
     queryKey: ['home-bookings', workspaceId, userId, range.start],
     queryFn: () =>
@@ -190,7 +209,7 @@ function Home() {
         notebookDataClient,
         workspaceId!,
         range.start,
-        range.end,
+        upcomingWindow.end,
       ),
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
   })
@@ -210,6 +229,10 @@ function Home() {
   })
   const recents = recentsQuery.data ?? []
   const showFirstRun = recentsQuery.isSuccess && recents.length === 0
+  // R5-HOME-01: the calm page shows the person's projects, so their project
+  // summaries are shared with the first-run state rather than re-read.
+  const calm = !showFirstRun && pace !== 'busy'
+  const needsProjects = showFirstRun || calm
 
   const onboardingQuery = useQuery({
     queryKey: workspaceAccessKeys.onboarding(workspaceId ?? '', userId),
@@ -231,12 +254,13 @@ function Home() {
   const assignmentsQuery = useQuery({
     queryKey: workspaceAccessKeys.assignments(workspaceId ?? '', userId),
     queryFn: () => fetchMyProjectAssignments(notebookDataClient),
-    enabled: Boolean(workspaceId) && showFirstRun,
+    enabled: Boolean(workspaceId) && needsProjects,
   })
   const projectsQuery = useQuery({
     queryKey: ['home-first-run-projects', workspaceId, userId],
     queryFn: () => fetchProjectSummaries(workspaceId),
-    enabled: Boolean(workspaceId) && showFirstRun && assignmentsQuery.isSuccess,
+    enabled:
+      Boolean(workspaceId) && needsProjects && assignmentsQuery.isSuccess,
   })
   const projects = homeAssignedProjects(
     projectsQuery.data ?? [],
@@ -263,6 +287,44 @@ function Home() {
     enabled: Boolean(workspaceId) && showFirstRun,
   })
 
+  // R5-HOME-01 — the quiet Home's own reads, all enabled only in the calm
+  // states: the workspace's instruments, the experiments with a planned end
+  // inside the next two weeks, the person's project milestones due in the same
+  // window, and each project's own approval counts.
+  const resourcesQuery = useQuery({
+    queryKey: ['home-resources', workspaceId],
+    queryFn: () => fetchCalendarResources(notebookDataClient, workspaceId!),
+    enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
+  })
+  const upcomingEndsQuery = useQuery({
+    queryKey: ['home-upcoming', workspaceId, userId, range.start],
+    queryFn: () =>
+      fetchUpcomingRecordEnds(notebookDataClient, workspaceId!, upcomingWindow),
+    enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
+  })
+  const milestonesQuery = useQuery({
+    queryKey: [
+      'home-upcoming-milestones',
+      workspaceId,
+      userId,
+      range.start,
+      projectIds.join(','),
+    ],
+    queryFn: () =>
+      fetchUpcomingMilestones(notebookDataClient, projectIds, upcomingWindow),
+    enabled: calm && projectsQuery.isSuccess && projectIds.length > 0,
+  })
+  const approvalsQuery = useQuery({
+    queryKey: [
+      'home-project-approvals',
+      workspaceId,
+      userId,
+      projectIds.join(','),
+    ],
+    queryFn: () => fetchProjectApprovalProgress(notebookDataClient, projects),
+    enabled: calm && projectsQuery.isSuccess && projects.length > 0,
+  })
+
   const activityQuery = useQuery({
     queryKey: ['home-activity', workspaceId, userId],
     queryFn: () => fetchAuditEvents(notebookDataClient, { limit: 6 }),
@@ -276,6 +338,85 @@ function Home() {
     (b: CalendarBookingWire) => !b.cancelled_at,
   )
   const activity = (activityQuery.data?.events ?? []).map(describeAuditEvent)
+
+  // The booking read now spans the "Coming up" window; the busy Home still
+  // means today.
+  const calendarBookings = bookings.map((booking) => toCalendarBooking(booking))
+  const todayBookings = calendarBookings.filter((booking) =>
+    isSameDayInZone(new Date(booking.startsAt), now, timeZone),
+  )
+  const waiting =
+    pace === 'near-quiet' && waitingCounts
+      ? homeWaitingItem({
+          counts: waitingCounts,
+          reviews: reviews.map((review) => ({
+            revisionId: review.revisionId,
+            identifier: review.identifier,
+          })),
+          materials: materials.map((material) => ({
+            recordId: material.recordId,
+            identifier: material.identifier,
+            reason: homeMaterialExpiryLabel(material, now, timeZone),
+          })),
+          datasetIssues: datasetIssues.map((issue) => ({
+            id: issue.id,
+            identifier: issue.identifier,
+            label: issue.label,
+          })),
+        })
+      : null
+  const pickUp = calm
+    ? pickUpItems(recents, recentStatusLabel, describeRecentChange)
+    : []
+  const continueWorking = calm ? continueWorkingItems(recents, pickUp) : recents
+  const comingUp = calm
+    ? groupComingUp(
+        buildComingUp({
+          bookings: calendarBookings,
+          resourceNames: new Map(
+            (resourcesQuery.data ?? []).map((resource) => [
+              resource.id,
+              resource.name,
+            ]),
+          ),
+          reviews: reviews.flatMap((review) =>
+            review.dueAt
+              ? [
+                  {
+                    revisionId: review.revisionId,
+                    identifier: review.identifier,
+                    dueAt: review.dueAt,
+                  },
+                ]
+              : [],
+          ),
+          materials: materials.map((material) => ({
+            recordId: material.recordId,
+            identifier: material.identifier,
+            title: material.title,
+            dueAt: material.dueAt,
+            reason: homeMaterialExpiryLabel(material, now, timeZone),
+          })),
+          plannedEnds: upcomingEndsQuery.data ?? [],
+          milestones: milestonesQuery.data ?? [],
+          projectNames: new Map(
+            projects.map((project) => [project.id, project.title]),
+          ),
+          now,
+          timeZone,
+        }),
+        now,
+        timeZone,
+      )
+    : []
+  const instrumentsFree = calm
+    ? freeInstruments(
+        resourcesQuery.data ?? [],
+        calendarBookings,
+        now,
+        timeZone,
+      )
+    : []
 
   const mine = (certificationsQuery.data ?? []).find((c) => c.userId === userId)
   const setupSteps = firstRunSteps({
@@ -350,6 +491,20 @@ function Home() {
           experimentsQuery,
         ]
       : []),
+    ...(calm
+      ? [
+          resourcesQuery,
+          upcomingEndsQuery,
+          // The calm page owns the project cards, so it waits for them too.
+          assignmentsQuery,
+          projectsQuery,
+          // These two stay disabled (and so must stay out of the gate) when the
+          // person has no project of their own to report on.
+          ...(projectsQuery.isSuccess && projectIds.length > 0
+            ? [milestonesQuery, approvalsQuery]
+            : []),
+        ]
+      : []),
   ]
   if (homeQueries.some((query) => query.isError)) {
     return (
@@ -377,55 +532,74 @@ function Home() {
     )
   }
 
+  const header = (
+    <PageHeader
+      className="border-b-0 bg-transparent"
+      title="Home"
+      meta={
+        <span>
+          {today} · {context.workspace?.name ?? 'Workspace'}
+          {showFirstRun &&
+          onboarding &&
+          isSameDayInZone(new Date(onboarding.joined_at), new Date(), timeZone)
+            ? ' · you joined today'
+            : ''}
+        </span>
+      }
+      actions={
+        showFirstRun ? undefined : (
+          <>
+            {openNotebookId ? (
+              <Button
+                className="max-md:hidden"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/records/$recordId/notebook"
+                    params={{ recordId: openNotebookId }}
+                  />
+                }
+              >
+                Open notebook
+              </Button>
+            ) : null}
+            <Button
+              variant="primary"
+              className="max-md:hidden"
+              nativeButton={false}
+              render={<Link to="/experiments/new" />}
+            >
+              New experiment
+            </Button>
+          </>
+        )
+      }
+    />
+  )
+
+  if (calm) {
+    return (
+      <HomeQuiet
+        header={header}
+        pace={pace === 'quiet' ? 'quiet' : 'near-quiet'}
+        waiting={waiting}
+        comingUp={comingUp}
+        pickUp={pickUp}
+        continueWorking={continueWorking}
+        projects={approvalsQuery.data ?? []}
+        todayBookings={todayBookings}
+        freeInstruments={instrumentsFree}
+        activity={activity}
+        userId={userId}
+        timeZone={timeZone}
+      />
+    )
+  }
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        <PageHeader
-          className="border-b-0 bg-transparent"
-          title="Home"
-          meta={
-            <span>
-              {today} · {context.workspace?.name ?? 'Workspace'}
-              {showFirstRun &&
-              onboarding &&
-              isSameDayInZone(
-                new Date(onboarding.joined_at),
-                new Date(),
-                timeZone,
-              )
-                ? ' · you joined today'
-                : ''}
-            </span>
-          }
-          actions={
-            showFirstRun ? undefined : (
-              <>
-                {openNotebookId ? (
-                  <Button
-                    className="max-md:hidden"
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to="/records/$recordId/notebook"
-                        params={{ recordId: openNotebookId }}
-                      />
-                    }
-                  >
-                    Open notebook
-                  </Button>
-                ) : null}
-                <Button
-                  variant="primary"
-                  className="max-md:hidden"
-                  nativeButton={false}
-                  render={<Link to="/experiments/new" />}
-                >
-                  New experiment
-                </Button>
-              </>
-            )
-          }
-        />
+        {header}
         {showFirstRun ? (
           <div className="flex flex-col gap-6 px-4 pb-8 pt-2 md:px-6">
             <section className="flex max-w-[760px] flex-col gap-2">
@@ -495,15 +669,15 @@ function Home() {
                   </Link>
                 }
               >
-                {bookings.length ? (
+                {todayBookings.length ? (
                   <ul className="m-0 flex list-none flex-col p-0">
-                    {bookings.map((b) => (
+                    {todayBookings.map((b) => (
                       <li
                         key={b.id}
                         className="flex min-h-11 items-center gap-3 border-b border-border-subtle py-2 last:border-0"
                       >
                         <span className="num w-10 shrink-0 font-medium text-link">
-                          {new Date(b.starts_at).toLocaleTimeString('en-GB', {
+                          {new Date(b.startsAt).toLocaleTimeString('en-GB', {
                             timeZone,
                             hour: '2-digit',
                             minute: '2-digit',
@@ -759,15 +933,15 @@ function Home() {
               </span>
             }
           >
-            {bookings.length ? (
+            {todayBookings.length ? (
               <ul className="m-0 flex list-none flex-col p-0">
-                {bookings.map((b) => (
+                {todayBookings.map((b) => (
                   <li
                     key={b.id}
                     className="flex gap-3 border-b border-border-subtle py-2 last:border-0"
                   >
                     <span className="num w-10 shrink-0 font-medium text-link">
-                      {new Date(b.starts_at).toLocaleTimeString('en-GB', {
+                      {new Date(b.startsAt).toLocaleTimeString('en-GB', {
                         timeZone,
                         hour: '2-digit',
                         minute: '2-digit',

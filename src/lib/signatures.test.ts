@@ -1,9 +1,13 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createDataClient } from './data-client'
 import type { ReviewSubmissionWire } from './reviews'
 import {
   availableSignatureMeanings,
+  expiredSigningSignInSearch,
   fetchSignatureWitnessCandidates,
+  isExpiredSigningSession,
+  requestSignatureStepUp,
+  SignatureStepUpError,
 } from './signatures'
 import type { SignatureWire } from './signatures'
 
@@ -196,5 +200,91 @@ describe('effective project witness candidates', () => {
     await expect(
       fetchSignatureWitnessCandidates(client, 'project', 'requester', 'author'),
     ).rejects.toThrow()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// R5-SHELL-05 — the step-up error contract the signing surfaces rely on.
+//
+// `postSignatureAuthentication` turns the server's `{code, message}` body into
+// a typed error so a surface can tell an ended session (401 `session_expired`)
+// from a refused password (401, no code) or the signing lock (423) without
+// parsing prose. A wrong password must never be mistaken for an expired
+// session, or the person would be thrown out of the dialog for a typo.
+// ---------------------------------------------------------------------------
+
+function replyWith(status: number, body: unknown) {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValue({ ok: status < 400, status, json: async () => body })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+const stepUpInput = {
+  workspaceId: 'workspace',
+  purpose: 'certify',
+  password: 'password',
+} as const
+
+describe('signature step-up error contract', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('marks a 401 with the session_expired code as an ended session', async () => {
+    replyWith(401, { code: 'session_expired', message: 'Sign in again.' })
+    const error = await requestSignatureStepUp(stepUpInput).catch(
+      (err: unknown) => err,
+    )
+    expect(isExpiredSigningSession(error)).toBe(true)
+    expect((error as SignatureStepUpError).code).toBe('session_expired')
+  })
+
+  it('does not treat a refused password as an ended session', async () => {
+    replyWith(401, { message: 'Signing password was not accepted.' })
+    const error = await requestSignatureStepUp(stepUpInput).catch(
+      (err: unknown) => err,
+    )
+    expect(error).toBeInstanceOf(SignatureStepUpError)
+    expect(isExpiredSigningSession(error)).toBe(false)
+    expect((error as SignatureStepUpError).status).toBe(401)
+  })
+
+  it('carries the lockout status and message', async () => {
+    replyWith(423, {
+      message: 'Signing is locked for 15 minutes after three failed attempts.',
+    })
+    const error = await requestSignatureStepUp(stepUpInput).catch(
+      (err: unknown) => err,
+    )
+    expect(error).toBeInstanceOf(SignatureStepUpError)
+    expect((error as SignatureStepUpError).status).toBe(423)
+    expect((error as Error).message).toContain('Signing is locked')
+    expect(isExpiredSigningSession(error)).toBe(false)
+  })
+
+  it('returns the one-use token on success', async () => {
+    replyWith(200, {
+      token: 'token-1',
+      expiresAt: '2026-10-11T12:05:00Z',
+      authMethod: 'password',
+    })
+    await expect(requestSignatureStepUp(stepUpInput)).resolves.toEqual({
+      token: 'token-1',
+      expiresAt: '2026-10-11T12:05:00Z',
+      authMethod: 'password',
+    })
+  })
+})
+
+describe('expiredSigningSignInSearch', () => {
+  it('keeps a same-origin path as the return target', () => {
+    expect(expiredSigningSignInSearch('/review/rev-1')).toEqual({
+      state: 'expired-signing',
+      next: '/review/rev-1',
+    })
+  })
+
+  it('never yields an off-origin return target', () => {
+    expect(expiredSigningSignInSearch('https://evil.example/x').next).toBe('/')
   })
 })

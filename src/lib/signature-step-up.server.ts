@@ -100,7 +100,11 @@ export async function handleSignatureStepUp(
   const current = await deps.authentication.api.getSession({
     headers: request.headers,
   })
-  if (!current) return reply(401, { message: 'Sign in again.' })
+  // R5-SHELL-05: a distinct code separates "the session behind this attempt
+  // has ended" from a refused password (also 401 below) so the signing surface
+  // can send the person back to sign in instead of leaving a dead retry.
+  if (!current)
+    return reply(401, { code: 'session_expired', message: 'Sign in again.' })
   const userId = current.user.id
   const sessionId = current.session.id
   const client = await deps.database.$client.connect()

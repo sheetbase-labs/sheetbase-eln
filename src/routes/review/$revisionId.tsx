@@ -134,6 +134,8 @@ import {
   signRevision,
   requestSignatureWitness,
   requestSignatureStepUp,
+  expiredSigningSignInSearch,
+  isExpiredSigningSession,
 } from '#/lib/signatures'
 import type {
   PostSubmissionSignatureMeaning,
@@ -2121,6 +2123,8 @@ export function SignaturePanel({
   const [witnessUserId, setWitnessUserId] = useState('')
   const [requestingWitness, setRequestingWitness] = useState(false)
   const search = useSearch({ from: '/review/$revisionId' })
+  const navigate = useNavigate()
+  const { revisionId } = useParams({ from: '/review/$revisionId' })
   const eligibility = useQuery({
     queryKey: signatureQueryKeys.eligibility(submission.id, currentUserId),
     queryFn: () =>
@@ -2240,6 +2244,17 @@ export function SignaturePanel({
       })
       onOpenChange(false)
     } catch (err) {
+      // R5-SHELL-05: when the session behind the step-up has already ended, a
+      // retry can never succeed. Send the person to sign in and back to this
+      // review instead of leaving an error they cannot act on.
+      if (isExpiredSigningSession(err)) {
+        onOpenChange(false)
+        void navigate({
+          to: '/sign-in',
+          search: expiredSigningSignInSearch(`/review/${revisionId}`),
+        })
+        return
+      }
       setError(renderError(err))
     } finally {
       setSigning(false)

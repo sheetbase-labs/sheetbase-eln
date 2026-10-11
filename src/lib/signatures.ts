@@ -349,6 +349,47 @@ export async function requestSignatureCredential(
   await postSignatureAuthentication(input)
 }
 
+/**
+ * A refused signature step-up. `status` and `code` keep the surface able to
+ * tell an expired session (401 `session_expired`) from a refused password
+ * (401 without a code) or a lockout (423) without parsing prose.
+ */
+export class SignatureStepUpError extends Error {
+  readonly status: number
+  readonly code: string | undefined
+  constructor(status: number, message: string, code?: string) {
+    super(message)
+    this.name = 'SignatureStepUpError'
+    this.status = status
+    this.code = code
+  }
+}
+
+/**
+ * R5-SHELL-05 — true when a signing attempt lost its session. The step-up
+ * returns this only when the request carried no live session, so the surface
+ * can send the person back to sign-in rather than offer a retry that cannot
+ * succeed. `next` is the same-origin review path to return to afterwards.
+ */
+export function isExpiredSigningSession(
+  error: unknown,
+): error is SignatureStepUpError {
+  return (
+    error instanceof SignatureStepUpError && error.code === 'session_expired'
+  )
+}
+
+/** The search the sign-in route uses to say why it is showing and where to return. */
+export function expiredSigningSignInSearch(pathname: string): {
+  state: 'expired-signing'
+  next: string
+} {
+  return {
+    state: 'expired-signing',
+    next: pathname.startsWith('/') ? pathname : '/',
+  }
+}
+
 async function postSignatureAuthentication(input: object): Promise<unknown> {
   const response = await fetch('/api/signatures/step-up', {
     method: 'POST',
@@ -357,9 +398,13 @@ async function postSignatureAuthentication(input: object): Promise<unknown> {
   })
   const body: unknown = await response.json()
   if (!response.ok) {
-    const error = z.object({ message: z.string() }).safeParse(body)
-    throw new Error(
+    const error = z
+      .object({ message: z.string(), code: z.string().optional() })
+      .safeParse(body)
+    throw new SignatureStepUpError(
+      response.status,
       error.success ? error.data.message : 'Signing authentication failed.',
+      error.success ? error.data.code : undefined,
     )
   }
   return body

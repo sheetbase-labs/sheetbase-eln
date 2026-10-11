@@ -31,6 +31,8 @@ import type {
 } from '#/lib/review-workspace'
 import type { ReviewSubmissionWire } from '#/lib/reviews'
 import { reviewsDataClient } from '#/lib/reviews'
+import { SignatureStepUpError } from '#/lib/signatures'
+import type { WorkspaceCertification } from '#/lib/signature-certification'
 
 import {
   ActionButtons,
@@ -45,10 +47,24 @@ import {
   WorkspaceHeader,
 } from './$revisionId'
 
+const {
+  navigateMock,
+  requestSignatureStepUpMock,
+  signRevisionMock,
+  fetchWorkspaceCertificationsMock,
+} = vi.hoisted(() => ({
+  navigateMock: vi.fn(),
+  requestSignatureStepUpMock: vi.fn(),
+  signRevisionMock: vi.fn(),
+  fetchWorkspaceCertificationsMock: vi.fn<
+    (...args: unknown[]) => Promise<WorkspaceCertification[]>
+  >(async () => []),
+}))
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateMock,
   useSearch: () => ({}),
   useParams: () => ({ revisionId: 'rev-1' }),
   Link: ({
@@ -93,7 +109,15 @@ vi.mock('@tanstack/react-start/server', () => ({
 
 vi.mock('#/lib/signature-certification', async (importOriginal) => ({
   ...(await importOriginal()),
-  fetchWorkspaceCertifications: vi.fn(async () => []),
+  fetchWorkspaceCertifications: (...args: unknown[]) =>
+    fetchWorkspaceCertificationsMock(...args),
+}))
+
+vi.mock('#/lib/signatures', async (importOriginal) => ({
+  ...(await importOriginal()),
+  requestSignatureStepUp: (...args: unknown[]) =>
+    requestSignatureStepUpMock(...args),
+  signRevision: (...args: unknown[]) => signRevisionMock(...args),
 }))
 
 // jsdom does not implement ResizeObserver; radix UI reads it on mount.
@@ -920,6 +944,132 @@ describe('REV-01.3 — author resolve and reply path', () => {
       rpc.mockRestore()
       list.mockRestore()
       client.clear()
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// R5-SHELL-05 — the signing session outliving its session, and the signing
+// lock that a direct URL must not bypass.
+// ---------------------------------------------------------------------------
+
+function certifiedReviewer(userId: string) {
+  return {
+    userId,
+    name: 'Reviewer A',
+    statementVersion: 1,
+    certifiedAt: '2026-10-04T12:01:00Z',
+    revokedAt: null,
+    identityVerifiedAt: '2026-10-04T12:00:00Z',
+    identityVerifiedBy: 'admin',
+    verifiedEmail: 'reviewer.a@sheetbase.test',
+    verificationRequested: false,
+    authMethod: 'password',
+  }
+}
+
+describe('R5-SHELL-05 — signing session expiry and lockout', () => {
+  async function renderSigningPanel() {
+    navigateMock.mockReset()
+    requestSignatureStepUpMock.mockReset()
+    signRevisionMock.mockReset()
+    const rpc = vi.spyOn(reviewsDataClient, 'rpc').mockResolvedValue(true)
+    const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
+    const onOpenChange = vi.fn()
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    fetchWorkspaceCertificationsMock.mockResolvedValueOnce([
+      certifiedReviewer('reviewer-a'),
+    ])
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SignaturePanel
+          submission={submission()}
+          revision={{
+            id: 'rev-1',
+            record_id: 'rec-1',
+            structure_version: 1,
+            metadata_version: 1,
+            metadata_snapshot: {},
+            block_snapshot: [],
+            reason: 'submit',
+            superseded_by_revision_id: null,
+            created_at: '2026-10-04T12:00:00Z',
+            created_by_user_id: 'owner-a',
+          }}
+          projectId={null}
+          signatures={[]}
+          integrityDigest={DIGEST}
+          currentUserId="reviewer-a"
+          currentUserName="Reviewer A"
+          open
+          onOpenChange={onOpenChange}
+        />
+      </QueryClientProvider>,
+    )
+    // The dialog renders once eligibility and certification resolve.
+    await screen.findByLabelText('Signing password')
+    fireEvent.change(screen.getByLabelText('Signing password'), {
+      target: { value: 'local-signing-password' },
+    })
+    fireEvent.change(screen.getByLabelText('Type your name to confirm'), {
+      target: { value: 'Reviewer A' },
+    })
+    return { rpc, list, queryClient, onOpenChange }
+  }
+
+  it('returns to the review to sign again when the session ended mid-signing', async () => {
+    const { rpc, list, queryClient, onOpenChange } = await renderSigningPanel()
+    requestSignatureStepUpMock.mockRejectedValueOnce(
+      new SignatureStepUpError(401, 'Sign in again.', 'session_expired'),
+    )
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Sign' }))
+      await waitFor(() =>
+        expect(requestSignatureStepUpMock).toHaveBeenCalledOnce(),
+      )
+      await waitFor(() =>
+        expect(navigateMock).toHaveBeenCalledWith({
+          to: '/sign-in',
+          search: { state: 'expired-signing', next: '/review/rev-1' },
+        }),
+      )
+      // Nothing was recorded, and the dead retry is not left open.
+      expect(signRevisionMock).not.toHaveBeenCalled()
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    } finally {
+      rpc.mockRestore()
+      list.mockRestore()
+      queryClient.clear()
+    }
+  })
+
+  it('refuses to sign while locked, whatever URL reached the dialog', async () => {
+    const { rpc, list, queryClient } = await renderSigningPanel()
+    requestSignatureStepUpMock.mockRejectedValueOnce(
+      new SignatureStepUpError(
+        423,
+        'Signing is locked for 15 minutes after three failed attempts.',
+      ),
+    )
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Sign' }))
+      const alert = await screen.findByRole('alert')
+      expect(alert.textContent).toContain(
+        'Signing is locked for 15 minutes after three failed attempts.',
+      )
+      // The lock is enforced by the step-up endpoint: no token, no signature,
+      // and no navigation lets the person around it.
+      expect(signRevisionMock).not.toHaveBeenCalled()
+      expect(navigateMock).not.toHaveBeenCalled()
+    } finally {
+      rpc.mockRestore()
+      list.mockRestore()
+      queryClient.clear()
     }
   })
 })

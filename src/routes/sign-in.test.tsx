@@ -1,0 +1,179 @@
+/**
+ * R5-SHELL-05 — the sign-in surface's reachable states and its honest
+ * absences.
+ *
+ * The product signs in with GitHub OAuth only: there is no password sign-in
+ * and no sign-in attempt limit, so the design's `password` and `locked`
+ * states are stated plainly rather than rendered as forms that cannot work.
+ * The one lock the product has is the signing-password lock, enforced by the
+ * step-up endpoint; nothing on this surface can unlock it.
+ */
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { SignInSurface, states } from './sign-in'
+import type { SignInState, SignInSurfaceProps } from './sign-in'
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
+
+const release = {
+  version: '1.4.0',
+  build: '1.4.0',
+  released: '',
+  validation: { tone: 'ok' as const, label: 'Validated', detail: '' },
+  statement: '21 CFR Part 11 / EU GMP Annex 11 controlled system',
+}
+
+function renderSurface(props: Partial<SignInSurfaceProps> = {}) {
+  return render(
+    <SignInSurface
+      devAuthFree={false}
+      githubEnabled
+      release={release}
+      retainedDrafts={0}
+      {...props}
+    />,
+  )
+}
+
+function credentialInputs(): HTMLElement[] {
+  return [
+    ...document.querySelectorAll('input'),
+    ...document.querySelectorAll('form'),
+  ] as HTMLElement[]
+}
+
+describe('R5-SHELL-05 sign-in states', () => {
+  it('defaults to company SSO and names the only sign-in method', () => {
+    renderSurface()
+    expect(
+      screen.getByRole('heading', { name: 'Sign in to Sheetbase' }),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: /Continue with GitHub/ }),
+    ).toBeTruthy()
+    expect(screen.getByText(/only allows company sign-in/i)).toBeTruthy()
+    expect(credentialInputs()).toHaveLength(0)
+  })
+
+  it('reports a signed-out session and keeps drafts only when the marker says so', () => {
+    const { unmount } = renderSurface({
+      state: 'signed-out',
+      retainedDrafts: 2,
+    })
+    expect(
+      screen.getByRole('heading', { name: 'You’re signed out' }),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(/Unsaved edits on this device were kept/i),
+    ).toBeTruthy()
+    unmount()
+
+    renderSurface({ state: 'signed-out', retainedDrafts: 0 })
+    expect(screen.getByText(/You signed out of this browser/i)).toBeTruthy()
+    expect(screen.queryByText(/were kept/i)).toBeNull()
+  })
+
+  it('explains the signing session that ended and returns to the review after sign-in', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) })
+    vi.stubGlobal('fetch', fetchMock)
+    renderSurface({ state: 'expired-signing', next: '/review/rev-42' })
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Sign in again to finish signing',
+      }),
+    ).toBeTruthy()
+    expect(screen.getByText(/The record wasn’t signed/i)).toBeTruthy()
+    expect(screen.getByText(/nothing was recorded/i)).toBeTruthy()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Continue with GitHub/ }),
+    )
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/auth/sign-in/social')
+    expect(JSON.parse(String(init.body))).toEqual({
+      provider: 'github',
+      callbackURL: '/review/rev-42',
+    })
+  })
+
+  it('states plainly that password sign-in is not offered', () => {
+    renderSurface({ state: 'password' })
+    expect(screen.getByText('Password sign-in is not available.')).toBeTruthy()
+    expect(
+      screen.getByText(/A password is asked for only when you sign a record/i),
+    ).toBeTruthy()
+    expect(credentialInputs()).toHaveLength(0)
+  })
+
+  it('sso-only is the product’s real state', () => {
+    renderSurface({ state: 'sso-only' })
+    expect(
+      screen.getByRole('button', { name: /Continue with GitHub/ }),
+    ).toBeTruthy()
+    expect(screen.getByText(/only allows company sign-in/i)).toBeTruthy()
+    expect(credentialInputs()).toHaveLength(0)
+  })
+
+  it('states that sign-in has no lock instead of showing a fabricated unlock flow', () => {
+    renderSurface({ state: 'locked' })
+    expect(screen.getByText('There is nothing to unlock here.')).toBeTruthy()
+    expect(screen.getByText(/sign-in has no attempt limit/i)).toBeTruthy()
+    expect(
+      screen.getByText(/three wrong attempts lock signing for 15 minutes/i),
+    ).toBeTruthy()
+    // The design's fabricated reference and admin-unlock copy must not appear.
+    expect(screen.queryByText(/LCK-/)).toBeNull()
+    expect(screen.queryByText(/administrator unlocks/i)).toBeNull()
+  })
+
+  it('maps a raw provider error to an actionable message', () => {
+    renderSurface({ error: 'access_denied' })
+    expect(screen.getByRole('alert').textContent).toContain(
+      'GitHub sign-in was declined',
+    )
+  })
+
+  it('shows the environment notice when dev auth-free is on', () => {
+    renderSurface({ devAuthFree: true })
+    expect(
+      screen.getByText(/No sign-in or OAuth setup is required/i),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull()
+  })
+
+  it('says GitHub is not configured rather than rendering a dead button', () => {
+    renderSurface({ githubEnabled: false })
+    expect(
+      screen.getByText(/not configured for this environment yet/i),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull()
+  })
+})
+
+describe('R5-SHELL-05 — a locked-out person cannot bypass the lock through a direct URL', () => {
+  it.each<[SignInState | undefined]>([
+    ...states.map((state) => [state] as [SignInState]),
+    [undefined],
+  ])('offers no credential path in state %s', (state) => {
+    // Whatever sign-in URL a locked-out person opens (any `?state=` value),
+    // this surface exposes no password/email form and no second method: the
+    // signing lock lives on the step-up endpoint and cannot be unlocked here.
+    renderSurface({ state })
+    expect(credentialInputs()).toHaveLength(0)
+    expect(
+      screen.getByRole('button', { name: /Continue with GitHub/ }),
+    ).toBeTruthy()
+  })
+})

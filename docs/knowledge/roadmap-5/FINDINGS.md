@@ -199,7 +199,7 @@ nothing), and what is missing. Priorities and task owners are in
   its sidebar has no Instruments entry; the ELN's registry is now a main-nav item
   beside Samples and Materials, visible to every member, while parser and
   connection _configuration_ stays in Settings. Owner decision, 11 October 2026
-  (`GWP/roadmap-5-instruments-nav`, PR #224).
+  (`b5ed9705` on `GWP/roadmap-5-implementation`, PR #222).
 - **Route shapes.** Where a route differs, it usually differs by name or
   concentration, not by capability: `/models/$id/new` is
   `/models/$id/records/new`; `/review/$id?state=sign` is

@@ -57,7 +57,7 @@ specifications; [PROGRAMME_MAP.md](PROGRAMME_MAP.md) is the only status table.
 | [Analysis studio depth](tasks/STUDIO.md)      |     3 | Analysis states its method and its inputs; charts are authored by drag-and-drop; a stale source is resolvable                                      | Core     |
 | [Notebook and review fidelity](tasks/NOTE.md) |     2 | Review reads like the annotated document; the notebook carries signature and action blocks                                                         | Core     |
 | [Home](tasks/HOME.md)                         |     1 | A quiet workspace says what is next instead of showing empty panels                                                                                | Second   |
-| [Configuration depth](tasks/CONFIG.md)        |     5 | Diagnostics, usage, instruments, models, templates and milestones carry the evidence the design shows                                              | Second   |
+| [Configuration depth](tasks/CONFIG.md)        |     6 | Diagnostics, usage, instruments, models, templates and milestones carry the evidence the design shows                                              | Second   |
 | [Shell, search and platform](tasks/SHELL.md)  |     6 | Every route gets the same shell and theme; search and sign-in carry their designed states                                                          | Second   |
 
 ## Success criteria

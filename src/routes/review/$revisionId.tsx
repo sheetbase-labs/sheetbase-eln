@@ -25,7 +25,7 @@ import {
   useSearch,
 } from '@tanstack/react-router'
 import { z } from 'zod'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
@@ -75,7 +75,7 @@ import {
   ConfirmDialogTitle,
   ConfirmDialogTrigger,
 } from '#/components/v3/ui/confirm-dialog'
-import { DialogBody } from '#/components/v3/ui/dialog'
+import { SignatureDialog } from '#/components/review/sign-dialogs'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
@@ -123,13 +123,11 @@ import type {
 import type { ReviewSubmissionWire } from '#/lib/reviews'
 import type { RevisionWire } from '#/lib/notebook-data'
 import {
-  ASSURANCE_LEVEL_STATEMENT,
   availableSignatureMeanings,
   fetchSignatureEligibility,
   fetchSignatureWitnessCandidates,
   fetchSignaturesForSubmission,
   signatureQueryKeys,
-  SIGNATURE_MEANING_OPTIONS,
   SIGNATURE_MEANING_LABEL,
   signRevision,
   requestSignatureWitness,
@@ -2433,226 +2431,8 @@ export function SignaturePanel({
   )
 }
 
-function SignatureDialog({
-  open,
-  onOpenChange,
-  revision,
-  integrityDigest,
-  meanings,
-  requestedMeaning,
-  currentUserName,
-  signing,
-  error,
-  onConfirm,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  revision: RevisionWire
-  integrityDigest: string | null
-  meanings: PostSubmissionSignatureMeaning[]
-  requestedMeaning?: PostSubmissionSignatureMeaning
-  currentUserName: string
-  signing: boolean
-  error: string | null
-  onConfirm: (
-    meaning: PostSubmissionSignatureMeaning,
-    confirmation: string,
-    password: string,
-  ) => void
-}) {
-  const initialMeaning =
-    requestedMeaning && meanings.includes(requestedMeaning)
-      ? requestedMeaning
-      : (meanings[0] ?? 'reviewed-and-approved')
-  const [meaning, setMeaning] =
-    useState<PostSubmissionSignatureMeaning>(initialMeaning)
-  const [confirmation, setConfirmation] = useState('')
-  const [password, setPassword] = useState('')
-  const passwordRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (open) {
-      setMeaning(initialMeaning)
-      setPassword('')
-      setConfirmation('')
-    }
-  }, [open, initialMeaning])
-
-  const selected = SIGNATURE_MEANING_OPTIONS.find((o) => o.value === meaning)!
-  const confirmationMatches =
-    confirmation.trim().toLowerCase() === currentUserName.trim().toLowerCase()
-
-  return (
-    <ConfirmDialog
-      open={open}
-      onOpenChange={(next) => {
-        if (next) {
-          setMeaning(initialMeaning)
-          setConfirmation('')
-        }
-        setPassword('')
-        onOpenChange(next)
-      }}
-    >
-      <ConfirmDialogTrigger asChild>
-        <Button size="sm" className="h-9 w-full text-xs">
-          <Icon name="edit" size={14} aria-hidden />
-          Sign revision
-        </Button>
-      </ConfirmDialogTrigger>
-      <ConfirmDialogContent initialFocus={passwordRef}>
-        <ConfirmDialogHeader>
-          <ConfirmDialogTitle>Sign this revision</ConfirmDialogTitle>
-          <ConfirmDialogDescription>
-            You are signing revision{' '}
-            <span className="font-mono">{revision.id.slice(0, 8)}</span> as an
-            attestation of your review. This is an internal electronic
-            signature, not a regulatory compliance certification.
-          </ConfirmDialogDescription>
-        </ConfirmDialogHeader>
-
-        <DialogBody>
-          <dl className="space-y-1 rounded-md border bg-muted/30 p-2 text-xs">
-            <InspectorPropStatic label="Signer">
-              {currentUserName}
-            </InspectorPropStatic>
-            <InspectorPropStatic label="Revision">
-              <span className="font-mono">{revision.id}</span>
-            </InspectorPropStatic>
-            <InspectorPropStatic label="Integrity">
-              <span className="font-mono break-all">
-                {integrityDigest ?? '—'}
-              </span>
-            </InspectorPropStatic>
-            <InspectorPropStatic label="Reason">
-              {revision.reason}
-            </InspectorPropStatic>
-          </dl>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="revision-signing-password"
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-            >
-              Signing password
-            </label>
-            <input
-              id="revision-signing-password"
-              ref={passwordRef}
-              type="password"
-              autoComplete="current-password"
-              className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Re-enter your local signing password for this signature. Three
-              failed attempts lock signing for 15 minutes.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="signature-meaning"
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-            >
-              Signature meaning
-            </label>
-            <select
-              id="signature-meaning"
-              className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-              value={meaning}
-              onChange={(event) => {
-                const option = SIGNATURE_MEANING_OPTIONS.find(
-                  (item) => item.value === event.target.value,
-                )
-                if (option) setMeaning(option.value)
-              }}
-            >
-              {SIGNATURE_MEANING_OPTIONS.filter((option) =>
-                meanings.includes(option.value),
-              ).map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">
-              {selected.description}
-            </p>
-          </div>
-
-          <p className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
-            {ASSURANCE_LEVEL_STATEMENT.standard}
-          </p>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="signature-confirmation"
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-            >
-              Type your name to confirm
-            </label>
-            <input
-              id="signature-confirmation"
-              type="text"
-              className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-              placeholder={currentUserName}
-              value={confirmation}
-              onChange={(event) => setConfirmation(event.target.value)}
-              autoComplete="off"
-            />
-            <p className="text-xs text-muted-foreground">
-              Type your recorded name exactly to verify your signing intent.
-            </p>
-          </div>
-
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-            >
-              {error}
-            </p>
-          ) : null}
-        </DialogBody>
-
-        <ConfirmDialogFooter>
-          <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
-          <ConfirmDialogAction
-            disabled={signing || !password || !confirmationMatches}
-            onClick={() => {
-              const enteredPassword = password
-              setPassword('')
-              onConfirm(meaning, confirmation, enteredPassword)
-            }}
-          >
-            {signing ? 'Signing…' : 'Sign'}
-          </ConfirmDialogAction>
-        </ConfirmDialogFooter>
-      </ConfirmDialogContent>
-    </ConfirmDialog>
-  )
-}
-
 function signatureMeaningLabel(meaning: SignatureMeaning): string {
   return SIGNATURE_MEANING_LABEL[meaning]
-}
-
-function InspectorPropStatic({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-start justify-between gap-2">
-      <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-right break-all text-foreground">
-        {children}
-      </dd>
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------

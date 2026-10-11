@@ -92,6 +92,41 @@ function renderWithQuery(ui: ReactNode) {
 }
 
 describe('SignNotebookDialog', () => {
+  // R5-NOTE-02: the Notebook flow now renders the one shared ESignDialog. The
+  // step-up and the sign_revision write are unchanged; this pins the shared
+  // affordances (attestation statement + server time) onto the flow.
+  it('renders the shared e-sign dialog affordances', async () => {
+    fetchReviewSubmissionByRevision.mockResolvedValue({
+      id: 'sub1',
+      workspace_id: 'ws1',
+      record_id: 'r1',
+      state: 'approved',
+      assigned_reviewer_user_ids: ['u1'],
+    })
+    fetchRevisionRow.mockResolvedValue({
+      id: 'rev1',
+      integrity_digest: 'abc123digest',
+    })
+    fetchSignaturesForSubmission.mockResolvedValue([])
+
+    renderWithQuery(
+      <SignNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        revisionId="rev1"
+        currentUserId="u1"
+        currentUserName="Ada Lovelace"
+      />,
+    )
+
+    expect(
+      await screen.findByText('Recorded as server time when you sign'),
+    ).toBeTruthy()
+    expect(
+      await screen.findByText(/internal attestation, not a regulatory compliance/),
+    ).toBeTruthy()
+  })
+
   it('focuses password and signs only after password step-up and matching confirmation', async () => {
     const user = userEvent.setup()
     fetchReviewSubmissionByRevision.mockResolvedValue({

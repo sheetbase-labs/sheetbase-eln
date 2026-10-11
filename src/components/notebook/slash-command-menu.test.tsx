@@ -44,6 +44,8 @@ describe('block catalogue — Insert block design', () => {
       'structure',
       'writing',
       'evidence',
+      // R5-NOTE-02: the design's "Sign and attach" group closes the menu.
+      'sign',
     ])
     // …and within each group the design's "Sheet, Chart, Record reference,
     // Text, File or image" order holds (Chart sits with the other figures).
@@ -55,6 +57,11 @@ describe('block catalogue — Insert block design', () => {
     expect(groupLabels('evidence').slice(0, 2)).toEqual([
       'Chart',
       'File or image',
+    ])
+    // R5-NOTE-02: the two sign-and-attach blocks, in the design's order.
+    expect(groupLabels('sign')).toEqual([
+      'Signature request',
+      'Corrective actions',
     ])
   })
 })

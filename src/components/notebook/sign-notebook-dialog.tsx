@@ -1,19 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
 
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
-import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-} from '#/components/v3/ui/dialog'
-import { NativeSelect } from '#/components/v3/projects/select'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { notebookQueryKeysAfterSignature } from '#/lib/notebook-experience'
@@ -23,23 +11,28 @@ import {
   reviewWorkspaceQueryKeys,
 } from '#/lib/review-workspace'
 import {
-  ASSURANCE_LEVEL_STATEMENT,
   availableSignatureMeanings,
   fetchSignatureEligibility,
-  SIGNATURE_MEANING_OPTIONS,
   fetchSignaturesForSubmission,
   signatureQueryKeys,
   signRevision,
   requestSignatureStepUp,
 } from '#/lib/signatures'
-import type { PostSubmissionSignatureMeaning } from '#/lib/signatures'
 import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
   signatureCertificationDataClient,
   signatureCertificationQueryKeys,
 } from '#/lib/signature-certification'
+import { ESignDialog } from './e-sign-dialog'
+import type { ESignSubmitInput } from './e-sign-dialog'
 
+/**
+ * R5-NOTE-02: the Notebook signature dialog now renders the shared
+ * `ESignDialog` over the unchanged REV-03 contract. The step-up (`purpose:
+ * 'sign'`) and the `sign_revision` write stay here, keyed to this revision's
+ * digest; the dialog owns only the entered meaning, confirmation and password.
+ */
 export function SignNotebookDialog({
   open,
   onOpenChange,
@@ -54,12 +47,6 @@ export function SignNotebookDialog({
   currentUserName: string
 }) {
   const queryClient = useQueryClient()
-  const [meaning, setMeaning] = useState<PostSubmissionSignatureMeaning>(
-    'reviewed-and-approved',
-  )
-  const [confirmation, setConfirmation] = useState('')
-  const [password, setPassword] = useState('')
-  const passwordRef = useRef<HTMLInputElement>(null)
 
   const submissionQuery = useQuery({
     queryKey: reviewWorkspaceQueryKeys.submissionForRevision(revisionId),
@@ -119,41 +106,32 @@ export function SignNotebookDialog({
     signatures: signaturesQuery.data ?? [],
   })
   const canSign = meanings.length > 0
-  const confirmationMatches =
-    confirmation.trim().toLowerCase() === currentUserName.trim().toLowerCase()
-  const selected = SIGNATURE_MEANING_OPTIONS.find(
-    (option) => option.value === meaning,
-  )!
-  useEffect(() => {
-    if (open && canSign) passwordRef.current?.focus()
-  }, [open, canSign])
-  useEffect(() => {
-    if (!meanings.includes(meaning) && meanings[0]) setMeaning(meanings[0])
-  }, [meaning, meanings])
 
   const sign = useMutation({
-    mutationFn: async () => {
-      if (!submission || !integrityDigest || !meanings.includes(meaning)) {
+    mutationFn: async (input: ESignSubmitInput) => {
+      if (
+        !submission ||
+        !integrityDigest ||
+        !meanings.includes(input.meaning)
+      ) {
         throw new DataClientError(
           'validation_error',
           'This revision is not ready to sign.',
           400,
         )
       }
-      const enteredPassword = password
-      setPassword('')
       const proof = await requestSignatureStepUp({
         workspaceId: submission.workspace_id,
-        password: enteredPassword,
+        password: input.password,
         purpose: 'sign',
         submissionId: submission.id,
         revisionDigest: integrityDigest,
-        signatureMeaning: meaning,
+        signatureMeaning: input.meaning,
       })
       return signRevision(notebookDataClient, {
         submissionId: submission.id,
-        signatureMeaning: meaning,
-        confirmationPhrase: confirmation,
+        signatureMeaning: input.meaning,
+        confirmationPhrase: input.confirmation,
         expectedRevisionDigest: integrityDigest,
         signingToken: proof.token,
       })
@@ -171,7 +149,6 @@ export function SignNotebookDialog({
           queryKey: signatureQueryKeys.forRecord(submission.record_id),
         })
       }
-      setConfirmation('')
       onOpenChange(false)
     },
   })
@@ -185,154 +162,51 @@ export function SignNotebookDialog({
           ? submissionQuery.error.message
           : null
 
+  const blocked = !canSign ? (
+    !certificationsQuery.isSuccess ? (
+      <p className="m-0 text-body text-fg-muted">
+        Checking your signature certification…
+      </p>
+    ) : certificationCurrent ? (
+      <p className="m-0 text-body text-fg-muted">
+        No eligible signature meaning is available. Signing requires an active
+        frozen revision, assignment as a nonauthor reviewer or an explicit
+        witness request, and current workspace write permission.
+      </p>
+    ) : (
+      <Notice tone="warn">
+        <p className="m-0">
+          Certification is required before you can sign. Your electronic
+          signature is not certified for this workspace; an uncertified
+          signature is not accepted.
+        </p>
+        <p className="m-0 mt-1.5 text-label">
+          Certify in Settings → Electronic signatures: confirm your identity
+          with an administrator, agree to the statement and enter your signing
+          password. A practice signature is offered there and is not stored.
+        </p>
+        <p className="m-0 mt-1.5">
+          <Link to="/settings/signatures" className="underline">
+            Open signature settings
+          </Link>
+        </p>
+      </Notice>
+    )
+  ) : null
+
   return (
-    <Dialog
+    <ESignDialog
       open={open}
-      onOpenChange={(next) => {
-        if (!next) {
-          setConfirmation('')
-          setPassword('')
-          setMeaning('reviewed-and-approved')
-        }
-        onOpenChange(next)
-      }}
-    >
-      <DialogContent
-        initialFocus={passwordRef}
-        className="w-[min(560px,calc(100vw-32px))]"
-      >
-        <DialogHeader
-          title="Sign this Notebook"
-          description="This records an internal electronic signature against the submitted evidence. It is not a regulatory compliance certification."
-        />
-        <form
-          className="flex min-h-0 flex-1 flex-col"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (sign.isPending) return
-            if (!password || !confirmationMatches || !integrityDigest) return
-            sign.mutate()
-          }}
-        >
-          <DialogBody>
-            {!canSign ? (
-              !certificationsQuery.isSuccess ? (
-                <p className="m-0 text-body text-fg-muted">
-                  Checking your signature certification…
-                </p>
-              ) : certificationCurrent ? (
-                <p className="m-0 text-body text-fg-muted">
-                  No eligible signature meaning is available. Signing requires
-                  an active frozen revision, assignment as a nonauthor reviewer
-                  or an explicit witness request, and current workspace write
-                  permission.
-                </p>
-              ) : (
-                <Notice tone="warn">
-                  <p className="m-0">
-                    Certification is required before you can sign. Your
-                    electronic signature is not certified for this workspace; an
-                    uncertified signature is not accepted.
-                  </p>
-                  <p className="m-0 mt-1.5 text-label">
-                    Certify in Settings → Electronic signatures: confirm your
-                    identity with an administrator, agree to the statement and
-                    enter your signing password. A practice signature is offered
-                    there and is not stored.
-                  </p>
-                  <p className="m-0 mt-1.5">
-                    <Link to="/settings/signatures" className="underline">
-                      Open signature settings
-                    </Link>
-                  </p>
-                </Notice>
-              )
-            ) : (
-              <div className="flex flex-col gap-3">
-                <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-label">
-                  <dt className="text-fg-muted">Signing as</dt>
-                  <dd className="m-0">{currentUserName}</dd>
-                  <dt className="text-fg-muted">Meaning</dt>
-                  <dd className="m-0 font-medium">{selected.label}</dd>
-                  <dt className="text-fg-muted">Revision</dt>
-                  <dd className="m-0 font-mono break-all">{revisionId}</dd>
-                  <dt className="text-fg-muted">Content hash</dt>
-                  <dd className="m-0 font-mono break-all">
-                    {integrityDigest ?? 'Unavailable'}
-                  </dd>
-                </dl>
-                <Field
-                  label="Signing password"
-                  hint="Re-enter your local signing password for this signature. Three failed attempts lock signing for 15 minutes."
-                >
-                  <Input
-                    ref={passwordRef}
-                    aria-label="Signing password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                </Field>
-                <Field label="Signature meaning">
-                  <NativeSelect
-                    aria-label="Signature meaning"
-                    value={meaning}
-                    onChange={(event) => {
-                      const option = SIGNATURE_MEANING_OPTIONS.find(
-                        (item) => item.value === event.target.value,
-                      )
-                      if (option) setMeaning(option.value)
-                    }}
-                  >
-                    {SIGNATURE_MEANING_OPTIONS.filter((option) =>
-                      meanings.includes(option.value),
-                    ).map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </Field>
-                <p className="m-0 text-label text-fg-muted">
-                  {selected.description}
-                </p>
-                <p className="m-0 rounded-md border border-border bg-surface-muted px-2 py-1.5 text-label text-fg-muted">
-                  {ASSURANCE_LEVEL_STATEMENT.standard}
-                </p>
-                <Field label="Type your name to confirm">
-                  <Input
-                    aria-label="Signature confirmation"
-                    type="text"
-                    placeholder={currentUserName}
-                    value={confirmation}
-                    onChange={(event) => setConfirmation(event.target.value)}
-                    autoComplete="off"
-                  />
-                </Field>
-              </div>
-            )}
-            {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
-          </DialogBody>
-          <DialogFooter>
-            <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
-            {canSign ? (
-              <Button
-                variant="primary"
-                type="submit"
-                disabled={
-                  sign.isPending ||
-                  !password ||
-                  !confirmationMatches ||
-                  !integrityDigest
-                }
-              >
-                Sign
-              </Button>
-            ) : null}
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      onOpenChange={onOpenChange}
+      title="Sign this Notebook"
+      description="This records an internal electronic signature against the submitted evidence. It is not a regulatory compliance certification."
+      signingAs={currentUserName}
+      subject={{ revisionId, digest: integrityDigest }}
+      meanings={meanings}
+      blocked={blocked}
+      busy={sign.isPending}
+      errorMessage={errorMessage}
+      onSubmit={(input) => sign.mutate(input)}
+    />
   )
 }

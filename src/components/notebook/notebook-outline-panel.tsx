@@ -5,7 +5,21 @@
  */
 import { Button } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
+import { InspectorSection } from '#/components/v3/ui/layout'
+import { Status } from '#/components/v3/ui/status'
+import type { Tone } from '#/components/v3/ui/status'
 import type { NotebookOutlineEntry } from '#/lib/notebook-outline'
+import {
+  SIGNATURE_REQUEST_STATE_LABEL,
+  requestedSignatureRows,
+} from '#/lib/notebook-action-blocks'
+import type {
+  ActionBlockContext,
+  RequiredSectionEntry,
+  RequestedSignatureRow,
+} from '#/lib/notebook-action-blocks'
+import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
+import type { NotebookBlock } from '#/lib/notebook-data'
 
 export interface NotebookOutlineControls {
   collapsedSections: ReadonlySet<string>
@@ -14,16 +28,37 @@ export interface NotebookOutlineControls {
   onCollapseAllSections: () => void
 }
 
+const REQUESTED_TONE: Record<RequestedSignatureRow['state'], Tone> = {
+  unassigned: 'warn',
+  awaiting: 'none',
+  requested: 'none',
+  signed: 'ok',
+  changed: 'warn',
+  superseded: 'warn',
+}
+
 export function NotebookOutlinePanel({
   entries,
   controls,
+  blocks,
+  actionContext,
+  requiredSections,
 }: {
   entries: NotebookOutlineEntry[]
   /** Present when the document supports section collapse (live authoring). */
   controls?: NotebookOutlineControls
+  /**
+   * R5-NOTE-02: the same block rows the document renders, so the
+   * requested-signature table can never drift from the blocks it describes.
+   */
+  blocks?: ReadonlyArray<NotebookBlock>
+  actionContext?: ActionBlockContext
+  /** R5-NOTE-02: the record type's named sections, checked against the blocks. */
+  requiredSections?: RequiredSectionEntry[]
 }) {
+  const requested = blocks ? requestedSignatureRows(blocks, actionContext) : []
   return (
-    <div className="space-y-1" data-testid="notebook-outline">
+    <div className="space-y-4" data-testid="notebook-outline">
       {controls ? (
         <div className="flex items-center justify-end gap-1 pb-1">
           <Button
@@ -91,6 +126,78 @@ export function NotebookOutlinePanel({
           </ul>
         </nav>
       )}
+      {requiredSections && requiredSections.length > 0 ? (
+        <InspectorSection title="Required by this record type">
+          <ul
+            className="m-0 flex list-none flex-col gap-1 p-0 text-label"
+            data-testid="required-section-checklist"
+          >
+            {requiredSections.map((section) => (
+              <li
+                key={section.label}
+                data-section={section.label}
+                data-state={section.state}
+                className="flex items-center gap-1.5"
+              >
+                <Icon
+                  name={section.state === 'present' ? 'check' : 'x'}
+                  size={12}
+                  className={
+                    section.state === 'present'
+                      ? 'text-success-text'
+                      : 'text-danger-text'
+                  }
+                  aria-hidden="true"
+                />
+                {section.label}
+                {section.state === 'missing' ? (
+                  <span className="text-danger-text">· missing</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </InspectorSection>
+      ) : null}
+      {blocks ? (
+        <InspectorSection
+          title={
+            requested.length > 0
+              ? `Requested signatures (${requested.length})`
+              : 'Requested signatures'
+          }
+        >
+          {requested.length === 0 ? (
+            <p
+              className="m-0 text-label text-fg-muted"
+              data-testid="requested-signatures-empty"
+            >
+              No signature requests. Add a Signature request block to ask
+              someone to sign this record.
+            </p>
+          ) : (
+            <ul
+              className="m-0 flex list-none flex-col gap-1.5 p-0"
+              data-testid="requested-signatures"
+            >
+              {requested.map((row) => (
+                <li
+                  key={row.blockId}
+                  data-state={row.state}
+                  className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-label"
+                >
+                  <span className="font-medium">{row.signerLabel}</span>
+                  <span className="text-fg-muted">
+                    · {SIGNATURE_MEANING_LABEL[row.meaning]}
+                  </span>
+                  <Status tone={REQUESTED_TONE[row.state]}>
+                    {SIGNATURE_REQUEST_STATE_LABEL[row.state]}
+                  </Status>
+                </li>
+              ))}
+            </ul>
+          )}
+        </InspectorSection>
+      ) : null}
     </div>
   )
 }

@@ -28,6 +28,11 @@ import type { IconName } from '#/components/v3/icons'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
 import { datasetPath, recordDestination, sheetPath } from '#/lib/navigation'
 import { PipelineOutputBlockPreview } from './pipeline-output-block-preview'
+import {
+  CorrectiveActionsPreview,
+  SignatureRequestPreview,
+} from './action-block-previews'
+import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
 import { useUnsyncedBlock } from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
@@ -113,6 +118,12 @@ export interface BlockPreviewProps {
    * frozen payload and ignore this flag.
    */
   frozen?: boolean
+  /**
+   * R5-NOTE-02: the revision a sign-and-attach block is being read against.
+   * Absent on live canvases; the two action block kinds then read as "applies
+   * to the next submission". Passed unchanged to their previews.
+   */
+  actionContext?: ActionBlockContext
 }
 
 function asString(value: unknown): string | null {
@@ -161,6 +172,7 @@ export function BlockPreview({
   className,
   hiddenNodeIndexes,
   frozen = false,
+  actionContext,
 }: BlockPreviewProps) {
   const { type, payload } = block
   // EXP-05.2: a block with a local draft carries a marker where it renders.
@@ -173,6 +185,7 @@ export function BlockPreview({
     `section-${block.id}`,
     hiddenNodeIndexes,
     frozen,
+    actionContext,
   )
   return (
     <div className={cn('text-sm leading-6', className)}>
@@ -188,6 +201,7 @@ function renderPayload(
   anchorPrefix?: string,
   hiddenNodeIndexes?: ReadonlySet<number>,
   frozen?: boolean,
+  actionContext?: ActionBlockContext,
 ): React.ReactNode {
   switch (type) {
     case 'rich_text':
@@ -220,6 +234,14 @@ function renderPayload(
       return <PlateMapBlockPreview payload={payload} frozen={frozen} />
     case 'file':
       return <FileBlockPreview payload={payload} />
+    case 'signature_request':
+      return (
+        <SignatureRequestPreview payload={payload} context={actionContext} />
+      )
+    case 'corrective_actions':
+      return (
+        <CorrectiveActionsPreview payload={payload} context={actionContext} />
+      )
     default:
       return renderUnsupported(type, payload)
   }

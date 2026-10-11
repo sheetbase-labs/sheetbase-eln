@@ -472,6 +472,53 @@ describe('SIGN-001 electronic signatures', () => {
     })
   })
 
+  // R5-NOTE-02: the shared e-sign dialog sends only the meaning, the typed
+  // confirmation and the password; it never supplies a time. The signature
+  // must therefore still record the actor, the meaning and a server-generated
+  // time, bounded by the database clock at the moment of the call.
+  it('records the actor, meaning and server time through the canonical sign path', async () => {
+    const { submissionId, digest } = await buildApprovedSubmission()
+    const reviewer = await authenticated(REVIEWER_A, WS_A)
+
+    const before = await migrator!.query<{ t: string }>(
+      'SELECT clock_timestamp() AS t',
+    )
+    const result = await sign(
+      reviewer,
+      submissionId,
+      'reviewed-and-approved',
+      'Reviewer A',
+      digest,
+      await passwordToken(REVIEWER_A, {
+        purpose: 'sign',
+        submissionId,
+        revisionDigest: digest,
+      }),
+    )
+    const after = await migrator!.query<{ t: string }>(
+      'SELECT clock_timestamp() AS t',
+    )
+
+    const { rows } = await reviewer.query(
+      `SELECT signer_user_id, signature_meaning, auth_method, signed_at
+       FROM api.signatures WHERE id = $1`,
+      [result.signatureId],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].signer_user_id).toBe(REVIEWER_A)
+    expect(rows[0].signature_meaning).toBe('reviewed-and-approved')
+    expect(rows[0].auth_method).toBe('password')
+
+    const signedAt = new Date(rows[0].signed_at).getTime()
+    const lower = new Date(before.rows[0].t).getTime()
+    const upper = new Date(after.rows[0].t).getTime()
+    expect(Number.isFinite(signedAt)).toBe(true)
+    expect(signedAt).toBeGreaterThanOrEqual(lower)
+    expect(signedAt).toBeLessThanOrEqual(upper)
+    // The RPC returns the same stored time, so the UI never reads a client clock.
+    expect(new Date(result.signedAt).getTime()).toBe(signedAt)
+  })
+
   it('rejects signing when the session has expired', async () => {
     const { submissionId, digest } = await buildApprovedSubmission(REVIEWER_B)
     // Insert an expired session for REVIEWER_B and sign with that session id.

@@ -26,7 +26,7 @@ export interface BlockPickerOption {
   label: string
   description: string
   icon: IconName
-  group: 'structure' | 'writing' | 'evidence'
+  group: 'structure' | 'writing' | 'evidence' | 'sign'
   aliases: readonly string[]
 }
 
@@ -35,6 +35,9 @@ export const BLOCK_PICKER_GROUPS = [
   { id: 'structure', label: 'Sheets and references' },
   { id: 'writing', label: 'Writing' },
   { id: 'evidence', label: 'Files and figures' },
+  // R5-NOTE-02: the design's "Sign and attach" group; the two block kinds it
+  // names exist in no other group.
+  { id: 'sign', label: 'Sign and attach' },
 ] as const
 
 export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
@@ -137,5 +140,23 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     icon: 'pipeline',
     group: 'evidence',
     aliases: ['pipeline', 'automation', 'run'],
+  },
+  {
+    type: 'signature_request',
+    label: 'Signature request',
+    description:
+      'Ask someone to sign this record with a meaning. The request is raised when the Notebook is submitted.',
+    icon: 'lock',
+    group: 'sign',
+    aliases: ['sign', 'signature', 'attest', 'approve', 'witness'],
+  },
+  {
+    type: 'corrective_actions',
+    label: 'Corrective actions',
+    description:
+      'Actions with an owner, due date and status, for the corrections a finding needs.',
+    icon: 'check',
+    group: 'sign',
+    aliases: ['capa', 'actions', 'corrective', 'finding', 'deviation'],
   },
 ]

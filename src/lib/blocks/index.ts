@@ -17,6 +17,10 @@ import { isRichTextPayload } from './rich-text'
 import { validateAnalysisBlockPayload } from '../analysis-block'
 import { validateChartPayload } from '../chart-spec'
 import { validatePlateMapPayload } from '../plate-map'
+import {
+  validateCorrectiveActions,
+  validateSignatureRequest,
+} from '../notebook-action-blocks'
 
 export {
   EMPTY_RICH_TEXT_PAYLOAD,
@@ -65,6 +69,39 @@ export type {
   Volume as PlateVolume,
   WellAssignment as PlateWellAssignment,
 } from '../plate-map'
+// R5-NOTE-02: the sign-and-attach block kinds (signature request, corrective
+// actions). Payload shapes, boundary validators and the pure reference-state
+// derivations live in the module so the reading surface and the outline share
+// one reading of the same block rows.
+export {
+  CORRECTIVE_ACTION_STATUSES,
+  CORRECTIVE_ACTION_STATUS_LABEL,
+  EMPTY_CORRECTIVE_ACTIONS_PAYLOAD,
+  EMPTY_SIGNATURE_REQUEST_PAYLOAD,
+  SIGNATURE_REQUEST_MEANINGS,
+  SIGNATURE_REQUEST_STATE_LABEL,
+  correctiveActionOwner,
+  correctiveActionsSummary,
+  isCorrectiveActionsPayload,
+  isSignatureRequestPayload,
+  requiredSectionChecklist,
+  requestedSignatureRows,
+  signatureRequestExplanation,
+  signatureRequestState,
+  validateCorrectiveActions,
+  validateSignatureRequest,
+} from '../notebook-action-blocks'
+export type {
+  ActionBlockContext,
+  CorrectiveActionItem,
+  CorrectiveActionStatus,
+  CorrectiveActionsPayload,
+  CorrectiveActionsSummary,
+  RequestedSignatureRow,
+  RequiredSectionEntry,
+  SignatureRequestPayload,
+  SignatureRequestState,
+} from '../notebook-action-blocks'
 
 export type BlockType =
   | 'rich_text'
@@ -82,6 +119,8 @@ export type BlockType =
   | 'protocol_reference'
   | 'materials'
   | 'pipeline_output'
+  | 'signature_request'
+  | 'corrective_actions'
 
 /** The payload schema version this module validates against. */
 export const PAYLOAD_SCHEMA_VERSION = 1 as const
@@ -107,6 +146,8 @@ export const KNOWN_BLOCK_TYPES: readonly BlockType[] = [
   'protocol_reference',
   'materials',
   'pipeline_output',
+  'signature_request',
+  'corrective_actions',
 ]
 
 export type BlockValidationError =
@@ -826,6 +867,8 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   protocol_reference: validateProtocolReference,
   materials: validateMaterials,
   pipeline_output: validatePipelineOutput,
+  signature_request: validateSignatureRequest,
+  corrective_actions: validateCorrectiveActions,
 }
 
 // AUTO-03: a pipeline_output block references a Pipeline run by stable UUID

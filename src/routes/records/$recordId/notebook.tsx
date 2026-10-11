@@ -177,7 +177,9 @@ import {
   RelationshipPanel,
 } from '#/components/knowledge/relationship-panel'
 import { RecordLineageSection } from '#/components/knowledge/record-lineage-section'
-import { validateBlock } from '#/lib/blocks'
+import { requiredSectionChecklist, validateBlock } from '#/lib/blocks'
+import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
+import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import { attachFileToBlock, AttachFileError } from '#/lib/file-attach'
 import {
@@ -360,6 +362,22 @@ function ExperimentNotebookRoute() {
     queryFn: () => fetchSignaturesForRecord(notebookDataClient, recordId),
     enabled: !historicalRevisionId,
   })
+  // R5-NOTE-02: the sections the record type requires, named by the notebook
+  // template the record was instantiated from. Read here so the inspector
+  // stays a pure projection of its props.
+  const templateVersionId = recordQuery.data?.sourceNotebookTemplateVersionId
+  const templateConfigurationQuery = useQuery({
+    queryKey: ['notebook-template-version', templateVersionId ?? 'none'],
+    enabled: Boolean(templateVersionId),
+    queryFn: () =>
+      fetchNotebookTemplateVersion(
+        templateVersionId!,
+        notebookTemplateDataClient,
+      ),
+  })
+  const requiredSectionLabels = namedSectionsOfTemplate(
+    templateConfigurationQuery.data?.configuration,
+  )
   const activityQuery = useQuery({
     queryKey: notebookQueryKeys.activity(recordId),
     queryFn: () => fetchChangeEventsForRecord(notebookDataClient, recordId),
@@ -692,6 +710,16 @@ function ExperimentNotebookRoute() {
               links={links}
               linksLoading={linksQuery.isLoading}
               blocks={blocks}
+              /* R5-NOTE-02: the requested-signature table reads the same
+                 signature evidence the Signatures tab shows. */
+              actionContext={{
+                revisionId: historicalRevisionId ?? null,
+                supersededByRevisionId:
+                  historicalRevisionQuery.data?.superseded_by_revision_id ??
+                  null,
+                signatures: signaturesQuery.data ?? [],
+              }}
+              requiredSectionLabels={requiredSectionLabels}
               activity={activity}
               activityLoading={activityQuery.isLoading}
               revisionEvidence={historicalEvidence}
@@ -2295,6 +2323,11 @@ function HistoricalNotebookCanvas({
       blocks={blocksFromRevision(revision.data)}
       readOnly
       frozenSheetEvidence={frozenSheetEvidence}
+      /* R5-NOTE-02: the frozen revision the sign-and-attach blocks read against. */
+      actionBlockContext={{
+        revisionId: revision.data.id,
+        supersededByRevisionId: revision.data.superseded_by_revision_id ?? null,
+      }}
       onSaveBlock={async () => ({ ok: true })}
       onInsertBlock={async () => undefined}
       onDuplicateBlock={async () => undefined}
@@ -2601,6 +2634,25 @@ const LINK_KIND_LABELS: Record<string, string> = {
   report: 'Reports',
 }
 
+/**
+ * R5-NOTE-02: the sections a template names, in placement order. A
+ * `section_placeholder` names a section outright; a sheet placement names one
+ * only when it carries a title. Deduplicated so a label repeated across
+ * placements is checked once.
+ */
+function namedSectionsOfTemplate(
+  configuration: NotebookTemplateConfiguration | undefined,
+): string[] {
+  if (!configuration) return []
+  const labels: string[] = []
+  for (const placement of configuration.placements) {
+    if (placement.kind === 'section_placeholder') labels.push(placement.label)
+    else if (placement.kind === 'sheet' && placement.title)
+      labels.push(placement.title)
+  }
+  return [...new Set(labels)]
+}
+
 function linkCountsByKind(
   links: NotebookLink[],
 ): { label: string; count: number; kind: string }[] {
@@ -2719,6 +2771,8 @@ export function NotebookInspector({
   links,
   linksLoading,
   blocks,
+  actionContext,
+  requiredSectionLabels = [],
   activity,
   activityLoading,
   defaultTab,
@@ -2745,6 +2799,14 @@ export function NotebookInspector({
   links: NotebookLink[]
   linksLoading: boolean
   blocks?: NotebookBlockDomain[]
+  /**
+   * R5-NOTE-02: the revision the sign-and-attach blocks read against, plus the
+   * recorded signatures the requested-signature table reports on. Absent on a
+   * live notebook, where the blocks read as "applies to the next submission".
+   */
+  actionContext?: ActionBlockContext
+  /** R5-NOTE-02: the record type's named sections, from its notebook template. */
+  requiredSectionLabels?: string[]
   activity?: RecordActivityItem[]
   activityLoading?: boolean
   /** Initial active tab id. Defaults to the first tab (Properties). */
@@ -2801,6 +2863,18 @@ export function NotebookInspector({
   // NOTE-02: the outline is a projection of the (evidence or live) blocks —
   // the same heading nodes the editor writes, never a second structure.
   const outlineEntries = notebookOutline(evidenceBlocks)
+
+  // R5-NOTE-02: the sections the record type requires, named by the notebook
+  // template the record was instantiated from (read by the route and passed
+  // down). The ELN marks no section required explicitly — a template's
+  // section_placeholder and sheet placements are named, not flagged — so every
+  // named placement is read as required (the conservative choice; the owner
+  // may overrule by adding a required flag). A record with no template has no
+  // required sections and the checklist is absent rather than empty.
+  const requiredSections = requiredSectionChecklist(
+    evidenceBlocks,
+    requiredSectionLabels,
+  )
 
   const tabs = [
     {
@@ -2962,6 +3036,9 @@ export function NotebookInspector({
         <NotebookOutlinePanel
           entries={outlineEntries}
           controls={outlineControls}
+          blocks={evidenceBlocks}
+          actionContext={actionContext}
+          requiredSections={requiredSections}
         />
       ),
     },

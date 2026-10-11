@@ -95,8 +95,8 @@ Commits per task are in the Status column above.
 | -------------------------------------------------- | ------------------------------------------------------------- |
 | `tsc --noEmit`                                     | 0 errors                                                      |
 | `eslint src scripts`                               | 0 errors (pre-existing warnings only)                         |
-| Unit and component suite                           | **430 files / 4374 tests pass** (baseline `main`: 390 / 4044) |
-| Database layer (new files plus the regression set) | **22 files / 192 tests pass**, serial                         |
+| Unit and component suite                           | **429 files / 4372 tests pass** (baseline `main`: 390 / 4044) |
+| Database layer (new files plus the regression set) | **22 files / 203 tests pass**, serial                         |
 
 Three things the integration had to resolve, recorded so the next programme
 expects them:
@@ -119,6 +119,16 @@ expects them:
   recorded that output verbatim. The branch needed a repair commit
   (`7e65eded route-tree`) to restore it. Regenerate, then re-add the block
   before committing; do not commit the generator's output verbatim.
+- **A booking's subject is the instrument.** In the running product an instrument
+  could be booked from Schedule while the Instruments registry held a different
+  entity — `calendar_resources` versus `api.instruments`, linked only by an
+  optional `metadata` key that the seed never set. Besides the confusion it
+  **skipped a safety check**: migration `0366` gates LAB-06.3's qualification and
+  calibration guard on that key. ADR-0054 makes the instrument's calendar
+  resource derived (`id = instruments.id`, trigger-owned), so a booking's
+  `resource_id` is the instrument id and the guard is unconditional;
+  `R5-CONFIG-06` implements it, and the audit records the gap it had missed with
+  the lesson: compare the _subject_ of a workflow, not only its route.
 - **A shipped feature must never default to a gap.** `R5-SHELL-03` registered
   two capability keys and gated the samples Measurements and experiments Results
   tabs behind them, off by default. Both surfaces ship in the product, so the

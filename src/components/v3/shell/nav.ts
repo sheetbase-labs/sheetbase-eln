@@ -40,6 +40,14 @@ export const recordNav: NavItem[] = [
   { label: 'Templates', icon: 'template', link: { to: '/templates' } },
   { label: 'Samples', icon: 'tube', link: { to: '/samples' } },
   { label: 'Materials', icon: 'box', link: { to: '/materials' } },
+  // An instrument is an everyday bench object here — it has a stable identifier,
+  // a status, qualification and calibration dates and bookings, and the Schedule
+  // and reading flows name one — so its registry sits with the other record
+  // kinds. The design build filed `/instruments` under Settings instead
+  // (`sheetbase-app-ui-only/src/components/shell/app-shell.tsx:23`), which left
+  // the registry reachable only from a role-gated Settings tab; the parser and
+  // connection *configuration* stays there (`/settings/instruments`).
+  { label: 'Instruments', icon: 'plug', link: { to: '/instruments' } },
   { label: 'Datasets', icon: 'table', link: { to: '/datasets' } },
   { label: 'Analysis', icon: 'chart', link: { to: '/analysis' } },
   { label: 'Pipelines', icon: 'pipeline', link: { to: '/pipelines' } },

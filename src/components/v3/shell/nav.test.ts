@@ -38,6 +38,17 @@ describe('SHELL-01.2 main navigation', () => {
     }
   })
 
+  it('keeps the instrument registry in the main navigation', () => {
+    // An instrument is a bench object with an identifier, qualification,
+    // calibration and bookings, so its registry is reachable from the main nav
+    // for every member — not only from the role-gated Settings tab that owns
+    // parser and connection configuration.
+    expect(recordNav.map((item) => item.link.to)).toContain('/instruments')
+    expect(
+      filterNavForRole(recordNav, 'viewer').map((item) => item.label),
+    ).toContain('Instruments')
+  })
+
   it('omits a restricted main-nav item from a viewer and keeps it for an admin', () => {
     const restricted: NavItem = {
       label: 'Workspace admin',

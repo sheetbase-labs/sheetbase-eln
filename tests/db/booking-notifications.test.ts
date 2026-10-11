@@ -29,18 +29,26 @@ beforeAll(async () => {
     )
   }
   await ensureSessions(migrator, [BOOKER, GUEST])
-  await migrator.query(`insert into api.workspaces(id,slug,name) values($1,'work032','WORK-03.2')`, [
-    WS,
-  ])
+  await migrator.query(
+    `insert into api.workspaces(id,slug,name) values($1,'work032','WORK-03.2')`,
+    [WS],
+  )
   await migrator.query(
     `insert into api.workspace_memberships(workspace_id,user_id,role) values
      ($1,$2,'owner'),($1,$3,'member')`,
     [WS, BOOKER, GUEST],
   )
   await migrator.query(
-    `insert into api.calendar_resources(id,workspace_id,name,code,resource_type,created_by_user_id)
-     values($1,$2,'Plate reader PR-01','PR-01','instrument',$3)`,
+    `insert into api.instruments(id,workspace_id,name,instrument_type,created_by_user_id)
+     values($1,$2,'Plate reader PR-01','qpcr',$3)`,
     [RESOURCE, WS, BOOKER],
+  )
+  // ADR-0054: booking an instrument runs LAB-06.3's qualification rule
+  // unconditionally, so the booker holds a current qualification on it.
+  await migrator.query(
+    `insert into api.instrument_qualifications(workspace_id,instrument_id,user_id,valid_until)
+     values($1,$2,$3,now() + interval '90 days')`,
+    [WS, RESOURCE, BOOKER],
   )
 })
 

@@ -418,9 +418,18 @@ export function HomeQuiet(props: HomeQuietProps) {
                     className="flex items-center gap-2 border-b border-border-subtle py-1.5 text-label last:border-0"
                   >
                     <Dot tone="ok" />
-                    <span className="min-w-0 flex-1 truncate">
-                      {instrument.name}
-                    </span>
+                    <Link
+                      to="/instruments/$instrumentId"
+                      params={{ instrumentId: instrument.id }}
+                      className="flex min-w-0 flex-1 items-center gap-1.5"
+                    >
+                      {instrument.displayId ? (
+                        <span className="mono shrink-0 text-fg-muted">
+                          {instrument.displayId}
+                        </span>
+                      ) : null}
+                      <span className="truncate">{instrument.name}</span>
+                    </Link>
                     <span className="shrink-0 text-fg-muted">
                       {instrument.label}
                     </span>

@@ -482,32 +482,69 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
 async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
   const auth = await authClient(db)
   try {
-    // RPC-created entities are looked up by stable natural keys before creation.
-    const resourceDefs = [
-      ['QuantStudio 7', 'QS7', 'instrument', 'Analytics Lab', 1],
-      ['BD FACSAria', 'FACS', 'instrument', 'Cell Lab', 1],
-      ['Lab Meeting Room', 'MEET', 'room', 'Building A', 12],
+    // ADR-0054 — instruments are registered through the canonical RPC and booked by instrument id;
+    // their calendar resource is derived from the registry, so none is authored by hand here. The
+    // meeting room stays a generic calendar resource.
+    const instrumentDefs = [
+      ['QuantStudio 7', 'qpcr', 'Analytics Lab'],
+      ['BD FACSAria', 'other', 'Cell Lab'],
     ] as const
-    for (const r of resourceDefs) {
-      const found = await auth.client.query(
-        'select id from api.calendar_resources where workspace_id=$1 and code=$2',
-        [WORKSPACE, r[1]],
+    const instrumentIds: string[] = []
+    for (const [name, type, location] of instrumentDefs) {
+      const found = await auth.client.query<{ id: string }>(
+        'select id from api.instruments where workspace_id=$1 and name=$2',
+        [WORKSPACE, name],
       )
-      if (!found.rowCount)
-        await auth.rpc('create_calendar_resource', [
-          WORKSPACE,
-          ...r,
-          'UTC',
-          null,
-          JSON.stringify({ seeded: 'month' }),
+      if (found.rowCount) {
+        instrumentIds.push(found.rows[0].id)
+        continue
+      }
+      const created = await auth.rpc<{ id: string }>('create_instrument', [
+        WORKSPACE,
+        name,
+        type,
+        null,
+        null,
+        null,
+        location,
+      ])
+      instrumentIds.push(created.rows[0].id)
+    }
+    // Booking an instrument requires a current qualification (LAB-06.3, unconditional since
+    // ADR-0054), so the seed's booker holds one on every instrument it books.
+    const qualifiedUntil = new Date(Date.now() + 365 * 86_400_000)
+    for (const instrumentId of instrumentIds) {
+      const granted = await auth.client.query(
+        'select 1 from api.instrument_qualifications where instrument_id=$1 and user_id=$2 and valid_until > now()',
+        [instrumentId, GARETH],
+      )
+      if (!granted.rowCount)
+        await auth.rpc('set_instrument_qualification', [
+          instrumentId,
+          GARETH,
+          qualifiedUntil,
         ])
     }
-    const resources = (
-      await auth.client.query<{ id: string }>(
-        'select id from api.calendar_resources where workspace_id=$1 and code=any($2)',
-        [WORKSPACE, resourceDefs.map((r) => r[1])],
-      )
-    ).rows
+    const room = await auth.client.query<{ id: string }>(
+      'select id from api.calendar_resources where workspace_id=$1 and code=$2',
+      [WORKSPACE, 'MEET'],
+    )
+    const roomId = room.rowCount
+      ? room.rows[0].id
+      : (
+          await auth.rpc<{ id: string }>('create_calendar_resource', [
+            WORKSPACE,
+            'Lab Meeting Room',
+            'MEET',
+            'room',
+            'Building A',
+            12,
+            'UTC',
+            null,
+            JSON.stringify({ seeded: 'month' }),
+          ])
+        ).rows[0].id
+    const resourceIds = [...instrumentIds, roomId]
     for (let i = 0; i < 30; i++) {
       const title = `Month seed booking ${String(i + 1).padStart(2, '0')}`
       const exists = await auth.client.query(
@@ -517,7 +554,7 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
       if (!exists.rowCount)
         await auth.rpc('create_booking', [
           WORKSPACE,
-          resources[i % 3].id,
+          resourceIds[i % resourceIds.length],
           title,
           daysAgo(i, 8 + (i % 8)),
           daysAgo(i, 9 + (i % 8)),

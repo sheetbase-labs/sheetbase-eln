@@ -209,7 +209,6 @@ describe('R5-CONFIG-02 instrument inspector', () => {
           created_at: '2026-10-05T09:12:00.000Z',
         },
       ],
-      calendar_resources: [{ id: 'res-1' }],
       calendar_bookings: [
         {
           id: 'booking-1',
@@ -217,6 +216,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
           starts_at: '2026-10-12T13:00:00.000Z',
         },
       ],
+      instruments: [{ id: 'ins-1', retired_at: null }],
     })
     renderInspector()
 
@@ -233,14 +233,14 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       parsers: [{ id: 'parser-1', name: 'Turbidimeter v2' }],
       parser_versions: [],
       dataset_imports: [],
-      calendar_resources: [],
+      // ADR-0054 — a retired instrument keeps its history but takes no booking.
+      instruments: [{ id: 'ins-1', retired_at: '2026-09-01T00:00:00.000Z' }],
     })
     renderInspector()
 
     expect(await screen.findByText('Parser not validated')).toBeTruthy()
     expect(screen.getByText('Parser not validated.')).toBeTruthy()
     expect(screen.getByText('Nothing received')).toBeTruthy()
-    // No calendar resource names the instrument, so it is not bookable rather than free.
     expect(screen.getByText('Not bookable')).toBeTruthy()
   })
 
@@ -264,7 +264,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       parsers: [],
       parser_versions: [],
       dataset_imports: [],
-      calendar_resources: [],
+      instruments: [{ id: 'ins-1', retired_at: null }],
     })
     rpc.mockResolvedValue({
       id: 'ins-1',

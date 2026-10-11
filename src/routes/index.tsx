@@ -25,6 +25,7 @@ import { HomeQuiet, recentTone } from '#/components/v3/home/home-quiet'
 import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
 import {
   fetchCalendarBookings,
+  fetchCalendarInstruments,
   fetchCalendarResources,
   isSameDayInZone,
   toCalendarBooking,
@@ -296,6 +297,12 @@ export function Home() {
     queryFn: () => fetchCalendarResources(notebookDataClient, workspaceId!),
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
   })
+  // ADR-0054 — the free-instrument list is the registry, not the mirror of it.
+  const instrumentsQuery = useQuery({
+    queryKey: ['home-instruments', workspaceId],
+    queryFn: () => fetchCalendarInstruments(notebookDataClient, workspaceId!),
+    enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
+  })
   const upcomingEndsQuery = useQuery({
     queryKey: ['home-upcoming', workspaceId, userId, range.start],
     queryFn: () =>
@@ -373,6 +380,9 @@ export function Home() {
     ? groupComingUp(
         buildComingUp({
           bookings: calendarBookings,
+          // A booking names a resource id, which is the instrument id for an
+          // instrument booking (its resource row mirrors the registry). Rooms
+          // and other resources name themselves here.
           resourceNames: new Map(
             (resourcesQuery.data ?? []).map((resource) => [
               resource.id,
@@ -411,7 +421,7 @@ export function Home() {
     : []
   const instrumentsFree = calm
     ? freeInstruments(
-        resourcesQuery.data ?? [],
+        instrumentsQuery.data ?? [],
         calendarBookings,
         now,
         timeZone,

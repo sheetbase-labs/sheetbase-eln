@@ -4,13 +4,15 @@
  * Home's calm states are decided by counts the ELN already serves, and every
  * row they show comes from an existing read model: `api.my_work_items` (the
  * Inbox), `api.my_notifications` (the bell), the Dataset summary RPC,
- * `calendar_bookings` + `calendar_resources`, the person's project summaries
+ * `calendar_bookings` with `calendar_resources` and the instrument registry
+ * (ADR-0054: an instrument's calendar resource is derived from it, so a
+ * booking's `resource_id` names the instrument), the person's project summaries
  * with their own experiment counts, `api.records.planned_end` and the project
  * milestones in `api.study_tasks`. Nothing here invents a second work-item
  * view, a fixture or a parallel state store.
  */
 import { addDays } from './calendar'
-import type { CalendarBooking, CalendarResource } from './calendar'
+import type { CalendarBooking, CalendarInstrument } from './calendar'
 import type { DataClient } from './data-client'
 import { recordDestination } from './navigation'
 import type { RecentItem } from './recents'
@@ -468,17 +470,20 @@ export function continueWorkingItems(
 
 export interface FreeInstrument {
   id: string
+  displayId: string | null
   name: string
   /** "Free until 14:00" or "Free all day". */
   label: string
 }
 
 /**
- * Active resources with no booking covering now, and when their next booking
- * starts. Derived from the same booking window the page already holds.
+ * Instruments with no booking covering now, and when their next booking
+ * starts. ADR-0054: the booking's `resource_id` IS the instrument id, so this
+ * joins the registry to the same booking window the page already holds, and a
+ * retired instrument is not offered.
  */
 export function freeInstruments(
-  resources: CalendarResource[],
+  instruments: CalendarInstrument[],
   bookings: CalendarBooking[],
   now: Date,
   timeZone: string,
@@ -493,18 +498,18 @@ export function freeInstruments(
       Date.parse(booking.endsAt) > nowMs,
   )
   const free: FreeInstrument[] = []
-  for (const resource of resources) {
-    if (resource.status !== 'active') continue
+  for (const instrument of instruments) {
+    if (instrument.retiredAt !== null) continue
     const covering = active.some(
       (booking) =>
-        booking.resourceId === resource.id &&
+        booking.resourceId === instrument.id &&
         Date.parse(booking.startsAt) <= nowMs,
     )
     if (covering) continue
     const next = active
       .filter(
         (booking) =>
-          booking.resourceId === resource.id &&
+          booking.resourceId === instrument.id &&
           Date.parse(booking.startsAt) > nowMs,
       )
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
@@ -513,8 +518,9 @@ export function freeInstruments(
       ? homeIsoDay(new Date(next.startsAt), timeZone) === today
       : false
     free.push({
-      id: resource.id,
-      name: resource.name,
+      id: instrument.id,
+      displayId: instrument.displayId,
+      name: instrument.name,
       label:
         next && startsToday
           ? `Free until ${new Date(next.startsAt).toLocaleTimeString('en-GB', {

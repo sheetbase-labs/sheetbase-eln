@@ -2995,6 +2995,13 @@
       "when": 1791756006000,
       "tag": "0429_studio_03_stale_citations",
       "breakpoints": true
+    },
+    {
+      "idx": 430,
+      "version": "7",
+      "when": 1791756007000,
+      "tag": "0430_booking_subject_is_the_instrument",
+      "breakpoints": true
     }
   ]
 }

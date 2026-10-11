@@ -886,6 +886,10 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design instruments',
     run: async (db) => {
+      // The fixture's instrument ids and INS display ids are referenced by other
+      // design rows, so they are inserted with their fixed identity. ADR-0054: the
+      // trigger on api.instruments derives each instrument's calendar resource, so
+      // the seed authors no resource row.
       for (const instrument of DESIGN_INSTRUMENTS) {
         await db
           .insert(schema.instruments)
@@ -902,6 +906,61 @@ export const designSteps: Array<SeedStep> = [
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
           .onConflictDoNothing()
+      }
+    },
+  },
+  {
+    name: 'design instrument calibration and qualifications',
+    run: async (db) => {
+      // The design reads "calibration valid" per instrument, and since ADR-0054
+      // booking an instrument always requires a current qualification
+      // (LAB-06.3). The fixture carries both, dated from the run so the demo
+      // stays bookable: a calibration performed a month ago and due in six, and
+      // a qualification for every design user so any of them can book. Both are
+      // idempotent — an existing current calibration is left alone, and the
+      // qualification upsert keys on instrument + user.
+      const now = Date.now()
+      const performedAt = new Date(now - 30 * 86_400_000)
+      const dueAt = new Date(now + 180 * 86_400_000)
+      const validUntil = new Date(now + 365 * 86_400_000)
+      for (const instrument of DESIGN_INSTRUMENTS) {
+        const current = await db
+          .select({ id: schema.instrumentCalibrations.id })
+          .from(schema.instrumentCalibrations)
+          .where(
+            and(
+              eq(schema.instrumentCalibrations.instrumentId, instrument.id),
+              sql`${schema.instrumentCalibrations.dueAt} > now()`,
+            ),
+          )
+          .limit(1)
+        if (!current.length) {
+          await db.insert(schema.instrumentCalibrations).values({
+            workspaceId: PROCESS,
+            instrumentId: instrument.id,
+            performedAt,
+            dueAt,
+            performedByUserId: DESIGN_USER_IDS.gareth,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+        }
+        for (const userId of [
+          DESIGN_USER_IDS.gareth,
+          DESIGN_USER_IDS.priya,
+          DESIGN_USER_IDS.mei,
+          DESIGN_USER_IDS.tom,
+        ]) {
+          await db
+            .insert(schema.instrumentQualifications)
+            .values({
+              workspaceId: PROCESS,
+              instrumentId: instrument.id,
+              userId,
+              validUntil,
+              grantedByUserId: DESIGN_USER_IDS.gareth,
+            })
+            .onConflictDoNothing()
+        }
       }
     },
   },
@@ -3145,24 +3204,14 @@ async function seedDesignWorkItems(
 /**
  * DSYS-05.2 — today's schedule the design shows on Home: the Ambr 250 vessel
  * sampling, the plate-reader export and the tech-transfer review.
+ *
+ * ADR-0054 — an instrument's calendar resource is derived from the registry, so
+ * the seed authors no resource: it books by instrument id and the trigger on
+ * api.instruments has already created each instrument's resource row.
  */
 async function seedDesignBookings(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
-  await db
-    .insert(schema.calendarResources)
-    .values({
-      id: '00000000-0000-4000-8000-000000000500',
-      workspaceId: PROCESS,
-      name: 'Ambr 250',
-      code: 'AMB-250',
-      resourceType: 'instrument',
-      location: 'bay 2',
-      timezone: 'Europe/London',
-      createdByUserId: DESIGN_USER_IDS.gareth,
-    })
-    .onConflictDoNothing()
-
   const at = (hours: number, minutes: number) => {
     const date = new Date(DESIGN_CLOCK)
     date.setHours(hours, minutes, 0, 0)
@@ -3173,6 +3222,7 @@ async function seedDesignBookings(
       id: '00000000-0000-4000-8000-000000000501',
       displayId: 'CAL-0911',
       title: 'AMB-25-118 day 6 sampling',
+      instrumentId: '00000000-0000-4000-8000-0000000003e1',
       starts: at(9, 0),
       ends: at(9, 30),
       location: 'Ambr 250 · bay 2',
@@ -3182,6 +3232,7 @@ async function seedDesignBookings(
       id: '00000000-0000-4000-8000-000000000502',
       displayId: 'CAL-0913',
       title: 'ELISA plate 4, capsid titre',
+      instrumentId: '00000000-0000-4000-8000-0000000003e0',
       starts: at(11, 30),
       ends: at(12, 30),
       location: 'Plate reader PR-01',
@@ -3191,6 +3242,7 @@ async function seedDesignBookings(
       id: '00000000-0000-4000-8000-000000000503',
       displayId: 'CAL-0912',
       title: 'Tech-transfer review, CL-017',
+      instrumentId: '00000000-0000-4000-8000-0000000003e1',
       starts: at(14, 0),
       ends: at(15, 0),
       location: null,
@@ -3203,7 +3255,7 @@ async function seedDesignBookings(
       .values({
         id: booking.id,
         workspaceId: PROCESS,
-        resourceId: '00000000-0000-4000-8000-000000000500',
+        resourceId: booking.instrumentId,
         title: booking.title,
         status: 'confirmed',
         startsAt: booking.starts,

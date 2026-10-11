@@ -10,7 +10,7 @@ import { BookDialog } from '#/components/v3/schedule/book-dialog'
 import {
   useBookingSamples,
   useRangeBookings,
-  useScheduleResources,
+  useScheduleInstruments,
 } from '#/components/v3/schedule/schedule-data'
 import type {
   BookingSample,
@@ -22,8 +22,8 @@ import { useWorkItems } from '#/lib/work-items/data'
 import { cn } from '#/lib/utils'
 
 /** UI port (roadmap-4/ui-app3): the Schedule day/week instrument grid, wired
- * to calendar_resources and calendar_bookings; booking writes go through
- * create_booking. */
+ * to the instruments registry and calendar_bookings; a booking's resource_id is
+ * the instrument id (ADR-0054) and booking writes go through create_booking. */
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const parse = (s: string) => new Date(`${s}T12:00:00Z`)
@@ -50,6 +50,27 @@ const pct = (t: string) =>
 const hatch =
   'bg-[repeating-linear-gradient(135deg,var(--hatch)_0_6px,transparent_6px_12px)]'
 
+/**
+ * ADR-0054 — a Schedule row is an instrument, so it links to the registry
+ * record and shows the instrument's INS display id beside its name.
+ */
+function InstrumentLabel({ instrument }: { instrument: ScheduleInstrument }) {
+  return (
+    <Link
+      to="/instruments/$instrumentId"
+      params={{ instrumentId: instrument.id }}
+      className="flex min-w-0 items-center gap-1.5"
+    >
+      {instrument.displayId ? (
+        <span className="mono shrink-0 text-label text-fg-muted">
+          {instrument.displayId}
+        </span>
+      ) : null}
+      <span className="truncate">{instrument.name}</span>
+    </Link>
+  )
+}
+
 export const Route = createFileRoute('/schedule')({
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -61,7 +82,7 @@ export const Route = createFileRoute('/schedule')({
   component: Schedule,
 })
 
-function Schedule() {
+export function Schedule() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id
   const today = useMemo(() => iso(new Date()), [])
@@ -72,13 +93,13 @@ function Schedule() {
   const weekStart = view === 'day' ? anchor : monday(anchor)
   const rangeFrom = weekStart
   const rangeTo = addDays(weekStart, view === 'day' ? 1 : 7)
-  const resourcesQuery = useScheduleResources(workspaceId)
+  const instrumentsQuery = useScheduleInstruments(workspaceId)
   const bookingsQuery = useRangeBookings(
     workspaceId,
     `${rangeFrom}T00:00:00.000Z`,
     `${rangeTo}T00:00:00.000Z`,
   )
-  const instruments: ScheduleInstrument[] = resourcesQuery.data ?? []
+  const instruments: ScheduleInstrument[] = instrumentsQuery.data ?? []
   const membersQuery = useWorkspaceMemberNames()
   const meId = context.user.id
   const memberNames = membersQuery.data
@@ -250,7 +271,7 @@ function DayGrid({
                   r < instruments.length - 1 && 'border-b border-border-subtle',
                 )}
               >
-                {ins.name}
+                <InstrumentLabel instrument={ins} />
               </div>
               <div
                 className={cn(
@@ -383,7 +404,9 @@ function WeekGrid({
                   r < instruments.length - 1 && 'border-b border-border-subtle',
                 )}
               >
-                <div className="flex h-9 items-center">{ins.name}</div>
+                <div className="flex h-9 items-center">
+                  <InstrumentLabel instrument={ins} />
+                </div>
               </th>
               {days.map((x) => {
                 const list = bookings
@@ -450,25 +473,34 @@ function PhoneDay({
       </div>
       {list.length ? (
         <ul className="m-0 list-none p-0">
-          {list.map((b) => (
-            <li
-              key={b.id}
-              className="grid min-h-14 grid-cols-[64px_1fr] gap-3 border-b border-border-subtle px-4 py-2.5"
-            >
-              <span className="num text-body">
-                {b.start}
-                <span className="block text-label text-fg-muted">{b.end}</span>
-              </span>
-              <span className="min-w-0">
-                <span className="block text-body font-medium">{b.title}</span>
-                <span className="block text-label text-fg-muted">
-                  {instruments.find((i) => i.id === b.resourceId)?.name ?? '—'}
-                  {' · '}
-                  {b.mine ? 'you' : b.who}
+          {list.map((b) => {
+            const instrument = instruments.find((i) => i.id === b.resourceId)
+            return (
+              <li
+                key={b.id}
+                className="grid min-h-14 grid-cols-[64px_1fr] gap-3 border-b border-border-subtle px-4 py-2.5"
+              >
+                <span className="num text-body">
+                  {b.start}
+                  <span className="block text-label text-fg-muted">
+                    {b.end}
+                  </span>
                 </span>
-              </span>
-            </li>
-          ))}
+                <span className="min-w-0">
+                  <span className="block text-body font-medium">{b.title}</span>
+                  <span className="flex items-center gap-1.5 text-label text-fg-muted">
+                    {instrument ? (
+                      <InstrumentLabel instrument={instrument} />
+                    ) : (
+                      <span>—</span>
+                    )}
+                    <span aria-hidden="true">·</span>
+                    {b.mine ? 'you' : b.who}
+                  </span>
+                </span>
+              </li>
+            )
+          })}
         </ul>
       ) : (
         <div className="px-4 py-6 text-center" role="status">

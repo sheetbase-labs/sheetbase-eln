@@ -208,6 +208,17 @@ test.beforeEach(async ({ page }) => {
         },
       ])
     }
+    if (path.startsWith('instruments')) {
+      return json([
+        {
+          id: RESOURCE_ID,
+          display_id: 'INS-0008',
+          name: 'Ambr 250 bay 2',
+          location: 'Bay 2',
+          retired_at: null,
+        },
+      ])
+    }
     if (path.startsWith('study_tasks')) {
       return json([
         {

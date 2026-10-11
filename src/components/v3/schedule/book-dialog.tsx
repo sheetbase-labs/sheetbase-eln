@@ -18,11 +18,14 @@ import type { ScheduleBooking, ScheduleInstrument } from './schedule-data'
 /**
  * WORK-04.2 — the book-instrument dialog (DialogsRecord).
  *
- * It collects the instrument, a label and a time range and submits through the
- * canonical `create_booking` RPC. Availability, qualification and calibration
- * stay the server's authority: the dialog never pre-filters a resource with a
- * second availability or qualification model, it surfaces the server's refusal
- * (SB020 clash, SB115 unqualified, SB116 calibration overdue).
+ * It offers the workspace's instruments (INS display id and name — ADR-0054
+ * makes the instrument the subject of a booking, so the picker reads the
+ * registry), collects a label and a time range, and submits through the
+ * canonical `create_booking` RPC with the instrument id as `resource_id`.
+ * Availability, qualification and calibration stay the server's authority: the
+ * dialog never pre-filters an instrument with a second availability or
+ * qualification model, it surfaces the server's refusal (SB020 clash, SB115
+ * unqualified, SB116 calibration overdue).
  */
 export interface BookingDialogProps {
   instruments: ScheduleInstrument[]
@@ -95,7 +98,7 @@ export function BookDialog({
               <option value="">Choose…</option>
               {instruments.map((i) => (
                 <option key={i.id} value={i.id}>
-                  {i.name}
+                  {i.displayId ? `${i.displayId} · ${i.name}` : i.name}
                 </option>
               ))}
             </NativeSelect>

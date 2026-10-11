@@ -158,6 +158,23 @@ const fake = vi.hoisted(() => {
             updated_by_user_id: null,
           },
         ]
+      case 'instruments':
+        return [
+          {
+            id: 'resource-1',
+            display_id: 'INS-0008',
+            name: 'Ambr 250 bay 2',
+            location: 'Bay 2',
+            retired_at: null,
+          },
+          {
+            id: 'resource-retired',
+            display_id: 'INS-0006',
+            name: 'Retired reader',
+            location: null,
+            retired_at: at(-100),
+          },
+        ]
       case 'review_submissions':
         return fixture.reviews > 0
           ? [
@@ -442,7 +459,11 @@ describe('Home pace', () => {
 
     // The inspector has something useful in every one of its states.
     expect(screen.getByText('Nothing booked for you today.')).toBeTruthy()
+    // ADR-0054 — the free-instrument list is the registry, with its INS id, and
+    // a retired instrument is not offered.
     expect(screen.getByText('Ambr 250 bay 2')).toBeTruthy()
+    expect(screen.getByText('INS-0008')).toBeTruthy()
+    expect(screen.queryByText('Retired reader')).toBeNull()
     expect(screen.getByText('Free all day')).toBeTruthy()
     expect(
       screen.getByRole('button', { name: 'Book an instrument' }),

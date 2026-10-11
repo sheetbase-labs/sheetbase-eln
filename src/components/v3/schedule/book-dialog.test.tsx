@@ -30,8 +30,8 @@ afterEach(() => {
 })
 
 const INSTRUMENTS: ScheduleInstrument[] = [
-  { id: 'res-pr01', name: 'Plate reader PR-01' },
-  { id: 'res-pcr', name: 'Thermocycler PCR-02' },
+  { id: 'res-pr01', displayId: 'INS-0007', name: 'Plate reader PR-01' },
+  { id: 'res-pcr', displayId: 'INS-0009', name: 'Thermocycler PCR-02' },
 ]
 
 const WIRE: CalendarBookingWire = {
@@ -125,6 +125,27 @@ describe('BookDialog', () => {
       }),
     )
     await vi.waitFor(() => expect(onBooked).toHaveBeenCalledWith(BOOKED))
+  })
+
+  it("lists the workspace's instruments by INS display id and name", async () => {
+    const user = userEvent.setup()
+    renderDialog()
+
+    await user.click(screen.getByRole('button', { name: 'Book instrument' }))
+    const select = within(screen.getByRole('dialog')).getByRole('combobox', {
+      name: /Instrument/,
+    })
+
+    // ADR-0054 — the picker is the registry: every option is an instrument with
+    // its display id, and the value submitted is the instrument id.
+    const options = within(select)
+      .getAllByRole('option')
+      .map((option) => [option.getAttribute('value'), option.textContent])
+    expect(options).toEqual([
+      ['', 'Choose…'],
+      ['res-pr01', 'INS-0007 · Plate reader PR-01'],
+      ['res-pcr', 'INS-0009 · Thermocycler PCR-02'],
+    ])
   })
 
   it("shows the server's reason when the booking is refused as unqualified", async () => {

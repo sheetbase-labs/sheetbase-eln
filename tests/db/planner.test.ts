@@ -484,7 +484,7 @@ describe('OPS-005 assign_task_resource (overbooking detection)', () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     // Create a calendar resource first
     const { rows: resRows } = await owner.query(
-      `SELECT * FROM api.create_calendar_resource($1, $2, $3)`,
+      `SELECT * FROM api.create_calendar_resource($1, $2, $3, 'room')`,
       [WS_A, 'qPCR-Planner', 'qpcr-planner'],
     )
     const resourceId = resRows[0].id
@@ -513,7 +513,7 @@ describe('OPS-005 assign_task_resource (overbooking detection)', () => {
   it('rejects overbooking of the same resource', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const { rows: resRows } = await owner.query(
-      `SELECT * FROM api.create_calendar_resource($1, $2, $3)`,
+      `SELECT * FROM api.create_calendar_resource($1, $2, $3, 'room')`,
       [WS_A, 'Overbooked-Inst', 'overbooked-inst'],
     )
     const resourceId = resRows[0].id
@@ -553,7 +553,7 @@ describe('OPS-005 assign_task_resource (overbooking detection)', () => {
   it('allows non-overlapping bookings of the same resource', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const { rows: resRows } = await owner.query(
-      `SELECT * FROM api.create_calendar_resource($1, $2, $3)`,
+      `SELECT * FROM api.create_calendar_resource($1, $2, $3, 'room')`,
       [WS_A, 'NonOverlap-Inst', 'nonoverlap-inst'],
     )
     const resourceId = resRows[0].id
@@ -583,7 +583,7 @@ describe('OPS-005 assign_task_resource (overbooking detection)', () => {
   it('rejects invalid time range', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const { rows: resRows } = await owner.query(
-      `SELECT * FROM api.create_calendar_resource($1, $2, $3)`,
+      `SELECT * FROM api.create_calendar_resource($1, $2, $3, 'room')`,
       [WS_A, 'BadRange-Inst', 'badrange-inst'],
     )
     const task = await createTask(

@@ -16,8 +16,10 @@ beforeAll(async () => {
   await migrator.query(
     `INSERT INTO api.workspaces (id, slug, name) VALUES ('${WS}', 'calid-ws', 'CAL id WS')`,
   )
+  // ADR-0054: the resource is derived from the registered instrument, so its id
+  // IS the instrument id and bookings name the instrument.
   await migrator.query(
-    `INSERT INTO api.calendar_resources (id, workspace_id, name, code) VALUES ('${RESOURCE}', '${WS}', 'Plate reader PR-01', 'PR-01')`,
+    `INSERT INTO api.instruments (id, workspace_id, name, instrument_type) VALUES ('${RESOURCE}', '${WS}', 'Plate reader PR-01', 'qpcr')`,
   )
 })
 

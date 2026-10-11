@@ -317,8 +317,11 @@ export interface InstrumentNextBooking {
 }
 
 /**
- * The instrument's next booking. Bookings hang off a calendar resource whose metadata names the
- * instrument, so an instrument with no resource is not bookable — reported as such, not as free.
+ * The instrument's next booking. ADR-0054: a booking for an instrument is
+ * stored with `resource_id` = the instrument id (the instrument's calendar
+ * resource is derived from it), so this is a plain join on the booking and the
+ * registry decides bookability — a retired instrument keeps its history but
+ * takes no new booking.
  */
 export function useInstrumentNextBooking(
   instrumentId: string,
@@ -331,19 +334,22 @@ export function useInstrumentNextBooking(
       bookable: boolean
       next: InstrumentNextBooking | null
     }> => {
-      const resources = await client.list<{ id: string }>(
-        'calendar_resources',
-        `?select=id&metadata->>instrumentId=eq.${encodeURIComponent(instrumentId)}&limit=50`,
+      const instrument = await client.list<{
+        id: string
+        retired_at: string | null
+      }>(
+        'instruments',
+        `?select=id,retired_at&id=eq.${encodeURIComponent(instrumentId)}&limit=1`,
       )
-      if (!resources.length) return { bookable: false, next: null }
-      const ids = resources.map((resource) => resource.id).join(',')
+      if (!instrument.length || instrument[0].retired_at !== null)
+        return { bookable: false, next: null }
       const bookings = await client.list<{
         id: string
         title: string
         starts_at: string
       }>(
         'calendar_bookings',
-        `?select=id,title,starts_at&resource_id=in.(${ids})&status=neq.cancelled&starts_at=gt.${encodeURIComponent(new Date().toISOString())}&order=starts_at.asc&limit=1`,
+        `?select=id,title,starts_at&resource_id=eq.${encodeURIComponent(instrumentId)}&status=neq.cancelled&starts_at=gt.${encodeURIComponent(new Date().toISOString())}&order=starts_at.asc&limit=1`,
       )
       return {
         bookable: true,

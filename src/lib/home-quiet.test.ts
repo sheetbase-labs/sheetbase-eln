@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createDataClient } from './data-client'
-import { toCalendarBooking, toCalendarResource } from './calendar'
-import type { CalendarBookingWire, CalendarResourceWire } from './calendar'
+import { toCalendarBooking, toCalendarInstrument } from './calendar'
+import type { CalendarBookingWire, CalendarInstrumentWire } from './calendar'
 import { describeRecentChange, recentStatusLabel } from './recents'
 import type { RecentItem } from './recents'
 import {
@@ -69,24 +69,14 @@ const bookingWire = (
   ...overrides,
 })
 
-const resourceWire = (
-  overrides: Partial<CalendarResourceWire>,
-): CalendarResourceWire => ({
-  id: 'resource-1',
-  workspace_id: 'ws-1',
-  project_id: null,
-  name: 'Ambr 250 bay 2',
-  code: 'AMB-2',
-  resource_type: 'equipment',
+const instrumentWire = (
+  overrides: Partial<CalendarInstrumentWire>,
+): CalendarInstrumentWire => ({
+  id: 'instrument-1',
+  display_id: 'INS-0007',
+  name: 'Plate reader PR-01',
   location: null,
-  capacity: 1,
-  timezone: TZ,
-  status: 'active',
-  metadata: {},
-  created_at: '2026-01-01T00:00:00.000Z',
-  updated_at: '2026-01-01T00:00:00.000Z',
-  created_by_user_id: null,
-  updated_by_user_id: null,
+  retired_at: null,
   ...overrides,
 })
 
@@ -475,20 +465,25 @@ describe('pickUpItems', () => {
 })
 
 describe('freeInstruments', () => {
-  it('lists active resources nothing is booked on, and when the next booking starts', () => {
+  it('lists instruments nothing is booked on, and when the next booking starts', () => {
     const free = freeInstruments(
       [
-        toCalendarResource(
-          resourceWire({ id: 'busy', name: 'Plate reader PR-01' }),
+        toCalendarInstrument(
+          instrumentWire({ id: 'busy', name: 'Plate reader PR-01' }),
         ),
-        toCalendarResource(
-          resourceWire({ id: 'later', name: 'Turbidimeter TB-02' }),
+        toCalendarInstrument(
+          instrumentWire({
+            id: 'later',
+            display_id: 'INS-0009',
+            name: 'Turbidimeter TB-02',
+          }),
         ),
-        toCalendarResource(
-          resourceWire({
+        toCalendarInstrument(
+          instrumentWire({
             id: 'retired',
+            display_id: 'INS-0006',
             name: 'Old reader',
-            status: 'inactive',
+            retired_at: '2026-09-01T00:00:00.000Z',
           }),
         ),
       ],
@@ -513,14 +508,22 @@ describe('freeInstruments', () => {
       NOW,
       TZ,
     )
+    // The booking's resource_id IS the instrument id (ADR-0054), so 'busy' is
+    // covered, 'later' is next free at 15:00, and a retired instrument is not
+    // offered at all.
     expect(free).toEqual([
-      { id: 'later', name: 'Turbidimeter TB-02', label: 'Free until 15:00' },
+      {
+        id: 'later',
+        displayId: 'INS-0009',
+        name: 'Turbidimeter TB-02',
+        label: 'Free until 15:00',
+      },
     ])
   })
 
-  it('says a resource is free all day when its next booking is not today', () => {
+  it('says an instrument is free all day when its next booking is not today', () => {
     const free = freeInstruments(
-      [toCalendarResource(resourceWire({ id: 'resource-1' }))],
+      [toCalendarInstrument(instrumentWire({ id: 'resource-1' }))],
       [
         toCalendarBooking(
           bookingWire({

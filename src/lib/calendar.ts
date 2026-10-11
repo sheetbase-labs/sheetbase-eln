@@ -38,6 +38,21 @@ export interface CalendarResourceWire {
   updated_by_user_id: string | null
 }
 
+/**
+ * ADR-0054 — the bookable instrument, read from the registry.
+ *
+ * An instrument's calendar resource is derived: its id IS the instrument id, so
+ * a booking's `resource_id` names an instrument directly and readers join
+ * `instruments` on it rather than parsing `calendar_resources.metadata`.
+ */
+export interface CalendarInstrumentWire {
+  id: string
+  display_id: string | null
+  name: string
+  location: string | null
+  retired_at: string | null
+}
+
 export interface CalendarBookingWire {
   id: string
   workspace_id: string
@@ -103,6 +118,14 @@ export interface CalendarResource {
   metadata: Record<string, unknown>
   createdAt: string
   updatedAt: string
+}
+
+export interface CalendarInstrument {
+  id: string
+  displayId: string | null
+  name: string
+  location: string | null
+  retiredAt: string | null
 }
 
 export interface CalendarBookingParticipant {
@@ -201,6 +224,18 @@ export function toCalendarResource(
   }
 }
 
+export function toCalendarInstrument(
+  wire: CalendarInstrumentWire,
+): CalendarInstrument {
+  return {
+    id: wire.id,
+    displayId: wire.display_id,
+    name: wire.name,
+    location: wire.location,
+    retiredAt: wire.retired_at,
+  }
+}
+
 export function toCalendarParticipant(
   wire: CalendarBookingParticipantWire,
 ): CalendarBookingParticipant {
@@ -292,6 +327,23 @@ export async function fetchCalendarResources(
   return rows.map(toCalendarResource)
 }
 
+/**
+ * The workspace's instruments — the booking subject since ADR-0054, and the
+ * source of the INS display id the grid, the picker and the day view show.
+ */
+export async function fetchCalendarInstruments(
+  client: DataClient,
+  workspaceId: string,
+): Promise<CalendarInstrument[]> {
+  const rows = await client.list<CalendarInstrumentWire>(
+    'instruments',
+    `?select=id,display_id,name,location,retired_at` +
+      `&workspace_id=eq.${encodeURIComponent(workspaceId)}` +
+      `&order=position.asc,name.asc`,
+  )
+  return rows.map(toCalendarInstrument)
+}
+
 /** Fetch bookings overlapping a [start, end) window (ISO UTC instants). */
 export async function fetchCalendarBookings(
   client: DataClient,
@@ -333,13 +385,21 @@ export async function fetchBookingSamples(
 // RPC wrappers.
 // ---------------------------------------------------------------------------
 
+/**
+ * Create a bookable resource — a room, a bench, equipment.
+ *
+ * ADR-0054: an instrument's resource is derived from the registry (its id IS
+ * the instrument id, written by the trigger on `api.instruments`), so
+ * `resource_type: 'instrument'` is not authored here and is refused by the
+ * table.
+ */
 export async function createCalendarResource(
   client: DataClient,
   input: {
     workspaceId: string
     name: string
     code: string
-    resourceType?: CalendarResourceType
+    resourceType?: Exclude<CalendarResourceType, 'instrument'>
     location?: string | null
     capacity?: number
     timezone?: string
@@ -353,7 +413,7 @@ export async function createCalendarResource(
       p_workspace_id: input.workspaceId,
       p_name: input.name,
       p_code: input.code,
-      p_resource_type: input.resourceType ?? 'instrument',
+      p_resource_type: input.resourceType ?? 'equipment',
       p_location: input.location ?? null,
       p_capacity: input.capacity ?? 1,
       p_timezone: input.timezone ?? 'UTC',

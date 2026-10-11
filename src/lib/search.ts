@@ -111,6 +111,13 @@ export interface SearchFilters {
   offset?: number
   /** Object-class facet: narrows the search to one result type. */
   resultType?: SearchResultTypeFilter
+  /**
+   * Archived scope. `false` (or omitted by a caller that sets it) asks the RPC
+   * for live work only; `true` includes archived objects, flagged on each row.
+   * This is a query property pushed to `p_include_archived`, never a
+   * browser-side filter (R5-SHELL-04).
+   */
+  includeArchived?: boolean
 }
 
 /** Object-class facet value for the search RPC. */
@@ -185,6 +192,10 @@ export function buildSearchRpcArgs(
   if (filters.dateFrom) args.p_date_from = filters.dateFrom
   if (filters.dateTo) args.p_date_to = filters.dateTo
   if (filters.resultType) args.p_result_type = filters.resultType
+  // The archived scope is only sent when the caller states it, so a caller that
+  // has no opinion keeps the RPC default rather than silently hiding work.
+  if (filters.includeArchived !== undefined)
+    args.p_include_archived = filters.includeArchived
   return args
 }
 
@@ -419,6 +430,9 @@ export function urlFiltersToSearchFilters(
   }
   const dateFrom = updatedDateFrom(input.updated)
   if (dateFrom) filters.dateFrom = dateFrom
+  // Archived is a scope, not a client-side filter: the URL facet becomes the
+  // RPC's p_include_archived so the boundary is authoritative (R5-SHELL-04).
+  filters.includeArchived = input.archived === true
   return filters
 }
 
@@ -426,6 +440,11 @@ export function urlFiltersToSearchFilters(
  * Apply the URL facets to an RPC page. The server narrowing can be a superset
  * (for example `Records` still returns samples), so this is the authoritative
  * filter that matches the design's facet semantics.
+ *
+ * The archived scope is deliberately absent: it is carried by the query
+ * (`includeArchived` → `p_include_archived`) so archived objects are never
+ * filtered in the browser (R5-SHELL-04). By the time a page arrives here,
+ * `input.archived` has already been applied at the boundary.
  */
 export function filterSearchResults(
   results: SearchResult[],
@@ -442,7 +461,6 @@ export function filterSearchResults(
       (!result.projectId || !project.includes(result.projectId))
     )
       return false
-    if (!input.archived && result.archived) return false
     if (dateFromMs !== undefined) {
       const updated = Date.parse(result.updatedAt)
       if (!Number.isNaN(updated) && updated < dateFromMs) return false

@@ -21,9 +21,10 @@ import type { PickerItem, PickerKind, PickerResult } from './record-picker-data'
 
 /**
  * Record picker: find a sample, material, dataset or experiment by ID or name
- * and link it. Built on Command. Empty query shows recent records (not built
- * in this deployment, so it says so); type chips narrow the search; records
- * already linked are shown but can't be picked.
+ * and link it. Built on Command. An empty query shows the person's own recent
+ * records (`api.recently_viewed`, FIND-01); a person with no history sees the
+ * honest "Nothing recent" line rather than fabricated rows. Type chips narrow
+ * the search; records already linked are shown but can't be picked.
  */
 export const kindIcon: Record<PickerKind, IconName> = {
   Sample: 'tube',
@@ -187,7 +188,10 @@ export function RecordPicker({
                           {i.name}
                         </span>
                         <span className="block truncate text-label text-fg-muted">
-                          {i.kind}
+                          {i.project}
+                          {i.kind === 'Sample' || i.kind === 'Material'
+                            ? ''
+                            : ` · ${i.kind.toLowerCase()}`}
                         </span>
                       </span>
                       <span className="flex items-center gap-2 pt-px text-label">

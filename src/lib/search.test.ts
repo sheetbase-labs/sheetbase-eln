@@ -1212,6 +1212,17 @@ describe('urlFiltersToSearchFilters', () => {
     expect(args.p_offset).toBe(40)
     expect(args.p_date_from).toBe(filters.dateFrom)
   })
+
+  it('expresses the archived scope as the RPC p_include_archived argument', () => {
+    // Default URL (no archived facet) asks the boundary for live work only.
+    const live = urlFiltersToSearchFilters({ q: 'x' }, 0)
+    expect(live.includeArchived).toBe(false)
+    expect(buildSearchRpcArgs(live).p_include_archived).toBe(false)
+    // "Include archived" flips the same scope on.
+    const all = urlFiltersToSearchFilters({ q: 'x', archived: true }, 0)
+    expect(all.includeArchived).toBe(true)
+    expect(buildSearchRpcArgs(all).p_include_archived).toBe(true)
+  })
 })
 
 describe('filterSearchResults', () => {
@@ -1246,8 +1257,10 @@ describe('filterSearchResults', () => {
     expect(filtered.map((r) => r.recordId)).toEqual(['s', 'o'])
   })
 
-  it('drops archived results unless Include archived is set', () => {
-    expect(filterSearchResults([sample, archived], {})).toHaveLength(1)
+  it('keeps archived rows the boundary returned (no browser filtering)', () => {
+    // The archived scope is pushed to the RPC as p_include_archived; by the
+    // time results reach this client-side facet filter, the boundary has
+    // already decided, so no row is dropped here.
     expect(
       filterSearchResults([sample, archived], { archived: true }),
     ).toHaveLength(2)

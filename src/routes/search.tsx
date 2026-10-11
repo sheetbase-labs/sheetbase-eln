@@ -124,14 +124,14 @@ function SearchPage() {
   })
 
   const loaded = useMemo(() => query.data?.pages.flat() ?? [], [query.data])
-  // Archived is the one facet the RPC cannot express, so the loaded page is
-  // always filtered client-side against the URL. This is the authoritative
-  // facet filter; the RPC narrowing may be a superset.
+  // Archived is pushed to the RPC as p_include_archived (via
+  // urlFiltersToSearchFilters); the remaining facets are still applied here as
+  // the authoritative client filter because the RPC narrowing may be a
+  // superset (a Records facet still returns samples).
   const results = filterSearchResults(loaded, {
     type: search.type,
     project: search.project,
     updated: search.updated,
-    archived: search.archived,
   })
 
   const suggestionQuery = useQuery({

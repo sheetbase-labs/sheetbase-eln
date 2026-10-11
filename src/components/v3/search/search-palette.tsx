@@ -15,10 +15,12 @@ import {
   filterBySearchScope,
   groupSearchResults,
   searchActionHref,
+  searchDidYouMean,
   searchResultNewTabUrl,
   SEARCH_SCOPE_ALL,
 } from '#/lib/search'
 import type {
+  DidYouMeanSuggestion,
   SearchContextAction,
   SearchResult,
   SearchResultGroup,
@@ -33,6 +35,10 @@ import { cn } from '#/lib/utils'
  * actions, and keyboard parity: ↑↓ move, ↵ open, ⌘↵ open in a new tab, Esc
  * closes and returns focus. The shell owns the Cmd-K shortcut, so this
  * component installs no global key listener.
+ *
+ * R5-SHELL-04 adds the archived scope (pushed to the search boundary as
+ * `p_include_archived`, never filtered here) and a "Did you mean {id}?"
+ * correction from `api.search_did_you_mean` when a query finds nothing.
  */
 const MAX_PER_GROUP = 3
 const FETCH_LIMIT = 24
@@ -44,6 +50,17 @@ const GROUP_ICONS: Record<SearchResultGroup, IconName> = {
   Records: 'box',
   Files: 'download',
   Templates: 'template',
+}
+
+/** Human type of a record kind, for the identifier suggestion line. */
+const SUGGESTION_KIND_LABELS: Record<string, string> = {
+  sample: 'Sample',
+  material: 'Material',
+  experiment: 'Experiment',
+  protocol_template: 'Protocol',
+  report: 'Report',
+  study: 'Study',
+  file: 'File',
 }
 
 type PaletteEntry =
@@ -75,7 +92,13 @@ export function SearchPalette({
   const listId = useId()
   const [q, setQ] = useState(initialQuery)
   const [scope, setScope] = useState<string>(SEARCH_SCOPE_ALL)
+  // Archived scope: pushed to the search boundary, never a browser-side
+  // filter. Off by default, matching the results page.
+  const [archived, setArchived] = useState(false)
   const [res, setRes] = useState<SearchResult[] | null>(null)
+  const [suggestion, setSuggestion] = useState<DidYouMeanSuggestion | null>(
+    null,
+  )
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -88,7 +111,9 @@ export function SearchPalette({
     if (!o) {
       setQ(initialQuery)
       setScope(SEARCH_SCOPE_ALL)
+      setArchived(false)
       setRes(null)
+      setSuggestion(null)
     }
   }
 
@@ -115,11 +140,13 @@ export function SearchPalette({
       return
     }
     let live = true
+    setSuggestion(null)
     const t = setTimeout(() => {
       void executeSearch(notebookDataClient, {
         query: term,
         limit: FETCH_LIMIT,
         projectId: scope === SEARCH_SCOPE_ALL ? undefined : scope,
+        includeArchived: archived,
       }).then((rows) => {
         if (live) {
           setRes(rows)
@@ -131,7 +158,31 @@ export function SearchPalette({
       live = false
       clearTimeout(t)
     }
-  }, [q, open, scope])
+  }, [q, open, scope, archived])
+
+  // When a query genuinely finds nothing the palette offers a corrected
+  // identifier, resolved at the canonical search boundary
+  // (`api.search_did_you_mean`), so a suggestion never names an object the
+  // person cannot see. Accepting it navigates through `/records/$recordId`,
+  // where the existing identifier resolver turns the display id into its row.
+  useEffect(() => {
+    if (!open) return
+    const term = q.trim()
+    if (!term || res === null || res.length > 0) {
+      setSuggestion(null)
+      return
+    }
+    let live = true
+    const t = setTimeout(() => {
+      void searchDidYouMean(notebookDataClient, term, archived).then((rows) => {
+        if (live) setSuggestion(rows[0] ?? null)
+      })
+    }, 150)
+    return () => {
+      live = false
+      clearTimeout(t)
+    }
+  }, [q, open, res, archived])
 
   const items = res ?? []
   const scoped = useMemo(
@@ -223,6 +274,18 @@ export function SearchPalette({
     void navigate({ to: '/search', search: { q: q.trim() } })
   }
 
+  // Accepting the correction navigates by display identifier; the record route
+  // resolves it through the canonical identifier resolver (`/records/$recordId`
+  // → resolveIdentifierParam), so a mistyped id lands on the real object or on
+  // nothing at all — never on a different one.
+  const acceptSuggestion = (s: DidYouMeanSuggestion) => {
+    setOpen(false)
+    void navigate({
+      to: '/records/$recordId',
+      params: { recordId: s.identifier },
+    })
+  }
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
@@ -255,7 +318,9 @@ export function SearchPalette({
         if (!o) {
           setQ(initialQuery)
           setScope(SEARCH_SCOPE_ALL)
+          setArchived(false)
           setRes(null)
+          setSuggestion(null)
         }
       }}
     >
@@ -302,6 +367,19 @@ export function SearchPalette({
               ))}
             </NativeSelect>
           </label>
+          <button
+            type="button"
+            aria-pressed={archived}
+            onClick={() => setArchived((a) => !a)}
+            className={cn(
+              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-label text-fg hover:bg-surface-hover max-md:hidden [&_svg]:text-fg-muted',
+              archived &&
+                'border-selection-border bg-selection font-medium hover:bg-selection',
+            )}
+          >
+            <Icon name="archive" size={12} />
+            Include archived
+          </button>
           <DialogPrimitive.Close className="inline-flex h-9 cursor-pointer items-center rounded-md border-0 bg-transparent px-2 text-body text-link md:hidden">
             Cancel
           </DialogPrimitive.Close>
@@ -312,6 +390,41 @@ export function SearchPalette({
             <div className="text-body leading-[19px] text-fg-muted">
               Nothing in names, IDs, cell values, comments or files you can
               access.
+            </div>
+            {suggestion ? (
+              <div className="text-body">
+                Did you mean{' '}
+                <button
+                  type="button"
+                  onClick={() => acceptSuggestion(suggestion)}
+                  className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] font-medium text-link hover:underline"
+                >
+                  {suggestion.identifier}
+                </button>
+                ?{' '}
+                <span className="text-fg-muted">
+                  {suggestion.title} ·{' '}
+                  {SUGGESTION_KIND_LABELS[suggestion.kind] ?? suggestion.kind}
+                </span>
+              </div>
+            ) : null}
+            <div className="text-label text-fg-muted">
+              {archived ? (
+                <>
+                  Archived work searched too: still no matches for “{q.trim()}”.
+                </>
+              ) : (
+                <>
+                  Archived work isn’t searched.{' '}
+                  <button
+                    type="button"
+                    onClick={() => setArchived(true)}
+                    className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+                  >
+                    Include archived
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ) : (
@@ -379,6 +492,11 @@ export function SearchPalette({
                         <span className="mono mr-1.5 text-fg-muted">
                           {result.identifier}
                         </span>
+                        {result.archived ? (
+                          <span className="mr-1.5 rounded-sm border border-border px-1 align-middle text-label text-fg-muted">
+                            Archived
+                          </span>
+                        ) : null}
                         <Highlight text={result.title} q={q.trim()} />
                         <span className="block truncate text-label text-fg-muted">
                           {result.matchedContext}

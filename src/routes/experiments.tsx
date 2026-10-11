@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
+import { FilterMenu } from '#/components/v3/ui/filter-menu'
 import { SearchTabs } from '#/components/v3/projects/search-tabs'
 import { FilterChip } from '#/components/v3/projects/chip'
 import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
@@ -246,29 +247,15 @@ function Experiments() {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="quiet"
-                className={search.older ? '' : 'text-link hover:text-link'}
-              />
-            }
-          >
-            Filter{search.older ? '' : ' · 1'}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[240px]">
-            <DropdownMenuItem
-              icon={search.older ? undefined : 'check'}
-              className={search.older ? 'pl-[30px]' : ''}
-              onClick={() =>
-                setSearch({ older: search.older ? undefined : true })
-              }
-            >
-              Updated in last 30 days
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <FilterMenu
+          label="Updated"
+          value={search.older ? 'any' : '30d'}
+          options={[
+            { value: '30d', label: 'Last 30 days' },
+            { value: 'any', label: 'Any time' },
+          ]}
+          onChange={(v) => setSearch({ older: v === 'any' ? true : undefined })}
+        />
         <form
           role="search"
           className="relative order-first min-w-0 flex-1 lg:order-none lg:ml-3 lg:w-[280px] lg:flex-none"

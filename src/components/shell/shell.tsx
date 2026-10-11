@@ -105,7 +105,11 @@ import {
  * - The right inspector is an optional slot. On narrow screens it converts
  *   to a Sheet triggered from the top bar.
  * - A command palette (⌘K) provides keyboard navigation and quick actions.
- * - Public routes (`/sign-in`, `/foundations`) do not use this chrome.
+ * - R5-SHELL-01: this legacy chrome wraps only the recorded internal reference
+ *   routes — `/docs/$name`, `/foundations`, `/r/$identifier` and
+ *   `/sheetbase-components` (see the exception list in `src/routes/__root.tsx`).
+ *   Every product route renders the adopted v3 shell instead; `/sign-in` and
+ *   `/client-portal` render bare.
  */
 
 const COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'

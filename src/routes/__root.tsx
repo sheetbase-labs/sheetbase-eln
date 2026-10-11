@@ -165,126 +165,36 @@ function RootRouteComponent() {
       }
     : null
 
-  // UI port (roadmap-4/ui-app3): routes already ported from sheetbase-app-3
-  // render inside app-3's shell; every other route keeps the ELN shell until it
-  // is ported. The list grows area by area, then this branch and the ELN shell
-  // are deleted.
-  const v3RouteIds = [
-    '/',
-    // R5-SURF-03: the unmatched-URL catch-all renders the product's not-found
-    // screen inside the v3 shell.
-    '/$',
-    '/inbox',
-    '/review/$revisionId',
-    '/evidence/$revisionId',
-    '/instruments',
-    '/instruments/$instrumentId',
-    '/scan',
-    '/readings/new',
-    '/sheets/$sheetId',
-    '/sheets/new',
-    '/records/$recordId',
-    '/records/$recordId/',
-    '/records/$recordId/notebook',
-    '/schedule',
-    '/search',
-    '/settings',
-    '/settings/',
-    '/settings/members',
-    '/settings/access',
-    '/settings/signatures',
-    '/settings/instruments',
-    '/settings/integrations',
-    '/settings/integrations/$connectorId',
-    '/settings/audit',
-    '/settings/diagnostics',
-    '/settings/usage',
-    '/settings/api',
-    '/settings/profile',
-    '/settings/notifications',
-    '/protocols',
-    '/protocols/$protocolId',
-    '/templates',
-    '/templates/$templateId',
-    '/templates/$templateId/',
-    '/templates/$templateId/versions',
-    '/templates/$templateId/in-use',
-    '/templates/$templateId/update',
-    '/experiments',
-    '/experiments/new',
-    '/experiments/$expId',
-    '/experiments/$expId/',
-    '/experiments/$expId/overview',
-    '/experiments/$expId/notebook',
-    '/experiments/$expId/samples',
-    '/experiments/$expId/datasets',
-    '/experiments/$expId/results',
-    '/experiments/$expId/files',
-    '/experiments/$expId/history',
-    '/models',
-    '/models/$modelId',
-    '/models/$modelId/',
-    '/models/$modelId/fields',
-    '/models/$modelId/versions',
-    '/models/$modelId/records',
-    '/models/$modelId/records/',
-    '/models/$modelId/records/new',
-    '/models/$modelId/records/$recordId',
-    '/models/$modelId/rules',
-    '/models/$modelId/relations',
-    '/models/$modelId/usage',
-    '/models/$modelId/datasets',
-    '/models/$modelId/edit',
-    '/analysis',
-    '/analysis/',
-    '/analysis/new',
-    '/analysis/$analysisId',
-    '/help',
-    '/help/',
-    '/help/records',
-    '/help/shortcuts',
-    '/pipelines',
-    '/pipelines/agents',
-    '/pipelines/runs/$runId',
-    '/pipelines/$pipelineId',
-    '/pipelines/$pipelineId/',
-    '/pipelines/$pipelineId/runs',
-    '/pipelines/$pipelineId/runs/',
-    '/pipelines/$pipelineId/runs/$runId',
-    '/pipelines/$pipelineId/triggers',
-    '/pipelines/$pipelineId/steps',
-    '/import',
-    '/import/$importId',
-    '/datasets',
-    '/datasets/$datasetId',
-    '/datasets/$datasetId/',
-    '/datasets/$datasetId/snapshots',
-    '/datasets/$datasetId/rows',
-    '/datasets/$datasetId/compare',
-    '/samples',
-    '/materials',
-    '/samples/$sampleId',
-    '/samples/$sampleId/',
-    '/samples/$sampleId/usage',
-    '/samples/$sampleId/history',
-    '/samples/$sampleId/lineage',
-    '/samples/$sampleId/measurements',
-    '/projects',
-    '/projects/$projectId',
-    '/projects/$projectId/',
-    '/projects/$projectId/milestones',
-    '/projects/$projectId/folders',
-    '/projects/$projectId/members',
-    '/projects/$projectId/settings',
+  // R5-SHELL-01: the adopted (v3) shell is the default for every route, so a
+  // new product route cannot silently fall back to the legacy ELN shell — which
+  // has no icon rail at 1024–1279 and no bottom tabs below 768. Only these
+  // recorded internal reference routes keep the legacy shell, and the routes
+  // with their own chrome render bare. This replaced the hand-maintained
+  // allow-list of ported route ids, whose "any matched ancestor" semantics made
+  // most entries redundant and its gaps invisible.
+  const legacyShellRouteIds = [
+    // The operator documents rendered from docs/*.md (deployment, recovery,
+    // security, …). Reference material, not product navigation.
+    '/docs/$name',
+    // The legacy component gallery: it renders the pre-port kit
+    // (src/components/scientific, record, notebook) and is not in product nav.
+    '/foundations',
+    // The printed-label redirect shim: it renders only while resolving the
+    // identifier, then replaces the location with the ported record route.
+    '/r/$identifier',
+    // The development-only grid demo. It redirects to `/` in production and
+    // carries no business data.
+    '/sheetbase-components',
   ]
   // Routes with their own chrome (the client portal, ADR-0049) render without
   // either shell: no internal navigation and no workspace data.
   const bareRouteIds = ['/client-portal', '/sign-in']
-  const bareRoute = useMatches().some((match) =>
+  const matches = useMatches()
+  const bareRoute = matches.some((match) =>
     bareRouteIds.includes(match.routeId),
   )
-  const portedToV3 = useMatches().some((match) =>
-    v3RouteIds.includes(match.routeId),
+  const legacyShell = matches.some((match) =>
+    legacyShellRouteIds.includes(match.routeId),
   )
   const appShellData = auth
     ? {
@@ -323,14 +233,14 @@ function RootRouteComponent() {
           <CollaborationProvider>
             {bareRoute ? (
               <Outlet />
-            ) : portedToV3 ? (
-              <V3AppShell data={appShellData}>
-                <Outlet />
-              </V3AppShell>
-            ) : (
+            ) : legacyShell ? (
               <ShellProvider initialContext={shellContext}>
                 <Outlet />
               </ShellProvider>
+            ) : (
+              <V3AppShell data={appShellData}>
+                <Outlet />
+              </V3AppShell>
             )}
           </CollaborationProvider>
         </CollaborationEnabledContext.Provider>

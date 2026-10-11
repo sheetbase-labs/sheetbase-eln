@@ -64,6 +64,17 @@ configured.
 
 ## R5-SHELL-03: capability flags have real keys and honest gap states
 
+> **Outcome (implemented).** The mechanism is kept — registry, allow-list,
+> roadmap map, route-context plumbing and `CapabilityGap` — but **no key is
+> registered and nothing is gated**. The two keys this spec anticipated
+> (`sampleMeasurements`, `experimentResults`) name shipped features, and gating
+> them off by default made the product claim "not in this release yet" about
+> features that are in this release while hiding two working surfaces from every
+> fresh deployment. A flag is for a capability a deployment _does not have_;
+> switching a shipped surface off is a preference and needs its own mechanism.
+> `capabilityKeys` is therefore empty, with the parser and the key↔roadmap
+> invariant still tested.
+
 **Outcome:** an operator can state which optional capabilities this deployment
 has, and the UI says so honestly where one is absent. Priority P1, effort M,
 medium risk. No prerequisite.

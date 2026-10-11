@@ -19,6 +19,14 @@ import {
   HEATMAP_AGGREGATES,
   MAX_ANNOTATIONS,
 } from '#/lib/chart-spec'
+import {
+  ROLE_SPEC_KEY,
+  columnsForRole,
+  isCategoryColumn,
+  isMeasuredColumn,
+} from '#/lib/chart-encodings'
+import type { ChartRole } from '#/lib/chart-encodings'
+import { ChartEncodingEditor } from '#/components/viz/chart-encodings'
 import type { ChartAnnotation, ChartSpec, FieldBinding } from '#/lib/chart-spec'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import { proposeChartSpec } from '#/lib/assist-drafts'
@@ -43,13 +51,8 @@ export function ChartConfigurator({
   layout = 'wrap',
 }: ChartConfiguratorProps) {
   const columns = source.columns
-  const numericColumns = columns.filter(
-    (column) =>
-      column.logicalType === 'decimal' || column.logicalType === 'integer',
-  )
-  const categoryColumns = columns.filter((column) =>
-    ['category', 'text', 'boolean'].includes(column.logicalType),
-  )
+  const numericColumns = columns.filter(isMeasuredColumn)
+  const categoryColumns = columns.filter(isCategoryColumn)
   const errorColumns = numericColumns.filter(
     (column) =>
       column.id !== spec.fields.x?.fieldId &&
@@ -232,6 +235,11 @@ export function ChartConfigurator({
     onSpecChange({ ...spec, fields, transformations, display, overlays })
   }
 
+  /** One entry point for both authoring paths (drag/drop and dropdowns). */
+  function assignRole(role: ChartRole, fieldId: string | null) {
+    setField(ROLE_SPEC_KEY[role], fieldId ?? '')
+  }
+
   function setTransformation(kind: 'aggregate' | 'normalise', value: string) {
     const others = spec.transformations.filter(
       (transformation) => transformation.kind !== kind,
@@ -297,7 +305,7 @@ export function ChartConfigurator({
             key: 'x' as const,
             label: 'X-axis',
             ariaLabel: 'X axis field',
-            columns: numericColumns,
+            columns: columnsForRole('x', columns, spec.type),
             empty: '(none — row index)',
             value: spec.fields.x?.fieldId ?? '',
           },
@@ -307,7 +315,7 @@ export function ChartConfigurator({
       key: 'y' as const,
       label: yLabel,
       ariaLabel: 'Y axis field',
-      columns: numericColumns,
+      columns: columnsForRole('y', columns, spec.type),
       value: spec.fields.y.fieldId,
     },
     ...(showSeriesField
@@ -822,13 +830,21 @@ export function ChartConfigurator({
             className="h-8 bg-surface"
           >
             <option value="">No facets</option>
-            {categoryColumns.map((column) => (
+            {columnsForRole('facet', columns, spec.type).map((column) => (
               <option key={column.id} value={column.id}>
                 {column.label}
               </option>
             ))}
           </NativeSelect>
         </div>
+      </div>
+      <div className="pt-2.5">
+        <ChartEncodingEditor
+          idPrefix={`${idPrefix}-enc`}
+          columns={columns}
+          spec={spec}
+          onAssign={assignRole}
+        />
       </div>
       {CARTESIAN_CHART_TYPES.includes(spec.type) ? (
         <div className="space-y-2 pt-2.5">

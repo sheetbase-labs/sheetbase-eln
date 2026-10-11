@@ -20,6 +20,7 @@ import {
   EXECUTION_TIMEOUT_SECONDS,
 } from '#/lib/pipeline-limits'
 import { DATASET_RETENTION_INTERVAL_MS } from '#/lib/dataset-retention-scheduler.server'
+import { formatFileSize } from '#/lib/format-numbers'
 import { checkExtensionCompat } from '#/lib/extensions/compat'
 
 // Scheduler configuration — mirrors the env check in
@@ -33,6 +34,18 @@ function schedulerEnabled(): boolean {
 // ---------------------------------------------------------------------------
 
 export interface DiagnosticsResult {
+  /**
+   * R5-CONFIG-01 — when the live probes in this result were evaluated. The
+   * per-check "checked" timestamp for probes with no stored record.
+   */
+  checkedAt: string
+  /**
+   * R5-CONFIG-01 — most recent real record per activity stream, so each check
+   * can show when it last actually ran instead of a fabricated cadence.
+   */
+  lastPipelineRunAt: string | null
+  lastConnectorRunAt: string | null
+  lastWebhookDeliveryAt: string | null
   health: {
     status: 'ready' | 'not_ready' | 'degraded'
     database: { ok: boolean; latencyMs: number }
@@ -107,8 +120,29 @@ export interface QuotaContext {
   atLimitBehaviour: string | null
 }
 
+/**
+ * R5-CONFIG-01 — configured seat limit context. A null seatLimit means no
+ * seat limit is configured, so the UI states that instead of showing a bar.
+ */
+export interface SeatLimitContext {
+  seatLimit: number | null
+  atLimitBehaviour: string | null
+}
+
+/**
+ * R5-CONFIG-01 — a real monthly usage point. Only measured quantities get a
+ * trend: run counts come from `pipeline_runs`/`connector_runs.started_at`.
+ */
+export interface UsageTrendPoint {
+  /** Calendar month, `YYYY-MM`. */
+  month: string
+  pipelineRuns: number
+  connectorRuns: number
+}
+
 export interface UsageLimits {
   fileBytes: QuotaContext
+  seats: SeatLimitContext
   enabledSchedules: {
     /** Validated-scale guidance threshold, or null when not applicable. */
     validatedScaleThreshold: number | null
@@ -126,6 +160,8 @@ export interface UsageResult {
   pipelineDefinitions: number
   pipelineRuns: number
   connectorRuns: number
+  /** Real monthly run counts for the last six calendar months, oldest first. */
+  trend: UsageTrendPoint[]
   /** Limit context per figure; null limits mean "no quota configured". */
   limits: UsageLimits
   capacityWarnings: CapacityWarning[]
@@ -385,6 +421,9 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<DiagnosticsResult> => {
     await loadAdminSession(data.workspaceId)
     const deployment = getDeploymentConfig()
+    // R5-CONFIG-01 — the timestamp the live probes below are evaluated at, so
+    // each probe-backed check can show when it was last checked.
+    const checkedAt = new Date().toISOString()
 
     // Database probe
     const dbStart = Date.now()
@@ -417,7 +456,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
 
     // Scheduler / pipeline run stats
     const { db } = await import('#/db/client.server')
-    const [schedRes, runRes, pruneRes] = await Promise.all([
+    const [schedRes, runRes, pruneRes, lastRunRes] = await Promise.all([
       db.execute(sql`
         SELECT count(*) FILTER (WHERE enabled)::int AS enabled_count,
                max(last_evaluated_at)::text AS last_sweep
@@ -438,11 +477,23 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
         JOIN api.dataset_versions v ON v.id = p.dataset_version_id
         WHERE v.workspace_id = ${data.workspaceId}::uuid
       `),
+      // R5-CONFIG-01 — the real "last ran" record per activity stream, so a
+      // check reports when its stream last actually did something.
+      db.execute(sql`
+        SELECT
+          (SELECT max(started_at)::text FROM api.pipeline_runs
+            WHERE workspace_id = ${data.workspaceId}::uuid) AS last_pipeline_run,
+          (SELECT max(started_at)::text FROM api.connector_runs
+            WHERE workspace_id = ${data.workspaceId}::uuid) AS last_connector_run,
+          (SELECT max(created_at)::text FROM api.webhook_deliveries
+            WHERE workspace_id = ${data.workspaceId}::uuid) AS last_webhook_delivery
+      `),
     ])
 
     const schedRow = schedRes.rows[0] as Record<string, unknown> | undefined
     const runRow = runRes.rows[0] as Record<string, unknown> | undefined
     const pruneRow = pruneRes.rows[0] as Record<string, unknown> | undefined
+    const lastRunRow = lastRunRes.rows[0] as Record<string, unknown> | undefined
 
     // Migration state
     let applied: string | null = null
@@ -481,6 +532,10 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
     const enabledScheduleCount = num(schedRow?.enabled_count ?? 0)
 
     return {
+      checkedAt,
+      lastPipelineRunAt: str(lastRunRow?.last_pipeline_run ?? null),
+      lastConnectorRunAt: str(lastRunRow?.last_connector_run ?? null),
+      lastWebhookDeliveryAt: str(lastRunRow?.last_webhook_delivery ?? null),
       health: { status: healthStatus, database, postgrest },
       deployment: {
         environment: deployment.environment,
@@ -535,7 +590,8 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<UsageResult> => {
     await loadAdminSession(data.workspaceId)
     const { db } = await import('#/db/client.server')
-    const res = await db.execute(sql`
+    const [res, trendRes] = await Promise.all([
+      db.execute(sql`
       SELECT
         (SELECT count(*) FROM api.workspace_memberships WHERE workspace_id = ${data.workspaceId}::uuid)::int AS members,
         (SELECT count(*) FROM api.records WHERE workspace_id = ${data.workspaceId}::uuid)::int AS records,
@@ -548,14 +604,40 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
         (SELECT count(*) FROM api.pipeline_runs WHERE workspace_id = ${data.workspaceId}::uuid)::int AS pipeline_runs,
         (SELECT count(*) FROM api.connector_runs WHERE workspace_id = ${data.workspaceId}::uuid)::int AS connector_runs,
         (SELECT count(*) FROM api.pipeline_schedules WHERE workspace_id = ${data.workspaceId}::uuid AND enabled)::int AS enabled_schedules
-    `)
+      `),
+      // R5-CONFIG-01 — a trend only for what this deployment measures: run
+      // counts grouped from the real run records over six calendar months.
+      db.execute(sql`
+        SELECT to_char(m, 'YYYY-MM') AS month,
+               (SELECT count(*) FROM api.pipeline_runs r
+                 WHERE r.workspace_id = ${data.workspaceId}::uuid
+                   AND date_trunc('month', r.started_at) = m)::int AS pipeline_runs,
+               (SELECT count(*) FROM api.connector_runs c
+                 WHERE c.workspace_id = ${data.workspaceId}::uuid
+                   AND date_trunc('month', c.started_at) = m)::int AS connector_runs
+        FROM generate_series(
+          date_trunc('month', now()) - interval '5 months',
+          date_trunc('month', now()),
+          interval '1 month'
+        ) AS m
+        ORDER BY m
+      `),
+    ])
     const row = res.rows[0] as Record<string, unknown> | undefined
     const fileBytes = num(row?.file_bytes)
+    const members = num(row?.members)
     const enabledSchedules = num(row?.enabled_schedules)
-    // No workspace storage quota or schedule quota is configured in this
-    // deployment (WORKSPACE_QUOTA reports null limits) — the UI states that
-    // explicitly instead of inventing theatre numbers. The schedule
-    // threshold is validated-scale guidance, not a quota.
+    const plan = workspacePlanLimits()
+    const quota = plan.quota
+    const seatLimit = plan.seats.seatLimit
+    const trend: UsageTrendPoint[] = trendRes.rows.map((r) => ({
+      month: String(r.month),
+      pipelineRuns: num(r.pipeline_runs),
+      connectorRuns: num(r.connector_runs),
+    }))
+    // Warnings come from configured limits where one exists; otherwise the
+    // figure is labelled observed usage and never shown as a quota. The
+    // schedule threshold is validated-scale guidance, not a quota.
     const capacityWarnings: CapacityWarning[] = []
     if (enabledSchedules > SCHEDULE_VALIDATED_SCALE) {
       capacityWarnings.push({
@@ -566,7 +648,18 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
         runbook: 'observability',
       })
     }
-    if (fileBytes > 10_000_000_000) {
+    const storageLevel = usageWarnLevel(fileBytes, quota.byteLimit)
+    if (quota.byteLimit != null && storageLevel) {
+      const percent = Math.round((fileBytes / quota.byteLimit) * 100)
+      capacityWarnings.push({
+        level: 'warning',
+        category: 'file_storage',
+        message:
+          `Workspace file storage is at ${percent}% of the configured quota (${formatFileSize(fileBytes)} of ${formatFileSize(quota.byteLimit)}). ${quota.atLimitBehaviour ?? ''}`.trim(),
+        link: '/settings/usage',
+        runbook: 'administration',
+      })
+    } else if (quota.byteLimit == null && fileBytes > 10_000_000_000) {
       capacityWarnings.push({
         level: 'warning',
         category: 'file_storage',
@@ -576,8 +669,19 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
         runbook: 'administration',
       })
     }
+    const seatLevel = usageWarnLevel(members, seatLimit)
+    if (seatLimit != null && seatLevel) {
+      const percent = Math.round((members / seatLimit) * 100)
+      capacityWarnings.push({
+        level: 'warning',
+        category: 'seats',
+        message:
+          `Workspace seats are at ${percent}% of the configured limit (${members} of ${seatLimit}). ${plan.seats.atLimitBehaviour ?? ''}`.trim(),
+        link: '/settings/members',
+      })
+    }
     return {
-      members: num(row?.members),
+      members,
       records: num(row?.records),
       datasets: num(row?.datasets),
       datasetVersions: num(row?.dataset_versions),
@@ -587,8 +691,10 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
       pipelineDefinitions: num(row?.pipeline_definitions),
       pipelineRuns: num(row?.pipeline_runs),
       connectorRuns: num(row?.connector_runs),
+      trend,
       limits: {
-        fileBytes: WORKSPACE_QUOTA,
+        fileBytes: quota,
+        seats: plan.seats,
         enabledSchedules: {
           validatedScaleThreshold: SCHEDULE_VALIDATED_SCALE,
         },
@@ -648,9 +754,9 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
       fileBytes: num(countRow?.file_bytes),
       datasetCount: num(countRow?.dataset_count),
       datasetVersionCount: num(countRow?.dataset_version_count),
-      // No workspace storage quota is configured — WORKSPACE_QUOTA's null
-      // limit tells the UI to label figures as observed usage.
-      quota: WORKSPACE_QUOTA,
+      // A null byteLimit (no configured quota) tells the UI to label figures
+      // as observed usage rather than against a limit.
+      quota: workspacePlanLimits().quota,
       largestFiles: mapFiles(largestRes.rows),
       recentFiles: mapFiles(recentRes.rows),
     }
@@ -763,13 +869,69 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
 export const SCHEDULE_VALIDATED_SCALE = 100
 
 /**
- * Quota context served with usage/storage figures. No workspace quotas are
- * configured in this deployment, so limits are null — the UI states that
- * explicitly instead of inventing theatre numbers.
+ * R5-CONFIG-01 — build a quota context from configuration. A null/absent limit
+ * means "no quota configured": the UI must say so rather than invent a number,
+ * and `atLimitBehaviour` is null alongside it.
  */
-export const WORKSPACE_QUOTA: QuotaContext = {
-  byteLimit: null,
-  atLimitBehaviour: null,
+export function resolveQuotaContext(
+  byteLimit: number | null | undefined,
+  atLimitBehaviour: string | null = null,
+): QuotaContext {
+  return byteLimit == null
+    ? { byteLimit: null, atLimitBehaviour: null }
+    : { byteLimit, atLimitBehaviour }
+}
+
+/** R5-CONFIG-01 — build a seat-limit context from configuration. */
+export function resolveSeatLimit(
+  seatLimit: number | null | undefined,
+  atLimitBehaviour: string | null = null,
+): SeatLimitContext {
+  return seatLimit == null
+    ? { seatLimit: null, atLimitBehaviour: null }
+    : { seatLimit, atLimitBehaviour }
+}
+
+/**
+ * R5-CONFIG-01 — warning level for a measured figure against a configured
+ * limit. Null when no limit is configured (or the limit is not positive), so an
+ * unmeasured or unlimited figure never gets a bar or a threshold colour.
+ * ≥90% is danger, ≥80% warning.
+ */
+export function usageWarnLevel(
+  used: number,
+  limit: number | null | undefined,
+): 'warning' | 'danger' | null {
+  if (limit == null || limit <= 0) return null
+  const percent = (used / limit) * 100
+  if (percent >= 90) return 'danger'
+  if (percent >= 80) return 'warning'
+  return null
+}
+
+/**
+ * R5-CONFIG-01 — plan limits served with usage/storage figures, sourced from
+ * deployment configuration (`SHEETBASE_WORKSPACE_STORAGE_QUOTA_BYTES`,
+ * `SHEETBASE_WORKSPACE_SEAT_LIMIT`). Unset means no limit is configured, so the
+ * context reports null and the UI states that instead of inventing a number.
+ *
+ * Read inside the server handlers: `env` is server-only, so it must not be
+ * touched at module scope (the module is also imported by the client bundle).
+ */
+export function workspacePlanLimits(): {
+  quota: QuotaContext
+  seats: SeatLimitContext
+} {
+  return {
+    quota: resolveQuotaContext(
+      env.SHEETBASE_WORKSPACE_STORAGE_QUOTA_BYTES ?? null,
+      'uploads are rejected once the quota is reached',
+    ),
+    seats: resolveSeatLimit(
+      env.SHEETBASE_WORKSPACE_SEAT_LIMIT ?? null,
+      'new members cannot be invited once the seat limit is reached',
+    ),
+  }
 }
 
 /** Aggregate counts feeding the attention model. */

@@ -67,6 +67,19 @@ export const env = createEnv({
       .max(3_600)
       .default(60),
     SHEETBASE_DEV_USER_ID: z.string().uuid().default(DEFAULT_DEV_USER_ID),
+    // R5-CONFIG-01 — optional workspace plan limits. Configuration, not a
+    // hard-coded number in the UI. Absent means no limit is configured, so the
+    // usage screen says so instead of inventing a theatre threshold.
+    SHEETBASE_WORKSPACE_STORAGE_QUOTA_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .optional(),
+    SHEETBASE_WORKSPACE_SEAT_LIMIT: z.coerce
+      .number()
+      .int()
+      .positive()
+      .optional(),
   },
   runtimeEnv: process.env,
   emptyStringAsUndefined: true,

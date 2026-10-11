@@ -74,6 +74,13 @@ type Check = {
   status: string
   tone: Tone
   detail: string
+  /**
+   * R5-CONFIG-01 — when this check last actually ran. `checked` is a live
+   * probe evaluated with this request; `ran` is the timestamp of the real
+   * record the check reads. Null when no record exists yet.
+   */
+  lastRunAt: string | null
+  lastRunKind: 'checked' | 'ran'
   link?: { to: string; label: string }
 }
 
@@ -169,8 +176,13 @@ function Diagnostics() {
                 ? 'Connector run'
                 : 'Webhook delivery',
           message: run.error_message ?? run.error_code ?? 'Failed',
-          record: run.label ?? run.id,
-          requestId: run.error_code ?? run.id,
+          record: run.label,
+          /**
+           * R5-CONFIG-01 — the durable correlation identity support can quote
+           * (observability.md: a failed ingestion is traced by its run id).
+           * It is the same id the run's logs are keyed by.
+           */
+          requestId: run.id,
           time: formatTime(run.finishedAt ?? run.startedAt),
         }))
 
@@ -263,21 +275,29 @@ function Diagnostics() {
                       <span className="num">{e.time}</span>
                     </span>
                     <span className="text-body leading-5">{e.message}</span>
-                    <span className="mono text-label text-fg-muted">
-                      {e.record}
+                    {e.record ? (
+                      <span className="mono text-label text-fg-muted">
+                        {e.record}
+                      </span>
+                    ) : null}
+                    <span className="mt-0.5 flex items-center gap-1 text-label text-fg-muted">
+                      <span>Request ID</span>
+                      <RequestIdCell id={e.requestId} />
                     </span>
                   </li>
                 ))}
               </ul>
               <div className="overflow-x-auto rounded-md border border-border max-md:hidden">
-                <Table className="max-xl:min-w-[720px]">
+                <Table className="max-xl:min-w-[880px]">
                   <TableHeader>
                     <TableRow>
-                      {['Time', 'Area', 'Message', 'Run'].map((h) => (
-                        <TableHead key={h} className="first:pl-3">
-                          {h}
-                        </TableHead>
-                      ))}
+                      {['Time', 'Area', 'Message', 'Record', 'Request ID'].map(
+                        (h) => (
+                          <TableHead key={h} className="first:pl-3">
+                            {h}
+                          </TableHead>
+                        ),
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -288,7 +308,12 @@ function Diagnostics() {
                         <TableCell className="min-w-[260px] whitespace-normal py-1.5 leading-[17px]">
                           {e.message}
                         </TableCell>
-                        <TableCell className="mono">{e.record}</TableCell>
+                        <TableCell className="mono">
+                          {e.record ?? '—'}
+                        </TableCell>
+                        <TableCell>
+                          <RequestIdCell id={e.requestId} />
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -296,14 +321,15 @@ function Diagnostics() {
               </div>
               <Muted>
                 Failures from recent pipeline and connector runs. Messages never
-                include record content.
+                include record content. Give support the request ID — it
+                resolves to the same request in the run logs.
               </Muted>
             </>
           ) : (
             <EmptyState
               icon="check"
               title="No recent failures"
-              body="Anything that fails, from an import to a delivery, shows here so you can give support the run ID."
+              body="Anything that fails, from an import to a delivery, shows here with a request ID you can give to support."
               className="py-4"
             />
           )}
@@ -399,6 +425,8 @@ function buildChecks(
       status: d.health.database.ok ? 'Healthy' : 'Down',
       tone: d.health.database.ok ? 'ok' : 'bad',
       detail: `PostgreSQL · ${d.health.database.latencyMs} ms`,
+      lastRunAt: d.checkedAt,
+      lastRunKind: 'checked',
     },
     {
       key: 'postgrest',
@@ -406,6 +434,8 @@ function buildChecks(
       status: d.health.postgrest.ok ? 'Healthy' : 'Down',
       tone: d.health.postgrest.ok ? 'ok' : 'bad',
       detail: `PostgREST · ${d.health.postgrest.latencyMs} ms`,
+      lastRunAt: d.checkedAt,
+      lastRunKind: 'checked',
     },
     {
       key: 'migration',
@@ -423,6 +453,8 @@ function buildChecks(
             ? 'bad'
             : 'warn',
       detail: `Expected ${d.migration.expected}`,
+      lastRunAt: d.migration.status === 'not_checked' ? null : d.checkedAt,
+      lastRunKind: 'checked',
     },
     {
       key: 'scheduler',
@@ -430,6 +462,8 @@ function buildChecks(
       status: d.scheduler.enabled ? 'Running' : 'Disabled',
       tone: d.scheduler.enabled ? 'ok' : 'warn',
       detail: `${d.scheduler.enabledScheduleCount} enabled schedules · sweep every ${d.scheduler.sweepIntervalSeconds}s`,
+      lastRunAt: d.scheduler.lastSweepAt,
+      lastRunKind: 'ran',
     },
     {
       key: 'executor',
@@ -437,6 +471,8 @@ function buildChecks(
       status: d.pipelineExecutor.recentFailures ? 'Failures' : 'Healthy',
       tone: d.pipelineExecutor.recentFailures ? 'warn' : 'ok',
       detail: `${d.pipelineExecutor.activeRuns} active · ${d.pipelineExecutor.recentFailures} recent failures`,
+      lastRunAt: d.lastPipelineRunAt,
+      lastRunKind: 'ran',
     },
     {
       key: 'connectors',
@@ -450,6 +486,8 @@ function buildChecks(
       detail: connectors
         ? `${connectors.activeConnectors} active · ${connectors.recentFailures} recent failures${connectors.missingSecrets ? ` · ${connectors.missingSecrets} missing secrets` : ''}`
         : 'No check exists for this yet',
+      lastRunAt: connectors ? d.lastConnectorRunAt : null,
+      lastRunKind: 'ran',
       link: { to: '/settings/integrations', label: 'Integrations' },
     },
     {
@@ -469,6 +507,8 @@ function buildChecks(
       detail: runHealth
         ? `${runHealth.webhook.deadLetter24h} dead-letter in 24h · ${runHealth.webhook.retryDebt} awaiting retry`
         : 'No check exists for this yet',
+      lastRunAt: runHealth ? d.lastWebhookDeliveryAt : null,
+      lastRunKind: 'ran',
     },
     {
       key: 'config',
@@ -478,6 +518,8 @@ function buildChecks(
         : 'Review',
       tone: d.config.connectorSecretEncryptionConfigured ? 'ok' : 'warn',
       detail: `Auth ${d.config.authMode} · external API ${d.config.externalApiEnabled ? 'on' : 'off'} · metrics ${d.config.metricsEnabled ? 'on' : 'off'}`,
+      lastRunAt: d.checkedAt,
+      lastRunKind: 'checked',
     },
   ]
   // Surface the overall health tone in the first row's status label so a
@@ -504,7 +546,7 @@ function CheckRow({
   return (
     <li
       className={cn(
-        'grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5 px-3 py-2.5 md:grid-cols-[200px_150px_minmax(0,1fr)] md:items-center',
+        'grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-0.5 px-3 py-2.5 md:grid-cols-[200px_150px_minmax(0,1fr)_auto] md:items-center',
         !last && 'border-b border-border-subtle',
       )}
     >
@@ -527,7 +569,39 @@ function CheckRow({
           </>
         ) : null}
       </span>
+      <span className="num text-label text-fg-muted md:text-right">
+        {running ? null : c.lastRunAt ? (
+          <>
+            {c.lastRunKind === 'ran' ? 'Last ran' : 'Checked'}{' '}
+            {formatTime(c.lastRunAt)}
+          </>
+        ) : (
+          <span className="text-fg-faint">No record yet</span>
+        )}
+      </span>
     </li>
+  )
+}
+
+/**
+ * R5-CONFIG-01 — the quotable correlation identity for a failed run, with a
+ * copy affordance so an admin can paste it into a support ticket.
+ */
+function RequestIdCell({ id }: { id: string }) {
+  return (
+    <span className="flex items-center gap-1">
+      <span className="mono text-label">{id}</span>
+      <Button
+        size="icon"
+        variant="quiet"
+        icon="copy"
+        aria-label={`Copy request ID ${id}`}
+        onClick={() => {
+          void navigator.clipboard.writeText(id)
+          toast(`Copied ${id}`)
+        }}
+      />
+    </span>
   )
 }
 

@@ -20,14 +20,14 @@ stream is activated and by whom.
 
 ## Status
 
-|                 |                                                                                                      |
-| --------------- | ---------------------------------------------------------------------------------------------------- |
-| Tasks           | **21 audited tasks + R5-CONFIG-06**, one commit each, on `GWP/roadmap-5-implementation` (PR #222)    |
-| Streams         | 6 — SURF, STUDIO, NOTE, HOME, CONFIG, SHELL                                                          |
-| Audit           | app-3 UI-only working copy vs ELN `10a84a42`, 11 October 2026                                        |
-| Verification    | `tsc` 0 errors; eslint 0 errors; 430 files / 4374 unit tests; 22 files / 192 database tests          |
-| Acceptance      | **Not recorded.** Visual-parity and browser layers remain deferred; the success criteria are unmet   |
-| Decisions taken | Four tasks needed an owner decision; each recorded the conservative option in its commit (see below) |
+|                 |                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------ |
+| Tasks           | **22 implemented** (21 audited + R5-CONFIG-06), one commit each, on `GWP/roadmap-5-implementation` (PR #222) |
+| Streams         | 6 — SURF, STUDIO, NOTE, HOME, CONFIG, SHELL                                                                  |
+| Audit           | app-3 UI-only working copy vs ELN `10a84a42`, 11 October 2026                                                |
+| Verification    | `tsc` 0 errors; eslint 0 errors; 430 files / 4374 unit tests; 22 files / 192 database tests                  |
+| Acceptance      | **Not recorded.** Visual-parity and browser layers remain deferred; the success criteria are unmet           |
+| Decisions taken | Four tasks needed an owner decision; each recorded the conservative option in its commit (see below)         |
 
 ## Decisions taken during implementation
 

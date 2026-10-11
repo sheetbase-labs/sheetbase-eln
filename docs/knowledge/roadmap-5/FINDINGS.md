@@ -182,6 +182,27 @@ nothing), and what is missing. Priorities and task owners are in
   (`src/routes/pipelines/$pipelineId/index.tsx:145`), no "temporary" artefact
   marker, and steps are a route rather than a `?step=n` parameter.
 
+### 11. Booking an instrument and registering one are different tables — `R5-CONFIG-06`
+
+- Interface: the Schedule grid and its dialog use the **same** instrument list
+  with `INS-…` identities and link each row to `/instruments/$instrumentId`
+  (`sheetbase-app-ui-only/src/routes/_app/schedule.tsx:112-127`).
+- ELN: Schedule books `api.calendar_resources`
+  (`src/components/v3/schedule/schedule-data.ts:13`) while the registry lists
+  `api.instruments` (`src/components/v3/instruments/instruments-data.ts:140`).
+  The only link is an optional `metadata.instrumentId` convention, and the seeded
+  resource ("Ambr 250") does not use it. Consequences: a registered instrument
+  cannot be booked, a booking cannot identify its instrument, the inspector's
+  next booking never finds one, and migration `0366`'s qualification/calibration
+  guard is skipped whenever the key is absent — which it was.
+- Verdict: **gap**, not a deliberate difference. The audit's route-level
+  comparison missed it because the routes matched; the data model did not. Fixed
+  by [ADR-0054](../../decisions/0054-a-booking-subject-is-the-instrument.md) and
+  `R5-CONFIG-06`.
+- Lesson for the next audit: compare the **subject** of a workflow (what a
+  booking, a comment or a link actually points at) across the two builds, not
+  only its route.
+
 ## Deliberate differences (not defects)
 
 - **`?state=` affordances.** The interface exposes forced states on 16 routes
@@ -199,7 +220,7 @@ nothing), and what is missing. Priorities and task owners are in
   its sidebar has no Instruments entry; the ELN's registry is now a main-nav item
   beside Samples and Materials, visible to every member, while parser and
   connection _configuration_ stays in Settings. Owner decision, 11 October 2026
-  (`b5ed9705` on `GWP/roadmap-5-implementation`, PR #222).
+  (`48438f8c` on `GWP/roadmap-5-implementation`, PR #222).
 - **Route shapes.** Where a route differs, it usually differs by name or
   concentration, not by capability: `/models/$id/new` is
   `/models/$id/records/new`; `/review/$id?state=sign` is

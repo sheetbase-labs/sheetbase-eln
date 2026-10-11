@@ -1,6 +1,6 @@
 # Programme map and status
 
-**All 21 audited tasks are implemented, plus R5-CONFIG-06** on `GWP/roadmap-5-implementation` (PR #222),
+**All 22 tasks are implemented** — the 21 from the audit plus R5-CONFIG-06, found while reviewing the running product — on `GWP/roadmap-5-implementation` (PR #222),
 integrated in waves from separate worktrees, one commit per task. Implementation
 is not acceptance: the corpus's success criteria are not yet recorded as met, and
 the visual-parity and browser layers remain deferred. The audit baseline is ELN
@@ -31,10 +31,10 @@ demonstrated vulnerability.
 | R5-CONFIG-03 | Model versions can be submitted for approval and merged safely              | Extension                      | P1       | L      | High   | MDL-03 publication decision      | DONE `acef0a8a` |
 | R5-CONFIG-04 | Template in-use and version history are inspectable                         | Extension                      | P2       | M      | Medium | SHEET-04 governance              | DONE `32cf55e6` |
 | R5-CONFIG-05 | Milestones carry scale, dependencies, risk and date history                 | Extension                      | P2       | L      | Medium | PROJ-02 decisions                | DONE `60cb3629` |
-| R5-CONFIG-06 | Every registered instrument is bookable and a booking names it              | Model fix                      | P1       | L      | High   | ADR-0054                         | PROPOSED        |
+| R5-CONFIG-06 | Every registered instrument is bookable and a booking names it              | Model fix                      | P1       | L      | High   | ADR-0054                         | DONE `08a0572e` |
 | R5-SHELL-01  | Every product route gets the adopted shell                                  | Fix                            | P2       | M      | Low    | None                             | DONE `8f6c02a6` |
 | R5-SHELL-02  | The theme is applied at first paint, not after it                           | Fix                            | P1       | S      | Medium | None                             | DONE `61627b2a` |
-| R5-SHELL-03  | Capability flags have real keys and honest gap states                       | Fix                            | P1       | M      | Medium | None                             | DONE `b636a354` |
+| R5-SHELL-03  | Capability flags have real keys and honest gap states                       | Fix                            | P1       | M      | Medium | None                             | DONE `bc3ef38b` |
 | R5-SHELL-04  | Search and pickers carry their designed scope and suggestions               | Extension                      | P2       | M      | Medium | SRCH-02 follow-on                | DONE `dc7387a6` |
 | R5-SHELL-05  | Sign-in covers its designed states or records why not                       | Decision + fix                 | P2       | M      | High   | Authentication decision          | DONE `e8a15cd7` |
 | R5-SHELL-06  | Pipeline code and artefact state are presented, not dumped                  | Extension                      | P3       | S      | Low    | None                             | DONE `347de309` |
@@ -124,7 +124,7 @@ expects them:
   tabs behind them, off by default. Both surfaces ship in the product, so the
   default state claimed "not in this release yet" about features that are in it
   and hid them from every fresh deployment. The keys were removed and nothing is
-  gated (`b636a354`); the mechanism stays, documented as the extension point for
+  gated (`bc3ef38b`); the mechanism stays, documented as the extension point for
   a capability a deployment genuinely lacks.
 - **Shared files need one owner.** `src/routes/__root.tsx`, `src/router.tsx` and
   `src/routes/review/$revisionId.tsx` were each touched by two or three tasks.

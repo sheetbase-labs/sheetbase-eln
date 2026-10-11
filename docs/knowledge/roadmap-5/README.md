@@ -6,7 +6,7 @@ last_reviewed: 2026-10-11
 
 # Roadmap 5 — app-3 interface closure
 
-**Implemented, not yet accepted.** All 21 audited tasks are implemented, plus R5-CONFIG-06, which was found while reviewing the running product on
+**Implemented, not yet accepted.** All 22 tasks are implemented — the 21 from the audit plus R5-CONFIG-06, found while reviewing the running product on
 `GWP/roadmap-5-implementation` (PR #222), one commit per task, integrated in
 waves from separate worktrees. See the
 [programme map](PROGRAMME_MAP.md#delivery-record) for the commit list and the

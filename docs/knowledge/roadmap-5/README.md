@@ -6,10 +6,14 @@ last_reviewed: 2026-10-11
 
 # Roadmap 5 — app-3 interface closure
 
-**Proposed.** This corpus records what the app-3 interface build has that the ELN
-does not, and proposes the work to close it. It is not activated, does not
-certify Roadmap 4 acceptance, and does not claim deployment or release
-readiness.
+**Implemented, not yet accepted.** All 21 tasks are implemented on
+`GWP/roadmap-5-implementation` (PR #222), one commit per task, integrated in
+waves from separate worktrees. See the
+[programme map](PROGRAMME_MAP.md#delivery-record) for the commit list and the
+verification record. Implementation is not acceptance: the success criteria
+below are not yet recorded as met, the visual-parity and browser layers remain
+deferred, and this corpus still does not certify Roadmap 4 acceptance or claim
+deployment or release readiness.
 
 Source survey, 11 October 2026:
 
@@ -101,5 +105,6 @@ specifications; [PROGRAMME_MAP.md](PROGRAMME_MAP.md) is the only status table.
 
 Read [FINDINGS.md](FINDINGS.md) for the evidence, [PROGRAMME_MAP.md](PROGRAMME_MAP.md)
 for status and sequencing, [GUIDE.md](GUIDE.md) for execution and acceptance
-rules, then the stream specification for the task in hand. Every task starts
-**PROPOSED**; nothing here is an assignment.
+rules, then the stream specification for the task in hand. Every task is
+implemented on the branch named at the top of this file; nothing here is an
+assignment.

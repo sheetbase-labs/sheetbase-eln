@@ -112,6 +112,12 @@ expects them:
   every worker rebuild the template database; parallel workers then fail with
   `Cannot reach local PostgreSQL` or `Connection terminated unexpectedly`. Run
   database work with `--maxWorkers=1`, and fix the harness separately.
+- **`tsr generate` drops the committed SSR registration block.** Three tasks ran
+  it to register new routes; its output omits the `declare module
+'@tanstack/react-start'` block that `main` carries, and the first such commit
+  recorded that output verbatim. The branch needed a repair commit
+  (`7e65eded route-tree`) to restore it. Regenerate, then re-add the block
+  before committing; do not commit the generator's output verbatim.
 - **Shared files need one owner.** `src/routes/__root.tsx`, `src/router.tsx` and
   `src/routes/review/$revisionId.tsx` were each touched by two or three tasks.
   Integration resolved the overlaps; a future wave should assign those files up

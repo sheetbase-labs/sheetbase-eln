@@ -80,6 +80,6 @@ ADR-0045 is now accepted with a September owner decision. Formal validation pack
 
 ## How to use this proposal
 
-Read [BASELINE.md](BASELINE.md), [PROGRAMME_MAP.md](PROGRAMME_MAP.md), [GUIDE.md](GUIDE.md), then the complete task stream. All tasks start as **PROPOSED**. The programme map is the proposal's status index; it is not a replacement for the active Roadmap 4 tracker.
+Read [BASELINE.md](BASELINE.md), [PROGRAMME_MAP.md](PROGRAMME_MAP.md), [GUIDE.md](GUIDE.md), then the complete task stream. [QA.md](QA.md) is the current-state defect catalogue from an app-run sweep of `GWP/roadmap-5-qa`: 204 findings, two of them verified blockers. It records what a user meets today, not a new queue; a task may adopt a finding only by naming it. All tasks start as **PROPOSED**. The programme map is the proposal's status index; it is not a replacement for the active Roadmap 4 tracker.
 
 The recommendations come from current source, tests, workflow definitions and accepted decisions. This was a repository survey, not a test run or deployed acceptance exercise. Hosted CI, registry publication, deployment users, production configuration, visual quality and performance were not independently verified.

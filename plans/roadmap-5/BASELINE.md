@@ -69,3 +69,5 @@ The [2 October reconciliation](../../docs/knowledge/roadmap-4/RECONCILIATION.md)
 ## Survey limits
 
 Inspected main product code, selected tests and migrations, roadmap task contracts, ADRs, CI/release definitions, and sibling README context. Did not run application/DB/browser suites, benchmark, install dependencies, query hosted CI, inspect live deployment settings or perform a full security audit. Findings establish code boundaries and proposed priorities, not release acceptance. The sibling component repositories were not independently audited or certified.
+
+The separate [QA catalogue](QA.md) covers the app-run pass this baseline survey did not: about a hundred routes driven in a browser against a fresh database, plus a code sweep by area. It records 204 user-visible defects (two verified blockers) and is current-state evidence, not release acceptance.

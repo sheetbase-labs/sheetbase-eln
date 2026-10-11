@@ -119,10 +119,13 @@ import { Route as PipelinesPipelineIdStepsRouteImport } from './routes/pipelines
 import { Route as PipelinesPipelineIdTriggersRouteImport } from './routes/pipelines/$pipelineId/triggers'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
 import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
+import { Route as ProjectsProjectIdDatasetsRouteImport } from './routes/projects/$projectId/datasets'
+import { Route as ProjectsProjectIdExperimentsRouteImport } from './routes/projects/$projectId/experiments'
 import { Route as ProjectsProjectIdFilesRouteImport } from './routes/projects/$projectId/files'
 import { Route as ProjectsProjectIdFoldersRouteImport } from './routes/projects/$projectId/folders'
 import { Route as ProjectsProjectIdMembersRouteImport } from './routes/projects/$projectId/members'
 import { Route as ProjectsProjectIdMilestonesRouteImport } from './routes/projects/$projectId/milestones'
+import { Route as ProjectsProjectIdSamplesRouteImport } from './routes/projects/$projectId/samples'
 import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId/settings'
 import { Route as RecordsRecordIdIndexRouteImport } from './routes/records/$recordId/index'
 import { Route as RecordsRecordIdNotebookRouteImport } from './routes/records/$recordId/notebook'
@@ -714,6 +717,18 @@ const ProjectsProjectIdIndexRoute = ProjectsProjectIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProjectsProjectIdRoute,
 } as any)
+const ProjectsProjectIdDatasetsRoute =
+  ProjectsProjectIdDatasetsRouteImport.update({
+    id: '/datasets',
+    path: '/datasets',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const ProjectsProjectIdExperimentsRoute =
+  ProjectsProjectIdExperimentsRouteImport.update({
+    id: '/experiments',
+    path: '/experiments',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
 const ProjectsProjectIdFilesRoute = ProjectsProjectIdFilesRouteImport.update({
   id: '/files',
   path: '/files',
@@ -735,6 +750,12 @@ const ProjectsProjectIdMilestonesRoute =
   ProjectsProjectIdMilestonesRouteImport.update({
     id: '/milestones',
     path: '/milestones',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const ProjectsProjectIdSamplesRoute =
+  ProjectsProjectIdSamplesRouteImport.update({
+    id: '/samples',
+    path: '/samples',
     getParentRoute: () => ProjectsProjectIdRoute,
   } as any)
 const ProjectsProjectIdSettingsRoute =
@@ -1017,10 +1038,13 @@ export interface FileRoutesByFullPath {
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/datasets': typeof ProjectsProjectIdDatasetsRoute
+  '/projects/$projectId/experiments': typeof ProjectsProjectIdExperimentsRoute
   '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
+  '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
@@ -1152,10 +1176,13 @@ export interface FileRoutesByTo {
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/datasets': typeof ProjectsProjectIdDatasetsRoute
+  '/projects/$projectId/experiments': typeof ProjectsProjectIdExperimentsRoute
   '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
+  '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
@@ -1300,10 +1327,13 @@ export interface FileRoutesById {
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/datasets': typeof ProjectsProjectIdDatasetsRoute
+  '/projects/$projectId/experiments': typeof ProjectsProjectIdExperimentsRoute
   '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
+  '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
@@ -1449,10 +1479,13 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/datasets'
+    | '/projects/$projectId/experiments'
     | '/projects/$projectId/files'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
     | '/projects/$projectId/milestones'
+    | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
@@ -1584,10 +1617,13 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/datasets'
+    | '/projects/$projectId/experiments'
     | '/projects/$projectId/files'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
     | '/projects/$projectId/milestones'
+    | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
@@ -1731,10 +1767,13 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/datasets'
+    | '/projects/$projectId/experiments'
     | '/projects/$projectId/files'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
     | '/projects/$projectId/milestones'
+    | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
@@ -2614,6 +2653,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdIndexRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
+    '/projects/$projectId/datasets': {
+      id: '/projects/$projectId/datasets'
+      path: '/datasets'
+      fullPath: '/projects/$projectId/datasets'
+      preLoaderRoute: typeof ProjectsProjectIdDatasetsRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/experiments': {
+      id: '/projects/$projectId/experiments'
+      path: '/experiments'
+      fullPath: '/projects/$projectId/experiments'
+      preLoaderRoute: typeof ProjectsProjectIdExperimentsRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
     '/projects/$projectId/files': {
       id: '/projects/$projectId/files'
       path: '/files'
@@ -2640,6 +2693,13 @@ declare module '@tanstack/react-router' {
       path: '/milestones'
       fullPath: '/projects/$projectId/milestones'
       preLoaderRoute: typeof ProjectsProjectIdMilestonesRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/samples': {
+      id: '/projects/$projectId/samples'
+      path: '/samples'
+      fullPath: '/projects/$projectId/samples'
+      preLoaderRoute: typeof ProjectsProjectIdSamplesRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
     '/projects/$projectId/settings': {
@@ -3073,19 +3133,25 @@ const PipelinesRouteWithChildren = PipelinesRoute._addFileChildren(
 )
 
 interface ProjectsProjectIdRouteChildren {
+  ProjectsProjectIdDatasetsRoute: typeof ProjectsProjectIdDatasetsRoute
+  ProjectsProjectIdExperimentsRoute: typeof ProjectsProjectIdExperimentsRoute
   ProjectsProjectIdFilesRoute: typeof ProjectsProjectIdFilesRoute
   ProjectsProjectIdFoldersRoute: typeof ProjectsProjectIdFoldersRoute
   ProjectsProjectIdMembersRoute: typeof ProjectsProjectIdMembersRoute
   ProjectsProjectIdMilestonesRoute: typeof ProjectsProjectIdMilestonesRoute
+  ProjectsProjectIdSamplesRoute: typeof ProjectsProjectIdSamplesRoute
   ProjectsProjectIdSettingsRoute: typeof ProjectsProjectIdSettingsRoute
   ProjectsProjectIdIndexRoute: typeof ProjectsProjectIdIndexRoute
 }
 
 const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
+  ProjectsProjectIdDatasetsRoute: ProjectsProjectIdDatasetsRoute,
+  ProjectsProjectIdExperimentsRoute: ProjectsProjectIdExperimentsRoute,
   ProjectsProjectIdFilesRoute: ProjectsProjectIdFilesRoute,
   ProjectsProjectIdFoldersRoute: ProjectsProjectIdFoldersRoute,
   ProjectsProjectIdMembersRoute: ProjectsProjectIdMembersRoute,
   ProjectsProjectIdMilestonesRoute: ProjectsProjectIdMilestonesRoute,
+  ProjectsProjectIdSamplesRoute: ProjectsProjectIdSamplesRoute,
   ProjectsProjectIdSettingsRoute: ProjectsProjectIdSettingsRoute,
   ProjectsProjectIdIndexRoute: ProjectsProjectIdIndexRoute,
 }

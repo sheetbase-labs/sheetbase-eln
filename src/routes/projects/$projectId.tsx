@@ -2,12 +2,17 @@ import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
+import { Button } from '#/components/v3/ui/button'
 import { LinkTabs } from '#/components/v3/projects/search-tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
   fetchProjectMembers,
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
+import {
+  useProjectDatasetCount,
+  useProjectRecordCount,
+} from '#/components/v3/projects/project-lists'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { useRecentViewTracking } from '#/lib/recents'
 
@@ -40,6 +45,11 @@ function ProjectLayout() {
     queryFn: () => fetchProjectMembers(projectId),
     enabled: Boolean(project),
   })
+  // Header counts share the tabs' queries (same predicate builders), so a tab's
+  // count and its list total always agree. The Experiments count is the
+  // canonical `project_list_summary.experiment_count` for the same predicate.
+  const samplesCount = useProjectRecordCount(project?.id ?? '', 'sample')
+  const datasetsCount = useProjectDatasetCount(project?.id ?? '')
 
   if (!project) {
     return (
@@ -87,6 +97,33 @@ function ProjectLayout() {
             ) : null}
           </>
         }
+        actions={
+          <>
+            <Button
+              className="max-md:hidden"
+              nativeButton={false}
+              render={
+                <Link to="/projects/$projectId/members" params={params} />
+              }
+            >
+              Members
+            </Button>
+            {project.archivedAt ? null : (
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/experiments/new"
+                    search={{ project: project.id }}
+                  />
+                }
+              >
+                New experiment
+              </Button>
+            )}
+          </>
+        }
         tabs={
           <LinkTabs
             tabs={[
@@ -101,6 +138,21 @@ function ProjectLayout() {
               {
                 label: 'Milestones',
                 link: { to: '/projects/$projectId/milestones', params },
+              },
+              {
+                label: 'Experiments',
+                count: project.experimentCount,
+                link: { to: '/projects/$projectId/experiments', params },
+              },
+              {
+                label: 'Samples',
+                count: samplesCount.data,
+                link: { to: '/projects/$projectId/samples', params },
+              },
+              {
+                label: 'Datasets',
+                count: datasetsCount.data,
+                link: { to: '/projects/$projectId/datasets', params },
               },
               {
                 label: 'Folders',

@@ -28,6 +28,8 @@ import type { ShellPinned } from '#/lib/shell-chrome.server'
 import type { Notification } from '#/components/v3/types'
 import { parseThemeCookie, themeScript } from '#/lib/theme-cookie'
 import type { ThemePref } from '#/lib/theme-cookie'
+import { capabilitiesFromEnv } from '#/lib/capabilities'
+import type { Capabilities } from '#/lib/capabilities'
 
 interface RouterContext {
   queryClient: QueryClient
@@ -36,10 +38,13 @@ interface RouterContext {
   shellPinned: ShellPinned[]
   shellNotifications: Notification[]
   themePref: ThemePref
+  /** R5-SHELL-03: the deployment's capability flags, resolved once per request. */
+  capabilities: Capabilities
 }
 
-// Fetch auth context once at the root so every child route can read it
-// from the router context without each making its own server round-trip.
+// Fetch the deployment context (auth, capability flags) once at the root so
+// every child route can read it from the router context without each making its
+// own server round-trip.
 // The dynamic imports inside the handler are server-only — TanStack
 // Start's import protection allows them because the handler never runs
 // in the client bundle.
@@ -51,9 +56,17 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   // or unknown cookie resolves to System, never to a stored default.
   const themePref = parseThemeCookie(headers.get('cookie')) ?? 'system'
   const { getCurrentContext } = await import('#/lib/current-user')
+  const capabilities = capabilitiesFromEnv()
   const context = await getCurrentContext(headers)
   if (!context?.workspace)
-    return { context, counts: {}, pinned: [], notifications: [], themePref }
+    return {
+      context,
+      capabilities,
+      counts: {},
+      pinned: [],
+      notifications: [],
+      themePref,
+    }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
   const { getShellPinned, getShellNotifications } =
     await import('#/lib/shell-chrome.server')
@@ -62,7 +75,7 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
     getShellPinned(context.workspace.id, context.user.id),
     getShellNotifications(context.workspace.id, context.user.id),
   ])
-  return { context, counts, pinned, notifications, themePref }
+  return { context, capabilities, counts, pinned, notifications, themePref }
 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -100,6 +113,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async () => {
     const {
       context: auth,
+      capabilities,
       counts: shellCounts,
       pinned,
       notifications,
@@ -107,6 +121,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     } = await getAuthContextFn()
     return {
       auth,
+      capabilities,
       shellCounts,
       shellPinned: pinned,
       shellNotifications: notifications,

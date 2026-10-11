@@ -4,11 +4,13 @@ import { routeTree } from './routeTree.gen'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { createRouterContext } from './integrations/tanstack-query/router-context'
 import { NotFound } from '#/components/v3/shell/not-found'
+import { noCapabilities } from './lib/capabilities'
 
 export function getRouter() {
   const context = {
     ...createRouterContext(),
     auth: null,
+    capabilities: noCapabilities,
     shellCounts: {},
     shellPinned: [],
     shellNotifications: [],

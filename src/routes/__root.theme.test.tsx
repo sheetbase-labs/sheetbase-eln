@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { noCapabilities } from '#/lib/capabilities'
 import { Route as RootRoute } from './__root'
 
 /**
@@ -80,6 +81,7 @@ async function renderRootHtml(): Promise<string> {
       shellPinned: [],
       shellNotifications: [],
       themePref: 'system' as const,
+      capabilities: noCapabilities,
     },
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })

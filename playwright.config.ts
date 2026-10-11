@@ -70,6 +70,11 @@ export default defineConfig({
         SHEETBASE_DEV_AUTH_FREE: 'false',
         VITE_PARITY: 'true',
         BETTER_AUTH_URL: 'http://127.0.0.1:3200',
+        // R5-SHELL-03: the design's ExpResults and SampleMeasurements screens
+        // are the content renders, not the gap, so the parity deployment must
+        // declare those capabilities on. A deployment that records neither sets
+        // nothing and gets the honest gap.
+        SHEETBASE_CAPABILITIES: 'sampleMeasurements,experimentResults',
       },
     },
   ],

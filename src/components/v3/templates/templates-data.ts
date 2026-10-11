@@ -187,6 +187,30 @@ export function useTemplateUsers(
   })
 }
 
+/**
+ * R5-CONFIG-04: names for the projects the in-use records sit in, so the
+ * project filter can be read. Only the projects referenced by the loaded rows
+ * are requested; the caller passes the ids it already has.
+ */
+export function useTemplateProjects(
+  projectIds: string[],
+  client: DataClient = notebookTemplateDataClient,
+) {
+  const ids = [...new Set(projectIds.filter(Boolean))].sort()
+  return useQuery({
+    queryKey: ['ui-port', 'templates', 'projects', ids.join(',')],
+    queryFn: async () => {
+      const rows = await client.list<{ id: string; title: string }>(
+        'projects',
+        `?id=in.(${ids.join(',')})&select=id,title`,
+      )
+      return new Map(rows.map((row) => [row.id, row.title]))
+    },
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+  })
+}
+
 export interface TemplateNotebook {
   id: string
   identifier: string

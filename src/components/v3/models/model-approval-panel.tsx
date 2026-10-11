@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Banner, Notice } from '#/components/v3/ui/alert'
@@ -77,6 +77,12 @@ export interface ModelApprovalPanelProps {
   workspaceId: string | null | undefined
   client?: DataClient
   className?: string
+  /**
+   * R5-CONFIG-03: a page-owned counter. Incrementing it opens the submit dialog
+   * from the page header, so the editor's primary action reaches the same
+   * dialog and RPCs the panel owns instead of duplicating them.
+   */
+  submitToken?: number
 }
 
 const TRAIL_LABEL: Record<ApprovalTrailEntry['kind'], string> = {
@@ -113,9 +119,11 @@ export function ModelApprovalPanel({
   objectKind = DATASET_SCHEMA_VERSION_KIND,
   client = notebookDataClient,
   className,
+  submitToken,
 }: ModelApprovalPanelProps) {
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<PanelDialog | null>(null)
+  const seenSubmitToken = useRef(0)
 
   const pending = pendingRequest(requests)
   const latest = latestRequest(requests)
@@ -125,6 +133,14 @@ export function ModelApprovalPanel({
   const canDecideNow = canDecide(pending, user?.id, role)
   const canWithdrawNow = canWithdraw(pending, user?.id, role)
   const everyRole = objectKind === RECORD_MODEL_VERSION_KIND
+
+  // A header action can ask for the submit dialog; the panel owns the dialog,
+  // its approver/reason fields and the RPC. Token 0 is "nothing asked yet".
+  useEffect(() => {
+    if (!submitToken || submitToken === seenSubmitToken.current) return
+    seenSubmitToken.current = submitToken
+    if (canSubmit) setDialog('submit')
+  }, [submitToken, canSubmit])
   const approvers = (roles: readonly string[]) =>
     everyRole ? roles.map(roleLabel).join(' and ') : roleList(roles)
 

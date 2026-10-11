@@ -27,6 +27,16 @@ function client(captured: Array<{ name: string; args: unknown }>): DataClient {
         return { schema_version_id: 'ver-2', version: 2 }
       }
       if (name === 'list_capabilities') return ['schema.edit']
+      if (name === 'replace_dataset_schema_version_fields') {
+        return {
+          id: 'ver-1',
+          schema_id: 'def-1',
+          version: 1,
+          revision: 9,
+          lifecycle: 'draft',
+          published_at: null,
+        }
+      }
       return undefined
     },
   } as DataClient
@@ -63,6 +73,26 @@ describe('canonical Dataset Schema Definition RPCs', () => {
       p_key: 'stability_result',
       p_fields: [{ key: 'titre', logical_type: 'decimal' }],
     })
+  })
+
+  it('sends the revision it read and returns the saved version', async () => {
+    const captured: Array<{ name: string; args: unknown }> = []
+    const c = client(captured)
+    const version = await replaceDatasetSchemaVersionFields(c, {
+      schemaVersionId: 'ver-1',
+      expectedRevision: 8,
+      fields: [{ key: 'titre', label: 'Titre', logicalType: 'decimal' }],
+    })
+    expect(captured[0]?.args).toMatchObject({ p_expected_revision: 8 })
+    expect(version.revision).toBe(9)
+    captured.length = 0
+    await replaceDatasetSchemaVersionFields(c, {
+      schemaVersionId: 'ver-1',
+      fields: [{ key: 'titre', label: 'Titre', logicalType: 'decimal' }],
+    })
+    // A caller with no revision expectation sends NULL; only canonical
+    // server-side callers that already hold the row lock do this.
+    expect(captured[0]?.args).toMatchObject({ p_expected_revision: null })
   })
 
   it('lists canonical Dataset Schema identities through PostgREST', async () => {

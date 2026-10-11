@@ -464,6 +464,97 @@ export async function fetchStudyDependencies(
   return rows.map(toStudyTaskDependency)
 }
 
+/**
+ * Milestone risk, derived by `api.milestone_risks` (R5-CONFIG-05).
+ *
+ * The rule is stated in the plan UI: `late` when the due date has passed and
+ * the milestone is not completed; `at_risk` when it is due within 14 days and a
+ * "done when" condition or a milestone it depends on is still open. Risk is a
+ * read model, never a stored field.
+ */
+export type MilestoneRiskState = 'done' | 'late' | 'at_risk' | 'on_track'
+
+export interface MilestoneRisk {
+  taskId: string
+  projectId: string | null
+  dueAt: string | null
+  status: StudyTaskStatus
+  late: boolean
+  risk: MilestoneRiskState
+  riskReason: string
+  conditionsTotal: number
+  conditionsOpen: number
+  unfinishedDependencies: number
+  blockingTitle: string | null
+}
+
+interface MilestoneRiskWire {
+  task_id: string
+  project_id: string | null
+  due_at: string | null
+  status: StudyTaskStatus
+  late: boolean
+  risk: MilestoneRiskState
+  risk_reason: string
+  conditions_total: number
+  conditions_open: number
+  unfinished_dependencies: number
+  blocking_title: string | null
+}
+
+/** Milestone risk for every milestone in a workspace (R5-CONFIG-05). */
+export async function fetchMilestoneRisks(
+  client: DataClient,
+  workspaceId: string,
+): Promise<MilestoneRisk[]> {
+  const rows = await client.list<MilestoneRiskWire>(
+    'milestone_risks',
+    `?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=task_id,project_id,due_at,status,late,risk,risk_reason,conditions_total,conditions_open,unfinished_dependencies,blocking_title`,
+  )
+  return rows.map((row) => ({
+    taskId: row.task_id,
+    projectId: row.project_id,
+    dueAt: row.due_at,
+    status: row.status,
+    late: row.late,
+    risk: row.risk,
+    riskReason: row.risk_reason,
+    conditionsTotal: row.conditions_total,
+    conditionsOpen: row.conditions_open,
+    unfinishedDependencies: row.unfinished_dependencies,
+    blockingTitle: row.blocking_title,
+  }))
+}
+
+export interface PlanFromProjectResult {
+  targetProjectId: string
+  sourceProjectId: string
+  startDate: string
+  phases: number
+  milestones: number
+  conditions: number
+}
+
+/**
+ * Start a project's plan from another project's plan (R5-CONFIG-05). The
+ * source plan is read and copied through the canonical milestone RPCs, so
+ * completion is reset and no records or evidence are copied.
+ */
+export async function createPlanFromProject(
+  client: DataClient,
+  input: {
+    targetProjectId: string
+    sourceProjectId: string
+    startDate: string
+  },
+): Promise<PlanFromProjectResult> {
+  return client.rpc<PlanFromProjectResult>('create_plan_from_project', {
+    p_target_project_id: input.targetProjectId,
+    p_source_project_id: input.sourceProjectId,
+    p_start_date: input.startDate,
+  })
+}
+
 /** Fetch all study task resources for a workspace (for conflict detection). */
 export async function fetchCalendarResourcesAsPlanner(
   client: DataClient,

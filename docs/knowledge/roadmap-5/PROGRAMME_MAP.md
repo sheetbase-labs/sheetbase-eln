@@ -31,7 +31,7 @@ demonstrated vulnerability.
 | R5-CONFIG-03 | Model versions can be submitted for approval and merged safely              | Extension                      | P1       | L      | High   | MDL-03 publication decision      | DONE `acef0a8a` |
 | R5-CONFIG-04 | Template in-use and version history are inspectable                         | Extension                      | P2       | M      | Medium | SHEET-04 governance              | DONE `32cf55e6` |
 | R5-CONFIG-05 | Milestones carry scale, dependencies, risk and date history                 | Extension                      | P2       | L      | Medium | PROJ-02 decisions                | DONE `60cb3629` |
-| R5-CONFIG-06 | Every registered instrument is bookable and a booking names it              | Model fix                      | P1       | L      | High   | ADR-0054                         | DONE `08a0572e` |
+| R5-CONFIG-06 | Every registered instrument is bookable and a booking names it              | Model fix                      | P1       | L      | High   | ADR-0054                         | DONE `7a8cf4b5` |
 | R5-SHELL-01  | Every product route gets the adopted shell                                  | Fix                            | P2       | M      | Low    | None                             | DONE `8f6c02a6` |
 | R5-SHELL-02  | The theme is applied at first paint, not after it                           | Fix                            | P1       | S      | Medium | None                             | DONE `61627b2a` |
 | R5-SHELL-03  | Capability flags have real keys and honest gap states                       | Fix                            | P1       | M      | Medium | None                             | DONE `bc3ef38b` |
@@ -136,6 +136,15 @@ expects them:
   and hid them from every fresh deployment. The keys were removed and nothing is
   gated (`bc3ef38b`); the mechanism stays, documented as the extension point for
   a capability a deployment genuinely lacks.
+- **The design seed is idempotent against its own shape, not an older one.** With
+  the booking guard now effective, the design fixtures also carry a current
+  calibration per instrument and a qualification for every design user
+  (`7a8cf4b5`); without them nothing could be booked. On this machine
+  `pnpm db:seed:design` still fails on `record_field_definitions` id `…340`,
+  which an earlier fixture shape already used for a different field — a drifted
+  development database, not a seed defect (the task's own DB test seeds a fresh
+  database and passes). A drifted local database needs `pnpm db:fresh --design`
+  (destructive); a fresh one just works.
 - **Shared files need one owner.** `src/routes/__root.tsx`, `src/router.tsx` and
   `src/routes/review/$revisionId.tsx` were each touched by two or three tasks.
   Integration resolved the overlaps; a future wave should assign those files up

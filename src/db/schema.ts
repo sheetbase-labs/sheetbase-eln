@@ -7412,6 +7412,12 @@ export const instruments = api.table(
       withTimezone: true,
       mode: 'date',
     }),
+    /**
+     * R5-CONFIG-02 — how this instrument's data arrives: filedrop, webhook,
+     * manual or none. Configuration for future data only; an import keeps the
+     * parser and source provenance it was committed with.
+     */
+    intakeMethod: text('intake_method').notNull().default('none'),
     config: jsonb('config')
       .notNull()
       .default(sql`'{}'::jsonb`),
@@ -7449,6 +7455,10 @@ export const instruments = api.table(
     check(
       'chk_instruments_connection',
       sql`${table.connectionStatus} IN ('connected','disconnected','error')`,
+    ),
+    check(
+      'chk_instruments_intake_method',
+      sql`${table.intakeMethod} IN ('filedrop','webhook','manual','none')`,
     ),
     check('chk_instruments_position', sql`${table.position} >= 0`),
     index('idx_instruments_workspace').on(table.workspaceId),

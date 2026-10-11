@@ -9,6 +9,7 @@ import {
   Section,
 } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
+import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -34,12 +35,17 @@ import {
 import { useUserNames } from '#/lib/user-names'
 import {
   calibrationStatus,
-  instrumentConnection,
+  intakeHealth,
+  intakeMethodLabel,
+  intakeMethodNeedsParser,
   instrumentQueryKeys,
   recordInstrumentCalibration,
   runStatus,
   useInstrument,
   useInstrumentCalibrations,
+  useInstrumentLastImport,
+  useInstrumentNextBooking,
+  useInstrumentParsers,
   useInstrumentRuns,
 } from '#/components/v3/instruments/instruments-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
@@ -74,6 +80,9 @@ function InstrumentPage() {
   const instrument = useInstrument(instrumentId)
   const runs = useInstrumentRuns(instrumentId)
   const calibrations = useInstrumentCalibrations(instrumentId)
+  const parsers = useInstrumentParsers(instrumentId)
+  const lastImport = useInstrumentLastImport(instrumentId)
+  const booking = useInstrumentNextBooking(instrumentId)
   const [recordOpen, setRecordOpen] = useState(false)
   const [performed, setPerformed] = useState(isoDay())
   const [due, setDue] = useState(isoDay(182))
@@ -130,7 +139,33 @@ function InstrumentPage() {
       </div>
     )
   }
-  const connection = instrumentConnection(i.connectionStatus)
+  const parserRows = parsers.data ?? []
+  const parserReady =
+    parserRows.length > 0 && parserRows.some((parser) => parser.validated)
+  const needsParser = intakeMethodNeedsParser(i.intakeMethod)
+  const health = intakeHealth(i.intakeMethod, {
+    parserReady: parsers.isSuccess ? parserReady : undefined,
+    lastImport: lastImport.data ?? null,
+  })
+  const lastDataAt =
+    lastImport.data?.status === 'committed' ? lastImport.data.createdAt : null
+  const nextBooking = !booking.isSuccess
+    ? '—'
+    : !booking.data.bookable
+      ? 'Not bookable'
+      : booking.data.next
+        ? `${booking.data.next.startsAt.slice(0, 16).replace('T', ' ')} · ${booking.data.next.title}`
+        : 'None'
+  const parserLabel = !needsParser
+    ? 'Not used'
+    : parserRows.length
+      ? parserRows
+          .map(
+            (parser) =>
+              `${parser.name} · ${parser.validated ? 'validated' : 'not validated'}`,
+          )
+          .join(', ')
+      : 'No parser attached'
   const status = calibrationStatus(latest?.dueAt ?? null)
 
   return (
@@ -148,7 +183,7 @@ function InstrumentPage() {
         meta={
           <>
             <span className="text-fg">
-              <Status tone={connection.tone}>{connection.label}</Status>
+              <Status tone={health.tone}>{health.label}</Status>
             </span>
             <span>{i.instrumentType}</span>
             <span className="max-lg:hidden">{i.model ?? '—'}</span>
@@ -165,6 +200,40 @@ function InstrumentPage() {
         }
       />
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-6">
+        <Section title="Data intake">
+          <DescriptionList
+            labelWidth={130}
+            items={[
+              ['Method', intakeMethodLabel(i.intakeMethod)],
+              [
+                'Health',
+                <Status key="h" tone={health.tone}>
+                  {health.label}
+                </Status>,
+              ],
+              [
+                'Last data',
+                lastDataAt
+                  ? lastDataAt.slice(0, 16).replace('T', ' ')
+                  : 'Nothing received',
+              ],
+              ['Next booking', nextBooking],
+              ['Parser', parserLabel],
+            ]}
+          />
+          {needsParser && parsers.isSuccess && !parserReady ? (
+            <Notice tone="warn" title="Parser not validated.">
+              Readings from {i.name} can’t be imported into a GxP dataset until
+              a validated parser is attached to it.
+            </Notice>
+          ) : (
+            <Muted className="mt-1.5">
+              How data gets in is set on the registry inspector. Imports already
+              committed keep the provenance they arrived with.
+            </Muted>
+          )}
+        </Section>
+
         <Section title="Calibration">
           <DescriptionList
             labelWidth={130}

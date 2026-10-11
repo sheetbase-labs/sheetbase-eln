@@ -26,6 +26,8 @@ import {
 } from '#/components/v3/ui/table'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Choice } from '#/components/v3/ui/choice'
+import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
 import {
@@ -48,13 +50,24 @@ import {
   stickyHead,
 } from '#/components/v3/inventory/list'
 import {
+  INTAKE_METHODS,
   createInstrument,
-  instrumentConnection,
+  intakeHealth,
+  intakeMethodLabel,
+  intakeMethodNeedsParser,
+  setInstrumentIntakeMethod,
   setInstrumentRetired,
+  useInstrumentLastImport,
+  useInstrumentNextBooking,
+  useInstrumentParsers,
   useInstruments,
+  useLastImportsByInstrument,
   useLatestCalibrationsByInstrument,
 } from '#/components/v3/instruments/instruments-data'
-import type { InstrumentRow } from '#/components/v3/instruments/instruments-data'
+import type {
+  InstrumentRow,
+  IntakeMethod,
+} from '#/components/v3/instruments/instruments-data'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
 
@@ -152,10 +165,16 @@ function InstrumentsList() {
   const workspaceId = context.workspace?.id ?? ''
   const query = useInstruments()
   const calibrations = useLatestCalibrationsByInstrument()
+  const imports = useLastImportsByInstrument()
   const rows = query.data ?? []
   const role = context.workspace?.role
 
   const latest = calibrations.data ?? new Map()
+  const lastImports = imports.data ?? new Map()
+  const healthFor = (instrument: InstrumentRow) =>
+    intakeHealth(instrument.intakeMethod, {
+      lastImport: lastImports.get(instrument.id) ?? null,
+    })
   const calFor = (id: string) => calibrationState(latest.get(id)?.dueAt ?? null)
 
   const names = useUserNames(
@@ -172,7 +191,9 @@ function InstrumentsList() {
   const counts = {
     all: rows.length,
     connected: rows.filter(
-      (i) => !i.retiredAt && i.connectionStatus === 'connected',
+      (i) =>
+        !i.retiredAt &&
+        (i.intakeMethod === 'filedrop' || i.intakeMethod === 'webhook'),
     ).length,
     calibration: rows.filter((i) => {
       if (i.retiredAt) return false
@@ -186,7 +207,8 @@ function InstrumentsList() {
   const visible = rows.filter((i) => {
     if (
       tab === 'connected' &&
-      (i.retiredAt || i.connectionStatus !== 'connected')
+      (i.retiredAt ||
+        (i.intakeMethod !== 'filedrop' && i.intakeMethod !== 'webhook'))
     )
       return false
     if (tab === 'calibration') {
@@ -196,8 +218,7 @@ function InstrumentsList() {
     if (tab === 'retired' && !i.retiredAt) return false
     if (tab === 'all' && i.retiredAt) return false
     if (search.type && i.instrumentType !== search.type) return false
-    if (search.connection && i.connectionStatus !== search.connection)
-      return false
+    if (search.connection && i.intakeMethod !== search.connection) return false
     if (search.calibration && calFor(i.id).state !== search.calibration)
       return false
     if (q) {
@@ -327,9 +348,11 @@ function InstrumentsList() {
                   onChange={(e) => setParam('connection')(e.target.value)}
                 >
                   <option value="">Any</option>
-                  <option value="connected">Connected</option>
-                  <option value="disconnected">Disconnected</option>
-                  <option value="error">Error</option>
+                  {INTAKE_METHODS.map((method) => (
+                    <option key={method.value} value={method.value}>
+                      {method.title}
+                    </option>
+                  ))}
                 </Select>
               </label>
               <label className="flex items-center gap-1 text-label text-fg-muted">
@@ -356,12 +379,12 @@ function InstrumentsList() {
                 label="Instruments"
                 items={visible.map((i) => {
                   const c = calFor(i.id)
-                  const conn = instrumentConnection(i.connectionStatus)
+                  const health = healthFor(i)
                   return {
                     key: i.id,
                     id: i.displayId ?? i.id.slice(0, 8),
                     title: i.name,
-                    sub: `${conn.label} · ${i.location ?? 'No location'}`,
+                    sub: `${intakeMethodLabel(i.intakeMethod)} · ${i.location ?? 'No location'}`,
                     selected: i.id === sel?.id,
                     onSelect: () =>
                       void navigate({
@@ -374,10 +397,14 @@ function InstrumentsList() {
                         <span className="text-danger-text">
                           Calibration overdue
                         </span>
-                      ) : conn.tone === 'bad' ? (
+                      ) : health.tone === 'bad' ? (
                         <span className="inline-flex items-center gap-1.5">
                           <Dot tone="bad" />
-                          Error
+                          {health.label}
+                        </span>
+                      ) : health.tone === 'warn' ? (
+                        <span className="text-warning-text">
+                          {health.label}
                         </span>
                       ) : c.state === 'soon' ? (
                         <span className="text-warning-text">
@@ -406,7 +433,7 @@ function InstrumentsList() {
                   <TableBody>
                     {visible.map((i) => {
                       const c = calFor(i.id)
-                      const conn = instrumentConnection(i.connectionStatus)
+                      const health = healthFor(i)
                       return (
                         <TableRow
                           key={i.id}
@@ -450,11 +477,19 @@ function InstrumentsList() {
                           <TableCell>{i.location ?? '—'}</TableCell>
                           <TableCell>
                             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                              <Dot tone={conn.tone} />
-                              <span>{conn.label}</span>
-                              {i.lastConnectedAt ? (
-                                <span className="text-fg-muted">
-                                  · {i.lastConnectedAt.slice(0, 10)}
+                              <Dot tone={health.tone} />
+                              <span>{intakeMethodLabel(i.intakeMethod)}</span>
+                              {health.tone === 'bad' ||
+                              health.tone === 'warn' ? (
+                                <span
+                                  className={cn(
+                                    'text-fg-muted',
+                                    health.tone === 'bad' && 'text-danger-text',
+                                    health.tone === 'warn' &&
+                                      'text-warning-text',
+                                  )}
+                                >
+                                  · {health.label}
                                 </span>
                               ) : null}
                             </span>
@@ -545,7 +580,7 @@ function InstrumentsList() {
   )
 }
 
-function InstrumentInspector({
+export function InstrumentInspector({
   instrument,
   calibration,
   ownerLabel,
@@ -557,7 +592,37 @@ function InstrumentInspector({
   canManage: boolean
 }) {
   const queryClient = useQueryClient()
-  const conn = instrumentConnection(instrument.connectionStatus)
+  const parsers = useInstrumentParsers(instrument.id)
+  const lastImport = useInstrumentLastImport(instrument.id)
+  const booking = useInstrumentNextBooking(instrument.id)
+  const parserRows = parsers.data ?? []
+  const parserReady =
+    parserRows.length > 0 && parserRows.some((parser) => parser.validated)
+  const needsParser = intakeMethodNeedsParser(instrument.intakeMethod)
+  const parserFollowUp = needsParser && parsers.isSuccess && !parserReady
+  const health = intakeHealth(instrument.intakeMethod, {
+    parserReady: parsers.isSuccess ? parserReady : undefined,
+    lastImport: lastImport.data ?? null,
+  })
+  const lastDataAt =
+    lastImport.data?.status === 'committed' ? lastImport.data.createdAt : null
+  const nextBooking = !booking.isSuccess
+    ? '—'
+    : !booking.data.bookable
+      ? 'Not bookable'
+      : booking.data.next
+        ? `${booking.data.next.startsAt.slice(0, 16).replace('T', ' ')} · ${booking.data.next.title}`
+        : 'None'
+  const parserLabel = !needsParser
+    ? 'Not used'
+    : parserRows.length
+      ? parserRows
+          .map(
+            (parser) =>
+              `${parser.name} · ${parser.validated ? 'validated' : 'not validated'}`,
+          )
+          .join(', ')
+      : 'No parser attached'
   const retire = useMutation({
     mutationFn: (retired: boolean) =>
       setInstrumentRetired(instrument.id, retired),
@@ -568,6 +633,20 @@ function InstrumentInspector({
       toast(retired ? 'Instrument retired' : 'Instrument reinstated')
     },
     onError: () => toast('Could not change the instrument'),
+  })
+  const changeMethod = useMutation({
+    mutationFn: (method: IntakeMethod) =>
+      setInstrumentIntakeMethod(instrument.id, method),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'instruments'],
+      })
+      toast('How data gets in updated', {
+        description:
+          'Imports already committed keep the provenance they arrived with.',
+      })
+    },
+    onError: () => toast('Could not change how data gets in'),
   })
   return (
     <Inspector aria-label="Instrument details" className="w-[340px] gap-0 p-0">
@@ -614,41 +693,73 @@ function InstrumentInspector({
             Data from {instrument.name} is flagged and can’t be cited in GxP
             records until a new certificate is attached.
           </Notice>
-        ) : instrument.connectionStatus === 'error' ? (
-          <Notice tone="warn" title="Connection error.">
-            No data has arrived recently. Check the parser and imports.
+        ) : parserFollowUp ? (
+          <Notice tone="warn" title="Parser not validated.">
+            Readings from {instrument.name} can’t be imported into a GxP dataset
+            until a validated parser is attached to it.
           </Notice>
         ) : null}
         <InspectorSection title="Connection">
           <DescriptionList
             labelWidth={96}
             items={[
+              ['Method', intakeMethodLabel(instrument.intakeMethod)],
               [
                 'Health',
                 <span className="inline-flex items-center gap-1.5">
-                  <Dot tone={conn.tone} />
-                  {conn.label}
+                  <Dot tone={health.tone} />
+                  {health.label}
                 </span>,
               ],
               [
-                'Last connected',
-                instrument.lastConnectedAt
-                  ? instrument.lastConnectedAt.slice(0, 16).replace('T', ' ')
-                  : 'Not tracked yet',
+                'Last data',
+                lastDataAt
+                  ? lastDataAt.slice(0, 16).replace('T', ' ')
+                  : 'Nothing received',
               ],
+              ['Parser', parserLabel],
             ]}
           />
-          <Link
-            to="/settings/instruments"
-            className="mt-1.5 inline-block text-label"
-          >
-            Parser and imports
-          </Link>
+          {needsParser ? (
+            <Link
+              to="/settings/instruments"
+              className="mt-1.5 inline-block text-label"
+            >
+              Parser and imports
+            </Link>
+          ) : null}
+          {canManage ? (
+            <div className="mt-3 flex flex-col gap-1">
+              <span className="text-label font-medium text-fg">
+                How data gets in
+              </span>
+              <Select
+                aria-label="How data gets in"
+                className="h-[26px] text-label"
+                value={instrument.intakeMethod}
+                disabled={changeMethod.isPending}
+                onChange={(e) =>
+                  changeMethod.mutate(e.target.value as IntakeMethod)
+                }
+              >
+                {INTAKE_METHODS.map((method) => (
+                  <option key={method.value} value={method.value}>
+                    {method.title}
+                  </option>
+                ))}
+              </Select>
+              <Muted>
+                Affects future data only. Imports already committed keep the
+                parser and source provenance they arrived with.
+              </Muted>
+            </div>
+          ) : null}
         </InspectorSection>
         <InspectorSection title="Use">
           <DescriptionList
             labelWidth={96}
             items={[
+              ['Next booking', nextBooking],
               ['Location', instrument.location ?? '—'],
               ['Owner', ownerLabel],
             ]}
@@ -696,7 +807,7 @@ function InstrumentInspector({
   )
 }
 
-function RegisterInstrument({
+export function RegisterInstrument({
   types,
   workspaceId,
   ownerId,
@@ -716,6 +827,7 @@ function RegisterInstrument({
     model: '',
     serial: '',
     location: '',
+    method: 'filedrop' as IntakeMethod,
   }
   const [f, setF] = useState(empty)
 
@@ -741,6 +853,7 @@ function RegisterInstrument({
         workspaceId,
         name: f.name.trim(),
         instrumentType: f.type,
+        intakeMethod: f.method,
         model: f.model.trim() || null,
         serialNumber: f.serial.trim() || null,
         vendor: f.make.trim() || null,
@@ -755,7 +868,14 @@ function RegisterInstrument({
       setF(empty)
       setTried(false)
       toast(`${f.name.trim()} registered`, {
-        description: `Created ${row.displayId ?? 'the instrument'}.`,
+        description:
+          f.method === 'filedrop'
+            ? `Created ${row.displayId ?? 'the instrument'}. Attach a validated parser to import its files.`
+            : f.method === 'webhook'
+              ? `Created ${row.displayId ?? 'the instrument'}. Attach a validated parser before its posts can import.`
+              : f.method === 'manual'
+                ? `Created ${row.displayId ?? 'the instrument'}. Readings are typed in and carry who entered them.`
+                : `Created ${row.displayId ?? 'the instrument'}. No data will arrive until you connect it.`,
       })
     },
     onError: (e) => {
@@ -785,7 +905,11 @@ function RegisterInstrument({
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
           title="Register instrument"
-          description="It can be booked right away; its data is held until a parser is validated."
+          description={
+            intakeMethodNeedsParser(f.method)
+              ? 'It can be booked right away; its data is held until a validated parser is attached.'
+              : 'It can be booked and cited right away.'
+          }
         />
         <DialogBody>
           <Field label="Name" required error={err('name')}>
@@ -846,6 +970,26 @@ function RegisterInstrument({
               placeholder="e.g. Lab 2, bench 5"
             />
           </Field>
+          <RadioGroup
+            aria-label="How data gets in"
+            value={f.method}
+            onValueChange={(value) =>
+              setF({ ...f, method: value as IntakeMethod })
+            }
+          >
+            <span className="text-label font-medium text-fg">
+              How data gets in
+            </span>
+            {INTAKE_METHODS.map((method) => (
+              <Choice
+                key={method.value}
+                value={method.value}
+                title={method.title}
+              >
+                {method.consequence}
+              </Choice>
+            ))}
+          </RadioGroup>
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button type="button" />}>Cancel</DialogClose>

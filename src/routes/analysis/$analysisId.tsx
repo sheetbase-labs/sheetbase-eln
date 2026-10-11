@@ -16,10 +16,13 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { resolveChartDataset, materialiseLiveChart } from '#/lib/chart-data'
 import {
   analysisStudioDataClient,
-  detectStaleSources,
+  analysisStudioQueryKeys,
+  fetchAnalysisViewCitations,
+  fetchAnalysisViewSourceStatus,
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
+import { CitationList } from '#/components/viz/citation-list'
 
 /** UI port (roadmap-4/ui-app3): a saved analysis view, rebuilt from its stored
  * ChartSpec and the current source dataset. The studio at /analysis is the
@@ -65,13 +68,25 @@ function AnalysisView() {
         : null,
     [view, specCheck, datasetQuery.data],
   )
-  const stale = useMemo(
-    () =>
-      view && datasetQuery.data
-        ? detectStaleSources(view.source_revisions, [datasetQuery.data.source])
-        : null,
-    [view, datasetQuery.data],
-  )
+  // R5-STUDIO-03: the canonical staleness answer and the citation list, both
+  // from the database boundary, so this read-only view agrees with the studio.
+  const statusQuery = useQuery({
+    queryKey: analysisStudioQueryKeys.sourceStatus(analysisId),
+    queryFn: () =>
+      fetchAnalysisViewSourceStatus(analysisStudioDataClient, analysisId),
+    enabled: Boolean(view),
+    staleTime: 5_000,
+  })
+  const citationsQuery = useQuery({
+    queryKey: analysisStudioQueryKeys.citations(analysisId),
+    queryFn: () =>
+      fetchAnalysisViewCitations(analysisStudioDataClient, analysisId),
+    enabled: Boolean(view),
+    staleTime: 5_000,
+  })
+  const status = statusQuery.data ?? null
+  const movedSources =
+    status?.sources.filter((item) => item.status !== 'current') ?? []
 
   if (viewQuery.isLoading) {
     return (
@@ -133,8 +148,8 @@ function AnalysisView() {
           meta={
             <>
               <span className="text-fg">
-                <Status tone={stale ? 'warn' : 'ok'}>
-                  {stale ? 'Sources changed' : 'Up to date'}
+                <Status tone={status?.state === 'stale' ? 'warn' : 'ok'}>
+                  {status?.state === 'stale' ? 'Sources changed' : 'Up to date'}
                 </Status>
               </span>
               <span>Saved version {view.version}</span>
@@ -153,7 +168,33 @@ function AnalysisView() {
           }
         />
         <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
-          {stale ? <Notice tone="warn">{stale}</Notice> : null}
+          {movedSources.map((item) => (
+            <Notice key={item.datasetId} tone="warn">
+              {item.detail}
+            </Notice>
+          ))}
+          {statusQuery.error ? (
+            <Notice tone="warn">
+              The canonical source check could not be read:{' '}
+              {String(statusQuery.error)}
+            </Notice>
+          ) : null}
+          {status?.acknowledged ? (
+            <Notice tone="info">
+              Keeping the pinned versions — acknowledged{' '}
+              {status.acknowledged.at.slice(0, 10)} at v
+              {status.acknowledged.viewVersion}. The sources it cites are
+              unchanged.
+            </Notice>
+          ) : null}
+          {status && status.citedByCount > 0 ? (
+            <Notice tone="info">
+              {status.citedByCount} record
+              {status.citedByCount === 1 ? '' : 's'} cite this analysis, so it
+              keeps the versions it cited. Save a new analysis and cite that to
+              move on.
+            </Notice>
+          ) : null}
           {materialised ? (
             <div className="rounded-md border border-border p-3">
               <ChartRenderer
@@ -214,6 +255,13 @@ function AnalysisView() {
                 : ''}
             </Muted>
           ) : null}
+        </InspectorSection>
+        <InspectorSection title="Cited by">
+          <CitationList
+            citations={citationsQuery.data ?? []}
+            loading={citationsQuery.isLoading}
+            error={citationsQuery.error ? String(citationsQuery.error) : null}
+          />
         </InspectorSection>
         <InspectorSection title="Reproducibility">
           <Muted>

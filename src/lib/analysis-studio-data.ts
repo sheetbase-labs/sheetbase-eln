@@ -54,6 +54,8 @@ export const analysisStudioQueryKeys = {
   views: ['analysis-views'] as const,
   datasets: ['analysis-datasets'] as const,
   view: (id: string) => ['analysis-view', id] as const,
+  sourceStatus: (id: string) => ['analysis-view', id, 'source-status'] as const,
+  citations: (id: string) => ['analysis-view', id, 'citations'] as const,
 }
 
 // --- Source revision capture ---------------------------------------------
@@ -112,7 +114,126 @@ export function detectStaleSources(
   return null
 }
 
-// --- Saved view wire + persistence ---------------------------------------
+// --- Stale-source status, resolution and citations (R5-STUDIO-03) ---------
+//
+// The canonical comparison lives in the database
+// (`api.analysis_view_source_status`), because "newer" is defined against the
+// frozen-source contract rather than against whatever a browser session happened
+// to load: a source is stale when its live schema version number or dataset
+// revision differs from the pinned pair, and removed when the dataset no longer
+// resolves in the workspace. `detectStaleSources` above stays for callers that
+// hold both sides in memory (the read-only route); the studio resolves through
+// the RPC so the resolution is recorded server-side.
+
+export type AnalysisSourceStatus = 'current' | 'stale' | 'removed'
+
+export interface AnalysisSourceState {
+  datasetId: string
+  datasetName: string
+  displayId: string | null
+  pinned: { schemaVersionNumber: number; revision: number }
+  live: { schemaVersionNumber: number; revision: number } | null
+  status: AnalysisSourceStatus
+  detail: string
+}
+
+export interface AnalysisViewSourceStatus {
+  viewId: string
+  displayId: string | null
+  name: string
+  version: number
+  state: 'current' | 'stale'
+  staleCount: number
+  removedCount: number
+  sources: AnalysisSourceState[]
+  /** Records that cite the view through the existing citation records. */
+  citedByCount: number
+  /** Citing records that are locked (an approve-for-record signature). */
+  citedByLockedCount: number
+  /** The last explicit `keep` that still applies to the pinned revisions. */
+  acknowledged: {
+    at: string
+    actorUserId: string
+    viewVersion: number
+    revisions: SourceRevision[]
+  } | null
+}
+
+export interface AnalysisViewCitation {
+  linkId: string
+  sourceRecordId: string
+  identifier: string
+  title: string
+  recordStatus: string
+  linkedAt: string
+  locked: boolean
+  lockedAt: string | null
+  signed: boolean
+  signedAt: string | null
+  signerUserId: string | null
+}
+
+export type AnalysisSourceResolution = 'keep' | 'update'
+
+export interface ResolveAnalysisViewSourcesInput {
+  viewId: string
+  /** The version the caller read; the server refuses a stale expectation. */
+  expectedVersion: number
+  resolution: AnalysisSourceResolution
+  /** Optional note recorded with the decision in the history path. */
+  justification?: string | null
+}
+
+export interface ResolveAnalysisViewSourcesResult {
+  resolution: AnalysisSourceResolution
+  state: 'current' | 'stale'
+  acknowledged: boolean
+  version: number
+  revisions: SourceRevision[]
+}
+
+/**
+ * The canonical staleness answer for one saved view: per-source status,
+ * whether the view is cited, and the last recorded `keep`.
+ */
+export async function fetchAnalysisViewSourceStatus(
+  client: DataClient,
+  viewId: string,
+): Promise<AnalysisViewSourceStatus> {
+  return client.rpc<AnalysisViewSourceStatus>('analysis_view_source_status', {
+    p_view_id: viewId,
+  })
+}
+
+/** The records citing this view, with their signed/locked state. */
+export async function fetchAnalysisViewCitations(
+  client: DataClient,
+  viewId: string,
+): Promise<AnalysisViewCitation[]> {
+  return client.rpc<AnalysisViewCitation[]>('analysis_view_citations', {
+    p_view_id: viewId,
+  })
+}
+
+/**
+ * Resolve a stale source deliberately. `keep` leaves the pins untouched and
+ * records the decision; `update` re-pins to the live version and is refused for
+ * a view cited by a record (a cited analysis keeps the sources it cited).
+ */
+export async function resolveAnalysisViewSources(
+  client: DataClient,
+  input: ResolveAnalysisViewSourcesInput,
+): Promise<ResolveAnalysisViewSourcesResult> {
+  return client.rpc<ResolveAnalysisViewSourcesResult>(
+    'resolve_analysis_view_sources',
+    {
+      p_view_id: input.viewId,
+      p_expected_version: input.expectedVersion,
+      p_resolution: input.resolution,
+      p_justification: input.justification ?? null,
+    },
+  )
+}
 
 export interface AnalysisViewWire {
   id: string

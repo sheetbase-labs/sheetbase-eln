@@ -86,18 +86,25 @@ import {
   exportChartSvg,
   exportDataCsv,
   exportViewJson,
+  fetchAnalysisViewCitations,
+  fetchAnalysisViewSourceStatus,
   fetchAnalysisViews,
   fetchDatasetSummaries,
   materialiseAnalysisChart,
   materialiseAnalysisFacets,
+  resolveAnalysisViewSources,
   saveAnalysisView,
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type {
+  AnalysisSourceResolution,
+  AnalysisViewCitation,
+  AnalysisViewSourceStatus,
   AnalysisViewWire,
   FacetedResult,
   ExportSettings,
 } from '#/lib/analysis-studio-data'
+import { CitationList } from '#/components/viz/citation-list'
 import { buildDefaultChartSpec } from '#/lib/dataset-explorer-data'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
 import { buildDefaultComparativeViewConfig } from '#/lib/comparative-view'
@@ -324,6 +331,64 @@ function AnalysisStudio() {
     }
   }
 
+  // R5-STUDIO-03: staleness and citations are answered by the canonical
+  // boundary, not re-derived in the browser, so the resolution the user
+  // chooses is the one the database records.
+  const sourceStatusQuery = useQuery({
+    queryKey: selectedViewId
+      ? analysisStudioQueryKeys.sourceStatus(selectedViewId)
+      : ['analysis-view', 'none', 'source-status'],
+    queryFn: () =>
+      fetchAnalysisViewSourceStatus(analysisStudioDataClient, selectedViewId!),
+    enabled: Boolean(selectedViewId),
+    staleTime: 5_000,
+  })
+  const citationsQuery = useQuery({
+    queryKey: selectedViewId
+      ? analysisStudioQueryKeys.citations(selectedViewId)
+      : ['analysis-view', 'none', 'citations'],
+    queryFn: () =>
+      fetchAnalysisViewCitations(analysisStudioDataClient, selectedViewId!),
+    enabled: Boolean(selectedViewId),
+    staleTime: 5_000,
+  })
+  const resolveMutation = useMutation({
+    mutationFn: (resolution: AnalysisSourceResolution) =>
+      resolveAnalysisViewSources(analysisStudioDataClient, {
+        viewId: selectedViewId as string,
+        expectedVersion: sourceStatusQuery.data?.version ?? 0,
+        resolution,
+      }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+      if (selectedViewId) {
+        queryClient.invalidateQueries({
+          queryKey: analysisStudioQueryKeys.sourceStatus(selectedViewId),
+        })
+        queryClient.invalidateQueries({
+          queryKey: analysisStudioQueryKeys.citations(selectedViewId),
+        })
+      }
+      toast(
+        result.resolution === 'keep'
+          ? 'Keeping the pinned versions'
+          : `Updated to the current versions (v${result.version})`,
+        {
+          description:
+            result.resolution === 'keep'
+              ? 'The decision is recorded against this analysis; the sources it pins are unchanged.'
+              : 'The view was re-pinned to the live schema version and dataset revision.',
+        },
+      )
+    },
+    onError: (error) => {
+      toast('Could not resolve the stale source', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      })
+    },
+  })
+
   // UI port (roadmap-4/ui-app3): the studio renders inside app-3's shell, so
   // the legacy shell wrapper is replaced by a content column with the chart
   // settings inspector beside it.
@@ -348,6 +413,12 @@ function AnalysisStudio() {
         workspaceId={workspaceId}
         materialised={analysisMaterialised}
         selection={chartSelection}
+        citations={citationsQuery.data ?? []}
+        citationsLoading={citationsQuery.isLoading}
+        citationsError={
+          citationsQuery.error ? String(citationsQuery.error) : null
+        }
+        sourceStatus={sourceStatusQuery.data ?? null}
       />
     ) : undefined
 
@@ -486,6 +557,14 @@ function AnalysisStudio() {
                 }
                 selection={chartSelection}
                 onSelectionChange={setChartSelection}
+                sourceStatus={sourceStatusQuery.data ?? null}
+                sourceStatusError={
+                  sourceStatusQuery.error
+                    ? String(sourceStatusQuery.error)
+                    : null
+                }
+                resolving={resolveMutation.isPending}
+                onResolve={(resolution) => resolveMutation.mutate(resolution)}
               />
             </div>
           </div>
@@ -705,6 +784,10 @@ function AnalysisInspector({
   workspaceId,
   materialised,
   selection,
+  citations,
+  citationsLoading,
+  citationsError,
+  sourceStatus,
 }: {
   source: CanonicalDatasetSource
   spec: ChartSpec
@@ -724,6 +807,10 @@ function AnalysisInspector({
   workspaceId: string
   materialised: ReturnType<typeof materialiseLiveChart>
   selection: ChartSelection | null
+  citations: AnalysisViewCitation[]
+  citationsLoading: boolean
+  citationsError: string | null
+  sourceStatus: AnalysisViewSourceStatus | null
 }) {
   function setScale(axis: 'x' | 'y', scale: AxisScale) {
     onSpecChange({
@@ -800,6 +887,38 @@ function AnalysisInspector({
               saving={saving}
               canSave={Boolean(viewName.trim())}
             />
+          ),
+        },
+        {
+          id: 'citations',
+          label: 'Cited by',
+          badge: citations.length > 0 ? citations.length : undefined,
+          content: (
+            <InspectorSectionStack>
+              <InspectorSection title="Records citing this analysis">
+                <CitationList
+                  citations={citations}
+                  loading={citationsLoading}
+                  error={citationsError}
+                  emptyBody={
+                    selectedViewId
+                      ? 'No record cites this analysis yet.'
+                      : 'Load or save an analysis to see what cites it.'
+                  }
+                />
+              </InspectorSection>
+              <InspectorSection title="What a citation means">
+                <p className="text-label text-fg-muted">
+                  {sourceStatus && sourceStatus.citedByCount > 0
+                    ? `${sourceStatus.citedByCount} record${
+                        sourceStatus.citedByCount === 1 ? '' : 's'
+                      } cite this analysis (${
+                        sourceStatus.citedByLockedCount
+                      } locked). A cited analysis keeps the sources it cited, so its pinned versions cannot be updated in place — save a new analysis and cite that instead.`
+                    : 'A cited analysis keeps the sources it cited. Citations are record links, so a locked or signed record’s evidence is never rewritten by a later change here.'}
+                </p>
+              </InspectorSection>
+            </InspectorSectionStack>
           ),
         },
         {
@@ -1321,6 +1440,11 @@ interface AnalysisPreviewProps {
   facets: FacetedResult | null
   selection: ChartSelection | null
   onSelectionChange: (selection: ChartSelection | null) => void
+  /** Canonical staleness answer for the loaded view (R5-STUDIO-03). */
+  sourceStatus: AnalysisViewSourceStatus | null
+  sourceStatusError: string | null
+  resolving: boolean
+  onResolve: (resolution: AnalysisSourceResolution) => void
 }
 
 export function AnalysisPreview({
@@ -1334,6 +1458,10 @@ export function AnalysisPreview({
   facets,
   selection,
   onSelectionChange,
+  sourceStatus,
+  sourceStatusError,
+  resolving,
+  onResolve,
 }: AnalysisPreviewProps) {
   const [dataPreviewOpen, setDataPreviewOpen] = useState(false)
   const validation = useMemo(
@@ -1341,13 +1469,31 @@ export function AnalysisPreview({
     [spec, datasetQuery.data],
   )
 
-  // Stale-source detection against the saved view's stored revisions.
-  const staleDetail = useMemo(() => {
+  // Local mirror of the canonical comparison, used only until the status read
+  // arrives (or when it fails); the resolution actions need the server answer.
+  const localStaleDetail = useMemo(() => {
     if (!selectedViewId) return null
     const view = views.find((v) => v.id === selectedViewId)
     if (!view) return null
     return detectStaleSources(view.source_revisions, sources)
   }, [selectedViewId, views, sources])
+
+  const movedSources =
+    sourceStatus?.sources.filter((item) => item.status !== 'current') ?? []
+  // `.at(0)` (not `[0]`) so the type admits the empty list: nothing has moved
+  // whenever the status says the sources are current.
+  const firstMoved = movedSources.at(0)
+  const staleDetail = sourceStatus
+    ? (firstMoved?.detail ?? null)
+    : localStaleDetail
+  const liveTarget = movedSources.find(
+    (item) => item.status === 'stale' && item.live,
+  )
+  const canUpdate =
+    sourceStatus !== null &&
+    sourceStatus.state === 'stale' &&
+    sourceStatus.removedCount === 0 &&
+    sourceStatus.citedByCount === 0
 
   const resultRowCount = datasetQuery.data?.rows.length ?? 0
   const excessiveSize = resultRowCount > ANALYSIS_MAX_RESULT_ROWS
@@ -1443,7 +1589,7 @@ export function AnalysisPreview({
         {staleDetail ? (
           <div
             role="status"
-            className="mx-4 mb-2 flex items-start gap-2 rounded-md border border-warning-border bg-warning-wash p-3 text-xs"
+            className="mx-4 mb-2 flex flex-wrap items-start gap-2 rounded-md border border-warning-border bg-warning-wash p-3 text-xs"
           >
             <Icon
               name="warn"
@@ -1451,7 +1597,77 @@ export function AnalysisPreview({
               className="mt-0.5 text-warning-text"
               aria-hidden="true"
             />
-            <span>{staleDetail}</span>
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <p>{staleDetail}</p>
+              {movedSources.slice(1).map((item) => (
+                <p key={item.datasetId} className="text-fg-muted">
+                  {item.detail}
+                </p>
+              ))}
+              {sourceStatus?.acknowledged ? (
+                <p className="text-fg-muted">
+                  Keeping the pinned versions — acknowledged{' '}
+                  {sourceStatus.acknowledged.at.slice(0, 10)} at v
+                  {sourceStatus.acknowledged.viewVersion}.
+                </p>
+              ) : null}
+              {sourceStatus && sourceStatus.citedByCount > 0 ? (
+                <p className="text-fg-muted">
+                  {sourceStatus.citedByCount} record
+                  {sourceStatus.citedByCount === 1 ? '' : 's'} cite this
+                  analysis, so it keeps the versions it cited. Save a new
+                  analysis and cite that to move on.
+                </p>
+              ) : null}
+              {sourceStatus && sourceStatus.removedCount > 0 ? (
+                <p className="text-fg-muted">
+                  A source dataset is no longer available; keep the pinned
+                  version or re-author the analysis.
+                </p>
+              ) : null}
+              {sourceStatusError ? (
+                <p className="text-fg-muted">
+                  The canonical source check could not be read (
+                  {sourceStatusError}); the resolution actions are unavailable.
+                </p>
+              ) : null}
+            </div>
+            {selectedViewId && sourceStatus ? (
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={resolving}
+                  onClick={() => onResolve('keep')}
+                >
+                  {firstMoved
+                    ? `Keep r${firstMoved.pinned.revision}`
+                    : 'Keep pinned'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="primary"
+                  disabled={resolving || !canUpdate}
+                  aria-describedby="stale-update-reason"
+                  onClick={() => onResolve('update')}
+                >
+                  {liveTarget
+                    ? `Update to r${liveTarget.live?.revision}`
+                    : 'Update to current'}
+                </Button>
+                {!canUpdate ? (
+                  <span
+                    id="stale-update-reason"
+                    className="max-w-[14rem] text-fg-muted"
+                  >
+                    Updating in place is unavailable while the source is removed
+                    or the analysis is cited.
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
         {excessiveSize ? (

@@ -146,6 +146,9 @@ function RootRouteComponent() {
   // are deleted.
   const v3RouteIds = [
     '/',
+    // R5-SURF-03: the unmatched-URL catch-all renders the product's not-found
+    // screen inside the v3 shell.
+    '/$',
     '/inbox',
     '/review/$revisionId',
     '/evidence/$revisionId',

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as ClientPortalRouteImport } from './routes/client-portal'
 import { Route as DatasetsRouteImport } from './routes/datasets'
@@ -156,6 +157,11 @@ import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/exp
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalysisRoute = AnalysisRouteImport.update({
@@ -902,6 +908,7 @@ const ApiExportRevisionIdPackageRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/datasets': typeof DatasetsRouteWithChildren
@@ -1047,6 +1054,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/client-portal': typeof ClientPortalRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
@@ -1181,6 +1189,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/datasets': typeof DatasetsRouteWithChildren
@@ -1328,6 +1337,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$'
     | '/analysis'
     | '/client-portal'
     | '/datasets'
@@ -1473,6 +1483,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$'
     | '/client-portal'
     | '/datasets'
     | '/experiments'
@@ -1606,6 +1617,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/$'
     | '/analysis'
     | '/client-portal'
     | '/datasets'
@@ -1752,6 +1764,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
   AnalysisRoute: typeof AnalysisRouteWithChildren
   ClientPortalRoute: typeof ClientPortalRoute
   DatasetsRoute: typeof DatasetsRouteWithChildren
@@ -1824,6 +1837,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analysis': {
@@ -3202,6 +3222,7 @@ const ApiExportRecordIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
   AnalysisRoute: AnalysisRouteWithChildren,
   ClientPortalRoute: ClientPortalRoute,
   DatasetsRoute: DatasetsRouteWithChildren,
@@ -3270,13 +3291,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -7,7 +7,11 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { validateAnalysisBlockPayload } from './analysis-block'
+import {
+  frozenAnalysisMethodMismatch,
+  frozenAnalysisMethodVersion,
+  validateAnalysisBlockPayload,
+} from './analysis-block'
 import type { AnalysisBlockPayload, FrozenAnalysis } from './analysis-block'
 import type { AnalysisDefinition } from './analysis-definition'
 import { runAnalysis } from './analysis-definition'
@@ -162,6 +166,100 @@ describe('validateAnalysisBlockPayload', () => {
     expect(errors).toContainEqual(
       expect.objectContaining({ field: 'frozen.datasetProvenance' }),
     )
+  })
+})
+
+describe('recorded method version (R5-STUDIO-01)', () => {
+  const columns = (snapshot: FrozenAnalysis): ChartColumn[] =>
+    snapshot.columns.map((column) => ({
+      id: column.fieldId,
+      label: column.label,
+      logicalType: column.logicalType,
+    }))
+
+  it('accepts a positive integer method version and rejects anything else', () => {
+    expect(
+      validateAnalysisBlockPayload({
+        ...completePayload(),
+        frozen: { ...frozen(), methodVersion: 1 },
+      }),
+    ).toEqual([])
+    for (const methodVersion of [0, 1.5, '1', null]) {
+      expect(
+        validateAnalysisBlockPayload({
+          ...completePayload(),
+          frozen: { ...frozen(), methodVersion },
+        }),
+      ).toContainEqual(
+        expect.objectContaining({ field: 'frozen.methodVersion' }),
+      )
+    }
+    // Absent is still valid: payloads frozen before method recording.
+    expect(
+      validateAnalysisBlockPayload({
+        ...completePayload(),
+        frozen: frozen(),
+      }),
+    ).toEqual([])
+  })
+
+  it('reads the recorded version and reports a mismatch, never a guess', () => {
+    const snapshot = { ...frozen(), methodVersion: 1 }
+    expect(frozenAnalysisMethodVersion(snapshot)).toBe(1)
+    expect(frozenAnalysisMethodMismatch(snapshot, 1)).toBeNull()
+    expect(frozenAnalysisMethodMismatch(snapshot, 2)).toEqual({
+      recorded: 1,
+      current: 2,
+    })
+    // A legacy payload records nothing, so nothing is claimed about it.
+    expect(frozenAnalysisMethodVersion(frozen())).toBeNull()
+    expect(frozenAnalysisMethodMismatch(frozen(), 2)).toBeNull()
+  })
+
+  it('keeps its method when the live definition and source have changed', () => {
+    const snapshot: FrozenAnalysis = { ...frozen(), methodVersion: 1 }
+    // The pinned Version rows — the evidence the citation holds.
+    const pinnedRows = [
+      { [FIELD_TIME]: 0, [FIELD_RECOVERY]: 1 },
+      { [FIELD_TIME]: 24, [FIELD_RECOVERY]: 3 },
+      { [FIELD_TIME]: 48, [FIELD_RECOVERY]: 5 },
+    ]
+    const frozenRun = runAnalysis(
+      snapshot.definition,
+      columns(snapshot),
+      pinnedRows,
+    )
+    if (!frozenRun.ok || frozenRun.result.kind !== 'regression')
+      throw new Error('expected a regression result')
+    expect(frozenRun.result.method.id).toBe('linear_model')
+    expect(frozenRun.result.method.version).toBe(1)
+    expect(frozenRun.result.rows[0].terms.map((term) => term.term)).toEqual([
+      'Intercept',
+      'x',
+    ])
+
+    // The source has since changed: the saved definition now describes a
+    // different model and the dataset holds different rows. Neither touches
+    // what the frozen evidence reconstructs.
+    const liveDefinition: AnalysisDefinition = {
+      definitionVersion: 1,
+      kind: 'descriptive',
+      datasets: [{ datasetId: DATASET_ID }],
+      value: { fieldId: FIELD_RECOVERY },
+    }
+    const liveRun = runAnalysis(liveDefinition, columns(snapshot), [
+      { [FIELD_RECOVERY]: 100 },
+      { [FIELD_RECOVERY]: 200 },
+    ])
+    if (!liveRun.ok || liveRun.result.kind !== 'descriptive')
+      throw new Error('expected a descriptive result')
+    expect(liveRun.result.method.id).toBe('descriptive')
+
+    // Reconstructing again is identical: the cited method and its numbers
+    // survive the live change byte for byte.
+    expect(
+      runAnalysis(snapshot.definition, columns(snapshot), pinnedRows),
+    ).toEqual(frozenRun)
   })
 })
 

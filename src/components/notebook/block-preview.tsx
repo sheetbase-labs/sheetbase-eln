@@ -55,6 +55,10 @@ import { runAnalysis } from '#/lib/analysis-definition'
 import type { AnalysisDefinition } from '#/lib/analysis-definition'
 import type { AnalysisBlockPayload, FrozenAnalysis } from '#/lib/analysis-block'
 import {
+  frozenAnalysisMethodMismatch,
+  frozenAnalysisMethodVersion,
+} from '#/lib/analysis-block'
+import {
   analysisDefinitionQueryKeys,
   fetchAnalysisDefinition,
 } from '#/lib/analysis-definitions-data'
@@ -1766,8 +1770,12 @@ function FrozenAnalysisPreview({
     label: c.label,
     logicalType: c.logicalType,
   }))
+  // R5-STUDIO-01: a snapshot that recorded a method version this build cannot
+  // reproduce is reported, never silently re-executed under the current method.
+  const methodMismatch = frozenAnalysisMethodMismatch(frozen)
+  const recordedMethodVersion = frozenAnalysisMethodVersion(frozen)
   const executed =
-    rowsQuery.data && rowsQuery.data.matchesProvenance
+    !methodMismatch && rowsQuery.data && rowsQuery.data.matchesProvenance
       ? runAnalysis(frozen.definition, columns, rowsQuery.data.rows)
       : null
 
@@ -1809,8 +1817,23 @@ function FrozenAnalysisPreview({
           Evidence mismatch: the Dataset Version row count does not match the
           pinned provenance ({rowsQuery.data.totalCount} ≠ {pin.rowCount}).
         </EvidenceAlert>
+      ) : methodMismatch ? (
+        <EvidenceAlert>
+          Method mismatch: this snapshot records analysis method v
+          {methodMismatch.recorded}, and this build computes method v
+          {methodMismatch.current}. The pinned numbers are withheld because they
+          cannot honestly be presented as the cited method&apos;s results.
+        </EvidenceAlert>
       ) : executed && executed.ok ? (
-        <AnalysisResultTable result={executed.result} />
+        <>
+          <AnalysisResultTable result={executed.result} />
+          {recordedMethodVersion === null ? (
+            <p className="text-xs text-fg-muted">
+              This snapshot predates method recording, so the method version it
+              ran is not recorded.
+            </p>
+          ) : null}
+        </>
       ) : executed ? (
         <EvidenceAlert>
           The pinned inputs no longer execute: {executed.error.code}.

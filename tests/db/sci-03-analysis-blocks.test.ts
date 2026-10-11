@@ -10,6 +10,7 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { prepareTestDatabase, ensureSessions } from './helpers'
+import { ANALYSIS_METHOD_VERSION } from '#/lib/analysis-definition'
 
 const WS_A = crypto.randomUUID()
 const PROJECT_A = crypto.randomUUID()
@@ -281,6 +282,11 @@ describe('SCI-03 analysis blocks', () => {
     expect(prov.schemaVersionNumber).toBe(1)
     expect(prov.rowCount).toBe(3)
     expect(prov.checksum).toMatch(/^[0-9a-f]{32}$/)
+
+    // R5-STUDIO-01: the freeze records the analysis-method definition version
+    // it was computed under, so a citation names the method it ran. The value
+    // is mirrored by ANALYSIS_METHOD_VERSION in the kernel.
+    expect(frozen.methodVersion).toBe(ANALYSIS_METHOD_VERSION)
 
     const counts = await migrator.query(
       `SELECT

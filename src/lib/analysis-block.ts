@@ -15,7 +15,10 @@
  * payload — only the SECURITY DEFINER freeze/unfreeze RPCs may write one.
  */
 
-import { validateAnalysisDefinition } from './analysis-definition'
+import {
+  ANALYSIS_METHOD_VERSION,
+  validateAnalysisDefinition,
+} from './analysis-definition'
 import type { AnalysisDefinition } from './analysis-definition'
 
 /** Column metadata captured at freeze time so frozen blocks can render
@@ -50,8 +53,44 @@ export interface FrozenAnalysis {
   definition: AnalysisDefinition
   definitionName: string | null
   definitionVersion: number
+  /**
+   * R5-STUDIO-01: the analysis-method definition version this freeze was
+   * computed under. Written by `freeze_analysis_block` (migration 0426) and
+   * mirrored by `ANALYSIS_METHOD_VERSION`; reconstruction refuses to present
+   * numbers under a different method version. Absent on payloads frozen
+   * before the method was recorded — those report the method as unrecorded
+   * rather than assuming the current kernel still reproduces them.
+   */
+  methodVersion?: number
   columns: FrozenAnalysisColumn[]
   datasetProvenance: FrozenDatasetProvenance[]
+}
+
+/** The recorded method version, or null when the payload predates recording. */
+export function frozenAnalysisMethodVersion(
+  frozen: FrozenAnalysis,
+): number | null {
+  const recorded = frozen.methodVersion
+  return typeof recorded === 'number' &&
+    Number.isInteger(recorded) &&
+    recorded > 0
+    ? recorded
+    : null
+}
+
+/**
+ * A recorded method version this build cannot reproduce, or null when it can
+ * (or when none was recorded). The frozen definition still names the model;
+ * the numbers are withheld because they would be produced under a different
+ * method definition than the citation recorded.
+ */
+export function frozenAnalysisMethodMismatch(
+  frozen: FrozenAnalysis,
+  currentMethodVersion: number = ANALYSIS_METHOD_VERSION,
+): { recorded: number; current: number } | null {
+  const recorded = frozenAnalysisMethodVersion(frozen)
+  if (recorded === null || recorded === currentMethodVersion) return null
+  return { recorded, current: currentMethodVersion }
 }
 
 export interface AnalysisBlockPayload {
@@ -165,6 +204,17 @@ export function validateAnalysisBlockPayload(
           field: 'frozen.datasetProvenance',
           message:
             'frozen.datasetProvenance must pin exactly one Dataset Version with rowCount and checksum',
+        })
+      if (
+        f.methodVersion !== undefined &&
+        (typeof f.methodVersion !== 'number' ||
+          !Number.isInteger(f.methodVersion) ||
+          f.methodVersion < 1)
+      )
+        errors.push({
+          field: 'frozen.methodVersion',
+          message:
+            'frozen.methodVersion must be a positive integer when present',
         })
       // A frozen payload carries evidence references only; embedded source
       // rows are never accepted.

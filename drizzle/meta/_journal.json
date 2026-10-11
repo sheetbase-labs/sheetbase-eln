@@ -2981,6 +2981,13 @@
       "when": 1791756004000,
       "tag": "0427_notebook_signature_action_blocks",
       "breakpoints": true
+    },
+    {
+      "idx": 428,
+      "version": "7",
+      "when": 1791756005000,
+      "tag": "0428_analysis_method_version",
+      "breakpoints": true
     }
   ]
 }

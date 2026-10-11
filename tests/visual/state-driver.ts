@@ -328,12 +328,12 @@ export async function visitDesignState(
   if (spec.kind !== 'scenario' && spec.kind !== 'signed-out') {
     await page.clock.install({ time: DESIGN_CLOCK })
   }
-  // The appearance setting persists in localStorage; force the screen's theme
-  // so the comparison is not decided by the seeded user's preference.
+  // R5-SHELL-02: the appearance setting lives in the `sb-theme` cookie (so the
+  // server renders it first paint). Force the screen's theme so the comparison
+  // is not decided by the seeded user's preference.
   await page.addInitScript((theme) => {
     try {
-      window.localStorage.setItem('sheetbase-theme', theme)
-      window.localStorage.setItem('sheetbase.theme', theme)
+      document.cookie = `sb-theme=${theme}; path=/`
     } catch {
       /* ignore */
     }

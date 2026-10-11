@@ -168,7 +168,7 @@ for (const theme of ['light', 'dark']) {
     const { instance, record } = await fixture(page)
     await actor.query('select api.set_user_appearance($1)', [theme])
     await page.addInitScript(
-      (value) => localStorage.setItem('sheetbase-theme', value),
+      (value) => (document.cookie = `sb-theme=${value}; path=/`),
       theme,
     )
     await page.goto(`/sheets/${instance}?projectId=${project}`)

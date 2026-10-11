@@ -12,6 +12,7 @@ export function getRouter() {
     shellCounts: {},
     shellPinned: [],
     shellNotifications: [],
+    themePref: 'system' as const,
   }
 
   const router = createTanStackRouter({

@@ -8,6 +8,7 @@ import type { Appearance } from '#/lib/user-preferences'
 import {
   applyThemePref,
   initTheme,
+  readStoredThemePref,
   useTheme as useThemeStore,
 } from '#/components/v3/lib/theme'
 
@@ -46,9 +47,15 @@ export function ThemeProvider({
     initTheme()
   }, [])
 
-  // Adopt the server value once when it differs from the local cache.
+  // Adopt the server value once, and only on a device that has not chosen for
+  // itself. The interface's appearance is a per-device choice (`sb-theme`), so
+  // a server default must never silently overwrite what this device stored.
   React.useEffect(() => {
     if (!authenticated || !client || adopted.current) return
+    if (readStoredThemePref() !== null) {
+      adopted.current = true
+      return
+    }
     let cancelled = false
     void fetchUserPreferences(client)
       .then((preferences) => {

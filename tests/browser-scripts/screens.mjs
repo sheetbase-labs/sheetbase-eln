@@ -212,9 +212,7 @@ function routes(ids) {
       `/models/${ids.recordModel}/usage`,
     )
     if (ids.recordModelRecord)
-      list.push(
-        `/models/${ids.recordModel}/records/${ids.recordModelRecord}`,
-      )
+      list.push(`/models/${ids.recordModel}/records/${ids.recordModelRecord}`)
   }
   if (ids.pipeline)
     list.push(
@@ -253,7 +251,7 @@ for (const width of widths) {
   if (dark) {
     await context.addInitScript(() => {
       try {
-        localStorage.setItem('sheetbase-theme', 'dark')
+        document.cookie = 'sb-theme=dark; path=/'
       } catch {
         /* storage unavailable */
       }

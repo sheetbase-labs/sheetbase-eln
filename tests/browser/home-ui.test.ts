@@ -83,7 +83,7 @@ for (const theme of ['light', 'dark'] as const) {
       throw new Error('Home appearance fixture unavailable')
     await appearanceClient.query('select api.set_user_appearance($1)', [theme])
     await page.addInitScript((value) => {
-      localStorage.setItem('sheetbase-theme', value)
+      document.cookie = `sb-theme=${value}; path=/`
     }, theme)
     await page.goto('/')
     const summary = page.getByRole('navigation', { name: 'Summary' })
@@ -278,7 +278,7 @@ for (const theme of ['light', 'dark'] as const) {
       throw new Error('Home appearance fixture unavailable')
     await appearanceClient.query('select api.set_user_appearance($1)', [theme])
     await page.addInitScript((value) => {
-      localStorage.setItem('sheetbase-theme', value)
+      document.cookie = `sb-theme=${value}; path=/`
     }, theme)
     for (const resource of [
       'recently_viewed?**',

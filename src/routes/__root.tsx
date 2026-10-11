@@ -26,6 +26,8 @@ import type { CurrentContext } from '#/lib/current-user'
 import type { ShellCounts } from '#/lib/shell-counts.server'
 import type { ShellPinned } from '#/lib/shell-chrome.server'
 import type { Notification } from '#/components/v3/types'
+import { parseThemeCookie, themeScript } from '#/lib/theme-cookie'
+import type { ThemePref } from '#/lib/theme-cookie'
 
 interface RouterContext {
   queryClient: QueryClient
@@ -33,6 +35,7 @@ interface RouterContext {
   shellCounts: ShellCounts
   shellPinned: ShellPinned[]
   shellNotifications: Notification[]
+  themePref: ThemePref
 }
 
 // Fetch auth context once at the root so every child route can read it
@@ -42,10 +45,15 @@ interface RouterContext {
 // in the client bundle.
 const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const { getRequestHeaders } = await import('@tanstack/react-start/server')
+  const headers = getRequestHeaders()
+  // R5-SHELL-02: the appearance preference is a cookie the server can read, so
+  // the root document renders the person's theme on the first paint. An absent
+  // or unknown cookie resolves to System, never to a stored default.
+  const themePref = parseThemeCookie(headers.get('cookie')) ?? 'system'
   const { getCurrentContext } = await import('#/lib/current-user')
-  const context = await getCurrentContext(getRequestHeaders())
+  const context = await getCurrentContext(headers)
   if (!context?.workspace)
-    return { context, counts: {}, pinned: [], notifications: [] }
+    return { context, counts: {}, pinned: [], notifications: [], themePref }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
   const { getShellPinned, getShellNotifications } =
     await import('#/lib/shell-chrome.server')
@@ -54,7 +62,7 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
     getShellPinned(context.workspace.id, context.user.id),
     getShellNotifications(context.workspace.id, context.user.id),
   ])
-  return { context, counts, pinned, notifications }
+  return { context, counts, pinned, notifications, themePref }
 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -95,12 +103,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       counts: shellCounts,
       pinned,
       notifications,
+      themePref,
     } = await getAuthContextFn()
     return {
       auth,
       shellCounts,
       shellPinned: pinned,
       shellNotifications: notifications,
+      themePref,
     }
   },
 })
@@ -327,16 +337,25 @@ function initialsOf(name: string): string {
  * Inline no-flash script: applies the saved theme to <html> before the React
  * tree hydrates, so there is no flash of the wrong theme on reload. Runs
  * synchronously in <head>. Production CSP allowlists inline scripts by
- * per-request nonce (see docs/operations/security-headers.md).
+ * per-request nonce (see docs/operations/security-headers.md); the development
+ * policy keeps 'unsafe-inline'.
  */
-const themeNoFlash = `(function(){try{var t=localStorage.getItem('sheetbase-theme')||'light';var dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(dark)document.documentElement.classList.add('dark');}catch(e){}})();`
-
 function RootDocument({ children }: { children: React.ReactNode }) {
+  // R5-SHELL-02: the server read the `sb-theme` cookie, so the first paint
+  // already carries the person's choice. `system` cannot be resolved on the
+  // server (the device setting is not sent), so it is left unclassed here and
+  // the inline script fills it in before paint.
+  const { themePref } = Route.useRouteContext()
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={themePref === 'dark' ? 'dark' : undefined}
+      data-theme-pref={themePref}
+      suppressHydrationWarning
+    >
       <head>
         <HeadContent />
-        <script dangerouslySetInnerHTML={{ __html: themeNoFlash }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
         {children}

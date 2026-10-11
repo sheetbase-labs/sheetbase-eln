@@ -175,7 +175,7 @@ For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development
 ## Project conventions
 
 - **TypeScript paths:** `#/` maps to `src/`.
-- **Routing:** TanStack Router with committed generated route tree; run `pnpm generate-routes` after route-file changes.
+- **Routing:** TanStack Router with committed generated route tree; run `pnpm generate-routes` after route-file changes. It wraps `tsr generate` and re-adds the SSR registration block that the raw generator strips, so commit its output rather than `tsr generate`'s.
 - **API boundary:** browser data goes through the same-origin `/api/db/*` proxy, never directly to PostgREST.
 - **Auth:** Better Auth with GitHub OAuth and database-backed sessions.
 - **Testing:** Vitest for unit/integration, Playwright for E2E, real PostgreSQL for DB tests.

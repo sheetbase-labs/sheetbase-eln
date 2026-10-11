@@ -8,6 +8,7 @@ import type { ProjectRow } from './types'
 import type { ProjectActivityEvent } from './project-data'
 import type * as ProjectData from './project-data'
 import type * as NotebookData from '#/lib/notebook-data'
+import type * as WorkspaceAccess from '#/lib/workspace-access'
 
 const { activity, milestones } = vi.hoisted(() => ({
   activity: vi.fn<() => Promise<ProjectActivityEvent[]>>(async () => []),
@@ -24,6 +25,14 @@ vi.mock('./project-data', async (importOriginal) => ({
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal<typeof NotebookData>()),
   fetchRecordsForProject: async () => [],
+}))
+
+const { assignments } = vi.hoisted(() => ({
+  assignments: vi.fn<() => Promise<unknown[]>>(async () => []),
+}))
+vi.mock('#/lib/workspace-access', async (importOriginal) => ({
+  ...(await importOriginal<typeof WorkspaceAccess>()),
+  fetchMyProjectAssignments: assignments,
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -56,15 +65,22 @@ function renderPage(
   search: ProjectsSearch = {},
   meId?: string,
 ) {
+  // ProjectsPage reads project access through react-query, as the route does
+  // inside the app's provider.
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   return render(
-    <ProjectsPage
-      projects={projects}
-      me="Gareth P."
-      meId={meId}
-      search={search}
-      setSearch={() => {}}
-      onCreate={() => {}}
-    />,
+    <QueryClientProvider client={queryClient}>
+      <ProjectsPage
+        projects={projects}
+        me="Gareth P."
+        meId={meId}
+        search={search}
+        setSearch={() => {}}
+        onCreate={() => {}}
+      />
+    </QueryClientProvider>,
   )
 }
 
@@ -200,6 +216,34 @@ describe('ProjectsPage', () => {
   })
 
   it('shows the empty state with no projects', () => {
+    renderPage([])
+    expect(screen.getByText('No projects yet')).toBeTruthy()
+  })
+
+  it('says access, not absence, when the person can view no project', async () => {
+    // `my_project_permissions` returns no rows: the workspace may hold
+    // projects, but this person can see none of them. Claiming "No projects
+    // yet" here would be false, and counting the others would leak them.
+    assignments.mockResolvedValueOnce([])
+    renderPage([])
+    expect(
+      await screen.findByText('No projects you can access yet'),
+    ).toBeTruthy()
+    expect(screen.queryByText('No projects yet')).toBeNull()
+    expect(
+      screen.getByText(/only the projects you have access to/),
+    ).toBeTruthy()
+    // Creating a project stays available (the page header and the empty state
+    // both offer it).
+    expect(
+      screen.getAllByRole('button', { name: 'New project' }).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('keeps the neutral copy while access is unknown', () => {
+    // No permission rows recorded yet (or the read failed): the UI must not
+    // assert a denial it cannot prove.
+    assignments.mockImplementationOnce(() => new Promise(() => {}))
     renderPage([])
     expect(screen.getByText('No projects yet')).toBeTruthy()
   })

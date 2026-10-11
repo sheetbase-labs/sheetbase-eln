@@ -3,6 +3,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
+import {
+  NO_PROJECT_ACCESS_BODY,
+  noProjectAccessTitle,
+  useHasProjectAccess,
+} from './project-access'
 import { Status } from '#/components/v3/ui/status'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -119,6 +124,7 @@ export function ProjectsPage({
   clientOptions?: { id: string; label: string }[]
   memberOptions?: { id: string; label: string }[]
 }) {
+  const hasProjectAccess = useHasProjectAccess()
   const tab: ProjectsTab = search.tab ?? 'all'
   const includeArchived = tab === 'archived' || !!search.archived
   const sort: ProjectsSort = search.sort ?? 'updated'
@@ -693,7 +699,10 @@ export function ProjectsPage({
             </div>
           </>
         ) : (
-          <EmptyProjects onNew={() => setSearch({ new: true })} />
+          <EmptyProjects
+            noAccess={hasProjectAccess === false}
+            onNew={() => setSearch({ new: true })}
+          />
         )}
       </div>
 
@@ -771,13 +780,22 @@ function NoResults({
   )
 }
 
-function EmptyProjects({ onNew }: { onNew: () => void }) {
+function EmptyProjects({
+  onNew,
+  noAccess,
+}: {
+  onNew: () => void
+  noAccess: boolean
+}) {
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-14 text-center md:px-6">
-      <h2 className="text-doc">No projects yet</h2>
+      <h2 className="text-doc">
+        {noAccess ? noProjectAccessTitle('projects') : 'No projects yet'}
+      </h2>
       <p className="m-0 max-w-[460px] leading-[19px] text-fg-muted">
-        A project groups the experiments, samples and datasets for one programme
-        or client. Members and permissions are set per project.
+        {noAccess
+          ? NO_PROJECT_ACCESS_BODY
+          : 'A project groups the experiments, samples and datasets for one programme or client. Members and permissions are set per project.'}
       </p>
       <div className="mt-2 flex gap-1.5">
         <Button variant="primary" onClick={onNew}>

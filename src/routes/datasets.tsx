@@ -9,6 +9,11 @@ import {
 } from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
+import {
+  NO_PROJECT_ACCESS_BODY,
+  noProjectAccessTitle,
+  useHasProjectAccess,
+} from '#/components/v3/projects/project-access'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
@@ -135,6 +140,7 @@ function DatasetsList() {
   }, [rows, sort])
 
   const q = (search.q ?? '').trim().toLowerCase()
+  const hasProjectAccess = useHasProjectAccess()
   const visible = sorted
     .filter((r) => inTab(r, tab))
     .filter(
@@ -281,16 +287,20 @@ function DatasetsList() {
                 icon={q ? 'search' : 'table'}
                 className="items-center py-14 text-center"
                 title={
-                  q
-                    ? `No datasets match “${search.q}”`
-                    : tab === 'issues'
-                      ? 'No datasets have issues'
-                      : `No datasets in ${tabLabel[tab].toLowerCase()}`
+                  hasProjectAccess === false
+                    ? noProjectAccessTitle('datasets')
+                    : q
+                      ? `No datasets match “${search.q}”`
+                      : tab === 'issues'
+                        ? 'No datasets have issues'
+                        : `No datasets in ${tabLabel[tab].toLowerCase()}`
                 }
                 body={
-                  q
-                    ? 'Search looks at ID, name and model.'
-                    : 'Datasets appear here when an import or a check puts them in this list.'
+                  hasProjectAccess === false
+                    ? NO_PROJECT_ACCESS_BODY
+                    : q
+                      ? 'Search looks at ID, name and model.'
+                      : 'Datasets appear here when an import or a check puts them in this list.'
                 }
               />
             </div>

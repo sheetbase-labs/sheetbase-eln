@@ -9,6 +9,11 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import {
+  NO_PROJECT_ACCESS_BODY,
+  noProjectAccessTitle,
+  useHasProjectAccess,
+} from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
@@ -123,6 +128,7 @@ function SamplesList() {
     tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
   ) as Record<SampleTab, number>
   const q = (search.q ?? '').trim().toLowerCase()
+  const hasProjectAccess = useHasProjectAccess()
   const visible = rows
     .filter((r) => inTab(r, tab))
     .filter(
@@ -287,14 +293,18 @@ function SamplesList() {
                 className="items-center py-14 text-center"
                 icon={q ? 'search' : 'tube'}
                 title={
-                  q
-                    ? `No samples match “${search.q}”`
-                    : `No samples in ${tabLabel[tab].toLowerCase()}`
+                  hasProjectAccess === false
+                    ? noProjectAccessTitle('samples')
+                    : q
+                      ? `No samples match “${search.q}”`
+                      : `No samples in ${tabLabel[tab].toLowerCase()}`
                 }
                 body={
-                  q
-                    ? 'Search looks at ID, name, type and location.'
-                    : 'Register a sample or import a plate map to start the registry.'
+                  hasProjectAccess === false
+                    ? NO_PROJECT_ACCESS_BODY
+                    : q
+                      ? 'Search looks at ID, name, type and location.'
+                      : 'Register a sample or import a plate map to start the registry.'
                 }
               >
                 <Button

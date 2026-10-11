@@ -9,6 +9,11 @@ import {
 } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
+import {
+  NO_PROJECT_ACCESS_BODY,
+  noProjectAccessTitle,
+  useHasProjectAccess,
+} from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { Input } from '#/components/v3/ui/input'
 import { Icon } from '#/components/v3/icons'
@@ -171,6 +176,7 @@ function Experiments() {
           v.toLowerCase().includes(q),
         )),
   )
+  const hasProjectAccess = useHasProjectAccess()
   const visible = base
     .filter((r) => search.older || r.recent)
     .sort((a, b) =>
@@ -413,14 +419,18 @@ function Experiments() {
             className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
           >
             <div className="text-prose font-semibold">
-              {q
-                ? `No experiments match “${search.q}”`
-                : `No ${tabLabel[tab].toLowerCase()} experiments`}
+              {hasProjectAccess === false
+                ? noProjectAccessTitle('experiments')
+                : q
+                  ? `No experiments match “${search.q}”`
+                  : `No ${tabLabel[tab].toLowerCase()} experiments`}
             </div>
             <div className="max-w-[460px] leading-[19px] text-fg-muted">
-              {hiddenOld
-                ? `${hiddenOld} older ${hiddenOld === 1 ? 'experiment matches' : 'experiments match'} outside the last 30 days.`
-                : 'Searched IDs, titles, projects and owners.'}
+              {hasProjectAccess === false
+                ? NO_PROJECT_ACCESS_BODY
+                : hiddenOld
+                  ? `${hiddenOld} older ${hiddenOld === 1 ? 'experiment matches' : 'experiments match'} outside the last 30 days.`
+                  : 'Searched IDs, titles, projects and owners.'}
             </div>
             <div className="mt-2 flex gap-1.5">
               {hiddenOld ? (

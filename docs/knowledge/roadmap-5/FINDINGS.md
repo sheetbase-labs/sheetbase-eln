@@ -194,6 +194,12 @@ nothing), and what is missing. Priorities and task owners are in
   (`tests/visual/design-states.ts` `DESIGN_PENDING`, first group). If those
   comparisons are wanted, extend the state driver rather than adding query
   parameters to product routes.
+- **Instrument registry placement.** The design files `/instruments` under
+  Settings (`sheetbase-app-ui-only/src/components/shell/app-shell.tsx:23`) and
+  its sidebar has no Instruments entry; the ELN's registry is now a main-nav item
+  beside Samples and Materials, visible to every member, while parser and
+  connection _configuration_ stays in Settings. Owner decision, 11 October 2026
+  (`GWP/roadmap-5-instruments-nav`, PR #224).
 - **Route shapes.** Where a route differs, it usually differs by name or
   concentration, not by capability: `/models/$id/new` is
   `/models/$id/records/new`; `/review/$id?state=sign` is

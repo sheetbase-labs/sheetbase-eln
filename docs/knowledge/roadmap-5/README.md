@@ -6,7 +6,7 @@ last_reviewed: 2026-10-11
 
 # Roadmap 5 — app-3 interface closure
 
-**Implemented, not yet accepted.** All 21 tasks are implemented on
+**Implemented, not yet accepted.** All 21 audited tasks are implemented, plus R5-CONFIG-06, which was found while reviewing the running product on
 `GWP/roadmap-5-implementation` (PR #222), one commit per task, integrated in
 waves from separate worktrees. See the
 [programme map](PROGRAMME_MAP.md#delivery-record) for the commit list and the
@@ -48,7 +48,7 @@ as the design it was adopted from, without inventing new architecture.**
 
 ## Programme
 
-Six streams, 21 proposed tasks, all **PROPOSED**. Stream files are the complete
+Six streams, 22 proposed tasks, all **PROPOSED**. Stream files are the complete
 specifications; [PROGRAMME_MAP.md](PROGRAMME_MAP.md) is the only status table.
 
 | Stream                                        | Tasks | User outcome                                                                                                                                       | Priority |

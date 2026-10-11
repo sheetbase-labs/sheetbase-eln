@@ -162,3 +162,48 @@ not a project-planning engine.
 derivation and date-history recording; component tests for the scale control,
 empty, denied and stale states; `pnpm validate`. A dependency cycle must be
 impossible to store.
+
+## R5-CONFIG-06: a booking's subject is the instrument
+
+**Outcome:** every registered instrument is bookable, a booking identifies its
+instrument, and the qualification and calibration checks always run. Priority
+P1, effort L, high risk. Depends on [ADR-0054](../../decisions/0054-a-booking-subject-is-the-instrument.md).
+
+**Current state and scope:** Schedule books `api.calendar_resources`
+(`src/components/v3/schedule/schedule-data.ts:13`); the registry lists
+`api.instruments` (`src/components/v3/instruments/instruments-data.ts:140`). The
+only link is an optional `metadata.instrumentId` convention, and the seeded
+resource ("Ambr 250", Process Development) has `metadata = {}` while the registry
+holds `INS-0007` and `INS-0008`. Consequences, all observed: a registered
+instrument cannot be booked; a booking cannot link to `/instruments/$id` and the
+inspector's next booking (R5-CONFIG-02) never finds one; and migration `0366`
+gates LAB-06.3's qualification and calibration guard on that key, so booking an
+unlinked resource skips both checks. Scope: the derived instrument resource, the
+booking identity, the unconditional guard, the seeds, and the readers
+(Schedule grid/picker/dialog, inbox, home today's bookings, instrument
+inspector). The study planner's `study_task_resources.calendar_resource_id` and
+any future non-instrument resource keep the generic table.
+
+**Steps:**
+
+1. Generate the instrument's resource: `id = instruments.id`,
+   `resource_type = 'instrument'`, name/location/status kept in step by a trigger
+   on `api.instruments`; backfill existing instruments; repoint existing bookings
+   by name match (fail loudly if a booking's resource matches no instrument).
+2. Make the booking identity direct: readers join `api.instruments` on
+   `b.resource_id`, the Schedule grid and day view link each instrument to
+   `/instruments/$id`, and the picker lists instruments (display id + name).
+3. Make the guard unconditional in `create_booking` for
+   `resource_type = 'instrument'`: instrument exists in the workspace, not
+   retired, booker currently qualified, latest calibration not overdue
+   (`SB115`/`SB116`); no metadata key gates any of it.
+4. Update the design and month seeds to register instruments and book them by
+   instrument id, never authoring an instrument resource by hand.
+
+**Verification/exit:** DB tests that a newly registered instrument is bookable
+without any resource being authored, that a retired instrument refuses a new
+booking, that an unqualified booker and an overdue calibration are refused
+(`SB115`/`SB116`) with the link present and absent, and that
+`study_task_resources` and a non-instrument resource still work; component tests
+for the picker and the grid link; `tsc --noEmit` clean. A booking created for an
+instrument must be findable from that instrument's page and from Schedule.

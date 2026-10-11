@@ -7,42 +7,37 @@ import {
   noCapabilities,
 } from './capabilities'
 
+/**
+ * No capability key is registered (see `capabilities.ts`): every app-3 design
+ * gap is a shipped feature, and nothing is gated. These tests pin the contract
+ * the mechanism must keep for the day a key is added — an unset or unknown
+ * allow-list enables nothing, and every registered key carries a roadmap entry.
+ */
 describe('capabilities', () => {
-  it('defaults every capability off', () => {
-    expect(noCapabilities).toEqual({
-      sampleMeasurements: false,
-      experimentResults: false,
-    })
-    expect(capabilitiesFromEnv({})).toEqual(noCapabilities)
-    expect(capabilitiesFromEnv({ SHEETBASE_CAPABILITIES: '' })).toEqual(
-      noCapabilities,
-    )
-    expect(capabilitiesFromEnv({ SHEETBASE_CAPABILITIES: '   ' })).toEqual(
-      noCapabilities,
-    )
+  it('registers no key and gates nothing', () => {
+    expect(capabilityKeys).toEqual([])
+    expect(noCapabilities).toEqual({})
   })
 
-  it('enables only the keys named in the allow-list', () => {
-    expect(
-      capabilitiesFromEnv({ SHEETBASE_CAPABILITIES: 'sampleMeasurements' }),
-    ).toEqual({ sampleMeasurements: true, experimentResults: false })
-    expect(
-      capabilitiesFromEnv({
-        SHEETBASE_CAPABILITIES: 'sampleMeasurements,experimentResults',
-      }),
-    ).toEqual({ sampleMeasurements: true, experimentResults: true })
+  it('enables nothing when the allow-list is unset, empty or blank', () => {
+    expect(capabilitiesFromEnv({})).toEqual({})
+    expect(capabilitiesFromEnv({ SHEETBASE_CAPABILITIES: '' })).toEqual({})
+    expect(capabilitiesFromEnv({ SHEETBASE_CAPABILITIES: '   ' })).toEqual({})
+    expect(capabilitiesFromEnv({ SHEETBASE_CAPABILITIES: ',,' })).toEqual({})
   })
 
-  it('ignores unknown keys, stray separators and surrounding whitespace', () => {
+  it('ignores names that are not registered keys', () => {
+    // `sampleMeasurements` and `experimentResults` are shipped features, so
+    // naming them must not switch anything off or on.
     expect(
       capabilitiesFromEnv({
         SHEETBASE_CAPABILITIES:
-          ' experimentResults , notARealCapability, sampleMeasurements ',
+          ' sampleMeasurements , experimentResults , notARealCapability ',
       }),
-    ).toEqual({ sampleMeasurements: true, experimentResults: true })
+    ).toEqual({})
   })
 
-  it('tracks every capability key in the roadmap map', () => {
+  it('tracks every registered key in the roadmap map', () => {
     expect(Object.keys(capabilityRoadmap).sort()).toEqual(
       [...capabilityKeys].sort(),
     )

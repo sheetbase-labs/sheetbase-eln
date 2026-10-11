@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { CapabilityGap } from '#/components/v3/ui/capability-gap'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   Table,
@@ -15,7 +14,6 @@ import {
 import { fetchSampleMeasurements } from '#/lib/samples'
 import type { SampleMeasurement } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { WORKSPACE_ADMIN_ROLES } from '#/lib/nav-visibility'
 
 /**
  * LAB-03: the sample Measurements tab is a read-only view of authoritative
@@ -23,10 +21,6 @@ import { WORKSPACE_ADMIN_ROLES } from '#/lib/nav-visibility'
  * from an integration/QC result, and links back to its source row. Values
  * cannot be typed here; the standalone bench-reading surface lives elsewhere
  * (MOB-02).
- *
- * R5-SHELL-03: recording measurements is optional per deployment. When
- * `sampleMeasurements` is off the tab entry stays visible but its content is the
- * honest gap — no values are read, so nothing fabricated can appear.
  */
 export const Route = createFileRoute('/samples/$sampleId/measurements')({
   component: MeasurementsTab,
@@ -34,53 +28,6 @@ export const Route = createFileRoute('/samples/$sampleId/measurements')({
 
 function MeasurementsTab() {
   const { sampleId } = Route.useParams()
-  const { capabilities, auth } = Route.useRouteContext()
-  if (!capabilities.sampleMeasurements) {
-    return (
-      <MeasurementsGap
-        sampleId={sampleId}
-        admin={WORKSPACE_ADMIN_ROLES.some(
-          (role) => role === auth?.workspace?.role,
-        )}
-      />
-    )
-  }
-  return <MeasurementsTable sampleId={sampleId} />
-}
-
-function MeasurementsGap({
-  sampleId,
-  admin,
-}: {
-  sampleId: string
-  admin: boolean
-}) {
-  return (
-    <div className="px-4 py-[22px] md:px-8">
-      <CapabilityGap
-        icon="tube"
-        title="Measurements aren’t recorded on samples in this workspace yet"
-        will="This tab will list every value recorded against the sample — titre, turbidity, endotoxin — with its method, the dataset it came from and whether it meets its limit."
-        instead={[
-          {
-            label: 'Datasets',
-            link: { to: '/datasets' },
-            note: 'Results are in the dataset rows, by sample ID',
-          },
-          {
-            label: 'Sample history',
-            link: { to: '/samples/$sampleId/history', params: { sampleId } },
-            note: 'Release and QC results from an upstream system appear as history entries',
-          },
-        ]}
-        roadmap="RM-112"
-        admin={admin}
-      />
-    </div>
-  )
-}
-
-function MeasurementsTable({ sampleId }: { sampleId: string }) {
   const measurements = useQuery({
     queryKey: ['ui-port', 'sample-measurements', sampleId],
     queryFn: () => fetchSampleMeasurements(notebookDataClient, sampleId),

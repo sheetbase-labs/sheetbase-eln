@@ -106,14 +106,11 @@ type SampleDialog =
 
 function SampleLayout() {
   const { sampleId } = Route.useParams()
-  const { context, capabilities } = Route.useRouteContext()
+  const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const query = useSampleRecord(sampleId)
   const sample = query.data
   const [dialog, setDialog] = useState<SampleDialog>(null)
-  // R5-SHELL-03: a deployment that records measurements upstream doesn't read
-  // them here — the tab entry stays visible, but it carries no count.
-  const measurementsEnabled = capabilities.sampleMeasurements
 
   const events = useQuery({
     queryKey: sampleEventsQueryKey(sampleId),
@@ -132,7 +129,6 @@ function SampleLayout() {
   })
   const measurements = useQuery({
     queryKey: ['ui-port', 'sample-measurements', sampleId],
-    enabled: measurementsEnabled,
     queryFn: () => fetchSampleMeasurements(notebookDataClient, sampleId),
   })
   const projectId = sample?.projectId ?? null
@@ -410,9 +406,7 @@ function SampleLayout() {
                 },
                 {
                   label: 'Measurements',
-                  count: measurementsEnabled
-                    ? (measurements.data?.length ?? undefined)
-                    : undefined,
+                  count: measurements.data?.length ?? undefined,
                   link: { to: '/samples/$sampleId/measurements', params },
                 },
                 {

@@ -3,7 +3,6 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
-import { CapabilityGap } from '#/components/v3/ui/capability-gap'
 import {
   Dialog,
   DialogBody,
@@ -25,7 +24,6 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { toast } from '#/components/v3/ui/sonner'
-import { WORKSPACE_ADMIN_ROLES } from '#/lib/nav-visibility'
 import { useExperimentLinks } from '../$expId'
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -57,52 +55,6 @@ const DECISIONS = [
 
 function ResultsTab() {
   const { expId } = Route.useParams()
-  const { capabilities, auth } = Route.useRouteContext()
-  if (!capabilities.experimentResults) {
-    return (
-      <ResultsGap
-        expId={expId}
-        admin={WORKSPACE_ADMIN_ROLES.some(
-          (role) => role === auth?.workspace?.role,
-        )}
-      />
-    )
-  }
-  return <ResultsContent expId={expId} />
-}
-
-/**
- * R5-SHELL-03: curating results is optional per deployment. When
- * `experimentResults` is off the tab entry stays visible but its content is the
- * honest gap — nothing is read, so no figure, table or decision is invented.
- */
-function ResultsGap({ expId, admin }: { expId: string; admin: boolean }) {
-  return (
-    <div className="px-4 py-[22px] md:px-8">
-      <CapabilityGap
-        icon="chart"
-        title="Curated results aren’t available in this workspace yet"
-        will="This tab will gather the figures, tables and decision you pick from analyses, so they are signed together with the experiment."
-        instead={[
-          {
-            label: 'Datasets',
-            link: { to: '/experiments/$expId/datasets', params: { expId } },
-            note: 'The datasets this experiment produced',
-          },
-          {
-            label: 'Notebook',
-            link: { to: '/experiments/$expId/notebook', params: { expId } },
-            note: 'Record the decision as a notebook block',
-          },
-        ]}
-        roadmap="RM-118"
-        admin={admin}
-      />
-    </div>
-  )
-}
-
-function ResultsContent({ expId }: { expId: string }) {
   const queryClient = useQueryClient()
   const links = useExperimentLinks(expId)
   const all = links.data ?? []

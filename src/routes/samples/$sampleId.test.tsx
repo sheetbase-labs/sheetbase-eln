@@ -45,12 +45,7 @@ const data = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ sampleId: 's-1' }),
-    useRouteContext: () => ({
-      context: routeContext.value,
-      // R5-SHELL-03: this suite exercises the deployment that records
-      // measurements here, so the tab keeps its count and its table.
-      capabilities: { sampleMeasurements: true, experimentResults: true },
-    }),
+    useRouteContext: () => ({ context: routeContext.value }),
     options: config,
   }),
   Outlet: () => null,

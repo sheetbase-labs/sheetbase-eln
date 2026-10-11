@@ -11,8 +11,9 @@ Roadmap 1    RECORDED COMPLETE
 Roadmap 2    ACTIVE SCOPE CLOSED; GOV-02 DEFERRED
 Roadmap 3    WAVES A–C IMPLEMENTATION MERGED; ACCEPTANCE QUALIFIED
              WAVE D: HISTORICAL DEFERRALS; ADR-0045 NOW ACCEPTED
-Roadmap 4    ACTIVE, INCOMPLETE — 17 DONE / 85 ACTIVE; 1 SUPERSEDED
-Roadmap 5    PROPOSAL — ORIGINAL ROADMAP 4 OWNERSHIP RETAINED
+Roadmap 4    MERGED TO MAIN (10a84a42) — 85/85 ACTIVE TASKS DONE; 6 CANCELLED
+Roadmap 5    PROPOSED — APP-3 INTERFACE CLOSURE (21 TASKS, NOT ACTIVATED)
+             separate, unnumbered proposal: complete scientific workflows
 ```
 
 Current priority and hand-off live in [`NEXT.md`](NEXT.md). The
@@ -82,20 +83,40 @@ Governing principle:
 
 > Mature Sheetbase for its own users. Make interoperability a property of the platform, not the reason for the roadmap.
 
-## Current phase — Roadmap 4
+## Roadmap 4 — design-led product
 
-[Roadmap 4](roadmap-4/README.md) is active on the app-3 port branch. It contains
-17 streams and 86 original tasks. [The current reconciliation](roadmap-4/RECONCILIATION.md)
-records a 2 October audit baseline: 13 accepted decisions, four inherited
-implementation completions awaiting fresh acceptance, 52 partial tasks, 16 not
-started and one duplicate superseded by DEC-03. Eleven tasks have closed since;
-nod now records **28 done of 85 active tasks and 87 of 266 steps**. The original
-visual/capability exits remain open; DSYS-06 must reconcile the adopted port
-reference with its automated acceptance contract.
+[Roadmap 4](roadmap-4/README.md) contains 17 streams and 86 original tasks. All
+85 active tasks are done and **merged to `main` as `10a84a42`** (PR #220,
+11 October 2026); SHELL-04 is cancelled in favour of DEC-03 and five further
+steps are cancelled. [The 2 October reconciliation](roadmap-4/RECONCILIATION.md)
+and its limits still stand: task completion is not release acceptance, and the
+deferred visual and browser layers remain unverified. [roadmap-4/NEXT.md](roadmap-4/NEXT.md)
+records the remaining acceptance gaps.
 
-[NEXT.md](NEXT.md) owns cross-roadmap priority; [roadmap-4/NEXT.md](roadmap-4/NEXT.md)
-owns its remaining work. [Roadmap 5](../../plans/roadmap-5/README.md) is a proposal
-and retains original Roadmap 4 owners for overlapping requirements.
+[NEXT.md](NEXT.md) owns cross-roadmap priority. [Roadmap 5](roadmap-5/README.md)
+is the proposed follow-on corpus for app-3 interface closure; the unnumbered
+[complete scientific workflows](../../plans/roadmap-5/README.md) proposal is a
+separate programme and no longer owns the Roadmap 5 number.
+
+## Roadmap 5 — app-3 interface closure
+
+[`roadmap-5/`](roadmap-5/) is a **proposal**, not activated. It records what the
+app-3 interface build (`sheetbase-app-ui-only`, an unversioned working copy) has
+that the ELN does not, audited against `main` at `10a84a42` on 11 October 2026:
+**21 proposed tasks across six streams** — reach what we hold, analysis studio
+depth, notebook and review fidelity, home, configuration depth, and shell,
+search and platform.
+
+The findings are concrete and mostly cheap: `dataset_imports` is written and
+indexed with no reader anywhere, the reusable `ObjectHistoryTimeline` is mounted
+only for sheets, and the ported `NotFound` screen is wired to nothing. The
+programme adds no architecture; it finishes the interface the ELN adopted.
+
+Read [the findings](roadmap-5/FINDINGS.md) for the per-screen evidence (including
+what is verified _not_ missing), [the programme map](roadmap-5/PROGRAMME_MAP.md)
+for status and sequencing, and [the guide](roadmap-5/GUIDE.md) before taking a
+task. This corpus keeps no separate task queue: the repository-wide
+[NEXT.md](NEXT.md) decides activation.
 
 ## Golden workflow
 

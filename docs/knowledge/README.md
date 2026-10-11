@@ -48,7 +48,8 @@ docs/knowledge/
 │   ├── PROGRAMME_MAP.md
 │   ├── tasks/               # 18 streams / 60 tasks; qualified status index
 │   └── prompts/             # historical execution prompts, not assignments
-├── roadmap-4/               # active: exact UI system v3 parity + 86 original tasks; reconciled remaining work
+├── roadmap-4/               # merged to main (85/85 active tasks done, 6 cancelled); acceptance limits recorded
+├── roadmap-5/               # proposed: app-3 interface closure; 21 tasks, no queue of its own
 ├── mockups/
 ├── references/
 ├── history/                 # includes dated reconciliation evidence
@@ -57,7 +58,7 @@ docs/knowledge/
 
 ## Current work
 
-[`NEXT.md`](NEXT.md) is the repository-wide hand-off: it decides which roadmap is active and what is next across roadmaps. Programme folders contain scope, task definitions, prompts, audits and historical completion evidence, but they do not own competing current work queues, with one deliberate exception: Roadmap 4 is self-contained, with its own [`roadmap-4/NEXT.md`](roadmap-4/NEXT.md) and task tracker, which own its queue once the root `NEXT.md` activates it; that activation has happened.
+[`NEXT.md`](NEXT.md) is the repository-wide hand-off: it decides which roadmap is active and what is next across roadmaps. Programme folders contain scope, task definitions, prompts, audits and historical completion evidence, but they do not own competing current work queues, with one deliberate exception: Roadmap 4 is self-contained, with its own [`roadmap-4/NEXT.md`](roadmap-4/NEXT.md) and task tracker, which own its queue once the root `NEXT.md` activates it; that activation has happened and the programme is merged. [`roadmap-5/`](roadmap-5/README.md) is a proposal and keeps no queue: its programme map is a status table, not an assignment.
 
 The [7 September 2026 reconciliation](history/2026-09-07-roadmap-reconciliation.md)
 records the checked baseline, implementation dispositions, outstanding work and
@@ -119,19 +120,29 @@ Start with [`roadmap-3/PRODUCT_DIRECTION.md`](roadmap-3/PRODUCT_DIRECTION.md),
 [`roadmap-3/tasks/README.md`](roadmap-3/tasks/README.md). Original task goals and
 exits remain intact. Read current status before reusing an old agent prompt.
 
-### Roadmap 4 — Design-led Product (active, incomplete)
+### Roadmap 4 — Design-led Product (merged to main)
 
-[Roadmap 4](roadmap-4/README.md) contains 17 streams and 86 original tasks.
-The [2 October source reconciliation](roadmap-4/RECONCILIATION.md) records its
-audit baseline (13 accepted decisions, four inherited implementation completions
-without fresh full acceptance, 52 partial, 16 not started and one cancelled
-duplicate). Eleven tasks have closed since; nod now records **28 done of 85
-active tasks and 87 of 266 steps**. The app-3 port is adopted, but the original
-capability and parity exits remain open. Start with [its current
+[Roadmap 4](roadmap-4/README.md) contains 17 streams and 86 original tasks. All
+85 active tasks are done and merged to `main` as `10a84a42` (PR #220, 11 October
+2026); SHELL-04 is cancelled in favour of DEC-03. The
+[2 October source reconciliation](roadmap-4/RECONCILIATION.md) and its limits
+still stand: task completion is not release acceptance, and the deferred visual
+and browser layers remain unverified. Start with [its current
 handoff](roadmap-4/NEXT.md).
 
-[Roadmap 5](../../plans/roadmap-5/README.md) remains a proposal. Its overlapping
-requirements retain Roadmap 4 task ownership.
+### Roadmap 5 — App-3 Interface Closure (proposed)
+
+[`roadmap-5/`](roadmap-5/) records what the app-3 interface build
+(`sheetbase-app-ui-only`) has that the ELN does not, audited against `main` at
+`10a84a42` on 11 October 2026: **21 proposed tasks across six streams**. It adds
+no architecture — most findings are surfaces over data the ELN already writes.
+Read [the findings](roadmap-5/FINDINGS.md), the
+[programme map](roadmap-5/PROGRAMME_MAP.md) and the
+[guide](roadmap-5/GUIDE.md). This corpus keeps no task queue of its own.
+
+[Complete scientific workflows](../../plans/roadmap-5/README.md) remains a
+separate, unnumbered proposal about scientific depth; it no longer owns the
+Roadmap 5 number. Its overlapping requirements retain Roadmap 4 task ownership.
 
 ## Mockups, references and history
 

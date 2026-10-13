@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -7,6 +8,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { UserEvent } from '@testing-library/user-event'
 import {
   afterEach,
   beforeAll,
@@ -18,7 +20,13 @@ import {
 } from 'vitest'
 
 import { AppShell } from './app-shell'
-import { setUserPreference } from '#/lib/user-preferences'
+import {
+  fetchUserPreferences,
+  setActiveWorkspace,
+  setUserPreference,
+} from '#/lib/user-preferences'
+import type { UserPreferences } from '#/lib/user-preferences'
+import type { Notification } from '#/components/v3/types'
 
 const { signOut, navigate, invalidate, cancelQueries, clearQueries, goBack } =
   vi.hoisted(() => ({
@@ -30,11 +38,20 @@ const { signOut, navigate, invalidate, cancelQueries, clearQueries, goBack } =
     goBack: vi.fn(),
   }))
 
+/** SHELL-02: the bell's write. Mocked so the test can prove it happens. */
+const { markNotificationsRead } = vi.hoisted(() => ({
+  markNotificationsRead: vi.fn(async () => 1),
+}))
+vi.mock('#/lib/notifications-data', () => ({ markNotificationsRead }))
+
 /** The path the mocked router reports; MOB-01.1's back button depends on it. */
 const routerPath = { current: '/' }
 vi.mock('#/lib/auth-client', () => ({ authClient: { signOut } }))
 beforeEach(() => {
   vi.clearAllMocks()
+  // The collapse preference is mirrored in localStorage; clear it so a test that
+  // toggles the rail cannot decide the starting state of the next one.
+  localStorage.clear()
   signOut.mockResolvedValue({ data: { success: true }, error: null })
 })
 
@@ -50,14 +67,32 @@ beforeAll(() => {
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
+    params,
     children,
     className,
+    onClick,
+    'aria-label': ariaLabel,
   }: {
     to?: unknown
+    params?: Record<string, string>
     children?: React.ReactNode
     className?: string
+    onClick?: React.MouseEventHandler<HTMLAnchorElement>
+    'aria-label'?: string
   }) => (
-    <a href={typeof to === 'string' ? to : '#'} className={className}>
+    <a
+      href={
+        typeof to === 'string'
+          ? to.replace(
+              /\$([A-Za-z]+)/g,
+              (segment, key: string) => params?.[key] ?? segment,
+            )
+          : '#'
+      }
+      className={className}
+      aria-label={ariaLabel}
+      onClick={onClick}
+    >
       {children}
     </a>
   ),
@@ -116,6 +151,18 @@ function renderShell(
   )
 }
 
+/** One notification in the shape the shell's server snapshot delivers. */
+function notification(overrides: Partial<Notification> = {}): Notification {
+  return {
+    id: 'n-1',
+    to: { kind: 'review', id: 'rec-1' },
+    unread: true,
+    html: 'Review requested',
+    when: '5m',
+    ...overrides,
+  }
+}
+
 describe('v3 AppShell navigation (SHELL-01)', () => {
   it('renders every destination as a focusable link', () => {
     renderShell()
@@ -142,7 +189,10 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
   })
 
   it('collapses the sidebar to the rail with ⌘\\ and saves the preference', async () => {
-    renderShell()
+    renderShell({
+      pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
+    })
+    expect(screen.getByText('Assay development')).toBeTruthy()
     expect(screen.getByText('Pinned projects')).toBeTruthy()
     fireEvent.keyDown(window, { key: '\\', metaKey: true })
     await waitFor(() =>
@@ -157,6 +207,11 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
         expect.objectContaining({ navCollapsed: true }),
       ),
     )
+  })
+
+  it('leaves no pinned heading when the caller has pinned nothing', () => {
+    renderShell()
+    expect(screen.queryByText('Pinned projects')).toBeNull()
   })
 
   it('opens the generated shortcuts dialog with ?', async () => {
@@ -177,11 +232,35 @@ describe('MOB-01.1 phone shell', () => {
     renderShell()
     const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
     expect(bar.className).toContain('md:hidden')
-    for (const label of ['Today', 'Scan', 'Inbox']) {
+    // SHELL-01: the home destination carries one label everywhere in the shell.
+    for (const label of ['Home', 'Scan', 'Inbox']) {
       const link = within(bar).getByRole('link', { name: label })
       expect(link.className).toContain('min-h-14')
     }
     expect(within(bar).getByRole('button', { name: 'Menu' })).toBeTruthy()
+  })
+
+  it('offers the workspace switcher in the phone drawer', async () => {
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    const drawer = await screen.findByRole('dialog')
+    const trigger = within(drawer).getByRole('button', {
+      name: 'Switch workspace',
+    })
+    expect(trigger.textContent).toContain('Process Development')
+
+    // A phone can change it, not only read it.
+    await user.click(trigger)
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Analytical' }),
+    )
+    await waitFor(() =>
+      expect(setActiveWorkspace).toHaveBeenCalledWith(
+        expect.anything(),
+        'ws-2',
+      ),
+    )
   })
 
   it('shows the phone back button away from the bottom bar and hides it on it', () => {
@@ -196,6 +275,168 @@ describe('MOB-01.1 phone shell', () => {
     routerPath.current = '/'
     renderShell()
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull()
+  })
+})
+
+describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
+  async function openWorkspaceMenu(user: UserEvent) {
+    const trigger = screen.getByRole('button', { name: 'Switch workspace' })
+    trigger.focus()
+    await user.keyboard('{ArrowDown}')
+  }
+
+  it('marks every unread notification read through the API, clearing the phone badge', async () => {
+    const user = userEvent.setup()
+    renderShell({
+      notifications: [
+        notification({ id: 'n-1' }),
+        notification({ id: 'n-2', html: 'Material lot expiring' }),
+      ],
+    })
+    const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
+    expect(within(bar).getByText('2')).toBeTruthy()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Notifications, 2 unread' }),
+    )
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark all read' }),
+    )
+
+    // The action is a write, not a local flag: the ids go to the same RPC the
+    // legacy bell uses, and the shell re-resolves so the rows stay read.
+    await waitFor(() =>
+      expect(markNotificationsRead).toHaveBeenCalledWith(expect.anything(), [
+        'n-1',
+        'n-2',
+      ]),
+    )
+    expect(invalidate).toHaveBeenCalled()
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Notifications' }),
+      ).toBeTruthy(),
+    )
+    expect(within(bar).queryByText('2')).toBeNull()
+  })
+
+  it('opens a row on the record its target names and marks that row read', async () => {
+    const user = userEvent.setup()
+    renderShell({
+      notifications: [
+        notification({
+          id: 'n-9',
+          to: { kind: 'pipeline-run', id: 'run-9' },
+          html: 'Pipeline run failed',
+        }),
+      ],
+    })
+    await user.click(
+      screen.getByRole('button', { name: 'Notifications, 1 unread' }),
+    )
+    const row = await screen.findByRole('link', {
+      name: /Pipeline run failed/,
+    })
+    expect(row.getAttribute('href')).toBe('/pipelines/runs/run-9')
+
+    await user.click(row)
+    await waitFor(() =>
+      expect(markNotificationsRead).toHaveBeenCalledWith(expect.anything(), [
+        'n-9',
+      ]),
+    )
+    // The popover dismisses once the row is read.
+    expect(screen.queryByRole('button', { name: 'Mark all read' })).toBeNull()
+  })
+
+  it('keeps the bell open with the reason when the write fails', async () => {
+    const user = userEvent.setup()
+    markNotificationsRead.mockRejectedValueOnce(new Error('offline'))
+    renderShell({ notifications: [notification({ id: 'n-1' })] })
+    await user.click(
+      screen.getByRole('button', { name: 'Notifications, 1 unread' }),
+    )
+    await user.click(
+      await screen.findByRole('button', { name: 'Mark all read' }),
+    )
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'could not be marked read',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Notifications, 1 unread' }),
+    ).toBeTruthy()
+  })
+
+  it('switches workspace and re-resolves the shell when the switch succeeds', async () => {
+    const user = userEvent.setup()
+    renderShell()
+    await openWorkspaceMenu(user)
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Analytical' }),
+    )
+    await waitFor(() =>
+      expect(setActiveWorkspace).toHaveBeenCalledWith(
+        expect.anything(),
+        'ws-2',
+      ),
+    )
+    expect(invalidate).toHaveBeenCalled()
+  })
+
+  it('reports a refused switch instead of re-resolving onto it', async () => {
+    const user = userEvent.setup()
+    vi.mocked(setActiveWorkspace).mockRejectedValueOnce(new Error('denied'))
+    renderShell()
+    await openWorkspaceMenu(user)
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Analytical' }),
+    )
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'could not be opened',
+    )
+    expect(invalidate).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('button', { name: 'Switch workspace' }).textContent,
+    ).toContain('Process Development')
+  })
+
+  it('applies the stored collapse preference when the user has not touched it', async () => {
+    vi.mocked(fetchUserPreferences).mockResolvedValueOnce({
+      appearance: 'system',
+      navCollapsed: true,
+    })
+    renderShell({
+      pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
+    })
+    await waitFor(() =>
+      expect(screen.queryByText('Pinned projects')).toBeNull(),
+    )
+  })
+
+  it('never lets a late preference response undo a collapse the user made', async () => {
+    // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
+    let release: (value: UserPreferences) => void = () => {}
+    vi.mocked(fetchUserPreferences).mockReturnValueOnce(
+      new Promise<UserPreferences>((resolve) => {
+        release = resolve
+      }),
+    )
+    renderShell({
+      pinned: [{ id: 'p-1', name: 'Assay development', tone: 'progress' }],
+    })
+    expect(screen.getByText('Pinned projects')).toBeTruthy()
+
+    fireEvent.keyDown(window, { key: '\\', metaKey: true })
+    await waitFor(() =>
+      expect(screen.queryByText('Pinned projects')).toBeNull(),
+    )
+
+    // The response that arrives after the toggle must not reopen the sidebar.
+    release({ appearance: 'system', navCollapsed: false })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(screen.queryByText('Pinned projects')).toBeNull()
   })
 })
 

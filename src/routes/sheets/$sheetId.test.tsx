@@ -5,9 +5,10 @@
  * handed the workspace no project *and* forced `readOnly`, which meant the
  * Sheet opened read-only with no way to write it.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { toast } from '#/components/v3/ui/sonner'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 
@@ -89,7 +90,9 @@ vi.mock('#/components/favourites/favourite-toggle', () => ({
   FavouriteToggle: () => null,
 }))
 
-vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
+vi.mock('#/components/v3/ui/sonner', () => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn() }),
+}))
 
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: {},
@@ -154,5 +157,44 @@ describe('sheet deep link (NAV-02)', () => {
 
     expect(mocks.workspaceProps?.projectId).toBe('project-from-url')
     expect(mocks.workspaceProps?.readOnly).toBeUndefined()
+  })
+})
+
+describe('sheet Share (QA2-sheets-2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSearchState = {}
+  })
+
+  function stubClipboard(writeText: () => Promise<void>) {
+    const mock = vi.fn(writeText)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: mock },
+    })
+    return mock
+  }
+
+  it('copies the deep link and confirms only after the clipboard write succeeds', async () => {
+    const writeText = stubClipboard(async () => undefined)
+
+    render(<ComposedSheetRoute />)
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('Link copied'))
+    expect(writeText).toHaveBeenCalledWith(window.location.href)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('says the copy failed instead of claiming success when the clipboard is blocked', async () => {
+    stubClipboard(async () => {
+      throw new Error('NotAllowedError')
+    })
+
+    render(<ComposedSheetRoute />)
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }))
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(toast).not.toHaveBeenCalledWith('Link copied')
   })
 })

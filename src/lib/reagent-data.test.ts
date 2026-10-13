@@ -13,6 +13,7 @@ import {
   DEFAULT_EXPIRY_WARNING_DAYS,
   createReagent,
   fetchReagentUsage,
+  fetchReplacementLot,
   projectReagentProperties,
   reagentAttention,
   reagentCountQuery,
@@ -510,5 +511,66 @@ describe('createReagent and editReagent', () => {
     })
     expect(created.identifier).toBe('RGT-2026-0002')
     expect(created.catalogNo).toBe('A123')
+  })
+})
+
+describe('fetchReplacementLot', () => {
+  it('resolves the lot before filtering links, so the link query carries a uuid', async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce([{ id: 'lot-2' }])
+      .mockResolvedValueOnce([
+        {
+          id: 'link-1',
+          target_record_id: 'lot-3',
+          target_identifier: 'RGT-2026-0003',
+          link_metadata: { relation: 'replacement', reason: 'Failed QC' },
+        },
+      ])
+
+    const link = await fetchReplacementLot(
+      { list } as unknown as DataClient,
+      'RGT-2026-0002',
+    )
+
+    const [table, query] = list.mock.calls[1] as [string, string]
+    expect(table).toBe('record_links')
+    expect(query).toContain('source_record_id=eq.lot-2')
+    // The regression: PostgREST reads a subquery inside `in.()` as a uuid and
+    // rejects the request, so the lookup silently found nothing.
+    expect(query).not.toContain('select id from')
+    expect(link).toEqual({
+      id: 'link-1',
+      targetRecordId: 'lot-3',
+      targetIdentifier: 'RGT-2026-0003',
+      reason: 'Failed QC',
+    })
+  })
+
+  it('stops at the identifier when no record matches', async () => {
+    const list = vi.fn().mockResolvedValueOnce([])
+
+    expect(
+      await fetchReplacementLot({ list } as unknown as DataClient, 'RGT-2026-9999'),
+    ).toBeNull()
+    expect(list).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns nothing when the material link is not a replacement', async () => {
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce([{ id: 'lot-2' }])
+      .mockResolvedValueOnce([
+        {
+          id: 'link-1',
+          target_record_id: 'lot-3',
+          target_identifier: 'RGT-2026-0003',
+          link_metadata: { relation: 'certificate' },
+        },
+      ])
+
+    expect(
+      await fetchReplacementLot({ list } as unknown as DataClient, 'RGT-2026-0002'),
+    ).toBeNull()
   })
 })

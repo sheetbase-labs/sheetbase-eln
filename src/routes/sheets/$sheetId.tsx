@@ -52,7 +52,7 @@ export const Route = createFileRoute('/sheets/$sheetId')({
   component: ComposedSheetRoute,
 })
 
-function ComposedSheetRoute() {
+export function ComposedSheetRoute() {
   const { sheetId } = Route.useParams()
   const { projectId: projectIdParam, commentId } = Route.useSearch()
   const { context } = Route.useRouteContext()
@@ -155,8 +155,7 @@ function ComposedSheetRoute() {
         <CollaborationRoom roomId={collaborationRoomId}>
           <CanonicalSheetWorkspace
             instanceId={sheetId}
-            projectId={projectIdParam ?? null}
-            readOnly={!projectIdParam}
+            projectId={instanceProjectId}
             commentId={commentId}
           />
         </CollaborationRoom>

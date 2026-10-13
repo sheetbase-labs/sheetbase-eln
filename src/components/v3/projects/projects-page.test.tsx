@@ -77,6 +77,7 @@ function renderPage(
   search: ProjectsSearch = {},
   meId?: string,
   canCreate = true,
+  state: { loading?: boolean; error?: string | null; onRetry?: () => void } = {},
 ) {
   // ProjectsPage reads project access through react-query, as the route does
   // inside the app's provider.
@@ -90,6 +91,9 @@ function renderPage(
         me="Gareth P."
         meId={meId}
         canCreate={canCreate}
+        loading={state.loading}
+        error={state.error ?? null}
+        onRetry={state.onRetry}
         search={search}
         setSearch={() => {}}
         onCreate={() => {}}
@@ -339,6 +343,58 @@ describe('ProjectsPage', () => {
       return element?.tagName === 'TD' && element.textContent === 'Tech transfer 2'
     })
     expect(Number(band.getAttribute('colspan'))).toBe(columnCount)
+  })
+
+  it('does not assert a project count while the read is unresolved', () => {
+    const resolved = renderPage([
+      row(),
+      row({
+        id: 'PRJ-0100',
+        uuid: '00000000-0000-4000-8000-000000000100',
+        name: 'Second project',
+      }),
+    ])
+    // Known: the count is stated (header badge and the "All" tab agree).
+    expect(screen.getAllByText('2').length).toBeGreaterThan(0)
+    resolved.unmount()
+
+    // Unresolved: a stalled read is not a project count of zero.
+    const stalled = renderPage([], {}, undefined, true, { loading: true })
+    expect(screen.getByText('Loading projects…')).toBeTruthy()
+    expect(screen.queryByText('0')).toBeNull()
+    stalled.unmount()
+
+    // Failed: the count is unknown, so it is not stated either.
+    renderPage([], {}, undefined, true, {
+      error: 'The project list did not answer within 15 s.',
+    })
+    expect(screen.queryByText('0')).toBeNull()
+  })
+
+  it('states the read failure and offers a retry', () => {
+    const onRetry = vi.fn()
+    renderPage([], {}, undefined, true, {
+      error: 'The project list did not answer within 15 s.',
+      onRetry,
+    })
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /did not answer within 15 s/,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('says why the header New project cannot be used', () => {
+    const loading = renderPage([], {}, undefined, true, { loading: true })
+    expect(
+      screen.getByRole('button', { name: 'New project' }).getAttribute('title'),
+    ).toMatch(/waiting for the project list to load/i)
+    loading.unmount()
+
+    renderPage([row()], {}, undefined, false)
+    expect(
+      screen.getByRole('button', { name: 'New project' }).getAttribute('title'),
+    ).toMatch(/role cannot create projects/i)
   })
 
   it('disables the empty-state New project and says why when the role cannot create', () => {

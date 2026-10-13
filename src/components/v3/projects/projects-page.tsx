@@ -270,6 +270,13 @@ export function ProjectsPage({
     },
   })
   const colSpan = (canBulkArchive ? 4 : 3) + cols.length
+  // A disabled control has to say why (QA2-projects-1): the header button was
+  // disabled with no stated reason.
+  const createDisabledReason = !canCreate
+    ? 'Your workspace role cannot create projects.'
+    : loading
+      ? 'Waiting for the project list to load.'
+      : null
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -282,13 +289,18 @@ export function ProjectsPage({
         >
           <div className="flex items-center gap-2">
             <h1 className="text-title">Projects</h1>
-            <span className="num text-body text-fg-muted">
-              {projects.length}
-            </span>
+            {/* A number here would be asserted as fact. While the read is
+                unresolved — stalled or failed — the page does not know it. */}
+            {loading || error ? null : (
+              <span className="num text-body text-fg-muted">
+                {projects.length}
+              </span>
+            )}
             <span className="flex-1" />
             <Button
               variant="primary"
               disabled={!canCreate || loading}
+              title={createDisabledReason ?? undefined}
               onClick={() => setSearch({ new: true })}
             >
               New project

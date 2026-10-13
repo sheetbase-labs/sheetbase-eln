@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { createDataClient } from '#/lib/data-client'
+import { DataClientError, createDataClient } from '#/lib/data-client'
 import type { ChangeEventRecordWire } from '#/lib/notebook-data'
 import type { AuditEventWire } from '#/lib/audit-history'
 
@@ -53,6 +53,43 @@ interface SummaryWire {
 
 export const projectDataClient = createDataClient()
 export const PROJECTS_KEY = ['projects'] as const
+
+/**
+ * A read the data layer never answers must not read as "still loading"
+ * forever: the caller needs a real failure it can state and retry. The proxy
+ * has no cancel, so the fetch itself runs on; what this bounds is how long the
+ * UI waits before it says so.
+ */
+export const PROJECT_READ_DEADLINE_MS = 15_000
+
+export function withReadDeadline<T>(
+  read: Promise<T>,
+  what: string,
+  deadlineMs = PROJECT_READ_DEADLINE_MS,
+): Promise<T> {
+  // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(
+        new DataClientError(
+          'read_timeout',
+          `${what} did not answer within ${Math.round(deadlineMs / 1000)} s.`,
+          504,
+        ),
+      )
+    }, deadlineMs)
+    read.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
 
 export function toProjectSummary(row: SummaryWire): ProjectSummary {
   return {

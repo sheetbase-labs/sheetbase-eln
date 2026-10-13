@@ -19,7 +19,9 @@ const notebookCreate = vi.hoisted(() => ({
   applyExperimentSetup: vi.fn(),
 }))
 const navigate = vi.hoisted(() => vi.fn())
-const sonner = vi.hoisted(() => ({ toast: vi.fn() }))
+const sonner = vi.hoisted(() => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn() }),
+}))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
@@ -41,7 +43,7 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
 vi.mock('#/lib/notebook-create', () => notebookCreate)
 
 vi.mock('#/components/v3/ui/sonner', () => ({
-  toast: Object.assign(sonner.toast, { error: vi.fn() }),
+  toast: sonner.toast,
   Toaster: () => null,
 }))
 
@@ -55,6 +57,30 @@ const PROTOCOL = {
   id: 'proto-1',
   identifier: 'PRT-1',
   title: 'Protocol A',
+}
+
+const WRITABLE_PROJECT_ID = '00000000-0000-4000-8000-000000000001'
+const READ_ONLY_PROJECT_ID = '00000000-0000-4000-8000-000000000002'
+
+function assignment(project_id: string, can_edit: boolean) {
+  return {
+    project_id,
+    access_level: can_edit ? 'owner' : 'viewer',
+    can_view: true,
+    can_edit,
+    can_review: false,
+    can_manage: can_edit,
+    client_portal: false,
+  }
+}
+
+function project(id: string, title: string, archived = false) {
+  return {
+    id,
+    title,
+    archived_at: archived ? '2026-09-25T08:40:00.000Z' : null,
+    status: archived ? 'complete' : 'in_progress',
+  }
 }
 
 function renderForm() {
@@ -71,6 +97,13 @@ function renderForm() {
 /** Fill the form, choose the effective protocol version, and submit. */
 async function submitForm(user: UserEvent, { start = false } = {}) {
   await screen.findByRole('option', { name: 'Project A' })
+  // The create button stays disabled until project access resolves.
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLSelectElement>('combobox', { name: /^Project/ })
+        .disabled,
+    ).toBe(false),
+  )
   await user.type(
     screen.getByRole('textbox', { name: /^Title/ }),
     'AAV9 stability',
@@ -98,7 +131,7 @@ beforeEach(() => {
   })
   notebookCreate.applyExperimentSetup.mockResolvedValue(undefined)
   dataClient.list.mockImplementation(async (resource: string, query = '') => {
-    if (resource === 'projects') return [{ id: 'p-1', title: 'Project A' }]
+    if (resource === 'projects') return [project(WRITABLE_PROJECT_ID, 'Project A')]
     if (resource === 'protocol_versions') return [PROTOCOL_VERSION]
     if (resource === 'records') {
       if (query.includes('protocol_template')) return [PROTOCOL]
@@ -109,6 +142,8 @@ beforeEach(() => {
   })
   dataClient.rpc.mockImplementation(async (name: string) => {
     if (name === 'workspace_members_list') return []
+    if (name === 'my_project_permissions')
+      return [assignment(WRITABLE_PROJECT_ID, true)]
     return undefined
   })
 })
@@ -146,5 +181,86 @@ describe('new experiment', () => {
         expect.objectContaining({ p_protocol_version_id: 'pv-1' }),
       ),
     )
+  })
+
+  it('defaults to a project the account can edit and marks view-only projects', async () => {
+    dataClient.list.mockImplementation(async (resource: string) => {
+      if (resource === 'projects')
+        return [
+          project(READ_ONLY_PROJECT_ID, 'A view-only project'),
+          project(WRITABLE_PROJECT_ID, 'B edit project'),
+        ]
+      return []
+    })
+    dataClient.rpc.mockImplementation(async (name: string) => {
+      if (name === 'my_project_permissions')
+        return [
+          assignment(READ_ONLY_PROJECT_ID, false),
+          assignment(WRITABLE_PROJECT_ID, true),
+        ]
+      return undefined
+    })
+    renderForm()
+
+    const select = await screen.findByRole<HTMLSelectElement>('combobox', {
+      name: /^Project/,
+    })
+    await waitFor(() => expect(select.value).toBe(WRITABLE_PROJECT_ID))
+
+    const viewOnly = screen.getByRole<HTMLOptionElement>('option', {
+      name: /A view-only project/,
+    })
+    expect(viewOnly.disabled).toBe(true)
+    expect(viewOnly.textContent).toContain('read-only')
+  })
+
+  it('never defaults to an archived project and says why it is unusable', async () => {
+    dataClient.list.mockImplementation(async (resource: string) => {
+      if (resource === 'projects')
+        return [
+          project(READ_ONLY_PROJECT_ID, 'A archived project', true),
+          project(WRITABLE_PROJECT_ID, 'B edit project'),
+        ]
+      return []
+    })
+    dataClient.rpc.mockImplementation(async (name: string) => {
+      if (name === 'my_project_permissions')
+        return [
+          assignment(READ_ONLY_PROJECT_ID, true),
+          assignment(WRITABLE_PROJECT_ID, true),
+        ]
+      return undefined
+    })
+    renderForm()
+
+    const select = await screen.findByRole<HTMLSelectElement>('combobox', {
+      name: /^Project/,
+    })
+    await waitFor(() => expect(select.value).toBe(WRITABLE_PROJECT_ID))
+
+    const archived = screen.getByRole<HTMLOptionElement>('option', {
+      name: /A archived project/,
+    })
+    expect(archived.disabled).toBe(true)
+    expect(archived.textContent).toContain('archived')
+  })
+
+  it('reports the server refusal inline and in a toast when the create is denied', async () => {
+    notebookCreate.createBlankExperiment.mockRejectedValue(
+      new Error(
+        'new row violates row-level security policy "records_live_insert" for table "records"',
+      ),
+    )
+    const user = userEvent.setup()
+    renderForm()
+    await submitForm(user)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('permission')
+    expect(alert.textContent).toContain('edit access')
+    expect(sonner.toast.error).toHaveBeenCalledWith(
+      expect.stringContaining('permission'),
+    )
+    expect(navigate).not.toHaveBeenCalled()
   })
 })

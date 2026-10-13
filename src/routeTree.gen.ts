@@ -49,6 +49,7 @@ import { Route as ExperimentsNewRouteImport } from './routes/experiments/new'
 import { Route as HelpIndexRouteImport } from './routes/help/index'
 import { Route as HelpRecordsRouteImport } from './routes/help/records'
 import { Route as HelpShortcutsRouteImport } from './routes/help/shortcuts'
+import { Route as ImportIndexRouteImport } from './routes/import.index'
 import { Route as ImportImportIdRouteImport } from './routes/import.$importId'
 import { Route as InstrumentsInstrumentIdRouteImport } from './routes/instruments/$instrumentId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
@@ -66,6 +67,7 @@ import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
 import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
 import { Route as SettingsDiagnosticsRouteImport } from './routes/settings/diagnostics'
+import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
 import { Route as SettingsMembersRouteImport } from './routes/settings/members'
@@ -358,6 +360,11 @@ const HelpShortcutsRoute = HelpShortcutsRouteImport.update({
   path: '/shortcuts',
   getParentRoute: () => HelpRoute,
 } as any)
+const ImportIndexRoute = ImportIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ImportRoute,
+} as any)
 const ImportImportIdRoute = ImportImportIdRouteImport.update({
   id: '/$importId',
   path: '/$importId',
@@ -441,6 +448,11 @@ const SettingsAuditRoute = SettingsAuditRouteImport.update({
 const SettingsDiagnosticsRoute = SettingsDiagnosticsRouteImport.update({
   id: '/diagnostics',
   path: '/diagnostics',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
+  id: '/general',
+  path: '/general',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsInstrumentsRoute = SettingsInstrumentsRouteImport.update({
@@ -988,6 +1000,7 @@ export interface FileRoutesByFullPath {
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
+  '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
@@ -1000,6 +1013,7 @@ export interface FileRoutesByFullPath {
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
+  '/import/': typeof ImportIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -1090,7 +1104,6 @@ export interface FileRoutesByTo {
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
-  '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
@@ -1128,6 +1141,7 @@ export interface FileRoutesByTo {
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
+  '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
@@ -1139,6 +1153,7 @@ export interface FileRoutesByTo {
   '/sheets/new': typeof SheetsNewRoute
   '/analysis': typeof AnalysisIndexRoute
   '/help': typeof HelpIndexRoute
+  '/import': typeof ImportIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -1277,6 +1292,7 @@ export interface FileRoutesById {
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
+  '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
@@ -1289,6 +1305,7 @@ export interface FileRoutesById {
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
+  '/import/': typeof ImportIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -1429,6 +1446,7 @@ export interface FileRouteTypes {
     | '/settings/api'
     | '/settings/audit'
     | '/settings/diagnostics'
+    | '/settings/general'
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
@@ -1441,6 +1459,7 @@ export interface FileRouteTypes {
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
+    | '/import/'
     | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -1531,7 +1550,6 @@ export interface FileRouteTypes {
     | '/datasets'
     | '/experiments'
     | '/foundations'
-    | '/import'
     | '/inbox'
     | '/instruments'
     | '/materials'
@@ -1569,6 +1587,7 @@ export interface FileRouteTypes {
     | '/settings/api'
     | '/settings/audit'
     | '/settings/diagnostics'
+    | '/settings/general'
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
@@ -1580,6 +1599,7 @@ export interface FileRouteTypes {
     | '/sheets/new'
     | '/analysis'
     | '/help'
+    | '/import'
     | '/settings'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -1717,6 +1737,7 @@ export interface FileRouteTypes {
     | '/settings/api'
     | '/settings/audit'
     | '/settings/diagnostics'
+    | '/settings/general'
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
@@ -1729,6 +1750,7 @@ export interface FileRouteTypes {
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
+    | '/import/'
     | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -2163,6 +2185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HelpShortcutsRouteImport
       parentRoute: typeof HelpRoute
     }
+    '/import/': {
+      id: '/import/'
+      path: '/'
+      fullPath: '/import/'
+      preLoaderRoute: typeof ImportIndexRouteImport
+      parentRoute: typeof ImportRoute
+    }
     '/import/$importId': {
       id: '/import/$importId'
       path: '/$importId'
@@ -2280,6 +2309,13 @@ declare module '@tanstack/react-router' {
       path: '/diagnostics'
       fullPath: '/settings/diagnostics'
       preLoaderRoute: typeof SettingsDiagnosticsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/general': {
+      id: '/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof SettingsGeneralRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/instruments': {
@@ -3022,10 +3058,12 @@ const HelpRouteWithChildren = HelpRoute._addFileChildren(HelpRouteChildren)
 
 interface ImportRouteChildren {
   ImportImportIdRoute: typeof ImportImportIdRoute
+  ImportIndexRoute: typeof ImportIndexRoute
 }
 
 const ImportRouteChildren: ImportRouteChildren = {
   ImportImportIdRoute: ImportImportIdRoute,
+  ImportIndexRoute: ImportIndexRoute,
 }
 
 const ImportRouteWithChildren =
@@ -3230,6 +3268,7 @@ interface SettingsRouteChildren {
   SettingsApiRoute: typeof SettingsApiRoute
   SettingsAuditRoute: typeof SettingsAuditRoute
   SettingsDiagnosticsRoute: typeof SettingsDiagnosticsRoute
+  SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRouteWithChildren
   SettingsMembersRoute: typeof SettingsMembersRoute
@@ -3245,6 +3284,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsApiRoute: SettingsApiRoute,
   SettingsAuditRoute: SettingsAuditRoute,
   SettingsDiagnosticsRoute: SettingsDiagnosticsRoute,
+  SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsInstrumentsRoute: SettingsInstrumentsRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRouteWithChildren,
   SettingsMembersRoute: SettingsMembersRoute,

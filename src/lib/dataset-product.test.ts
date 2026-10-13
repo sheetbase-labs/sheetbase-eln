@@ -115,10 +115,33 @@ describe('createDataset', () => {
           name: 'HPLC results',
           description: 'live',
           primary_project_id: null,
+          // The catalogue has no database-side default for the creator, so a
+          // create that is given no person records none rather than guessing.
+          created_by_user_id: null,
         },
       },
     ])
     expect(created).toEqual({ id: 'ds-1', name: 'HPLC results', revision: 1 })
+  })
+
+  it('records the person a new Dataset is attributed to', async () => {
+    const calls: Array<{ resource: string; row: Record<string, unknown> }> = []
+    const client = {
+      insert: async (resource: string, row: Record<string, unknown>) => {
+        calls.push({ resource, row })
+        return { id: 'ds-2', name: row.name, revision: 1 }
+      },
+    } as unknown as DataClient
+    await createDataset(client, {
+      workspaceId: 'ws-1',
+      schemaVersionId: 'ver-2',
+      name: 'HPLC results',
+      createdByUserId: 'user-9',
+    })
+    expect(calls[0]?.row).toMatchObject({
+      schema_version_id: 'ver-2',
+      created_by_user_id: 'user-9',
+    })
   })
 })
 

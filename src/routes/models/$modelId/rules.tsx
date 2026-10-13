@@ -3,6 +3,16 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
@@ -109,6 +119,11 @@ function RecordModelRules({
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [removeError, setRemoveError] = useState<string | null>(null)
+  const [pendingRemove, setPendingRemove] = useState<{
+    id: string
+    name: string
+  } | null>(null)
 
   const rows = rules.data ?? []
   const conditionFieldName = conditionField || fieldOptions[0]?.fieldName || ''
@@ -155,9 +170,14 @@ function RecordModelRules({
 
   async function remove(id: string) {
     setBusy(true)
+    setRemoveError(null)
     try {
       await removeModelRule(notebookDataClient, id)
       await rules.refetch()
+    } catch (caught) {
+      setRemoveError(
+        caught instanceof Error ? caught.message : 'Could not remove the rule.',
+      )
     } finally {
       setBusy(false)
     }
@@ -171,6 +191,11 @@ function RecordModelRules({
           on the server when a record is written or submitted. A block refuses
           the write; a flag blocks submission until it is cleared.
         </Muted>
+        {removeError ? (
+          <p role="alert" className="m-0 text-label text-danger-text">
+            {removeError}
+          </p>
+        ) : null}
         {rows.length ? (
           <TableBox>
             <Table aria-label="Model rules">
@@ -203,7 +228,9 @@ function RecordModelRules({
                         variant="quiet"
                         size="sm"
                         disabled={busy}
-                        onClick={() => remove(rule.id)}
+                        onClick={() =>
+                          setPendingRemove({ id: rule.id, name: rule.name })
+                        }
                       >
                         Remove
                       </Button>
@@ -340,6 +367,39 @@ function RecordModelRules({
           </div>
         </form>
       </Section>
+
+      <ConfirmDialog
+        open={Boolean(pendingRemove)}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemove(null)
+        }}
+      >
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>
+              Remove the “{pendingRemove?.name}” rule?
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              The model stops enforcing this rule on the next write or
+              submission. This cannot be undone.
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogAction
+              variant="danger-fill"
+              disabled={busy}
+              onClick={() => {
+                if (!pendingRemove) return
+                void remove(pendingRemove.id)
+                setPendingRemove(null)
+              }}
+            >
+              Remove rule
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }

@@ -333,10 +333,15 @@ export function MilestoneTimeline({
               {band.start ? (
                 <span
                   aria-hidden="true"
+                  data-band={band.id}
                   className={cn(
                     'absolute top-1/2 h-2 -translate-y-1/2 rounded-full',
                     band.end < now
-                      ? 'bg-success-wash'
+                      ? band.milestones.every(
+                          (m) => m.status === 'completed',
+                        )
+                        ? 'bg-success-wash'
+                        : 'bg-danger-wash'
                       : band.start <= now && now <= band.end
                         ? 'bg-selection'
                         : 'bg-surface-hover',
@@ -385,6 +390,9 @@ export function MilestoneTimeline({
         </span>
         <span className="flex items-center gap-1">
           <span className="size-2 rotate-45 bg-success" /> Done
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="size-2 rotate-45 bg-border-strong" /> Unknown risk
         </span>
         <span className="flex items-center gap-1">
           <span className="size-2 rounded-full ring-2 ring-focus" />{' '}

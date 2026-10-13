@@ -219,9 +219,9 @@ function ProjectOverview() {
         </Section>
 
         <Muted>
-          Milestones are the project's study deliverables; authoring them from
-          here lands with PROJ-02. Folders, members and settings are on their
-          tabs.
+          Milestones are the project's study deliverables with a target date.
+          Add and schedule them on the Milestones tab. Folders, members and
+          settings are on their tabs.
         </Muted>
       </div>
 

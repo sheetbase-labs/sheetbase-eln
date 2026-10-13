@@ -64,7 +64,7 @@ type SampleTab = (typeof tabs)[number]
 const tabLabel: Record<SampleTab, string> = {
   instock: 'In stock',
   mine: 'Mine',
-  awaiting: 'Awaiting',
+  awaiting: 'Reserved',
   quarantine: 'Quarantine',
   consumed: 'Consumed',
 }
@@ -339,6 +339,21 @@ function SamplesList() {
                 {sel.status.label}
                 {sel.quantity !== '—' ? ` · ${sel.quantity}` : ''}
               </Status>
+            </div>
+            <div className="mt-1.5">
+              <Button
+                size="sm"
+                variant="primary"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/samples/$sampleId"
+                    params={{ sampleId: sel.uuid }}
+                  />
+                }
+              >
+                Open sample
+              </Button>
             </div>
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">

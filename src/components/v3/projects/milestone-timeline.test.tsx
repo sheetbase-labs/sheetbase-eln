@@ -144,4 +144,75 @@ describe('MilestoneTimeline', () => {
     )
     expect(container.firstChild).toBeNull()
   })
+
+  it('paints a passed phase as overdue while its milestones are open', () => {
+    const { container } = render(
+      <MilestoneTimeline
+        milestones={[
+          milestone({
+            id: 'a',
+            workstreamId: 'phase-1',
+            dueAt: '2026-09-20T00:00:00Z',
+            status: 'in_progress',
+          }),
+          milestone({
+            id: 'b',
+            workstreamId: 'phase-1',
+            dueAt: '2026-09-22T00:00:00Z',
+            status: 'completed',
+          }),
+        ]}
+        phases={[{ id: 'phase-1', name: 'Upstream' }]}
+        dependencies={[]}
+        scale="month"
+        onScaleChange={vi.fn()}
+        selectedId={null}
+        onSelect={vi.fn()}
+        now={NOW}
+      />,
+    )
+    const band = container.querySelector('[data-band="phase-1"]')
+    expect(band?.className).toContain('bg-danger-wash')
+    expect(band?.className).not.toContain('bg-success-wash')
+  })
+
+  it('paints a passed phase as done once every milestone is completed', () => {
+    const { container } = render(
+      <MilestoneTimeline
+        milestones={[
+          milestone({
+            id: 'a',
+            workstreamId: 'phase-1',
+            dueAt: '2026-09-20T00:00:00Z',
+            status: 'completed',
+          }),
+        ]}
+        phases={[{ id: 'phase-1', name: 'Upstream' }]}
+        dependencies={[]}
+        scale="month"
+        onScaleChange={vi.fn()}
+        selectedId={null}
+        onSelect={vi.fn()}
+        now={NOW}
+      />,
+    )
+    const band = container.querySelector('[data-band="phase-1"]')
+    expect(band?.className).toContain('bg-success-wash')
+  })
+
+  it('lists the unknown-risk swatch in the legend', () => {
+    render(
+      <MilestoneTimeline
+        milestones={[milestone({ risk: 'unknown' })]}
+        phases={[{ id: 'phase-1', name: 'Upstream' }]}
+        dependencies={[]}
+        scale="month"
+        onScaleChange={vi.fn()}
+        selectedId={null}
+        onSelect={vi.fn()}
+        now={NOW}
+      />,
+    )
+    expect(screen.getByText('Unknown risk')).toBeTruthy()
+  })
 })

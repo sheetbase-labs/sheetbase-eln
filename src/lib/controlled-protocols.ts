@@ -60,7 +60,9 @@ export async function acknowledgeProtocolVersion(
   protocolVersionId: string,
 ): Promise<ProtocolAcknowledgement> {
   const row = await client.rpc<unknown>('acknowledge_protocol_version', {
-    p_protocol_version_id: z.uuid().parse(protocolVersionId),
+    // The database function takes p_version_id (drizzle/0328), not
+    // p_protocol_version_id: naming it wrong makes PostgREST answer 404.
+    p_version_id: z.uuid().parse(protocolVersionId),
   })
   return protocolAcknowledgementSchema.parse(row)
 }

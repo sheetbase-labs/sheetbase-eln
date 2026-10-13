@@ -73,7 +73,7 @@ describe('controlled protocol client boundary', () => {
     const { client, fetcher } = clientReturning(row)
     expect(await acknowledgeProtocolVersion(client, REVISION)).toEqual(row)
     expect(JSON.parse(fetcher.mock.calls[0]?.[1].body)).toEqual({
-      p_protocol_version_id: REVISION,
+      p_version_id: REVISION,
     })
   })
 })

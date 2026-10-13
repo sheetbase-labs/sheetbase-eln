@@ -3,13 +3,13 @@
  * version pins the version on start; on its own it must leave a draft.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { UserEvent } from '@testing-library/user-event'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Route } from './new'
+import { FORM_READ_TIMEOUT_MS, Route } from './new'
 
 const NewExperimentRoute = Route.options.component as React.ComponentType
 
@@ -243,6 +243,63 @@ describe('new experiment', () => {
     })
     expect(archived.disabled).toBe(true)
     expect(archived.textContent).toContain('archived')
+  })
+
+  it('states the access failure instead of hanging when the permission read never settles', async () => {
+    vi.useFakeTimers()
+    try {
+      dataClient.rpc.mockImplementation((name: string) =>
+        name === 'my_project_permissions'
+          ? new Promise(() => {})
+          : Promise.resolve(undefined),
+      )
+      renderForm()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FORM_READ_TIMEOUT_MS + 1000)
+      })
+
+      // The gate settles: the loading copy is gone and the failure is stated
+      // with a retry, and the form is usable rather than inert.
+      expect(
+        screen.queryByText(/Checking which projects you can write to/),
+      ).toBeNull()
+      expect(
+        screen.getByText(/Couldn’t check which projects you can write to/),
+      ).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined()
+      expect(
+        screen.getByRole<HTMLSelectElement>('combobox', { name: /^Project/ })
+          .disabled,
+      ).toBe(false)
+      expect(
+        screen.getByRole('button', { name: 'Create draft' }),
+      ).toHaveProperty('disabled', false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('states the project-list failure instead of hanging when that read never settles', async () => {
+    vi.useFakeTimers()
+    try {
+      dataClient.list.mockImplementation(() => new Promise(() => {}))
+      renderForm()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FORM_READ_TIMEOUT_MS + 1000)
+      })
+
+      expect(screen.queryByText(/Loading the projects/)).toBeNull()
+      expect(
+        screen.getByText(/Couldn’t load the project list/),
+      ).toBeDefined()
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined()
+      // Nothing to choose, so the create stays unavailable — and says so.
+      expect(
+        screen.getByRole('button', { name: 'Create draft' }),
+      ).toHaveProperty('disabled', true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('reports the server refusal inline and in a toast when the create is denied', async () => {

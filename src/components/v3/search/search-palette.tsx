@@ -1,8 +1,9 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 
 import { Dialog, DialogContent } from '#/components/v3/ui/dialog'
+import { Button } from '#/components/v3/ui/button'
 import { Kbd } from '#/components/v3/ui/kbd'
 import { NativeSelect } from '#/components/v3/projects/select'
 import { Icon } from '#/components/v3/icons'
@@ -96,6 +97,8 @@ export function SearchPalette({
   // filter. Off by default, matching the results page.
   const [archived, setArchived] = useState(false)
   const [res, setRes] = useState<SearchResult[] | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const [searching, setSearching] = useState(false)
   const [suggestion, setSuggestion] = useState<DidYouMeanSuggestion | null>(
     null,
   )
@@ -103,19 +106,56 @@ export function SearchPalette({
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
+  // A response must not write into the palette once a newer search, or the
+  // close that follows it, has superseded it.
+  const searchGeneration = useRef(0)
   const projects = useProjectNameMap()
+
+  const reset = () => {
+    searchGeneration.current += 1
+    setQ(initialQuery)
+    setScope(SEARCH_SCOPE_ALL)
+    setArchived(false)
+    setRes(null)
+    setError(null)
+    setSearching(false)
+    setSuggestion(null)
+  }
 
   const setOpen = (o: boolean) => {
     onOpenChange?.(o)
     if (openProp === undefined) setOpenState(o)
-    if (!o) {
-      setQ(initialQuery)
-      setScope(SEARCH_SCOPE_ALL)
-      setArchived(false)
-      setRes(null)
-      setSuggestion(null)
-    }
+    if (!o) reset()
   }
+
+  // The palette's search: the failure is kept so the palette can say what
+  // happened and offer the retry, rather than leaving an empty listbox.
+  const runSearch = useCallback(
+    (term: string, nextScope: string, nextArchived: boolean) => {
+      const generation = (searchGeneration.current += 1)
+      setSearching(true)
+      setError(null)
+      void executeSearch(notebookDataClient, {
+        query: term,
+        limit: FETCH_LIMIT,
+        projectId: nextScope === SEARCH_SCOPE_ALL ? undefined : nextScope,
+        includeArchived: nextArchived,
+      })
+        .then((rows) => {
+          if (generation !== searchGeneration.current) return
+          setRes(rows)
+          setSearching(false)
+          setActive(0)
+        })
+        .catch((cause: unknown) => {
+          if (generation !== searchGeneration.current) return
+          setRes(null)
+          setSearching(false)
+          setError(cause)
+        })
+    },
+    [],
+  )
 
   // Esc is owned by the Dialog primitive, which calls onOpenChange(false).
   // Capture the previously focused element before moving focus into the
@@ -137,28 +177,18 @@ export function SearchPalette({
     const term = q.trim()
     if (!term) {
       setRes(null)
+      setError(null)
+      setSearching(false)
       return
     }
-    let live = true
     setSuggestion(null)
-    const t = setTimeout(() => {
-      void executeSearch(notebookDataClient, {
-        query: term,
-        limit: FETCH_LIMIT,
-        projectId: scope === SEARCH_SCOPE_ALL ? undefined : scope,
-        includeArchived: archived,
-      }).then((rows) => {
-        if (live) {
-          setRes(rows)
-          setActive(0)
-        }
-      })
-    }, 120)
+    setSearching(true)
+    const t = setTimeout(() => runSearch(term, scope, archived), 120)
     return () => {
-      live = false
+      searchGeneration.current += 1
       clearTimeout(t)
     }
-  }, [q, open, scope, archived])
+  }, [q, open, scope, archived, runSearch])
 
   // When a query genuinely finds nothing the palette offers a corrected
   // identifier, resolved at the canonical search boundary
@@ -185,6 +215,10 @@ export function SearchPalette({
   }, [q, open, res, archived])
 
   const items = res ?? []
+  // The chosen project's name, so the empty state can name the scope rather
+  // than the id it was chosen by.
+  const scopeLabel =
+    scope === SEARCH_SCOPE_ALL ? null : (projects.data?.get(scope) ?? null)
   const scoped = useMemo(
     () =>
       filterBySearchScope(
@@ -311,19 +345,7 @@ export function SearchPalette({
       : 'See all results'
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o)
-        if (!o) {
-          setQ(initialQuery)
-          setScope(SEARCH_SCOPE_ALL)
-          setArchived(false)
-          setRes(null)
-          setSuggestion(null)
-        }
-      }}
-    >
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
         className="top-20 w-[min(640px,calc(100vw-32px))] max-md:inset-0 max-md:max-h-dvh max-md:rounded-none max-md:border-0"
         aria-label="Search"
@@ -384,48 +406,90 @@ export function SearchPalette({
             Cancel
           </DialogPrimitive.Close>
         </div>
-        {res !== null && q.trim() && entryCount === 0 ? (
-          <div role="status" className="flex flex-col gap-2.5 px-5 py-7">
-            <div className="font-semibold">No matches for “{q.trim()}”</div>
+        {error ? (
+          <div role="alert" className="flex flex-col gap-2.5 px-5 py-7">
+            <div className="font-semibold">Search could not run</div>
             <div className="text-body leading-[19px] text-fg-muted">
-              Nothing in names, IDs, cell values, comments or files you can
-              access.
+              The search service did not answer, so nothing was searched.
             </div>
-            {suggestion ? (
-              <div className="text-body">
-                Did you mean{' '}
-                <button
-                  type="button"
-                  onClick={() => acceptSuggestion(suggestion)}
-                  className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] font-medium text-link hover:underline"
-                >
-                  {suggestion.identifier}
-                </button>
-                ?{' '}
-                <span className="text-fg-muted">
-                  {suggestion.title} ·{' '}
-                  {SUGGESTION_KIND_LABELS[suggestion.kind] ?? suggestion.kind}
-                </span>
-              </div>
-            ) : null}
-            <div className="text-label text-fg-muted">
-              {archived ? (
-                <>
-                  Archived work searched too: still no matches for “{q.trim()}”.
-                </>
-              ) : (
-                <>
-                  Archived work isn’t searched.{' '}
+            <div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => runSearch(q.trim(), scope, archived)}
+              >
+                Try again
+              </Button>
+            </div>
+          </div>
+        ) : res !== null && q.trim() && entryCount === 0 && !searching ? (
+          <div role="status" className="flex flex-col gap-2.5 px-5 py-7">
+            {items.length > 0 ? (
+              <>
+                <div className="font-semibold">
+                  No matches in {scopeLabel ?? 'this project'}
+                </div>
+                <div className="text-body leading-[19px] text-fg-muted">
+                  {items.length}{' '}
+                  {items.length === 1 ? 'match is' : 'matches are'} for “
+                  {q.trim()}” outside {scopeLabel ?? 'it'}.
+                </div>
+                <div className="text-body">
                   <button
                     type="button"
-                    onClick={() => setArchived(true)}
+                    onClick={() => setScope(SEARCH_SCOPE_ALL)}
                     className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
                   >
-                    Include archived
+                    Search all projects
                   </button>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-semibold">No matches for “{q.trim()}”</div>
+                <div className="text-body leading-[19px] text-fg-muted">
+                  Nothing in names, IDs, cell values, comments or files you can
+                  access.
+                </div>
+                {suggestion ? (
+                  <div className="text-body">
+                    Did you mean{' '}
+                    <button
+                      type="button"
+                      onClick={() => acceptSuggestion(suggestion)}
+                      className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] font-medium text-link hover:underline"
+                    >
+                      {suggestion.identifier}
+                    </button>
+                    ?{' '}
+                    <span className="text-fg-muted">
+                      {suggestion.title} ·{' '}
+                      {SUGGESTION_KIND_LABELS[suggestion.kind] ??
+                        suggestion.kind}
+                    </span>
+                  </div>
+                ) : null}
+                <div className="text-label text-fg-muted">
+                  {archived ? (
+                    <>
+                      Archived work searched too: still no matches for “
+                      {q.trim()}”.
+                    </>
+                  ) : (
+                    <>
+                      Archived work isn’t searched.{' '}
+                      <button
+                        type="button"
+                        onClick={() => setArchived(true)}
+                        className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+                      >
+                        Include archived
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div
@@ -433,12 +497,18 @@ export function SearchPalette({
             id={listId}
             role="listbox"
             aria-label="Results"
+            aria-busy={searching}
             className="max-h-[440px] overflow-auto pb-2 pt-1 max-md:max-h-none max-md:min-h-0 max-md:flex-1"
           >
             {!q.trim() ? (
               <div className="px-3.5 py-6 text-body text-fg-muted">
                 Type an ID like <span className="mono">EXP-0001</span>, a name,
                 or a value like <span className="mono">C-150</span>.
+              </div>
+            ) : null}
+            {searching ? (
+              <div role="status" className="px-3.5 py-3 text-body text-fg-muted">
+                Searching…
               </div>
             ) : null}
             {rows.map((row) => {

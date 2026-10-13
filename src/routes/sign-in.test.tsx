@@ -17,7 +17,7 @@ import {
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { SignInSurface, states } from './sign-in'
+import { SignInSurface, Route, states } from './sign-in'
 import type { SignInState, SignInSurfaceProps } from './sign-in'
 
 afterEach(() => {
@@ -159,6 +159,62 @@ describe('R5-SHELL-05 sign-in states', () => {
       screen.getByText(/not configured for this environment yet/i),
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull()
+  })
+})
+
+describe('R5-SHELL-05 — the callback stays on this origin', () => {
+  const validateSearch = Route.options.validateSearch as (search: {
+    [key: string]: unknown
+  }) => { next?: string }
+
+  it.each([
+    '//evil.example',
+    '/\\evil.example',
+    'https://evil.example',
+    'evil.example',
+    '/review/rev-42\n',
+  ])('drops %s as a return path', (next) => {
+    // Anything that is not a rooted path on this origin would take the person
+    // off-site after sign-in, so the route refuses it and the callback falls
+    // back to the app root.
+    expect(validateSearch({ next }).next).toBeUndefined()
+  })
+
+  it('keeps a same-origin return path', () => {
+    expect(validateSearch({ next: '/review/rev-42' }).next).toBe(
+      '/review/rev-42',
+    )
+  })
+
+  it('never hands a protocol-relative return path to the provider', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) })
+    vi.stubGlobal('fetch', fetchMock)
+    renderSurface({ state: 'expired-signing', next: '//evil.example' })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Continue with GitHub/ }),
+    )
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({
+      provider: 'github',
+      callbackURL: '/',
+    })
+  })
+
+  it('says the provider could not be reached instead of doing nothing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    renderSurface()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Continue with GitHub/ }),
+    )
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /could not reach github/i,
+    )
+    expect(
+      screen.getByRole('button', { name: /Continue with GitHub/ }),
+    ).toBeTruthy()
   })
 })
 

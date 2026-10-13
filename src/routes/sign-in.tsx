@@ -51,6 +51,27 @@ export const states = [
 ] as const
 export type SignInState = (typeof states)[number]
 
+/**
+ * The same-origin path the SSO callback may return to, or `undefined`.
+ *
+ * `startsWith('/')` alone lets an open redirect through: `//evil.example` is a
+ * protocol-relative URL, and browsers read `/\evil.example` as `//`, so either
+ * would leave the site after sign-in. Only a rooted path with no backslash and
+ * no control character is a path on this origin; anything else is dropped, so
+ * the callback falls back to the app root.
+ */
+export function safeNextPath(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  if (!value.startsWith('/')) return undefined
+  if (value.startsWith('//') || value.includes('\\')) return undefined
+  const control = [...value].some((char) => {
+    const code = char.charCodeAt(0)
+    return code < 0x20 || code === 0x7f
+  })
+  if (control) return undefined
+  return value
+}
+
 const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
   // Server-only module (reads process env and the DB client); a static import
   // would pull it into the browser bundle, so it is loaded inside the handler.
@@ -69,10 +90,7 @@ export const Route = createFileRoute('/sign-in')({
     state: (states as readonly string[]).includes(search.state as string)
       ? (search.state as SignInState)
       : undefined,
-    next:
-      typeof search.next === 'string' && search.next.startsWith('/')
-        ? search.next
-        : undefined,
+    next: safeNextPath(search.next),
     error: typeof search.error === 'string' ? search.error : undefined,
   }),
   loader: () => getSignInState(),
@@ -133,6 +151,7 @@ export function SignInSurface({
   retainedDrafts,
 }: SignInSurfaceProps) {
   const [redirecting, setRedirecting] = useState(false)
+  const [ssoError, setSsoError] = useState<string | null>(null)
   const message = describeSignInError(error)
   const provider = 'GitHub'
 
@@ -145,20 +164,31 @@ export function SignInSurface({
 
   async function sso() {
     setRedirecting(true)
+    setSsoError(null)
     try {
       const res = await fetch('/api/auth/sign-in/social', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ provider: 'github', callbackURL: next ?? '/' }),
+        body: JSON.stringify({
+          provider: 'github',
+          // The router already validated `?next=`; the surface validates again
+          // so a callback URL can never reach the provider unvalidated.
+          callbackURL: safeNextPath(next) ?? '/',
+        }),
       })
       const data = (await res.json()) as { url?: string }
       if (data.url) {
         window.location.href = data.url
         return
       }
+      setSsoError(
+        'GitHub sign-in did not start. Try again, and contact the workspace owner if it keeps failing.',
+      )
     } catch {
-      /* fall through to re-enable the button */
+      setSsoError(
+        'Could not reach GitHub to start sign-in. Check your connection and try again.',
+      )
     }
     setRedirecting(false)
   }
@@ -182,7 +212,9 @@ export function SignInSurface({
               </h1>
             </div>
 
-            {message ? <Notice tone="bad">{message}</Notice> : null}
+            {ssoError || message ? (
+              <Notice tone="bad">{ssoError ?? message}</Notice>
+            ) : null}
 
             {state === 'signed-out' ? (
               <SignedOutSurface retained={retainedDrafts} />

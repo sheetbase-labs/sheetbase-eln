@@ -148,9 +148,15 @@ function AnalysisView() {
           meta={
             <>
               <span className="text-fg">
-                <Status tone={status?.state === 'stale' ? 'warn' : 'ok'}>
-                  {status?.state === 'stale' ? 'Sources changed' : 'Up to date'}
-                </Status>
+                {statusQuery.isPending ? (
+                  <Status tone="progress">Checking sources…</Status>
+                ) : !status ? (
+                  <Status tone="none">Source check unavailable</Status>
+                ) : status.state === 'stale' ? (
+                  <Status tone="warn">Sources changed</Status>
+                ) : (
+                  <Status tone="ok">Up to date</Status>
+                )}
               </span>
               <span>Saved version {view.version}</span>
               <span className="max-lg:hidden">
@@ -161,6 +167,7 @@ function AnalysisView() {
           actions={
             <Link
               to="/analysis/new"
+              search={{ view: view.id, dataset: datasetId }}
               className={buttonVariants({ variant: 'primary' })}
             >
               Edit in studio

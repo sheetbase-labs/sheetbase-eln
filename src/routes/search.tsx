@@ -3,6 +3,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/v3/ui/alert'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { Radio, RadioGroup } from '#/components/v3/ui/radio-group'
@@ -137,7 +138,13 @@ function SearchPage() {
   const suggestionQuery = useQuery({
     queryKey: ['did-you-mean', q],
     queryFn: () => searchDidYouMean(notebookDataClient, q),
-    enabled: q.trim().length > 0 && results.length === 0 && !query.isLoading,
+    // A failed search is not a miss, so it must not produce a correction for
+    // a query that was never run.
+    enabled:
+      q.trim().length > 0 &&
+      results.length === 0 &&
+      !query.isLoading &&
+      !query.isError,
     staleTime: 30_000,
   })
 
@@ -157,11 +164,12 @@ function SearchPage() {
   const projectFilter = search.project ?? []
   const updatedFilter = search.updated ?? 'any'
 
+  // A query or facet change is a new place in the history: Back returns to the
+  // previous query rather than skipping past it.
   const setSearch = (patch: Partial<SearchSearch>) =>
     void navigate({
       to: '/search',
       search: (s) => ({ ...s, ...patch }),
-      replace: true,
     })
   const toggleType = (g: SearchResultGroup, on: boolean) =>
     setSearch({
@@ -325,8 +333,11 @@ function SearchPage() {
                 {results.length}
               </span>
               <span className="flex-1" />
+              {/* The `search` RPC ranks by relevance and takes no sort
+                  parameter, so the page states the ordering instead of
+                  offering a control that could not change it. */}
               <span className="text-label text-fg-muted max-md:hidden">
-                Sort: Relevance
+                Ranked by relevance
               </span>
             </div>
             <div className="mt-0.5 text-label text-fg-muted">
@@ -334,7 +345,30 @@ function SearchPage() {
               access
             </div>
 
-            {!query.isLoading && results.length === 0 && !query.hasNextPage ? (
+            {query.isError ? (
+              <Notice
+                tone="bad"
+                title="Search could not run"
+                className="mt-3"
+                action={
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void query.refetch()}
+                  >
+                    Try again
+                  </Button>
+                }
+              >
+                The search service did not answer. This is not a result of
+                nothing matching.
+              </Notice>
+            ) : null}
+
+            {!query.isError &&
+            !query.isLoading &&
+            results.length === 0 &&
+            !query.hasNextPage ? (
               <NoResults
                 q={q}
                 archived={Boolean(search.archived)}

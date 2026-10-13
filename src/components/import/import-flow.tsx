@@ -231,7 +231,14 @@ interface ImportCommitResponseSummary {
  * server. The stored file's id becomes the import's address, so every later
  * step is linkable and recoverable (R5-SURF-04).
  */
-export function ImportUploadFlow({ workspaceId }: { workspaceId: string }) {
+export function ImportUploadFlow({
+  workspaceId,
+  createdByUserId,
+}: {
+  workspaceId: string
+  /** The signed-in person a Dataset created here is attributed to. */
+  createdByUserId: string | null
+}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const datasets = useQuery({
@@ -283,6 +290,7 @@ export function ImportUploadFlow({ workspaceId }: { workspaceId: string }) {
               workspaceId,
               schemaVersionId,
               name: newName,
+              createdByUserId,
             }
           : { mode: 'append', datasetId },
       )

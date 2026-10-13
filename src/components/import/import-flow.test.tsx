@@ -323,7 +323,7 @@ describe('filename parser suggestion', () => {
 
 describe('ImportUploadFlow', () => {
   it('offers the new-Dataset path when there is nothing to append to', async () => {
-    renderFlow(<ImportUploadFlow workspaceId="ws-1" />)
+    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
     expect(screen.queryByText(/Create a dataset from a model first/)).toBeNull()
     expect(
       await screen.findByLabelText('Model for the new dataset'),
@@ -350,7 +350,7 @@ describe('ImportUploadFlow', () => {
       uploadResponse({ fileId: 'file-1', datasetId: 'ds-new' }),
     )
     const user = userEvent.setup()
-    renderFlow(<ImportUploadFlow workspaceId="ws-1" />)
+    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
 
     await screen.findByRole('option', { name: /ELISA and turbidity/ })
     await user.selectOptions(
@@ -376,6 +376,7 @@ describe('ImportUploadFlow', () => {
         workspaceId: 'ws-1',
         schemaVersionId: 'sv-1',
         name: 'ELISA capsid titre run 4',
+        createdByUserId: 'u-1',
       },
     )
     const [uploadArgs] = importData.uploadImportFile.mock.calls[0] ?? []

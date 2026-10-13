@@ -85,7 +85,14 @@ export async function fetchImportFile(input: {
 
 export type ImportTargetChoice =
   | { mode: 'append'; datasetId: string }
-  | { mode: 'new'; workspaceId: string; schemaVersionId: string; name: string }
+  | {
+      mode: 'new'
+      workspaceId: string
+      schemaVersionId: string
+      name: string
+      /** The signed-in person the new Dataset is attributed to. */
+      createdByUserId?: string | null
+    }
 
 /**
  * R5-SURF-04 — resolve what the import writes into: an existing Dataset, or a
@@ -111,6 +118,7 @@ export async function resolveImportTarget(
     workspaceId: choice.workspaceId,
     schemaVersionId: choice.schemaVersionId,
     name,
+    createdByUserId: choice.createdByUserId ?? null,
   })
   return { datasetId: created.id, created: true }
 }

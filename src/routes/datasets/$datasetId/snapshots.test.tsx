@@ -213,6 +213,10 @@ describe('dataset snapshots route', () => {
         expect.stringContaining('Gareth P. · saved by hand'),
       ),
     )
+    // One confirmed save writes one snapshot and closes the dialog; a second
+    // click is only possible once it is reopened deliberately.
+    expect(product.snapshotDataset).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('surfaces an RPC refusal as a toast without crashing the tab', async () => {

@@ -147,6 +147,13 @@ export async function createDataset(
     name: string
     description?: string | null
     primaryProjectId?: string | null
+    /**
+     * The signed-in person the new Dataset is attributed to. The catalogue
+     * carries no database-side default for `created_by_user_id` (unlike the
+     * tables whose triggers stamp it from the request claims), so a create that
+     * omits this leaves the Dataset with no recorded owner.
+     */
+    createdByUserId?: string | null
   },
 ): Promise<{ id: string; revision: number; name: string }> {
   const created = firstRow(
@@ -158,6 +165,7 @@ export async function createDataset(
         name: input.name.trim(),
         description: input.description?.trim() || null,
         primary_project_id: input.primaryProjectId ?? null,
+        created_by_user_id: input.createdByUserId ?? null,
       },
     ),
   )

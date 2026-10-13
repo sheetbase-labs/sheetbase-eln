@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { DialogRootActions } from '@base-ui/react/dialog'
 
 import { Status } from '#/components/v3/ui/status'
 import { Notice } from '#/components/v3/ui/alert'
@@ -123,6 +124,15 @@ function Snapshots() {
             ? 'Archived datasets cannot be snapshotted.'
             : null
 
+  // base-ui keeps a closed popup in the document until a frame has painted past
+  // its exit transition. A hidden or throttled tab may never deliver that frame,
+  // which leaves the closed dialog on screen with live controls — clicking
+  // "Save snapshot" again would then write a second snapshot. Unmounting on
+  // close is base-ui's documented way to take the dialog out of the document
+  // immediately, so a closed confirmation can never be submitted twice.
+  const createDialogActions = useRef<DialogRootActions | null>(null)
+  const keepDialogActions = useRef<DialogRootActions | null>(null)
+
   const create = useMutation({
     mutationFn: (label: string) =>
       snapshotDataset(notebookDataClient, {
@@ -165,6 +175,13 @@ function Snapshots() {
         description: describeKeepError(cause),
       }),
   })
+
+  useEffect(() => {
+    if (!dialogOpen) createDialogActions.current?.unmount()
+  }, [dialogOpen])
+  useEffect(() => {
+    if (!keepTarget) keepDialogActions.current?.unmount()
+  }, [keepTarget])
 
   const others = rows.filter((v) => v.id !== current?.id)
   const compareTarget =
@@ -431,6 +448,7 @@ function Snapshots() {
       <CreateSnapshotDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        actionsRef={createDialogActions}
         defaultLabel={`${context.user.name} · saved by hand`}
         busy={create.isPending}
         onSubmit={(label) => create.mutate(label)}
@@ -439,6 +457,7 @@ function Snapshots() {
       <KeepSnapshotDialog
         key={keepTarget?.id ?? 'none'}
         snapshot={keepTarget}
+        actionsRef={keepDialogActions}
         onOpenChange={(open) => {
           if (!open) setKeepTarget(null)
         }}
@@ -454,6 +473,7 @@ function Snapshots() {
 interface CreateSnapshotDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  actionsRef: React.RefObject<DialogRootActions | null>
   defaultLabel: string
   busy?: boolean
   onSubmit: (label: string) => void
@@ -462,11 +482,14 @@ interface CreateSnapshotDialogProps {
 /**
  * "Save a snapshot now" dialog. A label is required so the snapshot list and
  * comparison stay readable; the value is trimmed by the product helper before
- * it reaches the RPC.
+ * it reaches the RPC. `actionsRef` lets the caller take the dialog out of the
+ * document the moment the snapshot is saved, so the confirmation cannot be
+ * submitted twice.
  */
 function CreateSnapshotDialog({
   open,
   onOpenChange,
+  actionsRef,
   defaultLabel,
   busy = false,
   onSubmit,
@@ -480,6 +503,7 @@ function CreateSnapshotDialog({
   return (
     <Dialog
       open={open}
+      actionsRef={actionsRef}
       onOpenChange={(next) => {
         if (!next) {
           setLabel(defaultLabel)
@@ -515,6 +539,7 @@ function CreateSnapshotDialog({
               <Input
                 value={label}
                 autoFocus
+                required
                 disabled={busy}
                 aria-invalid={touched && invalid}
                 onChange={(e) => {
@@ -544,6 +569,7 @@ function CreateSnapshotDialog({
 interface KeepSnapshotDialogProps {
   snapshot: SnapshotVersion | null
   onOpenChange: (open: boolean) => void
+  actionsRef: React.RefObject<DialogRootActions | null>
   busy?: boolean
   onSubmit: (reason: string) => void
 }
@@ -554,11 +580,13 @@ const KEEP_REASON_MAX = 500
  * DSET-04.3 — "Keep" a snapshot from retention. A reason is required because
  * the RPC stores it beside the snapshot and rejects an empty one; the value
  * is trimmed and length-checked here so the refusal never reaches the user as
- * a raw database error.
+ * a raw database error. Like the create dialog, it is unmounted by its caller
+ * once the keep is recorded, so it cannot be submitted a second time.
  */
 function KeepSnapshotDialog({
   snapshot,
   onOpenChange,
+  actionsRef,
   busy = false,
   onSubmit,
 }: KeepSnapshotDialogProps) {
@@ -571,6 +599,7 @@ function KeepSnapshotDialog({
   return (
     <Dialog
       open={snapshot !== null}
+      actionsRef={actionsRef}
       onOpenChange={(next) => {
         if (!next) {
           setReason('')

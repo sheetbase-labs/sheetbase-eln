@@ -78,6 +78,24 @@ export function SettingsNotifications() {
     },
   })
 
+  // The form is dirty only against what the server last returned, so Save is
+  // inert until something actually changes. Times are plain UTC clock values
+  // (the delivery and digest queries compare against UTC), never local ones.
+  const savedRows = preferencesQuery.data ?? defaultPreferences()
+  const dirty =
+    rows.some((row) => {
+      const before = savedRows.find((s) => s.eventType === row.eventType)
+      return (
+        !before ||
+        before.inApp !== row.inApp ||
+        before.email !== row.email ||
+        before.digest !== row.digest
+      )
+    }) ||
+    quietStart !== (timingQuery.data?.quietHoursStart ?? null) ||
+    quietEnd !== (timingQuery.data?.quietHoursEnd ?? null) ||
+    digestTime !== (timingQuery.data?.digestTime ?? null)
+
   const toggle = (
     eventType: NotificationPreference['eventType'],
     channel: 'inApp' | 'email' | 'digest',
@@ -98,7 +116,12 @@ export function SettingsNotifications() {
         <Button
           variant="primary"
           onClick={() => save.mutate()}
-          disabled={save.isPending || preferencesQuery.isLoading}
+          disabled={
+            save.isPending ||
+            preferencesQuery.isLoading ||
+            timingQuery.isLoading ||
+            !dirty
+          }
         >
           {save.isPending ? 'Saving…' : 'Save changes'}
         </Button>
@@ -168,7 +191,9 @@ export function SettingsNotifications() {
           />
         </div>
         <p className="m-0 text-label text-fg-muted">
-          Reviews due today and signature requests always come through.
+          Reviews due today and signature requests always come through. An end
+          earlier than the start runs overnight. Times are UTC, as the server
+          holds them, not this browser’s local time.
         </p>
       </div>
 
@@ -183,8 +208,11 @@ export function SettingsNotifications() {
             value={digestTime ?? ''}
             onChange={(event) => setDigestTime(event.target.value || null)}
           />
-          <span className="text-fg-muted">weekdays</span>
+          <span className="text-fg-muted">weekdays, UTC</span>
         </div>
+        <p className="m-0 text-label text-fg-muted">
+          The digest goes out when the server’s UTC clock reaches that time.
+        </p>
       </div>
     </Section>
   )

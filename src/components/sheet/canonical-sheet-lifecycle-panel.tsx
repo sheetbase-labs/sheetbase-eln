@@ -5,6 +5,16 @@ import { Icon } from '#/components/icons'
 
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import { Input } from '#/components/v3/ui/input'
 import { DataClientError } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
@@ -90,6 +100,11 @@ export function CanonicalSheetLifecyclePanel({
   const [extractKey, setExtractKey] = useState('')
   const [extractName, setExtractName] = useState('')
   const [materializeName, setMaterializeName] = useState('')
+  // Adoption, upgrade, extract-and-publish and materialise all change governed
+  // objects, so each one asks before it runs.
+  const [confirming, setConfirming] = useState<
+    'adopt' | 'upgrade' | 'extract-publish' | 'materialize' | null
+  >(null)
   const [extractedDefinition, setExtractedDefinition] = useState<{
     id: string
     name: string
@@ -350,6 +365,46 @@ export function CanonicalSheetLifecyclePanel({
     errorText(materialize.error) ??
     errorText(materializePreview.error)
 
+  const selectedDefinitionName = (definitions.data ?? []).find(
+    (definition) => definition.id === selectedVersion?.definitionId,
+  )?.name
+  const target = selectedVersion
+    ? `${selectedDefinitionName ?? 'the selected Definition'} v${selectedVersion.version}`
+    : 'the selected Definition'
+  const confirmation =
+    confirming === null
+      ? null
+      : {
+          adopt: {
+            title: 'Apply this adoption?',
+            body: `This Sheet takes the fields of ${target}. Local rows that do not match stay unmatched.`,
+            action: 'Apply adoption',
+            pending: adopt.isPending,
+            run: () => adopt.mutate(),
+          },
+          upgrade: {
+            title: 'Apply this upgrade?',
+            body: `This Sheet moves to ${target} and adopts changes that are already applied. A preview with conflicts is refused instead of partially applied.`,
+            action: 'Apply upgrade',
+            pending: upgrade.isPending,
+            run: () => upgrade.mutate(),
+          },
+          'extract-publish': {
+            title: 'Extract and publish this Definition?',
+            body: 'A Definition draft is extracted from this Sheet and published straight away, so new Sheets can start from it. It is not reviewed against a draft first.',
+            action: 'Extract and publish',
+            pending: publishExtracted.isPending,
+            run: () => publishExtracted.mutate(),
+          },
+          materialize: {
+            title: 'Write a Dataset from this Sheet?',
+            body: `A Dataset is written from the rows this Sheet holds now, as “${materializeName.trim() || `${instance.name} output`}”. Later edits to the Sheet do not change that Dataset.`,
+            action: 'Apply materialise',
+            pending: materialize.isPending,
+            run: () => materialize.mutate(),
+          },
+        }[confirming]
+
   return (
     <div className="border-t px-2 py-2">
       <div className="flex items-center gap-2">
@@ -466,7 +521,7 @@ export function CanonicalSheetLifecyclePanel({
                 type="button"
                 size="sm"
                 disabled={adopt.isPending}
-                onClick={() => adopt.mutate()}
+                onClick={() => setConfirming('adopt')}
               >
                 Apply adoption
               </Button>
@@ -509,7 +564,7 @@ export function CanonicalSheetLifecyclePanel({
                 size="sm"
                 variant="secondary"
                 disabled={publishExtracted.isPending}
-                onClick={() => publishExtracted.mutate()}
+                onClick={() => setConfirming('extract-publish')}
               >
                 Extract and publish
               </Button>
@@ -527,7 +582,7 @@ export function CanonicalSheetLifecyclePanel({
                 size="sm"
                 variant="secondary"
                 disabled={upgrade.isPending}
-                onClick={() => upgrade.mutate()}
+                onClick={() => setConfirming('upgrade')}
               >
                 Apply upgrade
               </Button>
@@ -556,7 +611,7 @@ export function CanonicalSheetLifecyclePanel({
                 size="sm"
                 variant="secondary"
                 disabled={materialize.isPending}
-                onClick={() => materialize.mutate()}
+                onClick={() => setConfirming('materialize')}
               >
                 Apply materialise
               </Button>
@@ -586,6 +641,37 @@ export function CanonicalSheetLifecyclePanel({
             </p>
           ) : null}
         </div>
+      ) : null}
+      {confirmation ? (
+        <ConfirmDialog
+          open
+          onOpenChange={(next) => {
+            if (!next && !confirmation.pending) setConfirming(null)
+          }}
+        >
+          <ConfirmDialogContent>
+            <ConfirmDialogHeader>
+              <ConfirmDialogTitle>{confirmation.title}</ConfirmDialogTitle>
+              <ConfirmDialogDescription>
+                {confirmation.body}
+              </ConfirmDialogDescription>
+            </ConfirmDialogHeader>
+            <ConfirmDialogFooter>
+              <ConfirmDialogCancel disabled={confirmation.pending}>
+                Cancel
+              </ConfirmDialogCancel>
+              <ConfirmDialogAction
+                disabled={confirmation.pending}
+                onClick={() => {
+                  setConfirming(null)
+                  confirmation.run()
+                }}
+              >
+                {confirmation.action}
+              </ConfirmDialogAction>
+            </ConfirmDialogFooter>
+          </ConfirmDialogContent>
+        </ConfirmDialog>
       ) : null}
     </div>
   )

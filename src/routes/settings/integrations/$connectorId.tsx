@@ -3,6 +3,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 
 import { Icon } from '#/components/icons'
 import { PageHeader, Section } from '#/components/v3/ui/layout'
+import { Notice } from '#/components/v3/ui/alert'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { ConnectorCredentialsCard } from '#/components/v3/integrations/credentials-card'
@@ -139,6 +140,15 @@ function ConnectorDetailRoute() {
           ) : null
         }
       />
+
+      {statusMutation.isError ? (
+        <div className="px-4 pt-3 md:px-6">
+          <Notice tone="bad">
+            {describeConnectorsError(statusMutation.error)} The connector is
+            still {connector.status}.
+          </Notice>
+        </div>
+      ) : null}
 
       <div className="grid min-h-0 flex-1 gap-4 overflow-auto p-4 md:p-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="flex flex-col gap-4">

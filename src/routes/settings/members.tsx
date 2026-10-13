@@ -14,6 +14,16 @@ import {
   DropdownMenuTrigger,
 } from '#/components/v3/ui/dropdown-menu'
 import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
+import {
   Dialog,
   DialogBody,
   DialogClose,
@@ -88,6 +98,9 @@ function Members() {
         clientId: string | null
       }
     | { kind: 'remove'; userId: string; name: string }
+    | { kind: 'suspend'; userId: string; name: string }
+    | { kind: 'reinstate'; userId: string; name: string }
+    | { kind: 'revoke'; invitationId: string; email: string }
     | null
   >(null)
 
@@ -218,6 +231,7 @@ function Members() {
       revokeInvitation(dataClient, { workspaceId, invitationId }),
     onSuccess: () => {
       invalidate()
+      setDialog(null)
       toast('Invitation revoked')
     },
     onError: (error: unknown) =>
@@ -274,7 +288,7 @@ function Members() {
               <TableHead align="right">{''}</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody loading={members.isLoading} colSpan={8}>
             {rows.map((m) => (
               <TableRow key={m.id}>
                 <TableCell>
@@ -396,9 +410,10 @@ function Members() {
                         {m.suspendedAt ? (
                           <DropdownMenuItem
                             onClick={() =>
-                              act.mutate({
+                              setDialog({
                                 kind: 'reinstate',
                                 userId: m.userId,
+                                name: names.userLabel(m.userId),
                               })
                             }
                           >
@@ -407,7 +422,11 @@ function Members() {
                         ) : (
                           <DropdownMenuItem
                             onClick={() =>
-                              act.mutate({ kind: 'suspend', userId: m.userId })
+                              setDialog({
+                                kind: 'suspend',
+                                userId: m.userId,
+                                name: names.userLabel(m.userId),
+                              })
                             }
                           >
                             Suspend
@@ -478,7 +497,13 @@ function Members() {
                             size="sm"
                             variant="quiet"
                             disabled={revoke.isPending}
-                            onClick={() => revoke.mutate(i.id)}
+                            onClick={() =>
+                              setDialog({
+                                kind: 'revoke',
+                                invitationId: i.id,
+                                email: i.email,
+                              })
+                            }
                           >
                             Revoke
                           </Button>
@@ -549,8 +574,100 @@ function Members() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      ) : dialog?.kind === 'suspend' ? (
+        <MembershipConfirmDialog
+          kind="suspend"
+          name={dialog.name}
+          busy={act.isPending}
+          onCancel={() => setDialog(null)}
+          onConfirm={() =>
+            act.mutate({ kind: 'suspend', userId: dialog.userId })
+          }
+        />
+      ) : dialog?.kind === 'reinstate' ? (
+        <MembershipConfirmDialog
+          kind="reinstate"
+          name={dialog.name}
+          busy={act.isPending}
+          onCancel={() => setDialog(null)}
+          onConfirm={() =>
+            act.mutate({ kind: 'reinstate', userId: dialog.userId })
+          }
+        />
+      ) : dialog?.kind === 'revoke' ? (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => (o ? undefined : setDialog(null))}
+        >
+          <ConfirmDialogContent>
+            <ConfirmDialogHeader>
+              <ConfirmDialogTitle>
+                Revoke the invitation to {dialog.email}?
+              </ConfirmDialogTitle>
+              <ConfirmDialogDescription>
+                The sign-in link stops working immediately. They cannot join
+                until you invite them again.
+              </ConfirmDialogDescription>
+            </ConfirmDialogHeader>
+            <ConfirmDialogFooter>
+              <ConfirmDialogCancel disabled={revoke.isPending}>
+                Cancel
+              </ConfirmDialogCancel>
+              <ConfirmDialogAction
+                variant="danger-fill"
+                disabled={revoke.isPending}
+                onClick={() => revoke.mutate(dialog.invitationId)}
+              >
+                Revoke invitation
+              </ConfirmDialogAction>
+            </ConfirmDialogFooter>
+          </ConfirmDialogContent>
+        </ConfirmDialog>
       ) : null}
     </>
+  )
+}
+
+/** Suspending and reinstating both change access at once, so both ask first. */
+function MembershipConfirmDialog({
+  kind,
+  name,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  kind: 'suspend' | 'reinstate'
+  name: string
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const suspending = kind === 'suspend'
+  return (
+    <ConfirmDialog open onOpenChange={(o) => (o ? undefined : onCancel())}>
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>
+            {suspending ? `Suspend ${name}?` : `Reinstate ${name}?`}
+          </ConfirmDialogTitle>
+          <ConfirmDialogDescription>
+            {suspending
+              ? 'They lose access to this workspace immediately. Their records, signatures and history stay as they are, and you can reinstate them.'
+              : 'They regain access to this workspace with the role they hold now.'}
+          </ConfirmDialogDescription>
+        </ConfirmDialogHeader>
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel disabled={busy}>Cancel</ConfirmDialogCancel>
+          <ConfirmDialogAction
+            variant={suspending ? 'danger-fill' : 'primary'}
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {suspending ? 'Suspend' : 'Reinstate'}
+          </ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
   )
 }
 

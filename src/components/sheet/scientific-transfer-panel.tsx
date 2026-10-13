@@ -28,14 +28,17 @@ function safeName(value: string) {
   )
 }
 
+/** An export receipt records at most this many rows; the database refuses more
+ * (`record_scientific_export` validates the count), so the panel states the
+ * limit instead of failing after the click. */
+const EXPORT_ROW_LIMIT = 5000
+
 export function ScientificTransferPanel({
   table,
   rows,
 }: {
   table: ScientificTableWire
   rows: ScientificRowWire[]
-  readOnly?: boolean
-  onImported?: () => Promise<void>
 }) {
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
@@ -63,6 +66,8 @@ export function ScientificTransferPanel({
     }
   }
 
+  const tooManyRows = rows.length > EXPORT_ROW_LIMIT
+
   return (
     <section
       className="mb-2 rounded border p-2 text-xs"
@@ -72,12 +77,19 @@ export function ScientificTransferPanel({
         <strong>Sheet export</strong>
         <button
           type="button"
-          disabled={busy || rows.length > 5000}
+          disabled={busy || tooManyRows}
           onClick={() => void runExport()}
         >
           Export CSV + metadata
         </button>
       </div>
+      {tooManyRows ? (
+        <p className="mt-2 text-muted-foreground">
+          This sheet has {rows.length} rows; one export records at most{' '}
+          {EXPORT_ROW_LIMIT.toLocaleString()} rows, so the export is
+          unavailable.
+        </p>
+      ) : null}
       <p className="mt-2 text-muted-foreground">
         Laboratory file import is the Dataset/Record import framework, not this
         Sheet export, leftover scientific CSV import, or plate CSV.

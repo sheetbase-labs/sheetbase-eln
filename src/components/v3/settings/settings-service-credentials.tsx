@@ -2,6 +2,16 @@ import { useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Status } from '#/components/v3/ui/status'
@@ -45,6 +55,12 @@ export function SettingsServiceCredentials({
   const [selected, setSelected] = useState<Set<Scope>>(
     () => new Set(['projects:read']),
   )
+  // A workspace credential is shared, so revoking or rotating one stops every
+  // integration using it; both ask first.
+  const [confirming, setConfirming] = useState<{
+    kind: 'revoke' | 'rotate'
+    token: CredentialWire
+  } | null>(null)
 
   function toggle(scope: Scope) {
     setSelected((current) => {
@@ -225,7 +241,9 @@ export function SettingsServiceCredentials({
                       <Button
                         size="sm"
                         disabled={isRevoked || isExpired}
-                        onClick={() => onRotate(row.id)}
+                        onClick={() =>
+                          setConfirming({ kind: 'rotate', token: row })
+                        }
                       >
                         Rotate
                       </Button>
@@ -233,7 +251,9 @@ export function SettingsServiceCredentials({
                         size="sm"
                         variant="danger"
                         disabled={isRevoked}
-                        onClick={() => onRevoke(row.id)}
+                        onClick={() =>
+                          setConfirming({ kind: 'revoke', token: row })
+                        }
                       >
                         Revoke
                       </Button>
@@ -255,6 +275,46 @@ export function SettingsServiceCredentials({
           </TableBody>
         </Table>
       </TableBox>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirming(null)
+        }}
+      >
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>
+              {confirming?.kind === 'rotate'
+                ? `Rotate ${confirming.token.name}?`
+                : `Revoke ${confirming?.token.name}?`}
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {confirming?.kind === 'rotate'
+                ? 'This credential is shared: the current secret stops working for every integration using it, and the new secret is shown once. Update those integrations before you rotate.'
+                : 'This credential is shared: every request using it starts failing at once, and a revoked credential cannot be restored. Create a new one if you need it again.'}
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogAction
+              variant={
+                confirming?.kind === 'revoke' ? 'danger-fill' : 'primary'
+              }
+              onClick={() => {
+                if (!confirming) return
+                if (confirming.kind === 'rotate') onRotate(confirming.token.id)
+                else onRevoke(confirming.token.id)
+                setConfirming(null)
+              }}
+            >
+              {confirming?.kind === 'rotate'
+                ? 'Rotate credential'
+                : 'Revoke credential'}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </Section>
   )
 }

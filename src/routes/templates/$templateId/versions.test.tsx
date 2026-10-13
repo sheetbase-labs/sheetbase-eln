@@ -218,6 +218,31 @@ describe('Template versions', () => {
     ).toBeTruthy()
   })
 
+  it('offers retire for a published version that is not current', async () => {
+    router.search = { v: V1 }
+    withData([VERSION_2, VERSION_1])
+    renderRoute()
+    expect(
+      await screen.findByRole('button', { name: 'Retire v1…' }),
+    ).toBeTruthy()
+  })
+
+  it('offers no publish affordance in the denied state, even for a draft', async () => {
+    router.search = { state: 'denied', v: V3 }
+    withData([VERSION_3_DRAFT, VERSION_2, VERSION_1])
+    renderRoute()
+    await screen.findByText(/Only template owners and QA can publish/)
+    expect(screen.queryByRole('button', { name: 'Publish v3…' })).toBeNull()
+  })
+
+  it('offers no retire affordance in the denied state for a published version', async () => {
+    router.search = { state: 'denied', v: V1 }
+    withData([VERSION_2, VERSION_1])
+    renderRoute()
+    await screen.findByText(/Only template owners and QA can publish/)
+    expect(screen.queryByRole('button', { name: 'Retire v1…' })).toBeNull()
+  })
+
   it('refuses a publish on a stale view and offers a reload', async () => {
     const user = userEvent.setup()
     router.search = { v: V3 }

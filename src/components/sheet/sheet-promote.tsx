@@ -125,6 +125,7 @@ export function SheetPromote({
       onSubmitted?.(result)
       setOpen(false)
       setReason('')
+      setDefinitionId('')
     } catch (e) {
       // The server owns compatibility (SB071) and draft-version rules (SB072);
       // show its refusal rather than claiming the promotion succeeded.

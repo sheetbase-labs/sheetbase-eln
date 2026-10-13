@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WorkspaceCertification } from '#/lib/signature-certification'
@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
     verify: vi.fn(),
     request: vi.fn(),
     credential: vi.fn(),
+    withdraw: vi.fn(),
   }
 })
 vi.mock('@tanstack/react-router', () => ({
@@ -35,6 +36,7 @@ vi.mock('#/lib/signature-certification', async (importOriginal) => ({
   practiceSignature: (...args: unknown[]) => mocks.practice(...args),
   verifySignatureIdentity: (...args: unknown[]) => mocks.verify(...args),
   requestIdentityVerification: () => mocks.request(),
+  withdrawSignatureCertification: (...args: unknown[]) => mocks.withdraw(...args),
 }))
 vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -95,6 +97,7 @@ beforeEach(() => {
     mocks.verify,
     mocks.request,
     mocks.credential,
+    mocks.withdraw,
   ])
     mutation.mockResolvedValue(undefined)
 })
@@ -279,6 +282,34 @@ describe('REV-03 signature settings', () => {
       purpose: 'enroll-request',
     })
     expect(mocks.certify).not.toHaveBeenCalled()
+  })
+
+  it('asks before withdrawing a certification, which revokes signing eligibility', async () => {
+    const user = userEvent.setup()
+    mocks.certifications = [
+      certification('me', 'Ada Lovelace', {
+        statementVersion: 1,
+        certifiedAt: '2026-10-04T12:01:00Z',
+        identityVerifiedAt: '2026-10-04T12:00:00Z',
+        identityVerifiedBy: 'admin',
+        verifiedEmail: 'ada@sheetbase.test',
+        authMethod: 'password',
+      }),
+    ]
+    renderRoute()
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Withdraw certification' }),
+    )
+    const dialog = await screen.findByRole('alertdialog')
+    expect(mocks.withdraw).not.toHaveBeenCalled()
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Withdraw certification' }),
+    )
+    await waitFor(() =>
+      expect(mocks.withdraw).toHaveBeenCalledWith(expect.anything(), 'ws'),
+    )
   })
 
   it('REV-03.3 does not treat a revoked certification as current', async () => {

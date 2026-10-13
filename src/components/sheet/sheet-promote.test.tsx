@@ -121,6 +121,33 @@ describe('SheetPromote', () => {
     )
   })
 
+  it('clears the chosen target so a reopened dialog cannot promote into the same dataset again', async () => {
+    const { client, calls } = makeClient()
+    const user = userEvent.setup()
+    renderWithQuery(
+      <SheetPromote instanceId={INSTANCE} field={FIELD} client={client} />,
+    )
+
+    const dialog = await openAndFill(user)
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Request promotion' }),
+    )
+    await waitFor(() =>
+      expect(calls.map((call) => call.name)).toEqual([
+        'request_column_promotion',
+      ]),
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    await user.click(screen.getByRole('button', { name: 'Promote column…' }))
+    const reopened = screen.getByRole('dialog')
+    await within(reopened).findByRole('option', { name: DEFINITION.name })
+    expect(
+      within(reopened).getByRole('combobox', { name: /Where to/ }),
+    ).toHaveProperty('value', '')
+    expect(within(reopened).getByLabelText(/Reason/)).toHaveProperty('value', '')
+  })
+
   it('surfaces the server refusal rather than a success when the field is incompatible', async () => {
     const { client, calls } = makeClient({
       rpcError: new DataClientError(

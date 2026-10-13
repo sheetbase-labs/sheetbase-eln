@@ -5,6 +5,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { Checkbox } from '#/components/v3/ui/checkbox'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted, Section } from '#/components/v3/ui/layout'
@@ -84,6 +94,8 @@ function Signatures() {
   const queryClient = useQueryClient()
   const [agreed, setAgreed] = useState(false)
   const [password, setPassword] = useState('')
+  // Withdrawing revokes signing eligibility for every record, so it asks first.
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false)
 
   const certifications = useQuery({
     queryKey: signatureCertificationQueryKeys.workspace(workspaceId),
@@ -250,7 +262,7 @@ function Signatures() {
                 <Button
                   size="sm"
                   disabled={withdraw.isPending}
-                  onClick={() => withdraw.mutate()}
+                  onClick={() => setConfirmWithdraw(true)}
                 >
                   Withdraw certification
                 </Button>
@@ -404,6 +416,33 @@ function Signatures() {
           )}
         </Section>
       </SettingsBody>
+      <ConfirmDialog open={confirmWithdraw} onOpenChange={setConfirmWithdraw}>
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>
+              Withdraw your certification?
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              You cannot apply an electronic signature until you complete
+              independent verification and certify again. Signatures you have
+              already applied keep their certification at the time they were
+              made.
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel disabled={withdraw.isPending}>
+              Cancel
+            </ConfirmDialogCancel>
+            <ConfirmDialogAction
+              variant="danger-fill"
+              disabled={withdraw.isPending}
+              onClick={() => withdraw.mutate()}
+            >
+              Withdraw certification
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </>
   )
 }

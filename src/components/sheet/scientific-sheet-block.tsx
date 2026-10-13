@@ -2135,7 +2135,6 @@ export function ScientificSheetBlock({
           <ScientificTransferPanel
             table={table}
             rows={allRowsQuery.data ?? []}
-            readOnly={readOnly}
           />
         </DialogContent>
       </Dialog>

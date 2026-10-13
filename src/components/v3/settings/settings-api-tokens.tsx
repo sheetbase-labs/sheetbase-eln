@@ -2,6 +2,16 @@ import { useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Status } from '#/components/v3/ui/status'
@@ -43,6 +53,12 @@ export function SettingsApiTokens({
   const [selected, setSelected] = useState<Set<Scope>>(
     () => new Set(['projects:read']),
   )
+  // Revoke is permanent and rotate invalidates the live secret, so both ask
+  // first: the row buttons only pick the action.
+  const [confirming, setConfirming] = useState<{
+    kind: 'revoke' | 'rotate'
+    token: PersonalTokenWire
+  } | null>(null)
 
   function toggle(scope: Scope) {
     setSelected((current) => {
@@ -227,7 +243,9 @@ export function SettingsApiTokens({
                       <Button
                         size="sm"
                         disabled={isRevoked || isExpired}
-                        onClick={() => onRotate(row.id)}
+                        onClick={() =>
+                          setConfirming({ kind: 'rotate', token: row })
+                        }
                       >
                         Rotate
                       </Button>
@@ -235,7 +253,9 @@ export function SettingsApiTokens({
                         size="sm"
                         variant="danger"
                         disabled={isRevoked}
-                        onClick={() => onRevoke(row.id)}
+                        onClick={() =>
+                          setConfirming({ kind: 'revoke', token: row })
+                        }
                       >
                         Revoke
                       </Button>
@@ -257,6 +277,44 @@ export function SettingsApiTokens({
           </TableBody>
         </Table>
       </TableBox>
+
+      <ConfirmDialog
+        open={confirming !== null}
+        onOpenChange={(open) => {
+          if (!open) setConfirming(null)
+        }}
+      >
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>
+              {confirming?.kind === 'rotate'
+                ? `Rotate ${confirming.token.name}?`
+                : `Revoke ${confirming?.token.name}?`}
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {confirming?.kind === 'rotate'
+                ? 'The current secret stops working immediately and the new one is shown once. Update whatever uses this token before you rotate it.'
+                : 'This is immediate and permanent. Every request that uses this token starts failing and the token cannot be restored.'}
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogAction
+              variant={
+                confirming?.kind === 'revoke' ? 'danger-fill' : 'primary'
+              }
+              onClick={() => {
+                if (!confirming) return
+                if (confirming.kind === 'rotate') onRotate(confirming.token.id)
+                else onRevoke(confirming.token.id)
+                setConfirming(null)
+              }}
+            >
+              {confirming?.kind === 'rotate' ? 'Rotate token' : 'Revoke token'}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }

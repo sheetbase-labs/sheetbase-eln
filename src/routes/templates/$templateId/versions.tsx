@@ -367,7 +367,7 @@ function TemplateVersions() {
           </div>
         </div>
 
-        {selected.lifecycle === 'draft' ? (
+        {!denied && selected.lifecycle === 'draft' ? (
           <Button
             variant="primary"
             disabled={staleSelected}
@@ -382,7 +382,9 @@ function TemplateVersions() {
         {staleSelected ? (
           <Muted>Reload the draft before you publish.</Muted>
         ) : null}
-        {selected.lifecycle === 'published' && current?.id !== selected.id ? (
+        {!denied &&
+        selected.lifecycle === 'published' &&
+        current?.id !== selected.id ? (
           <Button
             variant="danger"
             onClick={() => setDialog({ kind: 'retire', version: selected })}
@@ -390,7 +392,9 @@ function TemplateVersions() {
             Retire v{selected.version}…
           </Button>
         ) : null}
-        {selected.lifecycle === 'published' && current?.id === selected.id ? (
+        {!denied &&
+        selected.lifecycle === 'published' &&
+        current?.id === selected.id ? (
           <Muted>
             The current version can’t be retired. Publish a new version first.
           </Muted>

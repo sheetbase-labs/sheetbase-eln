@@ -47,9 +47,18 @@ function Profile() {
   const { context } = Route.useRouteContext()
   const user = context.user
   const theme = useTheme()
+  // The local choice applies immediately (this browser's cookie), so a failed
+  // account write must be stated rather than swallowed: the preference then
+  // does not follow the user to another browser.
   const chooseAppearance = (value: ThemePref) => {
     theme.setPref(value)
-    void setUserAppearance(appearanceClient, value).catch(() => undefined)
+    void setUserAppearance(appearanceClient, value).catch((error: unknown) => {
+      toast('Appearance not saved to your account', {
+        description: `It applies in this browser only. ${
+          error instanceof Error ? error.message : 'The database refused it.'
+        }`,
+      })
+    })
   }
   const [name, setName] = useState(user.name)
   const [busy, setBusy] = useState(false)

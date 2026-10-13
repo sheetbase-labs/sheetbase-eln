@@ -226,53 +226,61 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
   })
 })
 
-describe('MOB-01.1 phone shell', () => {
+describe('SHELL-01 one sidebar at every width', () => {
   afterEach(() => {
     routerPath.current = '/'
   })
 
-  it('keeps the three bench destinations in the phone bottom bar', () => {
-    renderShell()
-    const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
-    expect(bar.className).toContain('md:hidden')
-    // Design Navigation spec: on phones the sidebar becomes a three-item
-    // bottom bar — Today, Scan, Inbox — and there is no drawer to open.
-    expect(within(bar).getAllByRole('link')).toHaveLength(3)
-    for (const label of ['Today', 'Scan', 'Inbox']) {
-      const link = within(bar).getByRole('link', { name: new RegExp(label) })
-      expect(link.className).toContain('min-h-14')
-    }
-    expect(within(bar).queryByRole('button', { name: 'Menu' })).toBeNull()
+  it('shows the icon rail where there is no room for the full navigation', () => {
+    const { container } = renderShell()
+    const rail = container.querySelector('nav[class*="w-12"]')!
+    const full = container.querySelector<HTMLElement>('nav[class*="w-nav"]')!
+    // The rail is the sidebar below the wide breakpoint: it is never hidden,
+    // and the full navigation is what appears when there is room.
+    expect(rail.className).toContain('flex')
+    expect(rail.className).toContain('xl:hidden')
+    expect(rail.className).not.toContain('hidden ')
+    expect(full.className).toContain('hidden')
+    expect(full.className).toContain('xl:flex')
   })
 
-  it('agrees the Inbox badge between the bottom bar and the navigation drawer', async () => {
+  it('minimises the sidebar to the rail with one control, and expands it again', async () => {
     const user = userEvent.setup()
-    renderShell({ counts: { inbox: '5', datasets: '2', pipelines: '1' } })
-    const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
-    expect(
-      within(bar).getByRole('link', { name: /Inbox/ }).textContent,
-    ).toContain('5')
+    const { container } = renderShell()
+    expect(screen.getByRole('button', { name: 'Minimise navigation' })).toBeTruthy()
 
-    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
-    const drawer = await screen.findByRole('dialog')
+    await user.click(screen.getByRole('button', { name: 'Minimise navigation' }))
+    const rail = container.querySelector('nav[class*="w-12"]')!
+    expect(rail.className).not.toContain('xl:hidden')
+    expect(container.querySelector('nav[class*="w-nav"]')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Expand navigation' }))
+    expect(container.querySelector('nav[class*="w-nav"]')).not.toBeNull()
+  })
+
+  it('has no hamburger, no drawer and no second navigation surface', () => {
+    const { container } = renderShell()
+    expect(screen.queryByRole('button', { name: 'Open navigation' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull()
+    expect(container.querySelector('nav[class*="md:hidden"]')).toBeNull()
+  })
+
+  it('shows the inbox count in the full navigation', () => {
+    const { container } = renderShell({
+      counts: { inbox: '5', datasets: '2', pipelines: '1' },
+    })
+    const full = container.querySelector<HTMLElement>('nav[class*="w-nav"]')!
     expect(
-      within(drawer).getByRole('link', { name: /Inbox/ }).textContent,
+      within(full).getByRole('link', { name: /Inbox/ }).textContent,
     ).toContain('5')
   })
 
-  it('carries the workspace switcher in the top bar, not the drawer', async () => {
+  it('carries the workspace switcher in the top bar', async () => {
     const user = userEvent.setup()
     renderShell()
     const trigger = screen.getByRole('button', { name: 'Switch workspace' })
     expect(trigger.textContent).toContain('Process Development')
 
-    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
-    const drawer = await screen.findByRole('dialog')
-    expect(
-      within(drawer).queryByRole('button', { name: 'Switch workspace' }),
-    ).toBeNull()
-
-    // The top bar's switcher changes the workspace.
     await user.click(trigger)
     await user.click(
       await screen.findByRole('menuitem', { name: 'Analytical' }),
@@ -285,7 +293,7 @@ describe('MOB-01.1 phone shell', () => {
     )
   })
 
-  it('shows the phone back button away from the bottom bar and hides it on it', () => {
+  it('shows the phone back button away from the top-level destinations', () => {
     routerPath.current = '/records/abc'
     const first = renderShell()
     const back = screen.getByRole('button', { name: 'Back' })
@@ -337,10 +345,10 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
         screen.getByRole('button', { name: 'Notifications' }),
       ).toBeTruthy(),
     )
-    // SHELL-02: the phone bar's Inbox badge labels the inbox destination, not
+    // SHELL-02: the navigation's Inbox badge labels the inbox destination, not
     // the bell, so clearing notifications must not move it.
-    const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
-    expect(within(bar).getByText('3')).toBeTruthy()
+    const nav = document.querySelector<HTMLElement>('nav[class*="w-nav"]')!
+    expect(within(nav).getByRole('link', { name: /Inbox/ }).textContent).toContain('3')
   })
 
   it('opens a row on the record its target names and marks that row read', async () => {

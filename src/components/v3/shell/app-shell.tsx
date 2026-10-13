@@ -54,7 +54,6 @@ import { markNotificationsRead } from '#/lib/notifications-data'
 import { isHomeSection, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
-import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
 import { authClient } from '#/lib/auth-client'
@@ -97,7 +96,6 @@ export function AppShell({
   const navigate = useNavigate()
   const router = useRouter()
   const theme = useTheme()
-  const [menu, setMenu] = useState(false)
   const [search, setSearch] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -238,52 +236,36 @@ export function AppShell({
           data={data}
           unreadIds={unreadIds}
           onMarkNotificationsRead={markNotifications}
-          onMenu={() => setMenu(true)}
           onSearch={() => setSearch(true)}
           createOpen={createOpen}
           onCreateOpenChange={setCreateOpen}
           onSwitchWorkspace={switchWorkspace}
+          navCollapsed={collapsed}
+          onToggleNav={toggleCollapsed}
         />
         <div className="flex min-h-0 flex-1">
-          {collapsed ? (
-            <NavRail
-              className="hidden lg:flex"
-              primaryItems={primaryItems}
-              recordItems={recordItems}
-            />
-          ) : (
-            <>
-              <SideNav
-                pinned={data.pinned}
-                counts={data.counts}
-                primaryItems={primaryItems}
-                recordItems={recordItems}
-                className="hidden xl:flex"
-              />
-              <NavRail
-                className="hidden lg:flex xl:hidden"
-                primaryItems={primaryItems}
-                recordItems={recordItems}
-              />
-            </>
-          )}
-          <main id="main" className="flex min-w-0 flex-1 bg-background">
-            {children}
-          </main>
-        </div>
-        <BottomTabs counts={data.counts} />
-        <Sheet open={menu} onOpenChange={setMenu}>
-          <SheetContent side="left" title="Sheetbase">
+          {/* SHELL-01: one sidebar at every width. It is the icon rail where
+              there is no room for the full navigation or when the user has
+              minimised it, and the full sidebar otherwise — same items, same
+              order, same place. There is no drawer and no bottom bar. */}
+          <NavRail
+            className={collapsed ? 'flex' : 'flex xl:hidden'}
+            primaryItems={primaryItems}
+            recordItems={recordItems}
+          />
+          {collapsed ? null : (
             <SideNav
               pinned={data.pinned}
               counts={data.counts}
               primaryItems={primaryItems}
               recordItems={recordItems}
-              onNavigate={() => setMenu(false)}
-              className="h-full border-r-0"
+              className="hidden xl:flex"
             />
-          </SheetContent>
-        </Sheet>
+          )}
+          <main id="main" className="flex min-w-0 flex-1 bg-background">
+            {children}
+          </main>
+        </div>
         <SearchPalette open={search} onOpenChange={setSearch} />
         <RegistryShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
       </div>
@@ -353,65 +335,7 @@ function NavRail({
   )
 }
 
-function BottomTabs({
-  counts,
-}: {
-  counts?: ShellData['counts']
-}) {
-  // SHELL-02: the phone bar's Inbox badge labels the same destination the
-  // drawer and the desktop rail do, so it reads the same number. The unread
-  // notification count belongs to the bell alone.
-  const inboxCount = counts?.inbox
-  const homeSelected = useRouterState({
-    select: (state) => isHomeSection(state.location.pathname),
-  })
-  const selectedProps = {
-    className: 'text-link!',
-    'aria-current': 'page' as const,
-  }
-  const cls =
-    'flex min-h-14 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-transparent text-[11px] font-medium text-fg-muted no-underline hover:text-fg hover:no-underline'
-  return (
-    <nav
-      aria-label="Main"
-      className="flex shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
-    >
-      <Link
-        to="/"
-        className={cls}
-        activeOptions={{ exact: true }}
-        activeProps={selectedProps}
-        inactiveProps={homeSelected ? selectedProps : undefined}
-      >
-        <Icon name="home" size={22} />
-        Today
-      </Link>
-      <Link
-        to="/scan"
-        className={cls}
-        activeProps={{ className: 'text-link!', 'aria-current': 'page' }}
-      >
-        <Icon name="scan" size={22} />
-        Scan
-      </Link>
-      <Link
-        to="/inbox"
-        className={cn(cls, 'relative')}
-        activeProps={{ className: 'text-link!', 'aria-current': 'page' }}
-      >
-        <Icon name="inbox" size={22} />
-        Inbox
-        {inboxCount ? (
-          <span className="absolute right-[calc(50%-18px)] top-2 min-w-4 rounded-full bg-link px-1 text-[10px] leading-4 text-on-accent">
-            {inboxCount}
-          </span>
-        ) : null}
-      </Link>
-    </nav>
-  )
-}
-
-/** The destinations the bottom bar owns; a phone has nowhere to go back from. */
+/** The top-level destinations, where the phone header has nowhere to go back to. */
 const PHONE_TOP_LEVEL_PATHS = new Set(['/', '/scan', '/inbox', '/settings'])
 
 /**
@@ -442,30 +366,35 @@ function TopBar({
   data,
   unreadIds,
   onMarkNotificationsRead,
-  onMenu,
   onSearch,
   createOpen,
   onCreateOpenChange,
   onSwitchWorkspace,
+  navCollapsed,
+  onToggleNav,
 }: {
   data: ShellData
   unreadIds: ReadonlySet<string>
   onMarkNotificationsRead: (ids: string[]) => Promise<void>
-  onMenu: () => void
   onSearch: () => void
   createOpen: boolean
   onCreateOpenChange: (open: boolean) => void
   onSwitchWorkspace: (workspaceId: string) => Promise<void>
+  navCollapsed: boolean
+  onToggleNav: () => void
 }) {
   return (
     <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
+      {/* SHELL-01: the same control in the same place at every width. It
+          minimises the sidebar to the icon rail and expands it again — the
+          sidebar itself never moves and never becomes a drawer. */}
       <Button
         variant="quiet"
         size="icon"
-        icon="schema"
-        aria-label="Open navigation"
-        onClick={onMenu}
-        className="lg:hidden max-md:hidden"
+        icon="panelLeft"
+        aria-label={navCollapsed ? 'Expand navigation' : 'Minimise navigation'}
+        aria-keyshortcuts="Control+\\ Meta+\\"
+        onClick={onToggleNav}
       />
       {/* MOB-01.1: on a phone the header carries a back button, because the
           sidebar that would otherwise show where you came from is hidden. It is
@@ -1029,14 +958,12 @@ function SideNav({
   counts,
   primaryItems,
   recordItems,
-  onNavigate,
   className,
 }: {
   pinned: ShellData['pinned']
   counts?: ShellData['counts']
   primaryItems: NavItem[]
   recordItems: NavItem[]
-  onNavigate?: () => void
   className?: string
 }) {
   const withCount = (item: NavItem): NavItem => {
@@ -1049,9 +976,6 @@ function SideNav({
   return (
     <nav
       aria-label="Main"
-      onClick={(e) => {
-        if (onNavigate && (e.target as HTMLElement).closest('a')) onNavigate()
-      }}
       className={cn(
         'flex w-nav shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-surface p-2.5 max-lg:w-full',
         className,

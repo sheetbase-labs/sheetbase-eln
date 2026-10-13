@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   afterEach,
@@ -225,6 +225,127 @@ const WORKSPACE_TEMPLATE_ROW = {
   project_id: null,
   deep_link: '/templates?protocol=tpl-1',
 }
+
+/** A sheet row: `api.search` fills identifier with the sheet's own id. */
+const SHEET_ROW = {
+  ...RECORD_ROW,
+  result_type: 'sheet',
+  record_id: '67d5c8d3-129b-44e8-bcbc-a1018b0d8041',
+  kind: 'sheet_instance',
+  identifier: '67d5c8d3-129b-44e8-bcbc-a1018b0d8041',
+  title: 'Clarification working sheet',
+  rank: 0.61,
+}
+
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+
+describe('SearchPalette result labels and ranking (SRCH-02)', () => {
+  beforeEach(() => {
+    mocks.rpc.mockReset()
+    mocks.rpc.mockImplementation(async () => [])
+  })
+
+  async function openPalette() {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Open search' }))
+    const input = await screen.findByPlaceholderText(
+      'Search experiments, samples, datasets',
+    )
+    return { user, input }
+  }
+
+  it('opens the highlighted result in a new tab on ⌘↵ and leaves the page alone', async () => {
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === 'search' ? [RECORD_ROW] : [],
+    )
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    try {
+      const { user, input } = await openPalette()
+      await user.type(input, 'plate')
+      await screen.findByText('EXP-0142')
+
+      await user.keyboard('{Meta>}{Enter}{/Meta}')
+
+      expect(open).toHaveBeenCalledWith(
+        `${window.location.origin}/records/rec-1`,
+        '_blank',
+        'noopener,noreferrer',
+      )
+      // The shortcut resolves in a new tab, so the palette stays where it is.
+      expect(screen.queryByRole('dialog')).toBeTruthy()
+    } finally {
+      open.mockRestore()
+    }
+  })
+
+  it('leads a sheet row with its name, not with the id the RPC returns', async () => {
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === 'search' ? [SHEET_ROW] : [],
+    )
+    const { user, input } = await openPalette()
+    await user.type(input, 'clarification')
+
+    await screen.findByText('Sheet and dataset rows')
+    const results = within(screen.getByRole('listbox', { name: 'Results' }))
+    const option = results.getAllByRole('option')[0]
+    expect(option.textContent).toContain('Clarification working sheet')
+    expect(option.textContent).not.toMatch(UUID_RE)
+    expect(screen.queryByText(SHEET_ROW.identifier)).toBeNull()
+  })
+
+  it('shows the matched snippet as text, without headline markup or its own id', async () => {
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === 'search'
+        ? [
+            {
+              ...SHEET_ROW,
+              matched_context:
+                '<b>Clarification</b> working sheet 67d5c8d3-129b-44e8-bcbc-a1018b0d8041',
+            },
+          ]
+        : [],
+    )
+    const { user, input } = await openPalette()
+    await user.type(input, 'clarification')
+
+    await screen.findByText('Sheet and dataset rows')
+    const results = within(screen.getByRole('listbox', { name: 'Results' }))
+    const row = results.getAllByRole('option')[0]
+    expect(row.textContent).not.toContain('<b>')
+    expect(row.textContent).not.toContain('</b>')
+    expect(row.textContent).not.toMatch(UUID_RE)
+    // The matched term is still emphasised, as the results page renders it.
+    const emphasis = row.querySelector('mark')
+    expect(emphasis?.textContent).toBe('Clarification')
+  })
+
+  it('puts the closest match above the section that would otherwise lead', async () => {
+    // The sheet is the higher canonical section but a weaker hit; ⌘K must offer
+    // the record the query matched best first.
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === 'search'
+        ? [
+            { ...RECORD_ROW, rank: 0.9, title: 'Clarification run, screening' },
+            SHEET_ROW,
+          ]
+        : [],
+    )
+    const { user, input } = await openPalette()
+    await user.type(input, 'clarification')
+
+    await screen.findByText('Sheet and dataset rows')
+    const results = within(screen.getByRole('listbox', { name: 'Results' }))
+    const options = results.getAllByRole('option')
+    expect(options[0].textContent).toContain('EXP-0142')
+    expect(options[1].textContent).toContain('Clarification working sheet')
+    // Both rows are still grouped: the section order followed relevance.
+    const headers = results
+      .getAllByRole('presentation')
+      .map((h) => h.textContent)
+    expect(headers[0]).toContain('Records')
+  })
+})
 
 describe('SearchPalette failure, progress and scope (R5-SHELL-04)', () => {
   beforeEach(() => {

@@ -10,13 +10,16 @@ import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import { Highlight } from './highlight'
+import { searchResultContext, searchResultLabel } from './result-text'
 import {
   contextualSearchActions,
   executeSearch,
   filterBySearchScope,
   groupSearchResults,
+  rankByTier,
   searchActionHref,
   searchDidYouMean,
+  searchResultGroup,
   searchResultNewTabUrl,
   SEARCH_SCOPE_ALL,
 } from '#/lib/search'
@@ -227,10 +230,24 @@ export function SearchPalette({
       ),
     [items, scope],
   )
-  const buckets = useMemo(
-    () => groupSearchResults(scoped, MAX_PER_GROUP),
-    [scoped],
-  )
+  const buckets = useMemo(() => {
+    // The palette is a jump list, so its rows follow relevance, not the results
+    // page's fixed section order: grouping a weak sheet or dataset hit into the
+    // second section would put it above the record that matched the query best.
+    // The list is ranked by the canonical tiers (exact identifier, then title,
+    // then structured, then text) and each section sits where its best row
+    // does, with the canonical order left as the tie-break.
+    const ranked = rankByTier(scoped, q.trim())
+    const grouped = groupSearchResults(ranked, MAX_PER_GROUP)
+    const sectionAt = new Map<SearchResultGroup, number>()
+    ranked.forEach((result, index) => {
+      const group = searchResultGroup(result)
+      if (!sectionAt.has(group)) sectionAt.set(group, index)
+    })
+    return [...grouped].sort(
+      (a, b) => (sectionAt.get(a.group) ?? 0) - (sectionAt.get(b.group) ?? 0),
+    )
+  }, [scoped, q])
   const actions = useMemo(() => contextualSearchActions(scoped), [scoped])
   const rows = useMemo<PaletteRow[]>(() => {
     const out: PaletteRow[] = []
@@ -532,6 +549,7 @@ export function SearchPalette({
               const action =
                 row.entry.type === 'action' ? row.entry.action : null
               const group = row.kind === 'result' ? row.group : null
+              const label = result ? searchResultLabel(result) : null
               return (
                 <div
                   key={
@@ -559,9 +577,11 @@ export function SearchPalette({
                   <span className="min-w-0">
                     {result ? (
                       <>
-                        <span className="mono mr-1.5 text-fg-muted">
-                          {result.identifier}
-                        </span>
+                        {label ? (
+                          <span className="mono mr-1.5 text-fg-muted">
+                            {label}
+                          </span>
+                        ) : null}
                         {result.archived ? (
                           <span className="mr-1.5 rounded-sm border border-border px-1 align-middle text-label text-fg-muted">
                             Archived
@@ -569,7 +589,21 @@ export function SearchPalette({
                         ) : null}
                         <Highlight text={result.title} q={q.trim()} />
                         <span className="block truncate text-label text-fg-muted">
-                          {result.matchedContext}
+                          {searchResultContext(
+                            result,
+                            result.matchedContext,
+                          ).map((segment, i) =>
+                            segment.highlighted ? (
+                              <mark
+                                key={i}
+                                className="rounded-[2px] bg-highlight px-px text-fg"
+                              >
+                                {segment.text}
+                              </mark>
+                            ) : (
+                              <span key={i}>{segment.text}</span>
+                            ),
+                          )}
                         </span>
                       </>
                     ) : (

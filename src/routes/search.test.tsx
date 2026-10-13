@@ -74,16 +74,30 @@ const RECORD_ROW = {
   total_count: 1,
 }
 
-function renderSearch(search: Record<string, unknown> = {}) {
+/**
+ * Mount the results page against a router search state the test owns, so a
+ * test can move the URL (`mocks.search`) and re-render the page exactly as a
+ * navigation does.
+ */
+function mountSearch(search: Record<string, unknown> = {}) {
   mocks.search = search
   const SearchPage = Route.options.component as React.ComponentType
-  return render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const element = () => (
+    <QueryClientProvider client={client}>
       <SearchPage />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
+  const view = render(element())
+  return {
+    view,
+    setUrl: (next: Record<string, unknown>) => {
+      mocks.search = next
+      view.rerender(element())
+    },
+  }
 }
 
 afterEach(() => {
@@ -95,7 +109,7 @@ afterEach(() => {
 describe('Search results page (SRCH-02)', () => {
   it('reports a failed search as a failure, not as no matches, and retries it', async () => {
     mocks.rpc.mockRejectedValueOnce(new Error('search unavailable'))
-    renderSearch({ q: 'plate' })
+    mountSearch({ q: 'plate' })
 
     expect(await screen.findByText('Search could not run')).toBeTruthy()
     expect(screen.queryByText(/No matches/)).toBeNull()
@@ -106,7 +120,7 @@ describe('Search results page (SRCH-02)', () => {
   })
 
   it('pushes a new query into the history so Back returns to the previous one', async () => {
-    renderSearch()
+    mountSearch()
     const input = screen.getAllByPlaceholderText('Search everything')[0]
     fireEvent.change(input, { target: { value: 'plate' } })
     fireEvent.submit(input.closest('form') as HTMLFormElement)
@@ -120,5 +134,33 @@ describe('Search results page (SRCH-02)', () => {
     expect(call.to).toBe('/search')
     expect(call.replace).toBeUndefined()
     expect(call.search({ q: 'earlier' })).toEqual({ q: 'plate' })
+  })
+
+  it('re-runs the search when the query changes, and follows it in the heading and rows', async () => {
+    mocks.rpc.mockImplementation(async () => [
+      { ...RECORD_ROW, identifier: 'EXP-0091', record_id: 'rec-2' },
+    ])
+    const { setUrl } = mountSearch({ q: 'clarification' })
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Results for “clarification”' }),
+    ).toBeTruthy()
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'search',
+      expect.objectContaining({ p_query: 'clarification' }),
+    )
+
+    // A submitted query is a new URL; the page reads it rather than replaying
+    // what it already had on screen.
+    setUrl({ q: 'EXP-0091' })
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Results for “EXP-0091”' }),
+    ).toBeTruthy()
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      'search',
+      expect.objectContaining({ p_query: 'EXP-0091' }),
+    )
+    expect(screen.queryByText('Results for “clarification”')).toBeNull()
   })
 })

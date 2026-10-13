@@ -13,12 +13,15 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import { Sheet, SheetContent, SheetTrigger } from '#/components/v3/ui/sheet'
 import { Highlight } from '#/components/v3/search/highlight'
+import {
+  searchResultContext,
+  searchResultLabel,
+} from '#/components/v3/search/result-text'
 import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import { cn } from '#/lib/utils'
 import {
   executeSearch,
   filterSearchResults,
-  parseMatchedContext,
   searchDidYouMean,
   searchQueryKeys,
   searchResultGroup,
@@ -449,14 +452,15 @@ function FacetRow({
 }
 
 function Result({ result, q }: { result: SearchResult; q: string }) {
-  const context = parseMatchedContext(result.matchedContext)
+  const context = searchResultContext(result, result.matchedContext)
+  // `identifier` is the object's own id for sheets and datasets; such a row
+  // leads with its title instead of a UUID.
+  const label = searchResultLabel(result)
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b border-border-subtle py-2.5 md:grid-cols-[minmax(0,1fr)_200px_90px] xl:grid-cols-[minmax(0,1fr)_260px_90px]">
       <div className="min-w-0">
         <Link to={result.deepLink} className="text-body">
-          {result.identifier ? (
-            <span className="mono mr-1.5">{result.identifier}</span>
-          ) : null}
+          {label ? <span className="mono mr-1.5">{label}</span> : null}
           <Highlight text={result.title} q={q} />
         </Link>
         <div className="text-label text-fg-muted">

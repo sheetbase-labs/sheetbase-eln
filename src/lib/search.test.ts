@@ -512,8 +512,15 @@ describe('searchQueryKeys', () => {
     expect(recordsKey).not.toEqual(datasetsKey)
     expect(recordsKey).not.toEqual(allKey)
     expect(datasetsKey).not.toEqual(allKey)
-    expect(recordsKey).toContain('record')
-    expect(datasetsKey).toContain('dataset')
+    expect(recordsKey).toContain('resultType=record')
+    expect(datasetsKey).toContain('resultType=dataset')
+  })
+
+  it('produces distinct keys for the archived scope', () => {
+    const base: SearchFilters = { query: 'virus' }
+    expect(searchQueryKeys.search({ ...base, includeArchived: true })).not.toEqual(
+      searchQueryKeys.search({ ...base, includeArchived: false }),
+    )
   })
 })
 
@@ -547,7 +554,7 @@ describe('executeSearch', () => {
   })
 })
 
-describe('search cache behaviour (resultType in query key)', () => {
+describe('search cache behaviour (filters in query key)', () => {
   function countingClient(): { client: DataClient; calls: string[] } {
     const calls: string[] = []
     return {
@@ -594,6 +601,37 @@ describe('search cache behaviour (resultType in query key)', () => {
     expect(datasetResults[0].resultType).toBe('dataset')
     // The pre-fix bug: the dataset fetch was served from the record cache.
     expect(datasetResults).not.toEqual(recordResults)
+  })
+
+  it('refetches instead of serving the previous cache when the archived scope changes', async () => {
+    const calls: Array<string> = []
+    const client = {
+      list: async () => [],
+      insert: async () => ({}),
+      patch: async () => [],
+      rpc: async (_name: string, args: Record<string, unknown>) => {
+        const archived =
+          args.p_include_archived === undefined
+            ? true
+            : Boolean(args.p_include_archived)
+        calls.push(String(archived))
+        return [wireRow({ archived })]
+      },
+    } as unknown as DataClient
+    const queryClient = new QueryClient()
+
+    const fetch = async (filters: SearchFilters) =>
+      queryClient.fetchQuery({
+        queryKey: searchQueryKeys.search(filters),
+        queryFn: () => executeSearch(client, filters),
+        staleTime: 10_000,
+      })
+
+    await fetch({ query: 'virus', includeArchived: false })
+    await fetch({ query: 'virus', includeArchived: true })
+
+    // Toggling the facet must reach the boundary rather than replay the cache.
+    expect(calls).toEqual(['false', 'true'])
   })
 })
 

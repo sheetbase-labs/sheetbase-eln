@@ -695,21 +695,21 @@ export function executeSearch(
 // ---------------------------------------------------------------------------
 
 export const searchQueryKeys = {
-  search: (filters: SearchFilters) =>
-    [
-      'search-001',
-      'search',
-      filters.query,
-      filters.projectId ?? '',
-      filters.kind ?? '',
-      filters.resultType ?? '',
-      filters.status ?? '',
-      filters.ownerId ?? '',
-      filters.dateFrom ?? '',
-      filters.dateTo ?? '',
-      filters.limit ?? 20,
-      filters.offset ?? 0,
-    ] as const,
+  /**
+   * Every filter the `search` RPC reads is part of the key, derived from the
+   * filter object instead of listed by hand: a filter cannot change the request
+   * while leaving the cache entry it belongs to unchanged. `includeArchived`
+   * was missing from the hand-written list, so "Include archived" served the
+   * previous page's cache and never re-ran the search (R5-SHELL-04).
+   */
+  search: (filters: SearchFilters) => {
+    const parts: (string | number | boolean)[] = ['search-001', 'search']
+    for (const name of Object.keys(filters).sort()) {
+      const value = filters[name as keyof SearchFilters]
+      if (value !== undefined) parts.push(`${name}=${String(value)}`)
+    }
+    return parts
+  },
 }
 
 // ---------------------------------------------------------------------------

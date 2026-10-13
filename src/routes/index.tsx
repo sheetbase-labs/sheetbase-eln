@@ -164,7 +164,7 @@ export function firstRunProgress(steps: FirstRunStep[]): {
 }
 
 export function Home() {
-  const { context } = Route.useRouteContext()
+  const { context, shellCounts } = Route.useRouteContext()
   const workspaceId = context.workspace?.id
   const userId = context.user.id
   const reviewsQuery = useQuery({
@@ -195,9 +195,16 @@ export function Home() {
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
   })
   const counts = countsQuery.data
+  // The sidebar badge states the shell's inbox total (`state <> 'following'`);
+  // Home states the same total, so one screen cannot show two numbers for the
+  // same work. The home read counts only needs_action/overdue, so it is the
+  // fallback when the shell context carries no number (a zero inbox).
+  const shellInbox = 'inbox' in shellCounts ? shellCounts.inbox : undefined
+  const inboxCount =
+    shellInbox != null ? Number(shellInbox) : counts?.inbox
   const waitingCounts = counts
     ? {
-        inbox: counts.inbox,
+        inbox: inboxCount ?? counts.inbox,
         datasetsWithErrors: counts.datasetsWithErrors,
         unreadNotifications: counts.unreadNotifications,
       }
@@ -729,7 +736,7 @@ export function Home() {
               ))}
               <span className="flex-1" />
               <Link to="/inbox" className="text-label">
-                Open inbox · {counts?.inbox ?? '—'} items
+                Open inbox · {inboxCount ?? '—'} items
               </Link>
             </nav>
 

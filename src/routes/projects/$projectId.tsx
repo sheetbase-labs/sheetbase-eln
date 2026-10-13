@@ -99,15 +99,6 @@ function ProjectLayout() {
         }
         actions={
           <>
-            <Button
-              className="max-md:hidden"
-              nativeButton={false}
-              render={
-                <Link to="/projects/$projectId/members" params={params} />
-              }
-            >
-              Members
-            </Button>
             {project.archivedAt ? null : (
               <Button
                 variant="primary"
@@ -157,6 +148,10 @@ function ProjectLayout() {
               {
                 label: 'Folders',
                 link: { to: '/projects/$projectId/folders', params },
+              },
+              {
+                label: 'Files',
+                link: { to: '/projects/$projectId/files', params },
               },
               {
                 label: 'Members',

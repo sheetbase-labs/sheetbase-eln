@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -15,8 +15,9 @@ import type * as router from '@tanstack/react-router'
 import type * as workItems from '#/lib/work-items/data'
 import type { WorkItem } from '#/lib/work-items/data'
 
-const { navigate, items } = vi.hoisted(() => {
+const { navigate, items, state, invalidate } = vi.hoisted(() => {
   const navigateMock = vi.fn()
+  const invalidateMock = vi.fn()
   const workItems: WorkItem[] = [
     {
       kind: 'review_requested',
@@ -41,7 +42,12 @@ const { navigate, items } = vi.hoisted(() => {
       createdAt: null,
     },
   ]
-  return { navigate: navigateMock, items: workItems }
+  return {
+    navigate: navigateMock,
+    invalidate: invalidateMock,
+    items: workItems,
+    state: { error: null as Error | null },
+  }
 })
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -52,6 +58,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       <a href={typeof to === 'string' ? to : '#'}>{children}</a>
     ),
     useNavigate: () => navigate,
+    useRouter: () => ({ invalidate: invalidate }),
   }
 })
 
@@ -68,7 +75,20 @@ vi.mock('#/lib/notebook-data', () => ({
 
 vi.mock('#/lib/work-items/data', async (importOriginal) => {
   const actual = await importOriginal<typeof workItems>()
-  return { ...actual, useWorkItems: () => ({ data: items, isLoading: false }) }
+  return {
+    ...actual,
+    useWorkItems: () =>
+      state.error
+        ? {
+            data: undefined,
+            isLoading: false,
+            isError: true,
+            isFetching: false,
+            error: state.error,
+            refetch: vi.fn(),
+          }
+        : { data: items, isLoading: false, isError: false },
+  }
 })
 
 const witnessItem: WorkItem = {
@@ -89,6 +109,8 @@ const witnessItem: WorkItem = {
 afterEach(() => {
   cleanup()
   navigate.mockReset()
+  invalidate.mockReset()
+  state.error = null
   items.splice(2)
 })
 
@@ -288,5 +310,28 @@ describe('Inbox list shortcuts (SHELL-03.3)', () => {
     document.body.append(input)
     fireEvent.keyDown(input, { key: 'j' })
     expect(currentRow()?.textContent).toContain('First review')
+  })
+})
+
+describe('Inbox failure and filter honesty (QA-013, QA-014, QA-015)', () => {
+  it('states a failed read instead of presenting it as an empty inbox', () => {
+    state.error = new Error('The work list is unavailable')
+    const { getByRole, getByText, queryByText } = renderInbox()
+    expect(getByText('Couldn’t load your inbox')).toBeTruthy()
+    expect(getByText('The work list is unavailable')).toBeTruthy()
+    expect(queryByText('Nothing here')).toBeNull()
+    expect(getByRole('button', { name: 'Try again' })).toBeTruthy()
+  })
+
+  it('offers no type filter that can never match, while the Following tab stays', () => {
+    const { getByRole, queryByRole } = renderInbox()
+    expect(getByRole('tab', { name: /^Following/ })).toBeTruthy()
+    expect(queryByRole('button', { name: /^Following/ })).toBeNull()
+  })
+
+  it('refreshes the shell counts when the inbox is marked seen', async () => {
+    const { getByRole } = renderInbox()
+    fireEvent.click(getByRole('button', { name: 'Mark all seen' }))
+    await waitFor(() => expect(invalidate).toHaveBeenCalled())
   })
 })

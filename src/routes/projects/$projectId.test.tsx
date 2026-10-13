@@ -104,6 +104,7 @@ describe('project header (R5-SURF-02)', () => {
       'Samples',
       'Datasets',
       'Folders',
+      'Files',
       'Members',
       'Settings',
     ]) {
@@ -118,9 +119,8 @@ describe('project header (R5-SURF-02)', () => {
     expect(screen.getByRole('link', { name: /^Samples\s*12$/ })).toBeTruthy()
     expect(screen.getByRole('link', { name: /^Datasets\s*3$/ })).toBeTruthy()
 
-    expect(
-      screen.getByRole('button', { name: 'Members' }).getAttribute('href'),
-    ).toBe('/projects/project-1/members')
+    // Members is a tab, not a header action: one affordance, one destination.
+    expect(screen.queryByRole('button', { name: 'Members' })).toBeNull()
     expect(
       screen
         .getByRole('button', { name: 'New experiment' })

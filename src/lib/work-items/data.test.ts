@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { countByKind, groupWorkItems, toWorkItem } from './data'
+import { countByKind, fetchWorkItems, groupWorkItems, toWorkItem } from './data'
+import type { DataClient } from '../data-client'
 import type { WorkItem, WorkItemWire } from './data'
 
 function wire(overrides: Partial<WorkItemWire> = {}): WorkItemWire {
@@ -104,6 +105,20 @@ describe('countByKind', () => {
       approval_requested: 0,
       following: 1,
     })
+  })
+})
+
+describe('fetchWorkItems', () => {
+  it('orders the inbox by due date, so the toolbar copy is true', async () => {
+    let query = ''
+    const client = {
+      list: async (_resource: string, q = '') => {
+        query = q
+        return []
+      },
+    } as unknown as DataClient
+    await fetchWorkItems(client)
+    expect(query).toContain('order=due_at.asc')
   })
 })
 

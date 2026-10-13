@@ -20,6 +20,16 @@ import {
 } from '#/components/v3/ui/table'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
+import {
   Dialog,
   DialogBody,
   DialogClose,
@@ -89,9 +99,12 @@ function stockOfTotal(row: MaterialListRow): string {
   return `${current.replace(unit, '')} of ${total}${unit}`
 }
 type MaterialTab = (typeof tabs)[number]
+/** The `expiring` tab is each lot's own expiry warning window (30 days by
+ * default, overridable per lot in its reagent properties), so its label claims
+ * no fixed window. */
 const tabLabel: Record<MaterialTab, string> = {
   instock: 'In stock',
-  expiring: 'Expiring in 30 days',
+  expiring: 'Expiring soon',
   quarantine: 'Quarantine',
   expired: 'Expired',
 }
@@ -131,6 +144,8 @@ function MaterialsList() {
   const [selected, setSelected] = useState<string | null>(null)
   const [receiveOpen, setReceiveOpen] = useState(false)
   const [replacementOpen, setReplacementOpen] = useState(false)
+  const [quarantineOpen, setQuarantineOpen] = useState(false)
+  const [quarantineReason, setQuarantineReason] = useState('')
 
   const rows = useMemo(
     () => (page.data?.rows ?? []).map(toMaterialListRow),
@@ -163,13 +178,15 @@ function MaterialsList() {
     staleTime: 15_000,
   })
 
+  // A quarantined lot is isolated, not gone: the same RPC restores it. The
+  // reason is the operator's, never a fabricated ledger entry.
   const quarantine = useMutation({
-    mutationFn: () =>
+    mutationFn: (reason: string) =>
       recordReagentMovement(notebookDataClient, {
         recordId: sel!.uuid,
         operation: 'quarantine',
         quantityDelta: 0,
-        reason: 'Held for review',
+        reason: reason.trim() || undefined,
         expectedMetadataVersion: sel!.metadataVersion,
       }),
     onSuccess: () => {
@@ -177,9 +194,30 @@ function MaterialsList() {
         queryKey: materialListQueryKeys.page,
       })
       toast('Lot quarantined')
+      setQuarantineOpen(false)
+      setQuarantineReason('')
     },
     onError: (error: unknown) => {
       toast(error instanceof Error ? error.message : 'Could not quarantine lot')
+    },
+  })
+
+  const restore = useMutation({
+    mutationFn: () =>
+      recordReagentMovement(notebookDataClient, {
+        recordId: sel!.uuid,
+        operation: 'restore',
+        quantityDelta: 0,
+        expectedMetadataVersion: sel!.metadataVersion,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: materialListQueryKeys.page,
+      })
+      toast('Lot restored')
+    },
+    onError: (error: unknown) => {
+      toast(error instanceof Error ? error.message : 'Could not restore lot')
     },
   })
 
@@ -244,6 +282,9 @@ function MaterialsList() {
       })
       toast('Lot received')
       setReceiveOpen(false)
+    },
+    onError: (error: unknown) => {
+      toast(error instanceof Error ? error.message : 'Could not receive lot')
     },
   })
 
@@ -413,14 +454,29 @@ function MaterialsList() {
               <Button
                 variant="secondary"
                 size="sm"
-                disabled={
-                  quarantine.isPending ||
-                  sel.status.label.startsWith('Quarantine')
-                }
-                onClick={() => quarantine.mutate()}
+                onClick={() => setReplacementOpen(true)}
               >
-                Quarantine
+                Register replacement lot
               </Button>
+              {sel.tabs.includes('quarantine') ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={restore.isPending}
+                  onClick={() => restore.mutate()}
+                >
+                  {restore.isPending ? 'Restoring…' : 'Restore'}
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={quarantine.isPending}
+                  onClick={() => setQuarantineOpen(true)}
+                >
+                  Quarantine
+                </Button>
+              )}
             </div>
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
@@ -467,7 +523,7 @@ function MaterialsList() {
               <p className="text-label text-fg-muted">
                 {replacementLink.data
                   ? `${replacementLink.data.targetIdentifier}${replacementLink.data.reason ? ` · ${replacementLink.data.reason}` : ''}`
-                  : 'Experiments cannot reference an expired lot.'}
+                  : 'No lot has been registered to replace this one.'}
               </p>
             </InspectorSection>
             {usage.data?.length ? (
@@ -540,6 +596,33 @@ function MaterialsList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog open={quarantineOpen} onOpenChange={setQuarantineOpen}>
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Quarantine this lot?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {sel ? `${sel.id} · ${sel.name}. ` : ''}A quarantined lot is held
+              aside and experiments cannot use it until it is restored.
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <Textarea
+            className="min-h-[70px]"
+            placeholder="Why is this lot held? (optional)…"
+            value={quarantineReason}
+            onChange={(event) => setQuarantineReason(event.target.value)}
+          />
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogAction
+              disabled={quarantine.isPending}
+              onClick={() => quarantine.mutate(quarantineReason)}
+            >
+              {quarantine.isPending ? 'Quarantining…' : 'Quarantine'}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }

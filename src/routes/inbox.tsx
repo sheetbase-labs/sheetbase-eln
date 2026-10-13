@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  useNavigate,
+  useRouter,
+} from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '#/components/v3/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -35,7 +40,6 @@ const types: [InboxType, string, Tone, WorkItemKind][] = [
   ['data', 'Data issues', 'bad', 'data_issue'],
   ['runs', 'Runs', 'analysis', 'run_failed'],
   ['materials', 'Materials', 'warn', 'material_expiring'],
-  ['following', 'Following', 'stored', 'following'],
 ]
 
 /** UI port (roadmap-4/ui-app3): the Inbox, wired to `my_work_items`. */
@@ -173,6 +177,7 @@ function Inbox() {
   const [selection, setSelection] = useState<Set<string>>(() => new Set())
 
   const queryClient = useQueryClient()
+  const router = useRouter()
   const seenQuery = useQuery({
     queryKey: ['ui-port', 'inbox', 'seen'],
     queryFn: async () => {
@@ -291,6 +296,9 @@ function Inbox() {
     onSuccess: () => {
       toast('Marked as seen')
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'inbox'] })
+      // The Inbox badge and Home counts come from the router context, which
+      // only a route re-resolution refreshes.
+      void router.invalidate()
     },
     onError: (error: unknown) =>
       toast.error(
@@ -402,7 +410,28 @@ function Inbox() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {orderedRows.length === 0 && hiddenLater === 0 ? (
+          {query.isError ? (
+            <div
+              role="alert"
+              className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
+            >
+              <div className="text-prose font-semibold">
+                Couldn’t load your inbox
+              </div>
+              <div className="max-w-[460px] leading-[19px] text-fg-muted">
+                {query.error instanceof Error
+                  ? query.error.message
+                  : 'The work list could not be read. Try again.'}
+              </div>
+              <Button
+                size="sm"
+                disabled={query.isFetching}
+                onClick={() => void query.refetch()}
+              >
+                {query.isFetching ? 'Trying…' : 'Try again'}
+              </Button>
+            </div>
+          ) : orderedRows.length === 0 && hiddenLater === 0 ? (
             <div
               role="status"
               className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"

@@ -140,7 +140,7 @@ export async function fetchWorkItems(
 ): Promise<WorkItem[]> {
   const rows = await client.list<WorkItemWire>(
     'my_work_items',
-    `?select=kind,record_id,identifier,title,project_id,reason,due_at,state,created_at,source_type,source_id,parser_version_id,connector_id,revision_id&order=created_at.desc&limit=${limit}`,
+    `?select=kind,record_id,identifier,title,project_id,reason,due_at,state,created_at,source_type,source_id,parser_version_id,connector_id,revision_id&order=due_at.asc,created_at.desc&limit=${limit}`,
   )
   return rows.map((row) => toWorkItem(row))
 }

@@ -22,6 +22,7 @@ const fixture = vi.hoisted(() => ({
   datasetsWithErrors: 0,
   unread: 0,
   hasRecents: true,
+  shellInbox: null as string | null,
 }))
 
 const fake = vi.hoisted(() => {
@@ -342,6 +343,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
           user: { id: 'user-1' },
           workspace: { id: 'ws-1', name: 'Process Development' },
         },
+        shellCounts: fixture.shellInbox ? { inbox: fixture.shellInbox } : {},
       }),
     }),
     redirect: vi.fn(),
@@ -377,6 +379,7 @@ beforeEach(() => {
   fixture.datasetsWithErrors = 0
   fixture.unread = 0
   fixture.hasRecents = true
+  fixture.shellInbox = null
 })
 
 function renderHome() {
@@ -507,6 +510,20 @@ describe('Home pace', () => {
       screen.getByRole('heading', { name: 'Awaiting your review' }),
     ).toBeTruthy()
     expect(screen.getAllByRole('button', { name: 'Review' })).toHaveLength(1)
+  })
+
+  it('states the same inbox total as the sidebar badge, not the narrower home count', async () => {
+    // The shell counts `state <> 'following'` (which includes done-today); the
+    // home read counts only needs_action/overdue. One screen must not show two
+    // numbers for the same work, so the shell's total wins.
+    fixture.inbox = 3
+    fixture.reviews = 2
+    fixture.shellInbox = '7'
+    renderHome()
+
+    const summary = await screen.findByRole('navigation', { name: 'Summary' })
+    expect(summary.textContent).toContain('7 items')
+    expect(summary.textContent).not.toContain('3 items')
   })
 
   it('keeps the calm page keyboard reachable, with no negative tabindex', async () => {

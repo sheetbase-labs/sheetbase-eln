@@ -21,37 +21,44 @@ const AMBR = '00000000-0000-4000-8000-0000000003e1'
 const PR01 = '00000000-0000-4000-8000-0000000003e0'
 
 const fake = vi.hoisted(() => {
+  const instruments = [
+    {
+      id: '00000000-0000-4000-8000-0000000003e0',
+      display_id: 'INS-0007',
+      name: 'Plate reader PR-01',
+      location: null,
+      retired_at: null,
+    },
+    {
+      id: '00000000-0000-4000-8000-0000000003e1',
+      display_id: 'INS-0008',
+      name: 'Ambr 250',
+      location: 'bay 2',
+      retired_at: null,
+    },
+    {
+      id: '00000000-0000-4000-8000-0000000003df',
+      display_id: 'INS-0006',
+      name: 'Retired reader',
+      location: null,
+      retired_at: '2026-09-01T00:00:00.000Z',
+    },
+  ]
+  const state = {
+    instruments: [...instruments],
+    bookings: [] as Record<string, unknown>[],
+  }
   const list = async (resource: string) => {
     switch (resource) {
       case 'instruments':
-        return [
-          {
-            id: '00000000-0000-4000-8000-0000000003e0',
-            display_id: 'INS-0007',
-            name: 'Plate reader PR-01',
-            location: null,
-            retired_at: null,
-          },
-          {
-            id: '00000000-0000-4000-8000-0000000003e1',
-            display_id: 'INS-0008',
-            name: 'Ambr 250',
-            location: 'bay 2',
-            retired_at: null,
-          },
-          {
-            id: '00000000-0000-4000-8000-0000000003df',
-            display_id: 'INS-0006',
-            name: 'Retired reader',
-            location: null,
-            retired_at: '2026-09-01T00:00:00.000Z',
-          },
-        ]
+        return state.instruments
+      case 'calendar_bookings':
+        return state.bookings
       default:
         return []
     }
   }
-  return { list, rpc: async () => [] }
+  return { list, rpc: async () => [], state, defaultInstruments: instruments }
 })
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
@@ -104,7 +111,11 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   }
 })
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  fake.state.instruments = [...fake.defaultInstruments]
+  fake.state.bookings = []
+})
 
 function renderSchedule() {
   return render(
@@ -151,5 +162,82 @@ describe('ADR-0054 Schedule', () => {
       'INS-0007 · Plate reader PR-01',
       'INS-0008 · Ambr 250',
     ])
+  })
+})
+
+/** A calendar_bookings row as the PostgREST boundary returns it. */
+function bookingRow(overrides: Record<string, unknown>) {
+  const day = new Date().toISOString().slice(0, 10)
+  return {
+    id: 'b-1',
+    workspace_id: 'ws-1',
+    resource_id: PR01,
+    project_id: null,
+    title: 'Overnight digest',
+    status: 'tentative',
+    all_day: false,
+    starts_at: `${day}T19:00:00.000Z`,
+    ends_at: `${day}T20:30:00.000Z`,
+    timezone: 'UTC',
+    location: null,
+    color: null,
+    notes: null,
+    linked_experiment_record_id: null,
+    linked_experiment_identifier: null,
+    linked_experiment_title: null,
+    metadata_version: 1,
+    cancelled_at: null,
+    created_at: `${day}T00:00:00.000Z`,
+    updated_at: `${day}T00:00:00.000Z`,
+    created_by_user_id: null,
+    updated_by_user_id: null,
+    ...overrides,
+  }
+}
+
+describe('Schedule grid bounds, empty state and phone navigation', () => {
+  it('draws a booking outside 08:00–18:00 inside the widened grid', async () => {
+    fake.state.bookings = [bookingRow({})]
+    const user = userEvent.setup()
+    renderSchedule()
+    await user.click(await screen.findByRole('button', { name: 'Day' }))
+
+    // The 20:00 hour is only drawn because the window widened to the booking.
+    expect(await screen.findByText('20:00')).toBeTruthy()
+
+    const bar = screen.getByTitle(
+      '19:00–20:30 · A colleague · Overnight digest',
+    )
+    const percent = (value: string) =>
+      Number(/calc\((-?[\d.]+)%/.exec(value)?.[1])
+    const left = percent(bar.style.left)
+    const width = percent(bar.style.width)
+    expect(left).toBeGreaterThanOrEqual(0)
+    expect(width).toBeGreaterThan(0)
+    expect(left + width).toBeLessThanOrEqual(100)
+  })
+
+  it('states that no instruments are configured instead of drawing an empty grid', async () => {
+    fake.state.instruments = []
+    renderSchedule()
+
+    expect(await screen.findByText('No instruments configured')).toBeTruthy()
+    // No empty frame and no instrument rows behind the statement.
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(screen.queryByLabelText('Instrument schedule')).toBeNull()
+  })
+
+  it('moves the phone day list when the week is stepped', async () => {
+    const user = userEvent.setup()
+    renderSchedule()
+    await screen.findByRole('link', { name: /INS-0008/ })
+
+    const shownDay = () =>
+      screen.getByRole('region', { name: /^Bookings,/ }).getAttribute(
+        'aria-label',
+      )
+    const before = shownDay()
+    await user.click(screen.getByRole('button', { name: 'Next week' }))
+    expect(shownDay()).not.toBe(before)
   })
 })

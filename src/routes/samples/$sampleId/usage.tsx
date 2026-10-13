@@ -74,7 +74,12 @@ function SampleUsage() {
   const withdrawalEvents = (events.data ?? []).filter(
     (event) => event.operation === 'consume',
   )
-  const reservationRows = reservations.data ?? []
+  // QA-121: the list and its count are live usage — consumptions plus the
+  // reservations that still hold volume. A cancelled reservation holds none, so
+  // it belongs in the record's history, not in this list or its count.
+  const reservationRows = (reservations.data ?? []).filter(
+    (reservation) => reservation.state !== 'cancelled',
+  )
   const rowCount = withdrawalEvents.length + reservationRows.length
 
   const experimentIds = Array.from(

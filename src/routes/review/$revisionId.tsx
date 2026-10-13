@@ -76,7 +76,6 @@ import type {
 } from '#/components/scientific/status-badge'
 import {
   ConfirmDialog,
-  ConfirmDialogAction,
   ConfirmDialogCancel,
   ConfirmDialogContent,
   ConfirmDialogDescription,
@@ -168,6 +167,7 @@ import {
   deriveSignatureApplicability,
 } from '#/lib/review-lifecycle'
 import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
+import { useUserNames } from '#/lib/user-names'
 import {
   useRegisterShortcuts,
   useShortcutScope,
@@ -524,6 +524,18 @@ export function ReviewWorkspaceRoute() {
     [decisions],
   )
 
+  // QA-180: the banner names who returned the submission. A decision row only
+  // carries the actor's id, so resolve it the way the rest of the app does
+  // rather than printing a UUID at the author.
+  const returnedByUserId = latestReturn?.actor_user_id ?? null
+  const returnedByNames = useUserNames(
+    returnedByUserId ? [returnedByUserId] : [],
+    { id: currentUserId, name: currentUserName },
+  )
+  const returnedByName = returnedByUserId
+    ? (returnedByNames.names[returnedByUserId] ?? 'a colleague')
+    : null
+
   const integrityDigest = revision?.integrity_digest ?? null
 
   // --- Error / permission state ------------------------------------------
@@ -683,7 +695,7 @@ export function ReviewWorkspaceRoute() {
           {submission?.state === 'returned' ? (
             <ReturnedCommentsBanner
               openCommentCount={openCommentCount}
-              returnedByUserId={latestReturn?.actor_user_id ?? null}
+              returnedByName={returnedByName}
               returnedAt={latestReturn?.created_at ?? null}
               recordId={recordId}
               onGoToComment={() => {
@@ -943,20 +955,11 @@ export function WorkspaceHeader({
           {/* COLLAB-04: who else is reviewing right now; renders null before
               the room mounts and when nobody else is present. */}
           <PresenceStack className="justify-end" />
-          {state ? (
-            <StatusBadge
-              status={lifecycle.status}
-              vocabulary={lifecycleVocabulary}
-              size="sm"
-            />
-          ) : null}
-          {!state ? (
-            <StatusBadge
-              status={lifecycle.status}
-              vocabulary={lifecycleVocabulary}
-              size="sm"
-            />
-          ) : null}
+          <StatusBadge
+            status={lifecycle.status}
+            vocabulary={lifecycleVocabulary}
+            size="sm"
+          />
           {projectTitle ? (
             <span className="text-xs text-muted-foreground">
               {projectTitle}
@@ -1035,13 +1038,14 @@ export function WorkspaceHeader({
  */
 export function ReturnedCommentsBanner({
   openCommentCount,
-  returnedByUserId,
+  returnedByName,
   returnedAt,
   recordId,
   onGoToComment,
 }: {
   openCommentCount: number
-  returnedByUserId: string | null
+  /** Display name of the reviewer who returned it, when the workspace can name them. */
+  returnedByName: string | null
   returnedAt: string | null
   recordId: string | null
   onGoToComment: () => void
@@ -1055,7 +1059,7 @@ export function ReturnedCommentsBanner({
       <Icon name="arrowLeft" size={14} aria-hidden />
       <span>
         <span className="font-semibold">Returned for changes</span>
-        {returnedByUserId ? ` by ${returnedByUserId}` : ''}
+        {returnedByName ? ` by ${returnedByName}` : ''}
         {returnedAt ? ` · ${formatDate(returnedAt)}` : ''} · {openCommentCount}{' '}
         {noun} to resolve before you resubmit
       </span>
@@ -1585,6 +1589,12 @@ function ReviewInspector({
 }) {
   const queryClient = useQueryClient()
   const [signingOpen, setSigningOpen] = useState(false)
+  // QA-180: an assigned reviewer is a person, not a UUID. Resolve them to names
+  // the way the rest of the app does; initials come from the name.
+  const reviewerNames = useUserNames(
+    submission?.assigned_reviewer_user_ids ?? [],
+    { id: currentUserId, name: currentUserName },
+  )
 
   if (loading && !revision) {
     return (
@@ -1660,22 +1670,26 @@ function ReviewInspector({
           </h3>
           {submission && submission.assigned_reviewer_user_ids.length > 0 ? (
             <ul className="space-y-1">
-              {submission.assigned_reviewer_user_ids.map((userId) => (
-                <li
-                  key={userId}
-                  className="flex items-center gap-2 text-xs text-muted-foreground"
-                >
-                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                    {userId.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="font-mono">{userId}</span>
-                  {userId === currentUserId ? (
-                    <span className="text-xs font-medium text-primary">
-                      you
+              {submission.assigned_reviewer_user_ids.map((userId) => {
+                const name =
+                  reviewerNames.names[userId] ?? 'Unknown workspace member'
+                return (
+                  <li
+                    key={userId}
+                    className="flex items-center gap-2 text-xs text-muted-foreground"
+                  >
+                    <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                      {name.slice(0, 2).toUpperCase()}
                     </span>
-                  ) : null}
-                </li>
-              ))}
+                    <span>{name}</span>
+                    {userId === currentUserId ? (
+                      <span className="text-xs font-medium text-primary">
+                        you
+                      </span>
+                    ) : null}
+                  </li>
+                )
+              })}
             </ul>
           ) : (
             <p className="text-xs text-muted-foreground">No assignees.</p>
@@ -1840,6 +1854,10 @@ export function ActionButtons({
   const [pendingKind, setPendingKind] = useState<ReviewDecisionKind | null>(
     null,
   )
+  // QA-182: the decision RPC is awaited, so the dialog must not close under a
+  // failed action and the button must not accept a second submission.
+  const [submittingKind, setSubmittingKind] =
+    useState<ReviewDecisionKind | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [signAfterApproval, setSignAfterApproval] = useState(false)
   useRegisterShortcuts(
@@ -1869,21 +1887,24 @@ export function ActionButtons({
   }
 
   async function confirm() {
-    if (!pendingKind) return
+    if (!pendingKind || submittingKind) return
+    const kind = pendingKind
     setError(null)
+    setSubmittingKind(kind)
     try {
-      await onAfterDecision(pendingKind, {
+      await onAfterDecision(kind, {
         submissionId: submission.id,
         note: note.trim() || undefined,
         expectedRevisionDigest: integrityDigest!,
       })
       setPendingKind(null)
       setNote('')
-      if (pendingKind === 'approve' && signAfterApproval)
-        onApprovedForSigning?.()
+      if (kind === 'approve' && signAfterApproval) onApprovedForSigning?.()
       setSignAfterApproval(false)
     } catch (err) {
       setError(renderError(err))
+    } finally {
+      setSubmittingKind(null)
     }
   }
 
@@ -1933,6 +1954,8 @@ export function ActionButtons({
               note={note}
               setNote={setNote}
               open={pendingKind === action.kind}
+              error={pendingKind === action.kind ? error : null}
+              submitting={submittingKind === action.kind}
               onOpen={() => {
                 setNote('')
                 setSignAfterApproval(false)
@@ -1942,7 +1965,10 @@ export function ActionButtons({
                 if (open) {
                   setPendingKind(action.kind)
                   setError(null)
-                } else if (pendingKind === action.kind) {
+                } else if (
+                  submittingKind === null &&
+                  pendingKind === action.kind
+                ) {
                   setPendingKind(null)
                 }
               }}
@@ -1960,26 +1986,20 @@ export function ActionButtons({
         blockedReason={permission.withdrawBlockedReason ?? undefined}
         note={note}
         setNote={setNote}
+        open={pendingKind === 'withdraw'}
+        error={pendingKind === 'withdraw' ? error : null}
+        submitting={submittingKind === 'withdraw'}
         onOpen={() => setNote('')}
         onConfirm={confirm}
         onOpenChange={(open) => {
           if (open) {
             setPendingKind('withdraw')
             setError(null)
-          } else if (pendingKind === 'withdraw') {
+          } else if (submittingKind === null && pendingKind === 'withdraw') {
             setPendingKind(null)
           }
         }}
       />
-
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
-        >
-          {error}
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -1994,6 +2014,8 @@ function DecisionDialog({
   draftCommentCount = 0,
   note,
   setNote,
+  error,
+  submitting,
   onOpen,
   onConfirm,
   onOpenChange,
@@ -2009,6 +2031,9 @@ function DecisionDialog({
   draftCommentCount?: number
   note: string
   setNote: (value: string) => void
+  /** QA-182: why the decision failed, shown where the action was taken. */
+  error?: string | null
+  submitting?: boolean
   onOpen: () => void
   onConfirm: () => void
   onOpenChange: (open: boolean) => void
@@ -2070,9 +2095,25 @@ function DecisionDialog({
           onChange={(event) => setNote(event.target.value)}
           aria-label={`${label} note`}
         />
+        {error ? (
+          <p role="alert" className="m-0 text-label text-danger-text">
+            {error}
+          </p>
+        ) : null}
         <ConfirmDialogFooter>
-          <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
-          <ConfirmDialogAction onClick={onConfirm}>{label}</ConfirmDialogAction>
+          <ConfirmDialogCancel disabled={submitting}>
+            Cancel
+          </ConfirmDialogCancel>
+          {/* QA-182: the action is a plain button, not a DialogClose — the
+              dialog stays open for as long as the transition RPC runs, so a
+              refusal is read where the action was taken. */}
+          <Button
+            variant="primary"
+            disabled={submitting}
+            onClick={onConfirm}
+          >
+            {submitting ? 'Submitting…' : label}
+          </Button>
         </ConfirmDialogFooter>
       </ConfirmDialogContent>
     </ConfirmDialog>
@@ -2506,6 +2547,11 @@ export function SignaturePanel({
               error={error}
               onConfirm={handleSigned}
             />
+          ) : certifications.isError || eligibility.isError ? (
+            <p className="text-xs text-muted-foreground">
+              Your certification and signing eligibility could not be checked,
+              so signing is unavailable here. Reload the review to try again.
+            </p>
           ) : certifications.isSuccess &&
             !alreadySigned &&
             !certificationCurrent ? (
@@ -2525,6 +2571,27 @@ export function SignaturePanel({
             <p className="text-xs text-muted-foreground">
               Signing requires assignment as a nonauthor reviewer or an explicit
               witness request.
+            </p>
+          ) : !integrityDigest ? (
+            <p className="text-xs text-muted-foreground">
+              The revision's integrity digest is unavailable, so signing is
+              disabled.
+            </p>
+          ) : revision.superseded_by_revision_id !== null ? (
+            <p className="text-xs text-muted-foreground">
+              This revision has been superseded — sign the active submission
+              instead.
+            </p>
+          ) : eligibility.isSuccess && !eligibility.data.writer ? (
+            <p className="text-xs text-muted-foreground">
+              Your workspace role cannot sign revisions.
+            </p>
+          ) : eligibility.isSuccess && certifications.isSuccess ? (
+            // QA-184: signing has an off switch for every reason the panel can
+            // withhold it, so a person never faces an unexplained gap. Both
+            // lookups must be settled first, or the statement would be a guess.
+            <p className="text-xs text-muted-foreground">
+              Signing is not available for you on this revision.
             </p>
           ) : null}
         </div>
@@ -2546,10 +2613,28 @@ export function SignaturePanel({
             <option value="">Choose another permitted member</option>
             {witnesses.map((member) => (
               <option key={member.user_id} value={member.user_id}>
-                {member.user_id} · {member.workspace_role}
+                {member.workspace_role
+                  ? `${member.name} · ${member.workspace_role}`
+                  : member.name}
               </option>
             ))}
           </select>
+          {/* QA-183: a greyed picker states why it cannot be used. */}
+          {members.isError ? (
+            <p className="text-xs text-muted-foreground">
+              The members who may witness could not be loaded, so nobody can be
+              asked here. Reload the review to try again.
+            </p>
+          ) : members.isFetching ? (
+            <p className="text-xs text-muted-foreground">
+              Loading the members who may witness…
+            </p>
+          ) : witnesses.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No other member of this project may witness this revision, so
+              there is nobody to ask.
+            </p>
+          ) : null}
           <Button
             size="sm"
             variant="secondary"
@@ -2674,7 +2759,8 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
   )
 }
 
-function AmendmentSection({
+/** SIGN-002: begin an amendment from a locked record. Exported for tests. */
+export function AmendmentSection({
   recordId,
   onAfterAmendment,
 }: {
@@ -2743,6 +2829,7 @@ function AmendmentSection({
       <ConfirmDialog
         open={open}
         onOpenChange={(next) => {
+          if (!next && submitting) return
           setOpen(next)
           if (next) {
             setNote('')
@@ -2782,10 +2869,18 @@ function AmendmentSection({
             </p>
           ) : null}
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
-            <ConfirmDialogAction disabled={submitting} onClick={handleConfirm}>
+            <ConfirmDialogCancel disabled={submitting}>
+              Cancel
+            </ConfirmDialogCancel>
+            {/* QA-182: a plain button, not a DialogClose — the amendment is
+                awaited, so a refusal stays readable in the open dialog. */}
+            <Button
+              variant="primary"
+              disabled={submitting}
+              onClick={handleConfirm}
+            >
               {submitting ? 'Starting…' : 'Start amendment'}
-            </ConfirmDialogAction>
+            </Button>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
       </ConfirmDialog>

@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
 import { Dot } from '#/components/v3/ui/status'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
 import { Icon } from '#/components/v3/icons'
 import { toast } from '#/components/v3/ui/sonner'
@@ -19,6 +21,11 @@ import type {
 } from '#/components/v3/schedule/schedule-data'
 import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 import { useWorkItems } from '#/lib/work-items/data'
+import { homeIsoDay } from '#/lib/home-quiet'
+import {
+  fetchWorkspaceGeneral,
+  workspaceGeneralQueryKey,
+} from '#/lib/workspace-general'
 import { cn } from '#/lib/utils'
 
 /** UI port (roadmap-4/ui-app3): the Schedule day/week instrument grid, wired
@@ -43,10 +50,9 @@ const toMin = (t: string) => {
   const [h, m] = t.split(':').map(Number)
   return h * 60 + m
 }
+/** The core hours the day grid draws; it widens to cover the day's bookings. */
 const DAY_START = 8 * 60
 const DAY_END = 18 * 60
-const pct = (t: string) =>
-  ((toMin(t) - DAY_START) / (DAY_END - DAY_START)) * 100
 const hatch =
   'bg-[repeating-linear-gradient(135deg,var(--hatch)_0_6px,transparent_6px_12px)]'
 
@@ -85,12 +91,32 @@ export const Route = createFileRoute('/schedule')({
 export function Schedule() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id
-  const today = useMemo(() => iso(new Date()), [])
+  // QA-022: a Schedule day is the workspace's day. Home groups the same
+  // bookings by the workspace timezone, so "today" comes from that clock rather
+  // than the UTC calendar day, which can be a day ahead or behind.
+  const workspaceQuery = useQuery({
+    queryKey: workspaceGeneralQueryKey,
+    queryFn: () => fetchWorkspaceGeneral(),
+    enabled: Boolean(workspaceId),
+  })
+  const timeZone = workspaceQuery.data?.timezone ?? 'UTC'
+  const today = useMemo(() => homeIsoDay(new Date(), timeZone), [timeZone])
   const [view, setView] = useState<'week' | 'day'>('week')
   const [anchor, setAnchor] = useState<string>(today)
   const [added, setAdded] = useState<ScheduleBooking[]>([])
 
   const weekStart = view === 'day' ? anchor : monday(anchor)
+  const weekEnd = addDays(weekStart, 7)
+  // QA-023: on a phone the day list is the only schedule surface, so it follows
+  // the navigated anchor instead of being pinned to today: the anchor day in Day
+  // view, today while the viewed week contains it, otherwise the week's first
+  // day — so stepping the week changes what a phone shows.
+  const phoneDay =
+    view === 'day'
+      ? anchor
+      : today >= weekStart && today < weekEnd
+        ? today
+        : weekStart
   const rangeFrom = weekStart
   const rangeTo = addDays(weekStart, view === 'day' ? 1 : 7)
   const instrumentsQuery = useScheduleInstruments(workspaceId)
@@ -139,28 +165,22 @@ export function Schedule() {
         </div>
         <Button
           size="sm"
-          className="max-md:hidden"
           aria-label={view === 'day' ? 'Previous day' : 'Previous week'}
           onClick={() => go(-1)}
         >
           <Icon name="chevronRight" size={12} className="rotate-180" />
         </Button>
-        <Button size="sm" className="max-md:hidden" onClick={() => go(0)}>
+        <Button size="sm" onClick={() => go(0)}>
           Today
         </Button>
         <Button
           size="sm"
-          className="max-md:hidden"
           aria-label={view === 'day' ? 'Next day' : 'Next week'}
           onClick={() => go(1)}
         >
           <Icon name="chevronRight" size={12} />
         </Button>
-        <div
-          role="group"
-          aria-label="View"
-          className="ml-2 flex gap-1 max-md:hidden"
-        >
+        <div role="group" aria-label="View" className="ml-2 flex gap-1">
           <Button
             size="sm"
             variant={view === 'day' ? 'secondary' : 'quiet'}
@@ -189,30 +209,52 @@ export function Schedule() {
         />
       </div>
 
-      <PhoneDay
-        day={view === 'day' ? anchor : today}
-        instruments={instruments}
-        bookings={bookings}
-      />
-      {view === 'day' ? (
-        <DayGrid day={anchor} instruments={instruments} bookings={bookings} />
+      {instrumentsQuery.isSuccess && instruments.length === 0 ? (
+        <EmptyState
+          icon="flask"
+          title="No instruments configured"
+          body="The Schedule draws the workspace's instrument registry. Add an instrument and it appears here as a bookable row."
+        >
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<Link to="/instruments" />}
+          >
+            Open the instrument registry
+          </Button>
+        </EmptyState>
       ) : (
-        <WeekGrid
-          start={weekStart}
-          instruments={instruments}
-          bookings={bookings}
-          onDay={(x) => {
-            setView('day')
-            setAnchor(x)
-          }}
-          today={today}
-        />
+        <>
+          <PhoneDay
+            day={phoneDay}
+            instruments={instruments}
+            bookings={bookings}
+          />
+          {view === 'day' ? (
+            <DayGrid
+              day={anchor}
+              instruments={instruments}
+              bookings={bookings}
+            />
+          ) : (
+            <WeekGrid
+              start={weekStart}
+              instruments={instruments}
+              bookings={bookings}
+              onDay={(x) => {
+                setView('day')
+                setAnchor(x)
+              }}
+              today={today}
+            />
+          )}
+        </>
       )}
 
       {bookings.length === 0 ? (
         <p className="m-0 text-label text-fg-muted">
-          Nothing booked on these instruments yet. Weekend access needs a
-          supervisor-approved booking.
+          Nothing booked on these instruments yet. Bookings are created as
+          tentative and weekends are bookable like any other day.
         </p>
       ) : (
         <Below
@@ -230,6 +272,28 @@ export function Schedule() {
   )
 }
 
+/**
+ * QA-024: the grid's hour window. 08:00–18:00 by default, widened to whole
+ * hours that cover every booking on the day, so a booking the dialog allowed
+ * outside core hours is still drawn where it belongs instead of being clipped
+ * to a negative offset or a >100% width.
+ */
+function dayWindow(dayBookings: ScheduleBooking[]): {
+  start: number
+  end: number
+} {
+  let start = DAY_START
+  let end = DAY_END
+  for (const booking of dayBookings) {
+    const from = toMin(booking.start)
+    const to = toMin(booking.end)
+    if (!Number.isFinite(from) || !Number.isFinite(to)) continue
+    start = Math.min(start, Math.floor(from / 60) * 60)
+    end = Math.max(end, Math.ceil(to / 60) * 60)
+  }
+  return { start, end: Math.max(end, start + 60) }
+}
+
 function DayGrid({
   day,
   instruments,
@@ -239,10 +303,14 @@ function DayGrid({
   instruments: ScheduleInstrument[]
   bookings: ScheduleBooking[]
 }) {
-  const hours = Array.from(
-    { length: 10 },
-    (_, i) => `${String(8 + i).padStart(2, '0')}:00`,
-  )
+  const dayBookings = bookings.filter((b) => b.date === day)
+  const bounds = dayWindow(dayBookings)
+  const span = bounds.end - bounds.start
+  const position = (t: string) => ((toMin(t) - bounds.start) / span) * 100
+  const hours = Array.from({ length: span / 60 }, (_, i) => {
+    const hour = bounds.start + i * 60
+    return `${String(hour / 60).padStart(2, '0')}:00`
+  })
   const closed = isWeekend(day)
   return (
     <section
@@ -257,7 +325,7 @@ function DayGrid({
               <span
                 key={h}
                 className="num absolute top-1 text-[11px] text-fg-muted"
-                style={{ left: `calc(${pct(h)}% + 4px)` }}
+                style={{ left: `calc(${position(h)}% + 4px)` }}
               >
                 {h}
               </span>
@@ -286,11 +354,11 @@ function DayGrid({
                     key={h}
                     aria-hidden="true"
                     className="absolute inset-y-0 w-px bg-border-subtle"
-                    style={{ left: `${pct(h)}%` }}
+                    style={{ left: `${position(h)}%` }}
                   />
                 ))}
-                {bookings
-                  .filter((b) => b.resourceId === ins.id && b.date === day)
+                {dayBookings
+                  .filter((b) => b.resourceId === ins.id)
                   .map((b) => (
                     <div
                       key={b.id}
@@ -303,8 +371,8 @@ function DayGrid({
                           : 'border-border bg-surface-muted text-fg-muted',
                       )}
                       style={{
-                        left: `calc(${pct(b.start)}% + 1px)`,
-                        width: `calc(${pct(b.end) - pct(b.start)}% - 2px)`,
+                        left: `calc(${position(b.start)}% + 1px)`,
+                        width: `calc(${position(b.end) - position(b.start)}% - 2px)`,
                       }}
                     >
                       <span className="sr-only">
@@ -330,7 +398,8 @@ function DayGrid({
                 No bookings on {fmt(day, { weekday: 'long' })}
               </div>
               <div className="mt-0.5 text-label text-fg-muted">
-                Weekend access needs a supervisor-approved booking.
+                Bookings are created as tentative and weekends are bookable
+                like any other day.
               </div>
             </div>
           </div>

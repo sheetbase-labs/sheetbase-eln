@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { proposeChartSpec } from '#/lib/assist-drafts'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import type { ChartSpec } from '#/lib/chart-spec'
 
 import { ChartConfigurator } from './chart-configurator'
 
@@ -148,8 +149,53 @@ describe('ChartConfigurator error-bar interval', () => {
       />,
     )
 
-    expect(
-      screen.queryByRole('option', { name: 'Explicit field' }),
-    ).toBeNull()
+    expect(screen.queryByRole('option', { name: 'Explicit field' })).toBeNull()
+  })
+})
+
+describe('ChartConfigurator chart-type switching', () => {
+  it('restores an X dimension when a heatmap follows a box plot', () => {
+    // Box plots clear the X mapping (they reject one). Selecting heatmap next
+    // used to leave the grid without a dimension, which threw inside the
+    // materialiser and replaced the whole studio with the error surface.
+    const onSpecChange = vi.fn()
+    const datasetSource = errorSource(false)
+    const boxSpec: ChartSpec = {
+      ...specFor(datasetSource),
+      type: 'box',
+      fields: { ...specFor(datasetSource).fields, x: null },
+    }
+    render(
+      <ChartConfigurator
+        source={datasetSource}
+        spec={boxSpec}
+        onSpecChange={onSpecChange}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('radio', { name: 'heatmap' }))
+
+    const next = onSpecChange.mock.calls[0]?.[0] as ChartSpec
+    expect(next.type).toBe('heatmap')
+    // The first measured field becomes the grid's X dimension.
+    expect(next.fields.x).toEqual({ fieldId: Y_ID })
+    expect(next.fields.series).toBeNull()
+  })
+
+  it('keeps the mapped X when a heatmap follows a chart that carries one', () => {
+    const onSpecChange = vi.fn()
+    const datasetSource = errorSource(false)
+    render(
+      <ChartConfigurator
+        source={datasetSource}
+        spec={specFor(datasetSource)}
+        onSpecChange={onSpecChange}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('radio', { name: 'heatmap' }))
+
+    const next = onSpecChange.mock.calls[0]?.[0] as ChartSpec
+    expect(next.fields.x).toEqual({ fieldId: X_ID })
   })
 })

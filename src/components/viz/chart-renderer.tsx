@@ -4,9 +4,14 @@ import type { FigureModel } from '@sheetbase-labs/sheetbase-explorer'
 
 import { cn } from '#/lib/utils'
 import { ChartFrame } from './chart-frame'
-import { CHART_PALETTE, formatScientific } from '#/lib/chart-spec'
+import {
+  CHART_PALETTE,
+  DISTRIBUTION_CHART_TYPES,
+  formatScientific,
+} from '#/lib/chart-spec'
 import type {
   ChartSpec,
+  ChartType,
   FacetedChart,
   FrozenChart,
   HeatmapMatrix,
@@ -18,6 +23,17 @@ import {
   figureCategoryToPx,
   figureValueToPx,
 } from '#/lib/chart-package'
+
+/**
+ * Chart types whose plot measures the y field: bins, boxes, densities and
+ * summary statistics. When one of these has nothing to draw, that field held
+ * no numeric values — it is not the x/y mapping problem the cartesian wording
+ * describes.
+ */
+const MEASURED_FIELD_TYPES: readonly ChartType[] = [
+  ...DISTRIBUTION_CHART_TYPES,
+  'summary',
+]
 
 /**
  * SCI-004 — Chart renderer inside `ChartFrame` (decision 0029).
@@ -131,13 +147,11 @@ export function ChartRenderer({
         <ChartStateMessage tone="error">{error}</ChartStateMessage>
       ) : materialised.state.kind !== 'ok' ? (
         <ChartStateMessage tone="warning">
-          {describeState(materialised)}
+          {describeState(materialised, spec)}
         </ChartStateMessage>
       ) : materialised.series.length === 0 && !materialised.heatmap ? (
         <ChartStateMessage tone="muted">
-          {spec != null && spec.fields.x
-            ? 'No plottable points after filtering. Check mapped fields and filters.'
-            : 'Choose an X and Y field to create a scatter plot.'}
+          {describeNoSeries(spec, materialised)}
         </ChartStateMessage>
       ) : (
         <div className={fillPlot ? 'flex h-full min-h-0 flex-col' : undefined}>
@@ -359,7 +373,9 @@ function PackageFigurePlot({
       <ChartStateMessage tone="muted">
         {spec?.type === 'heatmap'
           ? 'No heatmap grid available.'
-          : 'This chart has no numeric x/y points to plot.'}
+          : spec && MEASURED_FIELD_TYPES.includes(spec.type)
+            ? describeNoNumericValues(materialised)
+            : 'This chart has no numeric x/y points to plot.'}
       </ChartStateMessage>
     )
   const type = spec?.type ?? 'line'
@@ -953,11 +969,41 @@ function describeSeries(materialised: MaterialisedChart): string {
   return `${materialised.series.length} series — ${parts.join('; ')}.`
 }
 
-function describeState(materialised: MaterialisedChart): string {
+/**
+ * A distribution chart measures the y field directly, so its empty state is
+ * that field carrying no numeric values — never a missing x/y mapping or a
+ * filter that removed rows, which is what the cartesian wording claims.
+ */
+function describeNoNumericValues(materialised: MaterialisedChart): string {
+  const dropped = materialised.droppedPoints
+  return `No numeric values in “${materialised.yLabel}” to plot${
+    dropped > 0
+      ? ` — ${dropped} row${dropped === 1 ? '' : 's'} omitted (missing or non-numeric values)`
+      : ''
+  }.`
+}
+
+/** Why a chart with an `ok` state still has no series to draw. */
+function describeNoSeries(
+  spec: ChartSpec | null,
+  materialised: MaterialisedChart,
+): string {
+  if (!spec) return 'Choose an X and Y field to create a scatter plot.'
+  if (MEASURED_FIELD_TYPES.includes(spec.type))
+    return describeNoNumericValues(materialised)
+  return 'No plottable points after filtering. Check mapped fields and filters.'
+}
+
+function describeState(
+  materialised: MaterialisedChart,
+  spec: ChartSpec | null = null,
+): string {
   switch (materialised.state.kind) {
     case 'missing_dataset':
       return 'No dataset is referenced. Select a dataset to plot this chart.'
     case 'missing_field':
+      if (spec?.type === 'heatmap' && materialised.state.fields.includes('x'))
+        return 'A heatmap needs an X dimension. Map a field to the X axis to build the grid.'
       return `The dataset is missing field(s): ${materialised.state.fields.join(', ')}. Update the field mappings or the dataset.`
     case 'dataset_too_large':
       return `This Dataset has ${materialised.state.rowCount} rows, above the ${materialised.state.limit}-row analysis limit. Filter or aggregate before plotting.`
@@ -980,7 +1026,7 @@ function describeChart(
   const type = spec?.type ?? 'chart'
   const state = materialised.state
   if (state.kind !== 'ok')
-    return `${type} chart — ${describeState(materialised)}`
+    return `${type} chart — ${describeState(materialised, spec)}`
   const seriesPart = describeSeries(materialised)
   const provenancePart = frozen
     ? frozen.datasetProvenance

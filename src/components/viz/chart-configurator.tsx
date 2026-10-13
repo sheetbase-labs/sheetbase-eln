@@ -127,6 +127,13 @@ export function ChartConfigurator({
       else if (next === 'strip') typeParams = { strip: { jitter: 0.18 } }
       else typeParams = {}
     } else if (next === 'heatmap') {
+      // A heatmap's grid needs both dimensions, and its X is cleared by the
+      // histogram/box types this can be switched in from. Fall back to the
+      // first measured field so the switch yields a grid rather than a spec
+      // the materialiser has to refuse.
+      fields.x =
+        fields.x ??
+        (numericColumns[0] ? { fieldId: numericColumns[0].id } : null)
       fields.series = null
       fields.color = null
       fields.size = null

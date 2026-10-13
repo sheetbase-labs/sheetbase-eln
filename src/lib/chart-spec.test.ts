@@ -695,6 +695,21 @@ describe('SCI-01 distribution chart types', () => {
     expect(m.series).toEqual([])
   })
 
+  it('reports a missing dimension instead of throwing when a heatmap has no X', () => {
+    // Switching to heatmap from histogram/box (which clear the X mapping)
+    // used to reach the grid builder with a null column and throw, taking the
+    // whole route down. It must state the missing dimension instead.
+    const spec = distSpec({
+      type: 'heatmap',
+      fields: { ...baseSpec().fields, x: null },
+      typeParams: { heatmap: { aggregate: 'count', valueField: null } },
+    })
+    const m = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
+    expect(m.state).toEqual({ kind: 'missing_field', fields: ['x'] })
+    expect(m.series).toEqual([])
+    expect(m.heatmap).toBeUndefined()
+  })
+
   it('counts an omitted heatmap row once even when both dimensions are invalid', () => {
     // Both dimensions here are numeric, so a null value misses its bin.
     // A row invalid in either dimension is one omitted row — never a sum

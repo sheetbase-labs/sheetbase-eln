@@ -271,7 +271,7 @@ export function AppShell({
             {children}
           </main>
         </div>
-        <BottomTabs onMenu={() => setMenu(true)} unread={unreadIds.size} />
+        <BottomTabs onMenu={() => setMenu(true)} counts={data.counts} />
         <Sheet open={menu} onOpenChange={setMenu}>
           <SheetContent side="left" title="Sheetbase">
             {/* Below the sm breakpoint the top bar cannot fit the workspace
@@ -369,11 +369,15 @@ function NavRail({
 
 function BottomTabs({
   onMenu,
-  unread,
+  counts,
 }: {
   onMenu: () => void
-  unread: number
+  counts?: ShellData['counts']
 }) {
+  // SHELL-02: the phone bar's Inbox badge labels the same destination the
+  // drawer and the desktop rail do, so it reads the same number. The unread
+  // notification count belongs to the bell alone.
+  const inboxCount = counts?.inbox
   const homeSelected = useRouterState({
     select: (state) => isHomeSection(state.location.pathname),
   })
@@ -413,9 +417,9 @@ function BottomTabs({
       >
         <Icon name="inbox" size={22} />
         Inbox
-        {unread ? (
+        {inboxCount ? (
           <span className="absolute right-[calc(50%-18px)] top-2 min-w-4 rounded-full bg-link px-1 text-[10px] leading-4 text-on-accent">
-            {unread}
+            {inboxCount}
           </span>
         ) : null}
       </Link>

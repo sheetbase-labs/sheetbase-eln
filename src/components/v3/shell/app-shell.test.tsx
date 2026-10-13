@@ -182,10 +182,13 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
   })
 
   it('renders live counts in the sidebar', () => {
-    renderShell()
-    expect(screen.getByText('3')).toBeTruthy()
-    expect(screen.getByText('2')).toBeTruthy()
-    expect(screen.getByText('1')).toBeTruthy()
+    const { container } = renderShell()
+    const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
+      n.className.includes('w-nav'),
+    )!
+    expect(within(sidebar).getByText('3')).toBeTruthy()
+    expect(within(sidebar).getByText('2')).toBeTruthy()
+    expect(within(sidebar).getByText('1')).toBeTruthy()
   })
 
   it('collapses the sidebar to the rail with ⌘\\ and saves the preference', async () => {
@@ -234,10 +237,25 @@ describe('MOB-01.1 phone shell', () => {
     expect(bar.className).toContain('md:hidden')
     // SHELL-01: the home destination carries one label everywhere in the shell.
     for (const label of ['Home', 'Scan', 'Inbox']) {
-      const link = within(bar).getByRole('link', { name: label })
+      const link = within(bar).getByRole('link', { name: new RegExp(label) })
       expect(link.className).toContain('min-h-14')
     }
     expect(within(bar).getByRole('button', { name: 'Menu' })).toBeTruthy()
+  })
+
+  it('agrees the Inbox badge between the bottom bar and the navigation drawer', async () => {
+    const user = userEvent.setup()
+    renderShell({ counts: { inbox: '5', datasets: '2', pipelines: '1' } })
+    const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
+    expect(
+      within(bar).getByRole('link', { name: /Inbox/ }).textContent,
+    ).toContain('5')
+
+    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    const drawer = await screen.findByRole('dialog')
+    expect(
+      within(drawer).getByRole('link', { name: /Inbox/ }).textContent,
+    ).toContain('5')
   })
 
   it('offers the workspace switcher in the phone drawer', async () => {
@@ -285,7 +303,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
     await user.keyboard('{ArrowDown}')
   }
 
-  it('marks every unread notification read through the API, clearing the phone badge', async () => {
+  it('marks every unread notification read through the API, clearing the bell', async () => {
     const user = userEvent.setup()
     renderShell({
       notifications: [
@@ -293,8 +311,6 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
         notification({ id: 'n-2', html: 'Material lot expiring' }),
       ],
     })
-    const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
-    expect(within(bar).getByText('2')).toBeTruthy()
 
     await user.click(
       screen.getByRole('button', { name: 'Notifications, 2 unread' }),
@@ -317,7 +333,10 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
         screen.getByRole('button', { name: 'Notifications' }),
       ).toBeTruthy(),
     )
-    expect(within(bar).queryByText('2')).toBeNull()
+    // SHELL-02: the phone bar's Inbox badge labels the inbox destination, not
+    // the bell, so clearing notifications must not move it.
+    const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
+    expect(within(bar).getByText('3')).toBeTruthy()
   })
 
   it('opens a row on the record its target names and marks that row read', async () => {

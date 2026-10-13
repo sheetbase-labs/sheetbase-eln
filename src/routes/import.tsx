@@ -1,10 +1,10 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 
-import { ImportUploadFlow } from '#/components/import/import-flow'
-
-/** DSET-05 / R5-SURF-04 — step 1: choose the target (an existing Dataset or a
- * new one), store the file checksum-first and parse it on the server. The
- * stored file's own route then carries the mapping and check steps. */
+/** DSET-05 / R5-SURF-04 — the import wizard. Step 1 chooses the target and
+ * stores the file; the stored file's own route carries the mapping and check
+ * steps. Both are children of this route, so it renders the outlet and nothing
+ * else — the child route could never appear while this route rendered the
+ * upload form itself. */
 export const Route = createFileRoute('/import')({
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -13,10 +13,5 @@ export const Route = createFileRoute('/import')({
     }
     return { context }
   },
-  component: ImportPage,
+  component: () => <Outlet />,
 })
-
-function ImportPage() {
-  const { context } = Route.useRouteContext()
-  return <ImportUploadFlow workspaceId={context.workspace?.id ?? ''} />
-}

@@ -11,6 +11,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/shell'
 import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
+import { Toaster } from '#/components/v3/ui/sonner'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { CollaborationProvider } from '../components/collaboration/collaboration-provider'
@@ -284,6 +285,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        {/* Every `toast()` in the app renders here: the call sites were
+            mounted nowhere, so 140 confirmations and failures were invisible. */}
+        <Toaster />
         {import.meta.env.DEV && !import.meta.env.VITE_PARITY ? (
           <TanStackDevtools
             config={{ position: 'bottom-right' }}

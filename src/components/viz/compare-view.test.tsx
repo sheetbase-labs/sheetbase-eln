@@ -18,6 +18,7 @@ import { validateChartSpec } from '#/lib/chart-spec'
 import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
 import { COMPARATIVE_VIEW_CONFIG_VERSION } from '#/lib/comparative-view'
 import type { ComparativeViewConfig } from '#/lib/comparative-view'
+import type { DatasetValueFlag } from '#/lib/dataset-flags'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 
 globalThis.ResizeObserver = class {
@@ -74,7 +75,10 @@ function baseConfig(
   }
 }
 
-function renderCompare(initial: ComparativeViewConfig) {
+function renderCompare(
+  initial: ComparativeViewConfig,
+  flags: DatasetValueFlag[] = [],
+) {
   const onPromote = vi.fn()
   function Harness() {
     const [config, setConfig] = useState(initial)
@@ -83,6 +87,7 @@ function renderCompare(initial: ComparativeViewConfig) {
         source={SOURCE}
         columns={COLUMNS}
         rows={ROWS}
+        flags={flags}
         config={config}
         onConfigChange={setConfig}
         onPromote={onPromote}
@@ -332,5 +337,65 @@ describe('CompareView A/B controls', () => {
         'At least two groups are needed to compare A against B.',
       ),
     ).toBeTruthy()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DSET-01.2 flag exclusion and the interactive preview's selection
+// ---------------------------------------------------------------------------
+
+describe('CompareView flag exclusion and selection', () => {
+  const FLAGGED_ROWS: Record<string, unknown>[] = [
+    { [CHART_ROW_ID_KEY]: 'r1', [TIME]: 0, [PH]: 7.0, [BUFFER]: 'A' },
+    { [CHART_ROW_ID_KEY]: 'r2', [TIME]: 1, [PH]: 7.2, [BUFFER]: 'A' },
+    { [CHART_ROW_ID_KEY]: 'r3', [TIME]: 0, [PH]: 6.8, [BUFFER]: 'B' },
+    { [CHART_ROW_ID_KEY]: 'r4', [TIME]: 1, [PH]: 7.1, [BUFFER]: 'B' },
+  ]
+
+  function renderFlagged(flags: DatasetValueFlag[]) {
+    render(
+      <CompareView
+        source={SOURCE}
+        columns={COLUMNS}
+        rows={FLAGGED_ROWS}
+        flags={flags}
+        config={baseConfig()}
+        onConfigChange={() => {}}
+        onPromote={() => {}}
+      />,
+    )
+  }
+
+  it('leaves out a row whose used value is flagged', () => {
+    renderFlagged([
+      {
+        id: 'flag-1',
+        datasetId: DATASET_ID,
+        rowId: 'r2',
+        fieldId: PH,
+        kind: 'out_of_range',
+        reason: 'Above the stability window',
+        comment: null,
+        setAt: '2026-01-01T00:00:00Z',
+      },
+    ])
+
+    expect(screen.getByText(/rows · 2 groups/).textContent).toContain('3 rows')
+    // The flagged 7.2 is gone from the group statistics.
+    const table = screen.getByRole('table', { name: 'Compare group summary' })
+    expect(within(table).queryByText('7.2')).toBeNull()
+  })
+
+  it('shows the point the interactive preview reports', () => {
+    renderCompare(baseConfig())
+    expect(screen.queryByText(/^Selected /)).toBeNull()
+
+    const hit = document.querySelector('circle[r="9"]')
+    expect(hit).toBeTruthy()
+    fireEvent.click(hit as Element)
+
+    const summary = screen.getByText(/^Selected /)
+    expect(summary.textContent).toContain('x 0')
+    expect(summary.textContent).toContain('y 7')
   })
 })

@@ -92,6 +92,19 @@ function inTab(model: ModelRow, tab: ModelTab): boolean {
   return model.lifecycle === 'retired'
 }
 
+/**
+ * The version whose fields/datasets the board reports: the published version
+ * when one exists, else the newest (marked as the draft it is), so the label
+ * and the counts cannot describe different versions.
+ */
+function modelVersionLabel(model: ModelRow): string {
+  const version = model.publishedVersion ?? model.latestVersion
+  if (!version) return '—'
+  return version.lifecycle === 'published'
+    ? `v${version.version}`
+    : `v${version.version} ${version.lifecycle}`
+}
+
 function ModelsList() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
@@ -194,7 +207,7 @@ function ModelsList() {
                       </Link>
                     </TableCell>
                     <TableCell align="right">
-                      {m.latestVersion ? `v${m.latestVersion.version}` : '—'}
+                      {modelVersionLabel(m)}
                     </TableCell>
                     <TableCell align="right">{m.fieldCount}</TableCell>
                     <TableCell
@@ -225,7 +238,7 @@ function ModelsList() {
               const status = modelStatus(m.lifecycle)
               return {
                 key: m.id,
-                id: `${m.display_id ?? m.key} · ${m.latestVersion ? `v${m.latestVersion.version}` : 'no version'}`,
+                id: `${m.display_id ?? m.key} · ${modelVersionLabel(m)}`,
                 title: m.name,
                 sub: `${m.fieldCount} fields · ${m.datasetCount} datasets · ${ownerName(m.created_by_user_id)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,
@@ -249,7 +262,9 @@ function ModelsList() {
           ) : null}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
+          {q
+            ? `${visible.length} matching “${search.q}” of ${counts[tab]} ${tabLabel[tab].toLowerCase()}`
+            : `${visible.length} of ${counts[tab]} ${tabLabel[tab].toLowerCase()}`}
         </ListFooter>
       </div>
 
@@ -284,10 +299,7 @@ function ModelsList() {
                 labelWidth={80}
                 items={[
                   ['Key', sel.key],
-                  [
-                    'Version',
-                    sel.latestVersion ? `v${sel.latestVersion.version}` : '—',
-                  ],
+                  ['Version', modelVersionLabel(sel)],
                   ['Fields', String(sel.fieldCount)],
                   ['Datasets', String(sel.datasetCount)],
                   ['Updated', sel.updated_at.slice(0, 10)],

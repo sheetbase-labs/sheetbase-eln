@@ -19,7 +19,10 @@ import {
   fetchDatasetSummaries,
   datasetExplorerDataClient,
 } from './dataset-explorer-data'
+import { chartUsedFieldIds } from './chart-data'
 import type { CanonicalDatasetSource } from './chart-data'
+import { filterRowsByFlags } from './dataset-flags'
+import type { DatasetValueFlag } from './dataset-flags'
 import {
   validateChartSpec,
   materialiseChart,
@@ -406,24 +409,37 @@ export function applyTransformations(
 /**
  * Materialise an analysis chart. Transforms now live inside
  * `materialiseChart`, so the studio uses the same pipeline as Notebook charts.
+ * `flags` carries the dataset's active value flags: a row is left out when any
+ * field the spec binds is flagged, exactly as `materialiseLiveChart` does, so
+ * the studio preview/export cannot plot a value the UI excludes from analyses.
  */
 export function materialiseAnalysisChart(
   spec: ChartSpec,
   columns: ChartColumn[],
   rows: Record<string, unknown>[],
+  flags: readonly DatasetValueFlag[] = [],
 ): MaterialisedChart {
-  return materialiseChart(spec, columns, rows)
+  const chartRows =
+    flags.length === 0
+      ? rows
+      : filterRowsByFlags(rows, flags, chartUsedFieldIds(spec))
+  return materialiseChart(spec, columns, chartRows)
 }
 
 /**
- * Facet the analysis preview into small multiples.
+ * Facet the analysis preview into small multiples, under the same flag rule.
  */
 export function materialiseAnalysisFacets(
   spec: ChartSpec,
   columns: ChartColumn[],
   rows: Record<string, unknown>[],
+  flags: readonly DatasetValueFlag[] = [],
 ): FacetedResult {
-  return materialiseFacetedCharts(spec, columns, rows)
+  const chartRows =
+    flags.length === 0
+      ? rows
+      : filterRowsByFlags(rows, flags, chartUsedFieldIds(spec))
+  return materialiseFacetedCharts(spec, columns, chartRows)
 }
 
 // --- Export helpers -------------------------------------------------------
@@ -489,11 +505,31 @@ export function exportViewJson(
 /**
  * Serialise the materialised chart's underlying rows to CSV. The data table
  * is the accessible alternative to the visual; the CSV carries the exact
- * rows the chart plots so the export is verifiable without the visual.
+ * rows the chart plots so the export is verifiable without the visual. When
+ * `provenance` is supplied (the export setting requests it) the header block
+ * names the view, its version, the exporter and the pinned source revisions,
+ * so the CSV is reproducible on its own.
  */
-export function exportDataCsv(materialised: MaterialisedChart): string {
-  const header = ['series', 'x', 'y', 'yError']
-  const lines: string[] = [header.join(',')]
+export function exportDataCsv(
+  materialised: MaterialisedChart,
+  provenance: ExportProvenance | null = null,
+): string {
+  const lines: string[] = []
+  if (provenance) {
+    const view = `${provenance.viewName}${
+      provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''
+    } v${provenance.viewVersion ?? '?'}`
+    const sources = provenance.sourceRevisions
+      .map((revision) => revision.datasetId.slice(0, 8))
+      .join(', ')
+    lines.push(
+      '# Sheetbase Analysis Studio export',
+      `# view: ${view.replace(/\s+/g, ' ')}`,
+      `# exported by ${provenance.exportedBy} at ${provenance.exportedAt}`,
+      `# sources: ${sources || 'none'}`,
+    )
+  }
+  lines.push(['series', 'x', 'y', 'yError'].join(','))
   for (const s of materialised.series) {
     for (const p of s.points) {
       lines.push(
@@ -522,9 +558,38 @@ function csvField(value: string): string {
 }
 
 /**
+ * Resolve the theme variables an SVG references into concrete declarations.
+ * The figure draws with `var(--text)`, `var(--series-a)`… so a standalone
+ * document must inline them; the probe carries the v3 scope and the requested
+ * theme class so Light and Dark resolve to the values the app would render.
+ */
+function resolveThemeDeclarations(svg: string, theme: 'light' | 'dark'): string {
+  if (typeof document === 'undefined') return ''
+  const names = new Set<string>(['--surface'])
+  for (const match of svg.matchAll(/var\(\s*(--[a-z0-9-]+)/gi)) names.add(match[1])
+  const probe = document.createElement('div')
+  probe.className = theme === 'dark' ? 'sheetbase-scope dark' : 'sheetbase-scope'
+  probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none'
+  document.body.appendChild(probe)
+  const computed = getComputedStyle(probe)
+  const rootComputed = getComputedStyle(document.documentElement)
+  const declarations: string[] = []
+  for (const name of names) {
+    const value =
+      computed.getPropertyValue(name).trim() ||
+      rootComputed.getPropertyValue(name).trim()
+    if (value) declarations.push(`${name}:${value}`)
+  }
+  probe.remove()
+  return declarations.join(';')
+}
+
+/**
  * Serialise the chart's SVG element to a standalone SVG document string with
- * explicit width/height and a provenance comment. The caller passes the
- * rendered SVG element so the export matches what the user saw.
+ * explicit width/height, the themed colours inlined and a provenance comment.
+ * The caller passes the rendered SVG element so the export matches what the
+ * user saw; the theme setting changes the exported colours, and the
+ * provenance comment is emitted only when the settings request it.
  */
 export function exportChartSvg(
   svgEl: SVGSVGElement | null,
@@ -547,13 +612,27 @@ export function exportChartSvg(
   root.setAttribute('height', String(settings.height))
   root.setAttribute('viewBox', `0 0 ${settings.width} ${settings.height}`)
   root.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-  if (settings.theme === 'dark') {
-    root.setAttribute('data-theme', 'dark')
+  const svgNamespace = 'http://www.w3.org/2000/svg'
+  const declarations = resolveThemeDeclarations(base, settings.theme)
+  if (declarations) {
+    const style = parsed.createElementNS(svgNamespace, 'style')
+    style.textContent = `:root{${declarations}}`
+    root.insertBefore(style, root.firstChild)
   }
+  // An opaque surface under the figure, so a dark export is not transparent
+  // and the Light/Dark setting changes the background the rasteriser keeps.
+  const background = parsed.createElementNS(svgNamespace, 'rect')
+  background.setAttribute('x', '0')
+  background.setAttribute('y', '0')
+  background.setAttribute('width', String(settings.width))
+  background.setAttribute('height', String(settings.height))
+  background.setAttribute('fill', 'var(--surface, #ffffff)')
+  root.insertBefore(background, root.firstChild)
   const serialised = new XMLSerializer().serializeToString(root)
-  const comment = provenance
-    ? `\n<!-- Sheetbase Analysis Studio export\nview: ${provenance.viewName}${provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''} v${provenance.viewVersion ?? '?'}\nexported by ${provenance.exportedBy} at ${provenance.exportedAt}\nsources: ${provenance.sourceRevisions.map((r) => r.datasetId.slice(0, 8)).join(', ')}\n-->\n`
-    : ''
+  const comment =
+    settings.includeProvenance && provenance
+      ? `\n<!-- Sheetbase Analysis Studio export\nview: ${provenance.viewName}${provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''} v${provenance.viewVersion ?? '?'}\nexported by ${provenance.exportedBy} at ${provenance.exportedAt}\nsources: ${provenance.sourceRevisions.map((r) => r.datasetId.slice(0, 8)).join(', ')}\n-->\n`
+      : ''
   return `${comment}${serialised}`
 }
 

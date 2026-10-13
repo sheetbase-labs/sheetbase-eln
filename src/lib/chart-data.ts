@@ -259,6 +259,17 @@ export async function resolveChartDataset(
 }
 
 /**
+ * The field ids a spec binds. A flagged value in any of them excludes the row
+ * from the chart (DSET-01.2), so every materialisation path shares this list
+ * rather than re-deriving it.
+ */
+export function chartUsedFieldIds(spec: ChartSpec): string[] {
+  return Object.values(spec.fields)
+    .map((binding) => binding?.fieldId)
+    .filter((fieldId): fieldId is string => typeof fieldId === 'string')
+}
+
+/**
  * Materialise a live chart from a spec + resolved canonical dataset.
  * Surfaces `missing_dataset`, `missing_field`, `empty_dataset`,
  * `log_scale_invalid` and `dataset_too_large` states honestly instead of
@@ -299,10 +310,11 @@ export function materialiseLiveChart(
     }
   }
   // DSET-01.2 — exclude a row when any field the chart uses is flagged.
-  const usedFields = Object.values(spec.fields)
-    .map((binding) => binding?.fieldId)
-    .filter((fieldId): fieldId is string => typeof fieldId === 'string')
-  const rows = filterRowsByFlags(dataset.rows, dataset.flags ?? [], usedFields)
+  const rows = filterRowsByFlags(
+    dataset.rows,
+    dataset.flags ?? [],
+    chartUsedFieldIds(spec),
+  )
   return materialiseChart(spec, dataset.source.columns, rows)
 }
 

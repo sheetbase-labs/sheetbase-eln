@@ -22,12 +22,15 @@ import {
 } from '#/components/v3/ui/table'
 import { NativeSelect } from '#/components/v3/projects/select'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import { chartUsedFieldIds } from '#/lib/chart-data'
+import { filterRowsByFlags } from '#/lib/dataset-flags'
+import type { DatasetValueFlag } from '#/lib/dataset-flags'
 import {
   CHART_SPEC_VERSION,
   materialiseChart,
   formatScientific,
 } from '#/lib/chart-spec'
-import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
+import type { ChartColumn, ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
 import { createRepresentationHandle } from '#/lib/representations'
 import {
   COMPARATIVE_MATCH_MODES,
@@ -46,12 +49,15 @@ import type {
   ComparativeViewConfig,
 } from '#/lib/comparative-view'
 import { ChartRenderer } from './chart-renderer'
+import type { ChartSelection } from './chart-renderer'
 import { RepresentationFrame } from './representation-frame'
 
 export interface CompareViewProps {
   source: CanonicalDatasetSource
   columns: ChartColumn[]
   rows: Record<string, unknown>[]
+  /** Active value flags; a flagged value excludes its row, as elsewhere. */
+  flags?: DatasetValueFlag[]
   loading?: boolean
   error?: string | null
   config: ComparativeViewConfig
@@ -62,6 +68,28 @@ export interface CompareViewProps {
 
 const NUMERIC_TYPES = new Set(['decimal', 'integer'])
 
+/** The point the preview reports when a mark is clicked or reached by key. */
+function ComparePointSummary({
+  materialised,
+  selection,
+}: {
+  materialised: MaterialisedChart
+  selection: ChartSelection
+}) {
+  const series = materialised.series.find(
+    (item) => item.identifier === selection.seriesIdentifier,
+  )
+  const point = series?.points[selection.index]
+  if (!series || !point) return null
+  return (
+    <p className="text-xs text-fg-muted" role="status">
+      Selected {series.label}: x {formatScientific(point.x)}, y{' '}
+      {formatScientific(point.y)}
+      {point.rowId ? ` · Dataset row ${point.rowId}` : ''}
+    </p>
+  )
+}
+
 function columnOptions(columns: ChartColumn[], numericOnly: boolean) {
   return numericOnly
     ? columns.filter((c) => NUMERIC_TYPES.has(c.logicalType))
@@ -71,7 +99,8 @@ function columnOptions(columns: ChartColumn[], numericOnly: boolean) {
 export function CompareView({
   source,
   columns,
-  rows,
+  rows: sourceRows,
+  flags = [],
   loading = false,
   error = null,
   config,
@@ -81,6 +110,24 @@ export function CompareView({
   const errors = validateComparativeViewConfig(config)
   const draft: ChartSpec | null =
     errors.length === 0 ? promoteToChartSpec(config, columns) : null
+  // DSET-01.2 — a row whose used field is flagged is left out, matching the
+  // Analyse panel and notebook charts. The promoted draft's field bindings are
+  // the fields this surface reads; both the chart and the A/B tables use the
+  // filtered rows so nothing shows a value the app excludes.
+  const usedFieldIds = React.useMemo(
+    () =>
+      errors.length === 0
+        ? chartUsedFieldIds(promoteToChartSpec(config, columns))
+        : [],
+    [config, columns, errors.length],
+  )
+  const rows = React.useMemo(
+    () =>
+      flags.length === 0
+        ? sourceRows
+        : filterRowsByFlags(sourceRows, flags, usedFieldIds),
+    [sourceRows, flags, usedFieldIds],
+  )
   const shaped = React.useMemo(
     () =>
       errors.length === 0
@@ -127,6 +174,14 @@ export function CompareView({
   })
   const [matchBy, setMatchBy] = React.useState<ComparativeMatchMode>('row_key')
   const [matchFieldId, setMatchFieldId] = React.useState<string | null>(null)
+  // The preview's points are clickable and keyboard-reachable, so the
+  // selection it reports is surfaced here instead of being dropped.
+  const [selection, setSelection] = React.useState<ChartSelection | null>(null)
+  // A selection belongs to the rows it was made on; drop it when the config
+  // changes the materialisation underneath it.
+  React.useEffect(() => {
+    setSelection(null)
+  }, [config, columns])
 
   const groupKeys = shaped.groups.map((group) => group.key)
   React.useEffect(() => {
@@ -463,7 +518,15 @@ export function CompareView({
             error={error}
             plotHeight={220}
             showTableAlternative={false}
+            selection={selection}
+            onSelectionChange={setSelection}
           />
+          {selection ? (
+            <ComparePointSummary
+              materialised={materialised}
+              selection={selection}
+            />
+          ) : null}
           <Table aria-label="Compare group summary" data-density="compact">
             <TableHeader>
               <TableRow className="hover:bg-transparent">

@@ -51,7 +51,7 @@ function version(
 }
 
 describe('buildModelRows', () => {
-  it('attaches versions, latest version and per-latest counts', () => {
+  it('reports counts for the published version, not a newer draft', () => {
     const rows = buildModelRows(
       [definition()],
       [
@@ -67,16 +67,32 @@ describe('buildModelRows', () => {
     )
 
     expect(rows).toHaveLength(1)
-    // The latest version is chosen by version number, not input order.
+    // The latest version is chosen by version number, not input order, but the
+    // board counts describe the in-service (published) version.
     expect(rows[0].latestVersion?.id).toBe('v-2')
+    expect(rows[0].publishedVersion?.id).toBe('v-1')
     expect(rows[0].versions.map((v) => v.version)).toEqual([2, 1])
-    expect(rows[0].fieldCount).toBe(2)
-    expect(rows[0].datasetCount).toBe(2)
+    expect(rows[0].fieldCount).toBe(1)
+    expect(rows[0].datasetCount).toBe(0)
+  })
+
+  it('falls back to the newest version when nothing is published', () => {
+    const rows = buildModelRows(
+      [definition()],
+      [version({ id: 'v-1', version: 1, lifecycle: 'draft' })],
+      [{ schema_version_id: 'v-1' }],
+      [{ schema_version_id: 'v-1' }],
+    )
+
+    expect(rows[0].publishedVersion).toBeNull()
+    expect(rows[0].fieldCount).toBe(1)
+    expect(rows[0].datasetCount).toBe(1)
   })
 
   it('reports zero counts for a definition with no version', () => {
     const rows = buildModelRows([definition()], [], [], [])
     expect(rows[0].latestVersion).toBeNull()
+    expect(rows[0].publishedVersion).toBeNull()
     expect(rows[0].fieldCount).toBe(0)
     expect(rows[0].datasetCount).toBe(0)
   })

@@ -64,11 +64,11 @@
    "source": "result-experiments.json",
    "also_reported_by": [],
    "outcome": "fixed",
-   "outcome_change": "The new-experiment form now resolves project access and archive state, defaults to the first project the account can edit that is not archived, and states a create refusal inline in a role=\"alert\" region as well as by toast.",
+   "outcome_change": "The new-experiment form resolves project access and archive state behind a bounded gate, defaults to the first project the account can edit that is not archived, and states a create refusal inline in a role=\"alert\" region as well as by toast.",
    "outcome_files": [
     "src/routes/experiments/new.tsx"
    ],
-   "outcome_proof": "Live: POST /api/db/rpc/create_record_with_blocks returned 200 on the default path (project \"AAV9 process transfer\"), toast \"Draft EXP-0002 created\", URL moved to /records/4e8b6028-a28d-4089-8962-1e13c6fa7c8a/notebook. Refusal path covered by test 'reports the server refusal inline and in a toast when the create is denied' in src/routes/experiments/new.test.tsx (inline alert text + sonner.toast.error, no navigation)."
+   "outcome_proof": "Live on the plain dev server (3001): POST /api/db/rpc/create_record_with_blocks 200 on the default path, toast \"Draft EXP-0003 created\", URL moved to /records/b478ed70-716e-4b9a-b575-3e9352a329de/notebook. Refusal path covered by test 'reports the server refusal inline and in a toast when the create is denied' (inline alert + sonner.toast.error, no navigation)."
   },
   {
    "id": "QA2-Settings-1",
@@ -155,7 +155,7 @@
    "outcome_files": [
     "src/routes/experiments/new.tsx"
    ],
-   "outcome_proof": "Live picker read at /experiments/new: 16 options, 12 disabled (9 read-only + 3 archived, e.g. \"AAV full/empty assay qualification \u00b7 read-only\", \"AAV1 vector design \u00b7 archived\"), default \"AAV9 process transfer\" (can_edit=true, archived_at null) instead of the previous viewer-only \"AAV full/empty assay qualification\". Tests 'defaults to a project the account can edit and marks view-only projects' and 'never defaults to an archived project and says why it is unusable'."
+   "outcome_proof": "Live picker read: 16 options, 12 disabled (9 read-only + 3 archived), default \"AAV9 process transfer\" (can_edit=true, archived_at null) instead of the previous viewer-only \"AAV full/empty assay qualification\". Tests 'defaults to a project the account can edit and marks view-only projects' and 'never defaults to an archived project and says why it is unusable'."
   },
   {
    "id": "QA2-experiments-3",
@@ -172,14 +172,14 @@
    "source": "result-experiments.json",
    "also_reported_by": [],
    "outcome": "fixed",
-   "outcome_change": "fixtureSteps now writes the internal.session row the auth-free development identity presents (id 'dev-auth-free-session', userId SHEETBASE_DEV_USER_ID, token, +365d expiry, upserted on every seed), because api.submit_record_revision requires a live internal.session row and nothing signs the auth-free identity in.",
+   "outcome_change": "fixtureSteps writes the internal.session row the auth-free development identity presents (id 'dev-auth-free-session', userId SHEETBASE_DEV_USER_ID, token, +365d expiry, upserted on every seed), because api.submit_record_revision requires a live internal.session row and nothing signs the auth-free identity in.",
    "outcome_files": [
     "src/db/seed/run.ts",
     "src/lib/dev-identity.ts",
     "src/lib/dev-auth.ts",
     "docs/development/dev-environment.md"
    ],
-   "outcome_proof": "Live after applying the row: POST /api/db/rpc/submit_record_revision returned 200 from the Submit-for-review dialog and the app navigated to /review/b61eb045-5085-4428-9199-7ced265f7269 (previously 422 SB002 'valid submission session required'). Step executed in isolation via tsx against the dev DB: 'dev-auth-free-session dev-auth-free-session-token 00000000-0000-4000-8000-000000000310 2027-10-13T20:34:02.893Z'. src/lib/dev-auth.test.ts passes."
+   "outcome_proof": "Live: POST /api/db/rpc/submit_record_revision returned 200 from the Submit-for-review dialog and the app navigated to /review/b61eb045-5085-4428-9199-7ced265f7269 (previously 422 SB002 'valid submission session required'). Step executed in isolation via tsx against the dev DB: 'dev-auth-free-session dev-auth-free-session-token 00000000-0000-4000-8000-000000000310 2027-10-13T20:34:02.893Z'."
   },
   {
    "id": "QA2-experiments-4",
@@ -196,14 +196,14 @@
    "source": "result-experiments.json",
    "also_reported_by": [],
    "outcome": "fixed",
-   "outcome_change": "The dialog resolves candidate names with useUserNames (the same source the rest of the app uses) and reviewerOptionLabel prefers a resolved name over the id slice, so options read 'Mei L. \u00b7 reviewer' instead of '00000000 \u00b7 reviewer'.",
+   "outcome_change": "The dialog resolves candidate names with useUserNames and reviewerOptionLabel prefers a resolved name over the id slice, so options read 'Mei L. \u00b7 reviewer' instead of '00000000 \u00b7 reviewer'.",
    "outcome_files": [
     "src/components/notebook/submit-notebook-dialog.tsx",
     "src/lib/notebook-experience.ts",
     "src/lib/notebook-experience.test.ts",
     "src/components/notebook/submit-notebook-dialog.test.tsx"
    ],
-   "outcome_proof": "Live dialog on the new draft listed: You (owner) | Priya S. \u00b7 member | Mei L. \u00b7 reviewer | Tom H. \u00b7 member | Sam R. \u00b7 member | Fixture Owner \u00b7 owner. Tests: 'names the candidate whenever a name is resolved' (src/lib/notebook-experience.test.ts) and 'names every reviewer candidate instead of the shared uuid prefix' (src/components/notebook/submit-notebook-dialog.test.tsx)."
+   "outcome_proof": "Live dialog listed: You (owner) | Priya S. \u00b7 member | Mei L. \u00b7 reviewer | Tom H. \u00b7 member | Sam R. \u00b7 member | Fixture Owner \u00b7 owner. Tests 'names the candidate whenever a name is resolved' and 'names every reviewer candidate instead of the shared uuid prefix'."
   },
   {
    "id": "QA2-experiments-5",
@@ -225,7 +225,7 @@
     "src/components/overview/overview-view.tsx",
     "src/components/overview/overview-view.test.tsx"
    ],
-   "outcome_proof": "Live /experiments/EXP-0142/overview Key results now reads 'Datasets | DS-0310, DS-0311' (was 'No datasets or analyses are linked yet'), matching the Datasets tab which lists DS-0310/DS-0311 (both links have target_record_id null in api.record_links). Test 'counts a dataset linked by identifier, as the Datasets tab does'."
+   "outcome_proof": "Live /experiments/EXP-0142/overview Key results reads 'Datasets | DS-0310, DS-0311' (was 'No datasets or analyses are linked yet'), matching the Datasets tab which lists DS-0310/DS-0311 (both links have target_record_id null). Test 'counts a dataset linked by identifier, as the Datasets tab does'."
   },
   {
    "id": "QA2-Inbox-1",
@@ -749,7 +749,7 @@
     "src/routes/experiments.tsx",
     "src/routes/experiments.test.tsx"
    ],
-   "outcome_proof": "Live server-rendered HTML: /experiments contains 'No experiments' (no 'No all experiments'); /experiments?tab=drafts 'No draft experiments'; ?tab=mine 'No experiments you own'; ?tab=inprogress 'No experiments in progress'. Tests in src/routes/experiments.test.tsx."
+   "outcome_proof": "Live server-rendered HTML: /experiments contains 'No experiments' (no 'No all experiments'); ?tab=drafts 'No draft experiments'; ?tab=mine 'No experiments you own'; ?tab=inprogress 'No experiments in progress'. Tests in src/routes/experiments.test.tsx."
   },
   {
    "id": "QA2-Home-3",
@@ -901,6 +901,27 @@
     "src/lib/controlled-protocols.test.ts"
    ],
    "outcome_proof": "Live pg_proc: select pg_get_function_arguments(oid) for api.acknowledge_protocol_version returns 'p_version_id uuid' (definition in drizzle/0328_misty_doctor_octopus.sql:182, CREATE OR REPLACE FUNCTION api.acknowledge_protocol_version(p_version_id uuid); only redefined by drizzle/0335_protocol_acknowledge_writer_gate.sql via replace, so the name is stable). src/lib/controlled-protocols.test.ts 'leaves acknowledgement attribution to the server' asserts the request body is {\"p_version_id\":\"<uuid>\"}; `pnpm exec vitest run src/lib/controlled-protocols.test.ts` \u2192 4 passed."
+  },
+  {
+   "id": "QA2-experiments-8",
+   "outcome": "fixed",
+   "files": [
+    "src/routes/experiments/new.tsx",
+    "src/routes/experiments/new.test.tsx"
+   ],
+   "change": "Both reads that gate the picker (project list and project-permission check) now run behind a 10 s deadline (FORM_READ_TIMEOUT_MS, withDeadline, retry: false); while pending the form says what it is waiting for, and once the deadline passes it states the failure with a Retry and fails open \u2014 every project is listed, the create is enabled, and any refusal is reported inline \u2014 so the form can never sit inert on 'Checking which projects you can write to\u2026'.",
+   "proof": "Live, plain dev server 3001: (a) 4/4 consecutive loads resolved the picker (16 options, default 'AAV9 process transfer', create enabled; 0.77-6.96 s incl. cold compile); (b) with /api/db/rpc/my_project_permissions stalled indefinitely via request interception, at 3 s the form showed 'Checking which projects you can write to\u2026' with the create disabled, and at 12 s it had settled to 'Couldn't check which projects you can write to\u2026' + Retry with the select and Create draft enabled (checking:false, failed:true, retry:true); (c) a throwaway draft created on 3001: create_record_with_blocks 200, toast 'Draft EXP-0003 created', navigated to /records/b478ed70-716e-4b9a-b575-3e9352a329de/notebook. Regression tests: 'states the access failure instead of hanging when the permission read never settles' and 'states the project-list failure instead of hanging when that read never settles' (fake timers, never-resolving mock; both assert the loading copy is gone, the failure copy and Retry are present, and the form is usable/unavailable as stated).",
+   "notes": "I could not reproduce an indefinite hang without interception: 10 consecutive plain loads (6 + 4) all settled in under 7 s, and the underlying RPC answers in ~0.2-0.3 s by curl. The reported page state is exactly the pre-settlement state of this gate (SSR/first paint renders it too), so the intermittency was most likely slow client boot/hydration or a stalled request rather than a deterministic defect in the read itself; the bounded gate removes the failure mode whichever it was. Also fixed while in the file: the project-list read is bounded the same way and names 'Project list unavailable' + Retry instead of claiming 'No projects yet' while it is still loading or has failed.",
+   "severity": "minor",
+   "area": "found during the fix pass",
+   "route": "",
+   "found_by": "fix pass",
+   "outcome_change": "Both reads that gate the picker (project list and project-permission check) now run behind a 10 s deadline (FORM_READ_TIMEOUT_MS, withDeadline, retry: false); while pending the form says what it is waiting for, and once the deadline passes it states the failure with a Retry and fails open \u2014 every project is listed, the create is enabled, and any refusal is reported inline \u2014 so the form can never sit inert on 'Checking which projects you can write to\u2026'.",
+   "outcome_files": [
+    "src/routes/experiments/new.tsx",
+    "src/routes/experiments/new.test.tsx"
+   ],
+   "outcome_proof": "Live, plain dev server 3001: (a) 4/4 consecutive loads resolved the picker (16 options, default 'AAV9 process transfer', create enabled; 0.77-6.96 s incl. cold compile); (b) with /api/db/rpc/my_project_permissions stalled indefinitely via request interception, at 3 s the form showed 'Checking which projects you can write to\u2026' with the create disabled, and at 12 s it had settled to 'Couldn't check which projects you can write to\u2026' + Retry with the select and Create draft enabled (checking:false, failed:true, retry:true); (c) a throwaway draft created on 3001: create_record_with_blocks 200, toast 'Draft EXP-0003 created', navigated to /records/b478ed70-716e-4b9a-b575-3e9352a329de/notebook. Regression tests: 'states the access failure instead of hanging when the permission read never settles' and 'states the project-list failure instead of hanging when that read never settles' (fake timers, never-resolving mock; both assert the loading copy is gone, the failure copy and Retry are present, and the form is usable/unavailable as stated)."
   }
  ],
  "coverage": [
@@ -1195,7 +1216,7 @@
  "counts": {
   "blocker": 4,
   "major": 14,
-  "minor": 18,
+  "minor": 19,
   "nit": 5
  }
 }

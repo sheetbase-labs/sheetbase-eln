@@ -1,14 +1,14 @@
 # Sheetbase ELN — QA run 2 (behaviour sweep) and fix pass
 
-41 findings from 13 area sweepers driving the running app, and the fix pass that followed.
+42 findings from 13 area sweepers driving the running app, and the fix pass that followed.
 
 | | |
 |---|---|
 | Date | 2026-10-13 |
 | Branch | `GWP/roadmap-5-qa` |
 | Sweep | 13 areas, driven at 390/768/834/1024/1440 with the journey harness |
-| Findings | 4 blocker · 14 major · 18 minor · 5 nit |
-| Outcomes | 33 fixed · 8 not-a-defect |
+| Findings | 4 blocker · 14 major · 19 minor · 5 nit |
+| Outcomes | 34 fixed · 8 not-a-defect |
 
 ## How this run was driven
 
@@ -65,6 +65,7 @@ fix pass disproved on a clean re-drive:
 | minor | found during the fix pass | `` | **action:**  — **expected:**  — **observed:**  — __ | fixed |
 | minor | found during the fix pass | `` | **action:**  — **expected:**  — **observed:**  — __ | fixed |
 | minor | found during the fix pass | `` | **action:**  — **expected:**  — **observed:**  — __ | fixed |
+| minor | found during the fix pass | `` | **action:**  — **expected:**  — **observed:**  — __ | fixed |
 | minor | home metric chips | `/` | **action:** Clicked each Home metric chip at 1440 and read the destination: "84 experiments in progress", "2 datasets with errors", "1 to review", "0 instrument r — **expected:** A metric chip leads to the set it counts, so the number can be seen as rows (the destination opens filtered to — **observed:** Every chip links to a bare route with no filter. "84 experiments in progress" -> /experiments, which opens on the All filter: "All 135 Mine 65 In progress 84 In review 18 Approved 29 Drafts  — _Post-click URL "http://localhost:3000/experiments" (no search); destination text "Experime_ | fixed |
 | minor | home recent activity | `/` | **action:** Read the right-hand "Recent activity" block on / at 1440 and enumerated the interactive elements it contains. — **expected:** An activity entry names the thing it changed so it can be identified, and (like the other Home blocks) offers  — **observed:** Every entry names its subject with a truncated raw id, and no entry is interactive: "20:17 You updated Workspace Settings 7172b684", "You updated Project Access ae3d3d47", "System updated Re — _Observed body text of the Recent activity block (two separate loads): "13:03 System update_ | fixed |
 | minor | inbox loading / error state | `/inbox` | **action:** Loaded /inbox at 1440 and polled the DOM for 95 s; then, from the same page context, issued fetch('/api/db/my_work_items?select=kind&limit=3', { crede — **expected:** If the inbox read does not answer, the page either times out with the "Couldn't load your inbox" alert (the ro — **observed:** The page stayed on "Loading…" (role=status) for 95 s with the tab counters reading "Needs action 0 / Following 0 / Done today 0" and no error, alert or retry control. The page-context fetch  — _Captured state after 95 s: {"tabs":["Needs action0","Following0","Done today0"],"filters":_ | fixed |
@@ -79,7 +80,7 @@ fix pass disproved on a clean re-drive:
 
 | Outcome | Count |
 |---|---:|
-| fixed | 33 |
+| fixed | 34 |
 | not-a-defect | 8 |
 
 ### What changed, per finding
@@ -90,8 +91,8 @@ fix pass disproved on a clean re-drive:
   - proof: Live journey: /import -> 'New dataset' + model 'Bench ELISA reading v1' + name 'QA2 fx import probe' + /tmp/qa2/qa2-valid.csv -> URL /import/c3995152-6e4c-42c4-bb90-7a878834b064?step=map&dataset=033af0d4-d145-42a0-9c18-ec6af71e9103 rendered the step-2 mapping table ('5 of 5 mapped'), Continue -> ste
 - **QA2-Settings-1** (blocker, fixed) — Export CSV now builds a text/csv blob from the same figures the page renders and triggers sheetbase-usage.csv; a failure to hand it to the browser is reported in a toast instead of a false success.
   - proof: Live /settings/usage click: URL.createObjectURL called with a Blob of type text/csv, anchor clicked with download="sheetbase-usage.csv"; test 'exports a real CSV file, with the figures the page shows' passes.
-- **QA2-experiments-1** (blocker, fixed) — The new-experiment form now resolves project access and archive state, defaults to the first project the account can edit that is not archived, and states a create refusal inline in a role="alert" region as well as by toast.
-  - proof: Live: POST /api/db/rpc/create_record_with_blocks returned 200 on the default path (project "AAV9 process transfer"), toast "Draft EXP-0002 created", URL moved to /records/4e8b6028-a28d-4089-8962-1e13c6fa7c8a/notebook. Refusal path covered by test 'reports the server refusal inline and in a toast whe
+- **QA2-experiments-1** (blocker, fixed) — The new-experiment form resolves project access and archive state behind a bounded gate, defaults to the first project the account can edit that is not archived, and states a create refusal inline in a role="alert" region as well as by toast.
+  - proof: Live on the plain dev server (3001): POST /api/db/rpc/create_record_with_blocks 200 on the default path, toast "Draft EXP-0003 created", URL moved to /records/b478ed70-716e-4b9a-b575-3e9352a329de/notebook. Refusal path covered by test 'reports the server refusal inline and in a toast when the create
 - **QA2-analysis-2** (major, fixed) — The empty preview for histogram/box/violin/strip/summary now names the measured field that carried no numeric values (e.g. 'No numeric values in "Capsid titre" to plot — 4 rows omitted (missing or non-numeric values).') instead of the false cartesian text 'Choose an X and Y field to create a scatter plot.' / 'No plotta
   - proof: Reproduced live on /analysis/new?dataset=00000000-0000-4000-8000-00000000038a (4 rows, no stored values): before the fix histogram/box/violin showed 'Choose an X and Y field to create a scatter plot.' — false for a type with no X mapping — and summary the same text plus a validation alert; after the
 - **QA2-datasets-2** (major, fixed) — The create (and keep) confirmation dialogs are unmounted the moment they close — base-ui only removes a closed popup after a frame has painted past the exit transition, so in a hidden or throttled tab the closed dialog stayed on screen with live controls and every further click on Save snapshot wrote another snapshot; 
@@ -111,13 +112,13 @@ fix pass disproved on a clean re-drive:
 - **QA2-shell-1** (major, not-a-defect) — No change: the claimed 834 hydration failure does not reproduce on the healthy server.
   - proof: Re-drove http://localhost:3000/ at 834 on the healthy server (curl / -> 200 in 0.04s). After load Object.keys(document.body).filter(k=>k.startsWith('__react')).length === 2 (React attached) and document.querySelector('button[aria-label="Open navigation"]') existed; a real DOM click on it set documen
 - **QA2-experiments-5** (major, fixed) — Key results counts dataset and analysis links by target kind — the predicate the Datasets and Results tabs use — instead of requiring a non-null target_record_id, and renders a dataset linked by identifier as text when it has no addressable record.
-  - proof: Live /experiments/EXP-0142/overview Key results now reads 'Datasets \| DS-0310, DS-0311' (was 'No datasets or analyses are linked yet'), matching the Datasets tab which lists DS-0310/DS-0311 (both links have target_record_id null in api.record_links). Test 'counts a dataset linked by identifier, as 
+  - proof: Live /experiments/EXP-0142/overview Key results reads 'Datasets \| DS-0310, DS-0311' (was 'No datasets or analyses are linked yet'), matching the Datasets tab which lists DS-0310/DS-0311 (both links have target_record_id null). Test 'counts a dataset linked by identifier, as the Datasets tab does'.
 - **QA2-experiments-2** (major, fixed) — The Project picker resolves api.my_project_permissions and project archive state, lists every project but disables and marks the unusable ones ('· read-only' / '· archived'), and defaults to a project that is both editable and not archived.
-  - proof: Live picker read at /experiments/new: 16 options, 12 disabled (9 read-only + 3 archived, e.g. "AAV full/empty assay qualification · read-only", "AAV1 vector design · archived"), default "AAV9 process transfer" (can_edit=true, archived_at null) instead of the previous viewer-only "AAV full/empty assa
-- **QA2-experiments-3** (major, fixed) — fixtureSteps now writes the internal.session row the auth-free development identity presents (id 'dev-auth-free-session', userId SHEETBASE_DEV_USER_ID, token, +365d expiry, upserted on every seed), because api.submit_record_revision requires a live internal.session row and nothing signs the auth-free identity in.
-  - proof: Live after applying the row: POST /api/db/rpc/submit_record_revision returned 200 from the Submit-for-review dialog and the app navigated to /review/b61eb045-5085-4428-9199-7ced265f7269 (previously 422 SB002 'valid submission session required'). Step executed in isolation via tsx against the dev DB:
-- **QA2-experiments-4** (major, fixed) — The dialog resolves candidate names with useUserNames (the same source the rest of the app uses) and reviewerOptionLabel prefers a resolved name over the id slice, so options read 'Mei L. · reviewer' instead of '00000000 · reviewer'.
-  - proof: Live dialog on the new draft listed: You (owner) \| Priya S. · member \| Mei L. · reviewer \| Tom H. · member \| Sam R. · member \| Fixture Owner · owner. Tests: 'names the candidate whenever a name is resolved' (src/lib/notebook-experience.test.ts) and 'names every reviewer candidate instead of the
+  - proof: Live picker read: 16 options, 12 disabled (9 read-only + 3 archived), default "AAV9 process transfer" (can_edit=true, archived_at null) instead of the previous viewer-only "AAV full/empty assay qualification". Tests 'defaults to a project the account can edit and marks view-only projects' and 'never
+- **QA2-experiments-3** (major, fixed) — fixtureSteps writes the internal.session row the auth-free development identity presents (id 'dev-auth-free-session', userId SHEETBASE_DEV_USER_ID, token, +365d expiry, upserted on every seed), because api.submit_record_revision requires a live internal.session row and nothing signs the auth-free identity in.
+  - proof: Live: POST /api/db/rpc/submit_record_revision returned 200 from the Submit-for-review dialog and the app navigated to /review/b61eb045-5085-4428-9199-7ced265f7269 (previously 422 SB002 'valid submission session required'). Step executed in isolation via tsx against the dev DB: 'dev-auth-free-session
+- **QA2-experiments-4** (major, fixed) — The dialog resolves candidate names with useUserNames and reviewerOptionLabel prefers a resolved name over the id slice, so options read 'Mei L. · reviewer' instead of '00000000 · reviewer'.
+  - proof: Live dialog listed: You (owner) \| Priya S. · member \| Mei L. · reviewer \| Tom H. · member \| Sam R. · member \| Fixture Owner · owner. Tests 'names the candidate whenever a name is resolved' and 'names every reviewer candidate instead of the shared uuid prefix'.
 - **QA2-Inbox-1** (major, fixed) — The Inbox's needs-action predicate (state needs_action/overdue, not following, not seen, not done_today) now lives once in work-items/predicate.ts and is used by the sidebar badge (server), Home's counts/chips and the Inbox list, so a seen item leaves all three together.
   - proof: SSR of /inbox now renders the sidebar badge 'Inbox 1' (was 8) with tabs/filters reading '—' until the read answers; running the shipped predicate over the live /api/db/my_work_items + /api/db/work_item_views rows returns {total:1,reviews:0}; tests 'counts only unseen items, so a seen item leaves Nee
 - **QA2-datasets-4** (minor, fixed) — The canonical dataset create (createDataset) now records the creating person, and the import flow passes the signed-in identity it already holds from the root route's server-derived auth context, so a dataset made through Import data has a recorded owner.
@@ -148,6 +149,8 @@ fix pass disproved on a clean re-drive:
   - proof: Live: on /search?q=clarification, toggling 'Include archived' now issues a second POST /api/db/rpc/search with {"p_query":"clarification","p_limit":20,"p_offset":0,"p_include_archived":true} after the false one (url becomes /search?q=clarification&archived=true). Tests: src/lib/search.test.ts 'searc
 - **QA2-ProtocolsTemplates-ack** (minor, fixed) — acknowledgeProtocolVersion now sends the RPC argument name the database function actually declares (p_version_id), so a frozen protocol version can be acknowledged instead of PostgREST answering 404 for the unknown argument.
   - proof: Live pg_proc: select pg_get_function_arguments(oid) for api.acknowledge_protocol_version returns 'p_version_id uuid' (definition in drizzle/0328_misty_doctor_octopus.sql:182, CREATE OR REPLACE FUNCTION api.acknowledge_protocol_version(p_version_id uuid); only redefined by drizzle/0335_protocol_ackno
+- **QA2-experiments-8** (minor, fixed) — Both reads that gate the picker (project list and project-permission check) now run behind a 10 s deadline (FORM_READ_TIMEOUT_MS, withDeadline, retry: false); while pending the form says what it is waiting for, and once the deadline passes it states the failure with a Retry and fails open — every project is listed, the
+  - proof: Live, plain dev server 3001: (a) 4/4 consecutive loads resolved the picker (16 options, default 'AAV9 process transfer', create enabled; 0.77-6.96 s incl. cold compile); (b) with /api/db/rpc/my_project_permissions stalled indefinitely via request interception, at 3 s the form showed 'Checking which 
 - **QA2-Home-1** (minor, fixed) — Each Home metric chip now links to the filtered set it counts (/experiments?tab=inprogress, /datasets?tab=issues, /inbox?type=reviews), and /inbox gained the matching search schema so the reviews set opens applied.
   - proof: Test 'renders the busy Home with its exact totals when several things are waiting' asserts the summary links resolve to /inbox?type=reviews, /datasets?tab=issues and /experiments?tab=inprogress; the Live probe of the pre-fix page showed bare /inbox, /datasets, /experiments hrefs.
 - **QA2-Home-2** (minor, fixed) — A recent-activity subject with a canonical product route is now an anchor that opens it, and one without (workspace settings, template versions, ...) opens its authoritative history dialog, so no entry in Home's Recent activity is inert.
@@ -163,7 +166,7 @@ fix pass disproved on a clean re-drive:
 - **QA2-Settings-8** (nit, fixed) — /settings/general now redirects to /settings (the page the nav labels 'General') instead of rendering a not-found screen.
   - proof: curl http://localhost:3000/settings/general returns HTTP 307 with location: /settings; live navigation lands on /settings.
 - **QA2-experiments-7** (nit, fixed) — The empty state uses a per-tab title map instead of interpolating the tab label, so All reads 'No experiments' and other tabs read 'No draft experiments', 'No experiments in progress', 'No experiments you own', etc.
-  - proof: Live server-rendered HTML: /experiments contains 'No experiments' (no 'No all experiments'); /experiments?tab=drafts 'No draft experiments'; ?tab=mine 'No experiments you own'; ?tab=inprogress 'No experiments in progress'. Tests in src/routes/experiments.test.tsx.
+  - proof: Live server-rendered HTML: /experiments contains 'No experiments' (no 'No all experiments'); ?tab=drafts 'No draft experiments'; ?tab=mine 'No experiments you own'; ?tab=inprogress 'No experiments in progress'. Tests in src/routes/experiments.test.tsx.
 - **QA2-Home-3** (nit, fixed) — The 'Awaiting your review' row's name is now a link to that review, matching the 'Continue working' rows.
   - proof: index.tsx wraps the Record cell in <Link to="/review/$revisionId">; test 'renders the busy Home ...' asserts the row name has a closest('a').
 

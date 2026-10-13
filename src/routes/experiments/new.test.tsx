@@ -1,0 +1,150 @@
+/**
+ * The New experiment form: starting is the checkbox's job. Choosing a protocol
+ * version pins the version on start; on its own it must leave a draft.
+ */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { UserEvent } from '@testing-library/user-event'
+import * as React from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { Route } from './new'
+
+const NewExperimentRoute = Route.options.component as React.ComponentType
+
+const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
+const notebookCreate = vi.hoisted(() => ({
+  createBlankExperiment: vi.fn(),
+  applyExperimentSetup: vi.fn(),
+}))
+const navigate = vi.hoisted(() => vi.fn())
+const sonner = vi.hoisted(() => ({ toast: vi.fn() }))
+
+vi.mock('@tanstack/react-router', () => ({
+  createFileRoute: () => (config: Record<string, unknown>) => ({
+    useSearch: () => ({}),
+    options: config,
+  }),
+  useNavigate: () => navigate,
+  redirect: (options: unknown) => options,
+  Link: ({ children }: { children?: React.ReactNode }) => (
+    <a href="#">{children}</a>
+  ),
+}))
+
+vi.mock('#/lib/notebook-data', async (importOriginal) => ({
+  ...(await importOriginal()),
+  notebookDataClient: dataClient,
+}))
+
+vi.mock('#/lib/notebook-create', () => notebookCreate)
+
+vi.mock('#/components/v3/ui/sonner', () => ({
+  toast: Object.assign(sonner.toast, { error: vi.fn() }),
+  Toaster: () => null,
+}))
+
+const PROTOCOL_VERSION = {
+  id: 'pv-1',
+  protocol_record_id: 'proto-1',
+  version: 2,
+}
+
+const PROTOCOL = {
+  id: 'proto-1',
+  identifier: 'PRT-1',
+  title: 'Protocol A',
+}
+
+function renderForm() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      {React.createElement(NewExperimentRoute)}
+    </QueryClientProvider>,
+  )
+}
+
+/** Fill the form, choose the effective protocol version, and submit. */
+async function submitForm(user: UserEvent, { start = false } = {}) {
+  await screen.findByRole('option', { name: 'Project A' })
+  await user.type(
+    screen.getByRole('textbox', { name: /^Title/ }),
+    'AAV9 stability',
+  )
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: /^Protocol version to follow/ }),
+    PROTOCOL_VERSION.id,
+  )
+  if (start) {
+    await user.click(
+      screen.getByRole('checkbox', { name: /Start the experiment now/ }),
+    )
+  }
+  await user.click(screen.getByRole('button', { name: 'Create draft' }))
+}
+
+function rpcNames() {
+  return dataClient.rpc.mock.calls.map((call) => call[0] as string)
+}
+
+beforeEach(() => {
+  notebookCreate.createBlankExperiment.mockResolvedValue({
+    id: 'rec-1',
+    identifier: 'EXP-0001',
+  })
+  notebookCreate.applyExperimentSetup.mockResolvedValue(undefined)
+  dataClient.list.mockImplementation(async (resource: string, query = '') => {
+    if (resource === 'projects') return [{ id: 'p-1', title: 'Project A' }]
+    if (resource === 'protocol_versions') return [PROTOCOL_VERSION]
+    if (resource === 'records') {
+      if (query.includes('protocol_template')) return [PROTOCOL]
+      if (query.includes('metadata_version')) return [{ metadata_version: 1 }]
+      return []
+    }
+    return []
+  })
+  dataClient.rpc.mockImplementation(async (name: string) => {
+    if (name === 'workspace_members_list') return []
+    return undefined
+  })
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+describe('new experiment', () => {
+  it('leaves a draft when a protocol version is chosen but Start now is unticked', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await submitForm(user)
+
+    await waitFor(() =>
+      expect(notebookCreate.createBlankExperiment).toHaveBeenCalled(),
+    )
+    expect(notebookCreate.applyExperimentSetup).toHaveBeenCalledWith(
+      dataClient,
+      'rec-1',
+      expect.objectContaining({ protocolRecordId: 'proto-1' }),
+    )
+    expect(rpcNames()).not.toContain('start_experiment')
+  })
+
+  it('starts with the pinned version when Start now is ticked', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await submitForm(user, { start: true })
+
+    await waitFor(() =>
+      expect(dataClient.rpc).toHaveBeenCalledWith(
+        'start_experiment',
+        expect.objectContaining({ p_protocol_version_id: 'pv-1' }),
+      ),
+    )
+  })
+})

@@ -1,7 +1,12 @@
 import { useMemo } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 
+import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -49,6 +54,11 @@ interface FieldWire {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+/** DSET-03.3 — rows page size. The server supports p_limit/p_offset, so the
+ * grid asks for one window at a time and extends it through the visible
+ * "Load more" control instead of stopping at a fixed first page. */
+const ROWS_PAGE_SIZE = 100
+
 /** UI port (roadmap-4/ui-app3): the dataset Rows grid, wired to
  * query_dataset_version_rows + schema fields, with selected-value actions for
  * marking a value out of range, clearing a flag and requesting a repeat. Row
@@ -85,17 +95,22 @@ function Rows() {
 
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
 
-  const rowsQuery = useQuery({
+  const rowsQuery = useInfiniteQuery({
     queryKey: ['ui-port', 'dataset-rows', version?.id],
-    queryFn: () =>
+    queryFn: ({ pageParam }) =>
       notebookDataClient.rpc<RowValuePayload>('query_dataset_version_rows', {
         p_dataset_version_id: version!.id,
-        p_limit: 100,
-        p_offset: 0,
+        p_limit: ROWS_PAGE_SIZE,
+        p_offset: pageParam,
       }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.rows.length < lastPage.totalCount
+        ? lastPage.offset + lastPage.rows.length
+        : undefined,
     enabled: Boolean(version),
   })
-  const payload = rowsQuery.data
+  const payload = rowsQuery.data?.pages.at(0)
 
   const fieldsQuery = useQuery({
     queryKey: ['ui-port', 'dataset-fields', payload?.schemaVersionId],
@@ -114,9 +129,13 @@ function Rows() {
   const fields = fieldsQuery.data ?? []
   const flags = flagsQuery.data ?? []
   const flagIndex = useMemo(() => buildFlagIndex(flags), [flags])
+  const flaggedRowCount = useMemo(
+    () => new Set(flags.map((f) => f.rowId)).size,
+    [flags],
+  )
 
   const q = (search.q ?? '').trim().toLowerCase()
-  const rows = payload?.rows ?? []
+  const rows = rowsQuery.data?.pages.flatMap((page) => page.rows) ?? []
   const visible = rows.filter((r) => {
     if (search.flagged && !flags.some((f) => f.rowId === r.rowId)) return false
     if (!q) return true
@@ -203,7 +222,7 @@ function Rows() {
                 })
               }
             />
-            Only flagged rows ({flags.length})
+            Only flagged rows ({flaggedRowCount})
           </label>
           <span className="flex-1" />
           <Muted className="max-lg:hidden">
@@ -277,13 +296,47 @@ function Rows() {
           ) : (
             <EmptyState
               icon="search"
-              title="No rows match"
-              body="Search looks at the values shown; the flagged filter keeps rows with any flagged value."
+              title={
+                payload && payload.totalCount === 0
+                  ? 'No rows in this snapshot'
+                  : 'No rows match'
+              }
+              body={
+                payload && payload.totalCount === 0
+                  ? 'The snapshot froze a dataset with no rows; import rows into the dataset and snapshot it again.'
+                  : 'Search looks at the rows loaded so far; the flagged filter keeps rows with any flagged value.'
+              }
             />
           )}
-          <div className="num py-2 text-label text-fg-muted">
-            {visible.length} of {payload?.totalCount ?? 0} rows
-            {selected ? ` · row ${visible.indexOf(selected) + 1} selected` : ''}
+          <div className="num flex flex-col gap-2 py-2 text-label text-fg-muted">
+            <span>
+              Showing {visible.length} of {payload?.totalCount ?? 0} rows
+              {rows.length < (payload?.totalCount ?? 0)
+                ? ` (${rows.length} loaded so far)`
+                : ''}
+              {selected ? ` · row ${visible.indexOf(selected) + 1} selected` : ''}
+            </span>
+            {rowsQuery.hasNextPage ? (
+              <>
+                <span className="font-sans">
+                  Search and the flagged filter look at the rows loaded so far.
+                </span>
+                <div>
+                  <Button
+                    size="sm"
+                    onClick={() => void rowsQuery.fetchNextPage()}
+                    disabled={rowsQuery.isFetchingNextPage}
+                  >
+                    {rowsQuery.isFetchingNextPage
+                      ? 'Loading…'
+                      : `Load more (${Math.max(
+                          (payload?.totalCount ?? 0) - rows.length,
+                          0,
+                        )} left)`}
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       </div>

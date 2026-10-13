@@ -13,8 +13,8 @@ import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 
 /** UI port (roadmap-4/ui-app3): the experiment detail frame. Overview, Samples,
- * Datasets and History are wired to real data; Notebook reuses the record
- * notebook, and Results/Files state their unbuilt capabilities. */
+ * Datasets, Results, Files and History are wired to real data; Notebook reuses
+ * the record notebook. */
 export const Route = createFileRoute('/experiments/$expId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth

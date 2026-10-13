@@ -1,8 +1,8 @@
 /**
  * R5-SURF-01 — the dataset detail's search-param tabs. `?view=` selects the
  * Imports, Used by and History panels (linkable and reloadable), and the tab
- * nav offers each as a real link. With no tab the detail index still redirects
- * to Snapshots.
+ * nav offers each as a real link. With no tab the index route shows the
+ * Overview screen, which the Overview tab links to.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -66,9 +66,6 @@ vi.mock('@tanstack/react-router', () => ({
   }) => select({ location: { pathname: fixtures.routerState.pathname } }),
   Outlet: () => null,
   redirect: (options: unknown) => options,
-  Navigate: ({ to }: { to: string }) => (
-    <div data-testid="navigate" data-to={to} />
-  ),
   Link: ({
     to,
     search,
@@ -90,6 +87,10 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
   notebookDataClient: dataClient,
+}))
+
+vi.mock('#/lib/user-names', () => ({
+  useUserNames: () => ({ userLabel: (id: string) => `name:${id}` }),
 }))
 
 vi.mock('#/components/v3/datasets/datasets-data', async (importOriginal) => ({
@@ -189,10 +190,12 @@ describe('dataset detail tab search parameter', () => {
     }
   })
 
-  it('redirects to Snapshots when no tab is selected', () => {
+  it('renders the Overview screen when no tab is selected', () => {
     renderRoute(DetailIndex)
-    expect(screen.getByTestId('navigate').getAttribute('data-to')).toBe(
-      '/datasets/$datasetId/snapshots',
-    )
+    // The index is the Overview the tab links to: the dataset's own facts,
+    // not a redirect to Snapshots.
+    expect(screen.getByText('ambr')).toBeTruthy()
+    expect(screen.getByText('31')).toBeTruthy()
+    expect(screen.getByText('Not linked to an experiment')).toBeTruthy()
   })
 })

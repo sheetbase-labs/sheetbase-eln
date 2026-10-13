@@ -183,9 +183,9 @@ function HelpCentre() {
                   body={
                     <>
                       Try the name of an action or a record, like “sign”,
-                      “snapshot” or “import”. If you’re stuck,{' '}
-                      <a href="#support">ask support</a>; we answer within one
-                      working day.
+                      “snapshot” or “import”. If you’re stuck, see{' '}
+                      <a href="#support">Contact support</a> for how to reach
+                      the IT service desk.
                     </>
                   }
                 />
@@ -333,7 +333,7 @@ function HelpCentre() {
                   <span className="mono text-[11px] text-fg-muted">
                     {r.changeControl}
                   </span>
-                  {i === 0 ? (
+                  {help?.release.version === r.version ? (
                     <span className="text-label text-fg-muted">
                       · running here
                     </span>

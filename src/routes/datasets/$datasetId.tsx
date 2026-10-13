@@ -26,7 +26,7 @@ import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 /** UI port (roadmap-4/ui-app3): the dataset detail frame. Rows, Snapshots and
  * Compare are child routes; R5-SURF-01 adds Imports, Used by and History,
  * selected by the `view` search parameter so each is a linkable, reloadable URL
- * without a second route tree. */
+ * without a second route tree. The index child is the Overview screen. */
 export const Route = createFileRoute('/datasets/$datasetId')({
   validateSearch: (
     search: Record<string, unknown>,
@@ -98,7 +98,8 @@ function DatasetLayout() {
 
   const params = { datasetId: dataset.uuid }
   // The active section: the child routes from the path, the three data tabs
-  // from the search parameter, and the index (which redirects) as Overview.
+  // from the search parameter, and the index — whose screen is the Overview —
+  // as Overview.
   const section = pathname.split('/').filter(Boolean).pop()
   const current =
     search.view ??
@@ -239,3 +240,4 @@ function DatasetLayout() {
     </div>
   )
 }
+

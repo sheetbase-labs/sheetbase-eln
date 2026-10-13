@@ -137,9 +137,11 @@ function NewExperiment() {
         protocolRecordId: protocolId || undefined,
         copyFromRecordId: copyFromId || undefined,
       })
-      if (startNow || protocolVersionId) {
+      if (startNow) {
         // Starting is a server decision: PROJ-03 and LAB-07 authority (effective
         // version, exact-version acknowledgement) are enforced by the RPC.
+        // Only the checkbox starts the experiment; choosing a protocol version
+        // pins the version on start, it does not start anything by itself.
         const current = await notebookDataClient.list<{
           metadata_version: number
         }>('records', `?id=eq.${record.id}&select=metadata_version&limit=1`)
@@ -259,7 +261,11 @@ function NewExperiment() {
         </Field>
         <Field
           label="Protocol version to follow"
-          hint="Only effective versions can start an experiment. Optional."
+          hint={
+            protocolVersionId && !startNow
+              ? 'A draft records the protocol but not the pinned version; tick Start the experiment now to pin this version.'
+              : 'Only effective versions can start an experiment. Optional.'
+          }
         >
           <NativeSelect
             value={protocolVersionId}

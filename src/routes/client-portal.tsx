@@ -38,13 +38,28 @@ import {
 } from '#/lib/client-portal'
 import type { ClientPortalProject } from '#/lib/client-portal'
 
+const tabs = ['projects', 'reports', 'messages'] as const
+type PortalTab = (typeof tabs)[number]
+
 /** UI port (roadmap-4/ui-app3): the client portal (ADR-0049). A client viewer
  * sees only approved records explicitly shared to their client, read through
  * the portal RPCs — there is no app shell and no internal read access. The
  * shell mirrors `canvas/ClientPortal.dc.html`: Projects (milestones and
  * approved records), Reports, Messages, the CDMO message and the access
- * explanation. PDFs are serialised by the guarded byte route. */
+ * explanation. PDFs are serialised by the guarded byte route.
+ *
+ * Each section is a URL: `?tab=` selects it, so a portal section can be
+ * linked, reloaded and reached with the browser's Back button. */
 export const Route = createFileRoute('/client-portal')({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: PortalTab } => ({
+    tab:
+      typeof search.tab === 'string' &&
+      (tabs as readonly string[]).includes(search.tab)
+        ? (search.tab as PortalTab)
+        : undefined,
+  }),
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) {
@@ -55,8 +70,6 @@ export const Route = createFileRoute('/client-portal')({
   component: ClientPortal,
 })
 
-const tabs = ['projects', 'reports', 'messages'] as const
-type PortalTab = (typeof tabs)[number]
 const tabLabel: Record<PortalTab, string> = {
   projects: 'Projects',
   reports: 'Reports',
@@ -363,7 +376,10 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
 
 function ClientPortal() {
   const { context } = Route.useRouteContext()
-  const [tab, setTab] = useState<PortalTab>('projects')
+  const navigate = Route.useNavigate()
+  const search = Route.useSearch()
+  const tab = search.tab ?? 'projects'
+  const setTab = (next: PortalTab) => void navigate({ search: { tab: next } })
   const projects = useQuery({
     queryKey: clientPortalQueryKeys.projects,
     queryFn: () => fetchClientPortalProjects(),
@@ -384,8 +400,9 @@ function ClientPortal() {
   })
   const project = projects.data?.[0]
   const latestTeamMessage = [...(messages.data ?? [])]
-    .reverse()
-    .find((m) => m.authorKind === 'team')
+    .filter((m) => m.authorKind === 'team')
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+    .at(-1)
   const initials = context.user.name
     .split(/\s+/)
     .filter((word) => /^[A-Za-z]/.test(word))
@@ -520,13 +537,15 @@ function ClientPortal() {
             ) : (
               <Muted>No messages yet.</Muted>
             )}
-            <Button
-              size="sm"
-              className="mt-2"
-              onClick={() => setTab('messages')}
-            >
-              Reply
-            </Button>
+            {isClient ? (
+              <Button
+                size="sm"
+                className="mt-2"
+                onClick={() => setTab('messages')}
+              >
+                Reply
+              </Button>
+            ) : null}
           </section>
           <section>
             <h3 className="mb-1.5 font-sans text-label font-semibold">

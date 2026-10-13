@@ -27,6 +27,7 @@ import {
 import type { TemplateUsageRecord } from '#/lib/notebook-template-usage'
 import {
   publishedTemplateVersion,
+  useTemplateMadeCount,
   useTemplateProjects,
   useTemplateUsers,
   useTemplateVersions,
@@ -38,8 +39,10 @@ import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
  * the exact version each started from. Records stay on their version until
  * their owner takes a newer one; signed records never change. R5-CONFIG-04 adds
  * the records-by-version matrix, wires the project filter, states how far the
- * in-use set is behind the current version, and makes the hidden-record
- * (denied) behaviour explicit. `?state=denied` drives the acceptance suite.
+ * in-use set is behind the current version, and states how many records the
+ * viewer cannot see — from the workspace-wide instantiation count, not from
+ * `?state=denied` alone. `?state=denied` renders the restricted view the
+ * acceptance suite drives without a restricted account.
  */
 export const Route = createFileRoute('/templates/$templateId/in-use')({
   validateSearch: (
@@ -114,6 +117,28 @@ function TemplateInUse() {
   )
   const rows = users.data ?? []
 
+  // Only the records in projects this viewer can open are listed, but the
+  // workspace-scoped instantiation count says how many records were made from
+  // these versions in total, so the page can say how many it is not showing
+  // instead of guessing from the URL. Unknown count (still loading, or the
+  // read failed) states nothing.
+  const made = useTemplateMadeCount(list.map((v) => v.id))
+  const unlistedCount =
+    made.data === undefined ? 0 : Math.max(0, made.data - rows.length)
+  const restrictedView = state === 'denied' || unlistedCount > 0
+  const unlistedNotice =
+    unlistedCount > 0
+      ? `${unlistedCount} ${unlistedCount === 1 ? 'record' : 'records'} made ` +
+        `from this template ${unlistedCount === 1 ? 'isn’t' : 'aren’t'} listed ` +
+        `here, because you’re not a member of the project ` +
+        `${unlistedCount === 1 ? 'it was' : 'they were'} made in.`
+      : 'A record made from this template isn’t listed here when you’re not a ' +
+        'member of the project it was made in.'
+  const unlistedEmptyBody =
+    `${unlistedCount} ${unlistedCount === 1 ? 'record' : 'records'} made from ` +
+    `this template ${unlistedCount === 1 ? 'is' : 'are'} in a project you’re ` +
+    'not a member of. Ask the project lead for access.'
+
   const projects = useTemplateProjects(
     rows.map((row) => row.project_id).filter((id): id is string => Boolean(id)),
   )
@@ -174,11 +199,19 @@ function TemplateInUse() {
   if (!rows.length) {
     return (
       <div className="px-4 py-4 md:px-6">
-        <EmptyState
-          icon="template"
-          title="No records use this template yet"
-          body={`Records made from ${current ? `v${current.version}` : 'this template'} appear here, grouped by the version they were made from.`}
-        />
+        {unlistedCount > 0 ? (
+          <EmptyState
+            icon="lock"
+            title="No records you can access yet"
+            body={unlistedEmptyBody}
+          />
+        ) : (
+          <EmptyState
+            icon="template"
+            title="No records use this template yet"
+            body={`Records made from ${current ? `v${current.version}` : 'this template'} appear here, grouped by the version they were made from.`}
+          />
+        )}
       </div>
     )
   }
@@ -186,12 +219,11 @@ function TemplateInUse() {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
-        {state === 'denied' ? (
+        {restrictedView ? (
           <Notice tone="info" className="mb-3" icon="lock">
-            Some records use this template but aren’t listed, because you’re not
-            a member of the project they’re in. You can see {rows.length} record
-            {rows.length === 1 ? '' : 's'} here; ask the project lead for access
-            to see the rest.
+            {unlistedNotice} You can see {rows.length} record
+            {rows.length === 1 ? '' : 's'} here
+            {unlistedCount > 0 ? '.' : '; ask the project lead for access.'}
           </Notice>
         ) : null}
         {staleness.behind > 0 && current ? (
@@ -294,7 +326,7 @@ function TemplateInUse() {
                   </span>
                 </h2>
                 <div className="overflow-hidden rounded-md border border-border">
-                  <Table aria-label={`Records on version ${version.version}`}>
+                  <Table caption={`Records on version ${version.version}`}>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="first:pl-3">Record</TableHead>
@@ -359,7 +391,7 @@ function TemplateInUse() {
       <Inspector label="In-use details" width={320}>
         <InspectorSection title="Records by version">
           <TableBox>
-            <Table aria-label="Records by version">
+            <Table caption="Records by version">
               <TableHeader>
                 <TableRow>
                   <TableHead className="first:pl-3">Version</TableHead>

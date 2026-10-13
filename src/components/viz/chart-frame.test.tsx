@@ -99,4 +99,22 @@ describe('ChartFrame', () => {
     await userEvent.click(screen.getByLabelText('Contract chart'))
     expect(onExpandedChange).toHaveBeenLastCalledWith(false)
   })
+
+  it('renders the actions its caller supplies and no controls of its own', () => {
+    // The frame used to draw its own download button and an actions menu whose
+    // every item was disabled: four controls that did nothing on every chart.
+    render(
+      <ChartFrame
+        title="Trend"
+        actions={<button type="button">Open in studio</button>}
+      >
+        <svg />
+      </ChartFrame>,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Open in studio' }),
+    ).toBeTruthy()
+    expect(screen.queryByLabelText('Download chart')).toBeNull()
+    expect(screen.queryByLabelText('Chart actions')).toBeNull()
+  })
 })

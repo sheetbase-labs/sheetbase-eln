@@ -5,12 +5,6 @@ import { cn } from '#/lib/utils'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '#/components/v3/ui/dropdown-menu'
 import { Icon } from '#/components/v3/icons'
 
 /**
@@ -111,14 +105,6 @@ export function ChartFrame({
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
             {actions}
-            <Button
-              variant="quiet"
-              size="icon"
-              aria-label="Download chart"
-              disabled={loading}
-            >
-              <Icon name="download" size={16} />
-            </Button>
             {onExpandedChange ? (
               <Button
                 variant="quiet"
@@ -131,24 +117,6 @@ export function ChartFrame({
                 {expanded ? <Minimize2 /> : <Expand />}
               </Button>
             ) : null}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="quiet"
-                    size="icon"
-                    aria-label="Chart actions"
-                    disabled={loading}
-                    icon="more"
-                  />
-                }
-              />
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled>Open in analysis</DropdownMenuItem>
-                <DropdownMenuItem disabled>Copy snapshot link</DropdownMenuItem>
-                <DropdownMenuItem disabled>Export data</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </figcaption>
       )}

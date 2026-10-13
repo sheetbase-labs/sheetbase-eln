@@ -576,7 +576,16 @@ export function ChartConfigurator({
                 return update({
                   overlays: { ...spec.overlays, errorBars: null },
                 })
-              if (value === 'field') return
+              if (value === 'field') {
+                // Explicit field: keep the column already named, otherwise
+                // take the first column that reads as an error interval, so
+                // choosing the option lands on a real column instead of
+                // snapping back to the previous choice.
+                const fieldId =
+                  spec.overlays.errorBars?.fieldId ?? errorColumns[0]?.id
+                if (fieldId) setErrorBarColumn(fieldId)
+                return
+              }
               update({
                 overlays: {
                   ...spec.overlays,
@@ -595,7 +604,9 @@ export function ChartConfigurator({
             <option value="sd">Grouped SD</option>
             <option value="sem">Grouped SEM</option>
             <option value="ci">Grouped 95% CI</option>
-            <option value="field">Explicit field</option>
+            {errorColumns.length ? (
+              <option value="field">Explicit field</option>
+            ) : null}
           </NativeSelect>
         </div>
       </div>

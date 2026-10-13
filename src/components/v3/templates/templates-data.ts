@@ -168,6 +168,29 @@ export interface TemplateUser {
   updated_at: string
 }
 
+const TEMPLATE_USER_SELECT =
+  'id,identifier,title,source_notebook_template_version_id,status,locked_at,project_id,created_by_user_id,created_at,updated_at'
+
+/** Rows per request. The in-use set is paged, so no count is taken from a
+ * truncated page (R5-CONFIG-04). */
+export const TEMPLATE_USERS_PAGE_SIZE = 200
+
+async function fetchTemplateUsers(
+  versionIds: string[],
+  client: DataClient,
+): Promise<TemplateUser[]> {
+  const filter = `source_notebook_template_version_id=in.(${versionIds.join(',')})`
+  const rows: TemplateUser[] = []
+  for (let offset = 0; ; offset += TEMPLATE_USERS_PAGE_SIZE) {
+    const page = await client.list<TemplateUser>(
+      'records',
+      `?${filter}&select=${TEMPLATE_USER_SELECT}&order=updated_at.desc,id.asc&limit=${TEMPLATE_USERS_PAGE_SIZE}&offset=${offset}`,
+    )
+    rows.push(...page)
+    if (page.length < TEMPLATE_USERS_PAGE_SIZE) return rows
+  }
+}
+
 export function useTemplateUsers(
   versionIds: string[],
   client: DataClient = notebookTemplateDataClient,
@@ -177,12 +200,33 @@ export function useTemplateUsers(
       ...templateDataQueryKeys.users(versionIds.join(',')),
       versionIds,
     ],
-    queryFn: () =>
-      client.list<TemplateUser>(
-        'records',
-        `?source_notebook_template_version_id=in.(${versionIds.join(',')})&select=id,identifier,title,source_notebook_template_version_id,status,locked_at,project_id,created_by_user_id,created_at,updated_at&order=updated_at.desc&limit=200`,
-      ),
+    queryFn: () => fetchTemplateUsers(versionIds, client),
     enabled: versionIds.length > 0,
+    staleTime: 15_000,
+  })
+}
+
+/**
+ * R5-CONFIG-04: how many records were made from a template's versions at all.
+ * `notebook_template_instantiations` is scoped to the workspace rather than to
+ * the projects a caller can open, so this count still includes records in
+ * projects the caller cannot read — the only proof that a list is short. It
+ * never overstates: a record made from a version always keeps an instantiation
+ * row, and an upgrade only moves it to another version of the same template.
+ */
+export function useTemplateMadeCount(
+  versionIds: string[],
+  client: DataClient = notebookTemplateDataClient,
+) {
+  const ids = [...new Set(versionIds.filter(Boolean))].sort()
+  return useQuery({
+    queryKey: ['ui-port', 'templates', 'made-count', ids.join(',')],
+    queryFn: () =>
+      client.count(
+        'notebook_template_instantiations',
+        `?template_version_id=in.(${ids.join(',')})`,
+      ),
+    enabled: ids.length > 0,
     staleTime: 15_000,
   })
 }

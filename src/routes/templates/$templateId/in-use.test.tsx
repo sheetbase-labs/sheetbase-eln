@@ -10,6 +10,7 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './in-use'
+import { TEMPLATE_USERS_PAGE_SIZE } from '#/components/v3/templates/templates-data'
 import type * as NotebookTemplateData from '#/lib/notebook-template-data'
 
 const router = vi.hoisted(() => {
@@ -32,7 +33,11 @@ vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id, names: {} }),
 }))
 
-const client = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
+const client = vi.hoisted(() => ({
+  list: vi.fn(),
+  count: vi.fn(),
+  rpc: vi.fn(),
+}))
 vi.mock('#/lib/notebook-template-data', async (importOriginal) => ({
   ...(await importOriginal<typeof NotebookTemplateData>()),
   notebookTemplateDataClient: client,
@@ -141,10 +146,17 @@ afterEach(() => {
   cleanup()
   router.search = {}
   client.list.mockReset()
+  client.count.mockReset()
   client.rpc.mockReset()
 })
 
-function withRecords(records: RecordWire[]) {
+/**
+ * `madeCount` is the workspace-wide count of records made from the template's
+ * versions (`notebook_template_instantiations`), which is higher than the rows
+ * the viewer can list whenever some sit in projects they cannot open. It
+ * defaults to the rows themselves: nothing proven hidden.
+ */
+function withRecords(records: RecordWire[], madeCount = records.length) {
   client.list.mockImplementation((resource: string) => {
     if (resource === 'notebook_template_versions')
       return Promise.resolve(VERSIONS)
@@ -152,6 +164,7 @@ function withRecords(records: RecordWire[]) {
     if (resource === 'projects') return Promise.resolve(PROJECTS)
     return Promise.resolve([])
   })
+  client.count.mockResolvedValue(madeCount)
 }
 
 describe('Template in-use', () => {
@@ -201,6 +214,82 @@ describe('Template in-use', () => {
     renderRoute()
     const banner = await screen.findByText(/not a member of the project/)
     expect(banner.textContent).toContain('You can see 1 record')
+  })
+
+  it('names the records it cannot show when the workspace count proves them', async () => {
+    // Three records were made from these versions, only one is in a project
+    // this viewer can open: the row set alone cannot say that, the
+    // workspace-scoped instantiation count can, and no URL flag is involved.
+    withRecords([recordWire()], 3)
+    renderRoute()
+    const banner = await screen.findByText(/aren’t listed here/)
+    expect(banner.textContent).toContain('2 records made from this template')
+    expect(banner.textContent).toContain('You can see 1 record')
+  })
+
+  it('does not claim hidden records the row set cannot prove', async () => {
+    router.search = { state: 'denied' }
+    withRecords([recordWire()], 1)
+    renderRoute()
+    const banner = await screen.findByText(/not a member of the project/)
+    expect(banner.textContent).not.toMatch(
+      /\d+ records? made from this template/,
+    )
+  })
+
+  it('says access, not absence, when every record is in a project the viewer cannot open', async () => {
+    withRecords([], 2)
+    renderRoute()
+    expect(
+      await screen.findByText('No records you can access yet'),
+    ).toBeTruthy()
+    expect(screen.queryByText('No records use this template yet')).toBeNull()
+  })
+
+  it('counts records past the first page of the query', async () => {
+    const firstPage = Array.from(
+      { length: TEMPLATE_USERS_PAGE_SIZE },
+      (_, index) =>
+        recordWire({
+          id: `rec-${index}`,
+          identifier: `EXP-${index}`,
+          status: 'in_progress',
+        }),
+    )
+    const lastPage = [
+      recordWire({
+        id: 'rec-last',
+        identifier: 'EXP-last',
+        status: 'in_review',
+      }),
+    ]
+    let served = false
+    client.list.mockImplementation((resource: string) => {
+      if (resource === 'notebook_template_versions')
+        return Promise.resolve(VERSIONS)
+      if (resource === 'records') {
+        const rows = served ? lastPage : firstPage
+        served = true
+        return Promise.resolve(rows)
+      }
+      if (resource === 'projects') return Promise.resolve(PROJECTS)
+      return Promise.resolve([])
+    })
+    client.count.mockResolvedValue(TEMPLATE_USERS_PAGE_SIZE + 1)
+    renderRoute()
+
+    const matrix = await screen.findByRole('table', {
+      name: 'Records by version',
+    })
+    const rows = within(matrix).getAllByRole('row')
+    expect(
+      within(rows[1])
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['v2current', '200', '1', '0', '201'])
+    expect(
+      screen.getByText('201 records in total · 0 signed · 1 in review.'),
+    ).toBeTruthy()
   })
 
   it('banners the in-use set that is behind the current version', async () => {

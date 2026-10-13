@@ -20,6 +20,41 @@ import {
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
 
+/** One project as the picker needs it: its access is resolved separately. */
+interface ProjectOption {
+  id: string
+  title: string
+  archived_at: string | null
+  status: string
+}
+
+/**
+ * How long the form waits for the reads that gate the picker. The form cannot
+ * stay inert on a read that never settles — a stalled request, a hydration
+ * mismatch or a dead proxy all look identical to the author — so past the
+ * deadline the form states the failure and offers a retry.
+ */
+export const FORM_READ_TIMEOUT_MS = 10_000
+
+/** Reject when `read` has not answered within the form's budget. */
+function withDeadline<T>(read: Promise<T>, label: string): Promise<T> {
+  // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
+  const deadline = new Promise<never>((_resolve, reject) => {
+    setTimeout(
+      () =>
+        reject(
+          new Error(
+            `${label} did not answer within ${FORM_READ_TIMEOUT_MS / 1000} seconds.`,
+          ),
+        ),
+      FORM_READ_TIMEOUT_MS,
+    )
+  })
+  // The losing side is handled by `race`, so a late rejection is never
+  // unhandled — and a settled read leaves only one idle timer behind.
+  return Promise.race([read, deadline])
+}
+
 /**
  * The refusal the create RPC actually returns, said in a way the author can
  * act on. A row-level-security rejection means the project is view-only for
@@ -64,23 +99,29 @@ function NewExperiment() {
   const projects = useQuery({
     queryKey: ['ui-port', 'experiments', 'new', 'projects'],
     queryFn: () =>
-      notebookDataClient.list<{
-        id: string
-        title: string
-        archived_at: string | null
-        status: string
-      }>('projects', '?select=id,title,archived_at,status&order=title.asc'),
+      withDeadline(
+        notebookDataClient.list<ProjectOption>(
+          'projects',
+          '?select=id,title,archived_at,status&order=title.asc',
+        ),
+        'The project list',
+      ),
     staleTime: 60_000,
+    retry: false,
   })
   const rows = projects.data ?? []
-  type ProjectOption = (typeof rows)[number]
   // Which of those projects the caller may write to. `api.projects` returns
   // every project the account can *view*; the create RPC inserts under
   // `records_live_insert`, so a view-only default fails with a raw RLS error.
   const assignments = useQuery({
     queryKey: ['ui-port', 'experiments', 'new', 'project-access'],
-    queryFn: () => fetchMyProjectAssignments(notebookDataClient),
+    queryFn: () =>
+      withDeadline(
+        fetchMyProjectAssignments(notebookDataClient),
+        'The project-permission check',
+      ),
     staleTime: 60_000,
+    retry: false,
   })
   const [projectId, setProjectId] = useState(search.project ?? '')
   const [title, setTitle] = useState('')
@@ -154,11 +195,17 @@ function NewExperiment() {
       ),
     [assignments.data],
   )
+  const accessPending = assignments.isLoading
   const accessKnown = assignments.isSuccess
   const isArchived = (project: ProjectOption) =>
     Boolean(project.archived_at) || project.status === 'archived'
+  // A project can hold a new experiment when the account can edit it and the
+  // project is not archived. Until the permission read answers we do not know,
+  // so every project counts as usable: the create states its own refusal
+  // inline, which beats an inert form.
   const canCreateIn = (project: ProjectOption) =>
-    accessKnown && writableProjectIds.has(project.id) && !isArchived(project)
+    !accessKnown ||
+    (writableProjectIds.has(project.id) && !isArchived(project))
   const projectNote = (project: ProjectOption) =>
     !accessKnown
       ? ''
@@ -242,7 +289,12 @@ function NewExperiment() {
 
   const submit = () => {
     setTouched(true)
-    if (!accessKnown || title.trim().length < 5 || !effectiveProjectId) return
+    if (
+      accessPending ||
+      title.trim().length < 5 ||
+      !effectiveProjectId
+    )
+      return
     create.mutate()
   }
 
@@ -280,15 +332,15 @@ function NewExperiment() {
             value={effectiveProjectId}
             onChange={(e) => setProjectId(e.target.value)}
             disabled={
-              projects.isLoading || assignments.isLoading || !accessKnown
+              projects.isLoading || accessPending || rows.length === 0
             }
           >
-            {!accessKnown ? (
-              <option value="">
-                {assignments.isLoading
-                  ? 'Checking project access…'
-                  : 'Project access unavailable'}
-              </option>
+            {projects.isLoading ? (
+              <option value="">Loading projects…</option>
+            ) : projects.isError ? (
+              <option value="">Project list unavailable</option>
+            ) : accessPending ? (
+              <option value="">Checking project access…</option>
             ) : rows.length === 0 ? (
               <option value="">No projects yet</option>
             ) : null}
@@ -401,7 +453,7 @@ function NewExperiment() {
           <Button
             type="submit"
             variant="primary"
-            disabled={create.isPending || !accessKnown || !effectiveProjectId}
+            disabled={create.isPending || accessPending || !effectiveProjectId}
           >
             {create.isPending ? 'Creating…' : 'Create draft'}
           </Button>
@@ -414,14 +466,32 @@ function NewExperiment() {
             {createErrorMessage(create.error)}
           </p>
         ) : null}
-        {assignments.isLoading ? (
+        {projects.isLoading ? (
+          <Muted>Loading the projects you can put an experiment in…</Muted>
+        ) : null}
+        {projects.isError ? (
+          <span className="flex items-center gap-2">
+            <Muted>
+              Couldn’t load the project list, so there is nothing to choose.
+            </Muted>
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => void projects.refetch()}
+            >
+              Retry
+            </Button>
+          </span>
+        ) : null}
+        {accessPending ? (
           <Muted>Checking which projects you can write to…</Muted>
         ) : null}
         {assignments.isError ? (
           <span className="flex items-center gap-2">
             <Muted>
-              Couldn’t check which projects you can write to, so creating is
-              paused.
+              Couldn’t check which projects you can write to, so every project
+              is listed. A create in a project you can only view is refused,
+              and the refusal is shown here.
             </Muted>
             <Button
               size="sm"
@@ -432,7 +502,7 @@ function NewExperiment() {
             </Button>
           </span>
         ) : null}
-        {rows.length === 0 && !projects.isLoading ? (
+        {rows.length === 0 && !projects.isLoading && !projects.isError ? (
           <Muted>Create a project first; an experiment belongs to one.</Muted>
         ) : null}
         {accessKnown && rows.length > 0 && !effectiveProjectId ? (

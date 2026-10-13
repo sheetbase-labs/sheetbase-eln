@@ -14,7 +14,7 @@ import {
 } from '#/components/v3/datasets/datasets-data'
 import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
 import { fetchActiveDatasetFlags } from './dataset-flags'
-import { toWorkItem } from './work-items/data'
+import { fetchNeedsActionCounts, toWorkItem } from './work-items/data'
 import type { WorkItem, WorkItemWire } from './work-items/data'
 
 export async function fetchHomeMaterials(client: DataClient) {
@@ -112,6 +112,7 @@ export async function fetchHomeReviews(client: DataClient, userId: string) {
     return [
       {
         id: submission.id,
+        recordId: submission.record_id,
         revisionId: submission.revision_id,
         identifier: record.identifier,
         title: record.title,
@@ -206,17 +207,12 @@ export async function fetchHomeCounts(
 ) {
   const workspace = `workspace_id=eq.${encodeURIComponent(workspaceId)}`
   const [
-    reviews,
     datasetsWithErrors,
     experimentsInProgress,
     instrumentRuns,
-    inbox,
+    inboxCounts,
     unreadNotifications,
   ] = await Promise.all([
-    client.count(
-      'my_work_items',
-      '?kind=eq.review_requested&state=in.(needs_action,overdue)',
-    ),
     // This security-invoker RPC returns one row per readable Dataset,
     // independent of how many active flags that Dataset has.
     client.count(
@@ -231,17 +227,19 @@ export async function fetchHomeCounts(
       'instrument_runs',
       `?${workspace}&started_at=gte.${encodeURIComponent(range.start)}&started_at=lt.${encodeURIComponent(range.end)}`,
     ),
-    client.count('my_work_items', '?state=in.(needs_action,overdue)'),
+    // QA2-Inbox-1: the Inbox totals come from the one Inbox predicate, not a
+    // second state-only count, so Home's chips and the list they open agree.
+    fetchNeedsActionCounts(client),
     // R5-HOME-01: the same unread authority the notifications bell reads, so
     // the quiet condition cannot call a page calm while the bell shows unread.
     client.count('my_notifications', '?read_at=is.null'),
   ])
   return {
-    reviews,
+    reviews: inboxCounts.reviews,
     datasetsWithErrors,
     experimentsInProgress,
     instrumentRuns,
-    inbox,
+    inbox: inboxCounts.total,
     unreadNotifications,
   }
 }

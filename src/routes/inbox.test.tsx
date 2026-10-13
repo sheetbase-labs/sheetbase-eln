@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
-  itemKey,
   itemLink,
   recordLink,
   reviewNeedsLargerScreen,
@@ -14,10 +13,12 @@ import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import type * as router from '@tanstack/react-router'
 import type * as workItems from '#/lib/work-items/data'
 import type { WorkItem } from '#/lib/work-items/data'
+import { itemKey } from '#/lib/work-items/predicate'
 
-const { navigate, items, state, invalidate } = vi.hoisted(() => {
+const { navigate, items, state, invalidate, seen } = vi.hoisted(() => {
   const navigateMock = vi.fn()
   const invalidateMock = vi.fn()
+  const seenKeys: string[] = []
   const workItems: WorkItem[] = [
     {
       kind: 'review_requested',
@@ -46,7 +47,8 @@ const { navigate, items, state, invalidate } = vi.hoisted(() => {
     navigate: navigateMock,
     invalidate: invalidateMock,
     items: workItems,
-    state: { error: null as Error | null },
+    seen: seenKeys,
+    state: { error: null as Error | null, loading: false },
   }
 })
 
@@ -59,6 +61,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     ),
     useNavigate: () => navigate,
     useRouter: () => ({ invalidate: invalidate }),
+    useSearch: () => ({}),
   }
 })
 
@@ -68,7 +71,7 @@ vi.mock('#/components/v3/ui/sonner', () => ({
 
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: {
-    list: vi.fn(async () => []),
+    list: vi.fn(async () => seen.map((item_key) => ({ item_key }))),
     rpc: vi.fn(async () => []),
   },
 }))
@@ -87,7 +90,9 @@ vi.mock('#/lib/work-items/data', async (importOriginal) => {
             error: state.error,
             refetch: vi.fn(),
           }
-        : { data: items, isLoading: false, isError: false },
+        : state.loading
+          ? { data: undefined, isLoading: true, isError: false }
+          : { data: items, isLoading: false, isError: false },
   }
 })
 
@@ -111,6 +116,8 @@ afterEach(() => {
   navigate.mockReset()
   invalidate.mockReset()
   state.error = null
+  state.loading = false
+  seen.length = 0
   items.splice(2)
 })
 
@@ -133,6 +140,32 @@ function renderInbox() {
 function currentRow() {
   return document.querySelector('[role="listitem"][aria-current]')
 }
+
+describe('Inbox needs-action predicate (QA2-Inbox-1)', () => {
+  it('counts only unseen items, so a seen item leaves Needs action for Done today', async () => {
+    seen.push('review_requested:record-1')
+    const { getByRole, queryByRole } = renderInbox()
+    // The seen read is async, so the counts settle after it answers.
+    await waitFor(() =>
+      expect(
+        getByRole('tab', { name: /^Needs action/ }).textContent,
+      ).toMatch(/1$/),
+    )
+    expect(getByRole('tab', { name: /^Done today/ }).textContent).toMatch(/1$/)
+    expect(queryByRole('button', { name: /First review/ })).toBeNull()
+    expect(getByRole('button', { name: /Second review/ })).toBeTruthy()
+  })
+
+  it('shows an unknown count, not zero, while the read is outstanding', () => {
+    state.loading = true
+    const { getByRole, queryByText } = renderInbox()
+    expect(getByRole('tab', { name: /^Needs action/ }).textContent).toMatch(
+      /—$/,
+    )
+    expect(getByRole('button', { name: /^Reviews/ }).textContent).toMatch(/—$/)
+    expect(queryByText('Loading…')).toBeTruthy()
+  })
+})
 
 describe('Inbox witness presentation (REV-02)', () => {
   it('uses the exact frozen revision and preserves the witness request identity', () => {

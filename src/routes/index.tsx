@@ -10,7 +10,6 @@ import {
   Section,
 } from '#/components/v3/ui/layout'
 import { Dot, Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
 import {
   Table,
   TableBody,
@@ -42,7 +41,14 @@ import {
   isCurrentStatement,
   signatureCertificationDataClient,
 } from '#/lib/signature-certification'
-import { describeAuditEvent, fetchAuditEvents } from '#/lib/audit-history'
+import {
+  auditLinkFor,
+  describeAuditEvent,
+  ENTITY_LABELS,
+  fetchAuditEvents,
+} from '#/lib/audit-history'
+import type { DescribedAuditEvent } from '#/lib/audit-history'
+import { ObjectHistoryDialog } from '#/components/audit/object-history-dialog'
 import {
   buildComingUp,
   continueWorkingItems,
@@ -68,6 +74,8 @@ import {
   homeDueLabel,
   homeMaterialExpiryLabel,
 } from '#/lib/home-data'
+import { fetchSeenItemKeys, workItemsQueryKeys } from '#/lib/work-items/data'
+import { needsAction } from '#/lib/work-items/predicate'
 import {
   fetchWorkspaceGeneral,
   workspaceGeneralQueryKey,
@@ -94,12 +102,14 @@ export const Route = createFileRoute('/')({
   component: Home,
 })
 
+/** No seen keys until that read answers; an empty set marks nothing seen. */
+const EMPTY_SEEN: ReadonlySet<string> = new Set()
+
 interface FirstRunProject {
   id: string
   title: string
   accessLevel: string
 }
-
 export interface FirstRunInput {
   workspaceName: string
   accountHint?: string
@@ -345,9 +355,31 @@ export function Home() {
     enabled: Boolean(workspaceId),
   })
 
-  const reviews = reviewsQuery.data ?? []
+  // QA2-Inbox-1: the same seen state the Inbox list drops items by, so the
+  // reviews and materials Home names cannot outlive what the Inbox lists.
+  const seenQuery = useQuery({
+    queryKey: workItemsQueryKeys.seen(),
+    queryFn: () => fetchSeenItemKeys(),
+    enabled: Boolean(workspaceId),
+  })
+  const seen = seenQuery.data ?? EMPTY_SEEN
+
+  const reviews = (reviewsQuery.data ?? []).filter((review) =>
+    needsAction(
+      {
+        kind: 'review_requested',
+        state: 'needs_action',
+        recordId: review.recordId,
+        identifier: review.identifier,
+        title: review.title,
+      },
+      seen,
+    ),
+  )
   const datasetIssues = datasetIssuesQuery.data ?? []
-  const materials = materialsQuery.data ?? []
+  const materials = (materialsQuery.data ?? []).filter((material) =>
+    needsAction(material, seen),
+  )
   const bookings = (bookingsQuery.data ?? []).filter(
     (b: CalendarBookingWire) => !b.cancelled_at,
   )
@@ -450,35 +482,10 @@ export function Home() {
   })
   const progress = firstRunProgress(setupSteps)
 
-  const chips = [
-    {
-      n: counts?.reviews,
-      label: 'to review',
-      tone: 'review' as Tone,
-      to: '/inbox' as const,
-    },
-    {
-      n: counts?.datasetsWithErrors,
-      label:
-        counts?.datasetsWithErrors === 1
-          ? 'dataset with errors'
-          : 'datasets with errors',
-      tone: 'bad' as Tone,
-      to: '/datasets' as const,
-    },
-    {
-      n: counts?.experimentsInProgress,
-      label: 'experiments in progress',
-      tone: 'progress' as Tone,
-      to: '/experiments' as const,
-    },
-    {
-      n: counts?.instrumentRuns,
-      label: 'instrument runs today',
-      tone: 'analysis' as Tone,
-      to: '/schedule' as const,
-    },
-  ]
+  // QA2-Home-1: a chip leads to the set it counts, so the destination opens
+  // filtered to that set instead of its unfiltered default.
+  const chipClass =
+    'inline-flex items-center gap-2 text-body text-fg no-underline hover:underline'
 
   const today = new Date().toLocaleDateString('en-GB', {
     timeZone,
@@ -496,6 +503,7 @@ export function Home() {
     recentsQuery,
     reviewsQuery,
     materialsQuery,
+    seenQuery,
     activityQuery,
     ...(showFirstRun
       ? [
@@ -722,18 +730,54 @@ export function Home() {
               aria-label="Summary"
               className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-border-subtle py-2.5"
             >
-              {chips.map((c) => (
-                <Link
-                  key={c.label}
-                  to={c.to}
-                  className="inline-flex items-center gap-2 text-body text-fg no-underline hover:underline"
-                >
-                  <Dot tone={c.tone} />
-                  <span>
-                    <b className="num font-semibold">{c.n ?? '—'}</b> {c.label}
-                  </span>
-                </Link>
-              ))}
+              <Link
+                to="/inbox"
+                search={{ type: 'reviews' }}
+                className={chipClass}
+              >
+                <Dot tone="review" />
+                <span>
+                  <b className="num font-semibold">{counts?.reviews ?? '—'}</b>{' '}
+                  to review
+                </span>
+              </Link>
+              <Link
+                to="/datasets"
+                search={{ tab: 'issues' }}
+                className={chipClass}
+              >
+                <Dot tone="bad" />
+                <span>
+                  <b className="num font-semibold">
+                    {counts?.datasetsWithErrors ?? '—'}
+                  </b>{' '}
+                  {counts?.datasetsWithErrors === 1
+                    ? 'dataset with errors'
+                    : 'datasets with errors'}
+                </span>
+              </Link>
+              <Link
+                to="/experiments"
+                search={{ tab: 'inprogress' }}
+                className={chipClass}
+              >
+                <Dot tone="progress" />
+                <span>
+                  <b className="num font-semibold">
+                    {counts?.experimentsInProgress ?? '—'}
+                  </b>{' '}
+                  experiments in progress
+                </span>
+              </Link>
+              <Link to="/schedule" className={chipClass}>
+                <Dot tone="analysis" />
+                <span>
+                  <b className="num font-semibold">
+                    {counts?.instrumentRuns ?? '—'}
+                  </b>{' '}
+                  instrument runs today
+                </span>
+              </Link>
               <span className="flex-1" />
               <Link to="/inbox" className="text-label">
                 Open inbox · {inboxCount ?? '—'} items
@@ -767,10 +811,16 @@ export function Home() {
                       {reviews.map((r) => (
                         <TableRow key={r.id}>
                           <TableCell>
-                            <span className="mono text-fg-muted">
-                              {r.identifier}
-                            </span>{' '}
-                            {r.title}
+                            <Link
+                              to="/review/$revisionId"
+                              params={{ revisionId: r.revisionId }}
+                              className="text-fg hover:text-link"
+                            >
+                              <span className="mono text-fg-muted">
+                                {r.identifier}
+                              </span>{' '}
+                              {r.title}
+                            </Link>
                           </TableCell>
                           <TableCell>{r.projectTitle ?? '—'}</TableCell>
                           <TableCell>{r.submittedByName ?? '—'}</TableCell>
@@ -1061,7 +1111,7 @@ export function Home() {
                             ? 'You'
                             : (a.event.actorName ?? 'System')}
                         </b>{' '}
-                        {a.action} {a.subject}
+                        {a.action} <ActivitySubject described={a} />
                       </div>
                       {a.changes.map((change, index) => (
                         <div
@@ -1087,5 +1137,34 @@ export function Home() {
         </Inspector>
       )}
     </div>
+  )
+}
+
+/**
+ * QA2-Home-2 — an activity entry must name the thing it changed and offer a
+ * way to open it. A subject with a canonical product route opens it; one
+ * without (workspace settings, template versions, …) opens its authoritative
+ * history instead, so no entry is inert.
+ */
+function ActivitySubject({ described }: { described: DescribedAuditEvent }) {
+  const link = auditLinkFor(described.event)
+  if (link)
+    return (
+      <a href={link.href} className="hover:text-link">
+        {described.subject}
+      </a>
+    )
+  return (
+    <>
+      {described.subject}{' '}
+      <ObjectHistoryDialog
+        objectId={described.event.entityUuid}
+        objectLabel={
+          ENTITY_LABELS[described.event.entityType] ??
+          described.event.entityType
+        }
+        triggerLabel="History"
+      />
+    </>
   )
 }

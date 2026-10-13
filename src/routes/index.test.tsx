@@ -176,6 +176,39 @@ const fake = vi.hoisted(() => {
             retired_at: at(-100),
           },
         ]
+      case 'my_work_items': {
+        // QA2-Inbox-1: Home counts through the Inbox predicate over the item
+        // rows, so the fake states the items, not a bare total.
+        if (query.includes('kind=eq.material_expiring')) return []
+        const rows = []
+        for (let i = 0; i < fixture.reviews; i += 1) {
+          rows.push({
+            kind: 'review_requested',
+            record_id: `rec-review-${i}`,
+            identifier: `EXP-013${i}`,
+            title: 'Review item',
+            state: 'needs_action',
+            reason: 'Review requested',
+            due_at: null,
+            created_at: null,
+          })
+        }
+        for (let i = fixture.reviews; i < fixture.inbox; i += 1) {
+          rows.push({
+            kind: 'data_issue',
+            record_id: null,
+            identifier: `DS-000${i}`,
+            title: 'Flagged dataset',
+            state: 'needs_action',
+            reason: 'Flagged',
+            due_at: null,
+            created_at: null,
+          })
+        }
+        return rows
+      }
+      case 'work_item_views':
+        return []
       case 'review_submissions':
         return fixture.reviews > 0
           ? [
@@ -361,9 +394,17 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       search?: unknown
     }) => {
       void params
-      void search
+      const suffix =
+        search && typeof search === 'object'
+          ? '?' +
+            new URLSearchParams(
+              Object.entries(search as Record<string, unknown>).map(
+                ([key, value]) => [key, String(value)],
+              ),
+            ).toString()
+          : ''
       return (
-        <a href={typeof to === 'string' ? to : '#'} {...rest}>
+        <a href={`${typeof to === 'string' ? to : '#'}${suffix}`} {...rest}>
           {children}
         </a>
       )
@@ -510,6 +551,37 @@ describe('Home pace', () => {
       screen.getByRole('heading', { name: 'Awaiting your review' }),
     ).toBeTruthy()
     expect(screen.getAllByRole('button', { name: 'Review' })).toHaveLength(1)
+
+    // QA2-Home-1: every chip opens the set it counts, filtered.
+    expect(
+      within(summary)
+        .getByRole('link', { name: /to review/ })
+        .getAttribute('href'),
+    ).toBe('/inbox?type=reviews')
+    expect(
+      within(summary)
+        .getByRole('link', { name: /datasets with errors/ })
+        .getAttribute('href'),
+    ).toBe('/datasets?tab=issues')
+    expect(
+      within(summary)
+        .getByRole('link', { name: /experiments in progress/ })
+        .getAttribute('href'),
+    ).toBe('/experiments?tab=inprogress')
+
+    // QA2-Home-3: the awaiting row's name opens the review, like Continue
+    // working's rows.
+    expect(screen.getByText(/Stability hold/).closest('a')).not.toBeNull()
+  })
+
+  it('offers a way to open each recent-activity entry (QA2-Home-2)', async () => {
+    fixture.inbox = 2
+    renderHome()
+
+    await screen.findByRole('navigation', { name: 'Summary' })
+    // The fake event names no canonical product route, so the entry opens its
+    // authoritative history rather than standing inert.
+    expect(screen.getByRole('button', { name: /History/ })).toBeTruthy()
   })
 
   it('states the same inbox total as the sidebar badge, not the narrower home count', async () => {

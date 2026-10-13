@@ -86,6 +86,7 @@ describe('Home authority enrichment', () => {
     ).toEqual([
       {
         id: 's1',
+        recordId: 'r1',
         revisionId: 'rev-frozen',
         identifier: 'EXP-0138',
         title: 'PEI:DNA sweep',
@@ -344,6 +345,51 @@ describe('Home exact totals', () => {
     const fetchImpl = vi.fn<typeof fetch>(async (input) => {
       const url = new URL(String(input), 'http://sheetbase.test')
       urls.push(url.pathname + url.search)
+      if (url.pathname.endsWith('/my_work_items')) {
+        // The Inbox counts read the rows (the predicate needs each identity),
+        // not a state-only count.
+        expect(url.searchParams.has('limit')).toBe(true)
+        return new Response(
+          JSON.stringify([
+            {
+              kind: 'review_requested',
+              record_id: 'r1',
+              identifier: 'EXP-0001',
+              title: 'Review',
+              state: 'needs_action',
+              reason: 'Review requested',
+              due_at: null,
+              created_at: null,
+            },
+            {
+              kind: 'data_issue',
+              record_id: null,
+              identifier: 'DS-0001',
+              title: 'Seen issue',
+              state: 'needs_action',
+              reason: 'Flagged',
+              due_at: null,
+              created_at: null,
+            },
+            {
+              kind: 'data_issue',
+              record_id: null,
+              identifier: 'DS-0002',
+              title: 'Open issue',
+              state: 'needs_action',
+              reason: 'Flagged',
+              due_at: null,
+              created_at: null,
+            },
+          ]),
+        )
+      }
+      if (url.pathname.endsWith('/work_item_views')) {
+        expect(url.searchParams.get('select')).toBe('item_key')
+        return new Response(
+          JSON.stringify([{ item_key: 'data_issue:DS-0001' }]),
+        )
+      }
       let total: number
       if (url.pathname.endsWith('/rpc/dataset_list_summary')) {
         expect(url.searchParams.get('issue_count')).toBe('gt.0')
@@ -362,10 +408,6 @@ describe('Home exact totals', () => {
         expect(url.searchParams.get('status')).toBe('eq.in_progress')
         expect(url.searchParams.get('deleted_at')).toBe('is.null')
         total = 1403
-      } else if (url.pathname.endsWith('/my_work_items')) {
-        expect(url.searchParams.get('state')).toBe('in.(needs_action,overdue)')
-        total =
-          url.searchParams.get('kind') === 'eq.review_requested' ? 257 : 280
       } else if (url.pathname.endsWith('/my_notifications')) {
         expect(url.searchParams.get('read_at')).toBe('is.null')
         total = 3
@@ -383,11 +425,12 @@ describe('Home exact totals', () => {
         end: '2026-09-25T23:00:00.000Z',
       }),
     ).toEqual({
-      reviews: 257,
+      // One review and one unseen data issue; the second data issue is seen.
+      reviews: 1,
       datasetsWithErrors: 7,
       experimentsInProgress: 1403,
       instrumentRuns: 2,
-      inbox: 280,
+      inbox: 2,
       unreadNotifications: 3,
     })
     expect(urls).toHaveLength(6)

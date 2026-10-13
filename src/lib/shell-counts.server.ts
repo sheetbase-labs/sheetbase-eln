@@ -4,6 +4,8 @@
  */
 import { db } from '#/db/client.server'
 
+import { getInboxCounts } from '#/lib/work-items/inbox-counts.server'
+
 export interface ShellCounts {
   inbox?: string
   datasets?: string
@@ -15,35 +17,11 @@ export async function getShellCounts(
   userId: string,
 ): Promise<ShellCounts> {
   const client = db.$client
-  // The Inbox view reads the caller's claims, so run it in a transaction with
-  // the claims set for the pool connection.
-  const inboxCount = await (async () => {
-    const c = await client.connect()
-    try {
-      await c.query('begin')
-      await c.query("select set_config('request.jwt.claims', $1, true)", [
-        JSON.stringify({
-          sub: userId,
-          workspace_id: workspaceId,
-          role: 'authenticated',
-        }),
-      ])
-      // The badge labels the Inbox's "Needs action" tab, and Home's
-      // "Open inbox · N items" uses the same predicate. State the same set the
-      // list does: `done_today` items are behind the inbox's Done tab, and
-      // `following` items need no action.
-      const r = await c.query<{ n: string }>(
-        "select count(*)::int as n from api.my_work_items where state in ('needs_action', 'overdue')",
-      )
-      await c.query('commit')
-      return Number(r.rows[0]?.n ?? 0)
-    } catch {
-      await c.query('rollback').catch(() => {})
-      return 0
-    } finally {
-      c.release()
-    }
-  })()
+  // The badge labels the Inbox's "Needs action" tab, and Home's
+  // "Open inbox · N items" uses the same number. Both read the one Inbox
+  // predicate (`work-items/predicate.ts`), so the sidebar cannot state a set
+  // the list hides behind the seen state or the Done tab.
+  const inboxCount = (await getInboxCounts(workspaceId, userId)).total
 
   const [flags, failed] = await Promise.all([
     client.query<{ n: string }>(

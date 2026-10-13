@@ -4,6 +4,7 @@ import {
   createFileRoute,
   useNavigate,
   useRouter,
+  useSearch,
 } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '#/components/v3/ui/sonner'
@@ -24,10 +25,16 @@ import {
 } from '#/components/shortcuts/shortcut-provider'
 import { listShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
-import { groupWorkItems, useWorkItems } from '#/lib/work-items/data'
+import {
+  fetchSeenItemKeys,
+  groupWorkItems,
+  useWorkItems,
+  workItemsQueryKeys,
+} from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
+import { itemKey, itemTab, workItemType } from '#/lib/work-items/predicate'
+import type { InboxTab } from '#/lib/work-items/predicate'
 
-type InboxTab = 'needs-action' | 'following' | 'done-today'
 type InboxType = 'reviews' | 'data' | 'runs' | 'materials' | 'following'
 
 const tabs: [InboxTab, string][] = [
@@ -44,18 +51,28 @@ const types: [InboxType, string, Tone, WorkItemKind][] = [
 
 /** UI port (roadmap-4/ui-app3): the Inbox, wired to `my_work_items`. */
 export const Route = createFileRoute('/inbox')({
+  // The Home chips open a specific tab/type here, so the set a chip counted is
+  // the set the page shows.
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: InboxTab; type?: InboxType } => ({
+    tab:
+      search.tab === 'following' ||
+      search.tab === 'done-today' ||
+      search.tab === 'needs-action'
+        ? search.tab
+        : undefined,
+    type:
+      search.type === 'reviews' ||
+      search.type === 'data' ||
+      search.type === 'runs' ||
+      search.type === 'materials' ||
+      search.type === 'following'
+        ? search.type
+        : undefined,
+  }),
   component: Inbox,
 })
-
-function kindToType(kind: WorkItemKind): InboxType {
-  if (kind === 'review_requested' || kind === 'witness_requested')
-    return 'reviews'
-  if (kind === 'data_issue') return 'data'
-  if (kind === 'run_failed' || kind === 'run_waiting') return 'runs'
-  if (kind === 'material_expiring') return 'materials'
-  if (kind === 'cell_conflict') return 'data'
-  return 'following'
-}
 
 function toneFor(kind: WorkItemKind): Tone {
   if (kind === 'review_requested' || kind === 'witness_requested')
@@ -82,11 +99,6 @@ function labelFor(kind: WorkItemKind, state: string): string {
   return 'Following'
 }
 
-/** Stable key for an Inbox item across reloads. */
-export function itemKey(item: WorkItem): string {
-  return `${item.kind}:${item.sourceId ?? item.recordId ?? item.identifier ?? item.title}`
-}
-
 /** The per-row identity used for selection and the rendered list key. */
 export function rowKey(item: WorkItem): string {
   return item.sourceId ?? item.recordId ?? item.identifier ?? item.title
@@ -107,14 +119,6 @@ export function moveListSelection(
   const base = index === -1 ? 0 : index
   const next = Math.min(keys.length - 1, Math.max(0, base + delta))
   return keys[next]
-}
-
-function itemTab(item: WorkItem, seen: Set<string>): InboxTab {
-  if (item.state === 'following' || item.kind === 'following')
-    return 'following'
-  if (seen.has(itemKey(item)) || item.state === 'done_today')
-    return 'done-today'
-  return 'needs-action'
 }
 
 export function itemLink(item: WorkItem) {
@@ -170,37 +174,39 @@ export function reviewNeedsLargerScreen(item: WorkItem): boolean {
 function Inbox() {
   const query = useWorkItems()
   const items = query.data ?? []
-  const [tab, setTab] = useState<InboxTab>('needs-action')
-  const [type, setType] = useState<InboxType | undefined>(undefined)
+  const search = useSearch({ from: '/inbox' })
+  const [tab, setTab] = useState<InboxTab>(search.tab ?? 'needs-action')
+  const [type, setType] = useState<InboxType | undefined>(search.type)
   const [later, setLater] = useState(false)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [selection, setSelection] = useState<Set<string>>(() => new Set())
 
+  // A chip on Home links to /inbox?type=… — follow the URL when it changes on
+  // an already-mounted page, not only on first mount.
+  useEffect(() => {
+    if (search.tab) setTab(search.tab)
+    setType(search.type)
+  }, [search.tab, search.type])
+
   const queryClient = useQueryClient()
   const router = useRouter()
   const seenQuery = useQuery({
-    queryKey: ['ui-port', 'inbox', 'seen'],
-    queryFn: async () => {
-      const rows = await notebookDataClient.list<{ item_key: string }>(
-        'work_item_views',
-        '?select=item_key',
-      )
-      return new Set(rows.map((r) => r.item_key))
-    },
+    queryKey: workItemsQueryKeys.seen(),
+    queryFn: () => fetchSeenItemKeys(),
     staleTime: 15_000,
   })
   const seen = seenQuery.data ?? new Set<string>()
 
   const groups = useMemo(() => groupWorkItems(items), [items])
   const inTab = items.filter((i) => itemTab(i, seen) === tab)
-  const visible = inTab.filter((i) => !type || kindToType(i.kind) === type)
+  const visible = inTab.filter((i) => !type || workItemType(i.kind) === type)
   const visibleKeys = useMemo(
     () => new Set(visible.map((i) => itemKey(i))),
     [visible],
   )
   const shown = visible.filter((i) => later || !groups.later.includes(i))
   const hiddenLater = groups.later.filter(
-    (i) => itemTab(i, seen) === tab && (!type || kindToType(i.kind) === type),
+    (i) => itemTab(i, seen) === tab && (!type || workItemType(i.kind) === type),
   ).length
   const sections: [string | null, WorkItem[]][] = useMemo(
     () =>
@@ -234,7 +240,12 @@ function Inbox() {
   const tabCount = (t: InboxTab) =>
     items.filter((i) => itemTab(i, seen) === t).length
   const typeCount = (t: InboxType) =>
-    inTab.filter((i) => kindToType(i.kind) === t).length
+    inTab.filter((i) => workItemType(i.kind) === t).length
+
+  // QA2-Inbox-2: while the read is outstanding the counts are unknown, not
+  // zero. Stating 0 made the page disagree with the sidebar and hid the fact
+  // that nothing had answered yet.
+  const countsKnown = !query.isLoading
 
   const needsActionKeys = items
     .filter((i) => itemTab(i, seen) === 'needs-action')
@@ -295,7 +306,7 @@ function Inbox() {
       notebookDataClient.rpc('mark_work_items_seen', { p_item_keys: keys }),
     onSuccess: () => {
       toast('Marked as seen')
-      void queryClient.invalidateQueries({ queryKey: ['ui-port', 'inbox'] })
+      void queryClient.invalidateQueries({ queryKey: ['work-items'] })
       // The Inbox badge and Home counts come from the router context, which
       // only a route re-resolution refreshes.
       void router.invalidate()
@@ -352,7 +363,7 @@ function Inbox() {
               >
                 {l}
                 <span className="text-label font-normal text-fg-muted">
-                  {tabCount(t)}
+                  {countsKnown ? tabCount(t) : '—'}
                 </span>
               </button>
             ))}
@@ -386,7 +397,7 @@ function Inbox() {
               onClick={() => setType(type === t ? undefined : t)}
             >
               <Dot tone={tone} />
-              {l} {typeCount(t)}
+              {l} {countsKnown ? typeCount(t) : '—'}
             </Button>
           ))}
           <span className="flex-1" />

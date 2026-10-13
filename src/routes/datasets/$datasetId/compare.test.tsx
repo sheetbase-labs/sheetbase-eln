@@ -17,10 +17,16 @@ const dataClient = vi.hoisted(() => ({
   rpc: vi.fn(),
 }))
 
+const searchState = vi.hoisted<{
+  current: { from?: string; to?: string }
+}>(() => ({
+  current: { from: 'v-1', to: 'v-2' },
+}))
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ datasetId: 'ds-1' }),
-    useSearch: () => ({ from: 'v-1', to: 'v-2' }),
+    useSearch: () => searchState.current,
     useRouteContext: () => ({ context: {} }),
     fullPath: '/datasets/$datasetId/compare',
     options: config,
@@ -73,6 +79,7 @@ function renderRoute() {
 }
 
 beforeEach(() => {
+  searchState.current = { from: 'v-1', to: 'v-2' }
   dataClient.rpc.mockImplementation(
     (name: string, args: Record<string, unknown>) => {
       if (name === 'dataset_version_list') return Promise.resolve(versions)
@@ -144,5 +151,44 @@ describe('dataset compare route paging', () => {
 
     await screen.findByText('No differences between these snapshots.')
     expect(screen.queryByRole('button', { name: /Load more/ })).toBeNull()
+  })
+
+  it('does not report an empty comparison or zero counts before the diff loads', async () => {
+    dataClient.rpc.mockImplementation((name: string) => {
+      if (name === 'dataset_version_list') return Promise.resolve(versions)
+      // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
+      return new Promise(() => {})
+    })
+    renderRoute()
+
+    await screen.findByText('Loading the comparison…')
+    expect(
+      screen.queryByText('No differences between these snapshots.'),
+    ).toBeNull()
+    // The five change counters must not claim a measured zero before the
+    // server has answered.
+    expect(screen.queryAllByText('—')).toHaveLength(5)
+  })
+
+  it('compares two different snapshots when the URL asks for the same one twice', async () => {
+    searchState.current = { from: 'v-2', to: 'v-2' }
+    renderRoute()
+
+    await waitFor(() =>
+      expect(dataClient.rpc).toHaveBeenCalledWith(
+        'compare_dataset_versions',
+        expect.objectContaining({ p_version_a: 'v-1', p_version_b: 'v-2' }),
+      ),
+    )
+    // Each side excludes the other, so the same snapshot cannot be chosen twice.
+    const toSelect = screen.getByLabelText<HTMLSelectElement>('To snapshot')
+    expect([...toSelect.options].map((option) => option.value)).not.toContain(
+      'v-1',
+    )
+    const fromSelect =
+      screen.getByLabelText<HTMLSelectElement>('From snapshot')
+    expect([...fromSelect.options].map((option) => option.value)).not.toContain(
+      'v-2',
+    )
   })
 })

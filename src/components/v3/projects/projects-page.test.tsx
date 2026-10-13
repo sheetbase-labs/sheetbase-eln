@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,17 +17,22 @@ import type * as ProjectData from './project-data'
 import type * as NotebookData from '#/lib/notebook-data'
 import type * as WorkspaceAccess from '#/lib/workspace-access'
 
-const { activity, milestones } = vi.hoisted(() => ({
+const { activity, milestones, dataClient } = vi.hoisted(() => ({
   activity: vi.fn<() => Promise<ProjectActivityEvent[]>>(async () => []),
   milestones: vi.fn<() => { data: ProjectData.ProjectMilestone[] }>(() => ({
     data: [],
   })),
+  dataClient: {
+    list: vi.fn<() => Promise<unknown[]>>(async () => []),
+    rpc: vi.fn<() => Promise<unknown>>(async () => ({})),
+  },
 }))
 vi.mock('./project-data', async (importOriginal) => ({
   ...(await importOriginal<typeof ProjectData>()),
   fetchProjectActivity: activity,
   fetchProjectMembers: async () => [],
   useProjectMilestones: milestones,
+  projectDataClient: dataClient,
 }))
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal<typeof NotebookData>()),
@@ -64,6 +76,7 @@ function renderPage(
   projects: ProjectRow[],
   search: ProjectsSearch = {},
   meId?: string,
+  canCreate = true,
 ) {
   // ProjectsPage reads project access through react-query, as the route does
   // inside the app's provider.
@@ -76,6 +89,7 @@ function renderPage(
         projects={projects}
         me="Gareth P."
         meId={meId}
+        canCreate={canCreate}
         search={search}
         setSearch={() => {}}
         onCreate={() => {}}
@@ -287,5 +301,79 @@ describe('ProjectsPage', () => {
       screen.queryByRole('columnheader', { name: 'Experiments' }),
     ).toBeNull()
     expect(screen.getByRole('columnheader', { name: 'Client' })).toBeTruthy()
+  })
+
+  it('sorts by ID ascending, matching the label and the Name order', () => {
+    renderPage(
+      [
+        row({ id: 'PRJ-0217' }),
+        row({
+          id: 'PRJ-0100',
+          uuid: '00000000-0000-4000-8000-000000000100',
+          name: 'Early project',
+        }),
+        row({
+          id: 'PRJ-0320',
+          uuid: '00000000-0000-4000-8000-000000000320',
+          name: 'Late project',
+        }),
+      ],
+      { sort: 'id' },
+    )
+    const table = screen.getByRole('table', { name: 'Projects' })
+    const idCells = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((tableRow) => within(tableRow).getAllByRole('cell')[0].textContent)
+    expect(idCells).toEqual(['PRJ-0100', 'PRJ-0217', 'PRJ-0320'])
+  })
+
+  it('spans a group band across exactly the table columns', () => {
+    renderPage(
+      [row(), row({ id: 'PRJ-0100', name: 'Second project' })],
+      { group: 'stage' },
+    )
+    const table = screen.getByRole('table', { name: 'Projects' })
+    const columnCount = within(table).getAllByRole('columnheader').length
+    const band = screen.getByText((_, element) => {
+      return element?.tagName === 'TD' && element.textContent === 'Tech transfer 2'
+    })
+    expect(Number(band.getAttribute('colspan'))).toBe(columnCount)
+  })
+
+  it('disables the empty-state New project and says why when the role cannot create', () => {
+    renderPage([], {}, undefined, false)
+    const emptyState = screen.getByText('No projects yet').parentElement
+    expect(emptyState).not.toBeNull()
+    expect(
+      within(emptyState as HTMLElement)
+        .getByRole('button', { name: 'New project' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    expect(
+      within(emptyState as HTMLElement).getByText(/role cannot create projects/),
+    ).toBeTruthy()
+  })
+
+  it('archives the selected projects only after the confirmation', async () => {
+    dataClient.list.mockResolvedValueOnce([{ role: 'owner' }])
+    renderPage(
+      [row(), row({ id: 'PRJ-0100', name: 'Second project' })],
+      {},
+      'me',
+    )
+    const boxes = await screen.findAllByRole('checkbox', { name: /^Select PRJ-/ })
+    fireEvent.click(boxes[0])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive 1' }))
+    // Destructive, so the RPC waits for the confirmation.
+    expect(dataClient.rpc).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive this project' }))
+    await waitFor(() =>
+      expect(dataClient.rpc).toHaveBeenCalledWith('archive_project', {
+        p_project_id: '00000000-0000-4000-8000-000000000320',
+      }),
+    )
   })
 })

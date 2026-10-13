@@ -321,23 +321,21 @@ function DatasetsList() {
                 {datasetValidation(sel).label}
               </Status>
             </div>
-            {sel.issues > 0 ? (
-              <div className="mt-1.5 flex gap-1.5">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/datasets/$datasetId/rows"
-                      params={{ datasetId: sel.uuid }}
-                    />
-                  }
-                >
-                  Open and fix
-                </Button>
-              </div>
-            ) : null}
+            <div className="mt-1.5 flex gap-1.5">
+              <Button
+                variant={sel.issues > 0 ? 'primary' : undefined}
+                size="sm"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/datasets/$datasetId/rows"
+                    params={{ datasetId: sel.uuid }}
+                  />
+                }
+              >
+                {sel.issues > 0 ? 'Open and fix' : 'Open dataset'}
+              </Button>
+            </div>
           </div>
           <div className="flex flex-col gap-[18px] px-4 py-3.5">
             {sel.issues > 0 ? (

@@ -1,10 +1,12 @@
+import { useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Diff } from '#/components/v3/ui/source'
 import { Muted } from '#/components/v3/ui/layout'
+import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -123,8 +125,17 @@ function Compare() {
   const navigate = useNavigate({ from: Route.fullPath })
   const versions = useDatasetVersions(datasetId)
   const list = versions.data ?? []
-  const to = search.to ?? list.at(0)?.id
-  const from = search.from ?? list.at(1)?.id
+  const versionIds = list.map((version) => version.id)
+  // Never compare a snapshot with itself: the RPC would compare a version to
+  // itself and every counter would report nothing changed.
+  const to =
+    search.to && versionIds.includes(search.to) && search.to !== search.from
+      ? search.to
+      : list.at(0)?.id
+  const from =
+    search.from && versionIds.includes(search.from) && search.from !== to
+      ? search.from
+      : list.find((version) => version.id !== to)?.id
 
   const diff = useInfiniteQuery({
     queryKey: ['ui-port', 'dataset-compare', datasetId, from, to],
@@ -145,6 +156,71 @@ function Compare() {
   const data = diff.data?.pages.at(0)
   const entries = diff.data?.pages.flatMap((page) => page.rows) ?? []
   const totalChanges = data ? snapshotCompareTotalRows(data.counts) : 0
+
+  // DSET-03.2 — field names come from the schema version fields; the compare
+  // payload carries field ids only.
+  const fieldIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const page of diff.data?.pages ?? []) {
+      for (const column of page.columns) ids.add(column.fieldId)
+      for (const row of page.rows) {
+        for (const field of row.fields) ids.add(field.fieldId)
+        for (const flag of row.flagFields) ids.add(flag.fieldId)
+      }
+    }
+    return [...ids]
+  }, [diff.data])
+  const fieldQuery = useQuery({
+    queryKey: ['ui-port', 'dataset-field-labels', datasetId, fieldIds],
+    enabled: fieldIds.length > 0,
+    queryFn: () =>
+      notebookDataClient.list<{ field_id: string; key: string; label: string }>(
+        'dataset_schema_version_fields',
+        `?field_id=in.(${fieldIds.map(encodeURIComponent).join(',')})&select=field_id,key,label`,
+      ),
+    staleTime: 60_000,
+  })
+  const labelByField = new Map(
+    (fieldQuery.data ?? []).map((field) => [
+      field.field_id,
+      field.label || field.key,
+    ]),
+  )
+  const fieldLabel = (fieldId: string) =>
+    labelByField.get(fieldId) ?? 'Unknown field'
+
+  // A snapshot stores no row number, so the table names each changed row by
+  // its position in this comparison (the page the server returns is ordered).
+  const rowNumber = new Map<string, number>()
+  entries.forEach((row, index) => {
+    if (!rowNumber.has(row.rowId)) rowNumber.set(row.rowId, index + 1)
+  })
+  const describeVersion = (id: string | undefined) => {
+    const version = list.find((candidate) => candidate.id === id)
+    return version
+      ? `${version.label} · ${version.createdAt.slice(0, 10)}`
+      : 'No snapshot'
+  }
+
+  if (versions.isPending) {
+    return (
+      <div className="px-4 py-4 md:px-6">
+        <Muted>Loading snapshots…</Muted>
+      </div>
+    )
+  }
+
+  if (versions.isError) {
+    return (
+      <div className="px-4 py-4 md:px-6">
+        <Notice tone="bad" title="The snapshots could not be loaded.">
+          {versions.error instanceof Error
+            ? versions.error.message
+            : 'The database refused the request.'}
+        </Notice>
+      </div>
+    )
+  }
 
   if (list.length < 2) {
     return (
@@ -178,11 +254,13 @@ function Compare() {
           value={from}
           onChange={(e) => pick('from', e.target.value)}
         >
-          {list.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.label} · {v.createdAt.slice(0, 10)}
-            </option>
-          ))}
+          {list
+            .filter((v) => v.id !== to)
+            .map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label} · {v.createdAt.slice(0, 10)}
+              </option>
+            ))}
         </select>
         <Icon name="chevronRight" size={14} />
         <label className="sr-only" htmlFor="to">
@@ -194,33 +272,45 @@ function Compare() {
           value={to}
           onChange={(e) => pick('to', e.target.value)}
         >
-          {list.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.label} · {v.createdAt.slice(0, 10)}
-            </option>
-          ))}
+          {list
+            .filter((v) => v.id !== from)
+            .map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label} · {v.createdAt.slice(0, 10)}
+              </option>
+            ))}
         </select>
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:flex md:gap-4">
-        {[
-          ['Rows added', data?.counts.added ?? 0],
-          ['Rows changed', data?.counts.changed ?? 0],
-          ['Rows removed', data?.counts.removed ?? 0],
-          ['Columns changed', data?.columns.length ?? 0],
-          ['Flag changes', data?.counts.flags ?? 0],
-        ].map(([l, n]) => (
+        {(
+          [
+            ['Rows added', data?.counts.added],
+            ['Rows changed', data?.counts.changed],
+            ['Rows removed', data?.counts.removed],
+            ['Columns changed', data?.columns.length],
+            ['Flag changes', data?.counts.flags],
+          ] as [string, number | undefined][]
+        ).map(([metric, count]) => (
           <div
-            key={l}
+            key={metric}
             className="rounded-md border border-border px-3.5 py-2.5 md:min-w-[150px]"
           >
-            <div className="text-label text-fg-muted">{l}</div>
-            <div className="num text-[20px] font-medium">{n}</div>
+            <div className="text-label text-fg-muted">{metric}</div>
+            <div className="num text-[20px] font-medium">{count ?? '—'}</div>
           </div>
         ))}
       </div>
 
-      {entries.length ? (
+      {diff.isPending ? (
+        <Muted>Loading the comparison…</Muted>
+      ) : diff.isError ? (
+        <Notice tone="bad" title="The comparison could not be loaded.">
+          {diff.error instanceof Error
+            ? diff.error.message
+            : 'The database refused the comparison.'}
+        </Notice>
+      ) : entries.length ? (
         <TableBox>
           <Table className="max-lg:min-w-[640px]">
             <TableHeader>
@@ -242,8 +332,8 @@ function Compare() {
                         {label[r.kind]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="mono">
-                      {r.rowId.slice(0, 8)}
+                    <TableCell className="num text-fg-muted">
+                      {rowNumber.get(r.rowId)}
                     </TableCell>
                     <TableCell>
                       {entry.isFlag ? (
@@ -255,7 +345,7 @@ function Compare() {
                           </span>
                         </span>
                       ) : entry.fieldId ? (
-                        entry.fieldId.slice(0, 8)
+                        fieldLabel(entry.fieldId)
                       ) : (
                         '—'
                       )}
@@ -294,9 +384,10 @@ function Compare() {
       ) : null}
 
       <Muted>
-        Comparing {from} with {to}. Field names show their ids until the schema
-        label join is added. Flag changes list the flag kind, source and the
-        reason before and after.
+        Comparing {describeVersion(from)} with {describeVersion(to)}. Rows are
+        numbered by their position in this comparison — a snapshot stores no
+        row number. Flag changes list the flag kind, source and the reason
+        before and after.
       </Muted>
     </div>
   )

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
@@ -24,6 +24,16 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/v3/ui/dialog'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +63,7 @@ import {
   fetchProjectActivity,
   useProjectMilestones,
   projectDataClient,
+  PROJECTS_KEY,
 } from './project-data'
 import { fetchRecordsForProject, notebookQueryKeys } from '#/lib/notebook-data'
 import { describeAuditEvent } from '#/lib/audit-history'
@@ -133,6 +144,9 @@ export function ProjectsPage({
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [active, setActive] = useState<string | null>(null)
   const [draftQ, setDraftQ] = useState(search.q ?? '')
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   useEffect(() => setDraftQ(search.q ?? ''), [search.q])
 
   const inTab = (p: ProjectRow, t: ProjectsTab) =>
@@ -167,7 +181,7 @@ export function ProjectsPage({
       sort === 'updated'
         ? b.updated - a.updated || b.id.localeCompare(a.id)
         : sort === 'id'
-          ? b.id.localeCompare(a.id)
+          ? a.id.localeCompare(b.id)
           : a.name.localeCompare(b.name),
     )
   const archivedHidden = includeArchived
@@ -193,7 +207,69 @@ export function ProjectsPage({
           g,
           rows.filter((r) => r[group] === g),
         ])
-  const colSpan = 5 + cols.length
+  // `archive_project`/`unarchive_project` admit a workspace owner or admin
+  // only, so the selection exists only for a caller the server will accept.
+  const role = useQuery({
+    queryKey: ['workspace', 'my-role', meId ?? ''],
+    enabled: Boolean(meId),
+    queryFn: () =>
+      projectDataClient
+        .list<{ role: string }>(
+          'workspace_memberships',
+          `?user_id=eq.${encodeURIComponent(meId ?? '')}&select=role&limit=1`,
+        )
+        .then((memberships) => memberships[0]?.role ?? null),
+    staleTime: 60_000,
+  })
+  const canBulkArchive = role.data === 'owner' || role.data === 'admin'
+  const selected = rows.filter((p) => checked.has(p.id))
+  const archivable = selected.filter((p) => !p.archived)
+  const restorable = selected.filter((p) => p.archived)
+
+  const bulk = useMutation({
+    mutationFn: async (operation: 'archive' | 'restore') => {
+      const targets = operation === 'archive' ? archivable : restorable
+      const settled = await Promise.allSettled(
+        targets.map((p) =>
+          projectDataClient.rpc(
+            operation === 'archive' ? 'archive_project' : 'unarchive_project',
+            { p_project_id: p.uuid },
+          ),
+        ),
+      )
+      return {
+        operation,
+        count: targets.length,
+        refused: settled.filter((result) => result.status === 'rejected')
+          .length,
+      }
+    },
+    onMutate: () => setBulkError(null),
+    onSuccess: ({ operation, count, refused }) => {
+      void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
+      setConfirmArchive(false)
+      const done = count - refused
+      if (refused) {
+        setBulkError(
+          `${done} of ${count} ${count === 1 ? 'project was' : 'projects were'} ${operation === 'archive' ? 'archived' : 'restored'}; the server refused the rest.`,
+        )
+        return
+      }
+      setChecked(new Set())
+      toast(
+        `${count} ${count === 1 ? 'project' : 'projects'} ${operation === 'archive' ? 'archived' : 'restored'}`,
+      )
+    },
+    onError: (error: unknown) => {
+      setConfirmArchive(false)
+      setBulkError(
+        error instanceof Error
+          ? error.message
+          : 'The database refused the change.',
+      )
+    },
+  })
+  const colSpan = (canBulkArchive ? 4 : 3) + cols.length
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -541,20 +617,22 @@ export function ProjectsPage({
               <Table aria-label="Projects" className="max-md:hidden">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-9 max-xl:hidden">
-                      <Checkbox
-                        aria-label="Select all projects"
-                        checked={
-                          rows.length > 0 &&
-                          rows.every((r) => checked.has(r.id))
-                        }
-                        onCheckedChange={(on) =>
-                          setChecked(
-                            on ? new Set(rows.map((r) => r.id)) : new Set(),
-                          )
-                        }
-                      />
-                    </TableHead>
+                    {canBulkArchive ? (
+                      <TableHead className="w-9 max-xl:hidden">
+                        <Checkbox
+                          aria-label="Select all projects"
+                          checked={
+                            rows.length > 0 &&
+                            rows.every((r) => checked.has(r.id))
+                          }
+                          onCheckedChange={(on) =>
+                            setChecked(
+                              on ? new Set(rows.map((r) => r.id)) : new Set(),
+                            )
+                          }
+                        />
+                      </TableHead>
+                    ) : null}
                     <TableHead className="max-xl:hidden">ID</TableHead>
                     <TableHead className={stickyCol}>Project</TableHead>
                     {cols.map((c) => (
@@ -592,23 +670,25 @@ export function ProjectsPage({
                             className="cursor-pointer"
                             onClick={() => setActive(p.id)}
                           >
-                            <TableCell
-                              className="max-xl:hidden"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Checkbox
-                                aria-label={`Select ${p.id}`}
-                                checked={checked.has(p.id)}
-                                onCheckedChange={(on) =>
-                                  setChecked((s) => {
-                                    const n = new Set(s)
-                                    if (on) n.add(p.id)
-                                    else n.delete(p.id)
-                                    return n
-                                  })
-                                }
-                              />
-                            </TableCell>
+                            {canBulkArchive ? (
+                              <TableCell
+                                className="max-xl:hidden"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Checkbox
+                                  aria-label={`Select ${p.id}`}
+                                  checked={checked.has(p.id)}
+                                  onCheckedChange={(on) =>
+                                    setChecked((s) => {
+                                      const n = new Set(s)
+                                      if (on) n.add(p.id)
+                                      else n.delete(p.id)
+                                      return n
+                                    })
+                                  }
+                                />
+                              </TableCell>
+                            ) : null}
                             <TableCell className="mono text-fg-muted max-xl:hidden">
                               {p.id}
                             </TableCell>
@@ -691,9 +771,42 @@ export function ProjectsPage({
                   {archivedHidden} archived hidden by filter
                 </span>
               ) : null}
+              {bulkError ? (
+                <span role="alert" className="text-danger-text">
+                  {bulkError}
+                </span>
+              ) : null}
               {checked.size ? (
-                <span className="ml-auto text-fg max-xl:hidden">
-                  {checked.size} selected
+                <span className="ml-auto flex items-center gap-2 text-fg">
+                  <span className="max-xl:hidden">
+                    {checked.size} selected
+                  </span>
+                  {archivable.length ? (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={bulk.isPending}
+                      onClick={() => setConfirmArchive(true)}
+                    >
+                      Archive {archivable.length}
+                    </Button>
+                  ) : null}
+                  {restorable.length ? (
+                    <Button
+                      size="sm"
+                      disabled={bulk.isPending}
+                      onClick={() => bulk.mutate('restore')}
+                    >
+                      Restore {restorable.length}
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    onClick={() => setChecked(new Set())}
+                  >
+                    Clear
+                  </Button>
                 </span>
               ) : null}
             </div>
@@ -701,10 +814,44 @@ export function ProjectsPage({
         ) : (
           <EmptyProjects
             noAccess={hasProjectAccess === false}
+            canCreate={canCreate}
             onNew={() => setSearch({ new: true })}
           />
         )}
       </div>
+
+      <ConfirmDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+        <ConfirmDialogContent className="w-[min(480px,calc(100vw-32px))]">
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>
+              Archive {archivable.length}{' '}
+              {archivable.length === 1 ? 'project' : 'projects'}?
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {archivable.map((p) => p.id).join(', ')} · every record becomes
+              read-only
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <DialogBody>
+            <p className="m-0 text-body leading-5">
+              The projects leave the Projects list and the navigation. Signed
+              records, datasets and audit trails stay available, and an
+              archived project can be restored from the Archived tab.
+            </p>
+          </DialogBody>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel disabled={bulk.isPending} />
+            <ConfirmDialogAction
+              variant="danger-fill"
+              disabled={bulk.isPending}
+              onClick={() => bulk.mutate('archive')}
+            >
+              Archive{' '}
+              {archivable.length === 1 ? 'this project' : 'these projects'}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
 
       {activeRow ? (
         <ProjectPeek
@@ -783,9 +930,11 @@ function NoResults({
 function EmptyProjects({
   onNew,
   noAccess,
+  canCreate,
 }: {
   onNew: () => void
   noAccess: boolean
+  canCreate: boolean
 }) {
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-14 text-center md:px-6">
@@ -797,8 +946,14 @@ function EmptyProjects({
           ? NO_PROJECT_ACCESS_BODY
           : 'A project groups the experiments, samples and datasets for one programme or client. Members and permissions are set per project.'}
       </p>
+      {!noAccess && !canCreate ? (
+        <p className="m-0 max-w-[460px] leading-[19px] text-fg-muted">
+          Your role cannot create projects. Ask a workspace owner or admin to
+          create one, or to give you permission to create them.
+        </p>
+      ) : null}
       <div className="mt-2 flex gap-1.5">
-        <Button variant="primary" onClick={onNew}>
+        <Button variant="primary" disabled={!canCreate} onClick={onNew}>
           New project
         </Button>
       </div>

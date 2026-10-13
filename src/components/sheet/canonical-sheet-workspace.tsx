@@ -25,6 +25,17 @@ import type {
 } from '#/components/sheet/sheetbase-grid'
 import { SheetRecordPicker } from '#/components/sheet/sheet-record-picker'
 import { PromoteRejected } from '#/components/sheet/promote-rejected'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
+import { listInstanceColumnPromotions } from '#/lib/schema-evolution'
 import { SheetPromote } from '#/components/sheet/sheet-promote'
 import type { SheetPromoteLocalField } from '#/components/sheet/sheet-promote'
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
@@ -449,6 +460,20 @@ export function CanonicalSheetEditor({
   // leaks from one column to the next.
   const [promoteField, setPromoteField] =
     useState<SheetPromoteLocalField | null>(null)
+  // QA-156: a destructive menu action is held here until the shared
+  // confirmation dialog is answered.
+  const [pendingDestructive, setPendingDestructive] = useState<{
+    title: string
+    description: string
+    confirmLabel: string
+    run: () => void
+  } | null>(null)
+  // QA-153: a returned promotion the scientist has acknowledged with "Keep
+  // local" stops being announced for this Sheet session (the promotion row
+  // itself is unchanged — the app has no server path to withdraw it).
+  const [keptLocalFields, setKeptLocalFields] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  )
   const [writeStatus, setWriteStatus] = useState<string | null>(null)
   // ASSIST-01: structured write-back rejection kept beside the status line
   // so the Explain affordance can cite rule codes, rows and fields.
@@ -599,6 +624,9 @@ export function CanonicalSheetEditor({
   )
   const matrixRef = useRef(matrix)
   matrixRef.current = matrix
+  // QA-156: the grid's latest selection report, so a menu action confirmed
+  // later still clears what the user selected.
+  const selectionRef = useRef<SheetbaseGridSelection | null>(null)
   const compositionRef = useRef<ComposedSheetSnapshot | null>(composedSnapshot)
   compositionRef.current = composedSnapshot
 
@@ -621,6 +649,24 @@ export function CanonicalSheetEditor({
   )
   const selectedColumn = matrix.columns.at(selected.col)
   const selectedRowKey = matrix.rowKeys.at(selected.row)
+  // QA-153: a promotion request that is still pending (or already approved and
+  // waiting to be applied) is otherwise invisible on the Sheet — only a
+  // returned one was announced. The read is the same `column_promotions`
+  // query the returned banner uses, so the two surfaces share one answer.
+  const promotions = useQuery({
+    queryKey: [
+      'column-promotions',
+      instance.id,
+      selectedColumn?.origin === 'local' ? selectedColumn.id : '',
+    ],
+    queryFn: () => listInstanceColumnPromotions(client, instance.id),
+    enabled: selectedColumn?.origin === 'local',
+  })
+  const openPromotion = promotions.data?.find(
+    (promotion) =>
+      promotion.field_id === selectedColumn?.id &&
+      (promotion.state === 'pending' || promotion.state === 'approved'),
+  )
   const provenance =
     composedSnapshot?.boundProjection?.rows.find(
       (row) => row.rowKey === selectedRowKey,
@@ -844,13 +890,24 @@ export function CanonicalSheetEditor({
     const current = instanceRef.current
     const nextValues = { ...current.state.localValues }
     delete nextValues[rowKey]
-    const next = await updateSheetInstance(
-      current.id,
-      current.revision,
-      { ...current.state, localValues: nextValues },
-      sheetInstanceDataClient,
-    )
-    queryClient.setQueryData(['sheet-instance', instance.id], next)
+    // QA-155: the grid removes the row as soon as the preflight allows it, so a
+    // refused delete has to say so — otherwise the row silently reappears on
+    // the next read with no explanation.
+    try {
+      const next = await updateSheetInstance(
+        current.id,
+        current.revision,
+        { ...current.state, localValues: nextValues },
+        sheetInstanceDataClient,
+      )
+      instanceRef.current = next
+      queryClient.setQueryData(['sheet-instance', instance.id], next)
+    } catch (error) {
+      setWriteStatus(
+        errorText(error) ??
+          'The local row could not be deleted, so the Sheet still has it.',
+      )
+    }
   }
 
   async function deleteSelectedRow() {
@@ -968,7 +1025,11 @@ export function CanonicalSheetEditor({
     },
     onSuccess: (next) => {
       queryClient.setQueryData(['sheet-instance', instance.id], next)
+      // QA-157: the label is part of the request, so it is cleared with the
+      // formula it names — the next calculation must not inherit the last
+      // one's label.
       setFormula('')
+      setFormulaLabel('')
     },
   })
 
@@ -1073,6 +1134,14 @@ export function CanonicalSheetEditor({
       queryClient.invalidateQueries({
         queryKey: ['composed-sheet', instance.id],
       }),
+    // QA-154: the picker closes on pick, so a refused link would otherwise
+    // look like it worked. The refusal is stated where the other write
+    // reports are (and the cell keeps its previous value).
+    onError: (error) =>
+      setWriteStatus(
+        errorText(error) ??
+          'The Record could not be linked, so the cell kept its previous value.',
+      ),
   })
 
   const create = useMutation({
@@ -1107,6 +1176,13 @@ export function CanonicalSheetEditor({
       queryClient.invalidateQueries({
         queryKey: ['composed-sheet', instance.id],
       }),
+    // QA-154: the create form closes on submit, so a refused create-and-link
+    // is reported here instead of looking like it succeeded.
+    onError: (error) =>
+      setWriteStatus(
+        errorText(error) ??
+          'The Record could not be created, so nothing was linked.',
+      ),
   })
 
   const addRowRef = useRef(addRow)
@@ -1285,6 +1361,7 @@ export function CanonicalSheetEditor({
   const handleSelectionChange = useCallback(
     (selection: SheetbaseGridSelection | null) => {
       setCommentSelection(selection)
+      selectionRef.current = selection
       if (!selection) return
       setActiveInput(selection.input ?? '')
       const columnIndex = matrixRef.current.columns.findIndex(
@@ -1373,6 +1450,48 @@ export function CanonicalSheetEditor({
       'Nothing to clear: the selection has no editable, non-empty cells.',
     )
   }, [])
+
+  // QA-156: "Clear contents" is a destructive bulk write, so the menu asks
+  // first. The clear is built from the grid's own selection report and flows
+  // through the same change pipeline as every other write (editable check,
+  // parse, validate, then the authoritative local or write-back target),
+  // skipping cells that are already empty.
+  function clearSelectedCells() {
+    const current = matrixRef.current
+    const selection = selectionRef.current
+    const rowIds = selection?.rowIds?.length
+      ? selection.rowIds
+      : selection?.rowId
+        ? [selection.rowId]
+        : []
+    const columnIds = selection?.columnIds?.length
+      ? selection.columnIds
+      : selection?.columnId
+        ? [selection.columnId]
+        : []
+    const changes: SheetbaseGridCellChange[] = []
+    for (const columnId of columnIds) {
+      const columnIndex = current.columns.findIndex(
+        (column) => column.id === columnId,
+      )
+      const column = current.columns.at(columnIndex)
+      if (!column || !column.editable) continue
+      for (const rowId of rowIds) {
+        const rowIndex = current.rowKeys.indexOf(rowId)
+        if (rowIndex < 0) continue
+        const previous = current.data[rowIndex]?.[columnIndex] ?? null
+        // The engine skips cells that are already empty; clearing one again
+        // would write nothing.
+        if (previous === null || previous === '') continue
+        changes.push({ rowIndex, rowId, columnId, previous, next: '' })
+      }
+    }
+    if (changes.length === 0) {
+      handleNothingToClear()
+      return
+    }
+    handleCellsChange(changes, 'clear')
+  }
 
   const columnMenu = useMemo<SheetbaseGridMenuEntry[]>(
     () => [
@@ -1464,17 +1583,34 @@ export function CanonicalSheetEditor({
         id: 'delete-row',
         label: 'Delete local row',
         disabled: () => !canWrite,
-        onSelect: () => {
-          void deleteRowRef.current()
-        },
+        // QA-156: deleting a local row is destructive and was immediate.
+        onSelect: () =>
+          setPendingDestructive({
+            title: 'Delete this local row?',
+            description:
+              'The row and the values this Sheet holds in it are removed. This cannot be undone.',
+            confirmLabel: 'Delete row',
+            run: () => {
+              void deleteRowRef.current()
+            },
+          }),
       },
       {
         id: 'delete-column',
         label: 'Retire local column',
         disabled: () => !canWrite,
-        onSelect: () => {
-          void deleteColumnRef.current()
-        },
+        // QA-156: retiring a column changes what the Sheet can hold, so it is
+        // confirmed like the row delete beside it.
+        onSelect: () =>
+          setPendingDestructive({
+            title: 'Retire this local column?',
+            description:
+              'The Sheet stops offering the column for entry and stops reading its values. Values already stored in it stay with the Sheet, but the column cannot be brought back from here.',
+            confirmLabel: 'Retire column',
+            run: () => {
+              void deleteColumnRef.current()
+            },
+          }),
       },
       'separator',
       'copy',
@@ -1484,6 +1620,16 @@ export function CanonicalSheetEditor({
         id: 'clear-contents',
         label: 'Clear contents',
         disabled: () => !canWrite,
+        // QA-156: the previous entry was a bare string the grid wrapper drops,
+        // so it never reached the menu; this one is a real, confirmed action.
+        onSelect: () =>
+          setPendingDestructive({
+            title: 'Clear the selected cells?',
+            description:
+              'Every editable, non-empty cell in the selection is cleared. Cells bound to the Dataset are held for the next write-back.',
+            confirmLabel: 'Clear cells',
+            run: clearSelectedCells,
+          }),
       },
     ],
     [canWrite],
@@ -1935,14 +2081,30 @@ export function CanonicalSheetEditor({
             </Button>
           </p>
         ) : null}
-        {/* SHEET-02.3: a returned promotion is announced against the column
-        it came from. The banner renders nothing while the request is
-        pending or approved, so the line stays silent until a reviewer acts. */}
-        {selectedColumn && selectedColumn.origin === 'local' ? (
+        {/* SHEET-02.3/QA-153: the promotion against the selected column is
+        announced whenever it has something to say — a request still waiting on
+        a reviewer, one already approved and waiting to be applied, or a
+        returned one, which is the banner below. Anything acknowledged with
+        "Keep local" stays silent for the rest of the session. */}
+        {openPromotion && !keptLocalFields.has(openPromotion.field_id) ? (
+          <p role="status">
+            {openPromotion.state === 'pending'
+              ? 'Promotion requested. A schema reviewer has to decide it; the column stays local until the promotion is applied.'
+              : 'Promotion approved. The column becomes dataset-backed once the promotion is applied.'}
+          </p>
+        ) : null}
+        {selectedColumn &&
+        selectedColumn.origin === 'local' &&
+        !keptLocalFields.has(selectedColumn.id) ? (
           <PromoteRejected
             instanceId={instance.id}
             fieldId={selectedColumn.id}
             client={client}
+            onKeepLocal={() =>
+              setKeptLocalFields((current) =>
+                new Set(current).add(selectedColumn.id),
+              )
+            }
             onEditAndResubmit={
               canWrite
                 ? () => {
@@ -2099,6 +2261,39 @@ export function CanonicalSheetEditor({
           }}
         />
       ) : null}
+      {pendingDestructive ? (
+        // QA-156: one confirmation surface for the destructive menu actions
+        // (delete local row, retire local column, clear contents).
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setPendingDestructive(null)
+          }}
+        >
+          <ConfirmDialogContent>
+            <ConfirmDialogHeader>
+              <ConfirmDialogTitle>
+                {pendingDestructive.title}
+              </ConfirmDialogTitle>
+              <ConfirmDialogDescription>
+                {pendingDestructive.description}
+              </ConfirmDialogDescription>
+            </ConfirmDialogHeader>
+            <ConfirmDialogFooter>
+              <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+              <ConfirmDialogAction
+                variant="danger-fill"
+                onClick={() => {
+                  pendingDestructive.run()
+                  setPendingDestructive(null)
+                }}
+              >
+                {pendingDestructive.confirmLabel}
+              </ConfirmDialogAction>
+            </ConfirmDialogFooter>
+          </ConfirmDialogContent>
+        </ConfirmDialog>
+      ) : null}
       {promoteField ? (
         // SHEET-02.3: the column menu opens this dialog, so it carries no
         // trigger of its own. Closing unmounts it, discarding the draft.
@@ -2138,6 +2333,7 @@ export function CanonicalSheetEditor({
               projectId ?? '',
             )}
             loading={search.isLoading}
+            error={search.error}
             onSearch={setQuery}
             onSelect={(result) => {
               // Record the human label for the display renderer, then persist

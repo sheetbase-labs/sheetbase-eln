@@ -359,7 +359,10 @@ function AnalysisHome() {
               {datasetName(selected.spec.datasets[0]?.datasetId)}
             </span>
           </div>
-          <Muted>Cited analyses are frozen: editing makes a new version.</Muted>
+          <Muted>
+            Editing an analysis updates it in place and bumps its version, so a
+            citation always points at the latest version.
+          </Muted>
         </aside>
       ) : null}
     </div>

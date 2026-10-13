@@ -12,6 +12,7 @@ let mockSearchState: Record<string, unknown> = {}
 
 const mocks = vi.hoisted(() => ({
   role: 'member',
+  canEdit: false,
   navigate: vi.fn(),
   fetchStudyTasks: vi.fn(),
   fetchStudyWorkstreams: vi.fn(),
@@ -44,6 +45,18 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+
+// QA-048: milestone writes are gated on the project's own edit permission, not
+// the workspace role, so the route's permission read is stubbed here.
+vi.mock('#/lib/workspace-access', () => ({
+  fetchProjectPermissions: async () => ({
+    can_view: true,
+    can_edit: mocks.canEdit,
+    can_review: mocks.canEdit,
+    client_portal: false,
+    can_manage: mocks.canEdit,
+  }),
+}))
 
 vi.mock('#/components/v3/projects/project-data', () => ({
   PROJECTS_KEY: ['projects'],
@@ -85,6 +98,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   mockSearchState = {}
   mocks.role = 'member'
+  mocks.canEdit = false
   mocks.fetchStudyTasks.mockResolvedValue([])
   mocks.fetchStudyWorkstreams.mockResolvedValue([])
   mocks.fetchMilestoneRisks.mockResolvedValue([])
@@ -197,6 +211,41 @@ describe('project milestones plan', () => {
     ).toBe(true)
   })
 
+  // QA-048: the project's own edit permission decides, not the workspace role.
+  it('lets a project editor without a governed-schema workspace role edit the plan', async () => {
+    mocks.role = 'scientist'
+    mocks.canEdit = true
+    mocks.fetchStudyTasks.mockResolvedValue([studyTask({})])
+    renderRoute()
+    expect(
+      (await screen.findAllByText('TFF and polish defined')).length,
+    ).toBeGreaterThan(0)
+
+    expect(
+      screen.queryByText(/You can view this plan but not change it/),
+    ).toBeNull()
+    const add = screen.getByRole('button', { name: 'Add milestone' })
+    expect(
+      add.hasAttribute('disabled') ||
+        add.getAttribute('aria-disabled') === 'true',
+    ).toBe(false)
+  })
+
+  it('keeps a governed-schema workspace role read-only when the project does not grant edit', async () => {
+    mocks.role = 'owner'
+    mocks.canEdit = false
+    mocks.fetchStudyTasks.mockResolvedValue([studyTask({})])
+    renderRoute()
+    expect(
+      await screen.findByText(/You can view this plan but not change it/),
+    ).toBeTruthy()
+    const add = screen.getByRole('button', { name: 'Add milestone' })
+    expect(
+      add.hasAttribute('disabled') ||
+        add.getAttribute('aria-disabled') === 'true',
+    ).toBe(true)
+  })
+
   it('shows the scale control, at-risk rule and the next date the client sees', async () => {
     mocks.fetchStudyTasks.mockResolvedValue([
       studyTask({ clientVisible: true, sharedSince: '2026-09-10T00:00:00Z' }),
@@ -232,7 +281,7 @@ describe('project milestones plan', () => {
   it('shows a stale conflict banner with an explicit reload when a write loses the race', async () => {
     const user = userEvent.setup()
     mockSearchState = { m: 'ms-1' }
-    mocks.role = 'owner'
+    mocks.canEdit = true
     mocks.fetchStudyTasks.mockResolvedValue([
       studyTask({ clientVisible: true, sharedSince: '2026-09-10T00:00:00Z' }),
     ])
@@ -253,6 +302,61 @@ describe('project milestones plan', () => {
     await user.click(screen.getByRole('button', { name: 'Reload plan' }))
     await waitFor(() =>
       expect(screen.queryByText('This plan changed elsewhere')).toBeNull(),
+    )
+  })
+
+  // QA-053: the risk read calls an overdue milestone late, so the status column
+  // must not answer a different question (a reviewer told us it was late).
+  it('reads an overdue milestone as Late whatever its workflow status is', async () => {
+    mocks.fetchStudyTasks.mockResolvedValue([
+      studyTask({
+        status: 'review',
+        dueAt: '2026-09-01T00:00:00Z',
+      }),
+    ])
+    renderRoute()
+    expect((await screen.findAllByText('Late')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('In review')).toBeNull()
+  })
+
+  // QA-047: hiding a milestone needs a reason the server accepts, so it asks
+  // for one in a dialog instead of a prompt that can be cancelled into ''.
+  it('asks for a reason before hiding a milestone, and sends nothing on cancel', async () => {
+    const user = userEvent.setup()
+    mockSearchState = { m: 'ms-1' }
+    mocks.canEdit = true
+    mocks.fetchStudyTasks.mockResolvedValue([
+      studyTask({ clientVisible: true, sharedSince: '2026-09-10T00:00:00Z' }),
+    ])
+    renderRoute()
+    expect(
+      (await screen.findAllByText('TFF and polish defined')).length,
+    ).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('checkbox', { name: 'Show to CL-017' }))
+    const submit = await screen.findByRole('button', {
+      name: 'Hide milestone',
+    })
+    expect(submit.hasAttribute('disabled')).toBe(true)
+    expect(mocks.setStudyTaskClientVisible).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(mocks.setStudyTaskClientVisible).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Show to CL-017' }))
+    await user.type(
+      await screen.findByPlaceholderText('e.g. Not agreed with the client yet'),
+      'Not agreed with the client yet',
+    )
+    await user.click(screen.getByRole('button', { name: 'Hide milestone' }))
+    await waitFor(() =>
+      expect(mocks.setStudyTaskClientVisible).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({
+          clientVisible: false,
+          reason: 'Not agreed with the client yet',
+        }),
+      ),
     )
   })
 })

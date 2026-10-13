@@ -46,9 +46,9 @@ import {
   PROJECTS_KEY,
   workspaceMemberQueryKeys,
 } from '#/components/v3/projects/project-data'
-import { hasCapability } from '#/lib/capability'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { fetchProjectPermissions } from '#/lib/workspace-access'
 import {
   createPlanFromProject,
   createStudyTask,
@@ -73,23 +73,25 @@ import { cn } from '#/lib/utils'
  * when" criteria are their study_deliverables, so done comes from delivered
  * evidence. Client visibility, date history (migration 0263), risk
  * (`api.milestone_risks`) and plan copying (`create_plan_from_project`) are
- * read from the canonical boundary. `?state=denied|empty` drives the
- * acceptance suite; a stale write is a real 409/SB001 conflict, never a query
- * parameter.
+ * read from the canonical boundary. A stale write is a real 409/SB001
+ * conflict, never a query parameter: `?state=denied` is a development-only
+ * affordance for the acceptance suite and does nothing in a production build.
  */
 export const Route = createFileRoute('/projects/$projectId/milestones')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { m?: string; scale?: MilestoneScale; state?: 'denied' | 'empty' } => ({
+  ): { m?: string; scale?: MilestoneScale; state?: 'denied' } => ({
     m: typeof search.m === 'string' ? search.m : undefined,
     scale:
       search.scale === 'week' || search.scale === 'month'
         ? search.scale
         : undefined,
+    // QA-049: the parameter only ever asks for the denied view, so a URL can
+    // never claim the plan is editable again. Production ignores it outright —
+    // what the plan allows is the project's permission answer, never a query
+    // string (`state=empty` was dead and is gone).
     state:
-      search.state === 'denied' || search.state === 'empty'
-        ? search.state
-        : undefined,
+      import.meta.env.PROD || search.state !== 'denied' ? undefined : 'denied',
   }),
   component: Milestones,
 })
@@ -100,12 +102,16 @@ const AT_RISK_RULE =
 
 function milestoneStatus(task: StudyTask): { tone: Tone; label: string } {
   if (task.status === 'completed') return { tone: 'ok', label: 'Done' }
+  // QA-053: `AT_RISK_RULE` defines Late by the due date alone, and the risk
+  // read (`api.milestone_risks`) reports `late` on that same rule. A done
+  // milestone is never late; every other overdue milestone is, whatever its
+  // workflow status, so the status column and the risk notice agree.
+  const due = task.dueAt ? Date.parse(task.dueAt) : null
+  if (due && due < Date.now()) return { tone: 'bad', label: 'Late' }
   if (task.status === 'blocked') return { tone: 'bad', label: 'Blocked' }
   if (task.status === 'review') return { tone: 'review', label: 'In review' }
   if (task.status === 'in_progress')
     return { tone: 'progress', label: 'In progress' }
-  const due = task.dueAt ? Date.parse(task.dueAt) : null
-  if (due && due < Date.now()) return { tone: 'bad', label: 'Late' }
   return { tone: 'none', label: 'Not started' }
 }
 
@@ -136,13 +142,28 @@ function Milestones() {
   const { m, scale: scaleParam, state } = Route.useSearch()
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
-  const canEdit = hasCapability(context.workspace?.role, 'schema.edit')
+  // QA-048: milestone writes are writes to the project's plan, so the gate is
+  // the project's own edit permission — `api.project_permissions` answers with
+  // `internal.can_edit_project`, the same predicate the milestone RPCs assert
+  // (`assert_object_access('project', …, 'edit')`). The workspace's
+  // governed-schema capability is the wrong question: a project editor who is
+  // not an owner/admin/steward could not edit, and a governed-schema role who
+  // is not on the project was allowed to try. Until the answer arrives editing
+  // stays unavailable rather than optimistically allowed; the notice below
+  // says why.
+  const permissions = useQuery({
+    queryKey: ['project-permissions', workspaceId, projectId],
+    queryFn: () => fetchProjectPermissions(notebookDataClient, projectId),
+    enabled: Boolean(projectId),
+  })
+  const canEdit = permissions.data?.can_edit === true
   const denied = state === 'denied' || !canEdit
   const scale: MilestoneScale = scaleParam ?? 'month'
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [addOpen, setAddOpen] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
+  const [hideOpen, setHideOpen] = useState(false)
   const [templateOpen, setTemplateOpen] = useState(false)
   const [templateSourceId, setTemplateSourceId] = useState<string | null>(null)
   const [stale, setStale] = useState<string | null>(null)
@@ -357,6 +378,7 @@ function Milestones() {
       }),
     onSuccess: () => {
       void invalidate()
+      setHideOpen(false)
       toast('Visibility changed')
     },
     onError: (error) => reportWriteError(error, 'change visibility'),
@@ -543,8 +565,8 @@ function Milestones() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       {staleBanner}
-      <div className="flex min-w-0 flex-1">
-        <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
+      <div className="flex min-w-0 flex-1 flex-col overflow-auto xl:flex-row xl:overflow-hidden">
+        <div className="min-w-0 flex-1 px-4 py-4 md:px-6 xl:overflow-auto">
           {denied ? (
             <Notice tone="info" className="mb-3" icon="lock">
               You can view this plan but not change it. Only project editors can
@@ -706,7 +728,7 @@ function Milestones() {
 
         <aside
           aria-label={`${selected.title} details`}
-          className="hidden w-[340px] shrink-0 flex-col gap-4 overflow-auto border-l border-border bg-surface p-4 xl:flex"
+          className="flex w-full shrink-0 flex-col gap-4 border-t border-border bg-surface p-4 xl:w-[340px] xl:overflow-auto xl:border-l xl:border-t-0"
         >
           <div className="flex flex-col gap-1">
             <span className="text-label text-fg-muted">
@@ -815,17 +837,19 @@ function Milestones() {
                 aria-label={`Show to ${clientLabel}`}
                 disabled={denied || setVisibility.isPending}
                 checked={selected.clientVisible}
-                onChange={(e) =>
-                  setVisibility.mutate({
-                    task: selected,
-                    clientVisible: e.target.checked,
-                    reason: e.target.checked
-                      ? ''
-                      : (window.prompt(
-                          `Why are you hiding this milestone from ${clientLabel}?`,
-                        ) ?? ''),
-                  })
-                }
+                onChange={(e) => {
+                  // QA-047: hiding needs a reason the server will accept, so it
+                  // asks for one in a dialog (a cancelled `window.prompt` used
+                  // to send an empty reason and hide the milestone anyway);
+                  // showing needs no reason.
+                  if (e.target.checked)
+                    setVisibility.mutate({
+                      task: selected,
+                      clientVisible: true,
+                      reason: '',
+                    })
+                  else setHideOpen(true)
+                }}
               />
               <span>
                 Show to {clientLabel}
@@ -886,6 +910,20 @@ function Milestones() {
           onClose={() => setMoveOpen(false)}
           onSubmit={(input) => move.mutate({ task: selected, ...input })}
           busy={move.isPending}
+        />
+      ) : null}
+      {hideOpen ? (
+        <HideFromClientDialog
+          clientLabel={clientLabel}
+          onClose={() => setHideOpen(false)}
+          onSubmit={(reason) =>
+            setVisibility.mutate({
+              task: selected,
+              clientVisible: false,
+              reason,
+            })
+          }
+          busy={setVisibility.isPending}
         />
       ) : null}
       {templateOpen ? (
@@ -1030,7 +1068,15 @@ function AddMilestoneDialog({
           description="A milestone names the records that prove it’s done."
         />
         <DialogBody>
-          <Field label="Name" required>
+          <Field
+            label="Name"
+            required
+            error={
+              title.length > 0 && title.trim().length < 3
+                ? 'Use at least 3 characters so the plan names the milestone.'
+                : undefined
+            }
+          >
             <Input
               autoFocus
               value={title}
@@ -1154,6 +1200,59 @@ function MoveDateDialog({
             }
           >
             Move date
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function HideFromClientDialog({
+  clientLabel,
+  onClose,
+  onSubmit,
+  busy,
+}: {
+  clientLabel: string
+  onClose: () => void
+  onSubmit: (reason: string) => void
+  busy: boolean
+}) {
+  const [reason, setReason] = useState('')
+  const tooShort = reason.trim().length < 3
+  return (
+    <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
+      <DialogContent className="w-[min(480px,calc(100vw-32px))]">
+        <DialogHeader
+          title={`Hide from ${clientLabel}`}
+          description={`${clientLabel} stops seeing this milestone. The reason is recorded on the plan with the change.`}
+        />
+        <DialogBody>
+          <Field
+            label="Reason for hiding"
+            required
+            error={
+              reason.length > 0 && tooShort
+                ? 'Give at least 3 characters so the plan explains the change.'
+                : undefined
+            }
+          >
+            <Input
+              autoFocus
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Not agreed with the client yet"
+            />
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <Button
+            variant="primary"
+            disabled={busy || tooShort}
+            onClick={() => onSubmit(reason.trim())}
+          >
+            Hide milestone
           </Button>
         </DialogFooter>
       </DialogContent>

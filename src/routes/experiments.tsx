@@ -36,13 +36,18 @@ import { SearchTabs } from '#/components/v3/projects/search-tabs'
 import { FilterChip } from '#/components/v3/projects/chip'
 import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
 import {
+  EXPERIMENT_LIST_PAGE_SIZE,
   toExperimentListRow,
   useExperimentOpenIssues,
   useExperimentProtocols,
   useExperimentRecords,
+  useExperimentTabCounts,
   useProjectNameMap,
 } from '#/components/v3/experiments/experiments-data'
-import type { ExperimentListRow } from '#/components/v3/experiments/experiments-data'
+import type {
+  ExperimentListRow,
+  ExperimentTabKey,
+} from '#/components/v3/experiments/experiments-data'
 import { useUserNames } from '#/lib/user-names'
 
 const tabs = [
@@ -52,7 +57,7 @@ const tabs = [
   'inreview',
   'approved',
   'drafts',
-] as const
+] as const satisfies readonly ExperimentTabKey[]
 type Tab = (typeof tabs)[number]
 const tabLabel: Record<Tab, string> = {
   all: 'All',
@@ -64,8 +69,9 @@ const tabLabel: Record<Tab, string> = {
 }
 
 /** UI port (roadmap-4/ui-app3): the experiments list on real experiment
- * records. Protocol version, open issues and started date are design fields the
- * model lacks and render as gaps; rows open the record (the dedicated
+ * records. Protocol version and open issues are design fields the model lacks
+ * and render as gaps, and the model carries no start date — the Created column
+ * is the record's creation date. Rows open the record (the dedicated
  * /experiments/$expId frame follows). */
 export const Route = createFileRoute('/experiments')({
   validateSearch: (
@@ -106,7 +112,9 @@ function Experiments() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const tab: Tab = search.tab ?? 'all'
-  const records = useExperimentRecords(context.workspace?.id)
+  const [limit, setLimit] = useState(EXPERIMENT_LIST_PAGE_SIZE)
+  const records = useExperimentRecords(context.workspace?.id, limit)
+  const tabCounts = useExperimentTabCounts(context.user.id)
   const openIssues = useExperimentOpenIssues(context.workspace?.id)
   const issueCount = (recordId: string) => openIssues.data?.get(recordId) ?? 0
   const projects = useProjectNameMap()
@@ -164,9 +172,13 @@ function Experiments() {
             : t === 'approved'
               ? row.status.tone === 'ok'
               : row.status.tone === 'draft'
-  const counts = Object.fromEntries(
+  const loadedCounts = Object.fromEntries(
     tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
   ) as Record<Tab, number>
+  // Exact totals once they arrive; the loaded rows stand in while they load so
+  // the tabs never flash zeros.
+  const counts = tabCounts.data ?? loadedCounts
+  const total = counts.all
   const q = (search.q ?? '').trim().toLowerCase()
   const base = rows.filter(
     (r) =>
@@ -208,7 +220,9 @@ function Experiments() {
       <header className="flex flex-col gap-1 border-b border-border bg-surface px-4 pt-4 md:px-6">
         <div className="flex items-center gap-2">
           <h1 className="text-title">Experiments</h1>
-          <span className="num text-body text-fg-muted">{rows.length}</span>
+          {hasProjectAccess === false ? null : (
+            <span className="num text-body text-fg-muted">{total}</span>
+          )}
           <Button
             variant="primary"
             icon="plus"
@@ -251,6 +265,40 @@ function Experiments() {
                 {k === 'id' ? 'ID' : 'Updated'}
               </DropdownMenuItem>
             ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="quiet" />}>
+            Group:{' '}
+            {search.group === 'project'
+              ? 'Project'
+              : search.group === 'owner'
+                ? 'Owner'
+                : 'None'}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[180px]">
+            {(
+              [
+                ['none', 'None'],
+                ['project', 'Project'],
+                ['owner', 'Owner'],
+              ] as const
+            ).map(([value, label]) => {
+              const active =
+                value === 'none' ? !search.group : search.group === value
+              return (
+                <DropdownMenuItem
+                  key={value}
+                  icon={active ? 'check' : undefined}
+                  className={active ? '' : 'pl-[30px]'}
+                  onClick={() =>
+                    setSearch({ group: value === 'none' ? undefined : value })
+                  }
+                >
+                  {label}
+                </DropdownMenuItem>
+              )
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
         <FilterMenu
@@ -330,7 +378,7 @@ function Experiments() {
               <TableHead>Protocol</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Open issues</TableHead>
-              <TableHead align="right">Started</TableHead>
+              <TableHead align="right">Created</TableHead>
               <TableHead align="right">Updated</TableHead>
             </TableRow>
           </TableHeader>
@@ -403,7 +451,7 @@ function Experiments() {
                     {issueCount(e.uuid) > 0 ? issueCount(e.uuid) : '—'}
                   </TableCell>
                   <TableCell align="right" className="text-fg-muted">
-                    {e.started}
+                    {e.created}
                   </TableCell>
                   <TableCell align="right" className="text-fg-muted">
                     {e.updated}
@@ -449,9 +497,23 @@ function Experiments() {
       </div>
       <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
         <span>
-          {visible.length} of {rows.length}
+          {visible.length} of {total}
+          {rows.length < total ? ` · ${rows.length} loaded` : ''}
           {search.older ? '' : ' · filtered to last 30 days'}
         </span>
+        {rows.length < total ? (
+          <Button
+            size="sm"
+            variant="quiet"
+            className="ml-auto"
+            disabled={records.isFetching}
+            onClick={() =>
+              setLimit((current) => current + EXPERIMENT_LIST_PAGE_SIZE)
+            }
+          >
+            Load more
+          </Button>
+        ) : null}
       </div>
     </div>
   )

@@ -5,8 +5,13 @@ import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /** UI port (roadmap-4/ui-app3): the experiments list, mapped from real
- * experiment records. Protocol version, open issues and started date are
- * design fields the data model does not carry yet and render as gaps. */
+ * experiment records. Protocol version and open issues are design fields the
+ * data model does not carry yet and render as gaps; the model carries no
+ * experiment start date either, so the list shows when the record was created.
+ *
+ * The list loads one page at a time (`EXPERIMENT_LIST_PAGE_SIZE`) and reads the
+ * exact total separately, so a workspace with more experiments than one page
+ * states how many are loaded instead of dropping the rest silently. */
 
 export interface ExperimentListRow {
   uuid: string
@@ -19,7 +24,7 @@ export interface ExperimentListRow {
   status: { tone: Tone; label: string }
   protocol: string
   protocolRecordId: string | null
-  started: string
+  created: string
   updated: string
   recent: boolean
 }
@@ -59,9 +64,21 @@ export function experimentStatus(status: string): {
 }
 
 export const experimentListQueryKeys = {
-  page: (workspaceId: string | undefined) =>
-    ['ui-port', 'experiments', workspaceId] as const,
+  page: (workspaceId: string | undefined, limit: number) =>
+    ['ui-port', 'experiments', workspaceId, limit] as const,
+  tabCounts: (userId: string | undefined) =>
+    ['ui-port', 'experiments', 'tab-counts', userId] as const,
 }
+
+/** One page of the experiments list. Loading is explicit: the route raises the
+ * limit to load more, and the exact totals come from `useExperimentTabCounts`. */
+export const EXPERIMENT_LIST_PAGE_SIZE = 300
+
+/** The record filter every experiment read and count shares. */
+const EXPERIMENT_FILTER = 'kind=eq.experiment&deleted_at=is.null'
+
+const EXPERIMENT_SELECT =
+  'select=id,project_id,identifier,title,status,created_by_user_id,created_at,updated_at'
 
 export function toExperimentListRow(
   row: ExperimentWire,
@@ -80,7 +97,7 @@ export function toExperimentListRow(
     status: experimentStatus(row.status),
     protocol: '—',
     protocolRecordId: null,
-    started: row.created_at.slice(0, 10),
+    created: row.created_at.slice(0, 10),
     updated: row.updated_at.slice(0, 10),
     recent: !Number.isNaN(updated) && Date.now() - updated <= 30 * 86_400_000,
   }
@@ -88,15 +105,74 @@ export function toExperimentListRow(
 
 export function useExperimentRecords(
   workspaceId: string | undefined,
+  limit: number = EXPERIMENT_LIST_PAGE_SIZE,
   client: DataClient = notebookDataClient,
 ) {
   return useQuery({
-    queryKey: experimentListQueryKeys.page(workspaceId),
+    queryKey: experimentListQueryKeys.page(workspaceId, limit),
     queryFn: () =>
       client.list<ExperimentWire>(
         'records',
-        '?kind=eq.experiment&deleted_at=is.null&select=id,project_id,identifier,title,status,created_by_user_id,created_at,updated_at&order=updated_at.desc&limit=300',
+        `?${EXPERIMENT_FILTER}&${EXPERIMENT_SELECT}&order=updated_at.desc&limit=${limit}`,
       ),
+    staleTime: 15_000,
+  })
+}
+
+/** The list's tabs. `experiments.tsx` renders exactly these. */
+export type ExperimentTabKey =
+  | 'all'
+  | 'mine'
+  | 'inprogress'
+  | 'inreview'
+  | 'approved'
+  | 'drafts'
+
+export type ExperimentTabCounts = Record<ExperimentTabKey, number>
+
+/** Each tab's record filter, mirroring the statuses `experimentStatus` maps to
+ * the tab's tone — so a tab's count is the same predicate its rows come from. */
+const EXPERIMENT_TAB_FILTER: Record<
+  ExperimentTabKey,
+  (userId: string) => string
+> = {
+  all: () => '',
+  mine: (userId) => `&created_by_user_id=eq.${encodeURIComponent(userId)}`,
+  inprogress: () => '&status=eq.in_progress',
+  inreview: () => '&status=eq.in_review',
+  approved: () => '&status=eq.approved',
+  drafts: () => '&status=in.(draft,planned)',
+}
+
+const EXPERIMENT_TAB_KEYS = Object.keys(
+  EXPERIMENT_TAB_FILTER,
+) as ExperimentTabKey[]
+
+/**
+ * Exact per-tab totals (and the workspace total on `all`). The list itself
+ * loads one page at a time, so counting the loaded rows would understate a
+ * busy workspace; these counts come from the database instead.
+ */
+export function useExperimentTabCounts(
+  userId: string | undefined,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: experimentListQueryKeys.tabCounts(userId),
+    enabled: Boolean(userId),
+    queryFn: async (): Promise<ExperimentTabCounts> => {
+      const totals = await Promise.all(
+        EXPERIMENT_TAB_KEYS.map((tab) =>
+          client.count(
+            'records',
+            `?${EXPERIMENT_FILTER}${EXPERIMENT_TAB_FILTER[tab](userId ?? '')}`,
+          ),
+        ),
+      )
+      return Object.fromEntries(
+        EXPERIMENT_TAB_KEYS.map((tab, index) => [tab, totals[index]]),
+      ) as ExperimentTabCounts
+    },
     staleTime: 15_000,
   })
 }

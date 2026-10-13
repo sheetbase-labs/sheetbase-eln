@@ -12,6 +12,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Button } from '#/components/v3/ui/button'
+import { Field, Input } from '#/components/v3/ui/input'
+import { Notice } from '#/components/v3/ui/alert'
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTrigger,
+} from '#/components/v3/ui/dialog'
 import {
   DescriptionList,
   Inspector,
@@ -36,7 +47,7 @@ import {
   stickyHead,
 } from '#/components/v3/inventory/list'
 import { toast } from '#/components/v3/ui/sonner'
-import { startPipelineRun } from '#/lib/pipelines/data'
+import { createPipelineDefinition, startPipelineRun } from '#/lib/pipelines/data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   pipelineDataQueryKeys,
@@ -107,8 +118,11 @@ function PipelinesList() {
   const query = usePipelineRows()
   const rows = query.data ?? []
   const tab: PipelineTab = search.tab ?? 'all'
-  const [selected, setSelected] = useState<string | null>(null)
   const currentUserId = context.user.id
+  // The selected pipeline lives in the URL (`?selected=`) like the rest of the
+  // page's state, so a selection is shareable and survives a refresh. With no
+  // selection the inspector falls back to the first visible pipeline.
+  const selectedId = search.selected
 
   const schedules = useQuery({
     queryKey: ['ui-port', 'pipelines', 'scheduled-list'],
@@ -142,8 +156,9 @@ function PipelinesList() {
   const visible = rows
     .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
     .filter((p) => !q || `${p.key} ${p.name}`.toLowerCase().includes(q))
-  const sel =
-    visible.find((p) => p.id === (selected ?? search.selected)) ?? visible.at(0)
+  const sel = visible.find((p) => p.id === selectedId) ?? visible.at(0)
+  // The footer claims a selection only when the URL names one that is on screen.
+  const selectedRow = visible.find((p) => p.id === selectedId)
 
   const run = useMutation({
     mutationFn: (row: PipelineListRow) => {
@@ -180,13 +195,16 @@ function PipelinesList() {
           title="Pipelines"
           total={rows.length}
           actions={
-            <Button
-              nativeButton={false}
-              icon="pipeline"
-              render={<Link to="/pipelines/agents" />}
-            >
-              Agent operations
-            </Button>
+            <>
+              <NewPipeline workspaceId={workspaceId} />
+              <Button
+                nativeButton={false}
+                icon="pipeline"
+                render={<Link to="/pipelines/agents" />}
+              >
+                Agent operations
+              </Button>
+            </>
           }
           tabs={
             <SearchTabs
@@ -237,7 +255,13 @@ function PipelinesList() {
                     key={p.id}
                     selected={p.id === sel?.id}
                     className="cursor-pointer"
-                    onClick={() => setSelected(p.id)}
+                    onClick={() =>
+                      void navigate({
+                        to: '/pipelines',
+                        search: (s) => ({ ...s, selected: p.id }),
+                        replace: true,
+                      })
+                    }
                   >
                     <TableCell className={stickyCell}>
                       <span className="mono">{p.key}</span>
@@ -318,7 +342,7 @@ function PipelinesList() {
             </div>
           ) : null}
         </div>
-        <ListFooter right={sel ? '1 selected' : undefined}>
+        <ListFooter right={selectedRow ? '1 selected' : undefined}>
           {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()} · a
           pipeline keeps nothing unless its outputs say so
         </ListFooter>
@@ -412,5 +436,133 @@ function PipelinesList() {
         </Inspector>
       ) : null}
     </div>
+  )
+}
+
+/** AUTO-01: register a Pipeline Definition. The new definition has no version
+ * yet — its steps editor authors the first one — so creating it lands on the
+ * pipeline's own page rather than pretending there is something to run. */
+function NewPipeline({ workspaceId }: { workspaceId: string }) {
+  const navigate = useNavigate({ from: Route.fullPath })
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [tried, setTried] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
+  const empty = { key: '', name: '', description: '' }
+  const [f, setF] = useState(empty)
+
+  // The database's own rule for `pipeline_definitions.key`.
+  const errors = {
+    key: /^[a-z][a-z0-9_]{0,59}$/.test(f.key.trim())
+      ? null
+      : 'Start with a lowercase letter; then lowercase letters, digits and underscores only.',
+    name: f.name.trim() ? null : 'Enter the name people will see.',
+  }
+  const keyError = tried ? errors.key : null
+  const nameError = tried ? errors.name : null
+  const create = useMutation({
+    mutationFn: () =>
+      createPipelineDefinition(notebookDataClient, {
+        workspaceId,
+        key: f.key.trim(),
+        name: f.name.trim(),
+        description: f.description.trim() || null,
+      }),
+    onSuccess: (definition) => {
+      void queryClient.invalidateQueries({
+        queryKey: pipelineDataQueryKeys.list,
+      })
+      setOpen(false)
+      setF(empty)
+      setTried(false)
+      toast(`${definition.name} created`, {
+        description:
+          'It has no version yet. Add one in its steps, then publish it so runs can use it.',
+      })
+      void navigate({
+        to: '/pipelines/$pipelineId',
+        params: { pipelineId: definition.id },
+      })
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : ''
+      setServerError(
+        /duplicate key/i.test(message)
+          ? 'Another pipeline already uses this key.'
+          : message || 'The database refused it.',
+      )
+    },
+  })
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) {
+          setF(empty)
+          setTried(false)
+          setServerError(null)
+        }
+      }}
+    >
+      <DialogTrigger render={<Button variant="primary" icon="plus" />}>
+        New pipeline
+      </DialogTrigger>
+      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+        <DialogHeader
+          title="New pipeline"
+          description="A pipeline is a versioned configuration: declare its inputs and transform next, then publish it so runs and triggers can use it."
+        />
+        <DialogBody>
+          <Field
+            label="Key"
+            required
+            error={keyError}
+            hint="Used in run logs and the API, e.g. plate_reader_export."
+          >
+            <Input
+              autoFocus
+              className="mono"
+              value={f.key}
+              aria-invalid={keyError ? true : undefined}
+              onChange={(e) => {
+                setF({ ...f, key: e.target.value })
+                setServerError(null)
+              }}
+            />
+          </Field>
+          <Field label="Name" required error={nameError}>
+            <Input
+              value={f.name}
+              aria-invalid={nameError ? true : undefined}
+              onChange={(e) => setF({ ...f, name: e.target.value })}
+              placeholder="e.g. Plate reader PR-01 export"
+            />
+          </Field>
+          <Field label="Description" hint="Optional">
+            <Input
+              value={f.description}
+              onChange={(e) => setF({ ...f, description: e.target.value })}
+            />
+          </Field>
+          {serverError ? <Notice tone="bad">{serverError}</Notice> : null}
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <Button
+            variant="primary"
+            disabled={create.isPending}
+            onClick={() => {
+              setTried(true)
+              if (Object.values(errors).some(Boolean)) return
+              create.mutate()
+            }}
+          >
+            {create.isPending ? 'Creating…' : 'Create pipeline'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

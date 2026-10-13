@@ -5482,7 +5482,7 @@ async function seedDesignPipelines(
             [
               workspaceId,
               definitionId,
-              JSON.stringify({ time: '09:10', timezone: 'Europe/London' }),
+              JSON.stringify({ dailyAt: '09:10', timeZone: 'Europe/London' }),
             ],
           )
         }

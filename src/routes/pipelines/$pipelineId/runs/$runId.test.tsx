@@ -4,7 +4,14 @@
  * who gave it; a run with no prompt renders nothing fabricated.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './$runId'
@@ -21,6 +28,7 @@ const RunPage = Route.options.component as React.ComponentType
 interface RunPageState {
   run: PipelineRunWire | null
   prompts: PipelineRunPromptWire[]
+  promptsLoading?: boolean
   memberNames: Record<string, string>
   deliveries: PipelineRunDeliveryWire[]
 }
@@ -31,7 +39,14 @@ const state = vi.hoisted((): RunPageState => ({
   memberNames: {},
   deliveries: [],
 }))
-const dataLayer = vi.hoisted(() => ({ answer: vi.fn() }))
+const dataLayer = vi.hoisted(() => ({
+  answer: vi.fn(),
+  cancel: vi.fn(),
+}))
+const notifications = vi.hoisted(() => ({
+  toast: vi.fn(),
+  error: vi.fn(),
+}))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
@@ -44,12 +59,13 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('#/components/v3/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
+  toast: Object.assign(notifications.toast, { error: notifications.error }),
 }))
 
 vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
   ...(await importOriginal<typeof pipelineLibData>()),
   answerPipelineRunPrompt: dataLayer.answer,
+  cancelPipelineRun: dataLayer.cancel,
 }))
 
 vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
@@ -57,7 +73,10 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
   usePipelineRun: () => ({ data: state.run }),
   useRunLogs: () => ({ data: [] }),
   useRunOutputs: () => ({ data: [] }),
-  useRunPrompts: () => ({ data: state.prompts }),
+  useRunPrompts: () => ({
+    data: state.prompts,
+    isLoading: state.promptsLoading,
+  }),
   useRunDeliveries: () => ({
     data: state.deliveries,
     isLoading: false,
@@ -170,8 +189,12 @@ function delivery(
 afterEach(() => {
   cleanup()
   dataLayer.answer.mockReset()
+  dataLayer.cancel.mockReset()
+  notifications.toast.mockReset()
+  notifications.error.mockReset()
   state.run = null
   state.prompts = []
+  state.promptsLoading = undefined
   state.memberNames = {}
   state.deliveries = []
 })
@@ -224,6 +247,33 @@ describe('a waiting run', () => {
         reason: 'Units dropped by the parser.',
       }),
     )
+    // A confirm decision resumes the run.
+    await waitFor(() =>
+      expect(notifications.toast).toHaveBeenCalledWith(
+        'Answer recorded — the run is resuming.',
+      ),
+    )
+  })
+
+  it('says the run stopped when the decision is Stop', async () => {
+    state.run = run({ status: 'waiting' })
+    state.prompts = [prompt()]
+    const { getByRole } = renderRun()
+
+    fireEvent.click(getByRole('button', { name: 'Stop run' }))
+
+    await waitFor(() =>
+      expect(dataLayer.answer).toHaveBeenCalledWith('run-1', {
+        decision: 'stop',
+        values: {},
+        reason: undefined,
+      }),
+    )
+    await waitFor(() =>
+      expect(notifications.toast).toHaveBeenCalledWith(
+        'Answer recorded — the run stopped.',
+      ),
+    )
   })
 })
 
@@ -263,6 +313,62 @@ describe('a run with no prompt', () => {
     expect(queryByRole('button', { name: 'Confirm and continue' })).toBeNull()
     expect(queryByText(/This run is waiting for you\./)).toBeNull()
     expect(queryByText('Running')).toBeTruthy()
+  })
+})
+
+describe('a waiting run whose prompt is not readable', () => {
+  it('states why there is no control instead of promising one', () => {
+    state.run = run({ status: 'waiting' })
+    state.prompts = []
+    const { getByText, queryByRole } = renderRun()
+
+    expect(getByText('This run is waiting for you.')).toBeTruthy()
+    expect(getByText(/no prompt could be read for it/)).toBeTruthy()
+    expect(queryByRole('button', { name: 'Confirm and continue' })).toBeNull()
+  })
+
+  it('says the prompt is still loading while the read is in flight', () => {
+    state.run = run({ status: 'waiting' })
+    state.prompts = []
+    state.promptsLoading = true
+    const { getByText, queryByText } = renderRun()
+
+    expect(getByText('Loading the decision prompt…')).toBeTruthy()
+    expect(queryByText(/no prompt could be read for it/)).toBeNull()
+  })
+})
+
+describe('stopping a run', () => {
+  it('cancels a running run through api.cancel_pipeline_run once confirmed', async () => {
+    state.run = run({ status: 'running', workspace_id: 'ws-7' })
+    const { getByRole } = renderRun()
+
+    fireEvent.click(getByRole('button', { name: 'Cancel run' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel run' }))
+
+    await waitFor(() =>
+      expect(dataLayer.cancel).toHaveBeenCalledWith(expect.anything(), {
+        workspaceId: 'ws-7',
+        runId: 'run-1',
+      }),
+    )
+  })
+
+  it('offers no cancel control for a waiting run, which is answered instead', () => {
+    state.run = run({ status: 'waiting' })
+    state.prompts = [prompt()]
+    const { getByRole, queryByRole } = renderRun()
+
+    expect(queryByRole('button', { name: 'Cancel run' })).toBeNull()
+    expect(getByRole('button', { name: 'Stop run' })).toBeTruthy()
+  })
+
+  it('offers no cancel control for a run that already ended', () => {
+    state.run = run({ status: 'succeeded', finished_at: '2026-10-10T10:13:00.000Z' })
+    const { queryByRole } = renderRun()
+
+    expect(queryByRole('button', { name: 'Cancel run' })).toBeNull()
   })
 })
 

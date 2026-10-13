@@ -231,16 +231,18 @@ describe('MOB-01.1 phone shell', () => {
     routerPath.current = '/'
   })
 
-  it('keeps the bench destinations in the phone bottom bar', () => {
+  it('keeps the three bench destinations in the phone bottom bar', () => {
     renderShell()
     const bar = screen.getByRole('link', { name: 'Scan' }).closest('nav')!
     expect(bar.className).toContain('md:hidden')
-    // SHELL-01: the home destination carries one label everywhere in the shell.
-    for (const label of ['Home', 'Scan', 'Inbox']) {
+    // Design Navigation spec: on phones the sidebar becomes a three-item
+    // bottom bar — Today, Scan, Inbox — and there is no drawer to open.
+    expect(within(bar).getAllByRole('link')).toHaveLength(3)
+    for (const label of ['Today', 'Scan', 'Inbox']) {
       const link = within(bar).getByRole('link', { name: new RegExp(label) })
       expect(link.className).toContain('min-h-14')
     }
-    expect(within(bar).getByRole('button', { name: 'Menu' })).toBeTruthy()
+    expect(within(bar).queryByRole('button', { name: 'Menu' })).toBeNull()
   })
 
   it('agrees the Inbox badge between the bottom bar and the navigation drawer', async () => {
@@ -251,24 +253,26 @@ describe('MOB-01.1 phone shell', () => {
       within(bar).getByRole('link', { name: /Inbox/ }).textContent,
     ).toContain('5')
 
-    await user.click(screen.getByRole('button', { name: 'Menu' }))
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
     const drawer = await screen.findByRole('dialog')
     expect(
       within(drawer).getByRole('link', { name: /Inbox/ }).textContent,
     ).toContain('5')
   })
 
-  it('offers the workspace switcher in the phone drawer', async () => {
+  it('carries the workspace switcher in the top bar, not the drawer', async () => {
     const user = userEvent.setup()
     renderShell()
-    await user.click(screen.getByRole('button', { name: 'Menu' }))
-    const drawer = await screen.findByRole('dialog')
-    const trigger = within(drawer).getByRole('button', {
-      name: 'Switch workspace',
-    })
+    const trigger = screen.getByRole('button', { name: 'Switch workspace' })
     expect(trigger.textContent).toContain('Process Development')
 
-    // A phone can change it, not only read it.
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
+    const drawer = await screen.findByRole('dialog')
+    expect(
+      within(drawer).queryByRole('button', { name: 'Switch workspace' }),
+    ).toBeNull()
+
+    // The top bar's switcher changes the workspace.
     await user.click(trigger)
     await user.click(
       await screen.findByRole('menuitem', { name: 'Analytical' }),

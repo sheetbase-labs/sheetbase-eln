@@ -271,23 +271,9 @@ export function AppShell({
             {children}
           </main>
         </div>
-        <BottomTabs onMenu={() => setMenu(true)} counts={data.counts} />
+        <BottomTabs counts={data.counts} />
         <Sheet open={menu} onOpenChange={setMenu}>
           <SheetContent side="left" title="Sheetbase">
-            {/* Below the sm breakpoint the top bar cannot fit the workspace
-                switcher, so the drawer carries it: a phone user can still see
-                and change the active workspace. */}
-            <div className="border-b border-border p-2.5 sm:hidden">
-              <WorkspaceSwitcher
-                workspace={data.workspace ?? null}
-                workspaces={data.workspaces ?? []}
-                onSwitch={async (workspaceId) => {
-                  await switchWorkspace(workspaceId)
-                  setMenu(false)
-                }}
-                className="flex w-full justify-between"
-              />
-            </div>
             <SideNav
               pinned={data.pinned}
               counts={data.counts}
@@ -368,10 +354,8 @@ function NavRail({
 }
 
 function BottomTabs({
-  onMenu,
   counts,
 }: {
-  onMenu: () => void
   counts?: ShellData['counts']
 }) {
   // SHELL-02: the phone bar's Inbox badge labels the same destination the
@@ -400,7 +384,7 @@ function BottomTabs({
         inactiveProps={homeSelected ? selectedProps : undefined}
       >
         <Icon name="home" size={22} />
-        Home
+        Today
       </Link>
       <Link
         to="/scan"
@@ -423,10 +407,6 @@ function BottomTabs({
           </span>
         ) : null}
       </Link>
-      <button type="button" onClick={onMenu} className={cls}>
-        <Icon name="more" size={22} />
-        Menu
-      </button>
     </nav>
   )
 }

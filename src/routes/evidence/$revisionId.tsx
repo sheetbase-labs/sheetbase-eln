@@ -86,6 +86,7 @@ export function EvidencePage() {
   const navigate = useNavigate()
   const [amendOpen, setAmendOpen] = useState(false)
   const [note, setNote] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   const amend = useMutation({
     mutationFn: () =>
@@ -157,6 +158,46 @@ export function EvidencePage() {
       record.lockedByRevisionId !== revision.id)
   const blocks = [...revision.block_snapshot].sort((a, b) => a.order - b.order)
   const digest = revision.integrity_digest ?? '—'
+  // The revision is fixed for this render; reading its id here keeps the
+  // handler below working from a value, not from a narrowed query result.
+  const packagePath = `/api/export/revision/${revision.id}/package`
+  const packageFilename = `evidence-${revision.id}.zip`
+
+  // The package endpoint answers 404 for a revision the caller cannot read and
+  // 500 for a build failure. Fetch it here so a refusal is a message beside the
+  // button instead of a raw error page replacing the evidence.
+  async function exportPackage() {
+    setExporting(true)
+    try {
+      const response = await fetch(packagePath)
+      if (!response.ok) {
+        throw new Error(
+          response.status === 404
+            ? 'This revision has no exportable package.'
+            : 'The server could not build the package.',
+        )
+      }
+      const blob = await response.blob()
+      const disposition = response.headers.get('content-disposition')
+      const filename =
+        disposition?.match(/filename="([^"]+)"/)?.[1] ?? packageFilename
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      toast('Could not export the evidence package', {
+        description:
+          error instanceof Error ? error.message : 'The request failed.',
+      })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="flex min-w-0 flex-1">
@@ -208,12 +249,10 @@ export function EvidencePage() {
               </Button>
               <Button
                 variant="primary"
-                nativeButton={false}
-                render={
-                  <a href={`/api/export/revision/${revision.id}/package`} />
-                }
+                disabled={exporting}
+                onClick={() => void exportPackage()}
               >
-                Export evidence package
+                {exporting ? 'Exporting…' : 'Export evidence package'}
               </Button>
             </>
           }

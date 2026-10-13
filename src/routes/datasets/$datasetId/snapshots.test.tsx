@@ -251,6 +251,21 @@ describe('dataset snapshots route', () => {
     ).toBeTruthy()
   })
 
+  it('blames a failed revision read, not the archive state', async () => {
+    dataClient.list.mockRejectedValueOnce(new Error('offline'))
+    renderRoute()
+
+    await screen.findByText(/current revision could not be read/)
+    expect(
+      screen.queryByText(/Archived datasets cannot be snapshotted/),
+    ).toBeNull()
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', {
+        name: 'Create snapshot',
+      }).disabled,
+    ).toBe(true)
+  })
+
   it('shows the selected snapshot read model and a compare link to both versions', async () => {
     const user = userEvent.setup()
     renderRoute()

@@ -3,8 +3,8 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/v3/ui/alert'
 import { Input } from '#/components/v3/ui/input'
-import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { SettingsHeader } from '#/components/v3/settings/settings-page'
+import { ACTION_LABELS } from '#/lib/audit-history'
 import { createDataClient } from '#/lib/data-client'
 import { useUserNames } from '#/lib/user-names'
 import { adminQueryKeys, fetchWorkspaceActivity } from '#/lib/workspace-admin'
@@ -46,8 +47,19 @@ function Audit() {
     context.user,
   )
 
+  // The filter lists the operation vocabulary the log can hold — the same set
+  // the database's change_events CHECK constrains and the history renders via
+  // ACTION_LABELS — unioned with anything an event carries that the catalogue
+  // does not name yet. Building it from the loaded window alone would leave an
+  // operation that has not happened recently unfilterable.
   const operations = useMemo(
-    () => [...new Set(rows.map((r) => r.operation))].sort(),
+    () =>
+      [
+        ...new Set([
+          ...Object.keys(ACTION_LABELS),
+          ...rows.map((r) => r.operation),
+        ]),
+      ].sort(),
     [rows],
   )
   const needle = q.trim().toLowerCase()
@@ -120,7 +132,7 @@ function Audit() {
               disabled={!visible.length}
               onClick={exportCsv}
             >
-              Export CSV
+              Export CSV of shown rows
             </Button>
           </>
         }
@@ -157,9 +169,11 @@ function Audit() {
         </label>
         <span className="flex-1" />
         <span className="num whitespace-nowrap text-label text-fg-muted">
-          {visible.length === rows.length
-            ? `${rows.length} entries`
-            : `${visible.length} of ${rows.length} entries`}
+          {activity.isLoading
+            ? 'Loading…'
+            : visible.length === rows.length
+              ? `${rows.length} entries`
+              : `${visible.length} of ${rows.length} entries`}
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
@@ -176,7 +190,18 @@ function Audit() {
               <TableHead>Project</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          {/* The body states its own loading and empty case, so the table never
+              renders as a header-only shell while the log is being read. A
+              failed read keeps the notice below instead of claiming no match. */}
+          <TableBody
+            loading={activity.isLoading}
+            colSpan={8}
+            empty={
+              activity.isError
+                ? undefined
+                : 'No audit entries match — clear the search and the operation filter to see the whole log.'
+            }
+          >
             {visible.map((r) => (
               <TableRow key={r.id}>
                 <TableCell className="text-fg-muted">
@@ -203,20 +228,26 @@ function Audit() {
             ))}
           </TableBody>
         </Table>
-        {!activity.isLoading && visible.length === 0 ? (
+        {activity.isError ? (
           <div className="px-4 py-4 md:px-6">
-            <EmptyState
-              icon="search"
-              title="No audit entries match"
-              body="Clear the search and the operation filter to see the whole log."
-            />
+            <Notice
+              tone="bad"
+              title="The audit log could not be read."
+              action={
+                <Button size="sm" onClick={() => void activity.refetch()}>
+                  Retry
+                </Button>
+              }
+            >
+              Nothing is missing from the log; this read failed. Refresh to see
+              the entries again.
+            </Notice>
           </div>
         ) : null}
       </div>
       <div className="border-t border-border-subtle px-4 py-3 md:px-6">
         <Muted>
-          Showing the most recent {LIMIT} entries in this workspace. The export
-          writes the rows shown.
+          Showing the most recent {LIMIT} entries in this workspace.
         </Muted>
       </div>
     </>

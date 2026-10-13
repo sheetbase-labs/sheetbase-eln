@@ -109,13 +109,19 @@ function Snapshots() {
   const revision = datasetQuery.data ? Number(datasetQuery.data.revision) : null
   const canSnapshot =
     canWrite && revision !== null && datasetQuery.data?.lifecycle === 'active'
+  // A failed read is not an archive state: say which it is, so the disabled
+  // action does not blame the dataset's lifecycle for a broken request.
   const snapshotDisabledReason = !canWrite
     ? 'You have read access to this dataset, so snapshots cannot be created.'
     : datasetQuery.isLoading
       ? 'Checking the dataset’s current revision…'
-      : datasetQuery.data?.lifecycle !== 'active'
-        ? 'Archived datasets cannot be snapshotted.'
-        : null
+      : datasetQuery.isError
+        ? 'The dataset’s current revision could not be read, so a snapshot cannot be checked against it.'
+        : !datasetQuery.data
+          ? 'This dataset is no longer readable here, so a snapshot cannot be checked against its revision.'
+          : datasetQuery.data.lifecycle !== 'active'
+            ? 'Archived datasets cannot be snapshotted.'
+            : null
 
   const create = useMutation({
     mutationFn: (label: string) =>
@@ -196,6 +202,12 @@ function Snapshots() {
           A snapshot never changes. Records, analyses and pipeline runs cite the
           snapshot they used, so later imports can’t alter what was reviewed.
         </Notice>
+        {datasetQuery.isError ? (
+          <Notice tone="warn" title="Snapshot check unavailable">
+            The dataset’s current revision could not be read, so a new snapshot
+            cannot be checked against it. Refresh the page to try again.
+          </Notice>
+        ) : null}
         <div className="flex flex-wrap items-start justify-between gap-2">
           <Muted className="max-w-[52ch]">
             Imports and pipelines save snapshots automatically; you can also

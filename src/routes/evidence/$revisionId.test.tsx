@@ -11,7 +11,14 @@
  * proved the way `app-shell.test.tsx` proves the phone shell: the phone-only
  * elements carry `md:hidden` and the desktop-only ones `max-md:hidden`.
  */
-import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -79,6 +86,7 @@ const mocks = vi.hoisted(() => {
     fetchRevisionRow: vi.fn(),
     fetchRecord: vi.fn(),
     createAmendment: vi.fn(),
+    toast: vi.fn(),
   }
 })
 
@@ -126,6 +134,11 @@ vi.mock('#/lib/notebook-data', () => ({
 vi.mock('#/lib/sign-002', () => ({
   sign002DataClient: {},
   createAmendment: mocks.createAmendment,
+}))
+
+vi.mock('#/components/v3/ui/sonner', () => ({
+  toast: mocks.toast,
+  Toaster: () => null,
 }))
 
 function renderPage() {
@@ -208,5 +221,36 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
     expect(
       screen.getByRole('button', { name: 'Open live record' }),
     ).toBeTruthy()
+  })
+})
+
+describe('evidence page — package export (DATA-02)', () => {
+  it('reports a refused package instead of replacing the page with the error body', async () => {
+    const fetchMock = vi.fn(async () => new Response('nope', { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      renderPage()
+      await screen.findByRole('table', { name: 'Frozen revision content' })
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Export evidence package' }),
+      )
+
+      await waitFor(() =>
+        expect(mocks.toast).toHaveBeenCalledWith(
+          'Could not export the evidence package',
+          { description: 'This revision has no exportable package.' },
+        ),
+      )
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/export/revision/rev-0001/package',
+      )
+      // The evidence is still on screen; the failure did not navigate away.
+      expect(
+        screen.getByRole('table', { name: 'Frozen revision content' }),
+      ).toBeTruthy()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

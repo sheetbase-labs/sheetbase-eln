@@ -6,6 +6,7 @@ import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
 import {
@@ -172,6 +173,22 @@ function DatasetModelVersions() {
 
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
+      {policy.isError ? (
+        <Notice
+          tone="bad"
+          title="Publishing policy unavailable."
+          className="mb-4"
+          action={
+            <Button size="sm" onClick={() => void policy.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          The workspace’s publication policy could not be read, so Publish is
+          withheld from every draft until it loads. The policy is what decides
+          whether a draft needs approval before it may publish.
+        </Notice>
+      ) : null}
       {panelVersion ? (
         <ModelApprovalPanel
           className="mb-4"

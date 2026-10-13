@@ -20,7 +20,10 @@ import { runAnalysis } from '#/lib/analysis-definition'
 import type { AnalysisDefinition } from '#/lib/analysis-definition'
 import type { ChartColumn } from '#/lib/chart-spec'
 import type * as definitionsData from '#/lib/analysis-definitions-data'
-import { fetchAnalysisDefinitions } from '#/lib/analysis-definitions-data'
+import {
+  deleteAnalysisDefinition,
+  fetchAnalysisDefinitions,
+} from '#/lib/analysis-definitions-data'
 import type * as chartData from '#/lib/chart-data'
 import { fetchCanonicalDataset, fetchDatasetRows } from '#/lib/chart-data'
 import type * as flagsModule from '#/lib/dataset-flags'
@@ -192,6 +195,42 @@ describe('AnalysisPanel', () => {
       expect(screen.getByLabelText('Measured value column')).toBeTruthy(),
     )
     expect(screen.getByDisplayValue('Recovery summary')).toBeTruthy()
+  })
+
+  it('deletes a saved analysis only after the confirmation', async () => {
+    mockFetchDefinitions.mockResolvedValue([
+      {
+        id: 'def-1',
+        workspace_id: 'ws-1',
+        owner_user_id: 'user-1',
+        name: 'Recovery summary',
+        version: 3,
+        definition: {
+          definitionVersion: 1,
+          kind: 'descriptive',
+          datasets: [{ datasetId: DATASET.datasetId }],
+          value: { fieldId: FIELD_RECOVERY },
+          group: { fieldId: FIELD_CONDITION },
+        },
+        source_revisions: [],
+        created_at: '',
+        updated_at: '',
+      },
+    ])
+    renderPanel()
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Delete Recovery summary' }),
+    )
+    // The row action asks first: nothing is deleted until the dialog's action.
+    expect(vi.mocked(deleteAnalysisDefinition)).not.toHaveBeenCalled()
+    expect(screen.getByText('Delete this saved analysis?')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() =>
+      expect(vi.mocked(deleteAnalysisDefinition)).toHaveBeenCalledWith(
+        expect.anything(),
+        'def-1',
+      ),
+    )
   })
 
   it('states the method and its checks alongside the numbers', async () => {

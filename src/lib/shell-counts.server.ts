@@ -28,8 +28,12 @@ export async function getShellCounts(
           role: 'authenticated',
         }),
       ])
+      // The badge labels the Inbox's "Needs action" tab, and Home's
+      // "Open inbox · N items" uses the same predicate. State the same set the
+      // list does: `done_today` items are behind the inbox's Done tab, and
+      // `following` items need no action.
       const r = await c.query<{ n: string }>(
-        "select count(*)::int as n from api.my_work_items where state <> 'following'",
+        "select count(*)::int as n from api.my_work_items where state in ('needs_action', 'overdue')",
       )
       await c.query('commit')
       return Number(r.rows[0]?.n ?? 0)
@@ -44,9 +48,15 @@ export async function getShellCounts(
   const [flags, failed] = await Promise.all([
     client.query<{ n: string }>(
       // The badge counts datasets with an unresolved value flag, matching the
-      // design's "2 errors" (two datasets), not the raw flag rows.
-      `select count(distinct dataset_id)::int as n from api.dataset_value_flags
-        where workspace_id = $1 and cleared_at is null`,
+      // design's "2 errors" (two datasets), not the raw flag rows. Home's
+      // "datasets with errors" chip counts the same set from
+      // `dataset_list_summary` (one row per readable Dataset with an active
+      // flag) and excludes archived datasets, so the two screens agree.
+      `select count(distinct f.dataset_id)::int as n
+         from api.dataset_value_flags f
+         join api.datasets d on d.id = f.dataset_id
+        where f.workspace_id = $1 and f.cleared_at is null
+          and d.archived_at is null`,
       [workspaceId],
     ),
     client.query<{ n: string }>(

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SettingsGeneral } from './settings-general'
 import {
@@ -46,6 +46,11 @@ function renderSection() {
   )
 }
 
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
 describe('SettingsGeneral', () => {
   it('loads the workspace settings and saves them', async () => {
     const user = userEvent.setup()
@@ -87,5 +92,42 @@ describe('SettingsGeneral', () => {
     await waitFor(() =>
       expect(updateWorkspaceOfflineEditing).toHaveBeenCalledWith('ws-1', false),
     )
+  })
+
+  it('refuses a time zone that is not a real IANA zone', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    const timezone = await screen.findByLabelText<HTMLInputElement>(
+      'Time zone',
+    )
+    const save = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Save changes',
+    })
+    expect(save.disabled).toBe(true)
+
+    await user.clear(timezone)
+    await user.type(timezone, 'Mars/Olympus')
+    expect(screen.getByText(/valid IANA time zone/i)).toBeTruthy()
+    expect(save.disabled).toBe(true)
+    expect(timezone.getAttribute('aria-invalid')).toBe('true')
+
+    // Restoring the stored zone clears the error; the form is unchanged, so
+    // there is still nothing to save.
+    await user.clear(timezone)
+    await user.type(timezone, 'Europe/London')
+    expect(screen.queryByText(/valid IANA time zone/i)).toBeNull()
+    expect(save.disabled).toBe(true)
+    expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
+  })
+
+  it('enables Save only once a field has changed', async () => {
+    renderSection()
+    const save = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Save changes',
+    })
+    await screen.findByDisplayValue('Process Development')
+    expect(save.disabled).toBe(true)
+    await userEvent.type(screen.getByLabelText('Site'), '!')
+    expect(save.disabled).toBe(false)
   })
 })

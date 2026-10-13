@@ -48,10 +48,12 @@ function Shortcuts() {
             />
           </div>
           <p className="m-0 text-body text-fg-muted">
-            Press <Kbd>?</Kbd> outside a text field to see all shortcuts. Each
-            group applies in its own context, with the same permissions as its
-            buttons. While typing, only cell edit cancellation and saving remain
-            available.
+            Press <Kbd>?</Kbd> outside a text field to see all shortcuts. This
+            page lists the whole catalogue: the List, Notebook and Review groups
+            work only while that screen is open, so a shortcut here may do
+            nothing until you are standing where it belongs. Each group keeps
+            the same permissions as its buttons. While typing, only cell edit
+            cancellation and saving remain available.
           </p>
         </header>
         <ShortcutGroups

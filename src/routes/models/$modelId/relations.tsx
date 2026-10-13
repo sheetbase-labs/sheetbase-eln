@@ -3,6 +3,16 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
@@ -83,6 +93,12 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
   const [label, setLabel] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Removing a rule loosens what the server accepts for every future link, and
+  // there is no undo, so the row action asks first.
+  const [removeTarget, setRemoveTarget] = useState<{
+    id: string
+    description: string
+  } | null>(null)
 
   const target = targetModelKey || targetKinds[0]?.key || ''
   const minValue = Number(minLinks)
@@ -129,6 +145,7 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
   async function remove(ruleId: string) {
     setBusy(true)
     setError(null)
+    setRemoveTarget(null)
     try {
       await removeModelRelationshipRule(modelRelationshipsDataClient, ruleId)
       await refresh()
@@ -184,7 +201,12 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
                         variant="quiet"
                         size="sm"
                         disabled={busy}
-                        onClick={() => remove(rule.id)}
+                        onClick={() =>
+                          setRemoveTarget({
+                            id: rule.id,
+                            description: `${rule.linkType} → ${rule.targetModelKey}`,
+                          })
+                        }
                       >
                         Remove
                       </Button>
@@ -285,6 +307,37 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
           </div>
         </form>
       </Section>
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoveTarget(null)
+        }}
+      >
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Remove this relation?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {removeTarget
+                ? `“${removeTarget.description}” is deleted from this model's declared relations. This cannot be undone; add the rule again to restore it.`
+                : ''}
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel disabled={busy}>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogAction
+              variant="danger-fill"
+              disabled={busy}
+              onClick={() => {
+                if (!removeTarget) return
+                void remove(removeTarget.id)
+              }}
+            >
+              {busy ? 'Removing…' : 'Remove relation'}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }

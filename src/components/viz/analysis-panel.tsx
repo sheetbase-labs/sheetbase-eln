@@ -6,6 +6,16 @@ import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import { Input } from '#/components/v3/ui/input'
 import { NativeSelect } from '#/components/v3/projects/select'
 import {
@@ -247,7 +257,17 @@ export function AnalysisPanel({
         queryKey: analysisDefinitionQueryKeys.all,
       })
     },
+    onError: (error: unknown) =>
+      toast('Could not delete the saved analysis', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      }),
   })
+
+  // Deleting a saved definition destroys it for the whole workspace with no
+  // undo, so the row action asks first, like the other destructive lists.
+  const [deleteTarget, setDeleteTarget] =
+    useState<AnalysisDefinitionWire | null>(null)
 
   // SCI-02 → SCI-01 link: overlay the fitted curve on its observations.
   const fitChart = useMemo(() => {
@@ -441,8 +461,41 @@ export function AnalysisPanel({
         loading={definitionsQuery.isLoading}
         activeId={draft.editingId}
         onLoad={loadDefinition}
-        onDelete={(id) => deleteMutation.mutate(id)}
+        onDelete={setDeleteTarget}
       />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+      >
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Delete this saved analysis?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              “{deleteTarget?.name ?? ''}” and the source revisions it recorded
+              are deleted for everyone in the workspace. This cannot be undone;
+              charts already exported from it keep their own copy.
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel disabled={deleteMutation.isPending}>
+              Cancel
+            </ConfirmDialogCancel>
+            <ConfirmDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (!deleteTarget) return
+                deleteMutation.mutate(deleteTarget.id)
+                setDeleteTarget(null)
+              }}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }
@@ -1049,7 +1102,7 @@ function SavedDefinitionsList({
   loading: boolean
   activeId: string | null
   onLoad: (saved: AnalysisDefinitionWire) => void
-  onDelete: (id: string) => void
+  onDelete: (saved: AnalysisDefinitionWire) => void
 }) {
   if (loading)
     return (
@@ -1087,7 +1140,7 @@ function SavedDefinitionsList({
               size="icon"
               variant="quiet"
               aria-label={`Delete ${saved.name}`}
-              onClick={() => onDelete(saved.id)}
+              onClick={() => onDelete(saved)}
             >
               <Trash2 />
             </Button>

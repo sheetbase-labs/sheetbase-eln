@@ -63,6 +63,32 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
 
   const m = definition.data
   if (!m) {
+    // A failed read is not a missing model: say which happened.
+    if (definition.isError) {
+      return (
+        <div className="flex min-w-0 flex-1 flex-col">
+          <PageHeader
+            crumbs={
+              <Link to="/models" className="text-link">
+                Models
+              </Link>
+            }
+            title="Model could not be loaded"
+          />
+          <div className="px-4 py-6 md:px-6">
+            <EmptyState
+              icon="warn"
+              title="The model definition could not be read"
+              body="This model exists only if its read succeeds; a failed request cannot prove it is missing. Check the connection and try again."
+            >
+              <Button onClick={() => void definition.refetch()}>
+                Try again
+              </Button>
+            </EmptyState>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
@@ -263,6 +289,32 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
               render={<Link to={surface?.to ?? '/models'} />}
             >
               {surface ? `Open ${surface.label}` : 'Back to Models'}
+            </Button>
+          </EmptyState>
+        </div>
+      </div>
+    )
+  }
+
+  // Neither registry returned a row; a failed read cannot be reported as a
+  // model that does not exist.
+  if (model.isError || builtIn.isError) {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PageHeader crumbs={crumbs} title="Model could not be loaded" />
+        <div className="px-4 py-6 md:px-6">
+          <EmptyState
+            icon="warn"
+            title={`Model “${modelKey}” could not be read`}
+            body="A failed request cannot prove the key is unused. Check the connection and try again."
+          >
+            <Button
+              onClick={() => {
+                void model.refetch()
+                void builtIn.refetch()
+              }}
+            >
+              Try again
             </Button>
           </EmptyState>
         </div>

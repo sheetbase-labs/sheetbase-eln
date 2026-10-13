@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Link,
   createFileRoute,
@@ -18,6 +18,24 @@ import {
   createBlankExperiment,
 } from '#/lib/notebook-create'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { fetchMyProjectAssignments } from '#/lib/workspace-access'
+
+/**
+ * The refusal the create RPC actually returns, said in a way the author can
+ * act on. A row-level-security rejection means the project is view-only for
+ * this account (or the workspace role cannot create records there at all), so
+ * it names the fix instead of printing the policy name.
+ */
+function createErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : ''
+  if (/project is archived/i.test(message)) {
+    return 'That project is archived, so it cannot take a new experiment. Pick another project, or restore the project first.'
+  }
+  if (/row-level security|permission_denied|permission denied/i.test(message)) {
+    return 'You don’t have permission to create records in that project. Pick a project you can edit, or ask a workspace owner to grant edit access.'
+  }
+  return message || 'Couldn’t create the draft.'
+}
 
 /**
  * UI port (roadmap-4/ui-app3): New experiment. app-3's form asks for a
@@ -46,13 +64,24 @@ function NewExperiment() {
   const projects = useQuery({
     queryKey: ['ui-port', 'experiments', 'new', 'projects'],
     queryFn: () =>
-      notebookDataClient.list<{ id: string; title: string }>(
-        'projects',
-        '?select=id,title&order=title.asc',
-      ),
+      notebookDataClient.list<{
+        id: string
+        title: string
+        archived_at: string | null
+        status: string
+      }>('projects', '?select=id,title,archived_at,status&order=title.asc'),
     staleTime: 60_000,
   })
   const rows = projects.data ?? []
+  type ProjectOption = (typeof rows)[number]
+  // Which of those projects the caller may write to. `api.projects` returns
+  // every project the account can *view*; the create RPC inserts under
+  // `records_live_insert`, so a view-only default fails with a raw RLS error.
+  const assignments = useQuery({
+    queryKey: ['ui-port', 'experiments', 'new', 'project-access'],
+    queryFn: () => fetchMyProjectAssignments(notebookDataClient),
+    staleTime: 60_000,
+  })
   const [projectId, setProjectId] = useState(search.project ?? '')
   const [title, setTitle] = useState('')
   const [reviewerId, setReviewerId] = useState('')
@@ -112,13 +141,48 @@ function NewExperiment() {
     staleTime: 30_000,
   })
 
-  const effectiveProjectId = projectId || rows.at(0)?.id || ''
+  // Two independent reasons a project cannot take a new experiment: the
+  // account cannot edit it, or the project is archived (`archive_project`
+  // refuses every write under it — `internal.project_is_archived`). Both are
+  // shown but neither is ever the default.
+  const writableProjectIds = useMemo(
+    () =>
+      new Set(
+        (assignments.data ?? [])
+          .filter((assignment) => assignment.can_edit)
+          .map((assignment) => assignment.project_id),
+      ),
+    [assignments.data],
+  )
+  const accessKnown = assignments.isSuccess
+  const isArchived = (project: ProjectOption) =>
+    Boolean(project.archived_at) || project.status === 'archived'
+  const canCreateIn = (project: ProjectOption) =>
+    accessKnown && writableProjectIds.has(project.id) && !isArchived(project)
+  const projectNote = (project: ProjectOption) =>
+    !accessKnown
+      ? ''
+      : isArchived(project)
+        ? ' · archived'
+        : writableProjectIds.has(project.id)
+          ? ''
+          : ' · read-only'
+  const firstUsableId = rows.find((project) => canCreateIn(project))?.id ?? ''
+  const chosenProject = rows.find((project) => project.id === projectId)
+  const effectiveProjectId =
+    chosenProject && canCreateIn(chosenProject)
+      ? chosenProject.id
+      : firstUsableId
   const titleError =
     touched && title.trim().length < 5
       ? 'Use at least 5 characters so the title says what is being tested.'
       : undefined
   const projectError =
-    touched && !effectiveProjectId ? 'Choose a project.' : undefined
+    touched && !effectiveProjectId
+      ? rows.length === 0
+        ? 'Choose a project.'
+        : 'Choose a project you can edit that is not archived.'
+      : undefined
 
   const create = useMutation({
     mutationFn: async () => {
@@ -172,15 +236,13 @@ function NewExperiment() {
       })
     },
     onError: (error: unknown) => {
-      toast.error(
-        error instanceof Error ? error.message : 'Couldn’t create the draft.',
-      )
+      toast.error(createErrorMessage(error))
     },
   })
 
   const submit = () => {
     setTouched(true)
-    if (title.trim().length < 5 || !effectiveProjectId) return
+    if (!accessKnown || title.trim().length < 5 || !effectiveProjectId) return
     create.mutate()
   }
 
@@ -204,18 +266,36 @@ function NewExperiment() {
           submit()
         }}
       >
-        <Field label="Project" required error={projectError}>
+        <Field
+          label="Project"
+          required
+          error={projectError}
+          hint={
+            accessKnown && rows.some((p) => !canCreateIn(p))
+              ? 'Projects you can only view, and archived projects, cannot hold a new experiment.'
+              : undefined
+          }
+        >
           <NativeSelect
             value={effectiveProjectId}
             onChange={(e) => setProjectId(e.target.value)}
-            disabled={projects.isLoading}
+            disabled={
+              projects.isLoading || assignments.isLoading || !accessKnown
+            }
           >
-            {rows.length === 0 ? (
+            {!accessKnown ? (
+              <option value="">
+                {assignments.isLoading
+                  ? 'Checking project access…'
+                  : 'Project access unavailable'}
+              </option>
+            ) : rows.length === 0 ? (
               <option value="">No projects yet</option>
             ) : null}
             {rows.map((p) => (
-              <option key={p.id} value={p.id}>
+              <option key={p.id} value={p.id} disabled={!canCreateIn(p)}>
                 {p.title}
+                {projectNote(p)}
               </option>
             ))}
           </NativeSelect>
@@ -321,7 +401,7 @@ function NewExperiment() {
           <Button
             type="submit"
             variant="primary"
-            disabled={create.isPending || rows.length === 0}
+            disabled={create.isPending || !accessKnown || !effectiveProjectId}
           >
             {create.isPending ? 'Creating…' : 'Create draft'}
           </Button>
@@ -329,8 +409,38 @@ function NewExperiment() {
             Cancel
           </Button>
         </div>
+        {create.error ? (
+          <p role="alert" className="m-0 text-label text-danger-text">
+            {createErrorMessage(create.error)}
+          </p>
+        ) : null}
+        {assignments.isLoading ? (
+          <Muted>Checking which projects you can write to…</Muted>
+        ) : null}
+        {assignments.isError ? (
+          <span className="flex items-center gap-2">
+            <Muted>
+              Couldn’t check which projects you can write to, so creating is
+              paused.
+            </Muted>
+            <Button
+              size="sm"
+              variant="quiet"
+              onClick={() => void assignments.refetch()}
+            >
+              Retry
+            </Button>
+          </span>
+        ) : null}
         {rows.length === 0 && !projects.isLoading ? (
           <Muted>Create a project first; an experiment belongs to one.</Muted>
+        ) : null}
+        {accessKnown && rows.length > 0 && !effectiveProjectId ? (
+          <Muted>
+            No project here can take a new experiment: you need edit access and
+            the project must not be archived. A workspace owner or admin can
+            change that in Settings → Access.
+          </Muted>
         ) : null}
       </form>
     </div>

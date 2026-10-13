@@ -44,6 +44,17 @@ vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
   fetchWorkspaceMembers: vi.fn(),
 }))
 
+const names = vi.hoisted<{ byId: Record<string, string> }>(() => ({
+  byId: {},
+}))
+
+vi.mock('#/lib/user-names', () => ({
+  useUserNames: (ids: string[]) => ({
+    names: Object.fromEntries(ids.map((id) => [id, names.byId[id] ?? id])),
+    userLabel: (id: string) => names.byId[id] ?? id,
+  }),
+}))
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
   Link: ({
@@ -73,6 +84,7 @@ vi.mock('@tanstack/react-router', () => ({
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  names.byId = {}
 })
 
 function renderDialog(ui: ReactNode) {
@@ -105,6 +117,7 @@ const testRecord: NotebookRecord = {
 
 describe('SubmitNotebookDialog', () => {
   it('requires a snapshot check and a reviewer before submit', async () => {
+    names.byId = { '22222222-reviewer': 'Mei L.', u1: 'Gareth P.' }
     const { previewSubmissionDigest, submitRecordRevision } =
       await import('#/lib/notebook-data')
     vi.mocked(previewSubmissionDigest).mockResolvedValue({
@@ -156,7 +169,8 @@ describe('SubmitNotebookDialog', () => {
       true,
     )
     expect(await screen.findByText('You (scientist)')).toBeTruthy()
-    await user.click(screen.getByText('22222222 · reviewer'))
+    // Candidates are identified by name, never by the shared uuid prefix.
+    await user.click(await screen.findByText('Mei L. · reviewer'))
     await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
     expect(
       await screen.findByText(/Integrity check: abc123digest/),
@@ -177,6 +191,48 @@ describe('SubmitNotebookDialog', () => {
       }),
     )
     expect(requestSignatureStepUp).not.toHaveBeenCalled()
+  })
+
+  it('names every reviewer candidate instead of the shared uuid prefix', async () => {
+    names.byId = {
+      '00000000-0000-4000-8000-000000000310': 'Gareth P.',
+      '00000000-0000-4000-8000-000000000311': 'Priya S.',
+    }
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([
+      {
+        id: 'm1',
+        workspaceId: 'ws',
+        userId: '00000000-0000-4000-8000-000000000311',
+        role: 'reviewer',
+        suspendedAt: null,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+      },
+      {
+        id: 'm2',
+        workspaceId: 'ws',
+        userId: '00000000-0000-4000-8000-000000000310',
+        role: 'owner',
+        suspendedAt: null,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+      },
+    ])
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="00000000-0000-4000-8000-000000000310"
+        workspaceId="ws"
+        record={testRecord}
+      />,
+    )
+
+    expect(await screen.findByText('Priya S. · reviewer')).toBeTruthy()
+    expect(screen.getByText('You (owner)')).toBeTruthy()
+    expect(screen.queryByText(/00000000 · /)).toBeNull()
   })
 
   it('binds Authored password proof to the exact controlled submission arguments', async () => {

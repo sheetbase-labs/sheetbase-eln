@@ -18,7 +18,7 @@ import { Client } from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 
 import * as schema from '../schema'
-import { resolveDevUserIdentity } from '#/lib/dev-identity'
+import { DEV_SESSION_ID, resolveDevUserIdentity } from '#/lib/dev-identity'
 import { monthSteps } from './month'
 import { DESIGN_WORKSPACE_IDS, designSteps } from './design'
 import {
@@ -195,6 +195,30 @@ export const fixtureSteps: Array<SeedStep> = [
             schema.workspaceMemberships.userId,
           ],
           set: { role: 'owner' },
+        })
+    },
+  },
+  {
+    // The auth-free surface presents `DEV_SESSION_ID` on every request
+    // (`getDevSession`), but nothing signs in to create the row Better Auth
+    // would have written. RPCs that gate on a live session — submission,
+    // signing — look the id up here, so without this row the whole dev
+    // environment can read but never submit. A real row with a real expiry,
+    // refreshed on every seed.
+    name: 'auth-free development session',
+    run: async (db) => {
+      const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      await db
+        .insert(schema.session)
+        .values({
+          id: DEV_SESSION_ID,
+          token: `${DEV_SESSION_ID}-token`,
+          userId: DEV_USER.id,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: schema.session.id,
+          set: { userId: DEV_USER.id, expiresAt, updatedAt: new Date() },
         })
     },
   },

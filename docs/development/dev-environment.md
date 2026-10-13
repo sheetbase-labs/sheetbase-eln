@@ -14,7 +14,11 @@ It is a disposable demo surface, not a staging or production environment.
   passed to both the app and seed containers, so the auth-free session and its
   fixture-workspace owner membership stay aligned. A custom ID gets a unique
   `owner+...@sheetbase.test` seed email. No GitHub/Google OAuth application,
-  user session or Better Auth setup is needed to view or edit the demo.
+  user session or Better Auth setup is needed to view or edit the demo. The
+  seed writes one `internal.session` row for the fixed auth-free session id
+  (`dev-auth-free-session`, `src/db/seed/run.ts`) because the RPCs that gate on
+  a live session — submission, signing — look that id up; without it the
+  environment can read but never submit.
 - `compose.dev.yaml` uses the `sheetbase-dev` Compose project, host port
   `3100`, Postgres volume `sheetbase-dev-postgres-data`, and object-storage
   volume `sheetbase-dev-object-storage`. These are separate from production.

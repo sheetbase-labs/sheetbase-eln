@@ -36,6 +36,7 @@ import {
   reviewerCandidates,
   reviewerOptionLabel,
 } from '#/lib/notebook-experience'
+import { useUserNames } from '#/lib/user-names'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import { requestSignatureStepUp } from '#/lib/signatures'
 
@@ -203,6 +204,13 @@ export function SubmitNotebookDialog({
     reviewers.length > 0
       ? reviewers
       : [{ userId: reviewerUserId, role: 'member', suspendedAt: null }]
+  // `workspace_memberships` carries no name, so the candidate list is resolved
+  // to display names the same way the rest of the app does. Without this the
+  // options read "00000000 · member" — every seeded id shares its first eight
+  // characters.
+  const { names: reviewerNames } = useUserNames(
+    shownReviewers.map((member) => member.userId),
+  )
 
   // Latest observed canonical inputs and their signature, maintained
   // synchronously during render — not in an effect. A verification response
@@ -421,7 +429,12 @@ export function SubmitNotebookDialog({
                   checked={selectedReviewerIds.includes(member.userId)}
                   onCheckedChange={() => toggleReviewer(member.userId)}
                 />
-                <span>{reviewerOptionLabel(member, reviewerUserId)}</span>
+                <span>
+                  {reviewerOptionLabel(
+                    { ...member, name: reviewerNames[member.userId] },
+                    reviewerUserId,
+                  )}
+                </span>
               </label>
             ))}
           </fieldset>

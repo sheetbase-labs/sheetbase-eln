@@ -3,6 +3,14 @@ export const DEFAULT_DEV_USER_ID = '00000000-0000-4000-8000-000000000001'
 export const DEV_USER_NAME = 'Fixture Owner'
 export const DEFAULT_DEV_USER_EMAIL = 'owner@sheetbase.test'
 
+/**
+ * The session the auth-free development surface presents on every request.
+ * Session-gated RPCs (submission, signing) look the id up in
+ * `internal.session`, so the development seed has to carry the matching row —
+ * see `fixtureSteps` in `src/db/seed/run.ts`.
+ */
+export const DEV_SESSION_ID = 'dev-auth-free-session'
+
 export function resolveDevUserId(configuredId?: string): string {
   return configuredId?.trim() || DEFAULT_DEV_USER_ID
 }

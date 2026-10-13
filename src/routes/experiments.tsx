@@ -67,6 +67,15 @@ const tabLabel: Record<Tab, string> = {
   approved: 'Approved',
   drafts: 'Drafts',
 }
+/** Empty-state titles. Interpolating the tab label read "No all experiments". */
+const tabEmptyTitle: Record<Tab, string> = {
+  all: 'No experiments',
+  mine: 'No experiments you own',
+  inprogress: 'No experiments in progress',
+  inreview: 'No experiments in review',
+  approved: 'No approved experiments',
+  drafts: 'No draft experiments',
+}
 
 /** UI port (roadmap-4/ui-app3): the experiments list on real experiment
  * records. Protocol version and open issues are design fields the model lacks
@@ -249,7 +258,7 @@ function Experiments() {
         />
       </header>
 
-      <div className="flex items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
+      <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="quiet" />}>
             Sort: {sort === 'id' ? 'ID' : 'Updated'}
@@ -312,7 +321,7 @@ function Experiments() {
         />
         <form
           role="search"
-          className="relative order-first min-w-0 flex-1 lg:order-none lg:ml-3 lg:w-[280px] lg:flex-none"
+          className="relative order-first min-w-0 flex-1 max-lg:basis-full lg:order-none lg:ml-3 lg:w-[280px] lg:flex-none"
           onSubmit={(e) => {
             e.preventDefault()
             setSearch({ q: draftQ.trim() || undefined })
@@ -471,7 +480,7 @@ function Experiments() {
                 ? noProjectAccessTitle('experiments')
                 : q
                   ? `No experiments match “${search.q}”`
-                  : `No ${tabLabel[tab].toLowerCase()} experiments`}
+                  : tabEmptyTitle[tab]}
             </div>
             <div className="max-w-[460px] leading-[19px] text-fg-muted">
               {hasProjectAccess === false

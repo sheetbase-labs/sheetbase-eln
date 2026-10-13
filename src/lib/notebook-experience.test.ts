@@ -188,6 +188,21 @@ describe('reviewerOptionLabel', () => {
       reviewerOptionLabel({ userId: 'abcdef12zzzz', role: 'reviewer' }, 'u1'),
     ).toBe('abcdef12 · reviewer')
   })
+
+  it('names the candidate whenever a name is resolved', () => {
+    expect(
+      reviewerOptionLabel(
+        { userId: 'abcdef12zzzz', role: 'reviewer', name: 'Mei L.' },
+        'u1',
+      ),
+    ).toBe('Mei L. · reviewer')
+    expect(
+      reviewerOptionLabel(
+        { userId: 'abcdef12zzzz', role: 'member', name: '   ' },
+        'u1',
+      ),
+    ).toBe('abcdef12 · member')
+  })
 })
 
 describe('fetchRevisionsForRecord', () => {

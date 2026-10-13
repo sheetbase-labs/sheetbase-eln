@@ -27,6 +27,7 @@ import { parseSheetInstanceState } from '#/lib/sheet-instance'
 import {
   NotebookCanvas,
   NotebookInspector,
+  StickyRecordHeader,
   useNotebookCellFacts,
 } from './notebook'
 
@@ -351,5 +352,44 @@ describe('NotebookInspector — selected Sheet cell (EXP-04.4)', () => {
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
     expect(screen.queryByText('Selected cell')).toBeNull()
     expect(screen.queryByText('Validation')).toBeNull()
+  })
+})
+
+describe('StickyRecordHeader — notebook title', () => {
+  it('puts the title back when the rename is refused', async () => {
+    const update = vi
+      .spyOn(notebookExperience, 'updateExperimentMetadata')
+      .mockRejectedValue(new Error('The record is locked.'))
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <StickyRecordHeader
+          record={record}
+          projectName="Virus Stability"
+          projectId="p1"
+          currentUserId="u1"
+          currentUserName="Ada Lovelace"
+          workspaceId={WORKSPACE}
+        />
+      </QueryClientProvider>,
+    )
+
+    const user = userEvent.setup()
+    const title = screen.getByRole<HTMLInputElement>('textbox', {
+      name: 'Notebook title',
+    })
+    await user.clear(title)
+    await user.type(title, 'Renamed record')
+    await user.tab()
+
+    await waitFor(() => expect(update).toHaveBeenCalled())
+    await waitFor(() => expect(title.value).toBe('Virus Stability at 4C'))
+
+    update.mockRestore()
   })
 })

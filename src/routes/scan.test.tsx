@@ -194,4 +194,21 @@ describe('Scan route', () => {
       ),
     ).toBeTruthy()
   })
+
+  it('reports a lookup that fails instead of stopping with nothing on screen', async () => {
+    scanData.resolveScanCode.mockRejectedValue(
+      new Error('The lookup service is unavailable.'),
+    )
+    render(<ScanRoute />)
+
+    await userEvent.type(screen.getByLabelText(/Type the ID/), 'SMP-2231')
+    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('The lookup service is unavailable.'),
+      ).toBeTruthy(),
+    )
+    expect(screen.queryByRole('region', { name: 'Scanned record' })).toBeNull()
+  })
 })

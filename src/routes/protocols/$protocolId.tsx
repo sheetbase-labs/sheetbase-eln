@@ -8,19 +8,11 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ProtocolDocument } from '#/components/v3/protocols/protocol-document'
+import { ProtocolVersionTraining } from '#/components/v3/protocols/protocol-version-training'
 import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Button } from '#/components/v3/ui/button'
-import { Field, Input } from '#/components/v3/ui/input'
 import { NativeSelect } from '#/components/v3/projects/select'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-} from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   Table,
@@ -39,6 +31,11 @@ import {
   notebookQueryKeys,
 } from '#/lib/notebook-data'
 import type { RevisionWire } from '#/lib/notebook-data'
+import {
+  acknowledgeProtocolVersion,
+  fetchProtocolAcknowledgements,
+  fetchProtocolVersions,
+} from '#/lib/controlled-protocols'
 import { useUserNames } from '#/lib/user-names'
 import { protocolStatus } from '../protocols'
 
@@ -47,8 +44,9 @@ type ProtocolTab = (typeof tabs)[number]
 
 /** UI port (roadmap-4/ui-app3): the protocol detail frame. The controlled
  * document is the record's rich-text blocks; Template, Used by and Versions
- * read the real structure, links and revisions; Training records who is
- * trained via `record_protocol_training`. */
+ * read the real structure, links and revisions; Training records
+ * acknowledgement against the exact frozen version via
+ * `acknowledge_protocol_version`. */
 export const Route = createFileRoute('/protocols/$protocolId')({
   validateSearch: (
     search: Record<string, unknown>,
@@ -324,33 +322,26 @@ function ProtocolPage() {
   )
 }
 
-interface TrainingWire {
-  id: string
-  user_id: string
-  status: string
-  trained_at: string | null
-  due_at: string | null
-}
-
-const TRAINING_STATUS: Record<
-  string,
-  { tone: 'ok' | 'warn' | 'none'; label: string }
-> = {
-  trained: { tone: 'ok', label: 'Trained' },
-  required: { tone: 'warn', label: 'Required' },
-  expired: { tone: 'none', label: 'Expired' },
-}
-
 function TrainingTab({ protocolId }: { protocolId: string }) {
+  const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-  const training = useQuery({
-    queryKey: ['ui-port', 'protocol-training', protocolId],
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const versions = useQuery({
+    queryKey: ['ui-port', 'protocol-versions', protocolId],
+    queryFn: () => fetchProtocolVersions(notebookDataClient, protocolId),
+  })
+  const rows = versions.data ?? []
+  // Default to the current effective version, falling back to the newest frozen
+  // one so a protocol without an effective version is still legible.
+  const version =
+    rows.find((v) => v.id === selectedId) ??
+    rows.find((v) => v.status === 'effective') ??
+    rows.at(0)
+  const acknowledgements = useQuery({
+    queryKey: ['ui-port', 'protocol-acknowledgements', version?.id ?? ''],
     queryFn: () =>
-      notebookDataClient.list<TrainingWire>(
-        'protocol_training',
-        `?protocol_record_id=eq.${encodeURIComponent(protocolId)}&select=id,user_id,status,trained_at,due_at&order=status.asc`,
-      ),
+      fetchProtocolAcknowledgements(notebookDataClient, version?.id ?? ''),
+    enabled: Boolean(version),
   })
   const members = useQuery({
     queryKey: ['ui-port', 'protocol-training-members'],
@@ -361,169 +352,64 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       ),
     staleTime: 60_000,
   })
-  const rows = training.data ?? []
-  const { userLabel } = useUserNames(
-    rows.map((r) => r.user_id),
-    { id: '', name: '' },
-  )
-
-  return (
-    <Section
-      title="Training"
-      count={rows.length}
-      action={
-        <Button variant="primary" onClick={() => setOpen(true)}>
-          Record training
-        </Button>
-      }
-    >
-      {rows.length ? (
-        <TableBox className="max-w-[760px]">
-          <Table aria-label="Protocol training">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Person</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>When</TableHead>
-                <TableHead>Due</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => {
-                const status = TRAINING_STATUS[r.status] ?? {
-                  tone: 'none' as const,
-                  label: r.status,
-                }
-                return (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">
-                      {userLabel(r.user_id)}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={status.tone}>{status.label}</Status>
-                    </TableCell>
-                    <TableCell className="num text-fg-muted">
-                      {r.trained_at ? r.trained_at.slice(0, 10) : '—'}
-                    </TableCell>
-                    <TableCell className="num text-fg-muted">
-                      {r.due_at ? r.due_at.slice(0, 10) : '—'}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        </TableBox>
-      ) : (
-        <EmptyState
-          className="py-2"
-          title="No one recorded yet"
-          body="Record who is trained on this protocol; experiments should only start from a version their owner is trained on."
-        />
-      )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[min(440px,calc(100vw-32px))]">
-          <DialogHeader title="Record training" />
-          <TrainingForm
-            protocolId={protocolId}
-            members={members.data ?? []}
-            onDone={() => {
-              setOpen(false)
-              void queryClient.invalidateQueries({
-                queryKey: ['ui-port', 'protocol-training', protocolId],
-              })
-            }}
-          />
-        </DialogContent>
-      </Dialog>
-    </Section>
-  )
-}
-
-function TrainingForm({
-  protocolId,
-  members,
-  onDone,
-}: {
-  protocolId: string
-  members: { user_id: string; name: string }[]
-  onDone: () => void
-}) {
-  const [userId, setUserId] = useState(members.at(0)?.user_id ?? '')
-  const [status, setStatus] = useState('trained')
-  const [dueAt, setDueAt] = useState('')
-  const [notes, setNotes] = useState('')
-
-  const save = useMutation({
-    mutationFn: () =>
-      notebookDataClient.rpc('record_protocol_training', {
-        p_protocol_record_id: protocolId,
-        p_user_id: userId,
-        p_status: status,
-        p_due_at: dueAt || null,
-        p_notes: notes.trim() || null,
-      }),
+  const acknowledge = useMutation({
+    mutationFn: (versionId: string) =>
+      acknowledgeProtocolVersion(notebookDataClient, versionId),
     onSuccess: () => {
-      toast('Training recorded')
-      onDone()
+      toast('Version acknowledged')
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'protocol-acknowledgements'],
+      })
     },
-    onError: (error: unknown) =>
-      toast.error(
-        error instanceof Error ? error.message : 'Couldn’t record it.',
-      ),
   })
 
+  if (versions.isPending) {
+    return <p role="status">Loading protocol versions…</p>
+  }
+  if (versions.isError) {
+    return <p role="alert">The protocol versions could not be loaded.</p>
+  }
+  if (!version) {
+    return (
+      <EmptyState
+        icon="protocol"
+        title="No frozen versions yet"
+        body="A version is frozen when the protocol is submitted for review. Acknowledgement is recorded against the exact frozen version, and an experiment can only start from a version its operator has acknowledged."
+      />
+    )
+  }
+
   return (
-    <>
-      <DialogBody>
-        <Field label="Person" required>
+    <div className="flex flex-col gap-4">
+      {rows.length > 1 ? (
+        <label className="flex items-center gap-2 text-label text-fg-muted">
+          Version
           <NativeSelect
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
+            aria-label="Protocol version"
+            value={version.id}
+            onChange={(e) => setSelectedId(e.target.value)}
           >
-            {members.length === 0 ? <option value="">No members</option> : null}
-            {members.map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {m.name}
+            {rows.map((v) => (
+              <option key={v.id} value={v.id}>
+                v{v.version} · {v.status.replace(/_/g, ' ')}
               </option>
             ))}
           </NativeSelect>
-        </Field>
-        <Field label="Status">
-          <NativeSelect
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="trained">Trained</option>
-            <option value="required">Required</option>
-            <option value="expired">Expired</option>
-          </NativeSelect>
-        </Field>
-        {status !== 'trained' ? (
-          <Field label="Due" hint="Optional.">
-            <Input
-              type="date"
-              value={dueAt}
-              onChange={(e) => setDueAt(e.target.value)}
-            />
-          </Field>
-        ) : null}
-        <Field label="Note" hint="Optional.">
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </Field>
-      </DialogBody>
-      <DialogFooter>
-        <span className="flex-1" />
-        <Button onClick={onDone}>Cancel</Button>
-        <Button
-          variant="primary"
-          disabled={save.isPending || !userId}
-          onClick={() => save.mutate()}
-        >
-          {save.isPending ? 'Saving…' : 'Save'}
-        </Button>
-      </DialogFooter>
-    </>
+        </label>
+      ) : null}
+      <ProtocolVersionTraining
+        version={version}
+        members={members.data ?? []}
+        acknowledgements={acknowledgements.data ?? []}
+        currentUserId={context.user.id}
+        acknowledging={acknowledge.isPending}
+        error={
+          acknowledge.error instanceof Error
+            ? acknowledge.error.message
+            : undefined
+        }
+        onAcknowledge={() => acknowledge.mutate(version.id)}
+      />
+    </div>
   )
 }

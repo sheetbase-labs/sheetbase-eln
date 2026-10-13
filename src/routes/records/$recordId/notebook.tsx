@@ -1007,6 +1007,15 @@ export function StickyRecordHeader({
         queryKey: notebookQueryKeys.record(record.id),
       })
     },
+    onError: (error: unknown) => {
+      // A refused rename leaves record.title unchanged, so the draft has to be
+      // put back by hand or the typed title looks applied.
+      setTitleDraft(record.title)
+      toast('Could not rename the record', {
+        description:
+          error instanceof Error ? error.message : 'The title was not saved.',
+      })
+    },
   })
 
   useEffect(() => {

@@ -39,14 +39,14 @@ import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
 import type { Tone } from '#/components/v3/ui/status'
 
-const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'retired'] as const
+const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
 const tabLabel: Record<ProtocolTab, string> = {
   effective: 'Effective',
   mine: 'Mine',
   inreview: 'In review',
   reviewdue: 'Review due',
-  retired: 'Retired',
+  archived: 'Archived',
 }
 
 /** UI port (roadmap-4/ui-app3): the Protocols list on protocol-template

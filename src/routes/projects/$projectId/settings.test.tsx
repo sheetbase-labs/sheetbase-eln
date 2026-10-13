@@ -118,4 +118,22 @@ describe('PROJ-01 typed settings replacement', () => {
     ).toHaveProperty('disabled', true)
     expect(mocks.update).not.toHaveBeenCalled()
   })
+
+  it('reports a refused save whose error is not a DataClientError', async () => {
+    mocks.update.mockRejectedValue(
+      new Error('The project changed since you opened it.'),
+    )
+    const user = userEvent.setup()
+    renderRoute()
+    await screen.findByRole('option', { name: /Client 17/ })
+    const title = screen.getByRole('textbox', { name: 'Name' })
+    await user.clear(title)
+    await user.type(title, 'Renamed project')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+    await waitFor(() =>
+      expect(
+        screen.getByText('The project changed since you opened it.'),
+      ).toBeTruthy(),
+    )
+  })
 })

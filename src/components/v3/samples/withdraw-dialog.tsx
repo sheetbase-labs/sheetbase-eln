@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -313,12 +313,23 @@ export function WithdrawDialog({
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
 
+  // The unit the server will measure the withdrawal against is the balance's:
+  // a sample with no stored unit must not be able to submit a different one.
+  const balanceUnit = balances?.unit ?? null
+  const unitLocked = Boolean(sample.quantityUnit ?? balanceUnit)
   const [quantity, setQuantity] = useState('')
-  const [unit, setUnit] = useState(sample.quantityUnit ?? 'mL')
+  const [unit, setUnit] = useState(sample.quantityUnit ?? balanceUnit ?? 'mL')
   const [purpose, setPurpose] = useState('')
   const [into, setInto] = useState('keep')
   const [containerTitle, setContainerTitle] = useState('')
   const [notes, setNotes] = useState('')
+
+  // The balance arrives after the first paint; adopt its unit when the sample
+  // does not carry one of its own.
+  useEffect(() => {
+    if (sample.quantityUnit) return
+    if (balanceUnit) setUnit(balanceUnit)
+  }, [sample.quantityUnit, balanceUnit])
 
   const free = balances?.free ?? sample.quantity ?? 0
   const unitLabel = balances?.unit ?? sample.quantityUnit ?? null
@@ -327,8 +338,9 @@ export function WithdrawDialog({
   const blocked = busy || !validation.valid || purpose === ''
   const unitOptions = useMemo(() => {
     if (sample.quantityUnit) return [sample.quantityUnit]
+    if (balanceUnit) return [balanceUnit]
     return COMMON_UNITS
-  }, [sample.quantityUnit])
+  }, [sample.quantityUnit, balanceUnit])
 
   const onKey = (key: string) => {
     setQuantity((current) => {
@@ -385,7 +397,7 @@ export function WithdrawDialog({
               <NativeSelect
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
-                disabled={Boolean(sample.quantityUnit)}
+                disabled={unitLocked}
               >
                 {unitOptions.map((option) => (
                   <option key={option} value={option}>
@@ -530,11 +542,22 @@ export function ReserveDialog({
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
 
+  // The unit the server will measure the reservation against is the balance's:
+  // a sample with no stored unit must not be able to submit a different one.
+  const balanceUnit = balances?.unit ?? null
+  const unitLocked = Boolean(sample.quantityUnit ?? balanceUnit)
   const [quantity, setQuantity] = useState('')
-  const [unit, setUnit] = useState(sample.quantityUnit ?? 'mL')
+  const [unit, setUnit] = useState(sample.quantityUnit ?? balanceUnit ?? 'mL')
   const [experiment, setExperiment] = useState('')
   const [planned, setPlanned] = useState(true)
   const [notes, setNotes] = useState('')
+
+  // The balance arrives after the first paint; adopt its unit when the sample
+  // does not carry one of its own.
+  useEffect(() => {
+    if (sample.quantityUnit) return
+    if (balanceUnit) setUnit(balanceUnit)
+  }, [sample.quantityUnit, balanceUnit])
 
   const free = balances?.free ?? sample.quantity ?? 0
   const unitLabel = balances?.unit ?? sample.quantityUnit ?? null
@@ -543,8 +566,9 @@ export function ReserveDialog({
   const blocked = busy || !validation.valid || experiment === ''
   const unitOptions = useMemo(() => {
     if (sample.quantityUnit) return [sample.quantityUnit]
+    if (balanceUnit) return [balanceUnit]
     return COMMON_UNITS
-  }, [sample.quantityUnit])
+  }, [sample.quantityUnit, balanceUnit])
 
   const onKey = (key: string) => {
     setQuantity((current) => {
@@ -598,7 +622,7 @@ export function ReserveDialog({
               <NativeSelect
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
-                disabled={Boolean(sample.quantityUnit)}
+                disabled={unitLocked}
               >
                 {unitOptions.map((option) => (
                   <option key={option} value={option}>

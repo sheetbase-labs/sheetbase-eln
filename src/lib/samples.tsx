@@ -686,7 +686,11 @@ export async function fetchSample(
   return rows.length > 0 ? toSampleRecord(rows[0]) : null
 }
 
-/** Fetch the chain-of-custody / quantity event log for a sample. */
+/** Fetch the chain-of-custody / quantity event log for a sample. The whole
+ * ledger is returned: it is the audit trail the History tab counts and the
+ * stream `deriveSampleVolumeSummary` reads, so older events are never dropped
+ * without saying so. Consumers that want only the newest few reduce it
+ * themselves (e.g. `SampleRecentHistory`). */
 export async function fetchSampleEvents(
   client: DataClient,
   recordId: string,
@@ -694,7 +698,7 @@ export async function fetchSampleEvents(
   return client
     .list<SampleEventWire>(
       'sample_events',
-      `?record_id=eq.${recordId}&order=created_at.desc&limit=50`,
+      `?record_id=eq.${recordId}&order=created_at.desc`,
     )
     .then((rows) => rows.map(toSampleEvent))
 }

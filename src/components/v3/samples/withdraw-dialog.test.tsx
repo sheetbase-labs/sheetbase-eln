@@ -18,6 +18,7 @@ import type {
   ExperimentOption,
   ReserveDialogInput,
   WithdrawDialogInput,
+  WithdrawDialogProps,
 } from './withdraw-dialog'
 
 afterEach(cleanup)
@@ -39,12 +40,31 @@ const BALANCES: SampleQuantityBalances = {
   free: 1600,
 }
 
+/** A sample whose unit is unknown: the balance is the only unit source. */
+const NO_UNIT_SAMPLE = {
+  id: 's-2',
+  identifier: 'SMP-2232',
+  title: 'Dry pellet lot',
+  quantity: 40,
+  quantityUnit: null,
+}
+
+const GRAM_BALANCES: SampleQuantityBalances = {
+  sampleRecordId: 's-2',
+  unit: 'g',
+  current: 40,
+  used: 10,
+  reserved: 5,
+  free: 35,
+}
+
 const EXPERIMENTS: ExperimentOption[] = [
   { id: 'exp-1', identifier: 'EXP-0145', title: '50 L confirmation run' },
 ]
 
 function renderDialog(
   onSubmit: (input: WithdrawDialogInput) => void = vi.fn(),
+  overrides: Partial<Pick<WithdrawDialogProps, 'sample' | 'balances'>> = {},
 ) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -54,11 +74,11 @@ function renderDialog(
       <WithdrawDialog
         open
         onOpenChange={() => {}}
-        sample={SAMPLE}
+        sample={overrides.sample ?? SAMPLE}
         busy={false}
         onSubmit={onSubmit}
         experiments={EXPERIMENTS}
-        balances={BALANCES}
+        balances={overrides.balances ?? BALANCES}
       />
     </QueryClientProvider>,
   )
@@ -224,6 +244,35 @@ describe('WithdrawDialog', () => {
           .getAttribute('aria-disabled') === 'true',
     ).toBe(true)
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('withdraws in the balance unit when the sample stores none', async () => {
+    const onSubmit = vi.fn()
+    const user = userEvent.setup()
+    renderDialog(onSubmit, {
+      sample: NO_UNIT_SAMPLE,
+      balances: GRAM_BALANCES,
+    })
+    const dialog = screen.getByRole('dialog')
+    const unit = within(dialog).getByRole<HTMLSelectElement>('combobox', {
+      name: /Unit/,
+    })
+    expect(unit.value).toBe('g')
+    expect(unit.disabled).toBe(true)
+
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /Volume/ }),
+      '5',
+    )
+    await user.selectOptions(
+      within(dialog).getByRole('combobox', { name: /Purpose/ }),
+      'exp-1',
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Withdraw' }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ quantity: 5, unit: 'g' }),
+    )
   })
 })
 

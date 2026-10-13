@@ -13,6 +13,7 @@ import {
   buildSamplesOrder,
   buildSamplesQuery,
   computeSampleSummaries,
+  fetchSampleEvents,
   isLowStock,
   parseSampleProperties,
   recordSampleLabelPrint,
@@ -317,5 +318,25 @@ describe('recordSampleLabelPrint', () => {
     ])
     // The appended sample_events row comes back.
     expect(sample.operation).toBe('print')
+  })
+})
+
+describe('fetchSampleEvents', () => {
+  it('reads the whole custody ledger, newest first, without a silent cap', async () => {
+    const requests: string[] = []
+    const client = {
+      list: (resource: string, query?: string) => {
+        requests.push(`${resource}${query ?? ''}`)
+        return Promise.resolve([])
+      },
+    } as unknown as DataClient
+
+    await fetchSampleEvents(client, 's-1')
+
+    // The History tab counts what it renders and `deriveSampleVolumeSummary`
+    // reads the same stream, so older events must not be dropped.
+    expect(requests).toEqual([
+      'sample_events?record_id=eq.s-1&order=created_at.desc',
+    ])
   })
 })

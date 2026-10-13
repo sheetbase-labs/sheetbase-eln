@@ -25,7 +25,6 @@ import {
   fetchWorkspaceMemberIdentities,
   workspaceMemberQueryKeys,
 } from '#/components/v3/projects/project-data'
-import { DataClientError } from '#/lib/data-client'
 
 interface ClientWire {
   id: string
@@ -172,8 +171,14 @@ function ProjectSettings() {
   }
 
   const saving = save.isPending
-  const saveError =
-    save.error instanceof DataClientError ? save.error.message : null
+  // Every failure of the save must be visible: the RPC (stale revision,
+  // validation, RLS) and the guard that refuses an archived project both throw
+  // errors whose message is what the lead needs to act on.
+  const saveError = save.error
+    ? save.error instanceof Error
+      ? save.error.message
+      : 'Could not save the project settings.'
+    : null
 
   return (
     <>

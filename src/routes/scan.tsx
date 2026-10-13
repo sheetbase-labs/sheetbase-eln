@@ -35,11 +35,13 @@ function ScanPage() {
   const [result, setResult] = useState<ScanResolution | null>(null)
   const [busy, setBusy] = useState(false)
   const [recent, setRecent] = useState<ScanTarget[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   const resolve = async (raw: string) => {
     const trimmed = raw.trim()
     if (!trimmed) return
     setBusy(true)
+    setError(null)
     try {
       const r = await resolveScanCode(trimmed)
       setResult(r)
@@ -49,6 +51,15 @@ function ScanPage() {
           [hit, ...xs.filter((x) => x.id !== hit.id)].slice(0, 5),
         )
       }
+    } catch (cause) {
+      // A failed lookup is not a miss: say the code could not be read rather
+      // than stopping the spinner with nothing on screen.
+      setResult(null)
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'The code could not be looked up.',
+      )
     } finally {
       setBusy(false)
     }
@@ -125,6 +136,12 @@ function ScanPage() {
               ) : (
                 'Check the label and try again.'
               )}
+            </Notice>
+          ) : null}
+
+          {error ? (
+            <Notice tone="bad" title="Could not resolve this code.">
+              {error}
             </Notice>
           ) : null}
         </CameraScanner>

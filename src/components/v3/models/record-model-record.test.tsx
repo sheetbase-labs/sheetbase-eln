@@ -27,7 +27,7 @@ const mocks = vi.hoisted(() => {
     updated_at: '2026-09-25T00:00:00.000Z',
     archived_at: null,
   }
-  return { record }
+  return { record, timeline: [] as unknown[] }
 })
 
 vi.mock('@tanstack/react-router', () => ({
@@ -60,16 +60,26 @@ vi.mock('./models-data', () => ({
   useRecordModelFields: () => ({ data: [], isLoading: false }),
   useRecordModelRecord: () => ({ data: mocks.record, isLoading: false }),
   useRecordModelUsedBy: () => ({ data: [], isLoading: false }),
-  useRecordModelTimeline: () => ({ data: [], isLoading: false }),
+  useRecordModelTimeline: () => ({ data: mocks.timeline, isLoading: false }),
   laterAddedModelFields: () => [],
   recordFieldValue: () => undefined,
 }))
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  mocks.timeline = []
+})
 
 /** The class tokens on the element that wraps the action, not a substring. */
 function wrapperClasses(button: HTMLElement): string[] {
   return (button.parentElement?.className ?? '').split(/\s+/)
+}
+
+/** The integrations note's text, which must follow the record's history. */
+function integrationsNote(): string {
+  return screen
+    .getByText(/integrations arrive as history/)
+    .textContent.trim()
 }
 
 describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
@@ -90,5 +100,39 @@ describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
       // 44px full-width touch target, as the phone canvas draws them.
       expect(phone.className).toContain('h-11')
     }
+  })
+
+  it('reads the record status the same way in the header and the details', () => {
+    render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
+
+    // The stored code is `draft`; both surfaces name it the way the rest of
+    // the app does, and the raw code is never shown.
+    expect(screen.getAllByText('Draft')).toHaveLength(2)
+    expect(screen.queryByText('draft')).toBeNull()
+  })
+})
+
+describe('RecordModelRecord — integrations note', () => {
+  it('follows the record history instead of asserting nothing has written', () => {
+    const empty = render(
+      <RecordModelRecord modelKey="cell_bank" recordId="rec-1" />,
+    )
+    const noteWithNoHistory = integrationsNote()
+    empty.unmount()
+
+    mocks.timeline = [
+      {
+        type: 'change_event',
+        id: 'event-1',
+        seq: 1,
+        ts: '2026-09-25T00:00:00.000Z',
+        title: 'record update',
+        actorUserId: null,
+      },
+    ]
+    render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
+
+    expect(integrationsNote()).toBeTruthy()
+    expect(integrationsNote()).not.toBe(noteWithNoHistory)
   })
 })

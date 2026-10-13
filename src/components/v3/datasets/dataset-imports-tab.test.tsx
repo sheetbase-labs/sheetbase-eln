@@ -17,6 +17,31 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   notebookDataClient: dataClient,
 }))
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    params,
+    search,
+    children,
+    ...props
+  }: {
+    to: string
+    params?: Record<string, string>
+    search?: unknown
+    children: React.ReactNode
+  } & Record<string, unknown>) => {
+    void search
+    let href = to
+    for (const [key, value] of Object.entries(params ?? {}))
+      href = href.replace(`$${key}`, encodeURIComponent(String(value)))
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    )
+  },
+}))
+
 const committed: DatasetImportRecord = {
   id: 'imp-1',
   dataset_id: 'ds-1',
@@ -63,6 +88,16 @@ describe('DatasetImportsTab', () => {
     expect(dataClient.rpc).toHaveBeenCalledWith('dataset_import_list', {
       p_dataset_id: 'ds-1',
     })
+  })
+
+  it('opens a failed import at its retained file so it can be retried', async () => {
+    dataClient.rpc.mockResolvedValue([
+      { ...committed, status: 'failed', file_id: 'file-9', outcome: {} },
+    ])
+    renderTab()
+
+    const link = await screen.findByRole('link', { name: 'readings.csv' })
+    expect(link.getAttribute('href')).toBe('/import/file-9')
   })
 
   it('shows an honest empty state when nothing has been imported', async () => {

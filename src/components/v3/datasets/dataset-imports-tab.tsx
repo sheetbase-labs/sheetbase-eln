@@ -12,6 +12,7 @@
  * honest empty state for a dataset that has never been imported into.
  */
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Section } from '#/components/v3/ui/layout'
@@ -38,6 +39,15 @@ export interface DatasetImportRow {
   rows: number
   parser: string
   result: { tone: Tone; label: string }
+  /** The retained import file, when the receipt has one to reopen. */
+  importFileId: string | null
+  /** Search state that resumes that file's map and check steps. */
+  resumeSearch: {
+    step: 'map'
+    dataset: string
+    experiment?: string
+    parser?: string
+  }
 }
 
 function stringField(
@@ -74,6 +84,13 @@ export function toDatasetImportRow(
     result: RESULT_BY_STATUS[receipt.status] ?? {
       tone: 'none',
       label: receipt.status,
+    },
+    importFileId: receipt.file_id,
+    resumeSearch: {
+      step: 'map',
+      dataset: receipt.dataset_id,
+      experiment: receipt.experiment_record_id ?? undefined,
+      parser: stringField(receipt.parser_provenance, 'key') ?? undefined,
     },
   }
 }
@@ -134,7 +151,20 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
                 {rows.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell className="first:pl-3">{row.when}</TableCell>
-                    <TableCell>{row.file}</TableCell>
+                    <TableCell>
+                      {row.importFileId ? (
+                        <Link
+                          to="/import/$importId"
+                          params={{ importId: row.importFileId }}
+                          search={row.resumeSearch}
+                          className="text-link"
+                        >
+                          {row.file}
+                        </Link>
+                      ) : (
+                        row.file
+                      )}
+                    </TableCell>
                     <TableCell align="right" className="num">
                       {row.rows}
                     </TableCell>

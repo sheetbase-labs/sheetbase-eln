@@ -215,7 +215,13 @@ function ModelEditor() {
     setSelectedKey(null)
   }, [draft?.id])
 
-  const issues = useMemo(() => validateDraft(rows), [rows])
+  const issues = useMemo(() => {
+    const found = validateDraft(rows)
+    for (const [rowKey, message] of fieldContractIssues(rows)) {
+      if (!found.has(rowKey)) found.set(rowKey, message)
+    }
+    return found
+  }, [rows])
   const grouped = useMemo(() => groupBySection(rows), [rows])
   const sections = useMemo(() => sectionNames(rows), [rows])
   const changes = useMemo(
@@ -460,7 +466,7 @@ function ModelEditor() {
               <>
                 <Button
                   variant="quiet"
-                  disabled={denied || saving}
+                  disabled={locked || saving}
                   onClick={() => setDiscardOpen(true)}
                 >
                   Discard draft
@@ -809,7 +815,7 @@ function ModelEditor() {
               </DialogClose>
               <Button
                 variant="danger"
-                disabled={discard.isPending}
+                disabled={discard.isPending || locked}
                 onClick={() => discard.mutate()}
               >
                 {discard.isPending ? 'Discarding…' : 'Discard draft'}
@@ -1225,4 +1231,85 @@ function errorMessage(error: unknown): string {
     return 'You don’t have permission to change this model.'
   }
   return message
+}
+
+/** Postgres-only inline flag groups (`(?i)`, `(?m)`, …); JS RegExp has none. */
+const POSTGRES_INLINE_FLAGS = /\(\?[ismxnp]+\)/g
+
+/**
+ * Whether the stored pattern would survive being compiled where it is used. The
+ * database compiles `validation.pattern` as a regular expression and refuses an
+ * unusable one (SB071). Postgres-only inline flags are stripped before the
+ * check, because JS `RegExp` rejects syntax the database accepts.
+ */
+function patternCompiles(pattern: string): boolean {
+  try {
+    new RegExp(pattern.replace(POSTGRES_INLINE_FLAGS, ''))
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The field contract the server enforces on save
+ * (`internal.replace_dataset_schema_version_fields`: `^[a-z][a-z0-9_]{0,59}$`
+ * keys and 1–200 character labels) and on publish
+ * (`internal.assert_publishable_dataset_schema_version`: a usable pattern,
+ * numeric bounds, complete quantity metadata). `validateDraft` covers identity
+ * and bounds only, so the rest is named inline rather than after a round-trip.
+ * Values here are only stops: the server stays authoritative.
+ */
+function fieldContractIssues(
+  rows: readonly DraftField[],
+): Map<string, string> {
+  const issues = new Map<string, string>()
+  for (const row of rows) {
+    const key = row.key.trim()
+    const label = row.label.trim()
+    const validation = row.validation ?? {}
+    if (key.length > 60) {
+      issues.set(row.rowKey, 'Key must be 60 characters or fewer.')
+    } else if (label.length > 200) {
+      issues.set(row.rowKey, 'Name must be 200 characters or fewer.')
+    }
+    const pattern = validation.pattern
+    if (
+      pattern !== undefined &&
+      (typeof pattern !== 'string' || !patternCompiles(pattern))
+    ) {
+      issues.set(
+        row.rowKey,
+        'Pattern must be a regular expression the database can compile.',
+      )
+    }
+    for (const bound of ['min', 'max', 'minLength', 'maxLength'] as const) {
+      if (bound in validation && !Number.isFinite(validation[bound])) {
+        issues.set(row.rowKey, `Enter ${bound} as a number.`)
+      }
+    }
+    const quantity = row.quantity
+    if (quantity != null) {
+      const config =
+        typeof quantity === 'object' && !Array.isArray(quantity)
+          ? (quantity as Record<string, unknown>)
+          : null
+      const blank = (name: string) =>
+        typeof config?.[name] !== 'string' || config[name].trim() === ''
+      if (row.logicalType !== 'integer' && row.logicalType !== 'decimal') {
+        issues.set(row.rowKey, 'Only integer and decimal fields carry a unit.')
+      } else if (
+        config === null ||
+        blank('kind') ||
+        blank('dimension') ||
+        blank('storageUnit')
+      ) {
+        issues.set(
+          row.rowKey,
+          'A unit needs its kind, dimension and storage unit.',
+        )
+      }
+    }
+  }
+  return issues
 }

@@ -50,6 +50,7 @@ export function RecordModelRecord({
   const fields = fieldsQuery.data ?? []
   const record = recordQuery.data
   const usedBy = usedByQuery.data ?? []
+  const timeline = timelineQuery.data ?? []
 
   if (!recordQuery.isLoading && !record) {
     return (
@@ -146,7 +147,7 @@ export function RecordModelRecord({
             items={[
               ['ID', <span className="mono">{record.identifier}</span>],
               ['Name', record.title],
-              ['Status', record.status],
+              ['Status', status ? status.label : record.status],
               ['Created', formatDate(record.created_at)],
               ...fields.map<[React.ReactNode, React.ReactNode]>((field) => [
                 field.label,
@@ -196,7 +197,7 @@ export function RecordModelRecord({
 
       <Section title="History">
         <RecordHistoryTimeline
-          events={timelineQuery.data ?? []}
+          events={timeline}
           loading={timelineQuery.isLoading}
           error={timelineQuery.error}
         />
@@ -204,8 +205,9 @@ export function RecordModelRecord({
 
       <Section title="Integrations">
         <p className="m-0 text-label text-fg-muted">
-          Results from QC LIMS and other integrations arrive as history entries
-          above. No integration has written to this record yet.
+          {timeline.length
+            ? 'Results from QC LIMS and other integrations arrive as history entries above. This record has history, so an integration write is one of those entries.'
+            : 'Results from QC LIMS and other integrations arrive as history entries above. This record has no history yet, so no person, integration or API client has written to it.'}
         </p>
       </Section>
 

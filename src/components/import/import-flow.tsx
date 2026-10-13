@@ -27,6 +27,7 @@ import {
 import { createDataClient } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
+import { formatFileSize } from '#/lib/format-numbers'
 import {
   datasetFieldsFromColumns,
   suggestImportMappings,
@@ -196,11 +197,6 @@ export function commitIdempotencyKey(
     hash = Math.imul(hash, 16777619)
   }
   return `import-${fileId}-${datasetId}-${(hash >>> 0).toString(16)}`
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 
 function outcomeTone(outcome: string): 'ok' | 'warn' | 'bad' | 'stored' {
@@ -481,8 +477,9 @@ export function ImportUploadFlow({ workspaceId }: { workspaceId: string }) {
             </ol>
             <p className="m-0 mt-2 max-w-[640px] text-body text-fg-muted">
               Each stored file gets its own link, so a mapping or check step can
-              be shared and picked up later. Nothing is written until you
-              import.
+              be shared and picked up later. When you are importing into a new
+              Dataset, storing the file creates that Dataset straight away; no
+              rows are written until you import.
             </p>
           </Section>
         </div>
@@ -546,6 +543,7 @@ export function ImportMapCheckFlow({
   const [mappingReady, setMappingReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [saveWarning, setSaveWarning] = useState('')
   const [outcome, setOutcome] = useState<ImportCommitResponseSummary | null>(
     null,
   )
@@ -591,10 +589,21 @@ export function ImportMapCheckFlow({
   )
   const mappedCount = Object.values(mappingValues).filter(Boolean).length
   const parsed = Boolean(file.data?.parsed)
+  const datasetPending = Boolean(datasetId) && datasets.isLoading
   const datasetUnavailable =
     Boolean(datasetId) && !datasets.isLoading && !dataset
   const showMapping =
     parsed && Boolean(dataset) && Boolean(activeParser || manual)
+  // "Choose how to read this file" claims nothing matched the file, so it waits until
+  // the target is settled: not while the Dataset list is still loading (a parser may
+  // already have matched), and not when the Dataset itself is missing — that banner
+  // says what is actually wrong.
+  const showParserChoice =
+    parsed &&
+    Boolean(datasetId) &&
+    !datasetUnavailable &&
+    !activeParser &&
+    !manual
 
   const review = useQuery({
     queryKey: [
@@ -629,21 +638,26 @@ export function ImportMapCheckFlow({
     if (!file.data || !datasetId || mappedCount === 0) return
     setBusy(true)
     setError('')
+    setSaveWarning('')
     try {
+      // Saving the mapping as the parser's default is a convenience: a refused save
+      // (permission, parser rules) leaves the review, which writes nothing, available.
       if (activeParser?.parserId) {
-        await saveParserMapping(client, {
-          parserId: activeParser.parserId,
-          targetKey: `dataset:${datasetId}`,
-          mapping: mappingDocument,
-        })
+        try {
+          await saveParserMapping(client, {
+            parserId: activeParser.parserId,
+            targetKey: `dataset:${datasetId}`,
+            mapping: mappingDocument,
+          })
+        } catch (saveError) {
+          setSaveWarning(
+            saveError instanceof Error
+              ? saveError.message
+              : 'The mapping could not be saved as the parser’s default.',
+          )
+        }
       }
       writeSearch({ ...search, step: 'check' })
-    } catch (reviewError) {
-      setError(
-        reviewError instanceof Error
-          ? reviewError.message
-          : 'Could not review the file.',
-      )
     } finally {
       setBusy(false)
     }
@@ -750,7 +764,7 @@ export function ImportMapCheckFlow({
           <>
             <span>
               {file.data
-                ? `${file.data.filename} · ${formatBytes(file.data.byteSize)} · SHA-256 ${file.data.checksum.slice(0, 4)}…${file.data.checksum.slice(-4)}`
+                ? `${file.data.filename} · ${formatFileSize(file.data.byteSize)} · SHA-256 ${file.data.checksum.slice(0, 4)}…${file.data.checksum.slice(-4)}`
                 : 'Reading the stored file…'}
             </span>
             {dataset ? (
@@ -812,6 +826,16 @@ export function ImportMapCheckFlow({
                 Ask admin to update parser
               </Button>
             ) : null}
+          </Banner>
+        ) : null}
+
+        {saveWarning ? (
+          <Banner
+            tone="warn"
+            title="Mapping not saved as this parser’s default"
+            className="mb-4"
+          >
+            {saveWarning} This file still imports with the mapping you chose.
           </Banner>
         ) : null}
 
@@ -915,7 +939,13 @@ export function ImportMapCheckFlow({
           </div>
         ) : null}
 
-        {file.data && parsed && !showMapping ? (
+        {file.data && parsed && datasetPending && !showMapping ? (
+          <p role="status" className="m-0 text-body text-fg-muted">
+            Reading the target Dataset…
+          </p>
+        ) : null}
+
+        {file.data && showParserChoice ? (
           <div className="grid max-w-[680px] gap-3">
             <Banner tone="warn" title="Choose how to read this file">
               {file.data.recognitionMessage ??
@@ -1020,7 +1050,7 @@ function MapTable({
     <div className="grid gap-4">
       <p className="m-0 text-body text-fg-muted">
         {mappedCount} of {headers.length} mapped
-        {parser ? ` · saved as the default for ${parser.label}` : ''}
+        {parser ? ` · continue to save this as ${parser.label}’s default` : ''}
       </p>
       <div className="overflow-auto rounded-md border">
         <Table aria-label="Column mapping">
@@ -1089,7 +1119,7 @@ function ReviewTable({
   return (
     <div className="grid gap-4">
       {review.errors.length > 0 ? (
-        <Banner tone="bad" title="Fix these rows before importing">
+        <Banner tone="bad" title="These rows stop the import">
           <ul className="m-0 pl-4">
             {review.errors.slice(0, 8).map((item) => (
               <li key={`${item.row}-${item.code}`}>
@@ -1097,6 +1127,12 @@ function ReviewTable({
               </li>
             ))}
           </ul>
+          <p className="m-0 mt-1">
+            A row that cannot be read is not imported, and nothing is written
+            while these are on the list. There is no cell editing here: fix the
+            value in the source file and store it again, or go back to mapping
+            and point that column at a field that accepts it.
+          </p>
         </Banner>
       ) : null}
       <div className="overflow-auto rounded-md border">
@@ -1139,7 +1175,9 @@ function ReviewTable({
       <Section title="Summary">
         <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-1 text-body sm:grid-cols-3">
           <div>
-            <dt className="text-fg-muted">Will add</dt>
+            {/* The commit writes every row that is not a control, so this total
+                covers the planned and flagged rows the lines below break out. */}
+            <dt className="text-fg-muted">Rows to import</dt>
             <dd className="m-0 font-medium">{review.summary.added} rows</dd>
           </div>
           <div>

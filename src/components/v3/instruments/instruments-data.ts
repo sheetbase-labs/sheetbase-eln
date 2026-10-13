@@ -276,9 +276,63 @@ interface ParserWire {
   name: string
 }
 
+interface InstrumentParserWire {
+  id: string
+  instrument_id: string
+}
+
 interface ParserVersionWire {
   parser_id: string
   status: string
+}
+
+/**
+ * Which instruments have a parser that may import, accumulated from every attached
+ * parser. This is the same evidence the inspector derives for one instrument, so the
+ * registry list's health column can report the same state without a query per row.
+ */
+export function parserReadinessByInstrument(
+  parsers: Array<{ id: string; instrumentId: string }>,
+  validatedParserIds: ReadonlySet<string>,
+): Map<string, boolean> {
+  const ready = new Map<string, boolean>()
+  for (const parser of parsers) {
+    ready.set(
+      parser.instrumentId,
+      (ready.get(parser.instrumentId) ?? false) ||
+        validatedParserIds.has(parser.id),
+    )
+  }
+  return ready
+}
+
+/** Parser readiness for every instrument, for the registry list's health column. */
+export function useParserReadinessByInstrument(
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'instruments', 'parsers', 'all'] as const,
+    queryFn: async (): Promise<Map<string, boolean>> => {
+      const parsers = await client.list<InstrumentParserWire>(
+        'parsers',
+        '?select=id,instrument_id&instrument_id=not.is.null&limit=500',
+      )
+      if (!parsers.length) return new Map()
+      const ids = parsers.map((parser) => parser.id).join(',')
+      const versions = await client.list<ParserVersionWire>(
+        'parser_versions',
+        `?select=parser_id,status&parser_id=in.(${ids})&status=in.(validated,approved)&limit=500`,
+      )
+      return parserReadinessByInstrument(
+        parsers.map((parser) => ({
+          id: parser.id,
+          instrumentId: parser.instrument_id,
+        })),
+        new Set(versions.map((version) => version.parser_id)),
+      )
+    },
+    staleTime: 15_000,
+  })
 }
 
 /** The parsers attached to the instrument, with whether any version is validated. */
@@ -476,6 +530,13 @@ function toCalibration(row: CalibrationWire): InstrumentCalibrationRow {
   }
 }
 
+/**
+ * How far ahead a calibration counts as due soon. One window for every surface —
+ * the record page, the registry list's due column, its filter and ITS tab — so an
+ * instrument is never "due" on one screen and "valid" on another.
+ */
+export const CALIBRATION_DUE_SOON_DAYS = 30
+
 /** Current standing of the latest calibration: overdue, due soon or valid. */
 export function calibrationStatus(
   dueAt: string | null,
@@ -485,7 +546,7 @@ export function calibrationStatus(
   const due = Date.parse(dueAt)
   if (Number.isNaN(due)) return { tone: 'none', label: 'Not calibrated' }
   if (due < now.getTime()) return { tone: 'bad', label: 'Overdue' }
-  if (due - now.getTime() <= 30 * 86_400_000)
+  if (due - now.getTime() <= CALIBRATION_DUE_SOON_DAYS * 86_400_000)
     return { tone: 'warn', label: 'Due soon' }
   return { tone: 'ok', label: 'Valid' }
 }
@@ -592,6 +653,28 @@ export async function setInstrumentRetired(
   return toInstrument(row)
 }
 
+/**
+ * The calibration that states an instrument's standing: the one performed most
+ * recently, not the one with the furthest due date. A recalibration with a nearer
+ * due date must not be masked by an older certificate that expires later.
+ */
+export function latestCalibrationByInstrument(
+  rows: InstrumentCalibrationRow[],
+): Map<string, InstrumentCalibrationRow> {
+  const latest = new Map<string, InstrumentCalibrationRow>()
+  for (const row of rows) {
+    const current = latest.get(row.instrumentId)
+    if (
+      !current ||
+      row.performedAt > current.performedAt ||
+      (row.performedAt === current.performedAt && row.id > current.id)
+    ) {
+      latest.set(row.instrumentId, row)
+    }
+  }
+  return latest
+}
+
 /** Latest calibration per instrument, for the registry list's due column. */
 export function useLatestCalibrationsByInstrument(
   client: DataClient = notebookDataClient,
@@ -602,15 +685,9 @@ export function useLatestCalibrationsByInstrument(
       client
         .list<CalibrationWire>(
           'instrument_calibrations',
-          `?select=${CALIBRATION_FIELDS}&order=due_at.desc,id.desc&limit=500`,
+          `?select=${CALIBRATION_FIELDS}&order=performed_at.desc,id.desc&limit=500`,
         )
-        .then((rows) => {
-          const latest = new Map<string, InstrumentCalibrationRow>()
-          for (const row of rows.map(toCalibration)) {
-            if (!latest.has(row.instrumentId)) latest.set(row.instrumentId, row)
-          }
-          return latest
-        }),
+        .then((rows) => latestCalibrationByInstrument(rows.map(toCalibration))),
     staleTime: 15_000,
   })
 }

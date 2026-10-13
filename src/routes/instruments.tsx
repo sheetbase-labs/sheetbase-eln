@@ -50,6 +50,7 @@ import {
   stickyHead,
 } from '#/components/v3/inventory/list'
 import {
+  CALIBRATION_DUE_SOON_DAYS,
   INTAKE_METHODS,
   createInstrument,
   intakeHealth,
@@ -63,6 +64,7 @@ import {
   useInstruments,
   useLastImportsByInstrument,
   useLatestCalibrationsByInstrument,
+  useParserReadinessByInstrument,
 } from '#/components/v3/instruments/instruments-data'
 import type {
   InstrumentRow,
@@ -116,10 +118,18 @@ export const Route = createFileRoute('/instruments')({
 
 const tabLabels = {
   all: 'All',
-  connected: 'Connected',
+  connected: 'Automatic intake',
   calibration: 'Calibration due',
   retired: 'Retired',
 } as const
+
+/** What the footer's "x of y …" counts, one phrase per tab. */
+const tabCountLabels: Record<keyof typeof tabLabels, string> = {
+  all: 'instruments in service',
+  connected: 'instruments taking automatic intake',
+  calibration: 'instruments with a calibration due',
+  retired: 'retired instruments',
+}
 
 function InstrumentsRoute() {
   const isIndex = useRouterState({
@@ -149,7 +159,7 @@ function calibrationState(
       label: `${dueAt.slice(0, 10)} · ${-days} d overdue`,
       tone: 'bad',
     }
-  if (days <= 14)
+  if (days <= CALIBRATION_DUE_SOON_DAYS)
     return {
       state: 'soon',
       label: `${dueAt.slice(0, 10)} · due in ${days} d`,
@@ -166,13 +176,22 @@ function InstrumentsList() {
   const query = useInstruments()
   const calibrations = useLatestCalibrationsByInstrument()
   const imports = useLastImportsByInstrument()
+  const parserReadiness = useParserReadinessByInstrument()
   const rows = query.data ?? []
   const role = context.workspace?.role
 
   const latest = calibrations.data ?? new Map()
   const lastImports = imports.data ?? new Map()
+  // The inspector reports health from the parser's own state, so the list does too:
+  // an automated method with no validated parser is "Parser not validated" here as
+  // well, not "Waiting for first data". Until the parsers load, the list passes no
+  // opinion and falls back to the import evidence.
+  const readiness = parserReadiness.data
   const healthFor = (instrument: InstrumentRow) =>
     intakeHealth(instrument.intakeMethod, {
+      parserReady: parserReadiness.isSuccess
+        ? (readiness?.get(instrument.id) ?? false)
+        : undefined,
       lastImport: lastImports.get(instrument.id) ?? null,
     })
   const calFor = (id: string) => calibrationState(latest.get(id)?.dueAt ?? null)
@@ -188,8 +207,11 @@ function InstrumentsList() {
   )
 
   const tab = search.tab ?? 'all'
+  // "All" is the in-service registry: retired instruments have their own tab, so the
+  // count must be the rows the tab's list shows, not every row in the table.
+  const inService = rows.filter((i) => !i.retiredAt)
   const counts = {
-    all: rows.length,
+    all: inService.length,
     connected: rows.filter(
       (i) =>
         !i.retiredAt &&
@@ -271,7 +293,7 @@ function InstrumentsList() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
           title="Instruments"
-          total={rows.filter((i) => !i.retiredAt).length}
+          total={inService.length}
           actions={
             <>
               <Button
@@ -340,9 +362,9 @@ function InstrumentsList() {
                 </Select>
               </label>
               <label className="flex items-center gap-1 text-label text-fg-muted">
-                Connection
+                How data gets in
                 <Select
-                  aria-label="Filter by connection"
+                  aria-label="Filter by how data gets in"
                   className="h-[26px] w-32 text-label"
                   value={search.connection ?? ''}
                   onChange={(e) => setParam('connection')(e.target.value)}
@@ -365,7 +387,9 @@ function InstrumentsList() {
                 >
                   <option value="">Any</option>
                   <option value="ok">Current</option>
-                  <option value="soon">Due in 14 days</option>
+                  <option value="soon">
+                    Due in {CALIBRATION_DUE_SOON_DAYS} days
+                  </option>
                   <option value="overdue">Overdue</option>
                 </Select>
               </label>
@@ -384,7 +408,16 @@ function InstrumentsList() {
                     key: i.id,
                     id: i.displayId ?? i.id.slice(0, 8),
                     title: i.name,
-                    sub: `${intakeMethodLabel(i.intakeMethod)} · ${i.location ?? 'No location'}`,
+                    // A phone has no table column for the registry state, so the row says
+                    // whether the instrument can be booked rather than leaving that to the
+                    // inspector or the Schedule page.
+                    sub: [
+                      intakeMethodLabel(i.intakeMethod),
+                      i.location ?? 'No location',
+                      i.retiredAt ? 'Retired — can’t be booked' : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · '),
                     selected: i.id === sel?.id,
                     onSelect: () =>
                       void navigate({
@@ -425,7 +458,7 @@ function InstrumentsList() {
                       <TableHead>Name and type</TableHead>
                       <TableHead>Make and model</TableHead>
                       <TableHead>Location</TableHead>
-                      <TableHead>Connection</TableHead>
+                      <TableHead>How data gets in</TableHead>
                       <TableHead>Calibration due</TableHead>
                       <TableHead className="pr-6">Owner</TableHead>
                     </TableRow>
@@ -561,10 +594,7 @@ function InstrumentsList() {
           )}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]}{' '}
-          {tab === 'all'
-            ? 'instruments in service'
-            : tabLabels[tab].toLowerCase()}
+          {visible.length} of {counts[tab]} {tabCountLabels[tab]}
         </ListFooter>
       </div>
 
@@ -699,7 +729,7 @@ export function InstrumentInspector({
             until a validated parser is attached to it.
           </Notice>
         ) : null}
-        <InspectorSection title="Connection">
+        <InspectorSection title="How data gets in">
           <DescriptionList
             labelWidth={96}
             items={[
@@ -730,9 +760,6 @@ export function InstrumentInspector({
           ) : null}
           {canManage ? (
             <div className="mt-3 flex flex-col gap-1">
-              <span className="text-label font-medium text-fg">
-                How data gets in
-              </span>
               <Select
                 aria-label="How data gets in"
                 className="h-[26px] text-label"
@@ -819,7 +846,12 @@ export function RegisterInstrument({
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [tried, setTried] = useState(false)
-  const [serverError, setServerError] = useState<string | null>(null)
+  // A refusal usually belongs to the form, not to one field: only a serial clash is
+  // about the serial number, everything else (permission, workspace) shows at the top.
+  const [serverError, setServerError] = useState<{
+    field: 'serial' | null
+    message: string
+  } | null>(null)
   const empty = {
     name: '',
     type: 'qpcr',
@@ -839,13 +871,17 @@ export function RegisterInstrument({
     model: !f.model.trim() ? 'Enter the model.' : null,
     serial: !f.serial.trim()
       ? 'Enter the serial number from the rating plate.'
-      : serverError,
+      : serverError?.field === 'serial'
+        ? serverError.message
+        : null,
     location: !f.location.trim()
       ? 'Enter where it sits, e.g. Lab 2, bench 5.'
       : null,
   }
   const err = (k: keyof typeof errors) =>
-    tried || (k === 'serial' && serverError) ? errors[k] : null
+    tried || (k === 'serial' && serverError?.field === 'serial')
+      ? errors[k]
+      : null
 
   const create = useMutation({
     mutationFn: () =>
@@ -879,10 +915,15 @@ export function RegisterInstrument({
       })
     },
     onError: (e) => {
+      const message = e instanceof Error ? e.message : String(e)
       setServerError(
-        String((e as { message?: string }).message ?? '').includes('serial')
-          ? 'An instrument with this serial number is already registered.'
-          : 'Could not register the instrument.',
+        message.includes('serial')
+          ? {
+              field: 'serial',
+              message:
+                'An instrument with this serial number is already registered.',
+            }
+          : { field: null, message: 'Could not register the instrument.' },
       )
     },
   })
@@ -912,6 +953,9 @@ export function RegisterInstrument({
           }
         />
         <DialogBody>
+          {serverError && !serverError.field ? (
+            <Notice tone="bad" title={serverError.message} />
+          ) : null}
           <Field label="Name" required error={err('name')}>
             <Input
               autoFocus

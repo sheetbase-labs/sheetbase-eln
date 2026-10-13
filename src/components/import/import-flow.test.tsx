@@ -425,7 +425,7 @@ describe('ImportMapCheckFlow', () => {
       />,
     )
 
-    expect(await screen.findByText(/Will add/)).toBeTruthy()
+    expect(await screen.findByText(/Rows to import/)).toBeTruthy()
     expect(importData.reviewImport).toHaveBeenCalledTimes(1)
     const [reviewArgs] = importData.reviewImport.mock.calls[0] ?? []
     expect(reviewArgs.fileId).toBe('file-1')
@@ -453,6 +453,65 @@ describe('ImportMapCheckFlow', () => {
 
     expect(await screen.findByText('This import doesn’t exist')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Import data' })).toBeTruthy()
+  })
+
+  it('does not claim the file matched no parser while the target Dataset loads', async () => {
+    let resolveDatasets: (rows: CanonicalDatasetWire[]) => void = () => {}
+    vi.mocked(fetchDatasetSummaries).mockReturnValue(
+      new Promise<CanonicalDatasetWire[]>((resolve) => {
+        resolveDatasets = resolve
+      }),
+    )
+    importData.fetchImportFile.mockResolvedValue(uploadResponse())
+    renderFlow(
+      <ImportMapCheckFlow
+        importId="file-1"
+        search={{ step: 'map', dataset: 'ds-1' }}
+        onSearch={vi.fn()}
+      />,
+    )
+
+    // The file parsed with a parser; only the Dataset's fields are still on their way,
+    // which is no reason to tell the user nothing recognised the file.
+    expect(await screen.findByText('Reading the target Dataset…')).toBeTruthy()
+    expect(screen.queryByText(/does not match a registered parser/)).toBeNull()
+
+    resolveDatasets([dataset()])
+    expect(
+      await screen.findByRole('table', { name: 'Column mapping' }),
+    ).toBeTruthy()
+  })
+
+  it('reviews the file even when saving the mapping as the parser default is refused', async () => {
+    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
+    importData.fetchImportFile.mockResolvedValue(uploadResponse())
+    importData.saveParserMapping.mockRejectedValue(
+      new Error('You cannot change this parser.'),
+    )
+    const onSearch = vi.fn()
+    renderFlow(
+      <ImportMapCheckFlow
+        importId="file-1"
+        search={{ step: 'map', dataset: 'ds-1', map: 'raw:field-1' }}
+        onSearch={onSearch}
+      />,
+    )
+
+    await screen.findByRole('table', { name: 'Column mapping' })
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Continue' }))
+
+    await waitFor(() =>
+      expect(onSearch).toHaveBeenCalledWith(
+        expect.objectContaining({ step: 'check' }),
+      ),
+    )
+    expect(importData.saveParserMapping).toHaveBeenCalled()
+    expect(
+      await screen.findByText(/not saved as this parser’s default/),
+    ).toBeTruthy()
+    expect(screen.queryByText('Could not review the file.')).toBeNull()
   })
 
   it('pre-selects the parser suggested by the file name and lets the user override it', async () => {

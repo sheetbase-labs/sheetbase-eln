@@ -7,6 +7,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { UserEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { InstrumentInspector, RegisterInstrument } from './instruments'
@@ -83,6 +84,14 @@ function wireRows(byResource: Record<string, unknown[]>) {
   list.mockImplementation(
     async (resource: string) => byResource[resource] ?? [],
   )
+}
+
+/** The required fields the register dialog validates before it calls the RPC. */
+async function fillInstrument(dialog: HTMLElement, user: UserEvent) {
+  await user.type(within(dialog).getByLabelText(/Name/), 'Osmometer OS-02')
+  await user.type(within(dialog).getByLabelText(/Model/), 'OsmoPRO Max')
+  await user.type(within(dialog).getByLabelText(/Serial number/), 'OPM-1177')
+  await user.type(within(dialog).getByLabelText(/Location/), 'Lab 2, bench 5')
 }
 
 describe('R5-CONFIG-02 register instrument', () => {
@@ -193,6 +202,69 @@ describe('R5-CONFIG-02 register instrument', () => {
         p_intake_method: 'webhook',
         p_name: 'Osmometer OS-02',
       }),
+    )
+  })
+
+  it('reports a refusal that is not about the serial number at the form, not on the field', async () => {
+    const user = userEvent.setup()
+    rpc.mockRejectedValue(new Error('permission denied for workspace ws-1'))
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RegisterInstrument
+          types={['qpcr']}
+          workspaceId="ws-1"
+          ownerId="user-1"
+        />
+      </QueryClientProvider>,
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Register instrument' }),
+    )
+    const dialog = screen.getByRole('dialog')
+    await fillInstrument(dialog, user)
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Register instrument' }),
+    )
+
+    expect(
+      await within(dialog).findByText('Could not register the instrument.'),
+    ).toBeTruthy()
+    // The serial number is valid, so it is not blamed for a workspace refusal.
+    expect(
+      within(dialog).getByLabelText(/Serial number/).getAttribute('aria-invalid'),
+    ).toBeNull()
+  })
+
+  it('keeps a duplicate serial number on the serial field', async () => {
+    const user = userEvent.setup()
+    rpc.mockRejectedValue(
+      new Error('duplicate key value violates unique constraint on serial'),
+    )
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RegisterInstrument
+          types={['qpcr']}
+          workspaceId="ws-1"
+          ownerId="user-1"
+        />
+      </QueryClientProvider>,
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Register instrument' }),
+    )
+    const dialog = screen.getByRole('dialog')
+    await fillInstrument(dialog, user)
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Register instrument' }),
+    )
+
+    expect(
+      await within(dialog).findByText(
+        'An instrument with this serial number is already registered.',
+      ),
+    ).toBeTruthy()
+    expect(within(dialog).getByLabelText(/Serial number/).getAttribute('aria-invalid')).toBe(
+      'true',
     )
   })
 })

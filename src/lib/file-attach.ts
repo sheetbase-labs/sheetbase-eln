@@ -24,6 +24,14 @@ import {
   FILE_MAX_BYTES,
   isAllowedMediaType,
 } from './file-policy'
+import { formatFileSize } from './format-numbers'
+
+/**
+ * File sizes for the attach flow, in the app's one unit set (the shared
+ * `formatFileSize`), so a stored file reads the same in the block preview, the
+ * import receipt and a limit-failure message.
+ */
+export const formatBytes = formatFileSize
 
 export interface AttachFileArgs {
   blockId: string
@@ -106,12 +114,6 @@ export function validateFileForUpload(
     }
   }
   return { ok: true, mediaType }
-}
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
 }
 
 export async function attachFileToBlock(

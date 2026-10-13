@@ -177,4 +177,24 @@ describe('SET-02 members status', () => {
       }),
     )
   })
+
+  it('explains a rejected invite address and links the reason to the field', async () => {
+    const user = userEvent.setup()
+    routeRef.role = 'owner'
+    renderMembers()
+
+    await user.click(await screen.findByRole('button', { name: 'Invite people' }))
+    const email = await screen.findByRole('textbox', { name: /Email address/ })
+    await user.type(email, 'not-an-email')
+
+    const describedBy = email.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    const message = describedBy ? document.getElementById(describedBy) : null
+    expect(message?.textContent).toBe('Enter an email address.')
+    expect(email.getAttribute('aria-invalid')).toBe('true')
+    const send = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Send invitation',
+    })
+    expect(send.disabled).toBe(true)
+  })
 })

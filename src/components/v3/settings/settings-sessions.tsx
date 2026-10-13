@@ -5,20 +5,16 @@ import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { authClient } from '#/lib/auth-client'
+import { listMySessionsFn } from './settings-sessions-data'
+import type { MySession } from './settings-sessions-data'
 
 /**
- * SET-03.2 — the caller's own sessions, with sign-out per session. Uses the
- * Better Auth session API; the current session is marked and cannot be ended
- * from the list (sign out does that from the account menu). UI port: v3 kit.
+ * SET-03.2 — the caller's own sessions, with sign-out per session. The list is
+ * resolved server-side so a deployment without Better Auth sign-in still shows
+ * its one session instead of a permanent 401. The current session is marked and
+ * cannot be ended from the list (sign out does that from the account menu).
+ * UI port: v3 kit.
  */
-interface MySession {
-  id: string
-  token: string
-  ipAddress?: string | null
-  userAgent?: string | null
-  createdAt: string | Date
-  expiresAt: string | Date
-}
 
 export const mySessionsQueryKey = ['my-sessions'] as const
 
@@ -45,19 +41,10 @@ function formatWhen(value: string | Date): string {
 
 export function SettingsSessions() {
   const queryClient = useQueryClient()
-  const session = authClient.useSession()
-  const currentSessionId =
-    (session.data as { session?: { id?: string } } | null)?.session?.id ?? null
 
   const query = useQuery({
     queryKey: mySessionsQueryKey,
-    queryFn: async (): Promise<MySession[]> => {
-      const { data, error } = await authClient.listSessions()
-      if (error) {
-        throw new Error(error.message ?? 'Could not load your sessions')
-      }
-      return data
-    },
+    queryFn: (): Promise<MySession[]> => listMySessionsFn(),
   })
 
   const revoke = useMutation({
@@ -108,7 +95,8 @@ export function SettingsSessions() {
       ) : (
         <ul className="m-0 max-w-2xl list-none divide-y divide-border rounded-lg border border-border p-0">
           {sessions.map((entry) => {
-            const current = entry.id === currentSessionId
+            const current = entry.current
+            const token = entry.token
             return (
               <li
                 key={entry.id}
@@ -128,15 +116,15 @@ export function SettingsSessions() {
                   <span className="shrink-0 text-label text-fg-muted">
                     Current
                   </span>
-                ) : (
+                ) : token ? (
                   <Button
                     size="sm"
                     disabled={revoke.isPending}
-                    onClick={() => revoke.mutate(entry.token)}
+                    onClick={() => revoke.mutate(token)}
                   >
                     Sign out
                   </Button>
-                )}
+                ) : null}
               </li>
             )
           })}

@@ -43,15 +43,18 @@ const DEFAULTS: WorkspaceGeneral = {
   idPrefixes: {},
 }
 
-/** One prefix map equality test, so Save can tell a real edit from a re-render. */
+/** One prefix map equality test, so Save can tell a real edit from a re-render.
+ * An empty prefix means "no prefix", so a key cleared back to "" must compare
+ * equal to an absent key — otherwise Save stays enabled on an unchanged form. */
 function sameIdPrefixes(
   a: Record<string, string>,
   b: Record<string, string>,
 ): boolean {
-  const keys = Object.keys(a)
+  const aSet = Object.entries(a).filter(([, value]) => value !== '')
+  const bSet = Object.entries(b).filter(([, value]) => value !== '')
   return (
-    keys.length === Object.keys(b).length &&
-    keys.every((key) => a[key] === b[key])
+    aSet.length === bSet.length &&
+    aSet.every(([key, value]) => b[key] === value)
   )
 }
 

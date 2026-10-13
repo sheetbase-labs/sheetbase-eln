@@ -27,6 +27,7 @@ vi.mock('@tanstack/react-router', () => ({
         workspace: { id: 'ws', name: 'Test workspace', role: mocks.role },
       },
     }),
+    useLoaderData: () => ({ signInAvailable: true }),
   }),
 }))
 vi.mock('#/lib/signature-certification', async (importOriginal) => ({

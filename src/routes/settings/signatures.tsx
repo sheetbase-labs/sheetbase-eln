@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -79,7 +80,21 @@ const MEANING_ROWS = [
   },
 ] as const
 
+/**
+ * Regulated signing always re-establishes the account session, and the step-up
+ * boundary deliberately refuses the auth-free development identity. This tells
+ * the surface whether a real sign-in exists, so it can explain an unavailable
+ * control instead of offering one whose every attempt ends in a 401.
+ */
+const getSigningAvailability = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    const { isDevAuthFreeEnabled } = await import('#/lib/auth')
+    return { signInAvailable: !isDevAuthFreeEnabled() }
+  },
+)
+
 export const Route = createFileRoute('/settings/signatures')({
+  loader: () => getSigningAvailability(),
   component: Signatures,
 })
 
@@ -87,6 +102,7 @@ const dataClient = createDataClient()
 
 function Signatures() {
   const { context } = Route.useRouteContext()
+  const { signInAvailable } = Route.useLoaderData()
   const workspaceId = context.workspace?.id ?? ''
   const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
   const canVerify =
@@ -203,6 +219,14 @@ function Signatures() {
         act; every one records who, when and what version
       </SettingsHeader>
       <SettingsBody>
+        {signInAvailable ? null : (
+          <Notice tone="warn" title="Signing needs a signed-in account">
+            This environment runs without sign-in, so identity verification,
+            signature certification, practice signatures and signing-password
+            setup are unavailable. They work once sign-in is configured; nothing
+            here records a signature.
+          </Notice>
+        )}
         <Section title="Confirm your identity">
           {mine?.identityVerifiedAt ? (
             <p className="m-0 text-body">
@@ -221,7 +245,9 @@ function Signatures() {
           )}
           <Button
             size="sm"
-            disabled={verify.isPending || certifications.isPending}
+            disabled={
+              !signInAvailable || verify.isPending || certifications.isPending
+            }
             onClick={() => verify.mutate()}
           >
             {mine?.identityVerifiedAt
@@ -240,6 +266,7 @@ function Signatures() {
         <CredentialEnrollment
           workspaceId={workspaceId}
           verified={Boolean(mine?.identityVerifiedAt)}
+          available={signInAvailable}
           onChanged={invalidate}
         />
         <Section
@@ -274,13 +301,14 @@ function Signatures() {
                 <Input
                   type="password"
                   autoComplete="current-password"
+                  disabled={!signInAvailable}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                 />
               </Field>
               <Button
                 size="sm"
-                disabled={!password || practice.isPending}
+                disabled={!signInAvailable || !password || practice.isPending}
                 onClick={() => practice.mutate()}
               >
                 Try a practice signature
@@ -314,6 +342,7 @@ function Signatures() {
                 <Input
                   type="password"
                   autoComplete="current-password"
+                  disabled={!signInAvailable}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                 />
@@ -322,6 +351,7 @@ function Signatures() {
                 <Button
                   variant="primary"
                   disabled={
+                    !signInAvailable ||
                     !agreed ||
                     !password ||
                     !mine?.identityVerifiedAt ||
@@ -575,10 +605,12 @@ function IdentityVerification({
 function CredentialEnrollment({
   workspaceId,
   verified,
+  available,
   onChanged,
 }: {
   workspaceId: string
   verified: boolean
+  available: boolean
   onChanged: () => void
 }) {
   const [recovering, setRecovering] = useState(false)
@@ -643,7 +675,9 @@ function CredentialEnrollment({
             Recover an existing credential instead of first enrollment
           </label>
           <Button
-            disabled={!verified || send.isPending || enroll.isPending}
+            disabled={
+              !available || !verified || send.isPending || enroll.isPending
+            }
             onClick={() => send.mutate()}
           >
             Send one-use secret to verified email
@@ -651,6 +685,7 @@ function CredentialEnrollment({
           <Field label="One-use email secret">
             <Input
               autoComplete="off"
+              disabled={!available}
               value={secret}
               onChange={(event) => setSecret(event.target.value)}
             />
@@ -662,12 +697,15 @@ function CredentialEnrollment({
             <Input
               type="password"
               autoComplete="new-password"
+              disabled={!available}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </Field>
           <Button
-            disabled={!verified || !secret || !password || enroll.isPending}
+            disabled={
+              !available || !verified || !secret || !password || enroll.isPending
+            }
             onClick={() => enroll.mutate()}
           >
             {recovering

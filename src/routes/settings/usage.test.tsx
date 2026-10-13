@@ -214,4 +214,48 @@ describe('R5-CONFIG-01 usage evidence', () => {
     expect(screen.getByText(/No storage quota is configured/)).toBeTruthy()
     expect(screen.queryAllByRole('progressbar')).toHaveLength(0)
   })
+
+  it('exports a real CSV file, with the figures the page shows', async () => {
+    mocks.usage.mockResolvedValue(usageResult())
+    mocks.storage.mockResolvedValue(storage)
+    mocks.members.mockResolvedValue([])
+
+    const originalCreate = URL.createObjectURL
+    const originalRevoke = URL.revokeObjectURL
+    URL.createObjectURL = vi.fn(() => 'blob:usage-export')
+    URL.revokeObjectURL = vi.fn()
+    const downloads: Array<{ href: string; download: string; type: string }> = []
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        downloads.push({
+          href: this.href,
+          download: this.download,
+          type: this.type,
+        })
+      })
+
+    try {
+      renderUsage()
+      const button = await screen.findByRole('button', { name: 'Export CSV' })
+      button.click()
+
+      // A real file, not only a toast: a CSV blob is handed to the browser.
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
+      const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob
+      expect(blob.type).toBe('text/csv')
+      expect(downloads).toEqual([
+        { href: 'blob:usage-export', download: 'sheetbase-usage.csv', type: '' },
+      ])
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:usage-export')
+      expect(mocks.toast).toHaveBeenCalledWith(
+        'sheetbase-usage.csv exported',
+        expect.objectContaining({ description: expect.any(String) }),
+      )
+    } finally {
+      anchorClick.mockRestore()
+      URL.createObjectURL = originalCreate
+      URL.revokeObjectURL = originalRevoke
+    }
+  })
 })

@@ -130,4 +130,24 @@ describe('SettingsGeneral', () => {
     await userEvent.type(screen.getByLabelText('Site'), '!')
     expect(save.disabled).toBe(false)
   })
+
+  it('treats a cleared record-ID prefix as unchanged', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    const save = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Save changes',
+    })
+    await screen.findByDisplayValue('Process Development')
+    const prefix = screen.getByLabelText<HTMLInputElement>('sample prefix')
+    expect(save.disabled).toBe(true)
+
+    // Type then clear: nothing differs from the stored map, so Save returns to
+    // disabled rather than staying enabled forever.
+    await user.type(prefix, 'QA2X')
+    expect(save.disabled).toBe(false)
+    await user.clear(prefix)
+    expect(prefix.value).toBe('')
+    expect(save.disabled).toBe(true)
+    expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
+  })
 })

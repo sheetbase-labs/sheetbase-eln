@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -689,6 +689,7 @@ function InviteDialog({
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<WorkspaceRole>('viewer')
   const [clientId, setClientId] = useState(clients.at(0)?.id ?? '')
+  const emailErrorId = useId()
   const error = /.+@.+\..+/.test(email.trim())
     ? undefined
     : 'Enter an email address.'
@@ -702,10 +703,15 @@ function InviteDialog({
           description="They get a sign-in link from your company sign-in. Access is decided by role and project membership."
         />
         <DialogBody>
-          <Field label="Email address" required error={error}>
+          <Field
+            label="Email address"
+            required
+            error={error ? <span id={emailErrorId}>{error}</span> : undefined}
+          >
             <Input
               value={email}
               aria-invalid={Boolean(error) || undefined}
+              aria-describedby={error ? emailErrorId : undefined}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@cdmo.example"
             />

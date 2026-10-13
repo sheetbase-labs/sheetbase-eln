@@ -21,7 +21,11 @@ import {
 } from '#/components/v3/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
 import { fetchStorageOverviewFn, fetchUsageFn } from '#/lib/admin-platform'
-import type { UsageTrendPoint } from '#/lib/admin-platform'
+import type {
+  StorageOverviewResult,
+  UsageResult,
+  UsageTrendPoint,
+} from '#/lib/admin-platform'
 import {
   adminQueryKeys,
   fetchWorkspaceMembers,
@@ -46,6 +50,62 @@ export const Route = createFileRoute('/settings/usage')({
 })
 
 const dataClient = createDataClient()
+
+/** RFC 4180 cell: quote everything, and double any embedded quote. */
+function csvCell(value: string | number): string {
+  return `"${String(value).replace(/"/g, '""')}"`
+}
+
+/**
+ * The figures this page shows, as CSV. Built from the same values the meters
+ * render so the export and the screen cannot disagree: a figure the deployment
+ * does not measure is left out rather than exported as an invented zero.
+ */
+export function buildUsageCsv(input: {
+  workspaceName: string
+  period: string
+  usage: UsageResult
+  storage: StorageOverviewResult | null
+}): string {
+  const { usage: d, storage: s } = input
+  const rows: Array<[string, string | number]> = [
+    ['Workspace', input.workspaceName],
+    ['Period', input.period],
+    ['Seats', d.members],
+    ['Storage bytes', s ? s.fileBytes : d.fileBytes],
+    ['Files', s ? s.fileCount : d.files],
+    ['Dataset versions', s ? s.datasetVersionCount : d.datasetVersions],
+    ['Datasets', s ? s.datasetCount : d.datasets],
+    ['Pipeline definitions', d.pipelineDefinitions],
+    ['Pipeline runs', d.pipelineRuns],
+    ['Connector runs', d.connectorRuns],
+    ['Connectors', d.connectors],
+  ]
+  for (const point of d.trend) {
+    rows.push([
+      `Runs ${point.month}`,
+      point.pipelineRuns + point.connectorRuns,
+    ])
+  }
+  return [
+    ['metric', 'value'].map(csvCell).join(','),
+    ...rows.map((row) => row.map(csvCell).join(',')),
+  ].join('\n')
+}
+
+/** Hand a built file to the browser's download UI and release the blob URL. */
+export function downloadTextFile(
+  filename: string,
+  text: string,
+  type: string,
+): void {
+  const url = URL.createObjectURL(new Blob([text], { type }))
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
 
 const usageKey = (workspaceId: string) => ['admin-usage', workspaceId]
 const storageKey = (workspaceId: string) => [
@@ -163,12 +223,31 @@ function Usage() {
         actions={
           <Button
             icon="download"
-            onClick={() =>
-              toast('sheetbase-usage.csv exported', {
-                description:
-                  'Current totals for this workspace. Run counts have a six-month trend; other history is not measured yet.',
-              })
-            }
+            onClick={() => {
+              try {
+                downloadTextFile(
+                  'sheetbase-usage.csv',
+                  buildUsageCsv({
+                    workspaceName: context.workspace?.name ?? 'Workspace',
+                    period: formatPeriod(),
+                    usage: d,
+                    storage: s ?? null,
+                  }),
+                  'text/csv',
+                )
+                toast('sheetbase-usage.csv exported', {
+                  description:
+                    'Current totals for this workspace. Run counts have a six-month trend; other history is not measured yet.',
+                })
+              } catch (error) {
+                toast('Could not export usage', {
+                  description:
+                    error instanceof Error
+                      ? error.message
+                      : 'The browser blocked the download.',
+                })
+              }
+            }}
           >
             Export CSV
           </Button>

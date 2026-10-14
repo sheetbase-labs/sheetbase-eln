@@ -238,6 +238,7 @@ describe('R5-CONFIG-01 usage evidence', () => {
     try {
       renderUsage()
       const button = await screen.findByRole('button', { name: 'Export CSV' })
+      vi.useFakeTimers()
       button.click()
 
       // A real file, not only a toast: a CSV blob is handed to the browser.
@@ -247,12 +248,16 @@ describe('R5-CONFIG-01 usage evidence', () => {
       expect(downloads).toEqual([
         { href: 'blob:usage-export', download: 'sheetbase-usage.csv', type: '' },
       ])
+      // The blob URL is held open past the click so the browser can read it.
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(60_000)
       expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:usage-export')
       expect(mocks.toast).toHaveBeenCalledWith(
         'sheetbase-usage.csv exported',
         expect.objectContaining({ description: expect.any(String) }),
       )
     } finally {
+      vi.useRealTimers()
       anchorClick.mockRestore()
       URL.createObjectURL = originalCreate
       URL.revokeObjectURL = originalRevoke

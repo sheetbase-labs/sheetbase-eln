@@ -524,22 +524,27 @@ describe('sample lineage export', () => {
         depth: 0,
       },
     ])
-    const user = userEvent.setup()
     try {
       renderRoute()
-      await user.click(
-        await screen.findByRole('button', { name: 'Export lineage' }),
-      )
+      const button = await screen.findByRole('button', {
+        name: 'Export lineage',
+      })
+      vi.useFakeTimers()
+      button.click()
 
       const blob = createObjectURL.mock.calls[0][0]
       expect(blob.type).toBe('text/csv')
       const csv = await blob.text()
       expect(csv).toContain('SMP-2221')
       expect(csv).toContain('Derived by withdrawal')
+      // The blob URL is held open past the click so the browser can read it.
+      expect(revokeObjectURL).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(60_000)
       expect(revokeObjectURL).toHaveBeenCalledWith('blob:lineage')
       // Nothing was promised that does not exist.
       expect(sonner.toast).not.toHaveBeenCalled()
     } finally {
+      vi.useRealTimers()
       URL.createObjectURL = originalCreate
       URL.revokeObjectURL = originalRevoke
     }

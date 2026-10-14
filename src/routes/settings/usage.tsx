@@ -20,6 +20,7 @@ import {
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
+import { downloadTextFile } from '#/lib/download'
 import { fetchStorageOverviewFn, fetchUsageFn } from '#/lib/admin-platform'
 import type {
   StorageOverviewResult,
@@ -91,20 +92,6 @@ export function buildUsageCsv(input: {
     ['metric', 'value'].map(csvCell).join(','),
     ...rows.map((row) => row.map(csvCell).join(',')),
   ].join('\n')
-}
-
-/** Hand a built file to the browser's download UI and release the blob URL. */
-export function downloadTextFile(
-  filename: string,
-  text: string,
-  type: string,
-): void {
-  const url = URL.createObjectURL(new Blob([text], { type }))
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
 }
 
 const usageKey = (workspaceId: string) => ['admin-usage', workspaceId]

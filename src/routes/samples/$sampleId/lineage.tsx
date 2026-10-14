@@ -81,16 +81,25 @@ function SampleLineage() {
           <Button
             size="sm"
             onClick={() => {
-              const wrote = downloadLineageCsv(
-                sample.data?.identifier ?? 'sample',
-                rows.map((row) => ({
-                  identifier: row.node.identifier,
-                  title: row.node.title,
-                  relation: row.relation,
-                  status: sampleStatus(row.node.status).label,
-                })),
-              )
-              if (!wrote) toast('Nothing to export — no lineage links yet.')
+              try {
+                const wrote = downloadLineageCsv(
+                  sample.data?.identifier ?? 'sample',
+                  rows.map((row) => ({
+                    identifier: row.node.identifier,
+                    title: row.node.title,
+                    relation: row.relation,
+                    status: sampleStatus(row.node.status).label,
+                  })),
+                )
+                if (!wrote) toast('Nothing to export — no lineage links yet.')
+              } catch (error) {
+                toast('Could not export lineage', {
+                  description:
+                    error instanceof Error
+                      ? error.message
+                      : 'The download failed.',
+                })
+              }
             }}
           >
             Export lineage

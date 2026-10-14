@@ -65,6 +65,7 @@ import type {
   WithdrawDialogInput,
 } from '#/components/v3/samples/withdraw-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { downloadTextFile } from '#/lib/download'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 
@@ -105,7 +106,8 @@ export function useSampleRecord(recordId: string) {
  * LAB-03 — the export behind "Export lineage" on the sample header and the
  * Lineage tab. There is no server-side export job, so the file is written from
  * the lineage the caller already rendered; it returns false when there is
- * nothing to write, so the caller can say so rather than promise a link.
+ * nothing to write, so the caller can say so rather than promise a link. A
+ * browser that refuses the download throws, so the caller states that too.
  */
 export function downloadLineageCsv(
   identifier: string,
@@ -122,16 +124,11 @@ export function downloadLineageCsv(
       .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
       .join(','),
   )
-  const blob = new Blob(
-    [['sample,title,relation,status', ...lines].join('\n')],
-    { type: 'text/csv' },
+  downloadTextFile(
+    `${identifier}-lineage.csv`,
+    ['sample,title,relation,status', ...lines].join('\n'),
+    'text/csv',
   )
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = `${identifier}-lineage.csv`
-  anchor.click()
-  URL.revokeObjectURL(url)
   return true
 }
 
@@ -332,17 +329,24 @@ function SampleLayout() {
     (reservations.data ?? []).filter((row) => row.state !== 'cancelled').length
 
   const exportLineage = () => {
-    const wrote = downloadLineageCsv(
-      sample.identifier,
-      (derivedSamples.data ?? []).map((row) => ({
-        identifier: row.identifier,
-        title: row.title,
-        relation: row.relation,
-        status: row.status ? sampleStatus(row.status).label : null,
-      })),
-    )
-    if (!wrote)
-      toast('Nothing to export — this sample has no derived lineage yet.')
+    try {
+      const wrote = downloadLineageCsv(
+        sample.identifier,
+        (derivedSamples.data ?? []).map((row) => ({
+          identifier: row.identifier,
+          title: row.title,
+          relation: row.relation,
+          status: row.status ? sampleStatus(row.status).label : null,
+        })),
+      )
+      if (!wrote)
+        toast('Nothing to export — this sample has no derived lineage yet.')
+    } catch (error) {
+      toast('Could not export lineage', {
+        description:
+          error instanceof Error ? error.message : 'The download failed.',
+      })
+    }
   }
 
   const bannerAction =

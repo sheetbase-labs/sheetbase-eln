@@ -37,6 +37,7 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
+import { downloadTextFile } from '#/lib/download'
 import {
   fetchRevisionRow,
   reviewWorkspaceDataClient,
@@ -181,14 +182,7 @@ export function EvidencePage() {
       const disposition = response.headers.get('content-disposition')
       const filename =
         disposition?.match(/filename="([^"]+)"/)?.[1] ?? packageFilename
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = filename
-      document.body.appendChild(anchor)
-      anchor.click()
-      document.body.removeChild(anchor)
-      URL.revokeObjectURL(url)
+      downloadTextFile(filename, blob)
     } catch (error) {
       toast('Could not export the evidence package', {
         description:

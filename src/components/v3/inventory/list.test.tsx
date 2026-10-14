@@ -3,13 +3,58 @@
  * when the route supplies the handler that applies the choice, so a registry
  * never shows a menu that cannot change anything.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ListToolbar, ViewControls } from './list'
 
 afterEach(cleanup)
+
+describe('registry list search box', () => {
+  it('keeps every character of a burst that outruns the route round-trip', async () => {
+    const onSearch = vi.fn()
+    render(
+      <ListToolbar
+        q=""
+        onSearch={onSearch}
+        placeholder="Search samples"
+        label="Search samples"
+      />,
+    )
+    const field = screen.getByLabelText<HTMLInputElement>('Search samples')
+
+    // A scanner (or a paste) lands the whole string before the router has
+    // echoed the first key back as `q`.
+    fireEvent.change(field, { target: { value: 'S' } })
+    fireEvent.change(field, { target: { value: 'SM' } })
+    fireEvent.change(field, { target: { value: 'SMP-2248' } })
+
+    expect(field.value).toBe('SMP-2248')
+    await waitFor(() => expect(onSearch).toHaveBeenCalledTimes(1))
+    expect(onSearch).toHaveBeenCalledWith('SMP-2248')
+  })
+
+  it('adopts a query the route changes outside the field', () => {
+    const props = {
+      onSearch: () => {},
+      placeholder: 'Search samples',
+      label: 'Search samples',
+    }
+    const { rerender } = render(<ListToolbar q="M-48" {...props} />)
+    const field = screen.getByLabelText<HTMLInputElement>('Search samples')
+    expect(field.value).toBe('M-48')
+
+    rerender(<ListToolbar q="" {...props} />)
+    expect(field.value).toBe('')
+  })
+})
 
 describe('registry list toolbar', () => {
   it('renders no Sort menu for a route that supplies no onSort', () => {

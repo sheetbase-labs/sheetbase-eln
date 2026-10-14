@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
@@ -17,6 +17,12 @@ import { cn } from '#/lib/utils'
 
 const tabCls =
   'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:-outline-offset-2'
+
+/** How long the search box waits after the last keystroke before it tells the
+ * route. The field keeps the typed text itself, so a burst faster than a router
+ * round-trip — a hardware barcode scanner, or a paste — is never rendered back
+ * from stale state. */
+const SEARCH_SETTLE_MS = 200
 
 export function SearchTabs({
   items,
@@ -252,6 +258,36 @@ export function ListToolbar({
   const lead = views ? <ViewControls {...views} /> : children
   const fields = views?.fields
   const onToggleField = views?.onToggleField
+  // The box holds what was typed and reports a settled value up. Rendering it
+  // straight from the route's `q` lost characters: each keystroke navigated, and
+  // a re-render with the still-stale param wrote an older value back into the
+  // field before the router had caught up.
+  const [query, setQuery] = useState(q ?? '')
+  // The last value this box handed to the route, so a `q` that arrives from
+  // somewhere else (a tab, "Clear search") can be told apart from the echo of
+  // our own search and adopted without clobbering pending typing.
+  const sent = useRef(q ?? '')
+  const timer = useRef<number | null>(null)
+  useEffect(() => {
+    const next = q ?? ''
+    if (next === sent.current) return
+    // The route changed the query itself (a tab, "Clear search"): drop anything
+    // still queued from typing and adopt what the route now shows.
+    clearTimeout(timer.current ?? undefined)
+    timer.current = null
+    sent.current = next
+    setQuery(next)
+  }, [q])
+  useEffect(() => () => clearTimeout(timer.current ?? undefined), [])
+  const search = (next: string) => {
+    setQuery(next)
+    clearTimeout(timer.current ?? undefined)
+    timer.current = window.setTimeout(() => {
+      timer.current = null
+      sent.current = next
+      onSearch(next)
+    }, SEARCH_SETTLE_MS)
+  }
   return (
     <div className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6">
       {lead}
@@ -260,9 +296,9 @@ export function ListToolbar({
         <Input
           type="search"
           placeholder={placeholder}
-          value={q ?? ''}
+          value={query}
           className="h-[26px] text-label max-md:h-10 max-md:text-body"
-          onChange={(e) => onSearch(e.target.value)}
+          onChange={(e) => search(e.target.value)}
         />
       </label>
       <span className="flex-1 max-md:hidden" />

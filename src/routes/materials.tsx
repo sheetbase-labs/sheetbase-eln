@@ -61,9 +61,24 @@ import {
   recordReagentMovement,
   registerReplacementLot,
 } from '#/lib/reagent-data'
+import type { Reagent } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 const tabs = ['instock', 'expiring', 'quarantine', 'expired'] as const
+
+/** The orderings the registry offers. Every key is one the list can actually
+ * apply: the route sorts the lots it fetched by the chosen field. */
+const sorts = ['Expiry', 'ID', 'Material'] as const
+type MaterialSort = (typeof sorts)[number]
+
+/** Today as a date input states it — the local calendar day, because that is
+ * what a `type=date` field hands back. */
+function todayISO(): string {
+  const now = new Date()
+  const month = `${now.getMonth() + 1}`.padStart(2, '0')
+  const day = `${now.getDate()}`.padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
 
 /** The inspector states dates in full, e.g. "4 Jun 2026". */
 function dayLabel(iso: string | null): string {
@@ -146,11 +161,24 @@ function MaterialsList() {
   const [replacementOpen, setReplacementOpen] = useState(false)
   const [quarantineOpen, setQuarantineOpen] = useState(false)
   const [quarantineReason, setQuarantineReason] = useState('')
+  const [sort, setSort] = useState<MaterialSort>('Expiry')
 
-  const rows = useMemo(
-    () => (page.data?.rows ?? []).map(toMaterialListRow),
-    [page.data],
-  )
+  const rows = useMemo(() => {
+    const by: Record<MaterialSort, (a: Reagent, b: Reagent) => number> = {
+      // Soonest expiry first, so the lot that lapses next leads the list; a lot
+      // with no expiry is not imminent and sorts after every dated one.
+      Expiry: (a, b) => {
+        if (a.expiry === b.expiry) return 0
+        if (a.expiry === null) return 1
+        if (b.expiry === null) return -1
+        return a.expiry.localeCompare(b.expiry)
+      },
+      ID: (a, b) =>
+        a.identifier.localeCompare(b.identifier, 'en-GB', { numeric: true }),
+      Material: (a, b) => a.title.localeCompare(b.title),
+    }
+    return [...(page.data?.rows ?? [])].sort(by[sort]).map(toMaterialListRow)
+  }, [page.data, sort])
 
   const inTab = (r: MaterialListRow, t: MaterialTab): boolean =>
     r.tabs.includes(t)
@@ -333,7 +361,9 @@ function MaterialsList() {
           label="Search materials"
           placeholder="Search by ID, material, supplier, lot"
           views={{
-            sorts: ['Expiry', 'ID', 'Material'],
+            sorts: [...sorts],
+            sort,
+            onSort: (s) => setSort(s as MaterialSort),
             showSortValue: false,
             groupLabel: '',
           }}
@@ -446,13 +476,6 @@ function MaterialsList() {
             <div className="mt-2 flex flex-wrap gap-2">
               <Button
                 variant="primary"
-                size="sm"
-                onClick={() => setReplacementOpen(true)}
-              >
-                Register replacement lot
-              </Button>
-              <Button
-                variant="secondary"
                 size="sm"
                 onClick={() => setReplacementOpen(true)}
               >
@@ -647,6 +670,9 @@ function ReplacementForm({
   const [quantity, setQuantity] = useState('')
   const [unitValue, setUnitValue] = useState(unit ?? '')
   const [reason, setReason] = useState('')
+  const [lotError, setLotError] = useState<string | null>(null)
+  const [expiryError, setExpiryError] = useState<string | null>(null)
+  const [quantityError, setQuantityError] = useState<string | null>(null)
   return (
     <form
       id="replacement-lot-form"
@@ -654,7 +680,21 @@ function ReplacementForm({
       onSubmit={(e) => {
         e.preventDefault()
         const n = Number(quantity)
-        if (!lot.trim() || !expiry || !Number.isFinite(n) || n <= 0) return
+        // A refused submission states why: the form never returns silently.
+        const lotProblem = lot.trim() ? null : 'Enter the replacement lot.'
+        const expiryProblem = !expiry
+          ? 'Enter the replacement lot’s expiry date.'
+          : expiry < todayISO()
+            ? 'The expiry must be today or later.'
+            : null
+        const quantityProblem =
+          quantity.trim() === '' || !Number.isFinite(n) || n <= 0
+            ? 'Enter a quantity greater than zero.'
+            : null
+        setLotError(lotProblem)
+        setExpiryError(expiryProblem)
+        setQuantityError(quantityProblem)
+        if (lotProblem || expiryProblem || quantityProblem) return
         onSubmit({
           lot: lot.trim(),
           expiry,
@@ -664,27 +704,39 @@ function ReplacementForm({
         })
       }}
     >
-      <Field label="Lot number" required>
+      <Field label="Lot number" required error={lotError}>
         <Input
           value={lot}
-          onChange={(e) => setLot(e.target.value)}
+          aria-invalid={lotError !== null}
+          onChange={(e) => {
+            setLot(e.target.value)
+            setLotError(null)
+          }}
           autoFocus
           disabled={busy}
         />
       </Field>
-      <Field label="Expiry" required>
+      <Field label="Expiry" required error={expiryError}>
         <Input
           type="date"
           value={expiry}
-          onChange={(e) => setExpiry(e.target.value)}
+          aria-invalid={expiryError !== null}
+          onChange={(e) => {
+            setExpiry(e.target.value)
+            setExpiryError(null)
+          }}
           disabled={busy}
         />
       </Field>
-      <Field label="Quantity" required>
+      <Field label="Quantity" required error={quantityError}>
         <Input
           type="number"
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
+          aria-invalid={quantityError !== null}
+          onChange={(e) => {
+            setQuantity(e.target.value)
+            setQuantityError(null)
+          }}
           disabled={busy}
         />
       </Field>
@@ -715,6 +767,7 @@ function ReceiveForm({
 }) {
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState('')
+  const [quantityError, setQuantityError] = useState<string | null>(null)
   return (
     <form
       id="receive-lot-form"
@@ -722,15 +775,26 @@ function ReceiveForm({
       onSubmit={(e) => {
         e.preventDefault()
         const n = Number(quantity)
-        if (!Number.isFinite(n) || n <= 0) return
+        // A refused submission states why: the form never returns silently. The
+        // browser empties a number field that holds letters, so an empty value
+        // is the same refusal as a zero.
+        if (quantity.trim() === '' || !Number.isFinite(n) || n <= 0) {
+          setQuantityError('Enter the quantity received, greater than zero.')
+          return
+        }
+        setQuantityError(null)
         onSubmit({ quantity: n, reason: reason || undefined })
       }}
     >
-      <Field label="Quantity" required>
+      <Field label="Quantity" required error={quantityError}>
         <Input
           type="number"
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
+          aria-invalid={quantityError !== null}
+          onChange={(e) => {
+            setQuantity(e.target.value)
+            setQuantityError(null)
+          }}
           autoFocus
           disabled={busy}
         />

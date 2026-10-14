@@ -37,10 +37,17 @@ import {
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
+import type { NotebookRecord } from '#/lib/notebook-data'
 import type { Tone } from '#/components/v3/ui/status'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
+/** The orderings the list offers. These template records carry no effective
+ * date — the reference's Effective column has no model behind it, and
+ * controlled versions with one are a later capability — so the menu offers the
+ * keys the route can actually apply. */
+const sorts = ['Updated', 'ID', 'Protocol'] as const
+type ProtocolSort = (typeof sorts)[number]
 const tabLabel: Record<ProtocolTab, string> = {
   effective: 'Effective',
   mine: 'Mine',
@@ -126,6 +133,7 @@ function ProtocolsList() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const [selected, setSelected] = useState<string | null>(null)
+  const [sort, setSort] = useState<ProtocolSort>('Updated')
   const query = useQuery({
     queryKey: ['ui-port', 'protocols'],
     queryFn: () =>
@@ -156,12 +164,22 @@ function ProtocolsList() {
     [tabInput, currentUserId],
   )
   const q = (search.q ?? '').trim().toLowerCase()
+  const compare = useMemo(() => {
+    // Most recently updated first; the other keys read A–Z, with numbers in
+    // identifiers in their numeric order (PRT-9 before PRT-10).
+    const field =
+      sort === 'Updated' ? 'updatedAt' : sort === 'ID' ? 'identifier' : 'title'
+    const direction = sort === 'Updated' ? -1 : 1
+    return (a: NotebookRecord, b: NotebookRecord) =>
+      direction * a[field].localeCompare(b[field], 'en-GB', { numeric: true })
+  }, [sort])
   const visible = rows
     .map((r, i) => ({ r, input: tabInput[i] }))
     .filter(({ input }) => inTab(input, tab, currentUserId))
     .filter(
       ({ r }) => !q || `${r.identifier} ${r.title}`.toLowerCase().includes(q),
     )
+    .sort((x, y) => compare(x.r, y.r))
     .map(({ r }) => r)
   const sel =
     visible.find((r) => r.id === (selected ?? search.selected)) ?? visible.at(0)
@@ -196,7 +214,9 @@ function ProtocolsList() {
           label="Search protocols"
           placeholder="Search protocols"
           views={{
-            sorts: ['Effective', 'ID', 'Protocol'],
+            sorts: [...sorts],
+            sort,
+            onSort: (s) => setSort(s as ProtocolSort),
             showSortValue: false,
             groupLabel: '',
           }}

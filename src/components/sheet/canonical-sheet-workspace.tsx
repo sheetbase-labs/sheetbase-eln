@@ -761,12 +761,32 @@ export function CanonicalSheetEditor({
     },
   })
 
+  /**
+   * Both write paths send the revision they read from `instanceRef`, so a
+   * sibling write landing first makes the server answer 'stale'. Re-read the
+   * authoritative instance and adopt its revision before retrying.
+   */
+  async function refreshInstanceForRetry(): Promise<boolean> {
+    const fresh = await queryClient.fetchQuery({
+      queryKey: ['sheet-instance', instance.id],
+      // The client default is a 30s staleTime, which would hand back the same
+      // revision that just got rejected: the retry only means anything if it
+      // reads the server's current revision.
+      staleTime: 0,
+      queryFn: () => fetchSheetInstance(instance.id, sheetInstanceDataClient),
+    })
+    if (!fresh) return false
+    instanceRef.current = fresh
+    return true
+  }
+
   async function persistLocalCells(
     cells: Array<{ rowKey: string; fieldId: string; value: unknown }>,
     extra?: {
       fieldChanges?: LocalFieldChange[]
       rows?: Parameters<typeof mutateSheetLocalState>[0]['rows']
     },
+    attempt = 0,
   ) {
     const current = instanceRef.current
     const rows = new Map((extra?.rows ?? []).map((row) => [row.rowKey, row]))
@@ -791,16 +811,29 @@ export function CanonicalSheetEditor({
         rows.set(rowKey, { kind: 'local', rowKey })
       }
     }
-    const next = await localMutate.mutateAsync({
-      instanceId: current.id,
-      expectedRevision: current.revision,
-      retryToken: crypto.randomUUID(),
-      fieldChanges: extra?.fieldChanges,
-      rows: [...rows.values()],
-      cells,
-    })
-    instanceRef.current = next
-    return next
+    try {
+      const next = await localMutate.mutateAsync({
+        instanceId: current.id,
+        expectedRevision: current.revision,
+        retryToken: crypto.randomUUID(),
+        fieldChanges: extra?.fieldChanges,
+        rows: [...rows.values()],
+        cells,
+      })
+      instanceRef.current = next
+      return next
+    } catch (error) {
+      // GRID-04 review fix: a committed cell reads the same expected revision
+      // a concurrent working-view write reads, so a stale rejection means a
+      // sibling write landed first — not that the value is bad. Re-read the
+      // instance and retry once so the typed value is not dropped.
+      if (attempt === 0 && /stale/i.test(errorText(error) ?? '')) {
+        if (await refreshInstanceForRetry()) {
+          return persistLocalCells(cells, extra, attempt + 1)
+        }
+      }
+      throw error
+    }
   }
 
   // GRID-04: presentation writes go through the existing sheet-instance state
@@ -830,20 +863,14 @@ export function CanonicalSheetEditor({
       // GRID-04 review fix: rapid view controls read the same expected
       // revision, so a stale-revision rejection would silently drop the
       // second write. Re-read the authoritative instance and retry once.
-      const message = errorText(error) ?? ''
-      if (attempt === 0 && /stale/i.test(message)) {
-        const fresh = await queryClient.fetchQuery({
-          queryKey: ['sheet-instance', instance.id],
-          queryFn: () =>
-            fetchSheetInstance(instance.id, sheetInstanceDataClient),
-        })
-        if (fresh) {
-          instanceRef.current = fresh
+      if (attempt === 0 && /stale/i.test(errorText(error) ?? '')) {
+        if (await refreshInstanceForRetry()) {
           return persistPresentation(patch, attempt + 1)
         }
       }
       setWriteStatus(
-        message || 'The working view could not be saved to the Sheet state.',
+        errorText(error) ||
+          'The working view could not be saved to the Sheet state.',
       )
       return false
     }

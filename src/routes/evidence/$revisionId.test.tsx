@@ -254,3 +254,24 @@ describe('evidence page — package export (DATA-02)', () => {
     }
   })
 })
+
+describe('evidence page — heading outline (frames a11y)', () => {
+  it('descends one level at a time: the page H1, then the inspector sections at H2', async () => {
+    renderPage()
+    await screen.findByRole('table', { name: 'Frozen revision content' })
+
+    const levels = screen
+      .getAllByRole('heading')
+      .map((heading) => Number(heading.tagName.slice(1)))
+    expect(levels[0]).toBe(1)
+    expect(levels.filter((level) => level === 1)).toHaveLength(1)
+    levels.slice(1).forEach((level, index) => {
+      expect(level - levels[index]).toBeLessThanOrEqual(1)
+    })
+    for (const name of ['Integrity', 'Revision', 'Amendments']) {
+      expect(
+        screen.getAllByRole('heading', { level: 2, name }).length,
+      ).toBeGreaterThan(0)
+    }
+  })
+})

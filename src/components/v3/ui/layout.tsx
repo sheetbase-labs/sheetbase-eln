@@ -11,6 +11,7 @@ export function PageHeader({
   meta,
   actions,
   tabs,
+  titleLevel = 1,
   className,
 }: {
   crumbs?: React.ReactNode
@@ -18,8 +19,15 @@ export function PageHeader({
   meta?: React.ReactNode
   actions?: React.ReactNode
   tabs?: React.ReactNode
+  /**
+   * Heading level for `title`. Only for a header that sits under another
+   * page's H1 — the client portal's project header, where the topbar owns the
+   * page heading.
+   */
+  titleLevel?: 1 | 2 | 3
   className?: string
 }) {
+  const Title = `h${titleLevel}` as 'h1'
   return (
     <header
       className={cn(
@@ -37,9 +45,9 @@ export function PageHeader({
         </nav>
       ) : null}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-        <h1 className="min-w-0 flex-1 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6 md:truncate">
+        <Title className="min-w-0 flex-1 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6 md:truncate">
           {title}
-        </h1>
+        </Title>
         {actions ? (
           <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
         ) : null}
@@ -116,7 +124,11 @@ export function InspectorSection({
   return (
     <section>
       {title ? (
-        <h3 className="mb-1.5 font-sans text-label font-semibold">{title}</h3>
+        // Inspector sections sit beside the page's `Section`s, not inside one:
+        // they are the page's top-level sections, so they take the same H2
+        // level. An H3 here made inspector-only pages (e.g. /protocols) jump
+        // straight from the page H1 to H3.
+        <h2 className="mb-1.5 font-sans text-label font-semibold">{title}</h2>
       ) : null}
       {children}
     </section>

@@ -414,9 +414,9 @@ function TemplateVersions() {
               changeGroups.map((group) => (
                 <div key={group.version.id} className="flex flex-col gap-1">
                   {changeGroups.length > 1 ? (
-                    <h4 className="text-label font-medium">
+                    <h3 className="text-label font-medium">
                       v{group.version.version}
-                    </h4>
+                    </h3>
                   ) : null}
                   <ChangeSetTable
                     entries={group.entries}

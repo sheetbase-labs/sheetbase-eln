@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   useInfiniteQuery,
@@ -59,6 +59,10 @@ const UUID_RE =
  * "Load more" control instead of stopping at a fixed first page. */
 const ROWS_PAGE_SIZE = 100
 
+/** How long the search box waits after the last keystroke before it reports the
+ * query to the route. The shared registry toolbar settles the same way. */
+const SEARCH_SETTLE_MS = 200
+
 /** UI port (roadmap-4/ui-app3): the dataset Rows grid, wired to
  * query_dataset_version_rows + schema fields, with selected-value actions for
  * marking a value out of range, clearing a flag and requesting a repeat. Row
@@ -88,6 +92,40 @@ function Rows() {
   const navigate = Route.useNavigate()
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
+  // The box holds what was typed and reports a settled value to the route.
+  // Rendering it straight from `search.q` lost characters: every keystroke
+  // navigated, and a re-render with the still-stale param wrote an older value
+  // back into the field before the router had caught up.
+  const [query, setQuery] = useState(search.q ?? '')
+  // The last value this box handed to the route, so a `q` that arrives from
+  // somewhere else (a deep link, "Load more" with a new snapshot) can be told
+  // apart from the echo of our own search and adopted without clobbering
+  // pending typing.
+  const sentQuery = useRef(search.q ?? '')
+  const searchTimer = useRef<number | null>(null)
+  useEffect(() => {
+    const next = search.q ?? ''
+    if (next === sentQuery.current) return
+    clearTimeout(searchTimer.current ?? undefined)
+    searchTimer.current = null
+    sentQuery.current = next
+    setQuery(next)
+  }, [search.q])
+  useEffect(() => () => clearTimeout(searchTimer.current ?? undefined), [])
+  const searchRows = (next: string) => {
+    setQuery(next)
+    clearTimeout(searchTimer.current ?? undefined)
+    searchTimer.current = window.setTimeout(() => {
+      searchTimer.current = null
+      sentQuery.current = next
+      void navigate({
+        to: '/datasets/$datasetId/rows',
+        params: { datasetId },
+        search: (s) => ({ ...s, q: next || undefined }),
+        replace: true,
+      })
+    }, SEARCH_SETTLE_MS)
+  }
   const versions = useDatasetVersions(datasetId)
   const version =
     (versions.data ?? []).find((v) => v.id === search.snapshot) ??
@@ -205,16 +243,9 @@ function Rows() {
             <Input
               type="search"
               placeholder="Search rows"
-              value={search.q ?? ''}
+              value={query}
               className="h-[26px] text-label max-md:h-10"
-              onChange={(e) =>
-                void navigate({
-                  to: '/datasets/$datasetId/rows',
-                  params: { datasetId },
-                  search: (s) => ({ ...s, q: e.target.value || undefined }),
-                  replace: true,
-                })
-              }
+              onChange={(e) => searchRows(e.target.value)}
             />
           </label>
           <label className="flex items-center gap-2 text-label max-md:min-h-10 sm:ml-2">

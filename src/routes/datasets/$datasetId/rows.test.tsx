@@ -4,7 +4,13 @@
  * filter counts rows rather than the flags sitting on them.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,6 +33,7 @@ const fixtures = vi.hoisted(() => {
 })
 
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
+const navigateMock = vi.hoisted(() => vi.fn())
 const routeContext = vi.hoisted(() => ({
   value: {
     workspace: { id: 'ws-1', name: 'Process Development', role: 'member' },
@@ -38,7 +45,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ datasetId: 'ds-1' }),
     useSearch: () => fixtures.search,
-    useNavigate: () => vi.fn(),
+    useNavigate: () => navigateMock,
     useRouteContext: () => ({ context: routeContext.value }),
     options: config,
   }),
@@ -215,5 +222,43 @@ describe('dataset rows grid', () => {
     // converges on it as the result line does.
     expect(await screen.findByText('Only flagged rows (3)')).toBeTruthy()
     expect(screen.getByText(/Showing 3 of 120 rows/)).toBeTruthy()
+  })
+
+  it('keeps every character of a burst typed faster than the route echoes it', async () => {
+    renderGrid()
+    const field = await screen.findByLabelText<HTMLInputElement>('Search rows')
+
+    // Each change lands before the previous navigation has echoed `q` back, so
+    // a field rendered straight from the route would lose the earlier keys.
+    fireEvent.change(field, { target: { value: 'Q' } })
+    fireEvent.change(field, { target: { value: 'QA' } })
+    fireEvent.change(field, { target: { value: 'QA3' } })
+
+    expect(field.value).toBe('QA3')
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1))
+    const navigated = navigateMock.mock.calls[0][0] as {
+      search: (previous: RowsSearch) => RowsSearch
+    }
+    expect(navigated.search({})).toMatchObject({ q: 'QA3' })
+  })
+
+  it('adopts a query the route sets outside the field', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const tree = (
+      <QueryClientProvider client={client}>
+        {React.createElement(RowsRoute)}
+      </QueryClientProvider>
+    )
+    const view = render(tree)
+    const field = await screen.findByLabelText<HTMLInputElement>('Search rows')
+    expect(field.value).toBe('')
+
+    // A tab or a "Clear search" changes the route's query without a keystroke.
+    fixtures.search = { q: 'QA3' }
+    view.rerender(tree)
+
+    await waitFor(() => expect(field.value).toBe('QA3'))
   })
 })

@@ -388,7 +388,7 @@ function TopBar({
     // they measured 356px wide and the account menu sat entirely outside the
     // viewport with no ancestor able to scroll to it. The bar wraps and grows
     // instead, so every control reflows into view rather than being clipped.
-    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 max-md:min-h-topbar max-md:flex-wrap max-md:h-auto max-md:justify-between md:gap-3 md:px-3">
+    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 max-md:min-h-topbar max-md:flex-wrap max-md:h-auto md:gap-3 md:px-3">
       {/* SHELL-01: it minimises the sidebar to the icon rail and expands it
           again — the sidebar itself never moves and never becomes a drawer.
           The full sidebar only renders from `xl` up, so below that breakpoint
@@ -524,7 +524,9 @@ function WorkspaceSwitcher({
           />
         }
       >
-        <span className="truncate">{workspace?.name ?? 'No workspace'}</span>
+        {/* `truncate` only ellipsizes a flex child that is allowed to shrink;
+            without the floor the name forced the whole bar wider. */}
+        <span className="min-w-0 truncate">{workspace?.name ?? 'No workspace'}</span>
         <svg
           width="12"
           height="12"

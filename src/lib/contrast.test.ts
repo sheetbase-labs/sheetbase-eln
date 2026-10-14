@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -81,6 +82,9 @@ const LIGHT = {
   surfaceDisabled: { L: 0.976, C: 0.005, h: 258.3 },
   accent: { L: 0.551, C: 0.188, h: 256 },
   accentStrong: { L: 0.551, C: 0.188, h: 256 },
+  // Primary-tinted text (chips and labels) — --primary itself is a surface
+  // colour and fails AA as 10–12px text on a primary wash.
+  primaryText: { L: 0.5, C: 0.188, h: 256 },
   onAccent: { L: 1, C: 0, h: 89.9 },
   dangerText: { L: 0.5, C: 0.182, h: 29.5 },
   dangerWash: { L: 0.959, C: 0.017, h: 17.5 },
@@ -102,6 +106,7 @@ const DARK = {
   surfaceDisabled: { L: 0.237, C: 0.015, h: 256.8 },
   accent: { L: 0.687, C: 0.167, h: 255.6 },
   accentStrong: { L: 0.553, C: 0.175, h: 257.1 },
+  primaryText: { L: 0.68, C: 0.175, h: 257.1 },
   onAccent: { L: 1, C: 0, h: 89.9 },
   dangerText: { L: 0.76, C: 0.143, h: 23.5 },
   dangerWash: { L: 0.237, C: 0.037, h: 20.2 },
@@ -141,6 +146,9 @@ const PAIRS: Array<[keyof typeof LIGHT, keyof typeof LIGHT]> = [
   ['warningText', 'warningWash'],
   ['successText', 'successWash'],
   ['inverseText', 'inverseBg'],
+  ['primaryText', 'bg'],
+  ['primaryText', 'surface'],
+  ['primaryText', 'surfaceMuted'],
 ]
 
 for (const [theme, tokens] of [
@@ -154,6 +162,58 @@ for (const [theme, tokens] of [
           AA_NORMAL,
         )
       })
+    }
+  })
+}
+
+/**
+ * `bg-primary/10` and `/15` over a surface, composited channel by channel:
+ * WCAG measures the painted pixels, not the translucent layer the harness
+ * would otherwise skip.
+ */
+function washOver(wash: Oklch, alpha: number, surface: Oklch) {
+  const [wr, wg, wb] = oklchToSrgb(wash)
+  const [sr, sg, sb] = oklchToSrgb(surface)
+  return [
+    wr * alpha + sr * (1 - alpha),
+    wg * alpha + sg * (1 - alpha),
+    wb * alpha + sb * (1 - alpha),
+  ] as [number, number, number]
+}
+
+// The primary-text chips read `text-primary-text`, so the declarations that
+// utility resolves through are pinned here: without them the class emits
+// nothing and the labels silently fall back to an inherited colour.
+const styles = readFileSync('src/styles.css', 'utf8')
+
+describe('primary text token wiring', () => {
+  it('declares --primary-text in both themes and maps the utility to it', () => {
+    expect(styles).toMatch(/--primary-text:\s*oklch\(0\.5 0\.188 256\)/)
+    expect(styles).toMatch(/--primary-text:\s*oklch\(0\.68 0\.175 257\.1\)/)
+    expect(styles).toMatch(/--color-primary-text:\s*var\(--primary-text\)/)
+  })
+})
+
+// The primary-tinted chips: record and comment initials, the record-link
+// icon, the co-editing pill and the sample-type tag all read primaryText on
+// bg-primary/10 or /15. Reading --primary there measures 3.98:1 light and
+// 3.10:1 dark on the /15 wash, so the wash is composited before measuring.
+for (const [theme, tokens] of [
+  ['light', LIGHT],
+  ['dark', DARK],
+] as const) {
+  describe(`WCAG 2.2 AA — ${theme} primary text on a primary wash`, () => {
+    for (const surface of ['surface', 'bg'] as const) {
+      for (const alpha of [0.1, 0.15] as const) {
+        it(`primaryText on primary/${alpha * 100} over ${surface} passes AA`, () => {
+          expect(
+            contrastRatio(
+              oklchToSrgb(tokens.primaryText),
+              washOver(tokens.accentStrong, alpha, tokens[surface]),
+            ),
+          ).toBeGreaterThanOrEqual(AA_NORMAL)
+        })
+      }
     }
   })
 }

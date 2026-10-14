@@ -37,6 +37,11 @@ needs a decision because it is not reproducible on demand).
 in their file; `unconfirmed` needs a re-run before it is treated as a defect; `retracted` is recorded
 for completeness and is not work.
 
+**Two ids, one defect** (kept separate because they came from independent passes with different
+evidence): `QA3-records-1` and `QA3-import-1` both describe the import rejection message that names
+a false cause — the first found it through the UI, the second found the mechanism in the source;
+`QA3-C3` is the coordinator's re-test of the behaviour the lists reviewer saw work once.
+
 ## Major (10)
 
 | Id | Where | Kind | What | Evidence / verification |

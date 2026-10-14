@@ -112,6 +112,16 @@ function TemplateSections() {
       return createNotebookTemplateVersion(templateId, revision, configuration)
     },
     onSuccess: (saved) => {
+      // The header and the tab counts read this list, so show the saved version
+      // now rather than after the invalidation's refetch lands. The refetch
+      // still runs, so anything the server returns later wins.
+      queryClient.setQueryData<NotebookTemplateVersion[]>(
+        templateDataQueryKeys.versions(templateId),
+        (current) =>
+          [...(current ?? []).filter((v) => v.id !== saved.id), saved].sort(
+            (a, b) => a.version - b.version,
+          ),
+      )
       void queryClient.invalidateQueries({
         queryKey: templateDataQueryKeys.versions(templateId),
       })

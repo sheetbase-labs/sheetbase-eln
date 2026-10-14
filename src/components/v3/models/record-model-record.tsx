@@ -6,6 +6,7 @@ import { DescriptionList, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { RecordHistoryTimeline } from '#/components/audit/record-history-timeline'
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
+import { formatDate } from '#/lib/notebook-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import {
   laterAddedModelFields,
@@ -16,12 +17,6 @@ import {
   useRecordModelUsedBy,
   useWorkspaceRecordModel,
 } from './models-data'
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const parsed = Date.parse(value)
-  return Number.isFinite(parsed) ? new Date(parsed).toLocaleDateString() : value
-}
 
 /**
  * MDL-04.3 — a record page for a workspace model: the model's fields as a
@@ -149,13 +144,17 @@ export function RecordModelRecord({
               ['Name', record.title],
               ['Status', status ? status.label : record.status],
               ['Created', formatDate(record.created_at)],
-              ...fields.map<[React.ReactNode, React.ReactNode]>((field) => [
-                field.label,
-                displayModelFieldValue(
-                  field,
-                  recordFieldValue(record, field.fieldName),
-                ),
-              ]),
+              ...fields.map<[React.ReactNode, React.ReactNode]>((field) => {
+                // A date-typed field stores an ISO date; show it in the same
+                // short form as the record's own metadata, not the raw string.
+                const raw = recordFieldValue(record, field.fieldName)
+                return [
+                  field.label,
+                  field.logicalType === 'date'
+                    ? formatDate(raw == null ? null : String(raw))
+                    : displayModelFieldValue(field, raw),
+                ]
+              }),
             ]}
           />
         ) : (

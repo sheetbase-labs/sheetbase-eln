@@ -86,7 +86,10 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
     (kind) => kind.identityTable === 'api.records',
   )
 
-  const [linkType, setLinkType] = useState<string>(MODEL_LINK_TYPES[0])
+  // A rule narrows what the server accepts for every future link, so the form
+  // starts empty: a stray click on a pre-filled form would otherwise declare a
+  // rule the author never chose.
+  const [linkType, setLinkType] = useState('')
   const [targetModelKey, setTargetModelKey] = useState('')
   const [minLinks, setMinLinks] = useState('0')
   const [maxLinks, setMaxLinks] = useState('')
@@ -100,14 +103,19 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
     description: string
   } | null>(null)
 
-  const target = targetModelKey || targetKinds[0]?.key || ''
+  const target = targetModelKey
   const minValue = Number(minLinks)
   const minValid = Number.isInteger(minValue) && minValue >= 0
   const maxValue = maxLinks.trim() === '' ? null : Number(maxLinks)
   const maxValid =
     maxValue === null || (Number.isInteger(maxValue) && maxValue >= minValue)
   const canSubmit =
-    Boolean(workspaceId) && target.length > 0 && minValid && maxValid && !busy
+    Boolean(workspaceId) &&
+    linkType.length > 0 &&
+    target.length > 0 &&
+    minValid &&
+    maxValid &&
+    !busy
 
   async function refresh() {
     await queryClient.invalidateQueries({
@@ -236,6 +244,9 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
                 onChange={(event) => setLinkType(event.target.value)}
                 aria-label="Link type"
               >
+                <option value="" disabled>
+                  Select a link type
+                </option>
                 {MODEL_LINK_TYPES.map((entry) => (
                   <option key={entry} value={entry}>
                     {entry}
@@ -251,6 +262,9 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
                 onChange={(event) => setTargetModelKey(event.target.value)}
                 aria-label="Target model"
               >
+                <option value="" disabled>
+                  Select a target model
+                </option>
                 {targetKinds.map((kind) => (
                   <option key={kind.key} value={kind.key}>
                     {kind.label}

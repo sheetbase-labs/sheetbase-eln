@@ -20,14 +20,14 @@ const mocks = vi.hoisted(() => {
     title: 'HEK293 WCB lot 3',
     kind: 'cell_bank',
     status: 'draft',
-    custom_fields: null,
+    custom_fields: null as Record<string, unknown> | null,
     properties: null,
     tags: [],
     created_at: '2026-07-14T00:00:00.000Z',
     updated_at: '2026-09-25T00:00:00.000Z',
     archived_at: null,
   }
-  return { record, timeline: [] as unknown[] }
+  return { record, timeline: [] as unknown[], fields: [] as unknown[] }
 })
 
 vi.mock('@tanstack/react-router', () => ({
@@ -57,17 +57,20 @@ vi.mock('./models-data', () => ({
     data: { name: 'Cell bank', current_version: 4 },
     isLoading: false,
   }),
-  useRecordModelFields: () => ({ data: [], isLoading: false }),
+  useRecordModelFields: () => ({ data: mocks.fields, isLoading: false }),
   useRecordModelRecord: () => ({ data: mocks.record, isLoading: false }),
   useRecordModelUsedBy: () => ({ data: [], isLoading: false }),
   useRecordModelTimeline: () => ({ data: mocks.timeline, isLoading: false }),
   laterAddedModelFields: () => [],
-  recordFieldValue: () => undefined,
+  recordFieldValue: (record: { custom_fields?: Record<string, unknown> | null }, fieldName: string) =>
+    record.custom_fields?.[fieldName],
 }))
 
 afterEach(() => {
   cleanup()
   mocks.timeline = []
+  mocks.fields = []
+  mocks.record.custom_fields = null
 })
 
 /** The class tokens on the element that wraps the action, not a substring. */
@@ -109,6 +112,20 @@ describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
     // the app does, and the raw code is never shown.
     expect(screen.getAllByText('Draft')).toHaveLength(2)
     expect(screen.queryByText('draft')).toBeNull()
+  })
+
+  it('shows date fields in the same format as the record metadata', () => {
+    mocks.record.custom_fields = { frozen_on: '2026-05-02' }
+    mocks.fields = [
+      { id: 'f1', fieldName: 'frozen_on', label: 'Frozen on', logicalType: 'date' },
+    ]
+    render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
+
+    // Created (11 Jul 2026) and the date field both read as short dates; the
+    // raw ISO string never surfaces.
+    expect(screen.getByText('14 Jul 2026')).toBeTruthy()
+    expect(screen.getByText('2 May 2026')).toBeTruthy()
+    expect(screen.queryByText('2026-05-02')).toBeNull()
   })
 })
 

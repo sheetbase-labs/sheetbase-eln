@@ -19,8 +19,10 @@ export const Route = createFileRoute('/docs/$name')({
   },
   loader: async ({ params }) => {
     const name = params.name
+    // An unknown name is a missing document, not a server error: report it in
+    // the page so the route's error boundary stays for real failures.
     if (!DOC_NAMES.includes(name as (typeof DOC_NAMES)[number])) {
-      throw new Error('Unknown document')
+      return { name, html: null, known: false }
     }
     const { readFileSync } = await import('node:fs')
     const { resolve } = await import('node:path')
@@ -28,9 +30,9 @@ export const Route = createFileRoute('/docs/$name')({
     try {
       const content = readFileSync(filePath, 'utf-8')
       const html = marked.parse(content, { async: false })
-      return { name, html }
+      return { name, html, known: true }
     } catch {
-      return { name, html: null }
+      return { name, html: null, known: true }
     }
   },
   component: DocPage,
@@ -46,7 +48,7 @@ const DOC_TITLES: Record<string, string> = {
 }
 
 function DocPage() {
-  const { name, html } = Route.useLoaderData()
+  const { name, html, known } = Route.useLoaderData()
   const title = DOC_TITLES[name] ?? name
 
   if (!html) {
@@ -55,9 +57,13 @@ function DocPage() {
         <Link to="/settings" className="text-sm text-primary hover:underline">
           ← Settings
         </Link>
-        <h1 className="mt-4 text-2xl font-semibold">{title}</h1>
+        <h1 className="mt-4 text-2xl font-semibold">
+          {known ? title : 'Document not found'}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This document is not available in the current deployment.
+          {known
+            ? 'This document is not available in the current deployment.'
+            : `There is no document named “${name}”. Check the name or return to Settings.`}
         </p>
       </div>
     )

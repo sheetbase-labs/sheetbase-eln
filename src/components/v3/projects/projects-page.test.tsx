@@ -86,7 +86,12 @@ function renderPage(
   search: ProjectsSearch = {},
   meId?: string,
   canCreate = true,
-  state: { loading?: boolean; error?: string | null; onRetry?: () => void } = {},
+  state: {
+    loading?: boolean
+    error?: string | null
+    onRetry?: () => void
+    onOpenProject?: (p: ProjectRow) => void
+  } = {},
   setSearch: (patch: Partial<ProjectsSearch>) => void = () => {},
 ) {
   // ProjectsPage reads project access through react-query, as the route does
@@ -104,6 +109,7 @@ function renderPage(
         loading={state.loading}
         error={state.error ?? null}
         onRetry={state.onRetry}
+        onOpenProject={state.onOpenProject}
         search={search}
         setSearch={setSearch}
         onCreate={() => {}}
@@ -113,6 +119,32 @@ function renderPage(
 }
 
 describe('ProjectsPage', () => {
+  // The row used to only select a project for the quick-view panel, so clicking
+  // a project did nothing on the desktop table (the mobile list and the panel's
+  // own "Open project" both go to the project page). The row and the name now
+  // open the project.
+  it('opens the project when its row is clicked, and makes the name a link', () => {
+    const opened: string[] = []
+    renderPage([row()], {}, undefined, true, {
+      onOpenProject: (p) => opened.push(p.id),
+    })
+
+    const name = screen.getByRole('link', { name: 'AAV9 process transfer' })
+    expect(name.getAttribute('href')).toBe('/projects/$projectId')
+
+    fireEvent.click(name.closest('tr')!)
+    expect(opened).toEqual(['PRJ-0217'])
+  })
+
+  it('keeps the quick view on its own control', () => {
+    renderPage([row()])
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Quick view of AAV9 process transfer' }),
+    )
+    expect(screen.getByText('Open project')).toBeTruthy()
+  })
+
   it.each([
     ['Europe/London', '29 Sept'],
     ['UTC', '28 Sept'],
@@ -148,7 +180,7 @@ describe('ProjectsPage', () => {
       )
       fireEvent.click(
         screen.getByRole('button', {
-          name: 'Show details for AAV9 process transfer',
+          name: 'Quick view of AAV9 process transfer',
         }),
       )
       expect(
@@ -209,7 +241,7 @@ describe('ProjectsPage', () => {
     )
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Show details for AAV9 process transfer',
+        name: 'Quick view of AAV9 process transfer',
       }),
     )
     expect(await screen.findByText(/No recorded actor updated/)).toBeTruthy()
@@ -254,7 +286,7 @@ describe('ProjectsPage', () => {
     // The archived project is a row on the default view, not hidden behind a
     // filter the person never set.
     expect(
-      screen.getByRole('button', { name: 'Show details for Old project' }),
+      screen.getByRole('button', { name: 'Quick view of Old project' }),
     ).toBeTruthy()
     expect(
       screen.queryByRole('button', {
@@ -317,11 +349,11 @@ describe('ProjectsPage', () => {
       { tab: 'archived' },
     )
     expect(
-      screen.getByRole('button', { name: 'Show details for Old project' }),
+      screen.getByRole('button', { name: 'Quick view of Old project' }),
     ).toBeTruthy()
     expect(
       screen.queryByRole('button', {
-        name: 'Show details for AAV9 process transfer',
+        name: 'Quick view of AAV9 process transfer',
       }),
     ).toBeNull()
     expect(

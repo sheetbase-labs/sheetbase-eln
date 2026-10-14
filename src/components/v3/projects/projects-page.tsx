@@ -128,6 +128,7 @@ export function ProjectsPage({
   loading = false,
   error = null,
   onRetry,
+  onOpenProject,
   search,
   setSearch,
   onCreate,
@@ -143,6 +144,8 @@ export function ProjectsPage({
   loading?: boolean
   error?: string | null
   onRetry?: () => void
+  /** Opening a project is the route's job: it owns navigation. */
+  onOpenProject?: (p: ProjectRow) => void
   search: ProjectsSearch
   setSearch: (patch: Partial<ProjectsSearch>) => void
   onCreate: (input: NewProjectInput) => void
@@ -746,7 +749,7 @@ export function ProjectsPage({
                             key={p.id}
                             selected={active === p.id}
                             className="cursor-pointer"
-                            onClick={() => setActive(p.id)}
+                            onClick={() => onOpenProject?.(p)}
                           >
                             {canBulkArchive ? (
                               <TableCell
@@ -777,17 +780,13 @@ export function ProjectsPage({
                                 active === p.id && 'font-medium',
                               )}
                             >
-                              <button
-                                type="button"
-                                className="cursor-pointer border-0 bg-transparent p-0 text-left text-inherit font-[inherit]"
-                                aria-label={`Show details for ${p.name}`}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setActive(p.id)
-                                }}
+                              <Link
+                                to="/projects/$projectId"
+                                params={{ projectId: p.uuid }}
+                                className="cursor-pointer text-inherit underline-offset-2 hover:underline"
                               >
                                 {p.name}
-                              </button>
+                              </Link>
                               <span className="mono block text-[11px] text-fg-muted xl:hidden">
                                 {p.id}
                               </span>
@@ -808,9 +807,20 @@ export function ProjectsPage({
                               </TableCell>
                             ))}
                             <TableCell>
-                              <Status tone={p.status.tone}>
-                                {p.status.label}
-                              </Status>
+                              <span className="flex items-center justify-end gap-2">
+                                <Status tone={p.status.tone}>
+                                  {p.status.label}
+                                </Status>
+                                <Button
+                                  variant="quiet"
+                                  icon="chevronRight"
+                                  aria-label={`Quick view of ${p.name}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    setActive(p.id)
+                                  }}
+                                />
+                              </span>
                             </TableCell>
                           </TableRow>
                         )),
@@ -837,12 +847,8 @@ export function ProjectsPage({
               ) : null}
             </div>
             <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
-              <span className="max-lg:hidden">
+              <span>
                 {rows.length} {rows.length === 1 ? 'project' : 'projects'}
-              </span>
-              <span className="lg:hidden">
-                {rows.length} projects · scroll sideways for all columns ·
-                project name stays pinned
               </span>
               {archivedHidden ? (
                 <span className="max-lg:hidden">

@@ -228,6 +228,12 @@ function ProjectsIndexRoute() {
           : null
       }
       onRetry={() => void query.refetch()}
+      onOpenProject={(p) =>
+        void navigate({
+          to: '/projects/$projectId',
+          params: { projectId: p.uuid },
+        })
+      }
       search={search}
       setSearch={(patch) =>
         void navigate({

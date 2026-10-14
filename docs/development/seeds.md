@@ -120,8 +120,11 @@ fabricate verification or provider assurances.
 
 `prepareDesignScenario(db, screen)` in `src/db/seed/design.ts` prepares
 `ReviewSign`, `SettingsSignature` or `HomeFirstRun`. It is not a seed step and
-does not change the default 43-step CLI sequence. The caller provisions each
-database newly, applies the full migrations and runs the design seed first.
+does not change the CLI sequence: `pnpm db:seed` applies the fixture steps, and
+`pnpm db:seed:design` adds the design steps and the dev-session step on top (48
+steps at the time of writing; `--demo` and `--month` add their own). The caller
+provisions each database newly, applies the full migrations and runs the design
+seed first.
 
 | Screen            | Exact database                        | App / PostgREST / admin ports |
 | ----------------- | ------------------------------------- | ----------------------------- |

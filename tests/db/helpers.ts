@@ -177,26 +177,30 @@ export async function ensureTestTemplateDatabase(): Promise<void> {
     await admin.query(
       `CREATE DATABASE ${TEST_TEMPLATE_DATABASE} OWNER migrator`,
     )
+
+    // Migrate and write the marker while the lock is still held. Releasing it
+    // first let a second worker find no marker, drop this database underneath
+    // the migration and recreate it, which surfaced as "Cannot reach local
+    // PostgreSQL" in whichever worker lost the race.
+    const templateUrl = new URL(required('MIGRATION_DATABASE_URL'))
+    templateUrl.pathname = `/${TEST_TEMPLATE_DATABASE}`
+    const db = drizzle(templateUrl.toString())
+    try {
+      await migrate(db, { migrationsFolder: 'drizzle' })
+      await db.$client.query(
+        `create table if not exists public.test_template_meta(hash text not null)`,
+      )
+      await db.$client.query(`delete from public.test_template_meta`)
+      await db.$client.query(
+        `insert into public.test_template_meta(hash) values($1)`,
+        [wanted],
+      )
+    } finally {
+      await db.$client.end()
+    }
   } finally {
     await admin.query('select pg_advisory_unlock(918273645)').catch(() => {})
     await admin.end()
-  }
-
-  const template = new URL(required('MIGRATION_DATABASE_URL'))
-  template.pathname = `/${TEST_TEMPLATE_DATABASE}`
-  const db = drizzle(template.toString())
-  try {
-    await migrate(db, { migrationsFolder: 'drizzle' })
-    await db.$client.query(
-      `create table if not exists public.test_template_meta(hash text not null)`,
-    )
-    await db.$client.query(`delete from public.test_template_meta`)
-    await db.$client.query(
-      `insert into public.test_template_meta(hash) values($1)`,
-      [wanted],
-    )
-  } finally {
-    await db.$client.end()
   }
 }
 

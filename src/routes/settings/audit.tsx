@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
+import { toast } from '#/components/v3/ui/sonner'
 import { Input } from '#/components/v3/ui/input'
 import { Muted } from '#/components/v3/ui/layout'
 import {
@@ -29,6 +30,37 @@ export const Route = createFileRoute('/settings/audit')({
 
 const dataClient = createDataClient()
 const LIMIT = 200
+
+/** How long a download's blob URL stays alive after the click. The browser
+ * reads the blob asynchronously, so releasing the URL in the click's own tick
+ * drops the file in Firefox and some Safari builds with nothing said. */
+const BLOB_URL_LIFETIME_MS = 30_000
+
+/**
+ * Hand a CSV to the browser's download UI. The anchor goes into the document
+ * before it is clicked — a detached anchor is ignored — and its blob URL is
+ * released on the timer above. Throws when the browser cannot take a download,
+ * so the caller states the failure rather than the file going missing.
+ */
+function downloadCsv(filename: string, csv: string): void {
+  const anchor = document.createElement('a')
+  if (!('download' in anchor)) {
+    throw new Error('This browser cannot save files.')
+  }
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  try {
+    anchor.click()
+  } catch (error) {
+    URL.revokeObjectURL(url)
+    throw error
+  } finally {
+    anchor.remove()
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), BLOB_URL_LIFETIME_MS)
+}
 
 function Audit() {
   const { context } = Route.useRouteContext()
@@ -101,15 +133,17 @@ function Audit() {
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
         .join(','),
     )
-    const blob = new Blob([[header.join(','), ...lines].join('\n')], {
-      type: 'text/csv',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'audit-log.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    try {
+      downloadCsv('audit-log.csv', [header.join(','), ...lines].join('\n'))
+    } catch (error) {
+      // A hand-off the browser refuses is otherwise silent.
+      toast('Could not export the audit log', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'The browser blocked the download.',
+      })
+    }
   }
 
   return (
@@ -163,7 +197,7 @@ function Audit() {
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search object, value or reason"
+            placeholder="Search operation, entity or value"
             className="h-[26px] text-label"
           />
         </label>

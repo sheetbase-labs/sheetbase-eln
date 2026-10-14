@@ -178,6 +178,35 @@ describe('SET-02 members status', () => {
     )
   })
 
+  it('leaves the invite address unflagged until the dialog is used', async () => {
+    const user = userEvent.setup()
+    routeRef.role = 'owner'
+    renderMembers()
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Invite people' }),
+    )
+    const email = await screen.findByRole('textbox', { name: /Email address/ })
+    // The dialog opens on an empty address and Send is disabled; saying the
+    // address is wrong before anyone has used the field is a false complaint.
+    expect(email.getAttribute('aria-invalid')).toBeNull()
+    expect(email.hasAttribute('aria-describedby')).toBe(false)
+    expect(screen.queryByText('Enter an email address.')).toBeNull()
+    const send = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Send invitation',
+    })
+    expect(send.disabled).toBe(true)
+
+    await user.type(email, 'not-an-email')
+    expect(screen.getByText('Enter an email address.')).toBeTruthy()
+    expect(email.getAttribute('aria-invalid')).toBe('true')
+
+    await user.clear(email)
+    await user.type(email, 'qa@cdmo.example')
+    expect(screen.queryByText('Enter an email address.')).toBeNull()
+    expect(send.disabled).toBe(false)
+  })
+
   it('explains a rejected invite address and links the reason to the field', async () => {
     const user = userEvent.setup()
     routeRef.role = 'owner'

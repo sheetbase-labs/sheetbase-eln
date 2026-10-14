@@ -689,10 +689,15 @@ function InviteDialog({
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<WorkspaceRole>('viewer')
   const [clientId, setClientId] = useState(clients.at(0)?.id ?? '')
+  // The empty address is invalid from the first paint, but the dialog opens
+  // before anyone has used the field, so the message waits for the first
+  // keystroke or blur. Send stays disabled until the address is valid either
+  // way, which needs no message.
+  const [emailUsed, setEmailUsed] = useState(false)
   const emailErrorId = useId()
-  const error = /.+@.+\..+/.test(email.trim())
-    ? undefined
-    : 'Enter an email address.'
+  const emailValid = /.+@.+\..+/.test(email.trim())
+  const error =
+    emailValid || !emailUsed ? undefined : 'Enter an email address.'
   const clientError =
     role === 'client_viewer' && !clientId ? 'Choose a client.' : undefined
   return (
@@ -712,7 +717,11 @@ function InviteDialog({
               value={email}
               aria-invalid={Boolean(error) || undefined}
               aria-describedby={error ? emailErrorId : undefined}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setEmailUsed(true)
+              }}
+              onBlur={() => setEmailUsed(true)}
               placeholder="name@cdmo.example"
             />
           </Field>
@@ -751,7 +760,7 @@ function InviteDialog({
           <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
             variant="primary"
-            disabled={busy || Boolean(error) || Boolean(clientError)}
+            disabled={busy || !emailValid || Boolean(clientError)}
             onClick={() =>
               onSubmit(
                 email.trim(),

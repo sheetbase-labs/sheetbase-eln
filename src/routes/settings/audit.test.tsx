@@ -12,7 +12,9 @@ import type { AuditEvent } from '#/lib/workspace-admin'
 
 import { Route } from './audit'
 
-const mocks = vi.hoisted(() => ({ activity: vi.fn() }))
+const mocks = vi.hoisted(() => ({ activity: vi.fn(), toast: vi.fn() }))
+
+vi.mock('#/components/v3/ui/sonner', () => ({ toast: mocks.toast }))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: object) => ({
@@ -134,5 +136,78 @@ describe('audit log', () => {
       await screen.findByText('The audit log could not be read.'),
     ).toBeTruthy()
     expect(screen.queryByText(/No audit entries match/)).toBeNull()
+  })
+
+  it('holds the download blob URL open past the click, with the anchor in the document', async () => {
+    mocks.activity.mockResolvedValue([event()])
+    const originalCreate = URL.createObjectURL
+    const originalRevoke = URL.revokeObjectURL
+    URL.createObjectURL = vi.fn(() => 'blob:audit-export')
+    URL.revokeObjectURL = vi.fn()
+    let attachedWhenClicked = false
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        attachedWhenClicked = document.body.contains(this)
+      })
+    try {
+      renderAudit()
+      await screen.findByText('2026-10-01 09:00:00')
+      const button = screen.getByRole<HTMLButtonElement>('button', {
+        name: 'Export CSV of shown rows',
+      })
+      vi.useFakeTimers()
+      button.click()
+
+      // A detached anchor is ignored by Firefox, and revoking the URL in the
+      // click's own tick can land before the browser has read the blob, which
+      // drops the file with nothing said.
+      expect(attachedWhenClicked).toBe(true)
+      expect(URL.createObjectURL).toHaveBeenCalledTimes(1)
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(60_000)
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:audit-export')
+    } finally {
+      vi.useRealTimers()
+      anchorClick.mockRestore()
+      URL.createObjectURL = originalCreate
+      URL.revokeObjectURL = originalRevoke
+    }
+  })
+
+  it('states a download the browser cannot take', async () => {
+    mocks.activity.mockResolvedValue([event()])
+    const download = Object.getOwnPropertyDescriptor(
+      HTMLAnchorElement.prototype,
+      'download',
+    )
+    // Without the download attribute the click navigates to the blob instead
+    // of saving it, so the export has to say so rather than go quiet.
+    delete (HTMLAnchorElement.prototype as Partial<HTMLAnchorElement>).download
+    try {
+      renderAudit()
+      await screen.findByText('2026-10-01 09:00:00')
+      screen
+        .getByRole<HTMLButtonElement>('button', {
+          name: 'Export CSV of shown rows',
+        })
+        .click()
+
+      expect(mocks.toast).toHaveBeenCalledWith(
+        'Could not export the audit log',
+        expect.objectContaining({
+          description: 'This browser cannot save files.',
+        }),
+      )
+    } finally {
+      if (download) {
+        Object.defineProperty(
+          HTMLAnchorElement.prototype,
+          'download',
+          download,
+        )
+      }
+    }
   })
 })

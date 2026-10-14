@@ -54,6 +54,7 @@ const tabs = [
   'all',
   'mine',
   'inprogress',
+  'onhold',
   'inreview',
   'approved',
   'drafts',
@@ -63,6 +64,7 @@ const tabLabel: Record<Tab, string> = {
   all: 'All',
   mine: 'Mine',
   inprogress: 'In progress',
+  onhold: 'On hold',
   inreview: 'In review',
   approved: 'Approved',
   drafts: 'Drafts',
@@ -72,6 +74,7 @@ const tabEmptyTitle: Record<Tab, string> = {
   all: 'No experiments',
   mine: 'No experiments you own',
   inprogress: 'No experiments in progress',
+  onhold: 'No experiments on hold',
   inreview: 'No experiments in review',
   approved: 'No approved experiments',
   drafts: 'No draft experiments',
@@ -169,18 +172,15 @@ function Experiments() {
     [records.data, projects.data, ownerNames, protocols.data],
   )
 
+  // A record's status tab comes from the same table the tab counts are built
+  // from, so a tab filters exactly the rows it counts — and no experiment
+  // status falls outside every tab.
   const inTab = (row: ExperimentListRow, t: Tab): boolean =>
     t === 'all'
       ? true
       : t === 'mine'
         ? row.ownerId === context.user.id
-        : t === 'inprogress'
-          ? row.status.tone === 'progress'
-          : t === 'inreview'
-            ? row.status.tone === 'review'
-            : t === 'approved'
-              ? row.status.tone === 'ok'
-              : row.status.tone === 'draft'
+        : row.statusTab === t
   const loadedCounts = Object.fromEntries(
     tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
   ) as Record<Tab, number>

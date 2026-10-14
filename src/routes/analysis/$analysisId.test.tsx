@@ -173,4 +173,30 @@ describe('Read-only analysis view (R5-STUDIO-03)', () => {
     expect(href).toContain('view=view-1')
     expect(href).toContain('dataset=ds-1')
   })
+
+  it('agrees the citation verb with the count it states', async () => {
+    mocks.sourceStatus.mockResolvedValue({
+      ...sourceStatus('current'),
+      citedByCount: 1,
+    })
+    const { unmount } = renderView()
+    // One citation: "1 record cites this analysis".
+    expect(
+      await screen.findByText(
+        /^1 record cites this analysis, so it keeps the versions it cited\./,
+      ),
+    ).toBeTruthy()
+    unmount()
+
+    mocks.sourceStatus.mockResolvedValue({
+      ...sourceStatus('current'),
+      citedByCount: 2,
+    })
+    renderView()
+    expect(
+      await screen.findByText(
+        /^2 records cite this analysis, so it keeps the versions it cited\./,
+      ),
+    ).toBeTruthy()
+  })
 })

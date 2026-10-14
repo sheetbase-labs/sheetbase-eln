@@ -62,6 +62,53 @@ describe('toExperimentListRow', () => {
     expect(row.project).toBe('Process Development')
     expect(row.owner).toBe('Tom H.')
   })
+
+  it('tints an on-hold experiment and files it under the On hold tab', () => {
+    // EXP-0139 carries `on_hold`, which the status table used to miss: it fell
+    // to the untinted fallback and no tab listed it.
+    const row = toExperimentListRow(
+      { ...wire, status: 'on_hold' },
+      new Map(),
+      new Map(),
+    )
+    expect(row.status).toEqual({ tone: 'warn', label: 'On hold' })
+    expect(row.statusTab).toBe('onhold')
+  })
+
+  it('lists every experiment status under exactly one status tab', () => {
+    // No experiment may fall outside every status tab: the tab totals have to
+    // account for the `All` total.
+    const statuses = [
+      'draft',
+      'planned',
+      'in_progress',
+      'returned',
+      'in_review',
+      'approved',
+      'locked',
+      'failed',
+      'paused',
+      'on_hold',
+    ]
+    expect(
+      statuses.map(
+        (status) =>
+          toExperimentListRow({ ...wire, status }, new Map(), new Map())
+            .statusTab,
+      ),
+    ).toEqual([
+      'drafts',
+      'drafts',
+      'inprogress',
+      'inreview',
+      'inreview',
+      'approved',
+      'approved',
+      'approved',
+      'onhold',
+      'onhold',
+    ])
+  })
 })
 
 describe('useExperimentRecords', () => {
@@ -84,8 +131,9 @@ describe('useExperimentTabCounts', () => {
     count.mockImplementation(async (_resource: string, query: string) => {
       if (query.includes('created_by_user_id=eq.u-1')) return 3
       if (query.includes('status=eq.in_progress')) return 5
-      if (query.includes('status=eq.in_review')) return 2
-      if (query.includes('status=eq.approved')) return 7
+      if (query.includes('status=in.(paused,on_hold)')) return 1
+      if (query.includes('status=in.(in_review,returned)')) return 2
+      if (query.includes('status=in.(approved,locked,failed)')) return 7
       if (query.includes('status=in.(draft,planned)')) return 1
       return 12
     })
@@ -100,6 +148,7 @@ describe('useExperimentTabCounts', () => {
       all: 12,
       mine: 3,
       inprogress: 5,
+      onhold: 1,
       inreview: 2,
       approved: 7,
       drafts: 1,
@@ -107,5 +156,37 @@ describe('useExperimentTabCounts', () => {
     for (const [, query] of count.mock.calls) {
       expect(query as string).toContain('kind=eq.experiment&deleted_at=is.null')
     }
+  })
+
+  it('counts every status in exactly one status tab', async () => {
+    count.mockResolvedValue(0)
+    const { result } = renderHook(() => useExperimentTabCounts('u-1', client), {
+      wrapper,
+    })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const statusesInFilter = (query: string) => {
+      const listed = /status=in\.\(([^)]*)\)/.exec(query)?.[1]
+      if (listed) return listed.split(',')
+      const single = /status=eq\.([a-z_]+)/.exec(query)?.[1]
+      return single ? [single] : []
+    }
+    const counted = count.mock.calls.flatMap(([, query]) =>
+      statusesInFilter(query as string),
+    )
+    // No status is counted twice, and none is missing: the status tabs account
+    // for the `All` total, so a record outside every tab cannot exist.
+    expect([...counted].sort()).toEqual([
+      'approved',
+      'draft',
+      'failed',
+      'in_progress',
+      'in_review',
+      'locked',
+      'on_hold',
+      'paused',
+      'planned',
+      'returned',
+    ])
   })
 })

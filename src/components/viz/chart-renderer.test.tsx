@@ -124,6 +124,24 @@ describe('ChartRenderer', () => {
     expect(document.querySelectorAll('circle').length).toBeGreaterThan(0)
   })
 
+  it('names the plot after the type it draws, not the kind it was built with', () => {
+    // Every point/line type is built as the package's `line` kind so its series
+    // carry polyline geometry; the plot a reader lands on must not therefore be
+    // announced as a line chart.
+    render(
+      <ChartRenderer
+        title="Scatter"
+        spec={{ ...spec, type: 'scatter' }}
+        materialised={{ ...okMaterialised(), xUnit: undefined }}
+        frozen={null}
+      />,
+    )
+    const plot = document.querySelector('[role="group"][tabindex="0"]')
+    expect(plot?.getAttribute('aria-label')).toBe(
+      'scatter chart of Log titer (log₁₀) against Time (days)',
+    )
+  })
+
   it('renders a bar chart from the package bar primitive', () => {
     render(
       <ChartRenderer

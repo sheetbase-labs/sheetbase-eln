@@ -197,9 +197,10 @@ function AnalysisView() {
           {status && status.citedByCount > 0 ? (
             <Notice tone="info">
               {status.citedByCount} record
-              {status.citedByCount === 1 ? '' : 's'} cite this analysis, so it
-              keeps the versions it cited. Save a new analysis and cite that to
-              move on.
+              {status.citedByCount === 1 ? '' : 's'}{' '}
+              {status.citedByCount === 1 ? 'cites' : 'cite'} this analysis, so
+              it keeps the versions it cited. Save a new analysis and cite that
+              to move on.
             </Notice>
           ) : null}
           {materialised ? (

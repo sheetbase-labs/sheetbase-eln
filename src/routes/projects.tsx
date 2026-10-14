@@ -105,7 +105,9 @@ export const Route = createFileRoute('/projects')({
           : undefined,
       q: typeof search.q === 'string' ? search.q : undefined,
       archived:
-        search.archived === true || search.archived === 'true' || undefined,
+        search.archived === 'include' || search.archived === 'exclude'
+          ? search.archived
+          : undefined,
       stage: typeof search.stage === 'string' ? search.stage : undefined,
       client: typeof search.client === 'string' ? search.client : undefined,
       modality:

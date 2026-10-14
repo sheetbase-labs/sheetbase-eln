@@ -22,6 +22,10 @@ export interface ExperimentListRow {
   ownerId: string
   owner: string
   status: { tone: Tone; label: string }
+  /** The status tab that lists this record, so the tabs filter the same
+   * statuses their counts count. Null only for a status the table does not
+   * know, which stays reachable in `all`. */
+  statusTab: ExperimentStatusTab | null
   protocol: string
   protocolRecordId: string | null
   created: string
@@ -40,27 +44,61 @@ interface ExperimentWire {
   updated_at: string
 }
 
-const STATUS: Record<string, { tone: Tone; label: string }> = {
-  draft: { tone: 'draft', label: 'Draft' },
-  planned: { tone: 'draft', label: 'Planned' },
-  in_progress: { tone: 'progress', label: 'In progress' },
-  in_review: { tone: 'review', label: 'In review' },
-  approved: { tone: 'ok', label: 'Approved' },
-  locked: { tone: 'stored', label: 'Locked' },
-  paused: { tone: 'warn', label: 'On hold' },
-  failed: { tone: 'bad', label: 'Failed' },
+/** The list's tabs. `experiments.tsx` renders exactly these. */
+export type ExperimentTabKey =
+  | 'all'
+  | 'mine'
+  | 'inprogress'
+  | 'onhold'
+  | 'inreview'
+  | 'approved'
+  | 'drafts'
+
+/** The tabs that group experiments by status. `all` is the whole workspace and
+ * `mine` is the caller's own experiments, so neither is a status tab. */
+export type ExperimentStatusTab = Exclude<ExperimentTabKey, 'all' | 'mine'>
+
+/**
+ * Every status an experiment record can carry, and the status tab that lists
+ * it. `api.start_experiment` leaves `draft`; `api.set_experiment_status` moves
+ * the record through `in_progress` → `in_review` → `returned`/`approved`; and
+ * the rows written before that lifecycle still carry `planned`, `paused` and
+ * `on_hold`. `returned` stays in the review tab it came back from, exactly as
+ * `planned` sits with `draft` in Drafts. The remaining entries are the shared
+ * record vocabulary this list renders for other kinds too, and sit with the
+ * terminal stage.
+ *
+ * `tab` is what makes every experiment reachable from a tab: each status is
+ * listed by exactly one, so the status tabs' counts add up to `all`.
+ */
+const STATUS: Partial<
+  Record<string, { tone: Tone; label: string; tab: ExperimentStatusTab }>
+> = {
+  draft: { tone: 'draft', label: 'Draft', tab: 'drafts' },
+  planned: { tone: 'draft', label: 'Planned', tab: 'drafts' },
+  in_progress: { tone: 'progress', label: 'In progress', tab: 'inprogress' },
+  in_review: { tone: 'review', label: 'In review', tab: 'inreview' },
+  returned: { tone: 'warn', label: 'Returned', tab: 'inreview' },
+  approved: { tone: 'ok', label: 'Approved', tab: 'approved' },
+  locked: { tone: 'stored', label: 'Locked', tab: 'approved' },
+  failed: { tone: 'bad', label: 'Failed', tab: 'approved' },
+  paused: { tone: 'warn', label: 'On hold', tab: 'onhold' },
+  on_hold: { tone: 'warn', label: 'On hold', tab: 'onhold' },
 }
 
 export function experimentStatus(status: string): {
   tone: Tone
   label: string
 } {
-  return (
-    STATUS[status] ?? {
-      tone: 'none',
-      label: status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-    }
-  )
+  const known = STATUS[status]
+  return known
+    ? { tone: known.tone, label: known.label }
+    : {
+        tone: 'none',
+        label: status
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase()),
+      }
 }
 
 export const experimentListQueryKeys = {
@@ -95,6 +133,7 @@ export function toExperimentListRow(
     ownerId: row.created_by_user_id,
     owner: ownerNames.get(row.created_by_user_id) ?? '—',
     status: experimentStatus(row.status),
+    statusTab: STATUS[row.status]?.tab ?? null,
     protocol: '—',
     protocolRecordId: null,
     created: row.created_at.slice(0, 10),
@@ -119,34 +158,37 @@ export function useExperimentRecords(
   })
 }
 
-/** The list's tabs. `experiments.tsx` renders exactly these. */
-export type ExperimentTabKey =
-  | 'all'
-  | 'mine'
-  | 'inprogress'
-  | 'inreview'
-  | 'approved'
-  | 'drafts'
-
 export type ExperimentTabCounts = Record<ExperimentTabKey, number>
 
-/** Each tab's record filter, mirroring the statuses `experimentStatus` maps to
- * the tab's tone — so a tab's count is the same predicate its rows come from. */
-const EXPERIMENT_TAB_FILTER: Record<
-  ExperimentTabKey,
-  (userId: string) => string
-> = {
-  all: () => '',
-  mine: (userId) => `&created_by_user_id=eq.${encodeURIComponent(userId)}`,
-  inprogress: () => '&status=eq.in_progress',
-  inreview: () => '&status=eq.in_review',
-  approved: () => '&status=eq.approved',
-  drafts: () => '&status=in.(draft,planned)',
-}
+/** The tabs in strip order. `useExperimentTabCounts` zips its counts with this
+ * list, so it must cover every key exactly once. */
+const EXPERIMENT_TAB_KEYS: readonly ExperimentTabKey[] = [
+  'all',
+  'mine',
+  'inprogress',
+  'onhold',
+  'inreview',
+  'approved',
+  'drafts',
+]
 
-const EXPERIMENT_TAB_KEYS = Object.keys(
-  EXPERIMENT_TAB_FILTER,
-) as ExperimentTabKey[]
+/**
+ * The record filter a tab counts and lists. `all` counts the workspace and
+ * `mine` the caller's own experiments; a status tab filters by the statuses the
+ * status table files under it, so the tab's count is exactly the rows its list
+ * shows — and since every status has a tab, the status tabs add up to `all`.
+ */
+function experimentTabFilter(tab: ExperimentTabKey, userId: string): string {
+  if (tab === 'all') return ''
+  if (tab === 'mine')
+    return `&created_by_user_id=eq.${encodeURIComponent(userId)}`
+  const statuses = Object.keys(STATUS).filter(
+    (status) => STATUS[status]?.tab === tab,
+  )
+  return statuses.length === 1
+    ? `&status=eq.${statuses.join('')}`
+    : `&status=in.(${statuses.join(',')})`
+}
 
 /**
  * Exact per-tab totals (and the workspace total on `all`). The list itself
@@ -165,7 +207,7 @@ export function useExperimentTabCounts(
         EXPERIMENT_TAB_KEYS.map((tab) =>
           client.count(
             'records',
-            `?${EXPERIMENT_FILTER}${EXPERIMENT_TAB_FILTER[tab](userId ?? '')}`,
+            `?${EXPERIMENT_FILTER}${experimentTabFilter(tab, userId ?? '')}`,
           ),
         ),
       )

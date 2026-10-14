@@ -3,6 +3,10 @@
 A single index of every issue the audits produced, newest first at the top of each severity band.
 Three registers feed it; this file is the reading view, the JSON is the machine view.
 
+**Every issue here has an outcome** — see [`FIXES-2026-10-14.md`](FIXES-2026-10-14.md) for what changed,
+what was disproved with evidence, and the three that need a product decision. This file stays as the
+audit-time record.
+
 | Register | What it covers | State |
 |---|---|---|
 | `docs/qa/ISSUES.md` (this file) | every issue from the 2026-10-14 audit, consolidated | **open** |

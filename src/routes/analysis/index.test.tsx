@@ -87,9 +87,9 @@ vi.mock('#/lib/notebook-data', () => ({
   // delay keeps that ordering so the test exercises the late-resolving path.
   notebookDataClient: {
     list: async () => {
-      const settle = Promise.withResolvers<void>()
-      setTimeout(settle.resolve, 25)
-      await settle.promise
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 25)
+      })
       return mocks.citations
     },
   },

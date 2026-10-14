@@ -335,7 +335,7 @@ describe('saved-view writes', () => {
     version: 2,
   } as AnalysisViewWire
 
-  function client(overrides: Partial<DataClient> = {}): DataClient {
+  function client(overrides: Partial<Record<keyof DataClient, unknown>> = {}): DataClient {
     return {
       list: async () => [],
       count: async () => 0,

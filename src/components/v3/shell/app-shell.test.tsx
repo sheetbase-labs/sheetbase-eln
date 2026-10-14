@@ -46,6 +46,7 @@ vi.mock('#/lib/notifications-data', () => ({ markNotificationsRead }))
 
 /** The path the mocked router reports; MOB-01.1's back button depends on it. */
 const routerPath = { current: '/' }
+
 vi.mock('#/lib/auth-client', () => ({ authClient: { signOut } }))
 beforeEach(() => {
   vi.clearAllMocks()
@@ -72,6 +73,8 @@ vi.mock('@tanstack/react-router', () => ({
     className,
     onClick,
     'aria-label': ariaLabel,
+    activeProps,
+    inactiveProps,
   }: {
     to?: unknown
     params?: Record<string, string>
@@ -79,6 +82,9 @@ vi.mock('@tanstack/react-router', () => ({
     className?: string
     onClick?: React.MouseEventHandler<HTMLAnchorElement>
     'aria-label'?: string
+    activeOptions?: { exact?: boolean }
+    activeProps?: React.AnchorHTMLAttributes<HTMLAnchorElement>
+    inactiveProps?: React.AnchorHTMLAttributes<HTMLAnchorElement>
   }) => (
     <a
       href={
@@ -92,6 +98,7 @@ vi.mock('@tanstack/react-router', () => ({
       className={className}
       aria-label={ariaLabel}
       onClick={onClick}
+      {...(to === routerPath.current ? activeProps : inactiveProps)}
     >
       {children}
     </a>
@@ -112,7 +119,10 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('#/components/v3/search/search-palette', () => ({
-  SearchPalette: () => null,
+  // The shell's binding is what is under test here, not the palette's
+  // contents: the mock reports `open` so a test can see ⌘K reach it.
+  SearchPalette: ({ open }: { open: boolean }) =>
+    open ? <div role="dialog" aria-label="Search palette" /> : null,
 }))
 
 vi.mock('#/lib/data-client', () => ({
@@ -130,6 +140,7 @@ afterEach(cleanup)
 
 function renderShell(
   overrides: Partial<React.ComponentProps<typeof AppShell>['data']> = {},
+  children: React.ReactNode = <p>Content</p>,
 ) {
   return render(
     <AppShell
@@ -146,7 +157,7 @@ function renderShell(
         ...overrides,
       }}
     >
-      <main>Content</main>
+      {children}
     </AppShell>,
   )
 }
@@ -256,6 +267,17 @@ describe('SHELL-01 one sidebar at every width', () => {
 
     await user.click(screen.getByRole('button', { name: 'Expand navigation' }))
     expect(container.querySelector('nav[class*="w-nav"]')).not.toBeNull()
+  })
+
+  it('mirrors the collapse in localStorage for the next load', async () => {
+    const user = userEvent.setup()
+    renderShell()
+    await user.click(
+      screen.getByRole('button', { name: 'Minimise navigation' }),
+    )
+    await waitFor(() =>
+      expect(localStorage.getItem('sheetbase-sidebar-collapsed')).toBe('1'),
+    )
   })
 
   it('has no hamburger, no drawer and no second navigation surface', () => {
@@ -561,5 +583,84 @@ describe('v3 AccountMenu native signout', () => {
     } finally {
       window.removeEventListener('beforeunload', listener)
     }
+  })
+})
+
+// Ported from the deleted legacy shell suite (SHELL-01): the landmarks and the
+// global shortcuts its tests covered, now asserted against the adopted shell.
+describe('SHELL-01 landmarks in the v3 shell', () => {
+  it('renders a skip link that lands on the shell main landmark', () => {
+    renderShell()
+    const skip = screen.getByRole('link', { name: 'Skip to content' })
+    expect(skip.getAttribute('href')).toBe('#main')
+    expect(screen.getByRole('main').id).toBe('main')
+    // The skip link has to land on the content the route rendered.
+    expect(screen.getByRole('main').contains(screen.getByText('Content'))).toBe(
+      true,
+    )
+  })
+
+  it('marks the active destination aria-current=page and leaves the rest unmarked', () => {
+    routerPath.current = '/projects'
+    try {
+      renderShell()
+      const projects = screen.getAllByRole('link', { name: 'Projects' })
+      expect(projects.length).toBeGreaterThan(1)
+      for (const link of projects) {
+        expect(link.getAttribute('aria-current')).toBe('page')
+      }
+      for (const link of screen.getAllByRole('link', { name: 'Schedule' })) {
+        expect(link.getAttribute('aria-current')).toBeNull()
+      }
+    } finally {
+      routerPath.current = '/'
+    }
+  })
+})
+
+describe('SHELL-03 global shortcuts reach the v3 shell', () => {
+  it('opens the ⌘K palette from anywhere in the shell', async () => {
+    const user = userEvent.setup()
+    renderShell()
+    expect(screen.queryByRole('dialog', { name: 'Search palette' })).toBeNull()
+    await user.keyboard('{Meta>}k{/Meta}')
+    expect(screen.getByRole('dialog', { name: 'Search palette' })).toBeTruthy()
+  })
+
+  it('opens the Create menu on c and closes it again on Escape', async () => {
+    const user = userEvent.setup()
+    renderShell()
+    await user.keyboard('c')
+    // The New menu's destinations, in the order the shell lists them.
+    const menu = await screen.findByRole('menu')
+    expect(
+      within(menu)
+        .getAllByRole('link')
+        .map((link) => link.getAttribute('href')),
+    ).toEqual([
+      '/experiments/new',
+      '/samples',
+      '/projects',
+      '/sheets/new',
+      '/import',
+    ])
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+  })
+
+  it('navigates on a g-sequence and ignores one typed into a field', async () => {
+    const user = userEvent.setup()
+    const first = renderShell()
+    await user.keyboard('g')
+    await user.keyboard('p')
+    expect(navigate).toHaveBeenCalledWith({ to: '/projects' })
+    first.unmount()
+
+    navigate.mockClear()
+    renderShell({}, <input aria-label="Route note" />)
+    await user.click(screen.getByRole('textbox', { name: 'Route note' }))
+    await user.keyboard('g')
+    await user.keyboard('p')
+    expect(navigate).not.toHaveBeenCalled()
   })
 })

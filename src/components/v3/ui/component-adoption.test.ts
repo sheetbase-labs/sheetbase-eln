@@ -55,25 +55,6 @@ const ALLOWED: ReadonlyArray<{
       'Mounts inside the legacy cmdk palette; v3 CommandItem needs the v3 Command context.',
   },
   {
-    file: 'src/components/shell/inspector.tsx',
-    modules: ['sheet'],
-    reason:
-      'v3 SheetContent always renders a header bar and Close control; the inspector drawer renders neither (shell.test.tsx asserts no Close).',
-  },
-  {
-    file: 'src/components/shell/shell.tsx',
-    modules: [
-      'badge',
-      'command',
-      'dialog',
-      'dropdown-menu',
-      'sheet',
-      'tooltip',
-    ],
-    reason:
-      'Legacy ELN-only shell, replaced wholesale by the v3 AppShell; the v3 set has no radio menu items, no tooltip side/Provider composition and no chrome-less sheet.',
-  },
-  {
     file: 'src/routes/foundations.tsx',
     modules: ['badge', 'tabs'],
     reason:

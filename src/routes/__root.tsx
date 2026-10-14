@@ -144,35 +144,12 @@ function RootRouteComponent() {
   const { auth, shellCounts, shellPinned, shellNotifications } =
     Route.useRouteContext()
 
-  // Map the auth context to the AppShell context shape so the sidebar
-  // (workspace name, user info, nav) renders during SSR — not after
-  // hydration.  This eliminates the multi-second delay where main
-  // content appeared but the sidebar was missing.
-  const shellContext = auth
-    ? {
-        workspace: auth.workspace
-          ? {
-              id: auth.workspace.id,
-              slug: auth.workspace.slug,
-              name: auth.workspace.name,
-            }
-          : null,
-        workspaces: auth.workspaces,
-        user: {
-          name: auth.user.name,
-          email: auth.user.email,
-          role: auth.workspace?.role,
-        },
-      }
-    : null
-
   // R5-SHELL-01: the adopted (v3) shell is the default for every route, so a
-  // new product route cannot silently fall back to the legacy ELN shell — which
-  // has no icon rail at 1024–1279 and no bottom tabs below 768. Only these
-  // recorded internal reference routes keep the legacy shell, and the routes
-  // with their own chrome render bare. This replaced the hand-maintained
-  // allow-list of ported route ids, whose "any matched ancestor" semantics made
-  // most entries redundant and its gaps invisible.
+  // new product route cannot silently appear without product navigation. Only
+  // these recorded internal reference routes keep the legacy ShellProvider
+  // wrapper, and the routes with their own chrome render bare. This replaced
+  // the hand-maintained allow-list of ported route ids, whose "any matched
+  // ancestor" semantics made most entries redundant and its gaps invisible.
   const legacyShellRouteIds = [
     // The operator documents rendered from docs/*.md (deployment, recovery,
     // security, …). Reference material, not product navigation.
@@ -235,7 +212,7 @@ function RootRouteComponent() {
             {bareRoute ? (
               <Outlet />
             ) : legacyShell ? (
-              <ShellProvider initialContext={shellContext}>
+              <ShellProvider>
                 <Outlet />
               </ShellProvider>
             ) : (

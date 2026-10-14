@@ -335,6 +335,26 @@ describe('SHELL-01 one sidebar at every width', () => {
     ).toContain('max-xl:hidden')
   })
 
+  it('reflows the top bar at phone width instead of clipping a control', () => {
+    const { container } = renderShell()
+    const header = container.querySelector('header')!
+    // At 320 the controls measured 356px in a 320px bar and the account menu sat
+    // outside the viewport with no ancestor able to scroll to it (WCAG 1.4.10),
+    // so below `md` the bar wraps and grows past its fixed row height.
+    expect(header.className).toContain('max-md:flex-wrap')
+    expect(header.className).toContain('max-md:h-auto')
+    // Reflow, not removal: the account control stays in the bar.
+    expect(
+      within(header).getByRole('button', { name: 'Account: Gareth P.' }),
+    ).toBeTruthy()
+    // The phone search control is `size-10`, so its container keeps room for it
+    // rather than being squeezed until the icon paints over the brand link.
+    const search = within(header)
+      .getByRole('button', { name: 'Search' })
+      .parentElement!
+    expect(search.className).toContain('max-md:min-w-10')
+  })
+
   it('declares no sidebar styles for frames that never render', () => {
     const { container } = renderShell()
     const full = container.querySelector<HTMLElement>('nav[class*="w-nav"]')!

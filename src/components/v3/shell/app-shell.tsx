@@ -384,7 +384,11 @@ function TopBar({
   onToggleNav: () => void
 }) {
   return (
-    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
+    // WCAG 1.4.10: below `md` the controls cannot share the 44px row — at 320
+    // they measured 356px wide and the account menu sat entirely outside the
+    // viewport with no ancestor able to scroll to it. The bar wraps and grows
+    // instead, so every control reflows into view rather than being clipped.
+    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 max-md:min-h-topbar max-md:flex-wrap max-md:h-auto max-md:justify-between md:gap-3 md:px-3">
       {/* SHELL-01: it minimises the sidebar to the icon rail and expands it
           again — the sidebar itself never moves and never becomes a drawer.
           The full sidebar only renders from `xl` up, so below that breakpoint
@@ -427,7 +431,10 @@ function TopBar({
         workspaces={data.workspaces ?? []}
         onSwitch={onSwitchWorkspace}
       />
-      <div className="flex min-w-0 flex-1 justify-end md:justify-center">
+      {/* The phone search button is `size-10` below `md`, so the container keeps
+          room for it: squeezed below its content the icon overflowed the box
+          (justify-end) and painted over the brand link. */}
+      <div className="flex min-w-0 flex-1 justify-end max-md:min-w-10 md:justify-center">
         <Button
           variant="quiet"
           size="icon"

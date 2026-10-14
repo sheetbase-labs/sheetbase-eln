@@ -162,6 +162,33 @@ function submission(
 
 const DIGEST = 'a'.repeat(64)
 
+/** The SB008 check evidence a revision needs before a signature is offered. */
+function passingCheckResult() {
+  return {
+    id: 'check-1',
+    workspace_id: 'ws-1',
+    record_id: 'rec-1',
+    revision_id: 'rev-1',
+    check_definition_key: 'default',
+    check_definition_version: 1,
+    revision_integrity_digest: DIGEST,
+    check_definition_digest: DIGEST,
+    input_digest: DIGEST,
+    overall_status: 'pass',
+    pass_count: 1,
+    blocking_failure_count: 0,
+    warning_failure_count: 0,
+    info_failure_count: 0,
+    results: [],
+    run_by_user_id: 'reviewer-a',
+    run_session_id: 'session-owner-a',
+    run_role: 'authenticated',
+    run_at: '2026-10-04T12:00:00Z',
+    idempotency_key: 'check-key',
+    created_at: '2026-10-04T12:00:00Z',
+  }
+}
+
 /** Whether a button is disabled (avoids the HTMLElement/ButtonElement cast
  * divergence between tsc and eslint). Native disabled buttons carry the
  * attribute, so this is reliable for shadcn Button output. */
@@ -985,7 +1012,11 @@ describe('R5-SHELL-05 — signing session expiry and lockout', () => {
     requestSignatureStepUpMock.mockReset()
     signRevisionMock.mockReset()
     const rpc = vi.spyOn(reviewsDataClient, 'rpc').mockResolvedValue(true)
-    const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
+    const list = vi
+      .spyOn(reviewsDataClient, 'list')
+      .mockImplementation(async (resource: string) =>
+        resource === 'review_check_results' ? [passingCheckResult()] : [],
+      )
     const onOpenChange = vi.fn()
     const queryClient = new QueryClient({
       defaultOptions: {

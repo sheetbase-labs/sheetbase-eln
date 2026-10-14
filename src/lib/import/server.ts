@@ -21,6 +21,7 @@ import {
   sniffImportFormat,
 } from '#/lib/import-parse'
 import type { ImportPreview, ImportSheet } from '#/lib/import-parse'
+import { describeImportRpcCode } from '#/lib/import-commit'
 import { mapImportSheet } from '#/lib/import-mapping'
 import type {
   ImportColumnMapping,
@@ -52,6 +53,54 @@ const REVIEW_SAMPLE_LIMIT = 20
 function asRow<T>(body: T | { error: unknown }): T | undefined {
   if (Array.isArray(body)) return (body as T[])[0]
   return body as T
+}
+
+/**
+ * PostgREST returns a RAISE EXCEPTION as `{ code, message, details, hint }`,
+ * where `code` is the SQLSTATE or the function's `SBxxx`. Its `message` names
+ * the cause that actually applied, so commit rejections surface it instead of
+ * a canned sentence that may be false for this Dataset.
+ */
+function raisedRpcError(
+  body: unknown,
+): { code: string; message: string } | undefined {
+  const record = Array.isArray(body) ? body[0] : body
+  if (!record || typeof record !== 'object') return undefined
+  const value = record as Record<string, unknown>
+  if (typeof value.code === 'string' && typeof value.message === 'string')
+    return { code: value.code, message: value.message }
+  if (typeof value.error === 'string' && value.error.trim())
+    return { code: 'rpc_error', message: value.error }
+  return undefined
+}
+
+/**
+ * The retained file's parser receipt must name the same cause the RPC raised,
+ * not a fixed "regulated Dataset" sentence. `SB107` covers three distinct
+ * parser causes; each maps to its own receipt.
+ */
+function parserFailureForRaisedError(error: {
+  code: string
+  message: string
+}): { code: string; message: string } | undefined {
+  if (error.code !== 'SB107') return undefined
+  if (error.message.includes('approved parser version'))
+    return {
+      code: 'parser_not_approved',
+      message:
+        'The regulated Dataset requires an approved matching parser version. Validate and approve this version before retrying.',
+    }
+  if (error.message.includes('format does not match'))
+    return {
+      code: 'parser_format_mismatch',
+      message:
+        'The parser does not match the retained file format. Choose a parser for this format before retrying.',
+    }
+  return {
+    code: 'parser_unrecognised',
+    message:
+      'The retained file does not match a usable registered parser version. Review its headers or register a matching version before retrying.',
+  }
 }
 
 function emptyStream(): ReadableStream<Uint8Array> {
@@ -493,15 +542,31 @@ async function buildFileView(
     const summary = parsers.get(item.key)
     return summary ? [summary] : []
   })
+  const draftOptions = draftParsers.length ? draftParsers : shippedDrafts
+  // Never print the found headers as the expected example: that is the reason
+  // recognition failed, not guidance. Name the drafts a matching file would
+  // need approved, or say that only approved versions recognise a file.
+  const foundHeaders = sheet.headers.slice(0, 6).join(', ')
+  const draftReason = draftOptions.length
+    ? ` ${draftOptions
+        .map((item) => `${item.label} v${item.version}`)
+        .join(', ')} ${
+        draftOptions.length === 1 ? 'is a draft' : 'are drafts'
+      }, so ${
+        draftOptions.length === 1 ? 'it is' : 'they are'
+      } not used until an admin approves ${
+        draftOptions.length === 1 ? 'that version' : 'one'
+      }.`
+    : ' Only approved parser versions are used for recognition.'
 
   return {
     ...base,
     parsed: true,
     parser,
-    draftParsers: draftParsers.length ? draftParsers : shippedDrafts,
+    draftParsers: draftOptions,
     recognitionMessage: parser
       ? `Recognised as ${parser.label} v${parser.version}.`
-      : `This file doesn't match a registered parser. Expected a header set such as sample, well (plate map) or sample, ntu, dil, timestamp (TB-02 CSV). Found ${sheet.headers.slice(0, 6).join(', ')}.`,
+      : `This file's headers (${foundHeaders}) match no approved parser.${draftReason}`,
     sheet: {
       name: sheet.name,
       headers: sheet.headers,
@@ -1063,23 +1128,33 @@ export async function handleImportCommit(
   )
   const result = asRow(committed.body)
   if (committed.status >= 400 || !result || result.ok !== true) {
-    if (
-      committed.status >= 400 &&
-      'code' in committed.body &&
-      committed.body.code === 'SB107'
-    ) {
-      await recordParserFailure(
-        context,
-        prepared.file.id,
-        parserVersionId,
-        'parser_not_approved',
-        'The regulated Dataset requires an approved matching parser version. Validate and approve this version before retrying.',
-      )
+    // A raised RPC names the cause that actually applied; collapsing every
+    // failure into one sentence reports a cause that may be false for this
+    // Dataset (DSET-06.2). Surface the raised message and keep any parser
+    // receipt in step with the cause that was actually raised.
+    const raised =
+      committed.status >= 400 ? raisedRpcError(committed.body) : undefined
+    if (raised) {
+      const failure = parserFailureForRaisedError(raised)
+      if (failure) {
+        await recordParserFailure(
+          context,
+          prepared.file.id,
+          parserVersionId,
+          failure.code,
+          failure.message,
+        )
+      }
+      return Response.json({
+        ok: false,
+        committed: 0,
+        errors: [{ code: 'commit_failed', message: raised.message }],
+      })
     }
     const errors = (result?.errors ?? []).map((error) => ({
       row: error.rowIndex,
       code: error.code,
-      message: error.code,
+      message: describeImportRpcCode(error.code),
     }))
     return Response.json({
       ok: false,
@@ -1090,8 +1165,7 @@ export async function handleImportCommit(
           : [
               {
                 code: 'commit_failed',
-                message:
-                  'The import was rejected. Regulated datasets require an approved parser version; the file is kept for retry.',
+                message: 'The import was rejected. The file is kept for retry.',
               },
             ],
     })

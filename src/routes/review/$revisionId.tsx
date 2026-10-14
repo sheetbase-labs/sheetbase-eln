@@ -136,6 +136,7 @@ import {
   fetchSignatureEligibility,
   fetchSignatureWitnessCandidates,
   fetchSignaturesForSubmission,
+  signatureChecksPassed,
   signatureQueryKeys,
   SIGNATURE_MEANING_LABEL,
   signRevision,
@@ -2330,6 +2331,17 @@ export function SignaturePanel({
   const certificationCurrent = isCurrentStatement(
     (certifications.data ?? []).find((row) => row.userId === currentUserId),
   )
+  // The sign target requires the revision's checks to have passed for the
+  // signed digest (SB008). Read them so the panel states the requirement
+  // instead of letting the password attempt be refused opaquely.
+  const checksQuery = useQuery({
+    queryKey: reviewCheckQueryKeys.resultsForRevision(submission.revision_id),
+    queryFn: () =>
+      fetchReviewCheckResults(reviewsDataClient, submission.revision_id),
+  })
+  const checksPassed = checksQuery.isSuccess
+    ? signatureChecksPassed(checksQuery.data, integrityDigest)
+    : true
   const meanings = availableSignatureMeanings({
     submission,
     currentUserId,
@@ -2337,6 +2349,7 @@ export function SignaturePanel({
     supersededByRevisionId: revision.superseded_by_revision_id,
     eligibility: eligibility.data,
     certificationCurrent,
+    checksPassed,
     signatures,
   })
   const members = useQuery({
@@ -2569,6 +2582,12 @@ export function SignaturePanel({
             <p className="text-xs text-muted-foreground">
               You have already signed this submission.
             </p>
+          ) : submission.submitted_by_user_id === currentUserId ? (
+            <p className="text-xs text-muted-foreground">
+              You submitted this revision, so you cannot sign it. A signature
+              must come from an assigned nonauthor reviewer or an explicit
+              witness request.
+            </p>
           ) : !isAssignedReviewer ? (
             <p className="text-xs text-muted-foreground">
               Signing requires assignment as a nonauthor reviewer or an explicit
@@ -2587,6 +2606,12 @@ export function SignaturePanel({
           ) : eligibility.isSuccess && !eligibility.data.writer ? (
             <p className="text-xs text-muted-foreground">
               Your workspace role cannot sign revisions.
+            </p>
+          ) : checksQuery.isSuccess && !checksPassed ? (
+            <p className="text-xs text-muted-foreground">
+              Signing requires this revision's review checks to have passed for
+              its digest. Run the checks and resolve any blocking failures
+              first.
             </p>
           ) : eligibility.isSuccess && certifications.isSuccess ? (
             // QA-184: signing has an off switch for every reason the panel can

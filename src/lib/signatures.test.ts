@@ -7,6 +7,7 @@ import {
   fetchSignatureWitnessCandidates,
   isExpiredSigningSession,
   requestSignatureStepUp,
+  signatureChecksPassed,
   SignatureStepUpError,
 } from './signatures'
 import type { SignatureWire } from './signatures'
@@ -58,6 +59,7 @@ function meanings(
     integrityDigest: digest,
     supersededByRevisionId: null,
     certificationCurrent: true,
+    checksPassed: true,
     eligibility: { writer: true, requests: [] },
     signatures: [],
     ...overrides,
@@ -128,9 +130,60 @@ describe('signature meaning eligibility', () => {
     expect(meanings({ supersededByRevisionId: 'new-revision' })).toEqual([])
     expect(meanings({ integrityDigest: null })).toEqual([])
     expect(meanings({ certificationCurrent: false })).toEqual([])
+    expect(meanings({ checksPassed: false })).toEqual([])
     expect(
       meanings({ submission: { ...submission, state: 'withdrawn' } }),
     ).toEqual([])
+  })
+
+  it('requires the latest check result to pass for the signed digest', () => {
+    const result = {
+      id: 'result',
+      workspace_id: 'workspace',
+      record_id: 'record',
+      revision_id: 'revision',
+      check_definition_key: 'default',
+      check_definition_version: 1,
+      revision_integrity_digest: digest,
+      check_definition_digest: digest,
+      input_digest: digest,
+      overall_status: 'pass' as const,
+      pass_count: 1,
+      blocking_failure_count: 0,
+      warning_failure_count: 0,
+      info_failure_count: 0,
+      results: [],
+      run_by_user_id: 'reviewer',
+      run_session_id: 'session',
+      run_role: 'member',
+      run_at: '2026-10-04T12:00:00Z',
+      idempotency_key: 'result-key',
+      created_at: '2026-10-04T12:00:00Z',
+    }
+    expect(signatureChecksPassed([], digest)).toBe(false)
+    expect(signatureChecksPassed([result], digest)).toBe(true)
+    expect(signatureChecksPassed([result], null)).toBe(false)
+    expect(
+      signatureChecksPassed([{ ...result, blocking_failure_count: 1 }], digest),
+    ).toBe(false)
+    expect(
+      signatureChecksPassed([{ ...result, overall_status: 'fail' }], digest),
+    ).toBe(false)
+    expect(
+      signatureChecksPassed(
+        [{ ...result, revision_integrity_digest: 'b'.repeat(64) }],
+        digest,
+      ),
+    ).toBe(false)
+    expect(
+      signatureChecksPassed(
+        [
+          { ...result, run_at: '2026-10-04T11:00:00Z', overall_status: 'fail' },
+          { ...result, run_at: '2026-10-04T13:00:00Z' },
+        ],
+        digest,
+      ),
+    ).toBe(true)
   })
 })
 

@@ -6,6 +6,10 @@ import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { notebookQueryKeysAfterSignature } from '#/lib/notebook-experience'
 import {
+  fetchReviewCheckResults,
+  reviewCheckQueryKeys,
+} from '#/lib/review-checks'
+import {
   fetchReviewSubmissionByRevision,
   fetchRevisionRow,
   reviewWorkspaceQueryKeys,
@@ -14,6 +18,7 @@ import {
   availableSignatureMeanings,
   fetchSignatureEligibility,
   fetchSignaturesForSubmission,
+  signatureChecksPassed,
   signatureQueryKeys,
   signRevision,
   requestSignatureStepUp,
@@ -95,6 +100,17 @@ export function SignNotebookDialog({
   )
   const certificationCurrent = isCurrentStatement(certification)
   const integrityDigest = revisionQuery.data?.integrity_digest ?? null
+  // The sign target also requires the revision's checks to have passed for the
+  // signed digest (SB008). Read them so the dialog states the requirement
+  // before a password attempt is refused.
+  const checksQuery = useQuery({
+    queryKey: reviewCheckQueryKeys.resultsForRevision(revisionId),
+    queryFn: () => fetchReviewCheckResults(notebookDataClient, revisionId),
+    enabled: open,
+  })
+  const checksPassed = checksQuery.isSuccess
+    ? signatureChecksPassed(checksQuery.data, integrityDigest)
+    : true
   const meanings = availableSignatureMeanings({
     currentUserId,
     submission,
@@ -103,6 +119,7 @@ export function SignNotebookDialog({
       revisionQuery.data?.superseded_by_revision_id ?? null,
     eligibility: eligibility.data,
     certificationCurrent,
+    checksPassed,
     signatures: signaturesQuery.data ?? [],
   })
   const canSign = meanings.length > 0
@@ -167,11 +184,17 @@ export function SignNotebookDialog({
       <p className="m-0 text-body text-fg-muted">
         Checking your signature certification…
       </p>
+    ) : checksQuery.isSuccess && !checksPassed ? (
+      <p className="m-0 text-body text-fg-muted">
+        Signing requires the revision's review checks to have passed for this
+        digest. Run the checks and resolve any blocking failures before signing.
+      </p>
     ) : certificationCurrent ? (
       <p className="m-0 text-body text-fg-muted">
         No eligible signature meaning is available. Signing requires an active
         frozen revision, assignment as a nonauthor reviewer or an explicit
-        witness request, and current workspace write permission.
+        witness request, current workspace write permission, and review checks
+        that have passed for this digest.
       </p>
     ) : (
       <Notice tone="warn">

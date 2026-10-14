@@ -48,6 +48,9 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // Errors are held back until the person has interacted: a pristine form is
+  // not an error state, and the disabled Create button is not the message.
+  const [interacted, setInteracted] = useState(false)
 
   const selectedProject = projectId || projects[0]?.id || ''
 
@@ -165,11 +168,14 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
               <Input
                 className="mt-1 h-8 text-xs"
                 value={title}
-                onChange={(event) => setTitle(event.target.value)}
+                onChange={(event) => {
+                  setTitle(event.target.value)
+                  setInteracted(true)
+                }}
                 aria-label="Name"
                 required
               />
-              {titleError ? (
+              {interacted && titleError ? (
                 <span role="alert" className="mt-1 block text-danger-text">
                   {titleError}
                 </span>
@@ -228,14 +234,15 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                     values[field.fieldName] ??
                     (field.logicalType === 'boolean' ? false : '')
                   }
-                  onChange={(value) =>
+                  onChange={(value) => {
                     setValues((current) => ({
                       ...current,
                       [field.fieldName]: value,
                     }))
-                  }
+                    setInteracted(true)
+                  }}
                 />
-                {fieldErrors[field.fieldName] ? (
+                {interacted && fieldErrors[field.fieldName] ? (
                   <span
                     role="alert"
                     className="text-[0.65rem] text-danger-text"

@@ -155,7 +155,7 @@ function ModelsList() {
         <ListToolbar
           q={search.q}
           label="Search models"
-          placeholder="Search models and fields"
+          placeholder="Search models by key or name"
           onSearch={(next) =>
             void navigate({
               to: '/models',

@@ -145,6 +145,21 @@ export function fieldScalarError(
   field: FieldDefinition,
   value: unknown,
 ): string | null {
+  // A category value is an option id or key (the server matches keys). A
+  // non-matching UUID-shaped value names a dead option; any other scalar is
+  // not a category value at all, matching the Sheet cell codes.
+  if (field.logicalType === 'category') {
+    if (typeof value !== 'string') return 'invalid_value'
+    const options =
+      field.category?.kind === 'embedded' ? field.category.options : []
+    const match = options.some(
+      (option) =>
+        (option.id === value || option.key === value) &&
+        option.lifecycle === 'active',
+    )
+    if (!match) return isUuid(value) ? 'invalid_category_option' : 'invalid_value'
+    return null
+  }
   const valid =
     field.logicalType === 'text'
       ? typeof value === 'string'
@@ -178,16 +193,6 @@ export function fieldScalarError(
       (field.validation.max !== undefined && value > field.validation.max))
   )
     return 'numeric_validation'
-  if (field.logicalType === 'category') {
-    const options =
-      field.category?.kind === 'embedded' ? field.category.options : []
-    const match = options.some(
-      (option) =>
-        (option.id === value || option.key === value) &&
-        option.lifecycle === 'active',
-    )
-    if (!match) return 'invalid_category_option'
-  }
   return null
 }
 

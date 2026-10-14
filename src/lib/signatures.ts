@@ -12,6 +12,7 @@
  */
 import type { DataClient } from './data-client'
 import { z } from 'zod'
+import type { ReviewCheckResultWire } from './review-checks'
 import type { ReviewSubmissionWire } from './reviews'
 
 // ---------------------------------------------------------------------------
@@ -205,6 +206,28 @@ export interface SignatureEligibility {
   requests: SignatureWitnessRequestWire[]
 }
 
+/**
+ * Mirrors `internal.assert_signature_target`'s SB008 check gate: the latest
+ * check result must exist for the signed digest and have no blocking failures.
+ * The panel states the requirement instead of letting the password attempt be
+ * refused opaquely.
+ */
+export function signatureChecksPassed(
+  results: ReviewCheckResultWire[],
+  integrityDigest: string | null,
+): boolean {
+  if (!integrityDigest) return false
+  if (results.length === 0) return false
+  const latest = [...results].sort(
+    (a, b) => Date.parse(b.run_at) - Date.parse(a.run_at),
+  )[0]
+  return (
+    latest.revision_integrity_digest === integrityDigest &&
+    latest.blocking_failure_count === 0 &&
+    latest.overall_status !== 'fail'
+  )
+}
+
 export async function fetchSignatureEligibility(
   client: DataClient,
   submission: ReviewSubmissionWire,
@@ -234,6 +257,8 @@ export function availableSignatureMeanings(input: {
   integrityDigest: string | null
   supersededByRevisionId: string | null
   certificationCurrent: boolean
+  /** The revision's latest check result passed for the signed digest (SB008). */
+  checksPassed: boolean
   eligibility: SignatureEligibility | undefined
   signatures: SignatureWire[]
 }): PostSubmissionSignatureMeaning[] {
@@ -241,6 +266,7 @@ export function availableSignatureMeanings(input: {
   if (
     !submission ||
     !input.certificationCurrent ||
+    !input.checksPassed ||
     !eligibility?.writer ||
     !integrityDigest ||
     input.supersededByRevisionId !== null ||

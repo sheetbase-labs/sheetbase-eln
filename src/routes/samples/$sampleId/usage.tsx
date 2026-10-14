@@ -143,13 +143,15 @@ function SampleUsage() {
               <Button size="sm" onClick={actions.openReserve}>
                 Reserve volume…
               </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={actions.openWithdraw}
-              >
-                Withdraw volume…
-              </Button>
+              {actions.canWithdraw ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={actions.openWithdraw}
+                >
+                  Withdraw volume…
+                </Button>
+              ) : null}
             </span>
           ) : null
         }

@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { SampleActionsProvider } from '#/components/v3/samples/withdraw-dialog'
 import { Route } from './usage'
 
 const samples = vi.hoisted(() => ({
@@ -133,5 +134,48 @@ describe('QA-121 — the Usage list counts live usage', () => {
     expect(header.nextElementSibling?.textContent).toBe('2')
     expect(table.querySelectorAll('tbody tr')).toHaveLength(2)
     expect(screen.queryByText('Cancelled')).toBeNull()
+  })
+})
+
+describe('QA3 — the Usage tab offers only the actions the sample state allows', () => {
+  function renderWithActions(canWithdraw: boolean) {
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <SampleActionsProvider
+          actions={{
+            openWithdraw: vi.fn(),
+            openReserve: vi.fn(),
+            canWithdraw,
+          }}
+        >
+          <SampleUsage />
+        </SampleActionsProvider>
+      </QueryClientProvider>,
+    )
+  }
+
+  it('withholds Withdraw when the sample cannot be withdrawn', async () => {
+    samples.fetchSampleReservations.mockResolvedValue([])
+    renderWithActions(false)
+
+    expect(
+      await screen.findByRole('button', { name: 'Reserve volume…' }),
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: 'Withdraw volume…' }),
+    ).toBeNull()
+  })
+
+  it('offers Withdraw when the sample can be withdrawn', async () => {
+    samples.fetchSampleReservations.mockResolvedValue([])
+    renderWithActions(true)
+
+    expect(
+      await screen.findByRole('button', { name: 'Withdraw volume…' }),
+    ).toBeTruthy()
   })
 })

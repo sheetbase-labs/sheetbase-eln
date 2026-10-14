@@ -235,6 +235,12 @@ export function QuantityKeypad({
 export interface SampleActions {
   openWithdraw: () => void
   openReserve: () => void
+  /**
+   * Whether Withdraw is available in the sample's lifecycle state. The header
+   * and the Usage tab read the same answer, so the tab cannot offer a write the
+   * record header withholds (a held/quarantined/expired sample).
+   */
+  canWithdraw: boolean
 }
 
 const SampleActionsContext = createContext<SampleActions | null>(null)

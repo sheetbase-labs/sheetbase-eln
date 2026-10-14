@@ -418,6 +418,91 @@ export const designSteps: Array<SeedStep> = [
         }
       }
 
+      // MDL-02.3 — the model's published versions. `record_models` records the
+      // published version (v4), so the versions it claims must exist: the
+      // Versions tab lists them and a new draft continues from the last one.
+      // The `mycoplasma` field arrived in v4, so it is absent from v1–v3.
+      const allVersionFields = DESIGN_CELL_BANK_FIELDS.map((field) => ({
+        id: field.id,
+        field_name: field.fieldName,
+        label: field.label,
+        logical_type: field.logicalType,
+        nullable: field.nullable,
+        display_order: field.displayOrder,
+        lifecycle: 'active',
+        default_value: null,
+        validation: field.validation ?? {},
+        cardinality: 'one',
+        options: field.options ?? [],
+      }))
+
+      const versions = [
+        {
+          id: '00000000-0000-4000-8000-000000000610',
+          version: 1,
+          publishedAt: new Date('2026-04-14T09:00:00+01:00'),
+          reason: 'Initial Cell bank model',
+          includeMycoplasma: false,
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000611',
+          version: 2,
+          publishedAt: new Date('2026-06-02T09:00:00+01:00'),
+          reason: 'Add identity (STR) release test',
+          includeMycoplasma: false,
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000612',
+          version: 3,
+          publishedAt: new Date('2026-07-21T09:00:00+01:00'),
+          reason: 'Tighten passage validation',
+          includeMycoplasma: false,
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000613',
+          version: 4,
+          publishedAt: new Date('2026-09-19T09:00:00+01:00'),
+          reason: 'Add mycoplasma release test',
+          includeMycoplasma: true,
+        },
+      ] as const
+      for (const version of versions) {
+        const definition = {
+          fields: allVersionFields.filter(
+            (field) =>
+              version.includeMycoplasma || field.field_name !== 'mycoplasma',
+          ),
+        }
+        await db
+          .insert(schema.recordModelVersions)
+          .values({
+            id: version.id,
+            workspaceId: PROCESS,
+            modelId: DESIGN_CELL_BANK_MODEL.id,
+            version: version.version,
+            revision: 1,
+            lifecycle: 'published',
+            definition,
+            reason: version.reason,
+            publishedAt: version.publishedAt,
+            createdAt: version.publishedAt,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+            updatedByUserId: DESIGN_USER_IDS.gareth,
+          })
+          .onConflictDoUpdate({
+            target: [
+              schema.recordModelVersions.modelId,
+              schema.recordModelVersions.version,
+            ],
+            set: {
+              lifecycle: 'published',
+              definition,
+              reason: version.reason,
+              publishedAt: version.publishedAt,
+            },
+          })
+      }
+
       for (const record of DESIGN_CELL_BANK_RECORDS) {
         await db
           .insert(schema.records)

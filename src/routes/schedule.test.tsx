@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type * as router from '@tanstack/react-router'
 import type * as notebookData from '#/lib/notebook-data'
 
+import { DataClientError } from '#/lib/data-client'
 import { Schedule } from './schedule'
 
 const AMBR = '00000000-0000-4000-8000-0000000003e1'
@@ -58,7 +59,12 @@ const fake = vi.hoisted(() => {
         return []
     }
   }
-  return { list, rpc: async () => [], state, defaultInstruments: instruments }
+  return {
+    list,
+    rpc: vi.fn(async () => []),
+    state,
+    defaultInstruments: instruments,
+  }
 })
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
@@ -76,6 +82,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     ...actual,
     createFileRoute: () => (options: object) => ({
       options,
+      useSearch: () => ({}),
       useRouteContext: () => ({
         context: {
           user: { id: 'user-1' },
@@ -115,6 +122,7 @@ afterEach(() => {
   cleanup()
   fake.state.instruments = [...fake.defaultInstruments]
   fake.state.bookings = []
+  fake.rpc.mockReset()
 })
 
 function renderSchedule() {
@@ -207,7 +215,7 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
 
     const bar = screen.getByTitle(
       '19:00–20:30 · A colleague · Overnight digest',
-    )
+    ).parentElement!
     const percent = (value: string) =>
       Number(/calc\((-?[\d.]+)%/.exec(value)?.[1])
     const left = percent(bar.style.left)
@@ -239,5 +247,53 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
     const before = shownDay()
     await user.click(screen.getByRole('button', { name: 'Next week' }))
     expect(shownDay()).not.toBe(before)
+  })
+})
+
+describe('Schedule booking cancellation', () => {
+  const TITLE = '19:00–20:30 · A colleague · Overnight digest'
+
+  it('opens a booking and cancels it through the cancel_booking RPC', async () => {
+    fake.state.bookings = [bookingRow({})]
+    fake.rpc.mockResolvedValue([])
+    const user = userEvent.setup()
+    renderSchedule()
+    await user.click(await screen.findByRole('button', { name: 'Day' }))
+
+    // A booking is no longer inert: clicking it opens the detail/cancel dialog.
+    await user.click(screen.getByTitle(TITLE))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Cancel booking' }),
+    )
+
+    expect(fake.rpc).toHaveBeenCalledWith('cancel_booking', {
+      p_booking_id: 'b-1',
+      p_expected_metadata_version: null,
+    })
+    // The row is gone once the server accepts the cancellation.
+    await vi.waitFor(() => expect(screen.queryByTitle(TITLE)).toBeNull())
+  })
+
+  it('says why when the server refuses to cancel', async () => {
+    fake.state.bookings = [bookingRow({})]
+    fake.rpc.mockRejectedValueOnce(
+      new DataClientError('SB024', 'This booking is already cancelled.', 409),
+    )
+    const user = userEvent.setup()
+    renderSchedule()
+    await user.click(await screen.findByRole('button', { name: 'Day' }))
+
+    await user.click(screen.getByTitle(TITLE))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Cancel booking' }),
+    )
+
+    // The refusal is the server's reason, and the dialog stays open.
+    expect((await within(dialog).findByRole('alert')).textContent).toMatch(
+      /already cancelled/i,
+    )
+    expect(screen.getByTitle(TITLE)).toBeTruthy()
   })
 })

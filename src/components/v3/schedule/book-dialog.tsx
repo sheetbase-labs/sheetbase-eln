@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -101,6 +101,10 @@ export interface BookingDialogProps {
   defaultDate: string
   workspaceId: string | undefined
   onBooked: (booking: ScheduleBooking) => void
+  /** Preselects an instrument, e.g. a deep link from the instrument registry. */
+  defaultResourceId?: string
+  /** Opens the dialog on mount, e.g. a deep link that asks to book. */
+  defaultOpen?: boolean
 }
 
 export function BookDialog({
@@ -108,26 +112,53 @@ export function BookDialog({
   defaultDate,
   workspaceId,
   onBooked,
+  defaultResourceId,
+  defaultOpen,
 }: BookingDialogProps) {
-  const [open, setOpen] = useState(false)
-  const [resourceId, setResourceId] = useState('')
+  const [open, setOpen] = useState(defaultOpen ?? false)
+  const [resourceId, setResourceId] = useState(defaultResourceId ?? '')
   const [title, setTitle] = useState('')
   const [date, setDate] = useState(defaultDate)
   const [start, setStart] = useState(DEFAULT_START)
   const [end, setEnd] = useState(DEFAULT_END)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // The zone a booking's wall clock means. Resolved once per opening and shown
+  // in the dialog so the person can see which clock From/To are read against;
+  // the same promise is what submit awaits, so the label cannot disagree with
+  // the instant that is written.
+  const zonePromise = useRef<Promise<string | null> | null>(null)
+  const [timeZone, setTimeZone] = useState<string | null>(null)
 
   // The dialog's times belong to one booking: closing it restores the
   // wall-clock defaults, and the date follows the view's anchor, so the next
   // booking starts from the day the person is looking at rather than from
-  // whatever the last one left behind.
+  // whatever the last one left behind. The instrument resets to any preset the
+  // opener supplied, so a deep link keeps its selection across a cancel.
   useEffect(() => {
     if (open) return
     setDate(defaultDate)
     setStart(DEFAULT_START)
     setEnd(DEFAULT_END)
-  }, [open, defaultDate])
+    setResourceId(defaultResourceId ?? '')
+  }, [open, defaultDate, defaultResourceId])
+
+  useEffect(() => {
+    if (!open) {
+      zonePromise.current = null
+      setTimeZone(null)
+      return
+    }
+    const promise = workspaceTimezone()
+    zonePromise.current = promise
+    let cancelled = false
+    void promise.then((zone) => {
+      if (!cancelled) setTimeZone(zone)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [open])
 
   const submit = async () => {
     if (!workspaceId) return
@@ -139,8 +170,10 @@ export function BookDialog({
     setError(null)
     try {
       // The person enters a wall clock, not an instant: the workspace's zone is
-      // what that wall clock means, and it is recorded with the booking.
-      const timezone = await workspaceTimezone()
+      // what that wall clock means, and it is recorded with the booking. This
+      // is the same read the dialog showed, so the label cannot disagree with
+      // the instant that is written.
+      const timezone = await (zonePromise.current ?? workspaceTimezone())
       if (!timezone) {
         setError(
           'The workspace time zone could not be read, so the booking was not created. Try again.',
@@ -236,6 +269,13 @@ export function BookDialog({
               />
             </Field>
           </div>
+          {/* The wall clock the person types is read in one zone; name it so
+              10:00 cannot be misread as their own clock. */}
+          <p role="note" className="m-0 text-label text-fg-muted">
+            {timeZone
+              ? `Times are interpreted in the workspace time zone, ${timeZone}.`
+              : 'Times are interpreted in the workspace time zone.'}
+          </p>
           {error ? (
             <p role="alert" className="m-0 text-label text-danger-text">
               {error}

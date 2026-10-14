@@ -19,7 +19,6 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   DescriptionList,
   Inspector,
-  InspectorSection,
 } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -357,7 +356,12 @@ function SamplesList() {
             </div>
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title="Key properties">
+            {/* The registry's inspector is a top-level section of the page, so
+                its heading is an H2 (H1 → H2, no skipped level). */}
+            <section>
+              <h2 className="mb-1.5 font-sans text-label font-semibold">
+                Key properties
+              </h2>
               <DescriptionList
                 labelWidth={104}
                 items={[
@@ -367,7 +371,7 @@ function SamplesList() {
                   ['Project', sel.project],
                 ]}
               />
-            </InspectorSection>
+            </section>
           </div>
         </Inspector>
       ) : null}

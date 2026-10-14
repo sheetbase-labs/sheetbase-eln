@@ -315,6 +315,35 @@ describe('SHELL-01 one sidebar at every width', () => {
     )
   })
 
+  it('keeps the workspace switcher in the top bar below the sm breakpoint', () => {
+    renderShell()
+    const trigger = screen.getByRole('button', { name: 'Switch workspace' })
+    // There is no phone drawer, so the trigger cannot fall back to
+    // `hidden sm:flex`: it is the one place the top bar names the workspace.
+    expect(trigger.className).not.toContain('hidden')
+    expect(trigger.className).not.toContain('sm:flex')
+    expect(trigger.className).toContain('min-w-16')
+    expect(trigger.className).toContain('shrink')
+  })
+
+  it('offers the minimise control only where the full sidebar can render', () => {
+    renderShell()
+    // Below `xl` the rail is the only navigation, so the control is hidden
+    // rather than flipping a state the frame cannot show.
+    expect(
+      screen.getByRole('button', { name: 'Minimise navigation' }).className,
+    ).toContain('max-xl:hidden')
+  })
+
+  it('declares no sidebar styles for frames that never render', () => {
+    const { container } = renderShell()
+    const full = container.querySelector<HTMLElement>('nav[class*="w-nav"]')!
+    // The full navigation only renders from `xl` up, so `max-lg:*` on it or
+    // its rows can never apply.
+    expect(full.className).not.toContain('max-lg:')
+    expect(full.innerHTML).not.toContain('max-lg:')
+  })
+
   it('shows the phone back button away from the top-level destinations', () => {
     routerPath.current = '/records/abc'
     const first = renderShell()

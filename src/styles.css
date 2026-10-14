@@ -98,7 +98,10 @@
   --border-strong: oklch(0.831 0.012 259.8);
   --grid-line: oklch(0.927 0.007 260.7);
   --surface-derived: oklch(0.988 0.003 264.5);
-  --surface-disabled: oklch(0.966 0.005 258.3);
+  /* Disabled controls render --faint-foreground text on this surface. Lightened
+     from the design snapshot's #F2F4F7 (oklch 0.966) so the pair clears WCAG AA
+     at 4.53:1 instead of 4.40:1. Dark already passes at 5.33:1. */
+  --surface-disabled: oklch(0.976 0.005 258.3);
   --canvas-sunken: oklch(0.97 0.003 264.5);
   --row-hover: oklch(0.981 0.005 258.3);
   --skeleton: oklch(0.954 0.005 258.3);

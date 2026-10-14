@@ -385,9 +385,11 @@ function TopBar({
 }) {
   return (
     <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
-      {/* SHELL-01: the same control in the same place at every width. It
-          minimises the sidebar to the icon rail and expands it again — the
-          sidebar itself never moves and never becomes a drawer. */}
+      {/* SHELL-01: it minimises the sidebar to the icon rail and expands it
+          again — the sidebar itself never moves and never becomes a drawer.
+          The full sidebar only renders from `xl` up, so below that breakpoint
+          the control has nothing to minimise and is hidden rather than
+          claiming a state the frame cannot show. */}
       <Button
         variant="quiet"
         size="icon"
@@ -395,6 +397,7 @@ function TopBar({
         aria-label={navCollapsed ? 'Expand navigation' : 'Minimise navigation'}
         aria-keyshortcuts="Control+\\ Meta+\\"
         onClick={onToggleNav}
+        className="max-xl:hidden"
       />
       {/* MOB-01.1: on a phone the header carries a back button, because the
           sidebar that would otherwise show where you came from is hidden. It is
@@ -459,8 +462,9 @@ function TopBar({
  * SHELL-01: the workspace switcher. Lists the caller's memberships and sets the
  * active workspace for the session; a non-member workspace is refused by the
  * `set_active_workspace` RPC, which the menu reports instead of silently
- * staying on the old workspace. The trigger's visibility is the caller's, so the
- * phone drawer can carry the same menu below the `sm` breakpoint.
+ * staying on the old workspace. There is no phone drawer, so the trigger is
+ * visible at every width: it is the one place the shell chrome names the active
+ * workspace.
  *
  * There is no non-membership entry: a workspace is provisioned by its owner, and
  * no surface in the product creates one from here.
@@ -509,7 +513,7 @@ function WorkspaceSwitcher({
           <Button
             variant="quiet"
             aria-label="Switch workspace"
-            className={cn('max-w-52 gap-1.5', className ?? 'hidden sm:flex')}
+            className={cn('max-w-52 gap-1.5', className ?? 'flex min-w-16 shrink')}
           />
         }
       >
@@ -935,7 +939,7 @@ function NavLink({ item }: { item: NavItem }) {
     <Link
       {...item.link}
       activeOptions={{ exact: item.label === 'Home' }}
-      className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-lg:h-11 [&_svg]:text-fg-muted"
+      className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"
       activeProps={selectedProps}
       inactiveProps={
         item.label === 'Home' && homeSelected ? selectedProps : undefined
@@ -976,7 +980,7 @@ function SideNav({
     <nav
       aria-label="Main"
       className={cn(
-        'flex w-nav shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-surface p-2.5 max-lg:w-full',
+        'flex w-nav shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-surface p-2.5',
         className,
       )}
     >

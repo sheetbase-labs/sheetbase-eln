@@ -76,6 +76,9 @@ const LIGHT = {
   text: { L: 0.19, C: 0.018, h: 259.7 },
   textMuted: { L: 0.501, C: 0.02, h: 259.4 },
   textFaint: { L: 0.55, C: 0.019, h: 259.4 },
+  // Raised from the design snapshot's 0.966 so disabled text (textFaint)
+  // clears AA on the surface disabled controls render against.
+  surfaceDisabled: { L: 0.976, C: 0.005, h: 258.3 },
   accent: { L: 0.551, C: 0.188, h: 256 },
   accentStrong: { L: 0.551, C: 0.188, h: 256 },
   onAccent: { L: 1, C: 0, h: 89.9 },
@@ -96,6 +99,7 @@ const DARK = {
   text: { L: 0.933, C: 0.007, h: 260.7 },
   textMuted: { L: 0.712, C: 0.02, h: 255.6 },
   textFaint: { L: 0.66, C: 0.022, h: 257.5 },
+  surfaceDisabled: { L: 0.237, C: 0.015, h: 256.8 },
   accent: { L: 0.687, C: 0.167, h: 255.6 },
   accentStrong: { L: 0.553, C: 0.175, h: 257.1 },
   onAccent: { L: 1, C: 0, h: 89.9 },
@@ -127,6 +131,8 @@ const PAIRS: Array<[keyof typeof LIGHT, keyof typeof LIGHT]> = [
   ['textFaint', 'bg'],
   ['textFaint', 'surface'],
   ['textFaint', 'surfaceMuted'],
+  // Disabled controls render --faint-foreground on --surface-disabled.
+  ['textFaint', 'surfaceDisabled'],
   ['onAccent', 'accentStrong'],
   ['accent', 'surface'],
   ['dangerText', 'surface'],

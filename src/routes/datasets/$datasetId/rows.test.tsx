@@ -200,9 +200,7 @@ describe('dataset rows grid', () => {
 
     expect(await screen.findByText('Only flagged rows (2)')).toBeTruthy()
     expect((await screen.findAllByText('val-1')).length).toBeGreaterThan(0)
-    expect(
-      (await screen.findAllByText('val-2')).length,
-    ).toBeGreaterThan(0)
+    expect((await screen.findAllByText('val-2')).length).toBeGreaterThan(0)
     expect(screen.queryByText('val-3')).toBeNull()
   })
 

@@ -352,7 +352,9 @@ function Rows() {
               {rows.length < (payload?.totalCount ?? 0)
                 ? ` (${rows.length} loaded so far)`
                 : ''}
-              {selected ? ` · row ${visible.indexOf(selected) + 1} selected` : ''}
+              {selected
+                ? ` · row ${visible.indexOf(selected) + 1} selected`
+                : ''}
             </span>
             {rowsQuery.hasNextPage ? (
               <>

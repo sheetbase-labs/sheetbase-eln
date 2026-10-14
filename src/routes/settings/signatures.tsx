@@ -288,12 +288,18 @@ function Signatures() {
               <div className="flex gap-1.5">
                 <Button
                   size="sm"
-                  disabled={withdraw.isPending}
+                  disabled={!signInAvailable || withdraw.isPending}
                   onClick={() => setConfirmWithdraw(true)}
                 >
                   Withdraw certification
                 </Button>
               </div>
+              {!signInAvailable ? (
+                <span className="text-label text-fg-muted">
+                  Certification cannot be established again without sign-in, so
+                  withdrawing it is unavailable here.
+                </span>
+              ) : null}
               <Field
                 label="Signing password"
                 hint="Enter it again for a practice signature. No real record signature is stored."

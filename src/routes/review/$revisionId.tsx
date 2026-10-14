@@ -1659,16 +1659,16 @@ function ReviewInspector({
         </dl>
 
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Approval workflow
-          </h3>
+          </h2>
           <ApprovalStepper steps={steps} reviewState={reviewState} />
         </section>
 
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Assigned reviewers
-          </h3>
+          </h2>
           {submission && submission.assigned_reviewer_user_ids.length > 0 ? (
             <ul className="space-y-1">
               {submission.assigned_reviewer_user_ids.map((userId) => {
@@ -1679,12 +1679,12 @@ function ReviewInspector({
                     key={userId}
                     className="flex items-center gap-2 text-xs text-muted-foreground"
                   >
-                    <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
                       {name.slice(0, 2).toUpperCase()}
                     </span>
                     <span>{name}</span>
                     {userId === currentUserId ? (
-                      <span className="text-xs font-medium text-primary">
+                      <span className="text-xs font-medium text-link">
                         you
                       </span>
                     ) : null}
@@ -2487,9 +2487,9 @@ export function SignaturePanel({
 
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Signatures
-      </h3>
+      </h2>
 
       {signatures.length > 0 ? (
         <ul className="space-y-2">
@@ -2722,9 +2722,9 @@ export function RevisionChainSection({
 
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Amendment chain
-      </h3>
+      </h2>
       <ol className="space-y-1">
         {chain.map((entry) => {
           const isCurrent = entry.id === currentRevisionId
@@ -2766,9 +2766,9 @@ export function RevisionChainSection({
 function EvidenceExportSection({ revisionId }: { revisionId: string }) {
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Evidence export
-      </h3>
+      </h2>
       <p className="mb-2 text-xs text-muted-foreground">
         Download a deterministic evidence package (ZIP): machine-readable JSON,
         frozen Sheet grids as CSV, the pinned file manifest and a sha256
@@ -2852,9 +2852,9 @@ export function AmendmentSection({
 
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Amendment
-      </h3>
+      </h2>
       <p className="mb-2 text-xs text-muted-foreground">
         This record is locked. Start an amendment to create a new draft
         revision, supersede the locked one and unlock the record for editing.

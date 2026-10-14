@@ -11,6 +11,7 @@ import { expect, it } from 'vitest'
 
 import * as schema from '#/db/schema'
 import { DESIGN_USER_IDS, prepareDesignScenario } from '#/db/seed/design'
+import { roleUrl } from './helpers'
 
 const execute = promisify(execFile)
 const roleVariables = [
@@ -42,7 +43,13 @@ it.each(scenarios)(
     for (const name of roleVariables) {
       const value = previous[name]
       if (!value) throw new Error(`${name} required for scenario tests`)
-      const url = new URL(value)
+      // `.env.example` points PostgREST at the Compose service name
+      // (`postgres:5432`), which is not a loopback host; `roleUrl` rewrites the
+      // authenticator URL onto loopback exactly as every other DB suite does,
+      // and `prepareDesignScenario` requires every role URL to be loopback.
+      const url = new URL(
+        name === 'PGRST_DB_URI' ? roleUrl('authenticator') : value,
+      )
       url.pathname = `/${databaseName}`
       process.env[name] = url.toString()
     }
@@ -57,7 +64,7 @@ it.each(scenarios)(
         env: { ...process.env, FILE_STORAGE_DIR: storage },
       })
       expect(seeded.stdout).toContain(
-        'Seed complete: 47 step(s) applied idempotently.',
+        'Seed complete: 48 step(s) applied idempotently.',
       )
       const originalSignatures = (
         await database.$client.query('select * from api.signatures order by id')

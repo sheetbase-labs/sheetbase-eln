@@ -1377,7 +1377,7 @@ function NotebookDocumentContent({
             <button
               type="button"
               onClick={() => void handleUndo()}
-              className="font-medium text-primary underline"
+              className="font-medium text-primary-text underline"
             >
               Undo
             </button>

@@ -627,7 +627,7 @@ export function CanonicalSheetLifecyclePanel({
               <p role="status">{status}</p>
               {extractedDefinition ? (
                 <a
-                  className="font-medium text-primary underline-offset-4 hover:underline"
+                  className="font-medium text-primary-text underline-offset-4 hover:underline"
                   href={configurationDefinitionHref(extractedDefinition.id)}
                 >
                   Continue in Models

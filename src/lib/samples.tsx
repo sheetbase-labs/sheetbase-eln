@@ -1606,7 +1606,7 @@ export function sampleColumns<T extends SampleRecord>(
       accessorFn: (row) => row.sampleType,
       cell: ({ row }) =>
         row.original.sampleType ? (
-          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium leading-tight text-primary">
+          <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[0.65rem] font-medium leading-tight text-primary-text">
             {row.original.sampleType}
           </span>
         ) : (

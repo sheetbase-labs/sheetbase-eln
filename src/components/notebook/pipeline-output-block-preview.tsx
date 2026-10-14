@@ -108,7 +108,7 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
           <Link
             to="/pipelines/runs/$runId"
             params={{ runId }}
-            className="text-primary text-xs underline-offset-2 hover:underline"
+            className="text-primary-text text-xs underline-offset-2 hover:underline"
           >
             Inspect run
           </Link>

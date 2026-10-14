@@ -76,7 +76,7 @@ function BlockCoEditBadgeInner({
     <span
       role="status"
       className={cn(
-        'inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary',
+        'inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary-text',
         className,
       )}
     >

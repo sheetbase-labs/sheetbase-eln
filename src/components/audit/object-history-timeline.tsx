@@ -214,7 +214,7 @@ function GroupRow({
           {link ? (
             <a
               href={link.href}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary no-underline hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary-text no-underline hover:underline"
             >
               {link.label}
             </a>

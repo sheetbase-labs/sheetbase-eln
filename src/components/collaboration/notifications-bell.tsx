@@ -129,13 +129,13 @@ export function NotificationsBell() {
         <div className="flex items-center gap-3 border-t border-border bg-surface-muted px-3 py-2 text-caption">
           <Link
             to="/inbox"
-            className="text-primary no-underline hover:underline"
+            className="text-primary-text no-underline hover:underline"
           >
             Open inbox
           </Link>
           <Link
             to="/settings"
-            className="text-primary no-underline hover:underline"
+            className="text-primary-text no-underline hover:underline"
           >
             Notification settings
           </Link>

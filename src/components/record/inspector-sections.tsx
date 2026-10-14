@@ -276,7 +276,7 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
           <span
             title={a.actor.name}
             aria-label={a.actor.name}
-            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary-text"
           >
             {(a.actor.initials ?? a.actor.name.slice(0, 2)).toUpperCase()}
           </span>
@@ -318,7 +318,7 @@ export function CommentList({ items }: { items: CommentItem[] }) {
               <span
                 title={c.author.name}
                 aria-label={c.author.name}
-                className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+                className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary-text"
               >
                 {(c.author.initials ?? c.author.name.slice(0, 2)).toUpperCase()}
               </span>
@@ -369,7 +369,7 @@ export function ContributorAvatars({
             title={c.name}
             aria-label={c.name}
             className={cn(
-              'flex shrink-0 items-center justify-center rounded-full border border-background bg-primary/15 font-semibold text-primary',
+              'flex shrink-0 items-center justify-center rounded-full border border-background bg-primary/15 font-semibold text-primary-text',
               dim,
             )}
           >
@@ -466,7 +466,7 @@ export function AddPropertyLink({ onClick }: { onClick?: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+      className="inline-flex items-center gap-1 text-xs font-medium text-primary-text hover:underline"
     >
       <Icon name="plus" size={12} />
       Add property

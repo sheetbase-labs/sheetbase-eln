@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
@@ -84,10 +84,26 @@ const tabLabel: Record<ProjectsTab, string> = {
 const sorts = { updated: 'Updated', id: 'ID', name: 'Name' } as const
 export type ProjectsSort = keyof typeof sorts
 
+/** How a tab treats archived projects. `all` means all, and `archived` means
+ * the archived ones; the status tabs list current work, so they hide them until
+ * the person lifts the "Status is not Archived" filter — which is stated as a
+ * chip whenever it hides anything. */
+export type ArchivedMode = 'include' | 'exclude'
+
+export function archivedModeFor(tab: ProjectsTab): ArchivedMode {
+  return tab === 'all' || tab === 'archived' ? 'include' : 'exclude'
+}
+
+/** Why a create action cannot run, in one voice wherever it is stated. */
+const CREATE_DISABLED_REASON = 'Your workspace role cannot create projects.'
+const CREATE_DISABLED_BODY =
+  'Your role cannot create projects. Ask a workspace owner or admin to create one, or to give you permission to create them.'
+
 export interface ProjectsSearch {
   tab?: ProjectsTab
   q?: string
-  archived?: boolean
+  /** The person's own archived choice, overriding the tab's default. */
+  archived?: ArchivedMode
   stage?: string
   client?: string
   modality?: string
@@ -137,7 +153,7 @@ export function ProjectsPage({
 }) {
   const hasProjectAccess = useHasProjectAccess()
   const tab: ProjectsTab = search.tab ?? 'all'
-  const includeArchived = tab === 'archived' || !!search.archived
+  const archived: ArchivedMode = search.archived ?? archivedModeFor(tab)
   const sort: ProjectsSort = search.sort ?? 'updated'
   const group = search.group ?? 'none'
   const hidden = new Set(search.fields?.split(',').filter(Boolean) ?? [])
@@ -145,9 +161,50 @@ export function ProjectsPage({
   const [active, setActive] = useState<string | null>(null)
   const [draftQ, setDraftQ] = useState(search.q ?? '')
   const [confirmArchive, setConfirmArchive] = useState(false)
+  // A create intent arrives from the URL (`?new=true`: the shell's New →
+  // Project link, a refresh, a bookmark) or from this page's own button. Once
+  // one has arrived the dialog's open state is local: a click's client
+  // navigation can be superseded while the page is still loading — the URL
+  // commits ?new=true and the page's search never carries it, leaving the
+  // button apparently dead — and a close must close whatever the URL holds.
+  const [newProjectOpen, setNewProjectOpen] = useState(
+    canCreate && !!search.new,
+  )
+  // Whether a refused intent has already been answered: the param can outlive
+  // the navigation that set it, and the person hears the reason once.
+  const refusedNewProject = useRef(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   useEffect(() => setDraftQ(search.q ?? ''), [search.q])
+
+  const requestedNewProject = canCreate && !!search.new
+  const lastRequestedNewProject = useRef(requestedNewProject)
+  useEffect(() => {
+    if (requestedNewProject && !lastRequestedNewProject.current) {
+      setNewProjectOpen(true)
+    }
+    lastRequestedNewProject.current = requestedNewProject
+  }, [requestedNewProject])
+
+  const requestNewProject = () => {
+    setNewProjectOpen(true)
+    setSearch({ new: true })
+  }
+
+  // A create intent the role cannot honour says so, rather than leaving the
+  // link or bookmark that carried it apparently dead. The guard resets once the
+  // intent is gone, so a later link is answered too — and a param that outlives
+  // its navigation is answered once, not on every render.
+  useEffect(() => {
+    if (!search.new) {
+      refusedNewProject.current = false
+      return
+    }
+    if (canCreate || refusedNewProject.current) return
+    refusedNewProject.current = true
+    toast.error(CREATE_DISABLED_REASON, { description: CREATE_DISABLED_BODY })
+    setSearch({ new: undefined })
+  }, [search.new, canCreate, setSearch])
 
   const inTab = (p: ProjectRow, t: ProjectsTab) =>
     t === 'all'
@@ -161,8 +218,17 @@ export function ProjectsPage({
           : t === 'inreview'
             ? p.status.tone === 'review'
             : !!p.archived
+  // A tab's count is the number of rows it lists, so the strip and the table
+  // agree: every tab's rows pass through the same `inTab` and archived test.
   const counts = Object.fromEntries(
-    tabs.map((t) => [t, projects.filter((p) => inTab(p, t)).length]),
+    tabs.map((t) => [
+      t,
+      projects.filter(
+        (p) =>
+          inTab(p, t) &&
+          ((search.archived ?? archivedModeFor(t)) === 'include' || !p.archived),
+      ).length,
+    ]),
   ) as Record<ProjectsTab, number>
   const q = (search.q ?? '').trim().toLowerCase()
   const matchesQ = (p: ProjectRow) =>
@@ -176,7 +242,7 @@ export function ProjectsPage({
       (!search.modality || p.modality === search.modality),
   )
   const rows = base
-    .filter((p) => includeArchived || !p.archived)
+    .filter((p) => archived === 'include' || !p.archived)
     .sort((a, b) =>
       sort === 'updated'
         ? b.updated - a.updated || b.id.localeCompare(a.id)
@@ -184,12 +250,11 @@ export function ProjectsPage({
           ? a.id.localeCompare(b.id)
           : a.name.localeCompare(b.name),
     )
-  const archivedHidden = includeArchived
-    ? 0
-    : base.filter((p) => p.archived).length
+  const archivedHidden =
+    archived === 'exclude' ? base.filter((p) => p.archived).length : 0
   const activeRow = rows.find((p) => p.id === active) ?? null
   const filterCount =
-    (includeArchived ? 0 : 1) +
+    (archived === 'exclude' ? 1 : 0) +
     (search.stage ? 1 : 0) +
     (search.client ? 1 : 0) +
     (search.modality ? 1 : 0)
@@ -273,7 +338,7 @@ export function ProjectsPage({
   // A disabled control has to say why (QA2-projects-1): the header button was
   // disabled with no stated reason.
   const createDisabledReason = !canCreate
-    ? 'Your workspace role cannot create projects.'
+    ? CREATE_DISABLED_REASON
     : loading
       ? 'Waiting for the project list to load.'
       : null
@@ -301,7 +366,7 @@ export function ProjectsPage({
               variant="primary"
               disabled={!canCreate || loading}
               title={createDisabledReason ?? undefined}
-              onClick={() => setSearch({ new: true })}
+              onClick={requestNewProject}
             >
               New project
             </Button>
@@ -407,11 +472,12 @@ export function ProjectsPage({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-[260px]">
                   <DropdownMenuItem
-                    icon={includeArchived ? undefined : 'check'}
-                    className={includeArchived ? 'pl-[30px]' : ''}
+                    icon={archived === 'exclude' ? 'check' : undefined}
+                    className={archived === 'exclude' ? '' : 'pl-[30px]'}
                     onClick={() =>
                       setSearch({
-                        archived: includeArchived ? undefined : true,
+                        archived:
+                          archived === 'exclude' ? 'include' : 'exclude',
                       })
                     }
                   >
@@ -575,10 +641,10 @@ export function ProjectsPage({
 
             {filterCount ? (
               <div className="flex flex-wrap items-center gap-2 px-4 py-2 md:px-6">
-                {!includeArchived ? (
+                {archived === 'exclude' ? (
                   <FilterChip
                     removeLabel="Remove filter: status is not Archived"
-                    onRemove={() => setSearch({ archived: true })}
+                    onRemove={() => setSearch({ archived: 'include' })}
                   >
                     Status is not <b className="font-medium">Archived</b>
                   </FilterChip>
@@ -756,9 +822,9 @@ export function ProjectsPage({
                 <NoResults
                   q={search.q}
                   tab={tab}
-                  includeArchived={includeArchived}
+                  archived={archived}
                   archivedMatches={archivedHidden}
-                  onIncludeArchived={() => setSearch({ archived: true })}
+                  onIncludeArchived={() => setSearch({ archived: 'include' })}
                   onClear={() =>
                     setSearch({
                       q: undefined,
@@ -827,7 +893,7 @@ export function ProjectsPage({
           <EmptyProjects
             noAccess={hasProjectAccess === false}
             canCreate={canCreate}
-            onNew={() => setSearch({ new: true })}
+            onNew={requestNewProject}
           />
         )}
       </div>
@@ -875,8 +941,12 @@ export function ProjectsPage({
       ) : null}
 
       <NewProjectDialog
-        open={canCreate && !!search.new}
-        onOpenChange={(o) => setSearch({ new: o ? true : undefined })}
+        open={newProjectOpen}
+        onOpenChange={(open) => {
+          if (open) return
+          setNewProjectOpen(false)
+          if (search.new) setSearch({ new: undefined })
+        }}
         onCreate={onCreate}
         creating={creating}
         error={createError}
@@ -890,14 +960,14 @@ export function ProjectsPage({
 function NoResults({
   q,
   tab,
-  includeArchived,
+  archived,
   archivedMatches,
   onIncludeArchived,
   onClear,
 }: {
   q?: string
   tab: ProjectsTab
-  includeArchived: boolean
+  archived: ArchivedMode
   archivedMatches: number
   onIncludeArchived: () => void
   onClear: () => void
@@ -916,7 +986,7 @@ function NoResults({
         {q ? (
           <>
             Searched names, IDs and clients in{' '}
-            {includeArchived ? '' : 'non-archived '}projects.
+            {archived === 'exclude' ? 'non-archived ' : ''}projects.
             {archivedMatches
               ? ` ${archivedMatches} archived ${archivedMatches === 1 ? 'project matches' : 'projects match'}.`
               : ''}
@@ -960,8 +1030,7 @@ function EmptyProjects({
       </p>
       {!noAccess && !canCreate ? (
         <p className="m-0 max-w-[460px] leading-[19px] text-fg-muted">
-          Your role cannot create projects. Ask a workspace owner or admin to
-          create one, or to give you permission to create them.
+          {CREATE_DISABLED_BODY}
         </p>
       ) : null}
       <div className="mt-2 flex gap-1.5">

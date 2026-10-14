@@ -21,6 +21,8 @@ import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { RecordPicker } from '#/components/v3/record-picker/record-picker'
 import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
 import { insertBlock } from '#/lib/notebook-mutations'
+import { DataClientError } from '#/lib/data-client'
+import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { freezeAnalysisBlock } from '#/lib/analysis-definitions-data'
 import { toast } from '#/components/v3/ui/sonner'
@@ -81,6 +83,7 @@ import {
   AXIS_SCALES,
   CHART_PALETTE,
   CHART_SPEC_VERSION,
+  CHART_TYPE_LABELS,
   formatScientific,
 } from '#/lib/chart-spec'
 import type { AxisScale, ChartSpec } from '#/lib/chart-spec'
@@ -347,16 +350,42 @@ function AnalysisStudio() {
         userId,
       )
     },
-    onSuccess: () => {
+    onSuccess: (view) => {
+      if (view) {
+        toast('Analysis view saved', {
+          description: `${view.name} v${view.version}`,
+        })
+      }
       queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+    },
+    onError: (error) => {
+      // The view the panel is armed on can be gone (deleted here, or in
+      // another tab). The panel then holds an id nothing can update, so it
+      // falls back to saving a new view — with the name the user typed.
+      if (
+        error instanceof DataClientError &&
+        error.code === 'analysis_view_missing'
+      ) {
+        setSelectedViewId(null)
+      }
+      toast('Could not save the analysis view', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      })
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) =>
       deleteAnalysisView(analysisStudioDataClient, id),
-    onSuccess: () => {
+    onSuccess: (_deleted, id) => {
       toast('Analysis view deleted')
+      // The deleted view is gone from the list; the panel must not stay armed
+      // on it, or its Update button would write to a row that no longer exists.
+      if (selectedViewId === id) {
+        setSelectedViewId(null)
+        setViewName('')
+      }
       queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
     },
     onError: (error) => {
@@ -1023,7 +1052,9 @@ function AnalysisInspector({
                   {sourceStatus && sourceStatus.citedByCount > 0
                     ? `${sourceStatus.citedByCount} record${
                         sourceStatus.citedByCount === 1 ? '' : 's'
-                      } cite this analysis (${
+                      } ${
+                        sourceStatus.citedByCount === 1 ? 'cites' : 'cite'
+                      } this analysis (${
                         sourceStatus.citedByLockedCount
                       } locked). A cited analysis keeps the sources it cited, so its pinned versions cannot be updated in place — save a new analysis and cite that instead.`
                     : 'A cited analysis keeps the sources it cited. Citations are record links, so a locked or signed record’s evidence is never rewritten by a later change here.'}
@@ -1287,12 +1318,15 @@ export function ExportPanel({
   }
 
   async function doExport(): Promise<void> {
+    // Provenance names a view that exists: the selected id is resolved against
+    // the loaded list, so an id whose row is gone (deleted since the list was
+    // read) is never stamped onto the file.
     const selectedView = views.find((v) => v.id === selectedViewId) ?? null
     const sourceRevisions = captureSourceRevisions(sources, spec)
     const provenance = buildExportProvenance(
       {
         name: viewName || selectedView?.name || 'Untitled analysis',
-        id: selectedViewId,
+        id: selectedView?.id ?? null,
         version: selectedView?.version ?? null,
       },
       user,
@@ -1321,14 +1355,7 @@ export function ExportPanel({
           background: settings.theme === 'dark' ? 'transparent' : 'opaque',
           includeProvenance: settings.includeProvenance,
         })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${filename}.png`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
+        downloadTextFile(`${filename}.png`, blob, 'image/png')
         return
       }
       let content: string
@@ -1350,15 +1377,7 @@ export function ExportPanel({
         mime = 'image/svg+xml'
         ext = 'svg'
       }
-      const blob = new Blob([content], { type: mime })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${filename}.${ext}`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      downloadTextFile(`${filename}.${ext}`, content, mime)
     } catch (error) {
       toast('Could not export', {
         description:
@@ -1840,7 +1859,7 @@ export function AnalysisPreview({
           data-analysis-chart
         >
           <ChartRenderer
-            title={`${source.name} — ${spec.type} chart`}
+            title={`${source.name} — ${CHART_TYPE_LABELS[spec.type]} chart`}
             spec={spec}
             materialised={analysisMaterialised}
             frozen={null}
@@ -1996,17 +2015,11 @@ export function DataTableAlternative({
             size="icon"
             aria-label="Download data preview"
             onClick={() => {
-              const blob = new Blob([previewCsv(columns, rows)], {
-                type: 'text/csv',
-              })
-              const url = URL.createObjectURL(blob)
-              const anchor = document.createElement('a')
-              anchor.href = url
-              anchor.download = `data-preview-${datasetId.slice(0, 8)}.csv`
-              document.body.appendChild(anchor)
-              anchor.click()
-              anchor.remove()
-              URL.revokeObjectURL(url)
+              downloadTextFile(
+                `data-preview-${datasetId.slice(0, 8)}.csv`,
+                previewCsv(columns, rows),
+                'text/csv',
+              )
             }}
           >
             <Icon name="download" size={16} />

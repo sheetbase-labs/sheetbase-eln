@@ -12,7 +12,7 @@
  * later reader can detect a stale source. Exports carry explicit format,
  * dimensions, theme and provenance metadata.
  */
-import { createDataClient } from './data-client'
+import { createDataClient, DataClientError } from './data-client'
 import type { DataClient } from './data-client'
 import { serializeChartSvg as serializePackageChartSvg } from '@sheetbase-labs/sheetbase-explorer'
 import {
@@ -314,6 +314,10 @@ export async function createAnalysisView(
  * Update an existing analysis view's spec and source revisions. The
  * `bump_analysis_view_version` trigger increments `version` and `updated_at`
  * server-side, so the caller sends the full spec, not a patch.
+ *
+ * PostgREST answers a PATCH that matches no row with an empty representation
+ * and no error, so a view deleted since the list was read would otherwise look
+ * updated. The write is only reported as saved when the row came back.
  */
 export async function updateAnalysisView(
   client: DataClient,
@@ -330,6 +334,13 @@ export async function updateAnalysisView(
       export_settings: input.export_settings,
     },
   )
+  if (updated.length === 0) {
+    throw new DataClientError(
+      'analysis_view_missing',
+      'This view no longer exists — it was deleted, or you can no longer see it. Saving again creates a new view.',
+      404,
+    )
+  }
   return updated[0]
 }
 
@@ -516,9 +527,14 @@ export function exportDataCsv(
 ): string {
   const lines: string[] = []
   if (provenance) {
+    // The version line states what was exported. An ad-hoc export has no
+    // stored version, and the header says so by leaving it out rather than
+    // printing a placeholder as if it were the version.
+    const version =
+      provenance.viewVersion === null ? '' : ` v${provenance.viewVersion}`
     const view = `${provenance.viewName}${
       provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''
-    } v${provenance.viewVersion ?? '?'}`
+    }${version}`
     const sources = provenance.sourceRevisions
       .map((revision) => revision.datasetId.slice(0, 8))
       .join(', ')

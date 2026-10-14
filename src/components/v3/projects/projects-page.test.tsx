@@ -53,7 +53,16 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
-afterEach(cleanup)
+const { toast } = vi.hoisted(() => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn() }),
+}))
+vi.mock('#/components/v3/ui/sonner', () => ({ toast }))
+
+afterEach(() => {
+  cleanup()
+  toast.mockClear()
+  toast.error.mockClear()
+})
 
 function row(overrides: Partial<ProjectRow> = {}): ProjectRow {
   return {
@@ -78,6 +87,7 @@ function renderPage(
   meId?: string,
   canCreate = true,
   state: { loading?: boolean; error?: string | null; onRetry?: () => void } = {},
+  setSearch: (patch: Partial<ProjectsSearch>) => void = () => {},
 ) {
   // ProjectsPage reads project access through react-query, as the route does
   // inside the app's provider.
@@ -95,7 +105,7 @@ function renderPage(
         error={state.error ?? null}
         onRetry={state.onRetry}
         search={search}
-        setSearch={() => {}}
+        setSearch={setSearch}
         onCreate={() => {}}
       />
     </QueryClientProvider>,
@@ -227,10 +237,45 @@ describe('ProjectsPage', () => {
     expect(screen.getAllByText('CL-017').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Tech transfer').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Gareth P.').length).toBeGreaterThan(0)
-    // Archived project hidden by the default filter.
-    expect(screen.queryByText('Old project')).toBeNull()
     // Tabs carry counts.
     expect(screen.getAllByText('In progress').length).toBeGreaterThan(0)
+  })
+
+  it('lists every project on the All tab, so All means all', () => {
+    renderPage([
+      row(),
+      row({
+        id: 'PRJ-0214',
+        name: 'LVV stability',
+        status: { tone: 'review', label: 'In review' },
+      }),
+      row({ id: 'PRJ-0170', name: 'Old project', archived: true }),
+    ])
+    // The archived project is a row on the default view, not hidden behind a
+    // filter the person never set.
+    expect(
+      screen.getByRole('button', { name: 'Show details for Old project' }),
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole('button', {
+        name: 'Remove filter: status is not Archived',
+      }),
+    ).toBeNull()
+    expect(screen.getByText(/^3 projects$/)).toBeTruthy()
+  })
+
+  it('hides archived projects only while the stated filter is on', () => {
+    renderPage(
+      [row(), row({ id: 'PRJ-0170', name: 'Old project', archived: true })],
+      { tab: 'inprogress', archived: 'exclude' },
+    )
+    expect(screen.queryByText('Old project')).toBeNull()
+    expect(
+      screen.getByRole('button', {
+        name: 'Remove filter: status is not Archived',
+      }),
+    ).toBeTruthy()
+    expect(screen.getByText(/1 archived hidden by filter/)).toBeTruthy()
   })
 
   it('shows the empty state with no projects', () => {
@@ -409,6 +454,46 @@ describe('ProjectsPage', () => {
     expect(
       within(emptyState as HTMLElement).getByText(/role cannot create projects/),
     ).toBeTruthy()
+  })
+
+  it('opens the create dialog from New project even when the search update never lands', () => {
+    // The click's client navigation can be superseded while the page is still
+    // loading: the URL ends up carrying ?new=true while the page's own search
+    // never does, which used to leave the button looking dead. The intent is
+    // recorded where the click happened, so the dialog opens either way.
+    const setSearch = vi.fn()
+    renderPage([row()], {}, undefined, true, {}, setSearch)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New project' }))
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    expect(screen.getByLabelText('Name')).toBeTruthy()
+    expect(setSearch).toHaveBeenCalledWith({ new: true })
+  })
+
+  it('opens the create dialog from the ?new=true URL the shell link carries', () => {
+    const setSearch = vi.fn()
+    renderPage([row()], { new: true }, undefined, true, {}, setSearch)
+
+    expect(screen.getByRole('dialog')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(setSearch).toHaveBeenCalledWith({ new: undefined })
+  })
+
+  it('states why a create intent from the URL cannot open the dialog', () => {
+    const setSearch = vi.fn()
+    renderPage([row()], { new: true }, undefined, false, {}, setSearch)
+
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(toast.error).toHaveBeenCalledWith(
+      expect.stringMatching(/role cannot create projects/i),
+      expect.objectContaining({
+        description: expect.stringMatching(/ask a workspace owner or admin/i),
+      }),
+    )
+    expect(setSearch).toHaveBeenCalledWith({ new: undefined })
   })
 
   it('archives the selected projects only after the confirmation', async () => {

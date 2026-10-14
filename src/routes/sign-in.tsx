@@ -7,9 +7,10 @@ import {
   SignedOutSurface,
   useRetainedDrafts,
 } from '#/components/offline/signed-out-surface'
-import { Button } from '#/components/v3/ui/button'
+import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
+import { cn } from '#/lib/utils'
 import { useHelp } from '#/lib/help'
 import type { ReleaseInfo } from '#/lib/help'
 
@@ -239,10 +240,27 @@ export function SignInSurface({
             ) : null}
 
             {devAuthFree ? (
-              <p className="text-body leading-6 text-fg-muted">
-                This disposable development or preview environment is open for
-                review. No sign-in or OAuth setup is required.
-              </p>
+              <div className="flex flex-col gap-2">
+                <p className="m-0 text-body leading-6 text-fg-muted">
+                  This disposable development or preview environment is open for
+                  review. No sign-in or OAuth setup is required.
+                </p>
+                {/* Open access still needs a way onward: a visitor who lands
+                    here by URL has no session to sign in with and no other
+                    link into the app. */}
+                <a
+                  className={cn(
+                    buttonVariants({ variant: 'primary', size: 'lg' }),
+                    'w-full',
+                  )}
+                  href={next ?? '/'}
+                >
+                  Continue to Sheetbase
+                </a>
+                <p className="m-0 text-center text-label text-fg-muted">
+                  Released deployments require company sign-in.
+                </p>
+              </div>
             ) : githubEnabled ? (
               <>
                 <div className="flex flex-col gap-2">
@@ -293,14 +311,23 @@ export function SignInSurface({
         <span aria-hidden="true" className="max-md:hidden">
           ·
         </span>
-        <span>
-          {release?.statement ??
-            '21 CFR Part 11 / EU GMP Annex 11 controlled system'}
-        </span>
-        <span aria-hidden="true" className="max-md:hidden">
-          ·
-        </span>
-        <span>Authorised users only; activity is recorded</span>
+        {/* An open environment is not an authorised-users-only controlled
+            system, so the release statement describes the released product
+            only where this deployment actually enforces it. */}
+        {devAuthFree ? (
+          <span>Open preview environment — not a validated system</span>
+        ) : (
+          <>
+            <span>
+              {release?.statement ??
+                '21 CFR Part 11 / EU GMP Annex 11 controlled system'}
+            </span>
+            <span aria-hidden="true" className="max-md:hidden">
+              ·
+            </span>
+            <span>Authorised users only; activity is recorded</span>
+          </>
+        )}
       </footer>
     </div>
   )

@@ -5,6 +5,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
+import { toast } from '#/components/v3/ui/sonner'
 import { Section } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -75,6 +76,9 @@ export function SettingsNotifications() {
       void queryClient.invalidateQueries({
         queryKey: notificationPreferencesQueryKeys.timing(),
       })
+      // Only on a resolved save, so the confirmation cannot claim a write that
+      // failed — the panel's own Notice reports failures.
+      toast('Notification settings saved')
     },
   })
 

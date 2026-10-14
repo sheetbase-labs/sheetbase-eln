@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
+import { toast } from '#/components/v3/ui/sonner'
 import { Section } from '#/components/v3/ui/layout'
 import { CheckRow } from './settings-page'
 import { NativeSelect } from '#/components/v3/projects/select'
@@ -96,6 +97,11 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
   const timezoneError = isIanaTimeZone(timezone)
     ? null
     : 'Enter a valid IANA time zone, such as Europe/London.'
+  // `update_workspace_name` refuses anything outside 1–120 characters, so an
+  // empty name is not a saveable value: it is required here rather than
+  // skipped silently while the rest of the form is written.
+  const name = form.name?.trim() ?? ''
+  const nameError = name ? null : 'Enter a workspace name.'
   const dirty = query.data ? !sameGeneral(form, query.data) : false
   // The example number carries the year the app would mint today, so the
   // sample cannot go stale as the calendar moves.
@@ -103,7 +109,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (form.name) await updateWorkspaceName(workspaceId, form.name)
+      await updateWorkspaceName(workspaceId, name)
       await updateWorkspaceGeneral(workspaceId, form)
       await updateWorkspaceIdPrefixes(workspaceId, form.idPrefixes)
       await updateWorkspacePublicationPolicy(
@@ -115,8 +121,12 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
         form.offlineEditingAllowed,
       )
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: workspaceGeneralQueryKey }),
+    onSuccess: () => {
+      // Every write above has resolved, so the save really happened and the
+      // person gets told; the button going quiet again is not a confirmation.
+      void queryClient.invalidateQueries({ queryKey: workspaceGeneralQueryKey })
+      toast('Settings saved')
+    },
   })
 
   return (
@@ -131,7 +141,8 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
             query.isLoading ||
             query.isError ||
             !dirty ||
-            timezoneError !== null
+            timezoneError !== null ||
+            nameError !== null
           }
         >
           {save.isPending ? 'Saving…' : 'Save changes'}
@@ -151,10 +162,11 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
       ) : null}
 
       <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
-        <Field label="Name">
+        <Field label="Name" required error={nameError}>
           <Input
             aria-label="Workspace name"
             value={form.name ?? ''}
+            aria-invalid={nameError !== null}
             onChange={(event) =>
               setForm((current) => ({
                 ...current,

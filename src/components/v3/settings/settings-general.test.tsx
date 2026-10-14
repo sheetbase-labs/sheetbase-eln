@@ -12,6 +12,9 @@ import {
 } from '#/lib/workspace-general'
 import type * as workspaceGeneralModule from '#/lib/workspace-general'
 
+const toasts = vi.hoisted(() => ({ toast: vi.fn() }))
+vi.mock('#/components/v3/ui/sonner', () => ({ toast: toasts.toast }))
+
 vi.mock('#/lib/workspace-general', async (importOriginal) => {
   const actual = await importOriginal<typeof workspaceGeneralModule>()
   return {
@@ -92,6 +95,23 @@ describe('SettingsGeneral', () => {
     await waitFor(() =>
       expect(updateWorkspaceOfflineEditing).toHaveBeenCalledWith('ws-1', false),
     )
+    expect(toasts.toast).toHaveBeenCalledWith('Settings saved')
+  })
+
+  it('does not confirm a save that failed', async () => {
+    vi.mocked(updateWorkspaceGeneral).mockRejectedValueOnce(
+      new Error('Could not save the time zone.'),
+    )
+    const user = userEvent.setup()
+    renderSection()
+
+    await user.type(await screen.findByLabelText('Site'), '!')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    expect(
+      await screen.findByText('Could not save the time zone.'),
+    ).toBeTruthy()
+    expect(toasts.toast).not.toHaveBeenCalled()
   })
 
   it('refuses a time zone that is not a real IANA zone', async () => {
@@ -118,6 +138,38 @@ describe('SettingsGeneral', () => {
     expect(screen.queryByText(/valid IANA time zone/i)).toBeNull()
     expect(save.disabled).toBe(true)
     expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
+  })
+
+  it('requires the workspace name rather than skipping the rename silently', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    const save = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Save changes',
+    })
+    const name = await screen.findByLabelText<HTMLInputElement>(
+      'Workspace name',
+    )
+
+    // Empty the field through its input, as the audit did, with another
+    // change pending so Save is otherwise available.
+    await user.type(name, 'X')
+    await user.clear(name)
+    expect(name.value).toBe('')
+    await user.type(screen.getByLabelText('Site'), '!')
+    expect(screen.getByText('Enter a workspace name.')).toBeTruthy()
+    expect(name.getAttribute('aria-invalid')).toBe('true')
+    expect(save.disabled).toBe(true)
+
+    await user.type(name, 'Process Development 2')
+    expect(screen.queryByText('Enter a workspace name.')).toBeNull()
+    expect(save.disabled).toBe(false)
+    await user.click(save)
+    await waitFor(() =>
+      expect(vi.mocked(updateWorkspaceName)).toHaveBeenCalledWith(
+        'ws-1',
+        'Process Development 2',
+      ),
+    )
   })
 
   it('enables Save only once a field has changed', async () => {

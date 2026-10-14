@@ -17,6 +17,9 @@ const { savePreference, saveTiming } = vi.hoisted(() => ({
   saveTiming: vi.fn(async (..._args: unknown[]) => {}),
 }))
 
+const toasts = vi.hoisted(() => ({ toast: vi.fn() }))
+vi.mock('#/components/v3/ui/sonner', () => ({ toast: toasts.toast }))
+
 const SAVED_TIMING: NotificationTiming = {
   quietHoursStart: '22:00',
   quietHoursEnd: '07:00',
@@ -38,6 +41,7 @@ afterEach(() => {
   cleanup()
   savePreference.mockClear()
   saveTiming.mockClear()
+  toasts.toast.mockClear()
 })
 
 function renderPanel() {
@@ -78,6 +82,31 @@ describe('SettingsNotifications', () => {
       ),
     )
     expect(saveTiming).toHaveBeenCalledWith(SAVED_TIMING)
+    // A resolved save is confirmed in words; the button going quiet again is
+    // not a confirmation.
+    await waitFor(() =>
+      expect(toasts.toast).toHaveBeenCalledWith('Notification settings saved'),
+    )
+  })
+
+  it('does not confirm a save that failed', async () => {
+    saveTiming.mockRejectedValueOnce(new Error('Could not save the digest time.'))
+    const user = userEvent.setup()
+    renderPanel()
+
+    const save = await screen.findByRole('button', { name: 'Save changes' })
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: 'Review requested from you email',
+      }),
+    )
+    await waitFor(() => expect(save).toHaveProperty('disabled', false))
+    await user.click(save)
+
+    expect(
+      await screen.findByText('Could not save the digest time.'),
+    ).toBeTruthy()
+    expect(toasts.toast).not.toHaveBeenCalled()
   })
 
   it('treats a changed quiet hour or digest time as unsaved work', async () => {

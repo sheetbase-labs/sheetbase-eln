@@ -153,6 +153,40 @@ describe('R5-SHELL-05 sign-in states', () => {
     expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull()
   })
 
+  it('states the open access posture of an auth-free environment and offers a way onward', () => {
+    renderSurface({ devAuthFree: true, next: '/inbox' })
+
+    // An environment that needs no sign-in cannot also be described as an
+    // authorised-users-only controlled system.
+    expect(screen.queryByText(/Authorised users only/i)).toBeNull()
+    expect(screen.queryByText(/controlled system/i)).toBeNull()
+    expect(screen.getByText(/Open preview environment/i)).toBeTruthy()
+
+    // The page had no link at all, so a visitor landing here by URL had no way
+    // into the app.
+    expect(
+      screen
+        .getByRole('link', { name: 'Continue to Sheetbase' })
+        .getAttribute('href'),
+    ).toBe('/inbox')
+  })
+
+  it('sends an open environment to the app root when no return path is given', () => {
+    renderSurface({ devAuthFree: true })
+    expect(
+      screen
+        .getByRole('link', { name: 'Continue to Sheetbase' })
+        .getAttribute('href'),
+    ).toBe('/')
+  })
+
+  it('keeps the release statement where the deployment enforces it', () => {
+    renderSurface()
+    expect(screen.getByText(/controlled system/i)).toBeTruthy()
+    expect(screen.getByText(/Authorised users only/i)).toBeTruthy()
+    expect(screen.queryByText(/Open preview environment/i)).toBeNull()
+  })
+
   it('says GitHub is not configured rather than rendering a dead button', () => {
     renderSurface({ githubEnabled: false })
     expect(

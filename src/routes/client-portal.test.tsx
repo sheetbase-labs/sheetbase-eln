@@ -62,6 +62,11 @@ function renderPortal() {
 
 beforeEach(() => {
   search.value = {}
+  routeContext.value.workspace = {
+    id: 'ws-1',
+    name: 'Process Development',
+    role: 'viewer',
+  }
   portal.fetchClientPortalIdentity.mockResolvedValue(null)
   portal.fetchClientPortalMessages.mockResolvedValue([])
   portal.fetchClientPortalMilestones.mockResolvedValue([])
@@ -113,5 +118,50 @@ describe('client portal', () => {
     await user.click(within(nav).getByRole('button', { name: 'Messages' }))
 
     expect(navigate).toHaveBeenCalledWith({ search: { tab: 'messages' } })
+  })
+
+  it('names the viewer’s own role and marks the page as a client-view preview', async () => {
+    routeContext.value.workspace = {
+      id: 'ws-1',
+      name: 'Process Development',
+      role: 'owner',
+    }
+    renderPortal()
+
+    // The account is a Workspace Admin (as /settings/members reports), so the
+    // portal must not claim the viewer is a client viewer. It marks the page as
+    // a preview in the topbar and names the role in the access panel.
+    expect(await screen.findAllByText('Client view preview')).toHaveLength(2)
+    expect(screen.queryByText('Client viewer')).toBeNull()
+    expect(screen.getByText('Workspace Admin')).toBeTruthy()
+    expect(screen.getByText(/preview of the client view/i)).toBeTruthy()
+  })
+
+  it('states the client viewer role for a client account', async () => {
+    routeContext.value.workspace = {
+      id: 'ws-1',
+      name: 'Process Development',
+      role: 'client_viewer',
+    }
+    portal.fetchClientPortalIdentity.mockResolvedValue({ clientCode: 'ACME' })
+    renderPortal()
+
+    expect(await screen.findByText('Your access')).toBeTruthy()
+    expect(screen.getByText('Client viewer')).toBeTruthy()
+    expect(screen.queryByText('Client view preview')).toBeNull()
+  })
+
+  it('names the page with the topbar H1 above the section headings', async () => {
+    renderPortal()
+
+    const page = await screen.findByRole('heading', { level: 1 })
+    expect(page.textContent).toBe('Client portal')
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(
+      await screen.findByRole('heading', {
+        level: 2,
+        name: 'No shared projects yet',
+      }),
+    ).toBeTruthy()
   })
 })

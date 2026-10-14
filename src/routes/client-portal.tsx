@@ -37,6 +37,7 @@ import {
   postClientPortalMessage,
 } from '#/lib/client-portal'
 import type { ClientPortalProject } from '#/lib/client-portal'
+import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
 
 const tabs = ['projects', 'reports', 'messages'] as const
 type PortalTab = (typeof tabs)[number]
@@ -122,6 +123,7 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
       <PageHeader
         className="px-8 pt-4 pb-3 md:px-8 md:pt-4"
         title={project.title}
+        titleLevel={2}
         meta={
           <>
             <Status tone={projectStatus.tone}>{projectStatus.label}</Status>
@@ -393,6 +395,17 @@ function ClientPortal() {
     queryFn: () => fetchClientPortalIdentity(),
   })
   const isClient = Boolean(identity.data)
+  // The portal is reachable by any signed-in member, so the account's own role
+  // comes from the session, not from the page: only a `client_viewer` is a
+  // client account, and everyone else is looking at the client view as a
+  // preview. Claiming "Client viewer" for an internal member made this page
+  // disagree with /settings/members about the same account.
+  const workspaceRole = context.workspace?.role ?? null
+  const isClientAccount = workspaceRole === 'client_viewer'
+  const roleLabel = workspaceRole
+    ? ((WORKSPACE_ROLE_LABELS as Record<string, string>)[workspaceRole] ??
+      workspaceRole)
+    : 'No workspace'
   const messages = useQuery({
     queryKey: clientPortalQueryKeys.messages,
     queryFn: () => fetchClientPortalMessages(),
@@ -424,18 +437,30 @@ function ClientPortal() {
         Skip to content
       </a>
       <header className="flex h-topbar shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
-        <span className="flex items-center gap-2 font-heading text-[15px] font-semibold md:w-[260px]">
+        <div className="flex items-center gap-2 font-heading text-[15px] font-semibold md:w-[260px]">
           <Icon name="table" size={18} />
           Sheetbase{' '}
-          <span className="font-sans text-body font-normal text-fg-muted">
+          {/* The portal is a standalone viewer route with no `PageHeader`, so
+              the topbar carries the page's only heading. */}
+          <h1 className="font-sans text-body font-normal text-fg-muted">
             Client portal
-          </span>
-        </span>
+          </h1>
+        </div>
         <span className="min-w-0 flex-1 truncate text-body text-fg-muted max-md:text-label">
           {(project?.clientCode ?? identity.data?.clientCode)
             ? `${project?.clientCode ?? identity.data?.clientCode} · shared by your CDMO team`
             : 'Shared by your CDMO team'}
         </span>
+        {isClientAccount ? null : (
+          <span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-surface-muted px-2 py-0.5 text-caption text-fg-muted">
+            {/* Short visual label on a phone, the full label for assistive
+                tech and on wider frames. */}
+            <span aria-hidden="true" className="md:hidden">
+              Preview
+            </span>
+            <span className="max-md:sr-only">Client view preview</span>
+          </span>
+        )}
         <span
           aria-label={`Account: ${context.user.name}`}
           className="flex size-7 items-center justify-center rounded-full bg-review-wash text-[11px] font-semibold"
@@ -498,7 +523,12 @@ function ClientPortal() {
         <main id="main" className="min-h-0 min-w-0 flex-1 overflow-auto">
           {tab === 'projects' ? (
             projects.isLoading ? (
-              <PageHeader title="" />
+              // Placeholder chrome only: the page's single H1 sits in the
+              // topbar, so the loading state must not emit an empty one.
+              <div
+                aria-hidden="true"
+                className="border-b border-border bg-surface px-4 pt-3 pb-3 md:px-6 md:pt-3.5"
+              />
             ) : (projects.data ?? []).length ? (
               (projects.data ?? []).map((p) => (
                 <PortalProjectPanel key={p.projectId} project={p} />
@@ -549,15 +579,30 @@ function ClientPortal() {
           </section>
           <section>
             <h3 className="mb-1.5 font-sans text-label font-semibold">
-              Your access
+              {isClientAccount ? 'Your access' : 'Client view preview'}
             </h3>
-            <DescriptionList
-              items={[
-                ['Role', 'Client viewer'],
-                ['Can', 'Read and download approved records, message the team'],
-                ["Can't", 'See drafts, raw data or other clients'],
-              ]}
-            />
+            {isClientAccount ? (
+              <DescriptionList
+                items={[
+                  ['Role', 'Client viewer'],
+                  ['Can', 'Read and download approved records, message the team'],
+                  ["Can't", 'See drafts, raw data or other clients'],
+                ]}
+              />
+            ) : (
+              <>
+                <DescriptionList
+                  items={[
+                    ['Your role', roleLabel],
+                    ['This view', 'The client portal as your clients see it'],
+                  ]}
+                />
+                <Muted className="mt-2">
+                  You’re signed in as a workspace member, so this page is a
+                  preview of the client view.
+                </Muted>
+              </>
+            )}
           </section>
         </aside>
       </div>

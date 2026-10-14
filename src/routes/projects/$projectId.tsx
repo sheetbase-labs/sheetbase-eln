@@ -142,7 +142,7 @@ function ProjectLayout() {
               },
               {
                 label: 'Experiments',
-                count: project.experimentCount ?? '—',
+                count: project.experimentCount,
                 link: { to: '/projects/$projectId/experiments', params },
               },
               {

@@ -9,17 +9,19 @@
  * No raw DB access from the client — all data flows through these server
  * functions which use the application database connection with workspace
  * filtering. Secret values are never returned.
+ *
+ * Server-only modules (`*.server.*`) are imported *inside* the handlers rather
+ * than at module scope: the settings routes import this module in the client
+ * bundle, and the build refuses a client-reachable server-only import.
  */
 import { createServerFn } from '@tanstack/react-start'
 import { sql } from 'drizzle-orm'
 import type { Pool, PoolClient } from 'pg'
 
-import { env, getDeploymentConfig } from '#/env.server'
 import {
   INPUT_ROW_LIMIT,
   EXECUTION_TIMEOUT_SECONDS,
 } from '#/lib/pipeline-limits'
-import { DATASET_RETENTION_INTERVAL_MS } from '#/lib/dataset-retention-scheduler.server'
 import { formatFileSize } from '#/lib/format-numbers'
 import { checkExtensionCompat } from '#/lib/extensions/compat'
 
@@ -420,6 +422,12 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<DiagnosticsResult> => {
     await loadAdminSession(data.workspaceId)
+    // Static imports of `*.server.*` are denied in the client bundle, and this
+    // module is reached from the settings routes; read them here instead.
+    const { env, getDeploymentConfig } = await import('#/env.server')
+    const { DATASET_RETENTION_INTERVAL_MS } = await import(
+      '#/lib/dataset-retention-scheduler.server'
+    )
     const deployment = getDeploymentConfig()
     // R5-CONFIG-01 — the timestamp the live probes below are evaluated at, so
     // each probe-backed check can show when it was last checked.
@@ -627,7 +635,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
     const fileBytes = num(row?.file_bytes)
     const members = num(row?.members)
     const enabledSchedules = num(row?.enabled_schedules)
-    const plan = workspacePlanLimits()
+    const plan = await workspacePlanLimits()
     const quota = plan.quota
     const seatLimit = plan.seats.seatLimit
     const trend: UsageTrendPoint[] = trendRes.rows.map((r) => ({
@@ -756,7 +764,7 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
       datasetVersionCount: num(countRow?.dataset_version_count),
       // A null byteLimit (no configured quota) tells the UI to label figures
       // as observed usage rather than against a limit.
-      quota: workspacePlanLimits().quota,
+      quota: (await workspacePlanLimits()).quota,
       largestFiles: mapFiles(largestRes.rows),
       recentFiles: mapFiles(recentRes.rows),
     }
@@ -918,10 +926,13 @@ export function usageWarnLevel(
  * Read inside the server handlers: `env` is server-only, so it must not be
  * touched at module scope (the module is also imported by the client bundle).
  */
-export function workspacePlanLimits(): {
+export async function workspacePlanLimits(): Promise<{
   quota: QuotaContext
   seats: SeatLimitContext
-} {
+}> {
+  // Server-only: a static import would be denied in the client bundle, so the
+  // limits are read when the server handler asks for them.
+  const { env } = await import('#/env.server')
   return {
     quota: resolveQuotaContext(
       env.SHEETBASE_WORKSPACE_STORAGE_QUOTA_BYTES ?? null,
@@ -1179,6 +1190,8 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
     }
     // Incompatible extensions (EXT-03): computed against the running app
     // version via the shared compat check — unknown never warns.
+    // Server-only module: a static import would be denied in the client bundle.
+    const { getDeploymentConfig } = await import('#/env.server')
     const appVersion = getDeploymentConfig().artifact.version
     const incompatibleKeys = findIncompatibleExtensionKeys(
       extRes.rows as Array<{ key: unknown; compatible_with: unknown }>,

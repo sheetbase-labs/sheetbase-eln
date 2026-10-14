@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouter } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -10,7 +10,7 @@ import {
   SettingsBody,
   SettingsHeader,
 } from '#/components/v3/settings/settings-page'
-import { authClient } from '#/lib/auth-client'
+import { updateProfileNameFn } from '#/components/v3/settings/settings-profile-data'
 import { useTheme } from '#/components/v3/lib/theme'
 import { createDataClient } from '#/lib/data-client'
 import { setUserAppearance } from '#/lib/user-preferences'
@@ -18,8 +18,9 @@ import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 
 /** UI port (roadmap-4/ui-app3): your profile. The display name is saved through
- * Better Auth; the initials, job title and time zone app-3 shows have no field
- * in this model and are stated as gaps. Appearance and sessions are real. */
+ * Better Auth, or through the server when this deployment runs without sign-in;
+ * the initials, job title and time zone app-3 shows have no field in this model
+ * and are stated as gaps. Appearance and sessions are real. */
 export const Route = createFileRoute('/settings/profile')({
   component: Profile,
 })
@@ -45,6 +46,7 @@ const appearanceClient = createDataClient()
 
 function Profile() {
   const { context } = Route.useRouteContext()
+  const router = useRouter()
   const user = context.user
   const theme = useTheme()
   // The local choice applies immediately (this browser's cookie), so a failed
@@ -79,15 +81,21 @@ function Profile() {
             disabled={busy || Boolean(error)}
             onClick={async () => {
               setBusy(true)
-              const result = await authClient.updateUser({ name: name.trim() })
-              setBusy(false)
-              if (result.error) {
+              try {
+                await updateProfileNameFn({ data: { name: name.trim() } })
+                // The shell and this form both read the name from the resolved
+                // route context, so re-resolve it rather than report a save the
+                // rest of the app has not seen.
+                await router.invalidate()
+                toast('Changes saved')
+              } catch (failure) {
                 toast('Could not save your profile', {
-                  description: result.error.message ?? 'Try again.',
+                  description:
+                    failure instanceof Error ? failure.message : 'Try again.',
                 })
-                return
+              } finally {
+                setBusy(false)
               }
-              toast('Changes saved')
             }}
           >
             Save changes

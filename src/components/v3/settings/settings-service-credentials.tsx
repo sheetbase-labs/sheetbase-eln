@@ -14,6 +14,7 @@ import {
 } from '#/components/v3/ui/confirm-dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
+import { Secret } from '#/components/v3/ui/secret'
 import { Status } from '#/components/v3/ui/status'
 import { Section } from '#/components/v3/ui/layout'
 import {
@@ -52,9 +53,7 @@ export function SettingsServiceCredentials({
 }) {
   const [name, setName] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
-  const [selected, setSelected] = useState<Set<Scope>>(
-    () => new Set(['projects:read']),
-  )
+  const [selected, setSelected] = useState<Set<Scope>>(() => new Set<Scope>())
   // A workspace credential is shared, so revoking or rotating one stops every
   // integration using it; both ask first.
   const [confirming, setConfirming] = useState<{
@@ -82,7 +81,7 @@ export function SettingsServiceCredentials({
     )
     setName('')
     setExpiresAt('')
-    setSelected(new Set(['projects:read']))
+    setSelected(new Set<Scope>())
   }
 
   return (
@@ -100,23 +99,17 @@ export function SettingsServiceCredentials({
               Copy the credential for {revealed.name} now. It will not be shown
               again.
             </p>
-            <code className="block break-all rounded-md bg-surface px-3 py-2 text-fg">
-              {revealed.secret}
-            </code>
+            <Secret
+              value={revealed.secret}
+              copyLabel="Copy credential"
+              copiedMessage="Credential copied"
+              failedMessage="Couldn’t copy the credential. Select it and copy it by hand."
+            />
             <p className="m-0 text-label">
               Prefix <code>{revealed.displayPrefix}</code>. Scopes:{' '}
               {revealed.scopes.join(', ')}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() =>
-                  void navigator.clipboard.writeText(revealed.secret)
-                }
-              >
-                Copy credential
-              </Button>
+            <div>
               <Button type="button" size="sm" onClick={onDismissRevealed}>
                 I have stored it
               </Button>

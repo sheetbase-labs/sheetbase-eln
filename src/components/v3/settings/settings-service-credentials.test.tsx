@@ -8,9 +8,20 @@ import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { CredentialWire } from '#/lib/api-credential-admin'
+import type {
+  CreatedCredentialWire,
+  CredentialWire,
+} from '#/lib/api-credential-admin'
 
 import { SettingsServiceCredentials } from './settings-service-credentials'
+
+// The reveal panel copies through the shared Secret, so the toast is the
+// confirmation the panel never gave before.
+const sonner = vi.hoisted(() => ({
+  toast: Object.assign(vi.fn(), { error: vi.fn() }),
+}))
+
+vi.mock('#/components/v3/ui/sonner', () => ({ toast: sonner.toast }))
 
 const CREDENTIAL: CredentialWire = {
   id: 'cred-1',
@@ -26,22 +37,38 @@ const CREDENTIAL: CredentialWire = {
   createdByUserId: 'owner-1',
 }
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+  sonner.toast.mockClear()
+  sonner.toast.error.mockClear()
+})
 
-function renderPanel() {
+function renderPanel({
+  revealed = null,
+}: { revealed?: CreatedCredentialWire | null } = {}) {
   const onRevoke = vi.fn()
   const onRotate = vi.fn()
+  const onCreate = vi.fn()
   render(
     <SettingsServiceCredentials
       tokens={[CREDENTIAL]}
-      revealed={null}
-      onCreate={vi.fn()}
+      revealed={revealed}
+      onCreate={onCreate}
       onRevoke={onRevoke}
       onRotate={onRotate}
       onDismissRevealed={vi.fn()}
     />,
   )
-  return { onRevoke, onRotate }
+  return { onRevoke, onRotate, onCreate }
+}
+
+const REVEALED: CreatedCredentialWire = {
+  id: 'cred-2',
+  secret: 'sb_svc_abcdef',
+  displayPrefix: 'sb_svc_ab12',
+  name: 'Nightly backup',
+  scopes: ['projects:read'],
 }
 
 describe('SettingsServiceCredentials', () => {
@@ -59,6 +86,33 @@ describe('SettingsServiceCredentials', () => {
     expect(onRevoke).toHaveBeenCalledWith(CREDENTIAL.id)
   })
 
+  it('requires an explicit scope instead of pre-granting projects:read', async () => {
+    const user = userEvent.setup()
+    const { onCreate } = renderPanel()
+
+    const create = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Create credential',
+    })
+    const readScope = screen.getByRole('checkbox', { name: 'projects:read' })
+    expect(readScope.getAttribute('aria-checked')).toBe('false')
+
+    await user.type(
+      screen.getByPlaceholderText('Nightly import'),
+      'Nightly import',
+    )
+    expect(create.disabled).toBe(true)
+
+    await user.click(readScope)
+    expect(readScope.getAttribute('aria-checked')).toBe('true')
+    expect(create.disabled).toBe(false)
+    await user.click(create)
+    expect(onCreate).toHaveBeenCalledWith(
+      'Nightly import',
+      ['projects:read'],
+      null,
+    )
+  })
+
   it('confirms a rotate before it fires, and rotates only from the confirmation', async () => {
     const user = userEvent.setup()
     const { onRotate } = renderPanel()
@@ -71,5 +125,32 @@ describe('SettingsServiceCredentials', () => {
       within(dialog).getByRole('button', { name: 'Rotate credential' }),
     )
     expect(onRotate).toHaveBeenCalledWith(CREDENTIAL.id)
+  })
+
+  it('confirms the copy when the clipboard takes the credential', async () => {
+    const user = userEvent.setup()
+    const writeText = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockResolvedValue(undefined)
+    renderPanel({ revealed: REVEALED })
+
+    await user.click(screen.getByRole('button', { name: 'Copy credential' }))
+
+    expect(writeText).toHaveBeenCalledWith(REVEALED.secret)
+    expect(sonner.toast).toHaveBeenCalledWith('Credential copied')
+    expect(sonner.toast.error).not.toHaveBeenCalled()
+  })
+
+  it('states a refused copy instead of confirming one', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(
+      new DOMException('denied', 'NotAllowedError'),
+    )
+    renderPanel({ revealed: REVEALED })
+
+    await user.click(screen.getByRole('button', { name: 'Copy credential' }))
+
+    expect(sonner.toast.error).toHaveBeenCalled()
+    expect(sonner.toast).not.toHaveBeenCalled()
   })
 })

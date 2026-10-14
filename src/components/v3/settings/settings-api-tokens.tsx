@@ -14,6 +14,8 @@ import {
 } from '#/components/v3/ui/confirm-dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
+import { Section } from '#/components/v3/ui/layout'
+import { Secret } from '#/components/v3/ui/secret'
 import { Status } from '#/components/v3/ui/status'
 import {
   Table,
@@ -50,9 +52,7 @@ export function SettingsApiTokens({
 }) {
   const [name, setName] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
-  const [selected, setSelected] = useState<Set<Scope>>(
-    () => new Set(['projects:read']),
-  )
+  const [selected, setSelected] = useState<Set<Scope>>(() => new Set<Scope>())
   // Revoke is permanent and rotate invalidates the live secret, so both ask
   // first: the row buttons only pick the action.
   const [confirming, setConfirming] = useState<{
@@ -80,11 +80,11 @@ export function SettingsApiTokens({
     )
     setName('')
     setExpiresAt('')
-    setSelected(new Set(['projects:read']))
+    setSelected(new Set<Scope>())
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <Section title="Personal tokens" className="gap-6">
       <p className="m-0 max-w-3xl text-body text-fg-muted">
         A personal API token acts as you (the signed-in member), under the same
         canonical Core-domain scopes and fail-closed allowlist as a workspace
@@ -102,23 +102,17 @@ export function SettingsApiTokens({
               Copy the token for {revealed.name} now. It will not be shown
               again.
             </p>
-            <code className="block break-all rounded-md bg-surface px-3 py-2 text-fg">
-              {revealed.secret}
-            </code>
+            <Secret
+              value={revealed.secret}
+              copyLabel="Copy token"
+              copiedMessage="Token copied"
+              failedMessage="Couldn’t copy the token. Select it and copy it by hand."
+            />
             <p className="m-0 text-label">
               Prefix <code>{revealed.displayPrefix}</code>. Scopes:{' '}
               {revealed.scopes.join(', ')}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() =>
-                  void navigator.clipboard.writeText(revealed.secret)
-                }
-              >
-                Copy token
-              </Button>
+            <div>
               <Button type="button" size="sm" onClick={onDismissRevealed}>
                 I have stored it
               </Button>
@@ -315,6 +309,6 @@ export function SettingsApiTokens({
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
       </ConfirmDialog>
-    </div>
+    </Section>
   )
 }

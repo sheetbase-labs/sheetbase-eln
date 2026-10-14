@@ -476,6 +476,7 @@ function SampleLayout() {
           actions={{
             openWithdraw: () => setDialog('withdraw'),
             openReserve: () => setDialog('reserve'),
+            canWithdraw: withdrawable,
           }}
         >
           <div className="min-h-0 flex-1 overflow-auto">

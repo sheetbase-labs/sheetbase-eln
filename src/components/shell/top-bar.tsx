@@ -6,14 +6,10 @@ import { Button } from '#/components/v3/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuLinkItem,
   DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '#/components/ui/tooltip'
+} from '#/components/v3/ui/dropdown-menu'
+import { Tooltip } from '#/components/v3/ui/tooltip'
 import { ConnectionStatus, useLiveStatus } from '#/components/live'
 import { cn } from '#/lib/utils'
 
@@ -38,16 +34,18 @@ function NewMenu({
   ]
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="primary" size="md" className="max-sm:hidden">
-          <Icon name="plus" className="size-4" /> New
-        </Button>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="primary" size="md" className="max-sm:hidden" />
+        }
+      >
+        <Icon name="plus" className="size-4" /> New
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {items.map((item) => (
-          <DropdownMenuItem key={item.to} asChild>
-            <Link to={item.to}>{item.label}</Link>
-          </DropdownMenuItem>
+          <DropdownMenuLinkItem key={item.to} render={<Link to={item.to} />}>
+            {item.label}
+          </DropdownMenuLinkItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -143,29 +141,26 @@ export function TopBarActions({
           </Button>
         ) : null}
         {hasInspector && inspectorCollapsible ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="quiet"
-                size="icon"
-                className="hidden xl:inline-flex"
-                aria-label={
-                  inspectorCollapsed ? 'Show inspector' : 'Hide inspector'
-                }
-                aria-expanded={!inspectorCollapsed}
-                onClick={onToggleInspector}
-              >
-                <PanelRight
-                  className={cn(
-                    'size-4',
-                    !inspectorCollapsed && 'text-foreground',
-                  )}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
-            </TooltipContent>
+          <Tooltip
+            content={inspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+          >
+            <Button
+              variant="quiet"
+              size="icon"
+              className="hidden xl:inline-flex"
+              aria-label={
+                inspectorCollapsed ? 'Show inspector' : 'Hide inspector'
+              }
+              aria-expanded={!inspectorCollapsed}
+              onClick={onToggleInspector}
+            >
+              <PanelRight
+                className={cn(
+                  'size-4',
+                  !inspectorCollapsed && 'text-foreground',
+                )}
+              />
+            </Button>
           </Tooltip>
         ) : null}
       </div>

@@ -295,7 +295,9 @@ describe('AppShell', () => {
       screen.getByRole('button', { name: 'New' }),
     )
     await user.click(screen.getByRole('button', { name: 'New' }))
-    expect(screen.getByRole('menu')).toBeTruthy()
+    // Base UI opens the menu asynchronously (see UI_PORT: the Radix menus
+    // moved to base-ui and their tests wait for the menu to mount).
+    await waitFor(() => expect(screen.getByRole('menu')).toBeTruthy())
   })
 
   it('opens the command palette with ⌘K and lists enabled nav items only', async () => {

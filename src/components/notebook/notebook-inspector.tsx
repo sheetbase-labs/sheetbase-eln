@@ -6,7 +6,7 @@ import {
   InspectorSection,
   InspectorSectionStack,
 } from '#/components/record'
-import { Notice, NoticeDescription, NoticeTitle } from '#/components/ui/alert'
+import { Notice } from '#/components/v3/ui/alert'
 import { Tabs, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
 import { cn } from '#/lib/utils'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
@@ -348,32 +348,33 @@ function ValidationSection({
   validation: NotebookInspectorCellValidation | null
   actions?: React.ReactNode
 }) {
+  // The v3 Notice carries info/warn/bad only: a valid or unevaluated cell keeps
+  // the neutral info wash and the headline names the state.
   const tone =
     validation?.state === 'error'
       ? 'bad'
       : validation?.state === 'warning'
         ? 'warn'
-        : validation?.state === 'valid'
-          ? 'success'
-          : 'plain'
+        : 'info'
   return (
     <InspectorSection title="Validation">
       {validation ? (
-        <Notice tone={tone}>
-          <NoticeTitle>
-            {validation.headline ??
-              (validation.state === 'valid'
-                ? 'Valid'
-                : validation.state === 'unknown'
-                  ? 'Validation not evaluated'
-                  : 'Validation issue')}
-          </NoticeTitle>
-          {validation.detail ? (
-            <NoticeDescription>{validation.detail}</NoticeDescription>
-          ) : null}
-          {!validation.detail && validation.rule ? (
-            <NoticeDescription>{validation.rule}</NoticeDescription>
-          ) : null}
+        <Notice
+          tone={tone}
+          title={
+            validation.headline ??
+            (validation.state === 'valid'
+              ? 'Valid'
+              : validation.state === 'unknown'
+                ? 'Validation not evaluated'
+                : 'Validation issue')
+          }
+        >
+          {validation.detail
+            ? validation.detail
+            : validation.rule
+              ? validation.rule
+              : null}
         </Notice>
       ) : (
         <EmptyHint>No validation rule is recorded for this cell.</EmptyHint>

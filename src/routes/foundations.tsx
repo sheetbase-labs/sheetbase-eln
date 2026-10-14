@@ -36,26 +36,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   Badge,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-  Input,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
   Textarea,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '#/components/ui'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import { Input } from '#/components/v3/ui/input'
+import { Tooltip } from '#/components/v3/ui/tooltip'
 import { contrastRatio, oklchToSrgb } from '#/lib/contrast'
 import type { Oklch } from '#/lib/contrast'
 import { cn } from '#/lib/utils'
@@ -915,20 +914,15 @@ function PrimitivesGrid() {
       </Preview>
 
       <Preview title="Tooltip">
-        <TooltipProvider delayDuration={100}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="secondary">Hover me</Button>
-            </TooltipTrigger>
-            <TooltipContent>Used inline in data tables.</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip content="Used inline in data tables.">
+          <Button variant="secondary">Hover me</Button>
+        </Tooltip>
       </Preview>
 
       <Preview title="Dropdown menu">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="secondary">Actions</Button>
+          <DropdownMenuTrigger render={<Button variant="secondary" />}>
+            Actions
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem>Rename…</DropdownMenuItem>

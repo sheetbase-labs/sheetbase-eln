@@ -35,6 +35,21 @@ describe('docs/$name', () => {
     expect(result).toEqual({ name: 'nope', html: null, known: false })
   })
 
+  it('resolves every named document to its file in the docs tree', async () => {
+    for (const name of [
+      'deployment',
+      'recovery',
+      'security',
+      'performance',
+      'observability',
+      'administration',
+    ]) {
+      const result = await loader({ params: { name } })
+      expect(result.known).toBe(true)
+      expect(result.html).toBeTruthy()
+    }
+  })
+
   it('renders a stated message for an unknown name', () => {
     mocks.loaderData.current = { name: 'nope', html: null, known: false }
     render(<DocPage />)

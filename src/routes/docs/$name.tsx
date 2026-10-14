@@ -1,14 +1,16 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { marked } from 'marked'
 
-const DOC_NAMES = [
-  'deployment',
-  'recovery',
-  'security',
-  'performance',
-  'observability',
-  'administration',
-] as const
+// The rendered documents live in the repository's docs tree; map each stable
+// name to its file so the surface renders the document it names.
+const DOC_PATHS: Record<string, string> = {
+  deployment: 'docs/operations/deployment.md',
+  recovery: 'docs/operations/recovery.md',
+  security: 'docs/operations/security.md',
+  performance: 'docs/subsystems/performance.md',
+  observability: 'docs/operations/observability.md',
+  administration: 'docs/subsystems/administration.md',
+}
 
 export const Route = createFileRoute('/docs/$name')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -21,12 +23,13 @@ export const Route = createFileRoute('/docs/$name')({
     const name = params.name
     // An unknown name is a missing document, not a server error: report it in
     // the page so the route's error boundary stays for real failures.
-    if (!DOC_NAMES.includes(name as (typeof DOC_NAMES)[number])) {
+    const relativePath = DOC_PATHS[name]
+    if (!relativePath) {
       return { name, html: null, known: false }
     }
     const { readFileSync } = await import('node:fs')
     const { resolve } = await import('node:path')
-    const filePath = resolve(process.cwd(), 'docs', `${name}.md`)
+    const filePath = resolve(process.cwd(), relativePath)
     try {
       const content = readFileSync(filePath, 'utf-8')
       const html = marked.parse(content, { async: false })

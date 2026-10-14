@@ -324,6 +324,45 @@ describe('evaluateSubmissionReadiness', () => {
       'validation_failed',
     )
   })
+
+  it('links the review step only to the pages the route tree has', () => {
+    // The review workspace is /review/$revisionId: bare /review has no page, so
+    // a submission without a revision must not be pointed at it.
+    const awaitingRevision = evaluateSubmissionReadiness(
+      submissionState({
+        hasUnsavedWork: false,
+        digest: 'abc123',
+        reviewerCount: 1,
+        submissionId: 'sub-1',
+      }),
+    )
+    expect(
+      awaitingRevision.steps[4].nextActions
+        .map((action) => action.target)
+        .flatMap((target) => ('href' in target ? [target.href] : [])),
+    ).not.toContain('/review')
+    expect(
+      awaitingRevision.steps[4].objects.map((object) => object.deepLink),
+    ).toEqual(['/records/r1'])
+
+    const withRevision = evaluateSubmissionReadiness(
+      submissionState({
+        hasUnsavedWork: false,
+        digest: 'abc123',
+        reviewerCount: 1,
+        submissionId: 'sub-1',
+        revisionId: 'rev-1',
+      }),
+    )
+    expect(
+      withRevision.steps[4].nextActions
+        .map((action) => action.target)
+        .flatMap((target) => ('href' in target ? [target.href] : [])),
+    ).toEqual(['/review/rev-1'])
+    expect(
+      withRevision.steps[4].objects.map((object) => object.deepLink),
+    ).toEqual(['/review/rev-1'])
+  })
 })
 
 describe('execution parity (no new write paths)', () => {

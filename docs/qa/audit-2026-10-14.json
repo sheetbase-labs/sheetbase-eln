@@ -93,19 +93,19 @@
     "evidence": "src/routes/foundations.tsx:348-350,1270"
   },
   {
-    "id": "QA3-U1",
-    "kind": "unconfirmed",
-    "status": "observed-once",
-    "severity": "major-if-real",
+    "id": "QA3-C3",
+    "kind": "defect",
+    "status": "confirmed-live",
+    "severity": "major",
     "area": "projects",
     "route": "/projects",
     "frame": "1440",
-    "action": "Clicked the header 'New project' button twice and inspected the DOM and a screenshot 2.5s later.",
+    "action": "Clicked the header 'New project' button and diffed the DOM before and after, twice, on an idle machine.",
     "expected": "A create-project dialog opens.",
-    "observed": "The URL became /projects?new=true (so the button was enabled, meaning canCreate was true), but no dialog was visible and the screenshot shows none. The dialog's gate is open={canCreate && !!search.new} (projects-page.tsx:877) with the header button disabled={!canCreate} (projects-page.tsx:968) calling onNew={() => setSearch({ new: true })} (projects-page.tsx:830), so both sides read true.",
-    "repro": "Open /projects on an idle machine, click New project, wait, look for the dialog.",
-    "evidence": "live DOM query (no [role=dialog]) and /tmp/qa3/shots/projects-after-new-project-click.png",
-    "note": "Not filed as a defect: the machine was heavily loaded and the dialog may have opened after the capture."
+    "observed": "The URL becomes /projects?new=true and nothing opens: dialog/popover nodes 0 before and 0 after, no name field appears, the list is unchanged. The button is enabled (its disabled={!canCreate} guard is satisfied) and the dialog gate is open={canCreate && !!search.new} with the click setting exactly that param.",
+    "repro": "Open /projects, click New project, wait 4s, look for a dialog.",
+    "evidence": "/tmp/qa3/shots/u1-new-project-retest.png, /tmp/qa3/shots/projects-after-new-project-click.png; DOM diff {overlays: 0} -> {overlays: 0}, url '' -> '?new=true'",
+    "code": "src/components/v3/projects/projects-page.tsx:877 (dialog gate), :830 (onNew), :968 (header button)"
   },
   {
     "id": "QA3-U2",

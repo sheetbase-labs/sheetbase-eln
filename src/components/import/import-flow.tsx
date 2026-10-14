@@ -341,7 +341,27 @@ export function ImportUploadFlow({
         <div className="grid max-w-[900px] gap-4">
           <div className="grid max-w-[520px] gap-1 text-label text-fg-muted">
             <span>Import into</span>
-            {datasetRows.length === 0 ? (
+            {datasets.isLoading ? (
+              <p role="status" className="m-0 text-body text-fg-muted">
+                Reading your Datasets…
+              </p>
+            ) : null}
+            {datasets.isError ? (
+              <Banner tone="bad" title="Your Datasets could not be read.">
+                The list did not load, so appending to a Dataset cannot be
+                offered yet.
+                <Button
+                  variant="quiet"
+                  onClick={() => void datasets.refetch()}
+                >
+                  Retry
+                </Button>
+              </Banner>
+            ) : null}
+            {/* "No Dataset to append to" is a fact about the workspace, so it is
+                only said once the read settled and came back empty — never while
+                the list is still loading or after the read failed. */}
+            {datasets.isSuccess && datasetRows.length === 0 ? (
               <p className="m-0 text-body text-fg-muted">
                 There is no Dataset to append to yet. Name a new one below and
                 the import creates it on the Model you choose.
@@ -600,13 +620,26 @@ export function ImportMapCheckFlow({
   const datasetPending = Boolean(datasetId) && datasets.isLoading
   const datasetUnavailable =
     Boolean(datasetId) && !datasets.isLoading && !dataset
+  // The map step needs a chosen parser or a hand mapping before its table can
+  // say anything. The review step reads the rows the mapping produces, so it
+  // needs only the mapping: a reload at step=check with the pins kept shows the
+  // rows, rather than an empty step beside an enabled Import button.
   const showMapping =
-    parsed && Boolean(dataset) && Boolean(activeParser || manual)
+    step === 'map' &&
+    parsed &&
+    Boolean(dataset) &&
+    Boolean(activeParser || manual)
+  const showReview =
+    step === 'check' && parsed && Boolean(dataset) && mappedCount > 0
   // "Choose how to read this file" claims nothing matched the file, so it waits until
   // the target is settled: not while the Dataset list is still loading (a parser may
   // already have matched), and not when the Dataset itself is missing — that banner
-  // says what is actually wrong.
+  // says what is actually wrong. It belongs to the mapping step, where reading the
+  // file is the question being asked: on the review step the rows its mapping produced
+  // are already on screen, and offering to re-read the file there would say both
+  // "these rows will be imported" and "we cannot read this file".
   const showParserChoice =
+    step === 'map' &&
     parsed &&
     Boolean(datasetId) &&
     !datasetUnavailable &&
@@ -1015,25 +1048,25 @@ export function ImportMapCheckFlow({
                 </span>
               ) : null}
             </div>
-            {step === 'map' ? (
-              <MapTable
-                headers={headers}
-                fields={fields}
-                mappingValues={mappingValues}
-                parser={activeParser}
-                onMap={(source, fieldId) => {
-                  const next = { ...mappingValues, [source]: fieldId }
-                  setMappingValues(next)
-                  writeSearch({ ...search, map: serializeImportMapping(next) })
-                }}
-              />
-            ) : (
-              <ReviewTable
-                review={review.data ?? null}
-                loading={review.isFetching}
-              />
-            )}
+            <MapTable
+              headers={headers}
+              fields={fields}
+              mappingValues={mappingValues}
+              parser={activeParser}
+              onMap={(source, fieldId) => {
+                const next = { ...mappingValues, [source]: fieldId }
+                setMappingValues(next)
+                writeSearch({ ...search, map: serializeImportMapping(next) })
+              }}
+            />
           </div>
+        ) : null}
+
+        {showReview ? (
+          <ReviewTable
+            review={review.data ?? null}
+            loading={review.isFetching}
+          />
         ) : null}
       </div>
     </div>

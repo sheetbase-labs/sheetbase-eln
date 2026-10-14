@@ -136,6 +136,24 @@ export function intakeHealth(
   return { tone: 'warn', label: `No data for ${Math.floor(ageDays)} days` }
 }
 
+/**
+ * A calibration or qualification day, in the lab surfaces' shared style
+ * ("9 Apr 2027", never "09 Apr 2027" or "Sept"). Both are recorded as UTC days
+ * (`…T00:00:00.000Z`), so the parts are read in UTC: rendering them in the
+ * reader's zone shows the day before to anyone west of Greenwich.
+ */
+export function formatInstrumentDay(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const parsed = Date.parse(iso)
+  if (Number.isNaN(parsed)) return '—'
+  const date = new Date(parsed)
+  // `en-GB` gives the four-letter "Sept"; the design uses three-letter months.
+  const month = date
+    .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
+    .slice(0, 3)
+  return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`
+}
+
 export const instrumentQueryKeys = {
   list: ['ui-port', 'instruments', 'list'] as const,
   instrument: (id: string) =>

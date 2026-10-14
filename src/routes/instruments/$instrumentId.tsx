@@ -47,6 +47,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import {
   calibrationStatus,
+  formatInstrumentDay,
   intakeHealth,
   intakeMethodLabel,
   intakeMethodNeedsParser,
@@ -302,14 +303,27 @@ function InstrumentPage() {
           </>
         }
         actions={
-          canRecord ? (
-            <Button
-              variant="primary"
-              icon="plus"
-              onClick={() => setRecordOpen(true)}
-            >
-              Record calibration
-            </Button>
+          canRecord || !i.retiredAt ? (
+            <>
+              {!i.retiredAt ? (
+                <Button
+                  variant="secondary"
+                  nativeButton={false}
+                  render={<Link to="/schedule" search={{ book: i.id }} />}
+                >
+                  Book
+                </Button>
+              ) : null}
+              {canRecord ? (
+                <Button
+                  variant="primary"
+                  icon="plus"
+                  onClick={() => setRecordOpen(true)}
+                >
+                  Record calibration
+                </Button>
+              ) : null}
+            </>
           ) : undefined
         }
       />
@@ -358,11 +372,8 @@ function InstrumentPage() {
                   {status.label}
                 </Status>,
               ],
-              [
-                'Last performed',
-                latest?.performedAt ? latest.performedAt.slice(0, 10) : '—',
-              ],
-              ['Next due', latest?.dueAt ? latest.dueAt.slice(0, 10) : '—'],
+              ['Last performed', formatInstrumentDay(latest?.performedAt)],
+              ['Next due', formatInstrumentDay(latest?.dueAt)],
             ]}
           />
           {calibrationRows.length ? (
@@ -380,10 +391,10 @@ function InstrumentPage() {
                   {calibrationRows.map((c) => (
                     <TableRow key={c.id}>
                       <TableCell className="mono">
-                        {c.performedAt.slice(0, 10)}
+                        {formatInstrumentDay(c.performedAt)}
                       </TableCell>
                       <TableCell className="mono">
-                        {c.dueAt.slice(0, 10)}
+                        {formatInstrumentDay(c.dueAt)}
                       </TableCell>
                       <TableCell>
                         {c.performedByUserId
@@ -439,7 +450,7 @@ function InstrumentPage() {
                       <TableRow key={row.user_id}>
                         <TableCell>{personLabel(row)}</TableCell>
                         <TableCell className="mono">
-                          {row.valid_until.slice(0, 10)}
+                          {formatInstrumentDay(row.valid_until)}
                         </TableCell>
                         <TableCell>
                           <Status tone={row.current ? 'ok' : 'bad'}>
@@ -664,7 +675,7 @@ function InstrumentPage() {
             <ConfirmDialogTitle>Revoke the qualification?</ConfirmDialogTitle>
             <ConfirmDialogDescription>
               {revokeTarget ? personLabel(revokeTarget) : ''} · until{' '}
-              {revokeTarget?.valid_until.slice(0, 10)}
+              {formatInstrumentDay(revokeTarget?.valid_until)}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <DialogBody>

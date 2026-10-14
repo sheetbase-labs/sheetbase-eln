@@ -13,7 +13,6 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   DescriptionList,
   Inspector,
-  InspectorSection,
   Muted,
 } from '#/components/v3/ui/layout'
 import {
@@ -53,6 +52,7 @@ import {
   CALIBRATION_DUE_SOON_DAYS,
   INTAKE_METHODS,
   createInstrument,
+  formatInstrumentDay,
   intakeHealth,
   intakeMethodLabel,
   intakeMethodNeedsParser,
@@ -140,7 +140,8 @@ function InstrumentsRoute() {
 
 type CalibrationState = 'ok' | 'soon' | 'overdue' | 'na'
 
-function calibrationState(
+/** The registry's calibration due column and its Calibration tab. */
+export function calibrationState(
   dueAt: string | null | undefined,
   now: Date = new Date(),
 ): {
@@ -153,19 +154,20 @@ function calibrationState(
   if (Number.isNaN(due))
     return { state: 'na', label: 'Not calibrated', tone: 'none' }
   const days = Math.floor((due - now.getTime()) / 86_400_000)
+  const day = formatInstrumentDay(dueAt)
   if (days < 0)
     return {
       state: 'overdue',
-      label: `${dueAt.slice(0, 10)} · ${-days} d overdue`,
+      label: `${day} · ${-days} d overdue`,
       tone: 'bad',
     }
   if (days <= CALIBRATION_DUE_SOON_DAYS)
     return {
       state: 'soon',
-      label: `${dueAt.slice(0, 10)} · due in ${days} d`,
+      label: `${day} · due in ${days} d`,
       tone: 'warn',
     }
-  return { state: 'ok', label: dueAt.slice(0, 10), tone: 'ok' }
+  return { state: 'ok', label: day, tone: 'ok' }
 }
 
 function InstrumentsList() {
@@ -610,6 +612,26 @@ function InstrumentsList() {
   )
 }
 
+/**
+ * The inspector's sections are the registry page's top-level sections, so they
+ * are h2 — `InspectorSection` is h3-only and belongs inside an already-titled
+ * page. Same label typography, one level up.
+ */
+function RegistrySection({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      <h2 className="mb-1.5 font-sans text-label font-semibold">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
 export function InstrumentInspector({
   instrument,
   calibration,
@@ -710,7 +732,12 @@ export function InstrumentInspector({
             <Button
               size="sm"
               nativeButton={false}
-              render={<Link to="/schedule" />}
+              // The Schedule opens its book dialog with this instrument already
+              // chosen, so the registry does not send the person back to a list
+              // to find the instrument they were just looking at.
+              render={
+                <Link to="/schedule" search={{ book: instrument.id }} />
+              }
             >
               Book
             </Button>
@@ -729,7 +756,7 @@ export function InstrumentInspector({
             until a validated parser is attached to it.
           </Notice>
         ) : null}
-        <InspectorSection title="How data gets in">
+        <RegistrySection title="How data gets in">
           <DescriptionList
             labelWidth={96}
             items={[
@@ -781,8 +808,8 @@ export function InstrumentInspector({
               </Muted>
             </div>
           ) : null}
-        </InspectorSection>
-        <InspectorSection title="Use">
+        </RegistrySection>
+        <RegistrySection title="Use">
           <DescriptionList
             labelWidth={96}
             items={[
@@ -791,8 +818,8 @@ export function InstrumentInspector({
               ['Owner', ownerLabel],
             ]}
           />
-        </InspectorSection>
-        <InspectorSection title="Calibration">
+        </RegistrySection>
+        <RegistrySection title="Calibration">
           <DescriptionList
             labelWidth={96}
             items={[
@@ -812,9 +839,9 @@ export function InstrumentInspector({
           <Muted className="mt-1.5">
             Certificates and history are on the record.
           </Muted>
-        </InspectorSection>
+        </RegistrySection>
         {canManage ? (
-          <InspectorSection title="Registry">
+          <RegistrySection title="Registry">
             <Button
               size="sm"
               disabled={retire.isPending}
@@ -827,7 +854,7 @@ export function InstrumentInspector({
             <Muted className="mt-1.5">
               Retired instruments stay for history and can’t be booked.
             </Muted>
-          </InspectorSection>
+          </RegistrySection>
         ) : null}
       </div>
     </Inspector>

@@ -6,7 +6,9 @@ import { Button } from '#/components/v3/ui/button'
 import { LinkTabs } from '#/components/v3/projects/search-tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
+  fetchProjectFolders,
   fetchProjectMembers,
+  useProjectMilestones,
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
 import {
@@ -50,6 +52,13 @@ function ProjectLayout() {
   // canonical `project_list_summary.experiment_count` for the same predicate.
   const samplesCount = useProjectRecordCount(project?.id ?? '', 'sample')
   const datasetsCount = useProjectDatasetCount(project?.id ?? '')
+  const milestonesQuery = useProjectMilestones(project?.id ?? '')
+  // Same key the Folders tab uses, so the count and that tab's list share one read.
+  const foldersQuery = useQuery({
+    queryKey: ['project-folders', project?.id ?? ''],
+    queryFn: () => fetchProjectFolders(project?.id ?? ''),
+    enabled: Boolean(project),
+  })
 
   if (!project) {
     return (
@@ -128,34 +137,37 @@ function ProjectLayout() {
               },
               {
                 label: 'Milestones',
+                count: milestonesQuery.data?.length ?? '—',
                 link: { to: '/projects/$projectId/milestones', params },
               },
               {
                 label: 'Experiments',
-                count: project.experimentCount,
+                count: project.experimentCount ?? '—',
                 link: { to: '/projects/$projectId/experiments', params },
               },
               {
                 label: 'Samples',
-                count: samplesCount.data,
+                count: samplesCount.data ?? '—',
                 link: { to: '/projects/$projectId/samples', params },
               },
               {
                 label: 'Datasets',
-                count: datasetsCount.data,
+                count: datasetsCount.data ?? '—',
                 link: { to: '/projects/$projectId/datasets', params },
               },
               {
                 label: 'Folders',
+                count: foldersQuery.data?.length ?? '—',
                 link: { to: '/projects/$projectId/folders', params },
               },
               {
                 label: 'Files',
+                count: '—',
                 link: { to: '/projects/$projectId/files', params },
               },
               {
                 label: 'Members',
-                count: membersQuery.data?.length,
+                count: membersQuery.data?.length ?? '—',
                 link: { to: '/projects/$projectId/members', params },
               },
               {

@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
   project: null as null | Record<string, unknown>,
   samples: 12,
   datasets: 3,
+  milestones: 2,
+  folders: 1,
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -47,6 +49,11 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('#/components/v3/projects/project-data', () => ({
   fetchProjectMembers: async () => [],
+  fetchProjectFolders: async () =>
+    Array.from({ length: state.folders }, (_, i) => ({ id: `folder-${i}` })),
+  useProjectMilestones: () => ({
+    data: Array.from({ length: state.milestones }, (_, i) => ({ id: `m-${i}` })),
+  }),
   useProjectSummary: () => ({ project: state.project, query: {} }),
 }))
 vi.mock('#/components/v3/projects/project-lists', () => ({
@@ -94,7 +101,7 @@ beforeEach(() => {
 })
 
 describe('project header (R5-SURF-02)', () => {
-  it('shows the list tabs with counts and the design’s header actions', () => {
+  it('shows the list tabs with counts and the design’s header actions', async () => {
     renderRoute()
 
     for (const label of [
@@ -113,11 +120,19 @@ describe('project header (R5-SURF-02)', () => {
       ).toBeTruthy()
     }
 
-    // Counts: experiments from project_list_summary, samples/datasets from the
-    // same queries as their tabs.
+    // Every content tab carries its count; a tab that is the content itself
+    // carries none, and Files shows the design's dash. Overview and Settings
+    // stay bare, exactly as the design's own strip shows them.
+    expect(screen.getByRole('link', { name: /^Milestones\s*2$/ })).toBeTruthy()
     expect(screen.getByRole('link', { name: /^Experiments\s*4$/ })).toBeTruthy()
     expect(screen.getByRole('link', { name: /^Samples\s*12$/ })).toBeTruthy()
     expect(screen.getByRole('link', { name: /^Datasets\s*3$/ })).toBeTruthy()
+    // Folders and Members come from reads, so their counts settle a tick later.
+    expect(await screen.findByRole('link', { name: /^Folders\s*1$/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /^Files\s*—$/ })).toBeTruthy()
+    expect(await screen.findByRole('link', { name: /^Members\s*0$/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /^Overview$/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /^Settings$/ })).toBeTruthy()
 
     // Members is a tab, not a header action: one affordance, one destination.
     expect(screen.queryByRole('button', { name: 'Members' })).toBeNull()

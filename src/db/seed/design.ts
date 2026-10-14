@@ -489,18 +489,13 @@ export const designSteps: Array<SeedStep> = [
             createdByUserId: DESIGN_USER_IDS.gareth,
             updatedByUserId: DESIGN_USER_IDS.gareth,
           })
-          .onConflictDoUpdate({
-            target: [
-              schema.recordModelVersions.modelId,
-              schema.recordModelVersions.version,
-            ],
-            set: {
-              lifecycle: 'published',
-              definition,
-              reason: version.reason,
-              publishedAt: version.publishedAt,
-            },
-          })
+          // Published Record Model versions are immutable
+          // (`internal.guard_record_model_version_write` refuses any UPDATE of
+          // a published row), so an upsert here cannot converge on a reseed: it
+          // raises 'published Record Model versions are immutable' and aborts
+          // the whole seed. Insert-if-missing is the only idempotent write for
+          // these rows — a reseed keeps the version the database already holds.
+          .onConflictDoNothing()
       }
 
       for (const record of DESIGN_CELL_BANK_RECORDS) {

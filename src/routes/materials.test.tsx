@@ -149,6 +149,15 @@ describe('materials inspector', () => {
       screen.getAllByRole('button', { name: 'Register replacement lot' }),
     ).toHaveLength(1)
   })
+
+  it('heads its inspector sections at H2, with no skipped level', async () => {
+    renderRoute()
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Lot' }),
+    ).toBeTruthy()
+    expect(screen.queryByRole('heading', { level: 3 })).toBeNull()
+  })
 })
 
 describe('materials toolbar', () => {

@@ -8,7 +8,6 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   DescriptionList,
   Inspector,
-  InspectorSection,
 } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -503,7 +502,10 @@ function MaterialsList() {
             </div>
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title="Lot">
+            {/* The registry's inspector is a top-level section of the page, so
+                its headings are H2 (H1 → H2, no skipped level). */}
+            <section>
+              <h2 className="mb-1.5 font-sans text-label font-semibold">Lot</h2>
               <DescriptionList
                 labelWidth={88}
                 items={[
@@ -537,20 +539,22 @@ function MaterialsList() {
                   ['Stock', stockOfTotal(sel)],
                 ]}
               />
-            </InspectorSection>
-            <InspectorSection
-              title={
-                replacementLink.data ? 'Replacement lot' : 'No replacement lot'
-              }
-            >
+            </section>
+            <section>
+              <h2 className="mb-1.5 font-sans text-label font-semibold">
+                {replacementLink.data ? 'Replacement lot' : 'No replacement lot'}
+              </h2>
               <p className="text-label text-fg-muted">
                 {replacementLink.data
                   ? `${replacementLink.data.targetIdentifier}${replacementLink.data.reason ? ` · ${replacementLink.data.reason}` : ''}`
                   : 'No lot has been registered to replace this one.'}
               </p>
-            </InspectorSection>
+            </section>
             {usage.data?.length ? (
-              <InspectorSection title="Used in">
+              <section>
+                <h2 className="mb-1.5 font-sans text-label font-semibold">
+                  Used in
+                </h2>
                 <ul className="flex flex-col gap-1">
                   {usage.data.map((link) => (
                     <li key={link.id} className="text-label">
@@ -561,7 +565,7 @@ function MaterialsList() {
                     </li>
                   ))}
                 </ul>
-              </InspectorSection>
+              </section>
             ) : null}
           </div>
         </Inspector>

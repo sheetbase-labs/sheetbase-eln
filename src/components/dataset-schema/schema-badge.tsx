@@ -40,7 +40,7 @@ export function SchemaBadge({
           size="sm"
           onClick={onUpgrade}
           disabled={upgrading}
-          className="h-6 gap-1.5 rounded-full px-2 text-xs font-medium leading-4"
+          className="rounded-full"
         >
           {upgrading ? (
             <Loader2 className="size-3 animate-spin" aria-hidden="true" />

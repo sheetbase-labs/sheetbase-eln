@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Toaster } from '#/components/ui/sonner'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import { toast } from 'sonner'
 
 const meta = {

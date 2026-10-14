@@ -181,7 +181,7 @@ export function BookDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button
-        className="ml-2 max-md:ml-0 max-md:h-11 max-md:w-full"
+        className="ml-2 max-md:ml-0 max-md:w-full"
         onClick={() => setOpen(true)}
       >
         Book instrument

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import {
   Tooltip,
   TooltipContent,
@@ -19,7 +19,7 @@ const Demo = ({ open = false }) => (
   <TooltipProvider delayDuration={100}>
     <Tooltip open={open || undefined}>
       <TooltipTrigger asChild>
-        <Button variant="outline" size="icon" aria-label="More information">
+        <Button variant="secondary" size="icon" aria-label="More information">
           <Icon name="info" />
         </Button>
       </TooltipTrigger>

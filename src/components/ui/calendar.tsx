@@ -2,7 +2,7 @@ import * as React from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
 
-import { buttonVariants } from '#/components/ui/button'
+import { buttonVariants } from '#/components/v3/ui/button'
 import { cn } from '#/lib/utils'
 
 function Calendar({
@@ -23,11 +23,11 @@ function Calendar({
         caption_label: 'text-sm font-medium',
         nav: 'flex items-center gap-1',
         button_previous: cn(
-          buttonVariants({ variant: 'outline', size: 'icon-sm' }),
+          buttonVariants({ variant: 'secondary', size: 'icon' }),
           'absolute left-1 size-7 bg-transparent p-0 opacity-70 hover:opacity-100',
         ),
         button_next: cn(
-          buttonVariants({ variant: 'outline', size: 'icon-sm' }),
+          buttonVariants({ variant: 'secondary', size: 'icon' }),
           'absolute right-1 size-7 bg-transparent p-0 opacity-70 hover:opacity-100',
         ),
         month_grid: 'w-full border-collapse space-y-1',
@@ -37,7 +37,7 @@ function Calendar({
         week: 'mt-2 flex w-full',
         day: 'relative size-9 p-0 text-center text-sm focus-within:relative focus-within:z-20',
         day_button: cn(
-          buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+          buttonVariants({ variant: 'quiet', size: 'icon' }),
           'size-9 p-0 font-normal aria-selected:opacity-100',
         ),
         range_end: 'day-range-end',

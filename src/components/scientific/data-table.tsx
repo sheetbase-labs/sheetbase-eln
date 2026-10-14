@@ -181,7 +181,7 @@ function DataTable<TData, TValue>({
                       <Button
                         variant="quiet"
                         size="sm"
-                        className="-ml-2 h-8 rounded-sm px-2 font-medium hover:bg-transparent hover:text-fg dark:hover:bg-transparent"
+                        className="-ml-2 rounded-sm hover:bg-transparent hover:text-fg dark:hover:bg-transparent"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(

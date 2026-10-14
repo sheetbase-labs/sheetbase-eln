@@ -20,6 +20,7 @@ import {
 
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
+import { Button } from '#/components/v3/ui/button'
 
 import { authClient } from '#/lib/auth-client'
 import {
@@ -61,7 +62,6 @@ import type {
 } from './shell-context'
 import {
   Badge,
-  Button,
   Command,
   CommandEmpty,
   CommandGroup,
@@ -386,7 +386,7 @@ function AccountMenu({
         <Button
           type="button"
           variant="quiet"
-          size="icon-sm"
+          size="icon"
           className="rounded-full border border-border"
           aria-label={`Account: ${context.user.name}`}
         >
@@ -759,8 +759,8 @@ export function AppShell({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 className={cn('mt-1 w-full', sidebarCollapsed && 'mx-auto')}
                 aria-label={
                   sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'
@@ -798,8 +798,8 @@ export function AppShell({
                 leading={
                   <>
                     <Button
-                      variant="ghost"
-                      size="icon-sm"
+                      variant="quiet"
+                      size="icon"
                       className="lg:hidden"
                       aria-label="Open navigation"
                       onClick={() => {

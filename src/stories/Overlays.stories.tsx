@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+
+import { Button } from '#/components/v3/ui/button'
 import {
-  Button,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -61,7 +62,7 @@ export const Dialogs: Story = {
       </Dialog>
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button variant="destructive">Archive</Button>
+          <Button variant="danger-fill">Archive</Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -83,7 +84,7 @@ export const SheetPanel: Story = {
   render: () => (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline">Inspect sample</Button>
+        <Button variant="secondary">Inspect sample</Button>
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
@@ -100,13 +101,13 @@ export const Floating: Story = {
       <div className="flex gap-5">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline">Conditions</Button>
+            <Button variant="secondary">Conditions</Button>
           </PopoverTrigger>
           <PopoverContent>37 °C · 5% CO₂ · 24 h</PopoverContent>
         </Popover>
         <HoverCard>
           <HoverCardTrigger asChild>
-            <Button variant="link">SMP-2026-0142</Button>
+            <Button variant="quiet">SMP-2026-0142</Button>
           </HoverCardTrigger>
           <HoverCardContent>Plasma aliquot, donor cohort B</HoverCardContent>
         </HoverCard>
@@ -118,7 +119,7 @@ export const Floating: Story = {
         </Tooltip>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline">Actions</Button>
+            <Button variant="secondary">Actions</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem>Duplicate</DropdownMenuItem>

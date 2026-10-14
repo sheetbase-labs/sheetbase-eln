@@ -2,7 +2,7 @@ import * as React from 'react'
 import { cva } from 'class-variance-authority'
 import type { VariantProps } from 'class-variance-authority'
 
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/ui/input'
 import { cn } from '#/lib/utils'
 
@@ -45,7 +45,7 @@ function InputGroupButton({
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant="quiet"
       className={cn(inputGroupButtonVariants({ size }), className)}
       {...props}
     />

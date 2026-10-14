@@ -2563,7 +2563,7 @@ function WellInspector({
             variant="quiet"
             size="sm"
             onClick={onRemoveWell}
-            className="text-xs text-danger-text"
+            className="text-danger-text"
           >
             <Trash2 /> Remove
           </Button>
@@ -2607,7 +2607,7 @@ function WellInspector({
                 variant="quiet"
                 size="sm"
                 onClick={onClearSample}
-                className="shrink-0 text-xs text-danger-text"
+                className="shrink-0 text-danger-text"
               >
                 Clear
               </Button>
@@ -2680,7 +2680,7 @@ function WellInspector({
                 variant="quiet"
                 size="sm"
                 onClick={onClearVolume}
-                className="text-xs text-danger-text"
+                className="text-danger-text"
               >
                 Clear
               </Button>

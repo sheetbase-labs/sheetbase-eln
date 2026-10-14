@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Badge } from '#/components/v3/ui/badge'
+import { Button } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
@@ -435,11 +436,12 @@ export function LinkToPills({ items }: { items: LinkToItem[] }) {
       {items.map((item, i) => {
         const iconName = item.icon ?? 'link'
         return (
-          <button
+          <Button
             key={i}
             type="button"
+            size="sm"
+            variant="secondary"
             onClick={item.onClick}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-fg transition-colors hover:border-input hover:bg-surface-hover"
           >
             <Icon
               name={iconName}
@@ -451,7 +453,7 @@ export function LinkToPills({ items }: { items: LinkToItem[] }) {
             {item.count > 0 ? (
               <span className="tabular-nums text-fg-muted">({item.count})</span>
             ) : null}
-          </button>
+          </Button>
         )
       })}
     </div>

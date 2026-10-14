@@ -24,6 +24,7 @@ import {
   ActivityFeed,
   CommentList,
 } from '#/components/record'
+import { Button } from '#/components/v3/ui/button'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +36,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   Badge,
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -269,15 +269,14 @@ function FoundationsPage() {
           description="Visible focus is required for every interactive control (DESIGN.md). Signal Blue ring, 2px outline, offset."
         >
           <div className="flex flex-wrap gap-3">
-            <button className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-4 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-              Outline button
-            </button>
-            <a
-              href="#focus"
-              className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            <Button variant="secondary">Outline button</Button>
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<a href="#focus" role="link" />}
             >
               Primary link
-            </a>
+            </Button>
             <input
               aria-label="Sample input"
               className="h-9 rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -588,7 +587,7 @@ function RecordPreview() {
             </>
           }
           actions={
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               Share
             </Button>
           }
@@ -769,7 +768,7 @@ function NotebookVizPreview() {
           state="selected"
           draggable
           actions={
-            <Button variant="ghost" size="sm">
+            <Button variant="quiet" size="sm">
               Edit
             </Button>
           }
@@ -838,17 +837,16 @@ function PrimitivesGrid() {
     <div className="grid gap-4 lg:grid-cols-2">
       <Preview title="Buttons — variants, sizes, disabled">
         <div className="flex flex-wrap items-center gap-3">
-          <Button>Primary</Button>
-          <Button variant="secondary">Secondary</Button>
-          <Button variant="outline">Outline</Button>
-          <Button variant="ghost">Ghost</Button>
-          <Button variant="subtle">Subtle</Button>
-          <Button variant="destructive">Destructive</Button>
+          <Button>Secondary</Button>
+          <Button variant="primary">Primary</Button>
+          <Button variant="quiet">Quiet</Button>
+          <Button variant="danger">Danger</Button>
+          <Button variant="danger-fill">Danger fill</Button>
           <Button disabled>Disabled</Button>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Button size="sm">Small</Button>
-          <Button size="default">Default</Button>
+          <Button size="md">Medium</Button>
           <Button size="lg">Large</Button>
           <Button size="icon" aria-label="Add">
             <Icon name="plus" className="size-4" />
@@ -860,7 +858,7 @@ function PrimitivesGrid() {
         <div className="flex flex-wrap items-center gap-2">
           <Badge>Default</Badge>
           <Badge variant="secondary">Secondary</Badge>
-          <Badge variant="outline">Archived</Badge>
+          <Badge variant="secondary">Archived</Badge>
           <Badge variant="success">In progress</Badge>
           <Badge variant="info">Needs review</Badge>
           <Badge variant="warning">Expiring</Badge>
@@ -920,7 +918,7 @@ function PrimitivesGrid() {
         <TooltipProvider delayDuration={100}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline">Hover me</Button>
+              <Button variant="secondary">Hover me</Button>
             </TooltipTrigger>
             <TooltipContent>Used inline in data tables.</TooltipContent>
           </Tooltip>
@@ -930,7 +928,7 @@ function PrimitivesGrid() {
       <Preview title="Dropdown menu">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline">Actions</Button>
+            <Button variant="secondary">Actions</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem>Rename…</DropdownMenuItem>
@@ -944,7 +942,7 @@ function PrimitivesGrid() {
       <Preview title="Destructive confirmation (AlertDialog)">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive">Delete notebook</Button>
+            <Button variant="danger-fill">Delete notebook</Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -1347,7 +1345,7 @@ function StatesMatrixPreview() {
               The dataset Stability_Raw_Data.csv could not be parsed: 2 rows
               reference missing samples.
             </p>
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               Retry
             </Button>
           </div>

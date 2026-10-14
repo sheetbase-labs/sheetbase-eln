@@ -2,7 +2,7 @@ import { PanelRight } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,9 +98,9 @@ export function TopBarActions({
       <div className="flex flex-1 justify-center">
         <Button
           type="button"
-          variant="ghost"
+          variant="quiet"
           onClick={onOpenPalette}
-          className="hidden h-7 w-[28rem] max-w-full items-center gap-2 rounded-md border border-input bg-card px-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent sm:flex"
+          className="hidden w-[28rem] max-w-full gap-2 border-input bg-card text-left text-muted-foreground hover:bg-accent sm:flex"
           aria-label="Search experiments, samples, datasets"
         >
           <Icon name="search" className="size-3.5 shrink-0" />
@@ -110,8 +110,8 @@ export function TopBarActions({
           <Kbd>⌘K</Kbd>
         </Button>
         <Button
-          variant="ghost"
-          size="icon-sm"
+          variant="quiet"
+          size="icon"
           className="sm:hidden"
           aria-label="Search"
           onClick={onOpenPalette}
@@ -132,7 +132,7 @@ export function TopBarActions({
 
         {hasInspector ? (
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="xl:hidden"
             aria-label={`Open ${inspectorLabel}`}
@@ -146,8 +146,8 @@ export function TopBarActions({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="ghost"
-                size="icon-sm"
+                variant="quiet"
+                size="icon"
                 className="hidden xl:inline-flex"
                 aria-label={
                   inspectorCollapsed ? 'Show inspector' : 'Hide inspector'

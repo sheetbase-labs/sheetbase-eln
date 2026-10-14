@@ -574,7 +574,6 @@ function NewMenu({
             variant="primary"
             icon="plus"
             aria-label="New"
-            className="max-md:size-10 max-md:px-0"
           />
         }
       >

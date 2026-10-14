@@ -1,6 +1,6 @@
 import { PanelRight } from 'lucide-react'
 
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '#/components/ui/sheet'
 import { cn } from '#/lib/utils'
 
@@ -35,8 +35,8 @@ export function ShellInspector({
       {collapsible && collapsed ? (
         <div className="flex h-full flex-col items-center pt-3">
           <Button
-            variant="ghost"
-            size="icon-sm"
+            variant="quiet"
+            size="icon"
             aria-label="Show inspector"
             aria-expanded={false}
             onClick={onToggle}

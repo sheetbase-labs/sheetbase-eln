@@ -1043,7 +1043,6 @@ function ProjectPeek({
           <Button
             size="icon"
             variant="quiet"
-            className="size-6"
             aria-label="Close details"
             onClick={onClose}
           >

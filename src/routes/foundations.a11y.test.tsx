@@ -11,7 +11,8 @@ import {
   statusVocabularies,
 } from '#/components/scientific'
 import type { StatusDomain } from '#/components/scientific'
-import { Button, Input } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
+import { Input } from '#/components/ui'
 
 // Stub the router Link as a plain anchor so no route tree is required.
 vi.mock('@tanstack/react-router', () => ({
@@ -237,7 +238,7 @@ describe('catalogue accessibility (UI-008)', () => {
         <p className="text-sm font-medium text-destructive">
           Failed to load experiment EXP-2174
         </p>
-        <Button variant="outline">Retry</Button>
+        <Button variant="secondary">Retry</Button>
       </div>,
     )
     await expectNoViolations(container)

@@ -47,11 +47,7 @@ export function SignatureDialog({
       : (meanings[0] ?? 'reviewed-and-approved')
   return (
     <>
-      <Button
-        size="sm"
-        className="h-9 w-full text-xs"
-        onClick={() => onOpenChange(true)}
-      >
+      <Button className="w-full" onClick={() => onOpenChange(true)}>
         <Icon name="edit" size={14} aria-hidden />
         Sign revision
       </Button>

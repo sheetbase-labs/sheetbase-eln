@@ -1754,9 +1754,11 @@ function ReviewInspector({
       </div>
 
       <div className="shrink-0 space-y-2 border-t p-3">
-        <Link
-          to="/inbox"
-          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-sm font-medium no-underline hover:bg-muted"
+        <Button
+          variant="secondary"
+          nativeButton={false}
+          className="w-full"
+          render={<Link to="/inbox" role="link" />}
         >
           <Icon
             name="chevronRight"
@@ -1765,7 +1767,7 @@ function ReviewInspector({
             aria-hidden
           />
           Back to inbox
-        </Link>
+        </Button>
         {submission && permission ? (
           <ActionButtons
             submission={submission}
@@ -2748,13 +2750,20 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
         checksum list. Submitted revisions are immutable; the package never
         changes after download-time content is captured.
       </p>
-      <a
-        href={`/api/export/revision/${revisionId}/package`}
-        className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-center text-sm font-medium hover:bg-accent"
+      <Button
+        variant="secondary"
+        nativeButton={false}
+        className="w-full"
+        render={
+          <a
+            href={`/api/export/revision/${revisionId}/package`}
+            role="link"
+          />
+        }
       >
         <Icon name="download" className="size-3.5 shrink-0" aria-hidden />
         Download evidence package (ZIP)
-      </a>
+      </Button>
     </section>
   )
 }
@@ -2838,7 +2847,7 @@ export function AmendmentSection({
         }}
       >
         <ConfirmDialogTrigger asChild>
-          <Button variant="secondary" size="sm" className="h-9 w-full text-xs">
+          <Button variant="secondary" className="w-full">
             <Icon name="check" size={14} aria-hidden />
             Start amendment
           </Button>

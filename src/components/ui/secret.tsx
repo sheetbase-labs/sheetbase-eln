@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 
 import { cn } from '#/lib/utils'
 
-import { Button } from './button'
+import { Button } from '#/components/v3/ui/button'
 
 /**
  * Secret (DSYS-04): a one-time value (API token, verification code) with a

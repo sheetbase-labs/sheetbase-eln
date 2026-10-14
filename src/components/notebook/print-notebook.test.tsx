@@ -61,8 +61,11 @@ describe('ExportEvidenceButton', () => {
     renderWithQuery(
       <ExportEvidenceButton revisionId="aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" />,
     )
-    const link = screen.getByRole('link', { name: 'Export evidence' })
-    expect(link.getAttribute('href')).toBe(
+    // The control is the adopted Button rendered as an anchor, so it is found by
+    // its name and asserted on the destination it carries.
+    const control = screen.getByText('Export evidence').closest('a')
+    expect(control).not.toBeNull()
+    expect(control?.getAttribute('href')).toBe(
       '/api/export/revision/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/package',
     )
   })

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '#/components/v3/icons'
+import { Button } from './button'
 import { Sheet, SheetContent } from './sheet'
 import { cn } from '#/lib/utils'
 
@@ -86,15 +87,17 @@ export function Inspector({
       >
         {children}
       </aside>
-      <button
+      <Button
         type="button"
+        size="lg"
+        variant="secondary"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="fixed bottom-4 right-4 z-30 inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-surface px-4 text-body font-medium text-fg shadow-overlay hover:bg-surface-hover max-md:bottom-[76px] xl:hidden"
+        className="fixed bottom-4 right-4 z-30 rounded-full shadow-overlay max-md:bottom-[76px] xl:hidden"
       >
         <Icon name="info" size={14} />
         {label}
-      </button>
+      </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent title={label}>
           <div className="flex flex-col gap-5 p-4">{children}</div>

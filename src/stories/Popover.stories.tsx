@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/ui/input'
 import {
   Popover,
@@ -18,7 +18,7 @@ export const Default: Story = {
   render: () => (
     <Popover defaultOpen>
       <PopoverTrigger asChild>
-        <Button variant="outline">Open popover</Button>
+        <Button variant="secondary">Open popover</Button>
       </PopoverTrigger>
       <PopoverContent>
         <p className="mb-2 text-sm font-medium">Set dimensions</p>
@@ -31,7 +31,7 @@ export const Open: Story = {
   render: () => (
     <Popover open>
       <PopoverTrigger asChild>
-        <Button variant="outline">Details</Button>
+        <Button variant="secondary">Details</Button>
       </PopoverTrigger>
       <PopoverContent align="start">
         <strong>Experiment details</strong>

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+
+import { Button } from '#/components/v3/ui/button'
 import {
-  Button,
   ButtonGroup,
   Command,
   CommandEmpty,
@@ -81,9 +82,9 @@ export const DetailedMenu: Story = {
 export const GroupedButtons: Story = {
   render: () => (
     <ButtonGroup>
-      <Button variant="outline">Day</Button>
+      <Button variant="secondary">Day</Button>
       <Button variant="secondary">Week</Button>
-      <Button variant="outline">Month</Button>
+      <Button variant="secondary">Month</Button>
     </ButtonGroup>
   ),
 }

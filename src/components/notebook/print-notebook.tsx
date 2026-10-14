@@ -48,11 +48,12 @@ export function ExportEvidenceButton({
   // from api.revision_evidence_package; session cookies authenticate the GET.
   if (!revisionId) return null
   return (
-    <a
-      href={`/api/export/revision/${revisionId}/package`}
-      className="inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium hover:bg-accent"
+    <Button
+      variant="secondary"
+      nativeButton={false}
+      render={<a href={`/api/export/revision/${revisionId}/package`} />}
     >
       Export evidence
-    </a>
+    </Button>
   )
 }

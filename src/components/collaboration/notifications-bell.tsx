@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { Icon } from '#/components/icons'
+import { Button } from '#/components/v3/ui/button'
 import {
-  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -48,7 +48,7 @@ export function NotificationsBell() {
         <Button
           type="button"
           variant="quiet"
-          size="icon-sm"
+          size="icon"
           className="relative"
           aria-label={
             unread.length > 0

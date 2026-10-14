@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +22,7 @@ type Story = StoryObj<typeof meta>
 const Demo = ({ destructive = false }) => (
   <AlertDialog defaultOpen>
     <AlertDialogTrigger asChild>
-      <Button variant={destructive ? 'destructive' : 'outline'}>
+      <Button variant={destructive ? 'danger-fill' : 'secondary'}>
         {destructive ? 'Delete record' : 'Leave page'}
       </Button>
     </AlertDialogTrigger>

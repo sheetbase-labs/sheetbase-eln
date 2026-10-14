@@ -2,13 +2,13 @@ import * as React from 'react'
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui'
 
 import { cn } from '#/lib/utils'
-import { buttonVariants } from '#/components/ui/button'
+import { buttonVariants } from '#/components/v3/ui/button'
 
 /**
  * Destructive confirmation dialog. Radix AlertDialog does not close on
  * outside click or Escape until the user chooses an action, which is the
  * correct behaviour for irreversible operations (UI-002: destructive
- * confirmation). The action button should use `variant="destructive"` from
+ * confirmation). The action button should use `variant="danger-fill"` from
  * `buttonVariants`.
  */
 const AlertDialog = AlertDialogPrimitive.Root
@@ -117,7 +117,7 @@ function AlertDialogCancel({
 }: React.ComponentProps<typeof AlertDialogPrimitive.Cancel>) {
   return (
     <AlertDialogPrimitive.Cancel
-      className={cn(buttonVariants({ variant: 'outline' }), className)}
+      className={cn(buttonVariants({ variant: 'secondary' }), className)}
       {...props}
     />
   )

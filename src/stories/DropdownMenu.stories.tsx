@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Trash2 } from 'lucide-react'
 
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -26,7 +26,7 @@ export const Default: Story = {
   render: () => (
     <DropdownMenu defaultOpen>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline">
+        <Button variant="secondary">
           <Icon name="more" />
           Actions
         </Button>
@@ -54,7 +54,7 @@ export const WithCheckboxes: Story = {
   render: () => (
     <DropdownMenu defaultOpen>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline">Columns</Button>
+        <Button variant="secondary">Columns</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuCheckboxItem checked>Identifier</DropdownMenuCheckboxItem>

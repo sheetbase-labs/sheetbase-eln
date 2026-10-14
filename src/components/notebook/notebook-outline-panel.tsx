@@ -65,7 +65,6 @@ export function NotebookOutlinePanel({
             type="button"
             size="sm"
             variant="quiet"
-            className="h-7 px-2 text-xs"
             onClick={controls.onExpandAllSections}
             aria-label="Expand all sections"
           >
@@ -76,7 +75,6 @@ export function NotebookOutlinePanel({
             type="button"
             size="sm"
             variant="quiet"
-            className="h-7 px-2 text-xs"
             onClick={controls.onCollapseAllSections}
             aria-label="Collapse all sections"
           >

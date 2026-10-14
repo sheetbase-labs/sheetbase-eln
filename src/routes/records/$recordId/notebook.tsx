@@ -1055,25 +1055,15 @@ export function StickyRecordHeader({
           <PresenceStack />
           {/* FIND-02: deliberate pin for fast return; optimistic, never blocking. */}
           <FavouriteToggle kind="record" objectId={record.id} />
-          <PrintNotebookButton className="h-8" />
+          <PrintNotebookButton />
           <ExportEvidenceButton revisionId={evidenceRevisionId} />
           {!historicalRevisionId && !lockedAt ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => setLinkOpen(true)}
-            >
+            <Button type="button" onClick={() => setLinkOpen(true)}>
               Link records…
             </Button>
           ) : null}
           {projectId && !historicalRevisionId ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              onClick={() => setDuplicateOpen(true)}
-            >
+            <Button type="button" onClick={() => setDuplicateOpen(true)}>
               Duplicate
             </Button>
           ) : null}
@@ -1085,7 +1075,7 @@ export function StickyRecordHeader({
               {({ disabled, describedBy }) => (
                 <Button
                   type="button"
-                  size="sm"
+                  variant="primary"
                   disabled={disabled}
                   aria-describedby={describedBy}
                   onClick={() => setSubmitOpen(true)}
@@ -1103,8 +1093,6 @@ export function StickyRecordHeader({
               {({ disabled, describedBy }) => (
                 <Button
                   type="button"
-                  size="sm"
-                  variant="secondary"
                   disabled={disabled}
                   aria-describedby={describedBy}
                   onClick={() => setSignOpen(true)}
@@ -1499,9 +1487,8 @@ export function LockedBanner({
         <>
           <Button
             type="button"
-            size="sm"
             variant="secondary"
-            className="ml-auto h-7"
+            className="ml-auto"
             data-print-hide
             onClick={() => setAmendOpen(true)}
           >
@@ -1589,13 +1576,9 @@ export function NotebookCanvas({
         <p role="alert" className="text-sm text-destructive">
           Could not load the notebook document.
         </p>
-        <button
-          type="button"
-          onClick={onRetry}
-          className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 text-sm font-medium"
-        >
+        <Button type="button" variant="secondary" onClick={onRetry}>
           Try again
-        </button>
+        </Button>
       </div>
     )
   }
@@ -2441,13 +2424,9 @@ export function NotebookErrorState({
       <p role="alert" className="text-sm text-destructive">
         {message}
       </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium"
-      >
+      <Button type="button" variant="secondary" onClick={onRetry}>
         Try again
-      </button>
+      </Button>
     </div>
   )
 }
@@ -2467,12 +2446,13 @@ export function NotebookUnavailableState() {
         workspace membership.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Link
-          to="/projects"
-          className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium no-underline"
+        <Button
+          variant="secondary"
+          nativeButton={false}
+          render={<Link to="/projects" role="link" />}
         >
           All projects
-        </Link>
+        </Button>
       </div>
     </div>
   )

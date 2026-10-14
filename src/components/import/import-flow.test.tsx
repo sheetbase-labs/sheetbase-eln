@@ -331,6 +331,41 @@ describe('ImportUploadFlow', () => {
     expect(screen.getByLabelText('New dataset name')).toBeTruthy()
   })
 
+  it('does not claim the workspace has no Datasets while the list is still loading', async () => {
+    vi.mocked(fetchDatasetSummaries).mockReturnValue(
+      new Promise<CanonicalDatasetWire[]>(() => {}),
+    )
+    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+
+    expect(await screen.findByText('Reading your Datasets…')).toBeTruthy()
+    expect(
+      screen.queryByText(/There is no Dataset to append to yet/),
+    ).toBeNull()
+  })
+
+  it('states a failed Dataset read instead of claiming the workspace has none, and retries it', async () => {
+    vi.mocked(fetchDatasetSummaries)
+      .mockRejectedValueOnce(new Error('The database refused the request.'))
+      .mockResolvedValueOnce([dataset()])
+    const user = userEvent.setup()
+    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+
+    expect(
+      await screen.findByText('Your Datasets could not be read.'),
+    ).toBeTruthy()
+    expect(
+      screen.queryByText(/There is no Dataset to append to yet/),
+    ).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(
+      await screen.findByRole('radio', { name: /Append to a Dataset/ }),
+    ).toBeTruthy()
+    expect(
+      screen.queryByText(/There is no Dataset to append to yet/),
+    ).toBeNull()
+  })
+
   it('creates the new Dataset through the shared resolver, then commits to it', async () => {
     vi.mocked(listPublishedDatasetSchemas).mockResolvedValue([
       {
@@ -554,5 +589,49 @@ describe('ImportMapCheckFlow', () => {
     expect(onSearch).toHaveBeenCalledWith(
       expect.objectContaining({ parser: 'sheetbase.plate-reader-csv' }),
     )
+  })
+
+  it('reads the file one way at the review step, and keeps the choice on the map step', async () => {
+    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
+    importData.fetchImportFile.mockResolvedValue(
+      uploadResponse({
+        parser: null,
+        recognitionMessage:
+          'This file’s headers (raw, dilution) match no approved parser.',
+      }),
+    )
+    importData.reviewImport.mockResolvedValue(reviewResponse())
+    const { unmount } = renderFlow(
+      <ImportMapCheckFlow
+        importId="file-1"
+        search={{ step: 'map', dataset: 'ds-1' }}
+        onSearch={vi.fn()}
+      />,
+    )
+
+    // The map step is where how to read the file is the open question.
+    expect(
+      await screen.findByText('Choose how to read this file'),
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole('table', { name: 'Rows to import' }),
+    ).toBeNull()
+
+    unmount()
+    renderFlow(
+      <ImportMapCheckFlow
+        importId="file-1"
+        search={{ step: 'check', dataset: 'ds-1', map: 'raw:field-1' }}
+        onSearch={vi.fn()}
+      />,
+    )
+
+    // The review step reads the rows the mapping produces: the rows the Import
+    // button counts are on screen, and the file is not also said to be unreadable.
+    expect(
+      await screen.findByRole('table', { name: 'Rows to import' }),
+    ).toBeTruthy()
+    expect(screen.queryByText('Choose how to read this file')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Import 2 rows' })).toBeTruthy()
   })
 })

@@ -164,3 +164,45 @@ describe('Search results page (SRCH-02)', () => {
     expect(screen.queryByText('Results for “clarification”')).toBeNull()
   })
 })
+
+describe('Search count and no-results state (QA3-search-1, QA3-search-2)', () => {
+  it('states the whole match count, not the rows loaded so far', async () => {
+    mocks.rpc.mockImplementation(async () => [
+      { ...RECORD_ROW, total_count: '25' },
+    ])
+    mountSearch({ q: 'plate' })
+    // The heading and the "All" facet both state the service's total.
+    expect(await screen.findAllByText('25')).toHaveLength(2)
+  })
+
+  it('does not blame filters for a miss when only archived is on', async () => {
+    mocks.rpc.mockImplementation(async () => [])
+    mountSearch({ q: 'zzz', archived: true })
+    // The scope is reversible from the panel, and no facet is set, so there is
+    // no "Clear filters" that would change nothing.
+    expect(
+      await screen.findByRole('button', { name: 'Search active work only' }),
+    ).toBeTruthy()
+    expect(
+      screen.queryByText('Nothing matches with these filters.'),
+    ).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull()
+  })
+
+  it('keeps Clear filters when a facet emptied the list, and it clears it', async () => {
+    mocks.rpc.mockImplementation(async () => [])
+    mountSearch({ q: 'zzz', type: ['Records'] })
+    expect(
+      await screen.findByText('Nothing matches with these filters.'),
+    ).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    const call = mocks.navigate.mock.calls.at(-1)?.[0] as {
+      search: (previous: Record<string, unknown>) => Record<string, unknown>
+    }
+    expect(call.search({ type: ['Records'] })).toEqual({
+      type: undefined,
+      project: undefined,
+      updated: undefined,
+    })
+  })
+})

@@ -6,7 +6,7 @@
  * rebuilding a chart from a stored specification yields the same
  * materialisation as the original.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { CHART_SPEC_VERSION } from './chart-spec'
 import type { ChartColumn, ChartSpec } from './chart-spec'
@@ -20,9 +20,12 @@ import {
   exportDataCsv,
   exportViewJson,
   materialiseAnalysisChart,
+  saveAnalysisView,
+  updateAnalysisView,
   validateAnalysisSpec,
 } from './analysis-studio-data'
-import type { SourceRevision } from './analysis-studio-data'
+import type { AnalysisViewWire, SourceRevision } from './analysis-studio-data'
+import type { DataClient } from './data-client'
 import type { CanonicalDatasetSource } from './chart-data'
 
 const DATASET_ID = '11111111-1111-1111-8111-111111111111'
@@ -317,6 +320,73 @@ describe('validateAnalysisSpec', () => {
   })
 })
 
+describe('saved-view writes', () => {
+  const input = {
+    name: 'pH vs stability',
+    spec: spec(),
+    source_revisions: [
+      { datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 },
+    ],
+    export_settings: DEFAULT_EXPORT_SETTINGS,
+  }
+  const saved = {
+    id: 'v-1',
+    name: 'pH vs stability',
+    version: 2,
+  } as AnalysisViewWire
+
+  function client(overrides: Partial<DataClient> = {}): DataClient {
+    return {
+      list: async () => [],
+      count: async () => 0,
+      rpc: async () => undefined,
+      insert: async () => saved,
+      patch: async () => [saved],
+      remove: async () => [],
+      ...overrides,
+    } as DataClient
+  }
+
+  it('returns the row the update wrote', async () => {
+    await expect(
+      updateAnalysisView(client(), 'v-1', input),
+    ).resolves.toBe(saved)
+  })
+
+  it('reports an update that matched no row as a failure', async () => {
+    // PostgREST answers a PATCH that matches nothing with an empty body and no
+    // error, so a view deleted since the list was read would otherwise look
+    // saved and the person would be told nothing.
+    await expect(
+      updateAnalysisView(client({ patch: async () => [] }), 'gone', input),
+    ).rejects.toThrow(/no longer exists/)
+  })
+
+  it('routes an id-bearing save through the update and refuses an empty one', async () => {
+    const patch = vi.fn(async () => [])
+    await expect(
+      saveAnalysisView(
+        client({ patch }),
+        { ...input, id: 'gone' },
+        'ws-1',
+        'u-1',
+      ),
+    ).rejects.toThrow(/no longer exists/)
+    expect(patch).toHaveBeenCalledTimes(1)
+  })
+
+  it('inserts a save that carries no id', async () => {
+    const insert = vi.fn(async () => saved)
+    await expect(
+      saveAnalysisView(client({ insert }), input, 'ws-1', 'u-1'),
+    ).resolves.toBe(saved)
+    expect(insert).toHaveBeenCalledWith(
+      'analysis_views',
+      expect.objectContaining({ workspace_id: 'ws-1', owner_user_id: 'u-1' }),
+    )
+  })
+})
+
 describe('export helpers', () => {
   it('exportViewJson includes spec, settings and provenance', () => {
     const prov = buildExportProvenance(
@@ -355,6 +425,31 @@ describe('export helpers', () => {
     const lines = csv.split('\n')
     expect(lines[0]).toBe('series,x,y,yError')
     expect(lines.length).toBe(1 + rows.length)
+  })
+
+  it('exportDataCsv states a version only when the view has one', () => {
+    // An ad-hoc export has no stored view, so its header carries no id and no
+    // version: a placeholder would read as a version that exists.
+    const materialised = materialiseAnalysisChart(spec(), columns, rows)
+    const stored = buildExportProvenance(
+      { name: 'pH view', id: 'abcdef12-3456-4789-8abc-000000000000', version: 3 },
+      { id: 'u-1', name: 'Alice' },
+      [{ datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 }],
+      spec(),
+    )
+    expect(exportDataCsv(materialised, stored).split('\n')[1]).toBe(
+      '# view: pH view (abcdef12) v3',
+    )
+
+    const adHoc = buildExportProvenance(
+      { name: 'Untitled analysis', id: null, version: null },
+      { id: 'u-1', name: 'Alice' },
+      [],
+      spec(),
+    )
+    expect(exportDataCsv(materialised, adHoc).split('\n')[1]).toBe(
+      '# view: Untitled analysis',
+    )
   })
 })
 

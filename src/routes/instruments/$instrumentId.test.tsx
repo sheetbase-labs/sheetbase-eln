@@ -32,6 +32,8 @@ const qualifications = vi.hoisted(() => ({
   ],
 }))
 
+const calibrations = vi.hoisted(() => ({ current: [] as unknown[] }))
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ instrumentId: 'inst-1' }),
@@ -47,7 +49,26 @@ vi.mock('@tanstack/react-router', () => ({
   Outlet: () => null,
   redirect: (options: unknown) => options,
   useNavigate: () => vi.fn(),
-  Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
+  Link: ({
+    to,
+    search,
+    children,
+  }: {
+    to?: unknown
+    search?: Record<string, unknown>
+    children?: React.ReactNode
+  }) => {
+    // The href is what the page hands the browser, search included: a Book
+    // action that dropped the instrument would render the same href as a link
+    // that never carried it.
+    const path = typeof to === 'string' ? to : '#'
+    const query = new URLSearchParams(
+      Object.entries(search ?? {})
+        .filter(([, value]) => value != null)
+        .map(([key, value]) => [key, String(value)]),
+    ).toString()
+    return <a href={query ? `${path}?${query}` : path}>{children}</a>
+  },
 }))
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
@@ -86,7 +107,10 @@ vi.mock(
       isSuccess: true,
     }),
     useInstrumentRuns: () => ({ data: [], isSuccess: true }),
-    useInstrumentCalibrations: () => ({ data: [], isSuccess: true }),
+    useInstrumentCalibrations: () => ({
+      data: calibrations.current,
+      isSuccess: true,
+    }),
     useInstrumentParsers: () => ({ data: [], isSuccess: true }),
     useInstrumentLastImport: () => ({ data: null, isSuccess: true }),
     useInstrumentNextBooking: () => ({
@@ -109,6 +133,7 @@ function renderPage() {
 
 beforeEach(() => {
   role.current = 'owner'
+  calibrations.current = []
   dataClient.list.mockResolvedValue([{ user_id: 'u-2' }])
   dataClient.rpc.mockImplementation((name: string) => {
     if (name === 'instrument_qualification_list')
@@ -127,7 +152,7 @@ describe('instrument qualification', () => {
     renderPage()
 
     expect(await screen.findByText('Priya Raman')).toBeTruthy()
-    expect(screen.getByText('2027-10-11')).toBeTruthy()
+    expect(screen.getByText('11 Oct 2027')).toBeTruthy()
     expect(screen.getByText('Current')).toBeTruthy()
     expect(screen.getByText('cell culture only')).toBeTruthy()
     expect(dataClient.rpc).toHaveBeenCalledWith('instrument_qualification_list', {
@@ -198,5 +223,35 @@ describe('instrument qualification', () => {
     expect(screen.queryByRole('button', { name: 'Grant qualification' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Revoke' })).toBeNull()
     expect(screen.getByText(/A workspace owner grants/)).toBeTruthy()
+  })
+})
+
+describe('instrument record actions and dates', () => {
+  it('offers Book and carries this instrument to the Schedule', async () => {
+    renderPage()
+
+    const book = await screen.findByRole('link', { name: 'Book' })
+    expect(book.getAttribute('href')).toBe('/schedule?book=inst-1')
+  })
+
+  it('writes calibration days as dates, not raw ISO', async () => {
+    calibrations.current = [
+      {
+        id: 'cal-1',
+        instrumentId: 'inst-1',
+        performedAt: '2026-09-11T00:00:00.000Z',
+        dueAt: '2027-04-09T00:00:00.000Z',
+        certificateFileId: null,
+        performedByUserId: null,
+        notes: null,
+      },
+    ]
+    renderPage()
+
+    // Once in the Calibration summary and once in the history table below it.
+    expect(await screen.findByText('Last performed')).toBeTruthy()
+    expect(screen.getAllByText('11 Sep 2026').length).toBe(2)
+    expect(screen.getAllByText('9 Apr 2027').length).toBe(2)
+    expect(screen.queryByText('2026-09-11')).toBeNull()
   })
 })

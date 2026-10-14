@@ -10,6 +10,7 @@ import {
   rowKey,
 } from './inbox'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
+import { notebookDataClient } from '#/lib/notebook-data'
 import type * as router from '@tanstack/react-router'
 import type * as workItems from '#/lib/work-items/data'
 import type { WorkItem } from '#/lib/work-items/data'
@@ -366,5 +367,223 @@ describe('Inbox failure and filter honesty (QA-013, QA-014, QA-015)', () => {
     const { getByRole } = renderInbox()
     fireEvent.click(getByRole('button', { name: 'Mark all seen' }))
     await waitFor(() => expect(invalidate).toHaveBeenCalled())
+  })
+})
+
+describe('Inbox list matches the active filter (QA3-lists-inbox-1)', () => {
+  const laterReview: WorkItem = {
+    kind: 'review_requested',
+    recordId: 'record-1',
+    identifier: 'EXP-0001',
+    title: 'First review',
+    projectId: 'project-1',
+    reason: 'Review requested',
+    dueAt: null,
+    state: 'needs_action',
+    createdAt: null,
+  }
+  // Twelve live data issues share one dataset identifier, so `rowKey` alone is
+  // not unique among the rendered siblings.
+  const duplicateKeyIssues: WorkItem[] = Array.from({ length: 12 }, (_, n) => ({
+    kind: 'data_issue' as const,
+    recordId: null,
+    identifier: 'DS-0323',
+    title: `Data issue ${n}`,
+    projectId: 'project-1',
+    reason: 'Flagged value',
+    dueAt: null,
+    state: 'needs_action' as const,
+    createdAt: null,
+  }))
+
+  it('renders only the rows the active type chip admits', () => {
+    const base = items.slice(0, 2)
+    items.length = 0
+    items.push(...duplicateKeyIssues, laterReview)
+    try {
+      const { getByRole, queryByRole } = renderInbox()
+      // Every row is undated, so the Later bucket is the tab's only group and
+      // opens expanded; there is nothing left to expand.
+      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(13)
+      expect(queryByRole('button', { name: /^Later · / })).toBeNull()
+      fireEvent.click(getByRole('button', { name: /^Reviews 1$/ }))
+      const rows = document.querySelectorAll('[role="listitem"]')
+      expect(rows).toHaveLength(1)
+      expect(rows[0].textContent).toContain('First review')
+      fireEvent.click(getByRole('button', { name: /^Data issues 12$/ }))
+      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(12)
+    } finally {
+      items.length = 0
+      items.push(...base)
+    }
+  })
+})
+
+describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
+  it('opens the Later rows when they are the only group the tab renders', () => {
+    const base = items.slice(0, 2)
+    items.length = 0
+    items.push(...base.map((i) => ({ ...i, dueAt: null })))
+    try {
+      const { getByRole, queryByRole } = renderInbox()
+      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(2)
+      expect(queryByRole('button', { name: /^Later · / })).toBeNull()
+      // The bucket can still be collapsed explicitly, and then expanded again.
+      fireEvent.click(getByRole('button', { name: 'Collapse' }))
+      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(0)
+      fireEvent.click(getByRole('button', { name: /^Later · 2 items$/ }))
+      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(2)
+    } finally {
+      items.length = 0
+      items.push(...base)
+    }
+  })
+
+  it('keeps Later behind its button while a due-dated group is on the tab', () => {
+    const base = items.slice(0, 2)
+    items.length = 0
+    items.push(
+      ...base,
+      {
+        kind: 'data_issue',
+        recordId: null,
+        identifier: 'DS-0323',
+        title: 'Undated flag',
+        projectId: 'project-1',
+        reason: 'Flagged value',
+        dueAt: null,
+        state: 'needs_action',
+        createdAt: null,
+      },
+    )
+    try {
+      const { getByRole } = renderInbox()
+      // Today holds the due-dated pair; the undated flag stays behind the
+      // bucket's own count.
+      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(2)
+      fireEvent.click(getByRole('button', { name: /^Later · 1 items$/ }))
+      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(3)
+    } finally {
+      items.length = 0
+      items.push(...base)
+    }
+  })
+
+  it('states the tab total in the tab group header while Later is collapsed', () => {
+    const base = items.slice(0, 2)
+    items.length = 0
+    items.push(
+      ...base.map((i) => ({ ...i, state: 'done_today' as const })),
+      ...Array.from({ length: 5 }, (_, n) => ({
+        kind: 'data_issue' as const,
+        recordId: `record-undated-${n}`,
+        identifier: `DS-03${n}`,
+        title: `Done and undated ${n}`,
+        projectId: 'project-1',
+        reason: 'Flagged value',
+        dueAt: null,
+        state: 'done_today' as const,
+        createdAt: null,
+      })),
+    )
+    try {
+      const { getByRole } = renderInbox()
+      fireEvent.click(getByRole('tab', { name: /^Done today/ }))
+      // The tab strip reads 7; the header states the same total, with the
+      // undated 5 accounted for by the bucket button below.
+      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(2)
+      expect(
+        document.querySelector('[role="list"] [role="presentation"]')
+          ?.textContent,
+      ).toBe('Done today7')
+      expect(
+        getByRole('button', { name: /^Later · 5 items$/ }),
+      ).toBeTruthy()
+    } finally {
+      items.length = 0
+      items.push(...base)
+    }
+  })
+})
+
+describe('Inbox marking and empty state (QA3-inbox-1, QA3-inbox-2)', () => {
+  it('marks only the rows the active filter shows', async () => {
+    const rpc = vi.mocked(notebookDataClient.rpc)
+    const { getByRole } = renderInbox()
+    fireEvent.click(getByRole('button', { name: /^Reviews 1$/ }))
+    fireEvent.click(getByRole('button', { name: 'Mark all seen' }))
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('mark_work_items_seen', {
+        p_item_keys: ['review_requested:record-1'],
+      }),
+    )
+  })
+
+  it('disables Mark all seen on a tab with nothing to mark', () => {
+    const { getByRole } = renderInbox()
+    fireEvent.click(getByRole('tab', { name: /^Following/ }))
+    expect(
+      getByRole('button', { name: 'Mark all seen' }).hasAttribute('disabled'),
+    ).toBe(true)
+  })
+
+  it('names the type filter that emptied the list and offers to clear it', () => {
+    const { getByRole, getByText } = renderInbox()
+    fireEvent.click(getByRole('button', { name: /^Materials 0$/ }))
+    expect(getByText('No Materials items in this tab.')).toBeTruthy()
+    fireEvent.click(getByRole('button', { name: 'Clear filter' }))
+    expect(getByRole('button', { name: /First review/ })).toBeTruthy()
+  })
+
+  it('does not claim nothing needs action on the Done today tab', () => {
+    const { getByRole, getByText, queryByText } = renderInbox()
+    fireEvent.click(getByRole('tab', { name: /^Done today/ }))
+    expect(queryByText('Nothing needs your action right now.')).toBeNull()
+    expect(
+      getByText('Nothing has been marked seen or done today.'),
+    ).toBeTruthy()
+  })
+})
+
+describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
+  it('writes the tab into the URL so a reload follows the list', () => {
+    const { getByRole } = renderInbox()
+    fireEvent.click(getByRole('tab', { name: /^Following/ }))
+    const tabCall = navigate.mock.calls[0][0] as {
+      to: string
+      search: (previous: Record<string, unknown>) => Record<string, unknown>
+    }
+    expect(tabCall.to).toBe('/inbox')
+    expect(tabCall.search({ type: 'reviews' })).toEqual({
+      type: undefined,
+      tab: 'following',
+    })
+  })
+
+  it('writes the type chip into the URL', () => {
+    const { getByRole } = renderInbox()
+    fireEvent.click(getByRole('button', { name: /^Reviews 1$/ }))
+    const typeCall = navigate.mock.calls[0][0] as {
+      search: (previous: Record<string, unknown>) => Record<string, unknown>
+    }
+    expect(typeCall.search({ type: undefined })).toEqual({ type: 'reviews' })
+  })
+
+  it('moves between tabs with the arrow keys and roves the tab stop', () => {
+    const { getByRole } = renderInbox()
+    const needs = getByRole('tab', { name: /^Needs action/ })
+    needs.focus()
+    fireEvent.keyDown(needs, { key: 'ArrowRight' })
+    const following = getByRole('tab', { name: /^Following/ })
+    expect(following.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(following)
+    expect(needs.getAttribute('tabindex')).toBe('-1')
+    expect(following.getAttribute('tabindex')).toBe('0')
+
+    fireEvent.keyDown(following, { key: 'End' })
+    const done = getByRole('tab', { name: /^Done today/ })
+    expect(done.getAttribute('aria-selected')).toBe('true')
+    fireEvent.keyDown(done, { key: 'ArrowRight' })
+    expect(needs.getAttribute('aria-selected')).toBe('true')
   })
 })

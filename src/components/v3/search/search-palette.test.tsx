@@ -415,3 +415,34 @@ describe('SearchPalette failure, progress and scope (R5-SHELL-04)', () => {
     expect(await screen.findByText('PT-0001')).toBeTruthy()
   })
 })
+
+describe('SearchPalette combobox wiring (QA3-palette-2)', () => {
+  beforeEach(() => {
+    mocks.rpc.mockReset()
+    mocks.rpc.mockImplementation(async () => [])
+  })
+
+  it('only points aria-controls at a listbox that is in the document', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Open search' }))
+    const input = await screen.findByPlaceholderText(
+      'Search experiments, samples, datasets',
+    )
+
+    mocks.rpc.mockRejectedValueOnce(new Error('search unavailable'))
+    await user.type(input, 'plate')
+    await screen.findByText('Search could not run')
+    expect(input.getAttribute('aria-controls')).toBeNull()
+    expect(input.getAttribute('aria-activedescendant')).toBeNull()
+
+    mocks.rpc.mockImplementation(async (name: string) =>
+      name === 'search' ? [RECORD_ROW] : [],
+    )
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    await screen.findByText('EXP-0142')
+    const id = input.getAttribute('aria-controls')
+    expect(id).toBeTruthy()
+    expect(document.getElementById(id as string)).toBeTruthy()
+  })
+})

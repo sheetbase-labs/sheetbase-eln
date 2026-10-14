@@ -10,7 +10,11 @@ import userEvent from '@testing-library/user-event'
 import type { UserEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { InstrumentInspector, RegisterInstrument } from './instruments'
+import {
+  InstrumentInspector,
+  RegisterInstrument,
+  calibrationState,
+} from './instruments'
 import type { InstrumentRow } from '#/components/v3/instruments/instruments-data'
 import type * as router from '@tanstack/react-router'
 
@@ -22,9 +26,26 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
   return {
     ...actual,
-    Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
-      <a href={typeof to === 'string' ? to : '#'}>{children}</a>
-    ),
+    // The href is what the registry hands the browser, so the mock keeps the
+    // search: a Book action that dropped the instrument would render the same
+    // href as one that never carried it.
+    Link: ({
+      to,
+      children,
+      search,
+    }: {
+      to?: unknown
+      children?: React.ReactNode
+      search?: Record<string, unknown>
+    }) => {
+      const path = typeof to === 'string' ? to : '#'
+      const query = new URLSearchParams(
+        Object.entries(search ?? {})
+          .filter(([, value]) => value != null)
+          .map(([key, value]) => [key, String(value)]),
+      ).toString()
+      return <a href={query ? `${path}?${query}` : path}>{children}</a>
+    },
   }
 })
 
@@ -376,5 +397,58 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       (await screen.findAllByText('Not connected')).length,
     ).toBeGreaterThan(0)
     expect(screen.queryByLabelText('How data gets in')).toBeNull()
+  })
+
+  it('sends Book to the Schedule carrying this instrument, so its dialog opens on it', async () => {
+    wireRows({
+      parsers: [],
+      parser_versions: [],
+      dataset_imports: [],
+      calendar_bookings: [],
+      instruments: [{ id: 'ins-1', retired_at: null }],
+    })
+    renderInspector()
+
+    const book = await screen.findByRole('link', { name: 'Book' })
+    expect(book.getAttribute('href')).toBe('/schedule?book=ins-1')
+  })
+
+  it('offers no Book action for a retired instrument', async () => {
+    wireRows({
+      parsers: [],
+      parser_versions: [],
+      dataset_imports: [],
+      instruments: [{ id: 'ins-1', retired_at: '2026-09-01T00:00:00.000Z' }],
+    })
+    renderInspector({ retiredAt: '2026-09-01T00:00:00.000Z' })
+
+    expect(await screen.findByText('Not bookable')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Book' })).toBeNull()
+  })
+})
+
+describe('R5-CONFIG-02 calibration due', () => {
+  const now = new Date('2026-10-14T00:00:00.000Z')
+
+  it('writes the due day the way the lab surfaces write dates, not as raw ISO', () => {
+    expect(calibrationState('2027-04-09T00:00:00.000Z', now)).toEqual({
+      state: 'ok',
+      label: '9 Apr 2027',
+      tone: 'ok',
+    })
+  })
+
+  it('keeps the standing beside the day', () => {
+    expect(calibrationState('2026-09-30T00:00:00.000Z', now).label).toBe(
+      '30 Sep 2026 · 14 d overdue',
+    )
+    expect(calibrationState('2026-10-20T00:00:00.000Z', now).label).toBe(
+      '20 Oct 2026 · due in 6 d',
+    )
+    expect(calibrationState(null, now)).toEqual({
+      state: 'na',
+      label: 'Not calibrated',
+      tone: 'none',
+    })
   })
 })

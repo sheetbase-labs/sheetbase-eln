@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CALIBRATION_DUE_SOON_DAYS,
   calibrationStatus,
+  formatInstrumentDay,
   intakeHealth,
   latestCalibrationByInstrument,
   parserReadinessByInstrument,
@@ -107,5 +108,21 @@ describe('registry intake health', () => {
     expect(
       intakeHealth('webhook', { parserReady: true, lastImport: null }),
     ).toEqual({ tone: 'draft', label: 'Waiting for first data' })
+  })
+})
+
+describe('registry day labels', () => {
+  it('writes a stored calibration day the way the other lab surfaces write dates', () => {
+    expect(formatInstrumentDay('2027-04-09T00:00:00.000Z')).toBe('9 Apr 2027')
+    // The day is the recorded UTC day: a late-evening instant must not slide to
+    // the next date for a reader east of Greenwich, or to the day before for one
+    // west of it.
+    expect(formatInstrumentDay('2027-04-09T23:30:00.000Z')).toBe('9 Apr 2027')
+    expect(formatInstrumentDay('2026-09-11')).toBe('11 Sep 2026')
+  })
+
+  it('reports a missing or unreadable day as an em dash', () => {
+    expect(formatInstrumentDay(null)).toBe('—')
+    expect(formatInstrumentDay('not-a-day')).toBe('—')
   })
 })

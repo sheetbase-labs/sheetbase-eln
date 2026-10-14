@@ -122,11 +122,44 @@ function AnalysisHome() {
           return false
         return true
       }),
-    [rows, tab, needle, userId],
+    // `citedIds` resolves from its own query after the first render, so it has
+    // to be a dependency: without it a direct load of ?tab=cited filters against
+    // the empty set and never recomputes when the citations land.
+    [rows, tab, needle, userId, citedIds],
   )
 
   const recent = (datasets.data ?? []).slice(0, 3)
   const selected = visible.find((v) => v.id === selectedId) ?? null
+
+  // The empty state says why the list is empty, so a tab filter that matches
+  // nothing does not read as a workspace with no analyses: the header above
+  // reports "N saved analyses" from the unfiltered rows.
+  const emptyCopy = (() => {
+    if (needle)
+      return {
+        title: 'No analyses match',
+        body: 'No analysis ID, name, kind or dataset matches that search. Clear it to see every saved analysis.',
+      }
+    if (rows.length > 0 && tab === 'cited')
+      return {
+        title: 'No analyses are cited in records',
+        body: 'An analysis appears here once a notebook or record cites it. Open an analysis to cite it, or start a new one.',
+      }
+    if (rows.length > 0 && tab === 'mine')
+      return {
+        title: 'No analyses of your own',
+        body: 'You have not saved an analysis in this workspace yet. Start one, or open All to see analyses other people saved.',
+      }
+    if (rows.length > 0 && tab === 'drafts')
+      return {
+        title: 'No draft analyses',
+        body: 'Every analysis in this workspace has been edited past its first version, so none is still a draft.',
+      }
+    return {
+      title: 'No analyses yet',
+      body: 'An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start.',
+    }
+  })()
 
   if (state === 'denied') {
     return (
@@ -230,7 +263,7 @@ function AnalysisHome() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {views.isLoading ? (
+          {views.isLoading || (tab === 'cited' && citations.isLoading) ? (
             <div className="px-4 py-5 md:px-6">
               <Muted>Loading analyses…</Muted>
             </div>
@@ -242,8 +275,8 @@ function AnalysisHome() {
               <EmptyState
                 icon="chart"
                 className="items-center text-center"
-                title={needle ? 'No analyses match' : 'No analyses yet'}
-                body="An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start."
+                title={emptyCopy.title}
+                body={emptyCopy.body}
               >
                 <div className="flex flex-wrap justify-center gap-2">
                   {MODES.map((m) => (

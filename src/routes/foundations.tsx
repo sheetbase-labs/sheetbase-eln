@@ -90,9 +90,12 @@ function FoundationsPage() {
       <div className="mx-auto max-w-5xl px-6 py-10">
         <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Foundations
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Foundations
+              </p>
+              <Badge variant="outline">Development only</Badge>
+            </div>
             <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight">
               Visual rules and semantic tokens
             </h1>
@@ -345,7 +348,7 @@ function FoundationsPage() {
         <Section
           id="shell"
           title="Application shell"
-          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/sign-out. The live shell wraps /projects; this is a framed taster, not a full re-render."
+          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/sign-out. The shell that wraps /projects today is the adopted v3 AppShell; the frame below is the retired legacy chrome kept as a static reference, not a live render."
         >
           <AppShellPreview />
         </Section>
@@ -1298,17 +1301,19 @@ function AppShellPreview() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              The live shell wraps{' '}
-              <code className="text-foreground">/projects</code> with a
-              fixed/collapsible sidebar, mobile Sheet navigation, command
-              palette, theme/sign-out and an optional inspector pane.
+              The retired legacy shell drew a fixed/collapsible sidebar, mobile
+              Sheet navigation, command palette, theme/sign-out and an optional
+              inspector pane. The live shell that wraps{' '}
+              <code className="text-foreground">/projects</code> today is the
+              adopted v3 AppShell, with its own navigation.
             </p>
           </div>
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Visit <code>/projects</code> for the full interactive shell. Sidebar
-        state persists to localStorage; the command palette opens with Ctrl+K.
+        Visit <code>/projects</code> for the live shell. The sidebar&rsquo;s
+        collapsed state persists to localStorage; the search palette opens with{' '}
+        <code>⌘K</code>.
       </p>
     </div>
   )

@@ -360,6 +360,11 @@ export function SearchPalette({
     scope === SEARCH_SCOPE_ALL && totalCount
       ? `See all ${totalCount} results`
       : 'See all results'
+  // QA3-palette-2 — the listbox only replaces the error and no-match states
+  // when it is actually rendered; `aria-controls` must not point at an id the
+  // document does not contain in those states.
+  const showList =
+    !error && !(res !== null && q.trim() && entryCount === 0 && !searching)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -382,9 +387,9 @@ export function SearchPalette({
               placeholder="Search experiments, samples, datasets"
               role="combobox"
               aria-expanded={entryCount > 0}
-              aria-controls={listId}
+              aria-controls={showList ? listId : undefined}
               aria-activedescendant={
-                entryCount ? `${listId}-${activeIndex}` : undefined
+                showList && entryCount ? `${listId}-${activeIndex}` : undefined
               }
               aria-autocomplete="list"
               className="w-full border-0 bg-transparent font-sans text-[15px] text-fg outline-none placeholder:text-fg-faint"
@@ -409,15 +414,19 @@ export function SearchPalette({
           <button
             type="button"
             aria-pressed={archived}
+            aria-label="Include archived"
             onClick={() => setArchived((a) => !a)}
             className={cn(
-              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-label text-fg hover:bg-surface-hover max-md:hidden [&_svg]:text-fg-muted',
+              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-label text-fg hover:bg-surface-hover max-md:px-2 [&_svg]:text-fg-muted',
               archived &&
                 'border-selection-border bg-selection font-medium hover:bg-selection',
             )}
           >
             <Icon name="archive" size={12} />
-            Include archived
+            {/* QA3-palette-1 — the scope stays available at every width: the
+                label becomes screen-reader only rather than being removed
+                with the control (the label is also the accessible name). */}
+            <span className="max-md:sr-only">Include archived</span>
           </button>
           <DialogPrimitive.Close className="inline-flex h-9 cursor-pointer items-center rounded-md border-0 bg-transparent px-2 text-body text-link md:hidden">
             Cancel
@@ -439,7 +448,7 @@ export function SearchPalette({
               </Button>
             </div>
           </div>
-        ) : res !== null && q.trim() && entryCount === 0 && !searching ? (
+        ) : !showList ? (
           <div role="status" className="flex flex-col gap-2.5 px-5 py-7">
             {items.length > 0 ? (
               <>
@@ -490,7 +499,14 @@ export function SearchPalette({
                   {archived ? (
                     <>
                       Archived work searched too: still no matches for “
-                      {q.trim()}”.
+                      {q.trim()}”.{' '}
+                      <button
+                        type="button"
+                        onClick={() => setArchived(false)}
+                        className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+                      >
+                        Search active work only
+                      </button>
                     </>
                   ) : (
                     <>

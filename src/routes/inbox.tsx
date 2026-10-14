@@ -241,20 +241,92 @@ function Inbox() {
     items.filter((i) => itemTab(i, seen) === t).length
   const typeCount = (t: InboxType) =>
     inTab.filter((i) => workItemType(i.kind) === t).length
+  const typeLabel = type
+    ? (types.find(([t]) => t === type)?.[1] ?? type)
+    : undefined
 
   // QA2-Inbox-2: while the read is outstanding the counts are unknown, not
   // zero. Stating 0 made the page disagree with the sidebar and hid the fact
   // that nothing had answered yet.
   const countsKnown = !query.isLoading
 
-  const needsActionKeys = items
-    .filter((i) => itemTab(i, seen) === 'needs-action')
-    .map(itemKey)
+  // QA3-inbox-1 — "Mark all seen" acts on the items the current tab and type
+  // chip show, not on every needs-action item. On Following and Done today
+  // there is nothing of the sort on screen, and a type chip narrows the list,
+  // so marking the rest reported success for work the person could not see.
+  const markableKeys = useMemo(
+    () =>
+      visible
+        .filter((i) => itemTab(i, seen) === 'needs-action')
+        .map(itemKey),
+    [visible, seen],
+  )
 
   // SHELL-03.3 — the List scope through the single shortcut registry. The
   // ordered rows and the current selection live in refs so the registered
   // handlers stay stable and the provider does not re-register every render.
   const navigate = useNavigate()
+
+  // QA3-inbox-4 — the tab and the type chips write the URL, so a reload and
+  // Back agree with the list on screen. The URL was only ever read: clicking
+  // Following left `?type=reviews` in the address bar and a reload restored
+  // the old filter.
+  const updateSearch = useCallback(
+    (patch: { tab?: InboxTab; type?: InboxType }) => {
+      void navigate({
+        to: '/inbox',
+        search: (previous: { tab?: InboxTab; type?: InboxType }) => ({
+          ...previous,
+          ...patch,
+        }),
+      } as never)
+    },
+    [navigate],
+  )
+  const selectTab = (next: InboxTab) => {
+    setTab(next)
+    setType(undefined)
+    setLater(false)
+    updateSearch({
+      tab: next === 'needs-action' ? undefined : next,
+      type: undefined,
+    })
+  }
+  const selectType = (next: InboxType | undefined) => {
+    setType(next)
+    updateSearch({ type: next })
+  }
+
+  // QA3-inbox-3 — the tabs announce `role="tab"`, so the arrow keys move
+  // between them and only the selected tab sits in the tab order, matching
+  // what a screen reader is told.
+  const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
+  const onTabKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const current = tabs.findIndex(([t]) => t === tab)
+    let next: number
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        next = (current + 1) % tabs.length
+        break
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        next = (current - 1 + tabs.length) % tabs.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = tabs.length - 1
+        break
+      default:
+        return
+    }
+    event.preventDefault()
+    selectTab(tabs[next][0])
+    tabsRef.current[next]?.focus()
+  }
+
   const filterRef = useRef<HTMLDivElement>(null)
   const rowsRef = useRef<WorkItem[]>(orderedRows)
   const selectedKeyRef = useRef<string | null>(selectedKey)
@@ -334,8 +406,8 @@ function Inbox() {
               Notification settings
             </Button>
             <Button
-              disabled={markSeen.isPending || needsActionKeys.length === 0}
-              onClick={() => markSeen.mutate(needsActionKeys)}
+              disabled={markSeen.isPending || markableKeys.length === 0}
+              onClick={() => markSeen.mutate(markableKeys)}
             >
               Mark all seen
             </Button>
@@ -343,19 +415,20 @@ function Inbox() {
           <div
             role="tablist"
             aria-label="Inbox"
+            onKeyDown={onTabKeys}
             className="mt-1 flex gap-5 overflow-x-auto [scrollbar-width:none]"
           >
-            {tabs.map(([t, l]) => (
+            {tabs.map(([t, l], index) => (
               <button
                 key={t}
+                ref={(el) => {
+                  tabsRef.current[index] = el
+                }}
                 type="button"
                 role="tab"
                 aria-selected={tab === t}
-                onClick={() => {
-                  setTab(t)
-                  setType(undefined)
-                  setLater(false)
-                }}
+                tabIndex={tab === t ? 0 : -1}
+                onClick={() => selectTab(t)}
                 className={cn(
                   'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted hover:text-fg max-md:h-11',
                   tab === t && 'border-link text-fg',
@@ -381,7 +454,7 @@ function Inbox() {
             variant="quiet"
             aria-pressed={!type}
             className={!type ? 'bg-selection hover:bg-selection' : undefined}
-            onClick={() => setType(undefined)}
+            onClick={() => selectType(undefined)}
           >
             All types
           </Button>
@@ -394,7 +467,7 @@ function Inbox() {
               className={
                 type === t ? 'bg-selection hover:bg-selection' : undefined
               }
-              onClick={() => setType(type === t ? undefined : t)}
+              onClick={() => selectType(type === t ? undefined : t)}
             >
               <Dot tone={tone} />
               {l} {countsKnown ? typeCount(t) : '—'}
@@ -451,10 +524,21 @@ function Inbox() {
                 {query.isLoading ? 'Loading…' : 'Nothing here'}
               </div>
               <div className="max-w-[460px] leading-[19px] text-fg-muted">
-                {tab === 'following'
-                  ? 'Records you follow appear here.'
-                  : 'Nothing needs your action right now.'}
+                {type
+                  ? `No ${typeLabel} items in this tab.`
+                  : tab === 'following'
+                    ? 'Records you follow appear here.'
+                    : tab === 'done-today'
+                      ? 'Nothing has been marked seen or done today.'
+                      : 'Nothing needs your action right now.'}
               </div>
+              {/* QA3-inbox-2 — the type chips narrow the list, so the state
+                  that empties it offers the way back. */}
+              {type ? (
+                <Button size="sm" onClick={() => selectType(undefined)}>
+                  Clear filter
+                </Button>
+              ) : null}
             </div>
           ) : (
             <div role="list" aria-label="Inbox items">
@@ -479,11 +563,17 @@ function Inbox() {
                         </button>
                       ) : null}
                     </div>
-                    {rows.map((i) => {
+                    {rows.map((i, index) => {
                       const key = rowKey(i)
                       return (
                         <div
-                          key={key}
+                          // QA3-lists-inbox-1 — `rowKey` mirrors the boundary
+                          // identity, but distinct work items can share it
+                          // (many data issues carry one dataset's identifier),
+                          // and duplicate keys leave removed rows on screen.
+                          // The position disambiguates the rendered siblings;
+                          // `key` still drives selection.
+                          key={`${key}#${index}`}
                           role="listitem"
                           aria-current={selected === i ? true : undefined}
                         >

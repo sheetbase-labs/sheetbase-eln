@@ -69,6 +69,23 @@ export const Route = createFileRoute('/search')({
   component: SearchPage,
 })
 
+/**
+ * QA3-search-2 — the number of matches to state. The service's `total_count`
+ * is the whole match set for the query and the facets it was given; when a
+ * client-side facet has already dropped rows from the loaded page, only the
+ * rows in hand can be counted, so the page states that instead of a number it
+ * cannot back.
+ */
+export function searchMatchCount(
+  loadedCount: number,
+  shownCount: number,
+  total: number | undefined,
+): number {
+  return total !== undefined && loadedCount === shownCount
+    ? total
+    : shownCount
+}
+
 function statusTone(status: string): Tone {
   switch (status) {
     case 'approved':
@@ -128,6 +145,9 @@ function SearchPage() {
   })
 
   const loaded = useMemo(() => query.data?.pages.flat() ?? [], [query.data])
+  // QA3-search-2 — the service's own total, not just the page in hand, is the
+  // number of matches the heading and the "All" facet state.
+  const totalCount = query.data?.pages.at(-1)?.at(0)?.totalCount
   // Archived is pushed to the RPC as p_include_archived (via
   // urlFiltersToSearchFilters); the remaining facets are still applied here as
   // the authoritative client filter because the RPC narrowing may be a
@@ -137,6 +157,11 @@ function SearchPage() {
     project: search.project,
     updated: search.updated,
   })
+  const matchCount = searchMatchCount(
+    loaded.length,
+    results.length,
+    totalCount,
+  )
 
   const suggestionQuery = useQuery({
     queryKey: ['did-you-mean', q],
@@ -191,11 +216,15 @@ function SearchPage() {
           : undefined,
     })
 
-  const activeFilters =
+  // QA3-search-1 — only the type, project and updated facets narrow the
+  // results. "Include archived" widens the *query*, so ticking it alone must
+  // not make the empty state blame filters (nor offer a Clear filters button
+  // that resets facets which are already unset).
+  const facetFilterCount =
     typeFilter.length +
     projectFilter.length +
-    (updatedFilter === '7d' ? 1 : 0) +
-    (search.archived ? 1 : 0)
+    (updatedFilter === '7d' ? 1 : 0)
+  const activeFilters = facetFilterCount + (search.archived ? 1 : 0)
 
   const facetsEl = q ? (
     <>
@@ -205,7 +234,7 @@ function SearchPage() {
         </legend>
         <FacetRow
           label="All"
-          count={results.length}
+          count={matchCount}
           checked={!typeFilter.length}
           onChange={() => setSearch({ type: undefined })}
         />
@@ -333,7 +362,7 @@ function SearchPage() {
                 Results for “{q}”
               </h1>
               <span className="num text-body text-fg-muted">
-                {results.length}
+                {matchCount}
               </span>
               <span className="flex-1" />
               {/* The `search` RPC ranks by relevance and takes no sort
@@ -375,11 +404,13 @@ function SearchPage() {
               <NoResults
                 q={q}
                 archived={Boolean(search.archived)}
-                filtered={activeFilters > 0}
+                filtered={facetFilterCount > 0}
                 suggestions={(suggestionQuery.data ?? []).filter(
                   (s) => s.identifier.toLowerCase() !== q.trim().toLowerCase(),
                 )}
-                onArchived={() => setSearch({ archived: true })}
+                onArchivedChange={(on) =>
+                  setSearch({ archived: on || undefined })
+                }
                 onClear={() =>
                   setSearch({
                     type: undefined,
@@ -500,14 +531,14 @@ function NoResults({
   archived,
   filtered,
   suggestions,
-  onArchived,
+  onArchivedChange,
   onClear,
 }: {
   q: string
   archived: boolean
   filtered: boolean
   suggestions: { kind: string; identifier: string; title: string }[]
-  onArchived: () => void
+  onArchivedChange: (on: boolean) => void
   onClear: () => void
 }) {
   return (
@@ -547,13 +578,22 @@ function NoResults({
       ) : null}
       <p className="m-0 text-label text-fg-muted">
         {archived ? (
-          `Archived projects searched too: still no matches for "${q}".`
+          <>
+            Archived projects searched too: still no matches for “{q}”.{' '}
+            <button
+              type="button"
+              onClick={() => onArchivedChange(false)}
+              className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+            >
+              Search active work only
+            </button>
+          </>
         ) : (
           <>
             Archived projects and other workspaces aren’t searched.{' '}
             <button
               type="button"
-              onClick={onArchived}
+              onClick={() => onArchivedChange(true)}
               className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
             >
               Include archived

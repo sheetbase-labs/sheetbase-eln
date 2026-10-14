@@ -177,7 +177,12 @@ function Inbox() {
   const search = useSearch({ from: '/inbox' })
   const [tab, setTab] = useState<InboxTab>(search.tab ?? 'needs-action')
   const [type, setType] = useState<InboxType | undefined>(search.type)
-  const [later, setLater] = useState(false)
+  // QA3-lists-inbox-2 — `later` is the person's explicit choice: null means
+  // "follow the default", which expands the bucket when it holds every row the
+  // tab would render. A tab whose items are all undated then shows its rows
+  // instead of its count over an empty list, and the group's Collapse control
+  // still wins once the person has chosen.
+  const [later, setLater] = useState<boolean | null>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [selection, setSelection] = useState<Set<string>>(() => new Set())
 
@@ -204,7 +209,13 @@ function Inbox() {
     () => new Set(visible.map((i) => itemKey(i))),
     [visible],
   )
-  const shown = visible.filter((i) => later || !groups.later.includes(i))
+  // The Later bucket is the tab's only group when every visible row lives in
+  // it (in this workspace every needs-action item is undated, so that is the
+  // whole tab).
+  const laterHoldsEveryRow =
+    visible.length > 0 && visible.every((i) => groups.later.includes(i))
+  const laterExpanded = later ?? laterHoldsEveryRow
+  const shown = visible.filter((i) => laterExpanded || !groups.later.includes(i))
   const hiddenLater = groups.later.filter(
     (i) => itemTab(i, seen) === tab && (!type || workItemType(i.kind) === type),
   ).length
@@ -219,13 +230,13 @@ function Inbox() {
             ],
             [
               'Later',
-              later
+              laterExpanded
                 ? groups.later.filter((i) => visibleKeys.has(itemKey(i)))
                 : [],
             ],
           ]
         : [[null, shown]],
-    [tab, groups, later, shown, visibleKeys],
+    [tab, groups, laterExpanded, shown, visibleKeys],
   )
   const orderedRows = useMemo(
     () => sections.flatMap(([, group]) => group),
@@ -286,7 +297,7 @@ function Inbox() {
   const selectTab = (next: InboxTab) => {
     setTab(next)
     setType(undefined)
-    setLater(false)
+    setLater(null)
     updateSearch({
       tab: next === 'needs-action' ? undefined : next,
       type: undefined,
@@ -551,7 +562,12 @@ function Inbox() {
                       className="flex h-8 items-center gap-2 border-b border-border-subtle bg-surface-muted px-4 text-label font-medium text-fg-muted md:px-6"
                     >
                       {g ?? tabs.find(([t]) => t === tab)![1]}
-                      <span className="num font-normal">{rows.length}</span>
+                      {/* QA3-lists-inbox-2 — the tab's own group states the
+                          tab's total, so the strip and the list agree in one
+                          viewport; a due-date group states its own rows. */}
+                      <span className="num font-normal">
+                        {g === null ? visible.length : rows.length}
+                      </span>
                       {g === 'Later' ? (
                         <button
                           type="button"
@@ -637,7 +653,7 @@ function Inbox() {
               })}
             </div>
           )}
-          {hiddenLater > 0 && !later ? (
+          {hiddenLater > 0 && !laterExpanded ? (
             <button
               type="button"
               aria-expanded={false}

@@ -129,15 +129,22 @@ function Rows() {
   const fields = fieldsQuery.data ?? []
   const flags = flagsQuery.data ?? []
   const flagIndex = useMemo(() => buildFlagIndex(flags), [flags])
-  const flaggedRowCount = useMemo(
-    () => new Set(flags.map((f) => f.rowId)).size,
+  const flaggedRowIds = useMemo(
+    () => new Set(flags.map((f) => f.rowId)),
     [flags],
   )
 
   const q = (search.q ?? '').trim().toLowerCase()
   const rows = rowsQuery.data?.pages.flatMap((page) => page.rows) ?? []
+  // The flagged filter reads only the rows loaded so far, so its count must
+  // too — otherwise "(12)" sits beside "Showing 9 of 162" as a contradiction.
+  // The count converges on the dataset total as "Load more" extends the window.
+  const loadedFlaggedCount = rows.reduce(
+    (count, row) => (flaggedRowIds.has(row.rowId) ? count + 1 : count),
+    0,
+  )
   const visible = rows.filter((r) => {
-    if (search.flagged && !flags.some((f) => f.rowId === r.rowId)) return false
+    if (search.flagged && !flaggedRowIds.has(r.rowId)) return false
     if (!q) return true
     return Object.values(r.values).some((v) =>
       String(v).toLowerCase().includes(q),
@@ -222,7 +229,7 @@ function Rows() {
                 })
               }
             />
-            Only flagged rows ({flaggedRowCount})
+            Only flagged rows ({loadedFlaggedCount})
           </label>
           <span className="flex-1" />
           <Muted className="max-lg:hidden">

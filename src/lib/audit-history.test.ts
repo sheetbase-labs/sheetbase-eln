@@ -157,6 +157,20 @@ describe('describeAuditEvent', () => {
     expect(described.subject).toBe('Record Some Notebook')
   })
 
+  it('names a block by its kind, never by its opaque internal id', () => {
+    // A block event carries no title, only its type; the internal uuid names
+    // nothing to a reader, so the subject reads as the block kind instead.
+    const described = describeAuditEvent(
+      event({
+        entityType: 'block',
+        entityUuid: '3b0d350e-0000-4000-8000-000000000000',
+        payload: { blockId: '3b0d350e-0000-4000-8000-000000000000', type: 'rich_text' },
+      }),
+    )
+    expect(described.subject).toBe('Notebook block (Text)')
+    expect(described.subject).not.toContain('3b0d350e')
+  })
+
   it('describes review decisions through their decision value', () => {
     const described = describeAuditEvent(
       event({

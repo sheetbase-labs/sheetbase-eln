@@ -73,11 +73,14 @@ const FIELDS = [
   },
 ]
 
-/** Three active flags, sitting on two rows: r-1 twice, r-2 once. */
+/** Four active flags, sitting on three rows: r-1 twice, r-2 once, and r-110
+ * once — the last sits beyond the first page, so it is outside the loaded
+ * window until "Load more" reaches it. */
 const FLAGS = [
   ['fl-1', 'r-1', 'f-1'],
   ['fl-2', 'r-1', 'f-2'],
   ['fl-3', 'r-2', 'f-1'],
+  ['fl-4', 'r-110', 'f-1'],
 ].map(([id, rowId, fieldId]) => ({
   id,
   dataset_id: 'ds-1',
@@ -194,5 +197,23 @@ describe('dataset rows grid', () => {
       (await screen.findAllByText('val-2')).length,
     ).toBeGreaterThan(0)
     expect(screen.queryByText('val-3')).toBeNull()
+  })
+
+  it('counts only the flagged rows in the loaded window, matching the result line', async () => {
+    const user = userEvent.setup()
+    fixtures.search = { flagged: true }
+    renderGrid()
+
+    // The flagged filter reads the loaded window, so the count does too: two
+    // flagged rows are loaded, matching "Showing 2 of 120 rows".
+    expect(await screen.findByText('Only flagged rows (2)')).toBeTruthy()
+    expect(screen.getByText(/Showing 2 of 120 rows/)).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: /Load more/ }))
+
+    // The flag on r-110 arrives with the rest of the snapshot, and the count
+    // converges on it as the result line does.
+    expect(await screen.findByText('Only flagged rows (3)')).toBeTruthy()
+    expect(screen.getByText(/Showing 3 of 120 rows/)).toBeTruthy()
   })
 })

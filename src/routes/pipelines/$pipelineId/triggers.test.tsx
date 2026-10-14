@@ -13,12 +13,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route, scheduleSpecLabel } from './triggers'
 import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
-import type { PipelineScheduleWire } from '#/lib/pipelines/types'
+import type {
+  PipelineDefinitionVersionWire,
+  PipelineScheduleWire,
+} from '#/lib/pipelines/types'
 
 const PipelineTriggers = Route.options.component as React.ComponentType
 
 const state = vi.hoisted(() => ({
   schedules: [] as PipelineScheduleWire[],
+  // A published version by default: a trigger on such a pipeline can fire.
+  published: true,
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -32,6 +37,12 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
   ...(await importOriginal<typeof pipelinesDataModule>()),
   useSchedules: () => ({ data: state.schedules }),
+  usePipelineVersions: () => ({
+    isSuccess: true,
+    data: [
+      { lifecycle: state.published ? 'published' : 'draft' },
+    ] as unknown as PipelineDefinitionVersionWire[],
+  }),
 }))
 
 function schedule(
@@ -72,6 +83,7 @@ function renderTriggers() {
 afterEach(() => {
   cleanup()
   state.schedules = []
+  state.published = true
 })
 
 const noDatasets = new Map<string, string>()
@@ -157,6 +169,25 @@ describe('a schedule the sweep can never fire', () => {
     expect(getByText('Daily at 09:10 (Europe/London)')).toBeTruthy()
     expect(getByText('2026-10-14 08:10')).toBeTruthy()
     expect(queryByText(/cannot be interpreted/)).toBeNull()
+  })
+
+  it('states why a trigger will not fire when the pipeline has no published version', () => {
+    // The sweep runs the latest PUBLISHED version, so an enabled trigger on a
+    // draft-only pipeline is inert; the row must not keep advertising the
+    // stale next run that was stored when the trigger was created.
+    state.published = false
+    state.schedules = [
+      schedule({
+        kind: 'interval',
+        spec: { intervalMinutes: 45 },
+        next_run_at: '2026-10-14T11:20:00.000Z',
+      }),
+    ]
+    const { getByText, queryByText } = renderTriggers()
+
+    expect(getByText(/so its triggers will not fire/)).toBeTruthy()
+    expect(getByText('No published version')).toBeTruthy()
+    expect(queryByText('2026-10-14 11:20')).toBeNull()
   })
 
   it('does not call an event trigger broken for having no wall-clock next run', () => {

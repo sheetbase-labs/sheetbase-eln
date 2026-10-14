@@ -258,6 +258,29 @@ export const ENTITY_LABELS: Record<string, string> = {
   check: 'Checks run',
 }
 
+/** Block kinds, named the way the Notebook surfaces name them. A block event
+ * carries no title — only its `type` — so this is the one readable descriptor
+ * it has (the block's internal id names nothing to a reader). */
+export const BLOCK_TYPE_LABELS: Record<string, string> = {
+  rich_text: 'Text',
+  checklist: 'Checklist',
+  callout: 'Note',
+  linked_record: 'Linked record',
+  table: 'Table',
+  sheet: 'Sheet',
+  chart: 'Chart',
+  analysis: 'Analysis',
+  plate_map: 'Plate map',
+  file: 'File',
+  metric: 'Metric',
+  procedure_step: 'Procedure step',
+  protocol_reference: 'Protocol reference',
+  materials: 'Materials',
+  pipeline_output: 'Pipeline output',
+  signature_request: 'Signature request',
+  corrective_actions: 'Corrective actions',
+}
+
 export const ACTION_LABELS: Record<string, string> = {
   create: 'created',
   update: 'updated',
@@ -345,6 +368,12 @@ function subjectFor(event: AuditEventWire): string {
   }
   if (event.entityType === 'review_submission') {
     return label
+  }
+  if (event.entityType === 'block') {
+    const type = typeof payload['type'] === 'string' ? payload['type'] : null
+    return type
+      ? `${label} (${BLOCK_TYPE_LABELS[type] ?? humanizeToken(type)})`
+      : label
   }
   return `${label} ${shortId(event.entityUuid)}`
 }

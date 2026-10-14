@@ -54,6 +54,7 @@ import {
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   pipelineDataQueryKeys,
+  usePipelineVersions,
   useSchedules,
 } from '#/components/v3/pipelines/pipelines-data'
 
@@ -120,6 +121,14 @@ function PipelineTriggers() {
   const datasetNames = useDatasetNames(
     rows.some((s) => typeof s.spec.datasetId === 'string'),
   )
+  // The sweep starts a triggered run on the latest PUBLISHED version, so a
+  // trigger on a pipeline that has none is enabled but cannot fire. The row
+  // must not keep advertising a next run in that state; `null` means the
+  // answer is not known yet, so no inert claim is made while it loads.
+  const versions = usePipelineVersions(pipelineId)
+  const hasPublishedVersion = versions.isSuccess
+    ? versions.data.some((v) => v.lifecycle === 'published')
+    : null
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -183,6 +192,12 @@ function PipelineTriggers() {
               : `${uninterpretable.length} triggers’ stored specifications cannot be interpreted, so they have no next run and will not fire. Delete them and add new triggers to restore the schedules.`}
           </Notice>
         ) : null}
+        {hasPublishedVersion === false && rows.length ? (
+          <Notice tone="warn">
+            This pipeline has no published version, so its triggers will not
+            fire. Publish a version to activate them.
+          </Notice>
+        ) : null}
         {rows.length ? (
           <TableBox>
             <Table aria-label="Pipeline triggers">
@@ -208,11 +223,13 @@ function PipelineTriggers() {
                       </Status>
                     </TableCell>
                     <TableCell className="text-fg-muted">
-                      {s.next_run_at
-                        ? s.next_run_at.slice(0, 16).replace('T', ' ')
-                        : s.kind === 'event'
-                          ? 'On its event'
-                          : 'Never fires'}
+                      {hasPublishedVersion === false
+                        ? 'No published version'
+                        : s.next_run_at
+                          ? s.next_run_at.slice(0, 16).replace('T', ' ')
+                          : s.kind === 'event'
+                            ? 'On its event'
+                            : 'Never fires'}
                     </TableCell>
                     <TableCell align="right">
                       <div className="flex justify-end gap-1.5">

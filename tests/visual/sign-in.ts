@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto'
+import { createHmac, randomUUID } from 'node:crypto'
 
 import { config } from 'dotenv'
 import { Client } from 'pg'
@@ -14,6 +14,8 @@ config({ path: ['.env.local', '.env'] })
 export async function signInAsDesignUser(
   page: Page,
   userId: string,
+  /** Pin the session id when the spec's own assertions name it. */
+  options: { sessionId?: string } = {},
 ): Promise<void> {
   const secret = process.env.BETTER_AUTH_SECRET
   const databaseUrl = process.env.DATABASE_URL
@@ -23,7 +25,13 @@ export async function signInAsDesignUser(
     )
   }
 
-  const token = `parity-${userId}`
+  // PLAT-03 bounds the data proxy per authenticated principal, and a browser
+  // session's principal is its Better Auth session id. Every spec that signs in
+  // as the same design user would then share one bucket, so a suite of two
+  // workers trips the bound (default 600 requests/minute) and unrelated specs
+  // start reading 429 `rate_limited` mid-page — a real page load is one
+  // session's traffic, so each sign-in mints its own session instead.
+  const token = options.sessionId ?? `parity-${userId}-${randomUUID()}`
   const client = new Client({ connectionString: databaseUrl })
   await client.connect()
   try {

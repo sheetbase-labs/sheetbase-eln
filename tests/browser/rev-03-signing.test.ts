@@ -207,7 +207,9 @@ test('independent certification, practice, password focus and exact-digest signi
   baseURL,
 }) => {
   if (!baseURL) throw new Error('Browser base URL required')
-  await signInAsDesignUser(page, signer)
+  // The sign-out assertions below name the `parity-<signer>` session the
+  // beforeAll inserted, so this sign-in keeps that id instead of minting one.
+  await signInAsDesignUser(page, signer, { sessionId: `parity-${signer}` })
   const initialCertifications = page.waitForResponse(
     (response) =>
       response.url().endsWith('/rpc/workspace_signature_certifications') &&

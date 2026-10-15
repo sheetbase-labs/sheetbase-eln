@@ -151,24 +151,35 @@ export async function fetchAuditEvents(
   )
 }
 
-/** Load a stable prefix completely so category/actor counts and CSV share one selection. */
-export async function fetchRecordAuditHistory(
+/** The page size the RPC clamps to; a full-history walk uses it per request. */
+export const AUDIT_PAGE_SIZE = 200
+
+/**
+ * Every event one selection matches, paging the RPC's cursor internally. This
+ * is the export's read: the CSV carries the whole matching history, not
+ * whatever the caller happens to have scrolled into view.
+ *
+ * The cursor is the smallest sequence on the page and is exclusive, so it must
+ * strictly decrease: a cursor that stalls or repeats would loop forever, and is
+ * refused rather than silently emitting duplicate or missing entries.
+ */
+export async function fetchAllAuditEvents(
   client: DataClient,
-  recordId: string,
-) {
+  filter: AuditEventsFilter = {},
+  onFirstPage?: (page: AuditEventsPageWire) => void,
+): Promise<AuditEventWire[]> {
   const events: AuditEventWire[] = []
   let beforeSequence: number | undefined
-  let snapshotBefore = 1
+  const limit = filter.limit ?? AUDIT_PAGE_SIZE
   for (;;) {
     const page = await fetchAuditEvents(client, {
-      object: recordId,
-      beforeSequence,
-      limit: 200,
+      ...filter,
+      limit,
+      ...(beforeSequence === undefined ? {} : { beforeSequence }),
     })
-    if (beforeSequence === undefined)
-      snapshotBefore = (page.events[0]?.sequence ?? 0) + 1
+    if (beforeSequence === undefined) onFirstPage?.(page)
     events.push(...page.events)
-    if (!page.hasMore) return { events, snapshotBefore }
+    if (!page.hasMore) return events
     if (
       page.nextCursor === null ||
       (beforeSequence !== undefined && page.nextCursor >= beforeSequence)
@@ -176,6 +187,26 @@ export async function fetchRecordAuditHistory(
       throw new Error('Invalid audit continuation cursor.')
     beforeSequence = page.nextCursor
   }
+}
+
+/**
+ * Load a stable prefix completely so category/actor counts and CSV share one
+ * selection. `snapshotBefore` is the exclusive upper sequence the load started
+ * from, so a live tail can be identified without re-reading the prefix.
+ */
+export async function fetchRecordAuditHistory(
+  client: DataClient,
+  recordId: string,
+) {
+  let snapshotBefore = 1
+  const events = await fetchAllAuditEvents(
+    client,
+    { object: recordId },
+    (page) => {
+      snapshotBefore = (page.events[0]?.sequence ?? 0) + 1
+    },
+  )
+  return { events, snapshotBefore }
 }
 
 /** Only explicit source-event identities establish scientific knock-on effects. */

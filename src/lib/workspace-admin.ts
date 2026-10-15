@@ -92,21 +92,6 @@ export interface WorkspaceSessionWire {
   expires_at: string
 }
 
-export interface AuditEventWire {
-  id: string
-  workspace_id: string
-  sequence: number
-  entity_type: string
-  entity_uuid: string | null
-  operation: string
-  record_id: string | null
-  project_id: string | null
-  actor_user_id: string | null
-  client_id: string | null
-  payload: JsonObject
-  created_at: string
-}
-
 export interface WorkspaceMember {
   id: string
   workspaceId: string
@@ -167,21 +152,6 @@ export interface WorkspaceSession {
   userAgent: string | null
   createdAt: string
   expiresAt: string
-}
-
-export interface AuditEvent {
-  id: string
-  workspaceId: string
-  sequence: number
-  entityType: string
-  entityUuid: string | null
-  operation: string
-  recordId: string | null
-  projectId: string | null
-  actorUserId: string | null
-  clientId: string | null
-  payload: JsonObject
-  createdAt: string
 }
 
 export const toWorkspaceMember = (w: WorkspaceMemberWire): WorkspaceMember => ({
@@ -252,21 +222,6 @@ export const toWorkspaceSession = (
   expiresAt: w.expires_at,
 })
 
-export const toAuditEvent = (w: AuditEventWire): AuditEvent => ({
-  id: w.id,
-  workspaceId: w.workspace_id,
-  sequence: w.sequence,
-  entityType: w.entity_type,
-  entityUuid: w.entity_uuid,
-  operation: w.operation,
-  recordId: w.record_id,
-  projectId: w.project_id,
-  actorUserId: w.actor_user_id,
-  clientId: w.client_id,
-  payload: w.payload,
-  createdAt: w.created_at,
-})
-
 export const adminQueryKeys = {
   members: (workspaceId: string) =>
     ['admin-001', 'members', workspaceId] as const,
@@ -278,8 +233,6 @@ export const adminQueryKeys = {
     ['admin-001', 'sessions', workspaceId] as const,
   projectAccess: (workspaceId: string) =>
     ['admin-001', 'project-access', workspaceId] as const,
-  activity: (workspaceId: string) =>
-    ['admin-001', 'activity', workspaceId] as const,
 }
 
 const filter = (column: string, id: string, order: string) =>
@@ -344,18 +297,6 @@ export async function fetchProjectAccess(
     filter('workspace_id', workspaceId, 'created_at.asc'),
   )
   return rows.map(toProjectAccess)
-}
-
-export async function fetchWorkspaceActivity(
-  c: DataClient,
-  workspaceId: string,
-  limit: number,
-): Promise<AuditEvent[]> {
-  const rows = await c.list<AuditEventWire>(
-    'change_events',
-    `${filter('workspace_id', workspaceId, 'sequence.desc')}&limit=${limit}`,
-  )
-  return rows.map(toAuditEvent)
 }
 
 export async function fetchWorkspaceSessions(

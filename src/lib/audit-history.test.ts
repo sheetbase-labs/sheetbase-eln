@@ -7,6 +7,7 @@ import {
   auditLinkFor,
   auditKnockOnEvents,
   describeAuditEvent,
+  fetchAllAuditEvents,
   fetchRecordAuditHistory,
   groupAuditEvents,
   groupAuditEventsByDay,
@@ -164,7 +165,10 @@ describe('describeAuditEvent', () => {
       event({
         entityType: 'block',
         entityUuid: '3b0d350e-0000-4000-8000-000000000000',
-        payload: { blockId: '3b0d350e-0000-4000-8000-000000000000', type: 'rich_text' },
+        payload: {
+          blockId: '3b0d350e-0000-4000-8000-000000000000',
+          type: 'rich_text',
+        },
       }),
     )
     expect(described.subject).toBe('Notebook block (Text)')
@@ -282,6 +286,73 @@ describe('experiment history presentation', () => {
         p_limit: 200,
       },
     ])
+  })
+
+  it('walks a whole selection to its end, sending the search term to the server', async () => {
+    const args: unknown[] = []
+    const pages = [
+      {
+        formatVersion: 1,
+        events: [event({ id: 'newer', sequence: 12 })],
+        hasMore: true,
+        nextCursor: 12,
+      },
+      {
+        formatVersion: 1,
+        events: [event({ id: 'older', sequence: 7 })],
+        hasMore: false,
+        nextCursor: 7,
+      },
+    ]
+    const client = createDataClient(async (_request, init) => {
+      args.push(JSON.parse(String(init?.body)))
+      return Response.json(pages.shift())
+    })
+
+    const events = await fetchAllAuditEvents(client, {
+      search: 'quarantine',
+      limit: 2,
+    })
+
+    expect(events.map((entry) => entry.sequence)).toEqual([12, 7])
+    expect(args).toEqual([
+      {
+        p_entity_type: null,
+        p_operation: null,
+        p_actor_user_id: null,
+        p_from: null,
+        p_to: null,
+        p_search: 'quarantine',
+        p_object: null,
+        p_before_sequence: null,
+        p_limit: 2,
+      },
+      {
+        p_entity_type: null,
+        p_operation: null,
+        p_actor_user_id: null,
+        p_from: null,
+        p_to: null,
+        p_search: 'quarantine',
+        p_object: null,
+        p_before_sequence: 12,
+        p_limit: 2,
+      },
+    ])
+  })
+
+  it('refuses a cursor that does not advance instead of repeating the page forever', async () => {
+    const stalled = () => ({
+      formatVersion: 1,
+      events: [event({ id: 'same', sequence: 12 })],
+      hasMore: true,
+      nextCursor: 12,
+    })
+    const client = createDataClient(async () => Response.json(stalled()))
+
+    await expect(fetchAllAuditEvents(client)).rejects.toThrow(
+      'Invalid audit continuation cursor.',
+    )
   })
 
   it('derives effects only through source-event identity, never session, revision or time proximity', () => {

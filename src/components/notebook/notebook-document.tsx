@@ -1485,7 +1485,7 @@ function NotebookDocumentContent({
         <div className="space-y-2 pt-2" data-print-hide>
           <Button
             type="button"
-            variant="secondary"
+            variant="quiet"
             size="sm"
             onClick={() => {
               const proposal = buildDraftProposal()
@@ -1513,7 +1513,10 @@ function NotebookDocumentContent({
           ) : null}
         </div>
       ) : null}
-      {!isReadOnly && orderedIds.length > 0 ? (
+      {!isReadOnly && orderedIds.length === 1 ? (
+        // Shown while the document is still being started. A full notebook does
+        // not need three lines of key instructions under it every time, and the
+        // same list lives in Help → Keyboard shortcuts.
         <p className="text-xs text-fg-muted" data-print-hide>
           Type / in empty text to insert a block. Alt+↑/↓ reorders the focused
           block; Ctrl+↑/↓ moves focus between blocks. Alt+Enter adds text below.

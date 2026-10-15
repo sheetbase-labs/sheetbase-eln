@@ -12,6 +12,7 @@
  */
 import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
+import type { AuditEventWire } from './audit-history'
 
 export type JsonObject = Record<string, unknown>
 

@@ -161,10 +161,12 @@ describe('models route create flow', () => {
     )
     // The new definition is a draft: the board lands on All with its row
     // selected, so the row it just created is the one on screen.
-    const target = navigate.mock.calls.at(0)?.at(0) as {
-      to: string
-      search: (s: Record<string, unknown>) => Record<string, unknown>
-    }
+    const [target] = navigate.mock.calls[0] as unknown as [
+      {
+        to: string
+        search: (s: Record<string, unknown>) => Record<string, unknown>
+      },
+    ]
     expect(target.to).toBe('/models')
     expect(target.search({ q: 'cell' })).toEqual({
       q: 'cell',

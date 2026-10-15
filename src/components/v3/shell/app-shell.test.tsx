@@ -20,6 +20,7 @@ import {
 } from 'vitest'
 
 import { AppShell } from './app-shell'
+import { getShellCounts } from '#/lib/shell-counts.server'
 import {
   fetchUserPreferences,
   setActiveWorkspace,
@@ -43,6 +44,18 @@ const { markNotificationsRead } = vi.hoisted(() => ({
   markNotificationsRead: vi.fn(async () => 1),
 }))
 vi.mock('#/lib/notifications-data', () => ({ markNotificationsRead }))
+
+/**
+ * QA4-Shell-Badge: the reads the real server count runs, so one test can drive
+ * a failed Inbox read all the way into the badge.
+ */
+const { shellConnect, shellQuery } = vi.hoisted(() => ({
+  shellConnect: vi.fn(),
+  shellQuery: vi.fn(),
+}))
+vi.mock('#/db/client.server', () => ({
+  db: { $client: { connect: shellConnect, query: shellQuery } },
+}))
 
 /** The path the mocked router reports; MOB-01.1's back button depends on it. */
 const routerPath = { current: '/' }
@@ -295,6 +308,26 @@ describe('SHELL-01 one sidebar at every width', () => {
     expect(
       within(full).getByRole('link', { name: /Inbox/ }).textContent,
     ).toContain('5')
+  })
+
+  it('renders no number for an inbox count it could not read, and the counts it has', () => {
+    // QA4: a failed read states `null` (unknown), never zero — the badge must
+    // not answer "0 there is nothing waiting" for a read that never landed.
+    const { container } = renderShell({
+      counts: { inbox: null, datasets: '2 errors', pipelines: '1 failed' },
+    })
+    const full = container.querySelector<HTMLElement>('nav[class*="w-nav"]')!
+    const inbox = within(full).getByRole('link', { name: /Inbox/ })
+    expect(inbox.textContent).not.toContain('0')
+    expect(inbox.textContent).not.toMatch(/\d/)
+    expect(inbox.textContent).toBe('Inbox')
+    // The counts that did read are untouched by the one that did not.
+    expect(
+      within(full).getByRole('link', { name: /Datasets/ }).textContent,
+    ).toContain('2 errors')
+    expect(
+      within(full).getByRole('link', { name: /Pipelines/ }).textContent,
+    ).toContain('1 failed')
   })
 
   it('carries the workspace switcher in the top bar', async () => {
@@ -711,5 +744,39 @@ describe('SHELL-03 global shortcuts reach the v3 shell', () => {
     await user.keyboard('g')
     await user.keyboard('p')
     expect(navigate).not.toHaveBeenCalled()
+  })
+})
+
+describe('QA4 · the shell badge and a count it could not read', () => {
+  it('renders no number for a rejected inbox count, and the counts that did read', async () => {
+    // The real server count, with the Inbox read rejecting: what reaches the
+    // badge must be unknown, not a zero the read never landed on.
+    shellConnect.mockResolvedValue({
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes('inbox_needs_action_counts')) throw new Error('down')
+        return { rows: [] }
+      }),
+      release: vi.fn(),
+    })
+    shellQuery.mockImplementation(async (sql: string) =>
+      sql.includes('dataset_value_flags')
+        ? { rows: [{ n: '2' }] }
+        : { rows: [{ n: '1' }] },
+    )
+    const counts = await getShellCounts('ws-1', 'u-1')
+    expect(counts.inbox).toBeNull()
+
+    const { container } = renderShell({ counts })
+    const full = container.querySelector<HTMLElement>('nav[class*="w-nav"]')!
+    const inbox = within(full).getByRole('link', { name: /Inbox/ })
+    expect(inbox.textContent).not.toContain('0')
+    expect(inbox.textContent).not.toMatch(/\d/)
+    // The two counts that read are untouched by the one that did not.
+    expect(
+      within(full).getByRole('link', { name: /Datasets/ }).textContent,
+    ).toContain('2 errors')
+    expect(
+      within(full).getByRole('link', { name: /Pipelines/ }).textContent,
+    ).toContain('1 failed')
   })
 })

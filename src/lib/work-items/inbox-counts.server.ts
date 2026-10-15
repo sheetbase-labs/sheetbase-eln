@@ -14,9 +14,9 @@
  * the pattern `getScopedClient`, `pipeline-scheduler.server.ts` and
  * `sheet-calculation.server.ts` use — so row-level security scopes the rows
  * exactly as it does for the browser's PostgREST calls, whatever role the app
- * connection holds. A failed read degrades to zero, as the badge always has:
- * the shell has no failure channel, and Home is the surface that states a
- * failed count.
+ * connection holds. A failed read is *unknown*, not zero: zero is a claim that
+ * nothing waits, which a failed read cannot back, and it reads as calm on every
+ * surface that shows it.
  */
 import { db } from '#/db/client.server'
 
@@ -25,11 +25,15 @@ import type { InboxCounts } from './predicate'
 /**
  * Count the needs-action items, and their Reviews subset, for one person in
  * one workspace.
+ *
+ * `null` states *unknown*: the read failed, so this count has no number. A
+ * caller must not substitute zero — the shell's badge has no failure channel of
+ * its own, so the difference has to survive in the value.
  */
 export async function getInboxCounts(
   workspaceId: string,
   userId: string,
-): Promise<InboxCounts> {
+): Promise<InboxCounts | null> {
   const client = db.$client
   const connection = await client.connect()
   try {
@@ -49,11 +53,15 @@ export async function getInboxCounts(
       'select total, reviews from api.inbox_needs_action_counts()',
     )
     await connection.query('commit')
+    // The function aggregates unconditionally, so it always answers one row: an
+    // answer with none raises here and the catch below states it as unknown.
     const [counts] = rows
     return { total: counts.total, reviews: counts.reviews }
   } catch {
     await connection.query('rollback').catch(() => {})
-    return { total: 0, reviews: 0 }
+    // Unknown, not zero: the badge renders no number for `null`, where a zero
+    // would be stated as one.
+    return null
   } finally {
     connection.release()
   }

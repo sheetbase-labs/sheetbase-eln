@@ -7,7 +7,13 @@ import { db } from '#/db/client.server'
 import { getInboxCounts } from '#/lib/work-items/inbox-counts.server'
 
 export interface ShellCounts {
-  inbox?: string
+  /**
+   * The Inbox badge's number. Absent when the number is known to be zero (the
+   * badge states no zero), and `null` when the count could not be read: an
+   * unknown count is not a zero, and the shell has no failure channel of its
+   * own, so the badge states no number rather than one it cannot back.
+   */
+  inbox?: string | null
   datasets?: string
   pipelines?: string
 }
@@ -23,7 +29,7 @@ export async function getShellCounts(
   // `work-items/predicate.ts` applied over every row the caller can see), so
   // the sidebar cannot state a set the list hides behind the seen state or the
   // Done tab, nor a smaller one than Home past the list's 200-row preview.
-  const inboxCount = (await getInboxCounts(workspaceId, userId)).total
+  const inbox = await getInboxCounts(workspaceId, userId)
 
   const [flags, failed] = await Promise.all([
     client.query<{ n: string }>(
@@ -55,7 +61,13 @@ export async function getShellCounts(
   const flagCount = num(flags)
   const failedCount = num(failed)
   return {
-    ...(inboxCount > 0 ? { inbox: String(inboxCount) } : {}),
+    // Unknown (`null`) travels as a value, not as an absent key: the badge
+    // renders no number for either, but only `null` says the read failed.
+    ...(inbox === null
+      ? { inbox: null }
+      : inbox.total > 0
+        ? { inbox: String(inbox.total) }
+        : {}),
     ...(flagCount > 0
       ? { datasets: `${flagCount} ${flagCount === 1 ? 'error' : 'errors'}` }
       : {}),

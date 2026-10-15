@@ -1,6 +1,7 @@
 /**
- * QA4-Home-Count — the shell's Inbox count is the one server-side count, read
- * as the caller, and a failed read degrades to zero as the badge always has.
+ * QA4-Home-Count / QA4-Shell-Badge — the shell's Inbox count is the one
+ * server-side count, read as the caller. A failed read is *unknown*: the badge
+ * states no number rather than a zero it cannot back.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -50,15 +51,21 @@ describe('getInboxCounts', () => {
     expect(release).toHaveBeenCalledOnce()
   })
 
-  it('degrades a failed read to zero, as the badge always has', async () => {
+  it('reports a failed read as unknown, never as a confident zero', async () => {
     query.mockImplementation(async (sql: string) => {
       if (sql.includes('inbox_needs_action_counts')) throw new Error('down')
       return { rows: [] }
     })
-    expect(await getInboxCounts(WORKSPACE, USER)).toEqual({
-      total: 0,
-      reviews: 0,
-    })
+    expect(await getInboxCounts(WORKSPACE, USER)).toBeNull()
+    expect(query).toHaveBeenCalledWith('rollback')
+    expect(release).toHaveBeenCalledOnce()
+  })
+
+  it('reports an answer with no row as unknown too, not as a zero', async () => {
+    // The count function aggregates unconditionally, so it always answers one
+    // row; an empty answer is a failed count, not a workspace with nothing in it.
+    query.mockImplementation(async () => ({ rows: [] }))
+    expect(await getInboxCounts(WORKSPACE, USER)).toBeNull()
     expect(query).toHaveBeenCalledWith('rollback')
     expect(release).toHaveBeenCalledOnce()
   })

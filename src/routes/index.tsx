@@ -207,7 +207,9 @@ export function Home() {
   const counts = countsQuery.data
   // The sidebar badge states the caller's inbox total and Home displays the
   // same number, so one screen cannot show two numbers for the same work: the
-  // shell context wins when it carries one (a zero inbox carries none).
+  // shell context wins when it carries one. It carries none for a zero inbox
+  // and `null` for a count that could not be read, and in both cases Home falls
+  // back to its own read rather than stating a number it cannot back.
   const shellInbox = 'inbox' in shellCounts ? shellCounts.inbox : undefined
   const inboxCount = shellInbox != null ? Number(shellInbox) : counts?.inbox
   // The pace is decided by this page's own reads — the reads that fill the

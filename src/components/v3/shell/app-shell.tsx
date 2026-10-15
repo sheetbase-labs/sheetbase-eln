@@ -50,6 +50,7 @@ import { RegistryShortcutsDialog } from '#/components/shortcuts/shortcuts-dialog
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 import type { Notification, NotificationTarget } from '#/components/v3/types'
+import type { ShellCounts } from '#/lib/shell-counts.server'
 import { markNotificationsRead } from '#/lib/notifications-data'
 import { isHomeSection, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
@@ -76,7 +77,7 @@ type ShellData = {
   notifications: Notification[]
   pinned: { id: string; name: string; tone: 'progress' | 'review' }[]
   /** Live counts keyed by nav label: Inbox, Datasets, Pipelines. */
-  counts?: { inbox?: string; datasets?: string; pipelines?: string }
+  counts?: ShellCounts
   /** SHELL-01: the caller's active workspace and all their memberships. */
   workspace?: { id: string; name: string } | null
   workspaces?: { id: string; name: string }[]
@@ -983,7 +984,10 @@ function SideNav({
       counts?.[
         item.label.toLowerCase() as keyof NonNullable<ShellData['counts']>
       ]
-    return live ? { ...item, count: live } : item
+    // Only a number is a number: an unknown count (`null` — the read failed,
+    // see `shell-counts.server.ts`) renders no number at all, rather than a
+    // zero the server could not back, while the counts that did read still show.
+    return typeof live === 'string' ? { ...item, count: live } : item
   }
   return (
     <nav

@@ -216,6 +216,14 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     aliases: ['todo', 'tasks'],
   },
   {
+    type: 'callout',
+    label: 'Callout',
+    description: 'A note the reader must not miss, in one of four tones.',
+    icon: 'info',
+    group: 'writing',
+    aliases: ['note', 'warning', 'banner', 'aside', 'info'],
+  },
+  {
     type: 'chart',
     label: 'Chart',
     description: 'From a sheet or dataset',
@@ -248,6 +256,14 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     icon: 'table',
     group: 'evidence',
     aliases: ['plate', 'wells'],
+  },
+  {
+    type: 'metric',
+    label: 'Metric',
+    description: 'A single headline number with its unit and provenance.',
+    icon: 'chart',
+    group: 'evidence',
+    aliases: ['kpi', 'number', 'stat', 'measurement'],
   },
   {
     type: 'pipeline_output',

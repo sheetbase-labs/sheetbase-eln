@@ -261,6 +261,17 @@ function NotebookDocumentContent({
 }: NotebookDocumentProps) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [activeId, setActiveId] = React.useState<string | null>(null)
+  /**
+   * Where the caret should land when the next block's editor mounts. Arrow
+   * keys that cross between two prose rows carry the caret with them — down
+   * into the start of the row below, up into the end of the row above — so the
+   * rows read as one text. A click clears it, because a click puts the caret
+   * where the pointer is.
+   */
+  const [caretHint, setCaretHint] = React.useState<{
+    blockId: string
+    to: 'start' | 'end'
+  } | null>(null)
   const pendingSelectionRef = React.useRef<string | null>(null)
   // Per-block error messages for insert / duplicate / delete (ELN-005).
   // Save errors are owned per-editor by `useAutosave` (ELN-007).
@@ -919,18 +930,22 @@ function NotebookDocumentContent({
     }
   }
 
-  /** ArrowUp at start of first paragraph → focus previous block. */
+  /** ArrowUp at start of first paragraph → the caret continues in the row above. */
   function handleArrowUpFromStart(block: NotebookBlockData) {
     const idx = orderedIds.indexOf(block.id)
     if (idx <= 0) return
-    selectAndFocus(orderedIds[idx - 1])
+    const target = orderedIds[idx - 1]
+    setCaretHint({ blockId: target, to: 'end' })
+    selectAndFocus(target)
   }
 
-  /** ArrowDown at end of last paragraph → focus next block. */
+  /** ArrowDown at end of last paragraph → the caret continues in the row below. */
   function handleArrowDownFromEnd(block: NotebookBlockData) {
     const idx = orderedIds.indexOf(block.id)
     if (idx < 0 || idx >= orderedIds.length - 1) return
-    selectAndFocus(orderedIds[idx + 1])
+    const target = orderedIds[idx + 1]
+    setCaretHint({ blockId: target, to: 'start' })
+    selectAndFocus(target)
   }
 
   function handleRowKeyDown(
@@ -1069,7 +1084,7 @@ function NotebookDocumentContent({
   }
 
   return (
-    <div className={cn('space-y-2 pt-3', className)}>
+    <div className={cn('pt-3', className)}>
       {/* COLLAB-01: broadcast which block I am editing. Awareness only —
           this never gates or locks editing for anyone. PresenceSync is
           null until the enclosing CollaborationRoom has mounted. */}
@@ -1156,6 +1171,10 @@ function NotebookDocumentContent({
               id={`block-${block.id}`}
               className={cn(
                 'scroll-mt-28 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                // The container no longer spaces rows: spacing is per row, so a
+                // run continuation can sit flush against the row above it and
+                // the seam inside a run costs nothing at all.
+                index > 0 && !(proseRun && !proseRun.isFirst) && 'mt-2',
                 // EXP-04.1: prose in a 680px measure, wide blocks full width.
                 blockMeasure(block.type) === 'wide'
                   ? 'w-full'
@@ -1191,7 +1210,12 @@ function NotebookDocumentContent({
                   )
                 }
               }}
-              onClick={() => selectBlock(block)}
+              onClick={() => {
+                // A pointer puts the caret where it was clicked, so any
+                // keyboard hint from an arrow key no longer applies.
+                setCaretHint(null)
+                selectBlock(block)
+              }}
               onKeyDown={(e) => handleRowKeyDown(e, block)}
               onDragOver={(e) => handleDragOver(e, block)}
               onDragEnter={(e) => {
@@ -1299,6 +1323,12 @@ function NotebookDocumentContent({
                     hiddenRichTextNodeIndexes={hiddenNodeIndexesByBlockId.get(
                       block.id,
                     )}
+                    // Mid-run an empty row is an empty line, not an invitation.
+                    placeholder={
+                      proseRun
+                        ? undefined
+                        : 'Type / for blocks, or just start writing'
+                    }
                     save={(payload) => onSaveBlock(block, payload)}
                     pinProtocol={
                       onPinProtocol
@@ -1333,6 +1363,9 @@ function NotebookDocumentContent({
                     }
                     readOnly={isReadOnly}
                     autoFocus={isSelected && isActive}
+                    caretHint={
+                      caretHint?.blockId === block.id ? caretHint.to : undefined
+                    }
                     onSlashCommand={(type) =>
                       void handleSlashCommand(block, type)
                     }

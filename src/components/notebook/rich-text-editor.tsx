@@ -56,6 +56,13 @@ interface RichTextEditorProps {
   onChange: (payload: RichTextPayload) => void
   onBlur: () => void
   autoFocus?: boolean
+  /**
+   * Where the caret lands when this editor takes focus. Moving down into a row
+   * means the caret belongs at its start; moving up means its end. Without a
+   * hint the caret goes to the end, which is where a click into the row puts
+   * it.
+   */
+  caretHint?: 'start' | 'end'
   className?: string
   /**
    * NOTE-02: prefix for stable heading anchors (`<prefix>-h<index>`) added
@@ -202,6 +209,7 @@ export function RichTextEditor({
   onChange,
   onBlur,
   autoFocus,
+  caretHint,
   className,
   anchorPrefix,
   hiddenNodeIndexes,
@@ -419,8 +427,9 @@ export function RichTextEditor({
   }, [editor, payload.doc, serializedPayload])
 
   React.useEffect(() => {
-    if (editor && autoFocus) editor.commands.focus('end')
-  }, [autoFocus, editor])
+    if (!editor || !autoFocus) return
+    editor.commands.focus(caretHint === 'start' ? 'start' : 'end')
+  }, [autoFocus, caretHint, editor])
 
   // NOTE-02: decoration inputs changed without a document transaction (e.g.
   // a section was collapsed or the block was renamed). Dispatch an empty

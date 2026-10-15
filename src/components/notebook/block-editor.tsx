@@ -151,6 +151,10 @@ export interface BlockEditorProps {
   onStatusChange?: (status: AutosaveStatus) => void
   readOnly?: boolean
   autoFocus?: boolean
+  /** Where the caret lands on focus. See `RichTextEditorProps.caretHint`. */
+  caretHint?: 'start' | 'end'
+  /** Empty-row invitation. `undefined` inside a prose run. See RichTextEditor. */
+  placeholder?: string
   className?: string
   /**
    * NOTE-02: when set (rich_text only), headings in the editable Tiptap DOM
@@ -409,6 +413,8 @@ function RichTextEditor({
   onStatusChange,
   readOnly,
   autoFocus,
+  caretHint,
+  placeholder,
   className,
   headingAnchorPrefix,
   hiddenRichTextNodeIndexes,
@@ -437,6 +443,8 @@ function RichTextEditor({
       <TiptapRichTextEditor
         payload={a.draft}
         autoFocus={autoFocus}
+        caretHint={caretHint}
+        placeholder={placeholder}
         anchorPrefix={headingAnchorPrefix ?? `section-${block.id}`}
         hiddenNodeIndexes={hiddenRichTextNodeIndexes}
         onChange={(payload) => {

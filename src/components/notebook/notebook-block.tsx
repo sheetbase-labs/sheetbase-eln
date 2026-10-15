@@ -84,10 +84,23 @@ export interface NotebookBlockProps {
   continuous?: boolean
 }
 
+/**
+ * The row's state treatment.
+ *
+ * A selected or edited block does **not** change colour. Notion's convention,
+ * and the one that keeps work dominant over chrome: while you are writing in a
+ * callout, the callout is still a callout — the field you are in, the caret and
+ * the hover-revealed handle already say which block is active. A tinted ring
+ * around it puts a blue box around the work instead.
+ *
+ * The states that do paint are the ones with something to say: dragging,
+ * invalid and locked. Keyboard focus is separate, and stays visible through
+ * `focus-visible` on the row.
+ */
 const stateRing: Record<NotebookBlockState, string> = {
   default: 'bg-transparent',
-  selected: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/25',
-  editing: 'bg-primary/[0.025] ring-1 ring-inset ring-primary/40',
+  selected: 'bg-transparent',
+  editing: 'bg-transparent',
   dragging: 'bg-surface opacity-60 shadow-sm ring-1 ring-inset ring-primary/50',
   invalid: 'ring-1 ring-inset ring-destructive/60',
   locked: 'bg-surface-muted/20',

@@ -19,6 +19,6 @@
   },
   "iconLibrary": "lucide",
   "registries": {
-    "@reui": "https://reui.io/r/radix-nova/{name}.json"
+    "@reui": "https://reui.io/r/base-nova/{name}.json"
   }
 }

@@ -11,7 +11,11 @@ import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
 import { blockMeasure, isEditableBlockType } from '#/lib/blocks/registry'
 import { richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
-import { joinProsePayloads, proseRunMembers } from '#/lib/notebook-prose-runs'
+import {
+  joinProsePayloads,
+  proseBackspaceAction,
+  proseRunMembers,
+} from '#/lib/notebook-prose-runs'
 import { Button } from '#/components/v3/ui/button'
 import {
   ConfirmDialog,
@@ -835,8 +839,9 @@ function NotebookDocumentContent({
       previous && !currentIsEmpty
         ? joinProsePayloads(previous.payload, block.payload)
         : null
+    const action = proseBackspaceAction({ currentIsEmpty, joined })
 
-    if (previous && joined) {
+    if (action === 'join' && previous && joined) {
       const previousPayload = previous.payload
       let saved = false
       try {
@@ -880,6 +885,12 @@ function NotebookDocumentContent({
         restorePayload: { blockId: previous.id, payload: previousPayload },
       })
       selectAndFocus(previous.id)
+      return
+    }
+
+    if (action === 'none') {
+      // A row with content and nothing to join into is left exactly as it is:
+      // the key does nothing, as it did before joins existed.
       return
     }
 

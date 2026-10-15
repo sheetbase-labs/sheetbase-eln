@@ -29,12 +29,12 @@ export interface ProseRunPosition {
 
 /**
  * Positions of every row that belongs to a multi-row prose run, keyed by block
- * id. Rows absent from the result are not part of a run and render framed.
+ * id. A row absent from the result is not part of a run and renders framed.
  */
 export function proseRunMembers(
   blocks: readonly { id: string; type: string }[],
-): Record<string, ProseRunPosition> {
-  const members: Record<string, ProseRunPosition> = {}
+): Partial<Record<string, ProseRunPosition>> {
+  const members: Partial<Record<string, ProseRunPosition>> = {}
   let runStart = 0
   while (runStart < blocks.length) {
     if (blocks[runStart].type !== 'rich_text') {
@@ -71,6 +71,29 @@ function isEmptyParagraph(node: unknown): boolean {
   const paragraph = node as { type?: unknown; content?: unknown }
   if (paragraph.type !== 'paragraph') return false
   return !Array.isArray(paragraph.content) || paragraph.content.length === 0
+}
+
+/** What a Backspace at the start of a row means. */
+export type ProseBackspaceAction = 'join' | 'delete-row' | 'none'
+
+/**
+ * Decide what Backspace at the start of a row does, from the two facts that
+ * matter. Kept separate from the effect so the rule is testable without a DOM —
+ * getting it wrong either silently discards a paragraph or deletes a row that
+ * has content.
+ *
+ * - the rows can be joined → join them
+ * - otherwise, an empty row is deleted, which is what the key did before joins
+ *   existed
+ * - otherwise nothing: a row with content and nothing to join into is left
+ *   exactly as it is
+ */
+export function proseBackspaceAction(input: {
+  currentIsEmpty: boolean
+  joined: Record<string, unknown> | null
+}): ProseBackspaceAction {
+  if (input.joined) return 'join'
+  return input.currentIsEmpty ? 'delete-row' : 'none'
 }
 
 /**

@@ -6,12 +6,14 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { joinProsePayloads, proseRunMembers } from './notebook-prose-runs'
+import {
+  joinProsePayloads,
+  proseBackspaceAction,
+  proseRunMembers,
+} from './notebook-prose-runs'
 import type { RichTextPayload } from './blocks/rich-text'
 
-const paragraph = (
-  text: string,
-): RichTextPayload['doc']['content'][number] =>
+const paragraph = (text: string): RichTextPayload['doc']['content'][number] =>
   text
     ? { type: 'paragraph', content: [{ type: 'text', text }] }
     : { type: 'paragraph' }
@@ -81,6 +83,28 @@ describe('proseRunMembers', () => {
     ])
     expect(members.b?.isLast).toBe(true)
     expect(members.x).toBeUndefined()
+  })
+})
+
+describe('proseBackspaceAction', () => {
+  it('joins when the rows can be joined', () => {
+    expect(
+      proseBackspaceAction({ currentIsEmpty: false, joined: prose('Merged.') }),
+    ).toBe('join')
+  })
+
+  it('deletes an empty row, which is what the key did before joins existed', () => {
+    expect(proseBackspaceAction({ currentIsEmpty: true, joined: null })).toBe(
+      'delete-row',
+    )
+  })
+
+  it('does nothing to a row with content that has nothing to join into', () => {
+    // The regression this pins: treating "no join" as "delete" would discard
+    // the paragraph the caret is sitting in.
+    expect(proseBackspaceAction({ currentIsEmpty: false, joined: null })).toBe(
+      'none',
+    )
   })
 })
 

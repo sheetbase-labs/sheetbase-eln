@@ -99,62 +99,6 @@ function richTextBlock(id: string, text: string): NotebookBlock {
   }
 }
 
-/** A chart block with a frozen snapshot, so it renders without a dataset query. */
-function frozenChartBlock(id: string): NotebookBlock {
-  return {
-    ...richTextBlock(id, ''),
-    type: 'chart',
-    payload: {
-      title: 'Frozen stability snapshot (qPCR)',
-      spec: null,
-      frozen: {
-        revisionId: null,
-        frozenAt: '2025-07-14T10:00:00Z',
-        frozenByUserId: 'u1',
-        datasetProvenance: [
-          {
-            datasetId: '00000000-0000-4000-8000-000000000170',
-            schemaVersion: 1,
-            rowCount: 2,
-            checksum: 'abc12345',
-          },
-        ],
-        data: {
-          columns: [
-            {
-              fieldId: 'c1',
-              label: 'Time (days)',
-              logicalType: 'decimal',
-              unit: { symbol: 'd' },
-            },
-            {
-              fieldId: 'c2',
-              label: 'Log titer',
-              logicalType: 'decimal',
-              unit: { symbol: 'log₁₀' },
-            },
-          ],
-          rows: [
-            { col_time: 0, col_titer: 7.2 },
-            { col_time: 28, col_titer: 5.9 },
-          ],
-          series: [
-            {
-              identifier: '4 °C',
-              label: '4 °C',
-              color: '#006EDC',
-              points: [
-                { x: 0, y: 7.2, yError: null, label: '4 °C' },
-                { x: 28, y: 5.9, yError: null, label: '4 °C' },
-              ],
-            },
-          ],
-        },
-      },
-    },
-  }
-}
-
 describe('NotebookDocument — rendering', () => {
   it('renders each block with a stable anchor id', () => {
     const { container } = render(
@@ -188,35 +132,6 @@ describe('NotebookDocument — rendering', () => {
 
     fireEvent.click(container.querySelector('#block-b1')!)
     expect(screen.getByRole('textbox', { name: 'Text content' })).toBeTruthy()
-  })
-
-  it('gives prose a 680px measure and data-dense blocks the full width', () => {
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false, gcTime: 0 } },
-    })
-    const { container } = render(
-      <QueryClientProvider client={client}>
-        <NotebookDocument
-          record={record}
-          blocks={[
-            richTextBlock('prose-1', 'Objective'),
-            frozenChartBlock('chart-1'),
-          ]}
-          onSaveBlock={vi.fn()}
-          onInsertBlock={vi.fn()}
-          onDuplicateBlock={vi.fn()}
-          onDeleteBlock={vi.fn()}
-        />
-      </QueryClientProvider>,
-    )
-
-    const prose = container.querySelector('#block-prose-1')!
-    expect(prose.getAttribute('data-block-measure')).toBe('prose')
-    expect(prose.className).toContain('max-w-[680px]')
-
-    const chart = container.querySelector('#block-chart-1')!
-    expect(chart.getAttribute('data-block-measure')).toBe('wide')
-    expect(chart.className).not.toContain('max-w-[680px]')
   })
 
   it('renders an honest, labelled frozen chart preview', () => {
@@ -346,9 +261,11 @@ describe('NotebookDocument — insertion', () => {
         onDeleteBlock={vi.fn()}
       />,
     )
-    await user.click(screen.getByRole('button', { name: /Add block/ }))
+    // The insert affordance between and after blocks, not the removed
+    // foot button.
+    await user.click(screen.getByRole('button', { name: /Insert block after/ }))
     await user.click(await screen.findByRole('option', { name: /^Text/ }))
-    expect(onInsertBlock).toHaveBeenCalledWith('rich_text', undefined)
+    expect(onInsertBlock).toHaveBeenCalledWith('rich_text', 'b1')
   })
 
   it('turns an empty notebook into a focused first block', async () => {
@@ -554,7 +471,9 @@ describe('NotebookDocument — insert-block menu', () => {
       />,
     )
 
-    await user.click(screen.getByRole('button', { name: /Add block/ }))
+    // The insert affordance between and after blocks, not the removed
+    // foot button.
+    await user.click(screen.getByRole('button', { name: /Insert block after/ }))
     // The `+` control opens the same "Insert block" menu as `/`.
     expect(
       await screen.findByRole('listbox', { name: 'Insert block' }),
@@ -569,7 +488,7 @@ describe('NotebookDocument — insert-block menu', () => {
     expect(options[0].textContent).toContain('Chart')
 
     await user.keyboard('{Enter}')
-    expect(onInsertBlock).toHaveBeenCalledWith('chart', undefined)
+    expect(onInsertBlock).toHaveBeenCalledWith('chart', 'b1')
   })
 })
 
@@ -1689,66 +1608,5 @@ describe('NOTE-02 sections and outline anchors', () => {
     expect(paras()[0].className).not.toContain('hidden')
     expect(paras()[1].className).toContain('hidden')
     expect((headings()[1] as HTMLElement).className).not.toContain('hidden')
-  })
-})
-
-describe('NotebookDocument draft summary (ASSIST-02)', () => {
-  function renderDocument(
-    onAcceptDraft?: (proposal: unknown) => Promise<void>,
-  ) {
-    return render(
-      <NotebookDocument
-        record={record}
-        blocks={[richTextBlock('b1', 'Objective: measure kinetics')]}
-        onSaveBlock={vi.fn()}
-        onInsertBlock={vi.fn()}
-        onDuplicateBlock={vi.fn()}
-        onDeleteBlock={vi.fn()}
-        onAcceptDraft={onAcceptDraft as never}
-      />,
-    )
-  }
-
-  it('previews a generated draft and delegates the insert on Accept', async () => {
-    const user = userEvent.setup()
-    const onAcceptDraft = vi.fn(async (_proposal: unknown) => {})
-    renderDocument(onAcceptDraft)
-    await user.click(screen.getByRole('button', { name: 'Draft summary' }))
-    expect(
-      await screen.findByRole('note', { name: 'Generated draft' }),
-    ).toBeTruthy()
-    // The em-dash prefix is unique to the quoted draft key point (the block
-    // heading renders the same words without it).
-    expect(screen.getByText(/— Objective: measure kinetics/)).toBeTruthy()
-    await user.click(
-      screen.getByRole('button', { name: 'Accept and insert block' }),
-    )
-    expect(onAcceptDraft).toHaveBeenCalledTimes(1)
-    expect(onAcceptDraft.mock.calls[0]?.[0]).toMatchObject({
-      kind: 'notebook_text',
-    })
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('note', { name: 'Generated draft' }),
-      ).toBeNull(),
-    )
-  })
-
-  it('Discard leaves zero state without calling the insert', async () => {
-    const user = userEvent.setup()
-    const onAcceptDraft = vi.fn(async () => {})
-    renderDocument(onAcceptDraft)
-    await user.click(screen.getByRole('button', { name: 'Draft summary' }))
-    expect(
-      await screen.findByRole('note', { name: 'Generated draft' }),
-    ).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: 'Discard' }))
-    expect(onAcceptDraft).not.toHaveBeenCalled()
-    expect(screen.queryByRole('note', { name: 'Generated draft' })).toBeNull()
-  })
-
-  it('hides the affordance when the route does not wire draft acceptance', () => {
-    renderDocument()
-    expect(screen.queryByRole('button', { name: 'Draft summary' })).toBeNull()
   })
 })

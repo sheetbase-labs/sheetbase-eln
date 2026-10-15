@@ -28,7 +28,7 @@
  *   the catalogue and not in `BLOCK_TYPES`.
  *
  * This module is a pure re-point: the union, allow-list, catalogue, defaults,
- * summaries and measure are moved here verbatim from the sites above, so the
+ * summaries are moved here verbatim from the sites above, so the
  * consolidation itself changes no behaviour. Improvements to any of those —
  * richer summaries, default payloads for the types that have none — are
  * separate product changes.
@@ -300,13 +300,6 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
 
 export interface BlockDescriptor {
   /**
-   * The measure the block renders at. EXP-04.1: prose reads in a 680px
-   * measure, while the data-dense blocks take the full width of the working
-   * surface — a chart or a grid needs the horizontal room, and a paragraph is
-   * unreadable without a measure.
-   */
-  measure: 'prose' | 'wide'
-  /**
    * Whether the editor switch, `BlockEditorBody`, has a case for this type.
    * `callout`, `table` and `metric` are stored, validated and rendered but
    * cannot be edited. `sheet` is rendered by the document through
@@ -334,7 +327,6 @@ export interface BlockDescriptor {
 
 export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
   rich_text: {
-    measure: 'prose',
     editable: true,
     defaultPayload: () => ({ ...EMPTY_RICH_TEXT_PAYLOAD }),
     summary: (payload) =>
@@ -343,7 +335,6 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
         : '(empty)',
   },
   checklist: {
-    measure: 'prose',
     editable: true,
     defaultPayload: () => ({ items: [{ text: '', checked: false }] }),
     summary: (payload) => {
@@ -369,7 +360,6 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
     },
   },
   linked_record: {
-    measure: 'prose',
     editable: true,
     defaultPayload: () => ({
       targetKind: 'experiment',
@@ -383,30 +373,26 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
       }${payload.label ? ` — ${payload.label}` : ''}`,
   },
   callout: {
-    measure: 'prose',
     // A4: editable since the callout editor landed. The static `table` block
     // is still read-only on purpose — see the note in `block-editor.tsx`.
     editable: true,
     defaultPayload: () => ({}),
   },
-  table: { measure: 'prose', editable: false, defaultPayload: () => ({}) },
-  sheet: { measure: 'wide', editable: false, defaultPayload: () => ({}) },
+  table: { editable: false, defaultPayload: () => ({}) },
+  sheet: { editable: false, defaultPayload: () => ({}) },
   chart: {
-    measure: 'wide',
     editable: true,
     // SCI-004: a chart starts as an empty draft `{}` (valid) so the editor
     // opens immediately; the user picks a dataset, fields and chart type.
     defaultPayload: () => ({}),
   },
   analysis: {
-    measure: 'prose',
     editable: true,
     defaultPayload: () => ({}),
     summary: (payload) =>
       `${payload.title || 'Analysis'}${payload.frozen ? ' (frozen)' : ''}`,
   },
   plate_map: {
-    measure: 'wide',
     editable: true,
     // SCI-005: a plate map starts as an empty draft `{}` (valid) so the editor
     // opens immediately; the user sets dimensions and assigns wells.
@@ -423,25 +409,21 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
       } well(s)`
     },
   },
-  file: { measure: 'prose', editable: true, defaultPayload: () => ({}) },
-  metric: { measure: 'prose', editable: true, defaultPayload: () => ({}) },
+  file: { editable: true, defaultPayload: () => ({}) },
+  metric: { editable: true, defaultPayload: () => ({}) },
   procedure_step: {
-    measure: 'prose',
     editable: true,
     defaultPayload: () => ({}),
   },
   protocol_reference: {
-    measure: 'prose',
     editable: true,
     defaultPayload: () => ({}),
   },
   materials: {
-    measure: 'prose',
     editable: true,
     defaultPayload: () => ({ items: [] }),
   },
   pipeline_output: {
-    measure: 'prose',
     editable: true,
     defaultPayload: () => ({}),
     summary: (payload) =>
@@ -450,14 +432,12 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
       }`,
   },
   signature_request: {
-    measure: 'prose',
     editable: true,
     // R5-NOTE-02: a signature request starts with no signer, so the block
     // renders the honest missing-reference state until one is chosen.
     defaultPayload: () => ({ ...EMPTY_SIGNATURE_REQUEST_PAYLOAD }),
   },
   corrective_actions: {
-    measure: 'prose',
     editable: true,
     // R5-NOTE-02: a CAPA list starts empty; the block says so rather than
     // showing a header with nothing under it.
@@ -468,11 +448,6 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
 /** The descriptor for a type, or `undefined` for a type this build rejects. */
 export function blockDescriptor(type: string): BlockDescriptor | undefined {
   return isBlockType(type) ? BLOCK_DESCRIPTORS[type] : undefined
-}
-
-/** EXP-04.1 measure for a type; unknown types read as prose. */
-export function blockMeasure(type: string): 'prose' | 'wide' {
-  return blockDescriptor(type)?.measure ?? 'prose'
 }
 
 /** True when the editor switch has a case for this type. */

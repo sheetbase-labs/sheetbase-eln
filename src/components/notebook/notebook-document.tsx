@@ -8,7 +8,7 @@ import type {
   NotebookRecord,
 } from '#/lib/notebook-data'
 import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
-import { blockMeasure, isEditableBlockType } from '#/lib/blocks/registry'
+import { isEditableBlockType } from '#/lib/blocks/registry'
 import { richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import {
@@ -16,7 +16,6 @@ import {
   proseBackspaceAction,
   proseRunMembers,
 } from '#/lib/notebook-prose-runs'
-import { Button } from '#/components/v3/ui/button'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -32,12 +31,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '#/components/v3/ui/popover'
-import { DraftProposalPanel } from '#/components/assist/draft-proposal-panel'
-import {
-  buildTextDraftProposal,
-  summariseNotebookBlocks,
-} from '#/lib/assist-drafts'
-import type { AssistTextDraftProposal } from '#/lib/assist-drafts'
 import { NotebookBlock } from './notebook-block'
 import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
@@ -184,13 +177,6 @@ export interface NotebookDocumentProps {
     type: string,
     options?: { datasetSchemaId?: string },
   ) => Promise<string | undefined>
-  /**
-   * ASSIST-02: insert an accepted text draft through the canonical block
-   * insert (route-owned, same permissions/validation/provenance as a manual
-   * insert). Present only when the caller wires it; the Draft-summary
-   * affordance hides otherwise.
-   */
-  onAcceptDraft?: (proposal: AssistTextDraftProposal) => Promise<void>
   readOnly?: boolean
   /** NOTE-02: anchors of currently collapsed sections (route presentation state). */
   collapsedSections?: ReadonlySet<string>
@@ -247,7 +233,6 @@ function NotebookDocumentContent({
   onUndoDelete,
   onMoveBlock,
   onReplaceBlock,
-  onAcceptDraft,
   readOnly,
   collaborationWorkspaceId,
   collaborationRole = 'viewer',
@@ -276,44 +261,6 @@ function NotebookDocumentContent({
   // Per-block error messages for insert / duplicate / delete (ELN-005).
   // Save errors are owned per-editor by `useAutosave` (ELN-007).
   const [errorById, setErrorById] = React.useState<Record<string, string>>({})
-  // ASSIST-02: text-draft proposal previewed before commit. The draft is
-  // built from already-visible blocks; Accept delegates to the route-owned
-  // onAcceptDraft (canonical insert); Discard clears with zero state.
-  const [draftProposal, setDraftProposal] =
-    React.useState<AssistTextDraftProposal | null>(null)
-  const [draftStatus, setDraftStatus] = React.useState('')
-  const [draftAccepting, setDraftAccepting] = React.useState(false)
-
-  function buildDraftProposal(): AssistTextDraftProposal | null {
-    const summary = summariseNotebookBlocks({
-      recordId: record.id,
-      title: record.title,
-      deepLink: `/records/${record.id}`,
-      blocks,
-    })
-    return buildTextDraftProposal({
-      recordTitle: record.title,
-      envelope: summary.context,
-      keyPoints: summary.keyPoints,
-      groundedFrom: summary.groundedFrom,
-    })
-  }
-
-  async function handleAcceptDraftProposal() {
-    if (!draftProposal || !onAcceptDraft) return
-    setDraftAccepting(true)
-    try {
-      await onAcceptDraft(draftProposal)
-      setDraftProposal(null)
-      setDraftStatus('')
-    } catch (error) {
-      setDraftStatus(
-        error instanceof Error ? error.message : 'Could not insert the draft.',
-      )
-    } finally {
-      setDraftAccepting(false)
-    }
-  }
   const [confirmDelete, setConfirmDelete] =
     React.useState<NotebookBlockData | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState(false)
@@ -1175,16 +1122,19 @@ function NotebookDocumentContent({
                 // run continuation can sit flush against the row above it and
                 // the seam inside a run costs nothing at all.
                 index > 0 && !(proseRun && !proseRun.isFirst) && 'mt-2',
-                // EXP-04.1: prose in a 680px measure, wide blocks full width.
-                blockMeasure(block.type) === 'wide'
-                  ? 'w-full'
-                  : 'mx-auto w-full max-w-[680px]',
+                // The document reads the full width of the working surface.
+                // The designed screens (ui-system-v3/canvas/NbEditing.dc.html
+                // and the rest of the Nb* set) put prose in a 680px centred
+                // measure, so this is a deliberate deviation from the design
+                // reference, taken by the owner on 2026-10-15: the notebook is
+                // not to be width-constrained or centred. Do not "fix" it back
+                // without re-reading that decision.
+                'w-full',
                 isMoving && 'opacity-60',
                 // NOTE-02: collapsed sections are removed from view but
                 // restored in print, so printed structure stays complete.
                 isHiddenSection && 'hidden print:contents',
               )}
-              data-block-measure={blockMeasure(block.type)}
               data-prose-run={
                 proseRun
                   ? proseRun.isFirst
@@ -1401,7 +1351,10 @@ function NotebookDocumentContent({
                 data-drop-indicator="below"
               />
             ) : null}
-            {!isReadOnly && index < orderedIds.length - 1 ? (
+            {/* Every block carries the insert affordance, including the
+                last: hovering below the end of the document is how a block is
+                appended, with no button parked under the work. */}
+            {!isReadOnly ? (
               <div
                 className={cn(
                   'group/insert relative',
@@ -1472,47 +1425,6 @@ function NotebookDocumentContent({
         </p>
       ) : null}
 
-      {isReadOnly || orderedIds.length === 0 ? null : (
-        <div className="pt-2" data-print-hide>
-          <AddBlockControl
-            onInsert={(type) => void handleInsert(type)}
-            label="Add block"
-            triggerId="notebook-add-block"
-          />
-        </div>
-      )}
-      {!isReadOnly && onAcceptDraft && orderedIds.length > 0 ? (
-        <div className="space-y-2 pt-2" data-print-hide>
-          <Button
-            type="button"
-            variant="quiet"
-            size="sm"
-            onClick={() => {
-              const proposal = buildDraftProposal()
-              setDraftProposal(proposal)
-              setDraftStatus(
-                proposal ? '' : 'Nothing to summarise yet — add blocks first.',
-              )
-            }}
-          >
-            Draft summary
-          </Button>
-          {draftStatus ? (
-            <p className="text-xs text-fg-muted">{draftStatus}</p>
-          ) : null}
-          {draftProposal ? (
-            <DraftProposalPanel
-              proposal={draftProposal}
-              accepting={draftAccepting}
-              onAccept={() => void handleAcceptDraftProposal()}
-              onDiscard={() => {
-                setDraftProposal(null)
-                setDraftStatus('')
-              }}
-            />
-          ) : null}
-        </div>
-      ) : null}
       {!isReadOnly && orderedIds.length === 1 ? (
         // Shown while the document is still being started. A full notebook does
         // not need three lines of key instructions under it every time, and the

@@ -18,7 +18,6 @@ import {
   BLOCK_PICKER_GROUPS,
   BLOCK_PICKER_OPTIONS,
   BLOCK_TYPES,
-  blockMeasure,
   defaultPayloadFor,
   editableBlockTypes,
   isBlockType,
@@ -68,21 +67,6 @@ describe('editable types', () => {
       expect(isEditableBlockType(type)).toBe(false)
     }
     expect(isEditableBlockType('quantum_state')).toBe(false)
-  })
-})
-
-describe('measure', () => {
-  /** EXP-04.1: data-dense blocks take the full width; prose reads at 680px. */
-  it('gives the wide measure to the grid, chart and plate surfaces only', () => {
-    expect(BLOCK_TYPES.filter((t) => blockMeasure(t) === 'wide')).toEqual([
-      'sheet',
-      'chart',
-      'plate_map',
-    ])
-    expect(blockMeasure('rich_text')).toBe('prose')
-    expect(blockMeasure('analysis')).toBe('prose')
-    expect(blockMeasure('table')).toBe('prose')
-    expect(blockMeasure('quantum_state')).toBe('prose')
   })
 })
 

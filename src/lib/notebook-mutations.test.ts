@@ -7,7 +7,6 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from './data-client'
 import {
-  defaultPayloadFor,
   deleteBlock,
   duplicateBlock,
   insertBlock,
@@ -313,26 +312,5 @@ describe('moveBlock', () => {
       expectedStructureVersion: 8,
     })
     expect(res.rebalanced).toBe(true)
-  })
-})
-
-describe('defaultPayloadFor', () => {
-  it('returns a valid payload for each editable type', () => {
-    expect(defaultPayloadFor('rich_text')).toEqual({
-      doc: { type: 'doc', content: [{ type: 'paragraph' }] },
-    })
-    expect(defaultPayloadFor('checklist')).toEqual({
-      items: [{ text: '', checked: false }],
-    })
-    expect(defaultPayloadFor('linked_record')).toEqual({
-      targetKind: 'experiment',
-      targetIdentifier: '',
-      linkType: 'general',
-      label: '',
-    })
-  })
-
-  it('returns an empty object for unknown types', () => {
-    expect(defaultPayloadFor('chart')).toEqual({})
   })
 })

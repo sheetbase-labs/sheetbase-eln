@@ -126,7 +126,7 @@ export function explainBlockValidation(input: {
     howTo: [...new Set(howTo)],
     citations: why.map((claim) => claim.citation),
     groundedFrom:
-      'blocks validation kernel (validateBlock, KNOWN_BLOCK_TYPES, payload schema v1)',
+      'blocks validation kernel (validateBlock, BLOCK_TYPES, payload schema v1)',
   }
 }
 

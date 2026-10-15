@@ -138,7 +138,6 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import {
-  defaultPayloadFor,
   deleteBlock,
   duplicateBlock,
   insertBlock,
@@ -146,6 +145,7 @@ import {
   moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
+import { defaultPayloadFor } from '#/lib/blocks/registry'
 import { acceptTextDraft } from '#/lib/assist-drafts'
 import type { AssistTextDraftProposal } from '#/lib/assist-drafts'
 import {

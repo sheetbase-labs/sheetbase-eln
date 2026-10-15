@@ -8,6 +8,7 @@ import type {
   NotebookRecord,
 } from '#/lib/notebook-data'
 import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
+import { blockMeasure, isEditableBlockType } from '#/lib/blocks/registry'
 import { Button } from '#/components/v3/ui/button'
 import {
   ConfirmDialog,
@@ -209,36 +210,6 @@ export interface NotebookDocumentProps {
    */
   actionBlockContext?: ActionBlockContext
   className?: string
-}
-
-const EDITABLE_TYPES = new Set([
-  'rich_text',
-  'checklist',
-  'linked_record',
-  'protocol_reference',
-  'procedure_step',
-  'materials',
-  'file',
-  'chart',
-  'analysis',
-  'pipeline_output',
-  'plate_map',
-  'signature_request',
-  'corrective_actions',
-])
-
-/**
- * EXP-04.1: prose reads in a 680px measure, while the data-dense blocks —
- * sheets, charts and plate maps — take the full width of the working surface.
- * The distinction is the design's, not an accident of content length: a chart
- * or a grid needs the horizontal room, and a paragraph is unreadable without
- * a measure.
- */
-const WIDE_BLOCK_TYPES = new Set(['sheet', 'chart', 'plate_map'])
-
-/** The measure a block renders at, exposed for styling and for tests. */
-export function blockMeasure(type: string): 'prose' | 'wide' {
-  return WIDE_BLOCK_TYPES.has(type) ? 'wide' : 'prose'
 }
 
 export function NotebookDocument(props: NotebookDocumentProps) {
@@ -1026,7 +997,7 @@ function NotebookDocumentContent({
       {orderedIds.map((id, index) => {
         const block = blockById.get(id)
         if (!block) return null
-        const editable = EDITABLE_TYPES.has(block.type) && !isReadOnly
+        const editable = isEditableBlockType(block.type) && !isReadOnly
         const isSelected = selectedId === block.id
         const isActive = activeId === block.id
         const isDragging = draggingId === block.id

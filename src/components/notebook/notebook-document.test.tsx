@@ -19,7 +19,7 @@ import * as React from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { NotebookDocument } from './notebook-document'
-import { BLOCK_PICKER_OPTIONS } from './block-picker'
+import { BLOCK_PICKER_OPTIONS } from '#/lib/blocks/registry'
 import { NotebookOutlinePanel } from './notebook-outline-panel'
 import { notebookOutline } from '#/lib/notebook-outline'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'

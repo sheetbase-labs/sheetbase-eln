@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { KNOWN_BLOCK_TYPES, isBlockPayloadValid, validateBlock } from './index'
+import { BLOCK_TYPES } from './registry'
+import { isBlockPayloadValid, validateBlock } from './index'
 
 describe('block payload validation (ELN-002)', () => {
   it('accepts a valid rich_text payload', () => {
@@ -375,7 +376,7 @@ describe('block payload validation (ELN-002)', () => {
         ],
       },
     }
-    for (const type of KNOWN_BLOCK_TYPES) {
+    for (const type of BLOCK_TYPES) {
       expect(validateBlock({ type, payload: samples[type] }).ok).toBe(true)
     }
   })

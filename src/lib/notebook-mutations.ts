@@ -13,11 +13,7 @@
 import type { DataClient } from '#/lib/data-client'
 import { toBlock } from '#/lib/notebook-data'
 import type { BlockWire, NotebookBlock } from '#/lib/notebook-data'
-import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
-import {
-  EMPTY_CORRECTIVE_ACTIONS_PAYLOAD,
-  EMPTY_SIGNATURE_REQUEST_PAYLOAD,
-} from '#/lib/notebook-action-blocks'
+import { PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
 import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 
 export interface UpdateBlockArgs {
@@ -224,48 +220,5 @@ export async function moveBlock(
     structureVersion: res.structure_version,
     rebalanced: res.rebalanced,
     order: res.order,
-  }
-}
-
-/**
- * Default payloads for the editable block types (ELN-005). Each starts
- * minimal and valid so the new block enters editing focus immediately
- * without surfacing a validation error first.
- */
-export function defaultPayloadFor(type: string): Record<string, unknown> {
-  switch (type) {
-    case 'rich_text':
-      return { ...EMPTY_RICH_TEXT_PAYLOAD }
-    case 'checklist':
-      return { items: [{ text: '', checked: false }] }
-    case 'linked_record':
-      return {
-        targetKind: 'experiment',
-        targetIdentifier: '',
-        linkType: 'general',
-        label: '',
-      }
-    case 'protocol_reference':
-      return {}
-    case 'materials':
-      return { items: [] }
-    // SCI-004: a chart starts as an empty draft `{}` (valid) so the editor
-    // opens immediately; the user picks a dataset, fields and chart type.
-    case 'chart':
-      return {}
-    // SCI-005: a plate map starts as an empty draft `{}` (valid) so the
-    // editor opens immediately; the user sets dimensions and assigns wells.
-    case 'plate_map':
-      return {}
-    // R5-NOTE-02: a signature request starts with no signer, so the block
-    // renders the honest missing-reference state until one is chosen.
-    case 'signature_request':
-      return { ...EMPTY_SIGNATURE_REQUEST_PAYLOAD }
-    // R5-NOTE-02: a CAPA list starts empty; the block says so rather than
-    // showing a header with nothing under it.
-    case 'corrective_actions':
-      return { ...EMPTY_CORRECTIVE_ACTIONS_PAYLOAD }
-    default:
-      return {}
   }
 }

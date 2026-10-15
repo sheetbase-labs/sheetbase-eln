@@ -5,7 +5,7 @@ import {
   CorrectiveActionsPreview,
   SignatureRequestPreview,
 } from './action-block-previews'
-import { defaultPayloadFor } from '#/lib/notebook-mutations'
+import { defaultPayloadFor } from '#/lib/blocks/registry'
 
 afterEach(cleanup)
 

@@ -19,13 +19,9 @@ import { useQuery } from '@tanstack/react-query'
 import { cn } from '#/lib/utils'
 import { explainBlockValidation } from '#/lib/assist-explain'
 import { ExplainPanel } from '#/components/assist/explain-panel'
-import {
-  RichTextContent,
-  isRichTextPayload,
-  richTextToPlainText,
-  validateBlock,
-} from '#/lib/blocks'
+import { RichTextContent, isRichTextPayload, validateBlock } from '#/lib/blocks'
 import type { BlockValidationError, RichTextPayload } from '#/lib/blocks'
+import { summarizeBlockPayload } from '#/lib/blocks/registry'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type {
   NotebookBlock,
@@ -292,54 +288,6 @@ function useBlockAutosave<T>(
   return { ...autosave, setTouched, structuredErrors }
 }
 
-/**
- * Readable one-line preview of a payload, used in the conflict banner so
- * the user can comprehend the server version without switching tabs.
- */
-function summarizePayload(
-  type: string,
-  payload: Record<string, unknown>,
-): string {
-  switch (type) {
-    case 'rich_text':
-      return isRichTextPayload(payload)
-        ? richTextToPlainText(payload) || '(empty)'
-        : '(empty)'
-    case 'checklist': {
-      const items = Array.isArray(payload.items) ? payload.items : []
-      if (items.length === 0) return '(no items)'
-      return items
-        .map(
-          (i) =>
-            `[${(i as { checked?: boolean }).checked ? 'x' : ' '}] ${
-              (i as { text?: string }).text ?? ''
-            }`,
-        )
-        .join('\n')
-    }
-    case 'linked_record':
-      return `${payload.linkType ?? 'general'}: ${payload.targetKind ?? ''} ${
-        payload.targetIdentifier ?? ''
-      }${payload.label ? ` — ${payload.label}` : ''}`
-    case 'plate_map': {
-      const title = typeof payload.title === 'string' ? payload.title : ''
-      const spec = payload.spec as { wells?: unknown[] } | undefined
-      const wells = Array.isArray(spec?.wells) ? spec.wells : []
-      return `${title || 'Plate map'} — ${wells.length} well(s)`
-    }
-    case 'analysis':
-      return `${payload.title || 'Analysis'}${
-        payload.frozen ? ' (frozen)' : ''
-      }`
-    case 'pipeline_output':
-      return `Pipeline output${
-        payload.runId ? ` — run ${String(payload.runId).slice(0, 8)}` : ''
-      }`
-    default:
-      return JSON.stringify(payload, null, 2)
-  }
-}
-
 export interface BlockExplainInput {
   blockType: string
   errors: Array<{ code: BlockValidationError; field?: string; message: string }>
@@ -490,7 +438,7 @@ function RichTextEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        serverPreview={summarizeBlockPayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -860,7 +808,7 @@ function ChecklistEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}
@@ -1166,7 +1114,7 @@ function LinkedRecordEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}
@@ -1336,7 +1284,7 @@ function ProcedureStepEditor(props: BlockEditorProps) {
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        serverPreview={summarizeBlockPayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -1559,7 +1507,7 @@ function MaterialsEditor(props: BlockEditorProps) {
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        serverPreview={summarizeBlockPayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -2192,7 +2140,7 @@ function ChartBlockEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}
@@ -2507,7 +2455,7 @@ function PlateMapBlockEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}
@@ -2943,7 +2891,7 @@ function AnalysisBlockEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}

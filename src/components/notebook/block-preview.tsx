@@ -4,11 +4,8 @@ import { Link } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
 import type { NotebookBlock } from '#/lib/notebook-data'
-import {
-  KNOWN_BLOCK_TYPES,
-  RichTextContent,
-  isRichTextPayload,
-} from '#/lib/blocks'
+import { RichTextContent, isRichTextPayload } from '#/lib/blocks'
+import { isBlockType } from '#/lib/blocks/registry'
 import {
   notebookDataClient,
   notebookQueryKeys,
@@ -761,7 +758,7 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
 }
 
 function renderUnsupported(type: string, payload: unknown): React.ReactNode {
-  const known = (KNOWN_BLOCK_TYPES as readonly string[]).includes(type)
+  const known = isBlockType(type)
   return (
     <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
       <p className="font-medium text-fg">

@@ -14,6 +14,8 @@
 
 import { isRichTextPayload } from './rich-text'
 
+import { isBlockType } from './registry'
+import type { BlockType } from './registry'
 import { validateAnalysisBlockPayload } from '../analysis-block'
 import { validateChartPayload } from '../chart-spec'
 import { validatePlateMapPayload } from '../plate-map'
@@ -103,52 +105,14 @@ export type {
   SignatureRequestState,
 } from '../notebook-action-blocks'
 
-export type BlockType =
-  | 'rich_text'
-  | 'checklist'
-  | 'linked_record'
-  | 'callout'
-  | 'table'
-  | 'sheet'
-  | 'chart'
-  | 'analysis'
-  | 'plate_map'
-  | 'file'
-  | 'metric'
-  | 'procedure_step'
-  | 'protocol_reference'
-  | 'materials'
-  | 'pipeline_output'
-  | 'signature_request'
-  | 'corrective_actions'
+/**
+ * The block type union and the `BLOCK_TYPES` allow-list are owned by
+ * `./registry`; re-exported here so `#/lib/blocks` stays the import site.
+ */
+export type { BlockType } from './registry'
 
 /** The payload schema version this module validates against. */
 export const PAYLOAD_SCHEMA_VERSION = 1 as const
-
-/**
- * The set of block types the DB check constraint allows. Kept in sync with
- * `chk_blocks_type` and its latest constraint migration. A type not in
- * this set is rejected as `unsupported_block_type`.
- */
-export const KNOWN_BLOCK_TYPES: readonly BlockType[] = [
-  'rich_text',
-  'checklist',
-  'linked_record',
-  'callout',
-  'table',
-  'sheet',
-  'chart',
-  'analysis',
-  'plate_map',
-  'file',
-  'metric',
-  'procedure_step',
-  'protocol_reference',
-  'materials',
-  'pipeline_output',
-  'signature_request',
-  'corrective_actions',
-]
 
 export type BlockValidationError =
   | 'unknown_block_type'
@@ -937,15 +901,16 @@ function validatePipelineOutput(payload: unknown): FieldErrors {
  * with `ok: true` when the payload matches the schema for
  * `(type, payloadSchemaVersion)`, or a list of field-level errors otherwise.
  *
- * Unsupported future block types (not in KNOWN_BLOCK_TYPES) are reported as
- * `unknown_block_type`; the caller is expected to preserve them as readable
- * placeholders (decision 0015) rather than silently dropping the payload.
+ * Unsupported future block types (not in `BLOCK_TYPES`, the allow-list owned
+ * by `./registry`) are reported as `unknown_block_type`; the caller is
+ * expected to preserve them as readable placeholders (decision 0015) rather
+ * than silently dropping the payload.
  */
 export function validateBlock(input: BlockInput): BlockValidationResult {
   const payloadSchemaVersion =
     input.payloadSchemaVersion ?? PAYLOAD_SCHEMA_VERSION
 
-  if (!KNOWN_BLOCK_TYPES.includes(input.type as BlockType)) {
+  if (!isBlockType(input.type)) {
     return fail(input.type, payloadSchemaVersion, [
       {
         code: 'unknown_block_type',
@@ -965,7 +930,7 @@ export function validateBlock(input: BlockInput): BlockValidationResult {
     ])
   }
 
-  const validator = validators[input.type as BlockType]
+  const validator = validators[input.type]
   const errors = validator(input.payload)
   if (errors.length > 0) {
     return fail(input.type, payloadSchemaVersion, errors)

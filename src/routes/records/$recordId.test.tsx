@@ -555,7 +555,7 @@ describe('NotebookCanvas', () => {
       {
         id: 'bX',
         recordId: 'r1',
-        type: 'quantum_state', // not in KNOWN_BLOCK_TYPES
+        type: 'quantum_state', // not in BLOCK_TYPES
         payload: { foo: 'bar' },
         payloadSchemaVersion: 1,
         order: 1,

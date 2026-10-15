@@ -13,7 +13,10 @@ import {
 } from '#/components/v3/ui/command'
 import { Icon } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
-import { BLOCK_PICKER_GROUPS, BLOCK_PICKER_OPTIONS } from './block-picker'
+import {
+  BLOCK_PICKER_GROUPS,
+  BLOCK_PICKER_OPTIONS,
+} from '#/lib/blocks/registry'
 
 /**
  * UI port (roadmap-4/ui-app3): the "+ Add block" menu, as a command palette

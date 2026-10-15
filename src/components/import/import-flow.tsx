@@ -48,6 +48,7 @@ import type {
   ImportMappingDocument,
   ImportParserSummary,
   ImportReviewResponse,
+  ImportSheetPreview,
 } from '#/lib/import/types'
 
 const client = createDataClient()
@@ -991,6 +992,11 @@ export function ImportMapCheckFlow({
             <Banner tone="warn" title="Choose how to read this file">
               {file.data.recognitionMessage ??
                 'This file does not match a registered parser.'}
+              {/* ImportFailed-light.png states this under the mismatch: the
+                  file is kept, nothing was written. */}
+              <p className="m-0 mt-1">
+                Nothing was imported. The file is kept so you can retry.
+              </p>
             </Banner>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -1053,6 +1059,7 @@ export function ImportMapCheckFlow({
               fields={fields}
               mappingValues={mappingValues}
               parser={activeParser}
+              sheet={file.data?.sheet ?? null}
               onMap={(source, fieldId) => {
                 const next = { ...mappingValues, [source]: fieldId }
                 setMappingValues(next)
@@ -1073,24 +1080,63 @@ export function ImportMapCheckFlow({
   )
 }
 
+/**
+ * The values a column shows as its examples. It is the rule the server's own
+ * `buildColumnViews` applies — the first three non-empty values of the first
+ * six rows — so the map step and the review step describe a column the same
+ * way. The sheet preview the file response carries holds eight rows, which is
+ * everything the rule reads.
+ */
+export function columnExamples(
+  source: string,
+  sampleRows: Array<Record<string, string>>,
+): string[] {
+  return sampleRows
+    .slice(0, 6)
+    .map((row) => (row[source] ?? '').trim())
+    .filter((value) => value.length > 0)
+    .slice(0, 3)
+}
+
+/**
+ * A column's note: how much of the file it reads, or why it is left out. It
+ * mirrors the server's `buildColumnViews`, so the note beside a mapping is the
+ * same statement the review makes about that column.
+ */
+export function columnNote(
+  source: string,
+  sampleRows: Array<Record<string, string>>,
+  rowCount: number,
+  mapped: boolean,
+): string {
+  if (!mapped) return 'No matching field'
+  const matched = sampleRows
+    .slice(0, 6)
+    .filter((row) => (row[source] ?? '').trim().length > 0).length
+  return `Matched ${matched} of ${Math.min(rowCount, 6)}`
+}
+
 function MapTable({
   headers,
   fields,
   mappingValues,
   parser,
+  sheet,
   onMap,
 }: {
   headers: string[]
   fields: ImportTargetField[]
   mappingValues: Record<string, string>
   parser: ImportParserSummary | null
+  sheet: ImportSheetPreview | null
   onMap: (source: string, fieldId: string) => void
 }) {
   const mappedCount = Object.values(mappingValues).filter(Boolean).length
+  const sampleRows = sheet?.sampleRows ?? []
   return (
     <div className="grid gap-4">
       <p className="m-0 text-body text-fg-muted">
-        {mappedCount} of {headers.length} mapped
+        Columns {mappedCount} of {headers.length} mapped
         {parser ? ` · continue to save this as ${parser.label}’s default` : ''}
       </p>
       <div className="overflow-auto rounded-md border">
@@ -1100,13 +1146,16 @@ function MapTable({
               <TableHead>File column</TableHead>
               <TableHead>Dataset field</TableHead>
               <TableHead>Unit</TableHead>
+              <TableHead>Example values</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Note</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {headers.map((header) => {
               const fieldId = mappingValues[header] ?? ''
               const field = fields.find((item) => item.id === fieldId)
+              const examples = columnExamples(header, sampleRows)
               return (
                 <TableRow key={header}>
                   <TableCell>{header}</TableCell>
@@ -1127,10 +1176,21 @@ function MapTable({
                   <TableCell className="text-fg-muted">
                     {field?.unit ?? '—'}
                   </TableCell>
+                  <TableCell className="font-mono text-xs text-fg-muted">
+                    {examples.length > 0 ? examples.join(', ') : '—'}
+                  </TableCell>
                   <TableCell>
                     <Status tone={fieldId ? 'ok' : 'stored'}>
                       {fieldId ? 'Mapped' : 'Skipped'}
                     </Status>
+                  </TableCell>
+                  <TableCell className="text-fg-muted">
+                    {columnNote(
+                      header,
+                      sampleRows,
+                      sheet?.rowCount ?? 0,
+                      Boolean(fieldId),
+                    )}
                   </TableCell>
                 </TableRow>
               )
@@ -1216,9 +1276,10 @@ function ReviewTable({
       <Section title="Summary">
         <dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-1 text-body sm:grid-cols-3">
           <div>
-            {/* The commit writes every row that is not a control, so this total
-                covers the planned and flagged rows the lines below break out. */}
-            <dt className="text-fg-muted">Rows to import</dt>
+            {/* The reference names this total "Will add"; the commit writes
+                every row that is not a control, so it covers the planned and
+                flagged rows the lines below break out. */}
+            <dt className="text-fg-muted">Will add</dt>
             <dd className="m-0 font-medium">{review.summary.added} rows</dd>
           </div>
           <div>

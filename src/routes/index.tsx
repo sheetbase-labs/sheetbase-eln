@@ -205,16 +205,18 @@ export function Home() {
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
   })
   const counts = countsQuery.data
-  // The sidebar badge states the shell's inbox total (`state <> 'following'`);
-  // Home states the same total, so one screen cannot show two numbers for the
-  // same work. The home read counts only needs_action/overdue, so it is the
-  // fallback when the shell context carries no number (a zero inbox).
+  // The sidebar badge states the caller's inbox total and Home displays the
+  // same number, so one screen cannot show two numbers for the same work: the
+  // shell context wins when it carries one (a zero inbox carries none).
   const shellInbox = 'inbox' in shellCounts ? shellCounts.inbox : undefined
-  const inboxCount =
-    shellInbox != null ? Number(shellInbox) : counts?.inbox
+  const inboxCount = shellInbox != null ? Number(shellInbox) : counts?.inbox
+  // The pace is decided by this page's own reads — the reads that fill the
+  // banner, Coming up and the review table — so whatever Home says is waiting
+  // is something the page can name and open, not a badge snapshot it cannot
+  // substantiate. Both reads state the one Inbox predicate.
   const waitingCounts = counts
     ? {
-        inbox: inboxCount ?? counts.inbox,
+        inbox: counts.inbox,
         datasetsWithErrors: counts.datasetsWithErrors,
         unreadNotifications: counts.unreadNotifications,
       }

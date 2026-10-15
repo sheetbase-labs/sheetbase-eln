@@ -30,6 +30,8 @@ import { ImportRequestError } from '#/lib/import/data'
 import {
   ImportMapCheckFlow,
   ImportUploadFlow,
+  columnExamples,
+  columnNote,
   commitIdempotencyKey,
   initialMappingValues,
   parseImportMapping,
@@ -449,6 +451,49 @@ describe('ImportMapCheckFlow', () => {
     expect(importData.reviewImport).not.toHaveBeenCalled()
   })
 
+  it('shows each column’s examples and what the column reads, without reviewing', async () => {
+    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
+    importData.fetchImportFile.mockResolvedValue(uploadResponse())
+    renderFlow(
+      <ImportMapCheckFlow
+        importId="file-1"
+        search={{ step: 'map', dataset: 'ds-1', map: 'raw:field-1' }}
+        onSearch={vi.fn()}
+      />,
+    )
+
+    const mapping = await screen.findByRole('table', { name: 'Column mapping' })
+    expect(mapping.textContent).toContain('Example values')
+    expect(mapping.textContent).toContain('Note')
+    expect(mapping.textContent).toContain('1.2')
+    // `raw` is mapped, so its note says how much of the file it reads;
+    // `dilution` is not, so its note says why it is left out.
+    expect(mapping.textContent).toContain('Matched 1 of 2')
+    expect(mapping.textContent).toContain('No matching field')
+    expect(importData.reviewImport).not.toHaveBeenCalled()
+  })
+
+  it('takes a column’s examples from the first three non-empty of the first six rows', () => {
+    const rows = [
+      { titre: '5.2' },
+      { titre: '' },
+      { titre: '4.8' },
+      { titre: '   ' },
+      { titre: '3.9' },
+      { titre: '7.1' },
+      { titre: '5.4' },
+    ]
+    expect(columnExamples('titre', rows)).toEqual(['5.2', '4.8', '3.9'])
+    expect(columnExamples('missing', rows)).toEqual([])
+  })
+
+  it('notes a mapped column with how much of the first six rows it reads', () => {
+    const rows = [{ titre: '5.2' }, { titre: '' }, { titre: '4.8' }]
+    expect(columnNote('titre', rows, 4, true)).toBe('Matched 2 of 4')
+    expect(columnNote('titre', rows, 9, true)).toBe('Matched 2 of 6')
+    expect(columnNote('titre', rows, 4, false)).toBe('No matching field')
+  })
+
   it('reloads at the check step and recomputes the review on the server', async () => {
     vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
     importData.fetchImportFile.mockResolvedValue(uploadResponse())
@@ -461,7 +506,10 @@ describe('ImportMapCheckFlow', () => {
       />,
     )
 
-    expect(await screen.findByText(/Rows to import/)).toBeTruthy()
+    expect(
+      await screen.findByRole('table', { name: 'Rows to import' }),
+    ).toBeTruthy()
+    expect(await screen.findByText('Will add')).toBeTruthy()
     expect(importData.reviewImport).toHaveBeenCalledTimes(1)
     const [reviewArgs] = importData.reviewImport.mock.calls[0] ?? []
     expect(reviewArgs.fileId).toBe('file-1')

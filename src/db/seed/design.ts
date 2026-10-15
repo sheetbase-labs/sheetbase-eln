@@ -4659,6 +4659,37 @@ async function seedDesignProtocolTraining(
         t.status,
       ])
     }
+
+    // LAB-07: read-and-acknowledge training is recorded against an exact frozen
+    // version, so a protocol with no version has nothing to acknowledge and the
+    // Training tab cannot be exercised. Freeze the document as v1 and put it in
+    // review — the lifecycle state that invites acknowledgement — from the
+    // record's current blocks. A version that already exists keeps its own
+    // lifecycle, so a reseed neither creates v2 nor walks an approved version
+    // backwards.
+    const existing = await client.query<{ id: string; status: string }>(
+      `select id, status from api.protocol_versions
+        where protocol_record_id = $1 order by version desc limit 1`,
+      [protocolId],
+    )
+    const frozen = existing.rows.length
+      ? existing.rows[0]
+      : (
+          await client.query<{ id: string; status: string }>(
+            'select * from api.create_protocol_version($1,$2,$3)',
+            [
+              protocolId,
+              'First frozen revision of the transfection protocol.',
+              'Design fixture',
+            ],
+          )
+        ).rows[0]
+    if (frozen.status === 'draft') {
+      await client.query('select api.set_protocol_version_status($1,$2)', [
+        frozen.id,
+        'in_review',
+      ])
+    }
   })
 }
 

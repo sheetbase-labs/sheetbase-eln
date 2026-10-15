@@ -1,5 +1,5 @@
 import { useId, useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -85,6 +85,30 @@ const roles = Object.keys(WORKSPACE_ROLE_LABELS) as WorkspaceRole[]
 function Members() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
+  // ADR-0049: a client account is not an internal member, so
+  // `workspace_members_list` and the invitation list are refused to it. An
+  // empty roster would claim this workspace has no members. The role decides
+  // this for the whole life of the route, so the refusal returns before the
+  // reads rather than issuing refused queries. The refusal precedes every other
+  // hook, so the hook order is stable for as long as the route stays mounted.
+  if (context.workspace?.role === 'client_viewer') {
+    return (
+      <>
+        <SettingsHeader title="Members and roles" />
+        <div className="px-4 md:px-6">
+          <EmptyState
+            icon="lock"
+            title="Only workspace members can see the roster"
+            body="This is a client account. It shows the records your CDMO team shares with your client, not the workspace's own members and invitations."
+          >
+            <Button nativeButton={false} render={<Link to="/client-portal" />}>
+              Open the client portal
+            </Button>
+          </EmptyState>
+        </div>
+      </>
+    )
+  }
   const queryClient = useQueryClient()
   const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
   const [dialog, setDialog] = useState<
@@ -696,8 +720,7 @@ function InviteDialog({
   const [emailUsed, setEmailUsed] = useState(false)
   const emailErrorId = useId()
   const emailValid = /.+@.+\..+/.test(email.trim())
-  const error =
-    emailValid || !emailUsed ? undefined : 'Enter an email address.'
+  const error = emailValid || !emailUsed ? undefined : 'Enter an email address.'
   const clientError =
     role === 'client_viewer' && !clientId ? 'Choose a client.' : undefined
   return (

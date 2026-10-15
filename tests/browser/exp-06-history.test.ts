@@ -106,9 +106,25 @@ test('real history selection, category/actor counts and server CSV agree', async
     await database.query(`DELETE FROM api.data_exports WHERE workspace_id=$1`, [
       workspaceId,
     ])
-    await database.query(`DELETE FROM api.workspaces WHERE id=$1`, [
-      workspaceId,
-    ])
+    // The audit chain is append-only and a workspace delete cascades its
+    // entries, so the guard is disabled for that delete alone and re-enabled
+    // inside the same transaction, the way the audit fixtures do.
+    await database.query('BEGIN')
+    try {
+      await database.query(
+        'ALTER TABLE api.change_events DISABLE TRIGGER refuse_change_event_mutation',
+      )
+      await database.query(`DELETE FROM api.workspaces WHERE id=$1`, [
+        workspaceId,
+      ])
+      await database.query(
+        'ALTER TABLE api.change_events ENABLE TRIGGER refuse_change_event_mutation',
+      )
+      await database.query('COMMIT')
+    } catch (error) {
+      await database.query('ROLLBACK')
+      throw error
+    }
     await database.query(`DELETE FROM internal.session WHERE "userId"=$1`, [
       userId,
     ])

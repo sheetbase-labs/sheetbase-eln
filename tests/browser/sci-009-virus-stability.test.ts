@@ -49,6 +49,16 @@ const SHEET_READINGS = [
 
 const ARTIFACTS = '.amp/in/artifacts'
 
+/** `clean()` deletes the whole fixture world (workspace, project, records,
+ * datasets, Sheet Instances) and `beforeAll` rebuilds it, so exactly one
+ * invocation of this spec may own it at a time: two invocations share one
+ * database whenever a run overlaps another (the suite runs while another run is
+ * going, and an agent may verify this file mid-suite), and the second one's
+ * `beforeAll` then failed on `project_access_project_id_fkey` because the first
+ * had just deleted the project underneath it. The lock is session scoped, so a
+ * run that dies releases it with its connection. */
+const FIXTURE_LOCK_KEY = 918273648
+
 let admin: Client
 
 /** The notebook Sheet's own state: four qPCR stability readings. */
@@ -286,6 +296,8 @@ async function insertBlock(
 test.beforeAll(async () => {
   admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()
+  // Own the fixture before touching it; see FIXTURE_LOCK_KEY.
+  await admin.query('select pg_advisory_lock($1)', [FIXTURE_LOCK_KEY])
   await clean()
   await mkdir(ARTIFACTS, { recursive: true })
 
@@ -646,6 +658,9 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await clean()
+  await admin
+    .query('select pg_advisory_unlock($1)', [FIXTURE_LOCK_KEY])
+    .catch(() => {})
   await admin.end()
 })
 
@@ -728,28 +743,47 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
       page.getByText('Virus Stability at 4°C', { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 })
 
-    // Canonical overview section labels are rendered.
-    for (const label of [
-      'Notes',
-      'Materials',
-      'Procedures',
-      'Tables & data',
-      'Visualizations',
-      'Metrics',
-      'Files',
-      'Linked records',
-      'Tasks',
+    // The shipped experiment overview is the canvas composition
+    // (docs/knowledge/design/ui-system-v3/screen-text/ExpOverview.txt): the
+    // Objective, Protocol progress, Open before submission and Key results
+    // sections, then the Properties / Linked experiments / Signatures
+    // inspector. The sectioned SCI-007 composition (`composeSections`, whose
+    // labels were Notes / Materials / Procedures / Tables & data / …) has no
+    // product caller and no canvas, so the labels - and the Visualizations
+    // section that carried the chart and plate-map titles - are gone.
+    for (const heading of [
+      'Objective',
+      'Protocol progress',
+      'Open before submission',
+      'Key results',
+      'Properties',
+      'Linked experiments',
+      'Signatures',
     ]) {
-      await expect(page.getByText(label, { exact: true }).first()).toBeVisible()
+      await expect(
+        page.getByRole('heading', { name: heading, exact: true }),
+      ).toBeVisible({ timeout: 15_000 })
     }
 
-    // Procedures section contains the pinned protocol title.
-    await expect(page.getByText('Titration Assay').first()).toBeVisible()
-    // Visualizations contains the chart and plate map titles.
+    // Objective composes from the notebook's rich_text prose block.
     await expect(
-      page.getByText('Vector genome copy number (qPCR)').first(),
+      page.getByText(
+        'Evaluate LVV-CAR-T vector stability at 4 °C across a 28-day window.',
+      ),
     ).toBeVisible()
-    await expect(page.getByText('qPCR titration plate').first()).toBeVisible()
+
+    // Protocol progress composes from the notebook's procedure_step blocks, in
+    // step order.
+    await expect(
+      page.getByText('Prepare a serial dilution of the sample.').first(),
+    ).toBeVisible()
+    await expect(
+      page.getByText('Measure the assay response and fit the titration curve.')
+        .first(),
+    ).toBeVisible()
+
+    // The steps came from the protocol pinned into the notebook.
+    await expect(page.getByText('PRT-2025-0001').first()).toBeVisible()
 
     await page.screenshot({
       path: `${ARTIFACTS}/sci-009-overview.png`,
@@ -762,22 +796,40 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
   }) => {
     await injectAuth(page)
     await page.goto('/search')
-    // Browse mode (empty query) should list the experiment.
+    // An empty query is a prompt, not a browse listing: the design's Search
+    // page renders its `EmptyState` and no results for `!q`
+    // (sheetbase-app-ui-only/src/routes/_app/search.tsx:105-112), and the app
+    // does the same (`enabled: q.trim().length > 0`, src/routes/search.tsx), so
+    // there is nothing to browse until a term is given.
+    await expect(
+      page.getByText('Search names, IDs, cell values, comments and files'),
+    ).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('Virus Stability at 4°C')).toHaveCount(0)
+
+    // Search for the experiment by title. The form submits the query into the
+    // URL - the page reads `q` from the URL rather than the input - so Enter is
+    // what runs the search. The Filters pane and the below-lg header row render
+    // the same form, and only the pane's is on screen at this width.
+    const searchInput = page
+      .getByRole('complementary', { name: 'Filters' })
+      .getByRole('searchbox', { name: 'Search Sheetbase' })
+    await searchInput.click()
+    // Typed, not `fill()`ed: `fill()` set the input's value without the page's
+    // React state seeing it, so Enter submitted an empty term (the URL came out
+    // `/search`).
+    await searchInput.pressSequentially('virus stability')
+    await searchInput.press('Enter')
     await expect(page.getByText('Virus Stability at 4°C').first()).toBeVisible({
       timeout: 15_000,
     })
 
-    // Search for the experiment by title.
-    await page.getByPlaceholder(/search/i).fill('virus stability')
-    await expect(page.getByText('Virus Stability at 4°C').first()).toBeVisible({
-      timeout: 10_000,
-    })
-
     // Search for the linked sample.
-    await page.getByPlaceholder(/search/i).fill('LVV-CAR-T drug substance')
+    await searchInput.fill('')
+    await searchInput.pressSequentially('LVV-CAR-T drug substance')
+    await searchInput.press('Enter')
     await expect(
       page.getByText('LVV-CAR-T drug substance').first(),
-    ).toBeVisible({ timeout: 10_000 })
+    ).toBeVisible({ timeout: 15_000 })
 
     await page.screenshot({
       path: `${ARTIFACTS}/sci-009-search.png`,

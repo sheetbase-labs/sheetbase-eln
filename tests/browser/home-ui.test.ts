@@ -6,8 +6,20 @@ import type { Appearance } from '../../src/lib/user-preferences'
 import { signInAsDesignUser } from '../visual/sign-in'
 
 const userId = '00000000-0000-4000-8000-000000000310'
+const workspaceId = '00000000-0000-4000-8000-000000000300'
 let appearanceClient: Client | undefined
 let originalAppearance: Appearance | undefined
+
+/** One row of the Inbox read state this spec resets (RM-116). */
+interface SeenItemRow {
+  user_id: string
+  workspace_id: string
+  item_key: string
+  seen_at: Date
+}
+
+let seenClient: Client | undefined
+let originalSeen: SeenItemRow[] | undefined
 
 test.use({
   baseURL: process.env.HOME_TEST_BASE_URL ?? 'http://127.0.0.1:3100',
@@ -32,7 +44,7 @@ test.beforeEach(async ({ page }) => {
     [
       JSON.stringify({
         role: 'authenticated',
-        workspace_id: '00000000-0000-4000-8000-000000000300',
+        workspace_id: workspaceId,
         sub: userId,
         session_id: `parity-${userId}`,
       }),
@@ -47,6 +59,35 @@ test.beforeEach(async ({ page }) => {
         )
       ).rows[0].appearance,
     )
+  // RM-116 keeps the caller's Inbox read state in `api.work_item_views`, and
+  // Home states the totals of the authorities it reads: acknowledged work is
+  // not outstanding work. The design database is shared and durable, so how
+  // much of the seeded work an earlier run acknowledged is not this spec's to
+  // inherit — reset it, and put it back afterwards.
+  const adminConnectionString = process.env.MIGRATION_DATABASE_URL
+  if (
+    !adminConnectionString ||
+    !['localhost', '127.0.0.1'].includes(
+      new URL(adminConnectionString).hostname,
+    )
+  ) {
+    throw new Error('Local disposable database required for Home totals')
+  }
+  seenClient = new Client({ connectionString: adminConnectionString })
+  await seenClient.connect()
+  originalSeen = (
+    await seenClient.query<SeenItemRow>(
+      `select user_id, workspace_id, item_key, seen_at
+         from api.work_item_views
+        where user_id = $1 and workspace_id = $2
+        order by item_key`,
+      [userId, workspaceId],
+    )
+  ).rows
+  await seenClient.query(
+    'delete from api.work_item_views where user_id = $1 and workspace_id = $2',
+    [userId, workspaceId],
+  )
   await page.clock.install({ time: new Date('2026-09-25T09:30:00+01:00') })
 })
 
@@ -72,6 +113,24 @@ test.afterEach(async () => {
     await appearanceClient.end()
     appearanceClient = undefined
     originalAppearance = undefined
+  }
+})
+
+test.afterEach(async () => {
+  if (!seenClient) return
+  try {
+    for (const row of originalSeen ?? []) {
+      await seenClient.query(
+        `insert into api.work_item_views (user_id, workspace_id, item_key, seen_at)
+         values ($1, $2, $3, $4)
+         on conflict do nothing`,
+        [row.user_id, row.workspace_id, row.item_key, row.seen_at],
+      )
+    }
+  } finally {
+    await seenClient.end()
+    seenClient = undefined
+    originalSeen = undefined
   }
 })
 
@@ -167,7 +226,11 @@ for (const theme of ['light', 'dark'] as const) {
 test('Home surfaces unavailable exact totals instead of zero or preview lengths', async ({
   page,
 }, testInfo) => {
-  await page.route('**/api/db/my_work_items?**', async (route) => {
+  // Home reads its totals as `Prefer: count=exact` reads of the authorities it
+  // names — Datasets with errors among them — so an authority that answers
+  // without an exact total must fail the page rather than becoming a total.
+  const unavailable = '**/api/db/rpc/dataset_list_summary?**'
+  await page.route(unavailable, async (route) => {
     if (route.request().headers().prefer !== 'count=exact')
       return route.continue()
     await route.fulfill({
@@ -184,7 +247,7 @@ test('Home surfaces unavailable exact totals instead of zero or preview lengths'
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Summary' })).toHaveCount(0)
   await page.screenshot({ path: testInfo.outputPath('home-count-error.png') })
-  await page.unroute('**/api/db/my_work_items?**')
+  await page.unroute(unavailable)
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('navigation', { name: 'Summary' })).toBeVisible({
     timeout: 20000,

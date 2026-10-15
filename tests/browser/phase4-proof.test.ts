@@ -45,6 +45,18 @@ let externalToken: string
 let sourceInstance: string
 
 /**
+ * `clean()` deletes the one Notebook Record and `beforeAll` rebuilds it, so
+ * exactly one invocation of this spec may own that record at a time. Two
+ * invocations share one database whenever a run overlaps another - the suite
+ * runs while another run is going, `pnpm test:phase4` runs this file, and an
+ * agent may verify it mid-suite. Without the lock the second invocation's
+ * `beforeAll` failed on `uq_records_project_identifier` (the first had just
+ * re-inserted `VSB-001`), or deleted the record the first was rendering. The
+ * lock is session scoped, so a run that dies releases it with its connection.
+ */
+const FIXTURE_LOCK_KEY = 918273646
+
+/**
  * The fixture converges instead of deleting itself, because two rows cannot be
  * removed by anyone: api.change_events is append-only
  * (internal.refuse_change_event_mutation refuses DELETE, and the workspace its
@@ -128,6 +140,8 @@ async function embedSheet(instanceId: string) {
 test.beforeAll(async () => {
   admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()
+  // Own the fixture before touching it; see FIXTURE_LOCK_KEY.
+  await admin.query('select pg_advisory_lock($1)', [FIXTURE_LOCK_KEY])
   await clean()
   await admin.query(
     `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES ($1,'Phase 4 browser owner','phase4-browser@test.invalid',true)
@@ -196,6 +210,9 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
+  await admin
+    .query('select pg_advisory_unlock($1)', [FIXTURE_LOCK_KEY])
+    .catch(() => {})
   await admin.end()
 })
 
@@ -205,17 +222,22 @@ test('Sheet blocks render, and the DB proxy is fail-closed for an unscoped exter
 }) => {
   await signInAsDesignUser(page, USER)
   await page.goto(`/records/${RECORD}`)
+  // The full suite runs this file beside another worker against the same dev
+  // server and database, so the notebook and its two grids are given the same
+  // budget the sibling specs give this page instead of the 5s default.
   await expect(
     page.getByText('Virus Stability at 4C', { exact: true }).first(),
-  ).toBeVisible()
+  ).toBeVisible({ timeout: 15_000 })
   // Both canonical Sheet blocks render their own live grid and their own data.
-  await expect(page.getByLabel('Sheet', { exact: true })).toHaveCount(2)
+  await expect(page.getByLabel('Sheet', { exact: true })).toHaveCount(2, {
+    timeout: 15_000,
+  })
   await expect(
     page.getByRole('gridcell', { name: '5', exact: true }),
-  ).toBeVisible()
+  ).toBeVisible({ timeout: 15_000 })
   await expect(
     page.getByRole('gridcell', { name: '15', exact: true }),
-  ).toBeVisible()
+  ).toBeVisible({ timeout: 15_000 })
 
   // EXTERNAL_TABLE_ACCESS gives sheet_instances a read scope only, so the
   // credential table path can never write a Sheet.

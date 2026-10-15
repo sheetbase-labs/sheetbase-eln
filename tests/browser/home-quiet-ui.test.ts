@@ -61,14 +61,21 @@ test.beforeEach(async ({ page }) => {
     const url = new URL(request.url())
     const path = url.pathname.replace('/api/db/', '')
     const isCount = request.headers().prefer === 'count=exact'
+    // A `count=exact` response carries `0-0/<total>` only when a row came
+    // back; an empty result is `*/0` with no body. `0-0/0` claims one row
+    // from an empty set, which the data client rejects as inexact.
     const json = (body: unknown, total?: number) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         ...(total === undefined
           ? {}
-          : { headers: { 'content-range': `0-0/${total}` } }),
-        body: JSON.stringify(body),
+          : {
+              headers: {
+                'content-range': total ? `0-0/${total}` : '*/0',
+              },
+            }),
+        body: JSON.stringify(total === 0 ? [] : body),
       })
 
     if (path.startsWith('rpc/audit_events')) {

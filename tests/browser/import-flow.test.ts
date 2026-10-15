@@ -11,6 +11,29 @@
  *   plus one import record and the rows land in the Dataset.
  * - 05.5 the failure page offers its three recovery options.
  *
+ * Reference differences this spec accepts (ImportMap-light.png is the
+ * specification for the map/check surface):
+ * - The reference draws mapping and review as one view — the Summary rail sits
+ *   beside the Columns table. The app keeps its three steps: the Columns table
+ *   is step 2 and the Summary belongs to the review step, where the counts it
+ *   reports exist. The map table itself is asserted column for column
+ *   (File column / Dataset field / Unit / Example values / Status / Note); the
+ *   reference clips a long example list with an ellipsis, the app one line.
+ * - The reference headline ends "saved as the default for PR-01 plate maps";
+ *   the app names the parser the mapping is saved against instead, because a
+ *   saved mapping is keyed by parser and target, not by a plate map the app
+ *   has no identity for. Asserted below as the app words it.
+ * - The reference's rail also carries the "Flagged rows" and "Record" prose
+ *   blocks; those are copy with no behaviour behind them here.
+ * - ImportFailed-light.png draws the unrecognised-file surface on the Upload
+ *   step (file card, banner, option radios, step 1 current and unfailed). The
+ *   app stores the file checksum-first and routes it to its own addressable
+ *   map step, so that surface — the mismatch explanation and the same three
+ *   ways out — is asserted on the map step instead. Moving it back would mean
+ *   a second copy of the surface on the upload step, which is a new surface,
+ *   not a missing one. The stepper's failed marker stays reserved for a file
+ *   that cannot be read at all, as the reference's failed screen shows.
+ *
  * Runs against the auth-free development server the Playwright config reuses
  * (127.0.0.1:3100). Self-cleaning: every artifact it creates is removed.
  */
@@ -178,9 +201,19 @@ test.describe('DSET-05 import flow', () => {
     await expect(
       page.getByText(/continue to save this as Plate reader CSV’s default/),
     ).toBeVisible()
-    // 05.3 — units and examples show on the mapping step.
+    // 05.3 — units and examples show on the mapping step. ImportMap-light.png
+    // draws File column / Dataset field / Unit / Example values / Status / Note.
     await expect(mapping.getByText('×10¹⁰ vg/mL')).toBeVisible()
     await expect(mapping.getByText('5.2, 4.8, 3.9')).toBeVisible()
+    await expect(
+      mapping.getByRole('columnheader', { name: 'Example values' }),
+    ).toBeVisible()
+    await expect(
+      mapping.getByRole('columnheader', { name: 'Note', exact: true }),
+    ).toBeVisible()
+    // The note says how much of the file the column reads, as the reference's
+    // "Matched 34 of 34" does; the fixture holds six rows the column reads.
+    await expect(mapping.getByText('Matched 6 of 6').first()).toBeVisible()
 
     // The raw file is persisted with its SHA-256 before parsing.
     const file = await admin.query<{
@@ -311,12 +344,26 @@ test.describe('DSET-05 import flow', () => {
     expect(importRecord.rows[0]?.status).toBe('committed')
     expect(importRecord.rows[0]?.snapshot_version_id).toBeTruthy()
 
-    // --- 05.5 — an unusable file offers the three recovery options. ---
+    // --- 05.5 — a file nothing recognises explains the mismatch and offers the
+    // three ways out (DSET-05 "Not recognised"). ImportFailed-light.png draws
+    // that surface on the Upload step, before the file is stored, and keeps
+    // step 1 current and unfailed; the app stores the file first and addresses
+    // it (R5-SURF-04), so the same explanation and options appear on the map
+    // step it routes to, with the stepper's failed marker reserved for a file
+    // that cannot be read at all. The reference carries no "Not recognised"
+    // label: it names the mismatch, which is what the banner does here.
     await page.goto('/import')
     await uploadFixture(page, FAILURE_NAME, FAILURE_CSV)
-    await expect(page.getByText('Not recognised')).toBeVisible()
-    await expect(steps.nth(0)).toHaveAttribute('aria-current', 'step')
-    await expect(stepper.getByText('!')).toBeVisible()
+    await expect(
+      page.getByText(/headers \(alpha, beta\) match no approved parser/),
+    ).toBeVisible()
+    await expect(
+      page.getByText(
+        'Nothing was imported. The file is kept so you can retry.',
+      ),
+    ).toBeVisible()
+    await expect(steps.nth(1)).toHaveAttribute('aria-current', 'step')
+    await expect(stepper.getByText('!')).toHaveCount(0)
     await expect(
       page.getByRole('button', { name: 'Map columns by hand for this file' }),
     ).toBeVisible()

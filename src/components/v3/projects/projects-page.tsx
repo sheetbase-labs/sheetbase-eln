@@ -38,6 +38,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -134,6 +135,7 @@ export function ProjectsPage({
   onCreate,
   creating = false,
   createError = null,
+  createdProjectId = null,
   clientOptions = [],
   memberOptions = [],
 }: {
@@ -151,6 +153,11 @@ export function ProjectsPage({
   onCreate: (input: NewProjectInput) => void
   creating?: boolean
   createError?: string | null
+  /** The project the last create produced, from the route's mutation. A create
+   * that lands ends the dialog: the route drops `?new=true`, and this closes
+   * the dialog the click opened, exactly as the design's `onCreated` closes
+   * its URL-gated dialog. */
+  createdProjectId?: string | null
   clientOptions?: { id: string; label: string }[]
   memberOptions?: { id: string; label: string }[]
 }) {
@@ -188,6 +195,14 @@ export function ProjectsPage({
     }
     lastRequestedNewProject.current = requestedNewProject
   }, [requestedNewProject])
+
+  // A create that lands ends the intent. The route clears `?new=true` and
+  // invalidates the list, but that navigation cannot close a dialog whose open
+  // state is local, so the created project itself is the signal: without this
+  // the dialog stays up over the list after the write is already done.
+  useEffect(() => {
+    if (createdProjectId) setNewProjectOpen(false)
+  }, [createdProjectId])
 
   const requestNewProject = () => {
     setNewProjectOpen(true)
@@ -487,21 +502,25 @@ export function ProjectsPage({
                     Status is not Archived
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Stage is</DropdownMenuLabel>
-                  {stages.map((s) => (
-                    <DropdownMenuItem
-                      key={s}
-                      icon={search.stage === s ? 'check' : undefined}
-                      className={search.stage === s ? '' : 'pl-[30px]'}
-                      onClick={() =>
-                        setSearch({ stage: search.stage === s ? undefined : s })
-                      }
-                    >
-                      {s}
-                    </DropdownMenuItem>
-                  ))}
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Stage is</DropdownMenuLabel>
+                    {stages.map((s) => (
+                      <DropdownMenuItem
+                        key={s}
+                        icon={search.stage === s ? 'check' : undefined}
+                        className={search.stage === s ? '' : 'pl-[30px]'}
+                        onClick={() =>
+                          setSearch({
+                            stage: search.stage === s ? undefined : s,
+                          })
+                        }
+                      >
+                        {s}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
                   {(['client', 'modality'] as const).map((field) => (
-                    <div key={field}>
+                    <DropdownMenuGroup key={field}>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel>
                         {field === 'client' ? 'Client is' : 'Modality is'}
@@ -522,7 +541,7 @@ export function ProjectsPage({
                             {value}
                           </DropdownMenuItem>
                         ))}
-                    </div>
+                    </DropdownMenuGroup>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -587,33 +606,35 @@ export function ProjectsPage({
                   Fields
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px]">
-                  <DropdownMenuLabel>Show columns</DropdownMenuLabel>
-                  {(
-                    [
-                      'client',
-                      'modality',
-                      'stage',
-                      'lead',
-                      'experiments',
-                    ] as const
-                  ).map((k) => (
-                    <DropdownMenuItem
-                      key={k}
-                      closeOnClick={false}
-                      icon={hidden.has(k) ? undefined : 'check'}
-                      className={hidden.has(k) ? 'pl-[30px]' : ''}
-                      onClick={() => {
-                        const next = new Set(hidden)
-                        if (next.has(k)) next.delete(k)
-                        else next.add(k)
-                        setSearch({
-                          fields: [...next].sort().join(',') || undefined,
-                        })
-                      }}
-                    >
-                      {k[0].toUpperCase() + k.slice(1)}
-                    </DropdownMenuItem>
-                  ))}
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+                    {(
+                      [
+                        'client',
+                        'modality',
+                        'stage',
+                        'lead',
+                        'experiments',
+                      ] as const
+                    ).map((k) => (
+                      <DropdownMenuItem
+                        key={k}
+                        closeOnClick={false}
+                        icon={hidden.has(k) ? undefined : 'check'}
+                        className={hidden.has(k) ? 'pl-[30px]' : ''}
+                        onClick={() => {
+                          const next = new Set(hidden)
+                          if (next.has(k)) next.delete(k)
+                          else next.add(k)
+                          setSearch({
+                            fields: [...next].sort().join(',') || undefined,
+                          })
+                        }}
+                      >
+                        {k[0].toUpperCase() + k.slice(1)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>

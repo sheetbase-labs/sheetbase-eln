@@ -1,10 +1,15 @@
+import { randomUUID } from 'node:crypto'
+import { config } from 'dotenv'
+import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
 import { signInAsDesignUser } from '../visual/sign-in'
-import { z } from 'zod'
 
-// Exercise route transitions and the real table/dialog components without
-// creating persistent records. Database summary/RLS semantics have DB tests.
-test('new project opens first-use guidance and can return to Projects', async ({
+config({ path: ['.env.local', '.env'] })
+
+// Exercise route transitions and the real table/dialog components. Test 1 mocks
+// the data layer; test 2 makes its own project and draft experiment, then
+// removes the project. Database summary/RLS semantics have DB tests.
+test('new project is created from the list and the list stays usable', async ({
   page,
 }) => {
   const project = {
@@ -21,6 +26,7 @@ test('new project opens first-use guidance and can return to Projects', async ({
     last_activity_at: null,
   }
   let created = false
+  await signInAsDesignUser(page, '00000000-0000-4000-8000-000000000310')
   await page.route('**/api/db/**', async (route) => {
     const path = new URL(route.request().url()).pathname
     let body: unknown = []
@@ -38,23 +44,57 @@ test('new project opens first-use guidance and can return to Projects', async ({
   })
   await page.goto('/projects')
   await page.getByRole('button', { name: 'New project', exact: true }).click()
-  await page.getByRole('textbox', { name: 'Project title' }).fill(project.title)
+  // The dialog's first field is "Name" (projects-page.tsx: `Field label="Name"`,
+  // the design's NewProjectDialog, and DialogsCreate-light.png).
+  const dialog = page.getByRole('dialog', { name: 'New project' })
+  await dialog
+    .getByRole('textbox', { name: 'Name', exact: true })
+    .fill(project.title)
   await page
     .getByRole('button', { name: 'Create project', exact: true })
     .click()
-  await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`))
-  await page
-    .getByRole('button', { name: 'Create your first experiment', exact: true })
-    .click()
+  // The design's `onCreated` clears `new` and keeps the person on the list —
+  // it selects the new row's quick view rather than opening the project
+  // (sheetbase-app-ui-only/src/routes/_app/projects/index.tsx), and the app's
+  // route does the same (src/routes/projects.tsx onSuccess). A successful write
+  // therefore ends the dialog: it used to stay open over the list.
+  await expect(dialog).not.toBeVisible()
   await expect(
-    page.getByRole('dialog', { name: 'Create experiment' }),
+    page.getByText(`Project “${project.title}” created`),
+  ).toBeVisible()
+  expect(new URL(page.url()).pathname).toBe('/projects')
+  expect(new URL(page.url()).searchParams.get('new')).toBeNull()
+  await expect(
+    page.getByRole('heading', { name: 'Projects', exact: true }),
   ).toBeVisible()
   await expect(
-    page.getByRole('textbox', { name: 'Experiment title' }),
-  ).toBeFocused()
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    page.getByRole('link', { name: project.title, exact: true }),
+  ).toBeVisible()
+  // A quiet control keeps no fill at rest (variant="quiet" only fills on hover).
+  expect(
+    await page
+      .getByRole('button', {
+        name: `Quick view of ${project.title}`,
+        exact: true,
+      })
+      .evaluate((el) => getComputedStyle(el).backgroundColor),
+  ).toBe('rgba(0, 0, 0, 0)')
+  // The column menu is "Fields" with plain menu items (the design's Fields
+  // dropdown); the old "Columns" menu and its "Created" column are gone.
+  await page.getByRole('button', { name: 'Fields', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Stage', exact: true }).click()
+  await expect(
+    page.getByRole('columnheader', { name: 'Stage', exact: true }),
+  ).toHaveCount(0)
+  await page.getByRole('menuitem', { name: 'Stage', exact: true }).click()
+  await expect(
+    page.getByRole('columnheader', { name: 'Stage', exact: true }),
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
   await page
-    .getByRole('navigation', { name: 'Primary', exact: true })
+    // The shell's nav landmark is labelled "Main" (src/components/v3/shell/app-shell.tsx:294
+    // and the design's app-shell.tsx), not "Primary".
+    .getByRole('navigation', { name: 'Main', exact: true })
     .getByRole('link', { name: 'Projects', exact: true })
     .click()
   await expect(page).toHaveURL(/\/projects$/)
@@ -62,29 +102,28 @@ test('new project opens first-use guidance and can return to Projects', async ({
     page.getByRole('heading', { name: 'Projects', exact: true }),
   ).toBeVisible()
   await expect(
-    page.getByRole('link', { name: /Workflow project workflow-project/ }),
+    page.getByRole('link', { name: project.title, exact: true }),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Status', exact: true }).hover()
-  expect(
-    await page
-      .getByRole('button', { name: 'Status', exact: true })
-      .evaluate((el) => getComputedStyle(el).backgroundColor),
-  ).toBe('rgba(0, 0, 0, 0)')
-  await page.getByRole('button', { name: 'Columns', exact: true }).click()
-  await page
-    .getByRole('menuitemcheckbox', { name: 'Created', exact: true })
-    .click()
-  await expect(
-    page.getByRole('columnheader', { name: 'Created', exact: true }),
-  ).toBeVisible()
-  await page.keyboard.press('Escape')
   await page.setViewportSize({ width: 390, height: 844 })
+  // The phone view is the md:hidden MobileList, and nothing overflows it.
   expect(await page.evaluate(() => document.body.scrollWidth)).toBe(390)
-  expect(
-    await page
-      .getByRole('searchbox', { name: 'Filter projects' })
-      .evaluate((el) => el.getBoundingClientRect().width),
-  ).toBeGreaterThan(300)
+  const search = page.getByRole('searchbox', { name: 'Search projects' })
+  await expect(search).toBeVisible()
+  // The phone row is the design's MobileList row, whose link names the project
+  // together with its id, client and status (the desktop table is hidden here).
+  await expect(
+    page.getByRole('link', { name: new RegExp(project.title) }),
+  ).toBeVisible()
+  // The design's phone toolbar gives the search the flexible remainder
+  // (`order-first min-w-0 flex-1`) rather than a fixed width, so it is the
+  // widest control there, and every control stays inside the viewport.
+  const searchBox = await search.boundingBox()
+  const sortBox = await page
+    .getByRole('button', { name: 'Sort', exact: true })
+    .boundingBox()
+  if (!searchBox || !sortBox) throw new Error('Phone toolbar did not render')
+  expect(searchBox.width).toBeGreaterThan(sortBox.width)
+  expect(searchBox.x + searchBox.width).toBeLessThanOrEqual(390)
 })
 
 test.describe('native project activity', () => {
@@ -93,48 +132,96 @@ test.describe('native project activity', () => {
     deviceScaleFactor: 2,
   })
 
-  test('shows current readable identities for the actual latest record events', async ({
+  test('shows the current readable identity of the newest record event', async ({
     page,
   }) => {
-    await signInAsDesignUser(page, '00000000-0000-4000-8000-000000000310')
-    await page.goto('/projects')
-    const expected = z
-      .array(z.object({ identifier: z.string(), title: z.string() }))
-      .parse(
-        await page.evaluate(async () => {
-          const project = '00000000-0000-4000-8000-000000000320'
-          const events = await fetch(
-            `/api/db/change_events?project_id=eq.${project}&order=sequence.desc&limit=3`,
-          )
-          if (!events.ok) throw new Error('Native event read failed')
-          const rows: Array<{ entity_type: string; entity_uuid: string }> =
-            await events.json()
-          const records = []
-          for (const row of rows.filter(
-            (event) => event.entity_type === 'record',
-          )) {
-            const response = await fetch(
-              `/api/db/records?id=eq.${row.entity_uuid}&project_id=eq.${project}&select=identifier,title`,
-            )
-            if (!response.ok) throw new Error('Native record read failed')
-            records.push(...(await response.json()))
-          }
-          return records
-        }),
+    const projectTitle = `Activity project ${randomUUID()}`
+    const recordTitle = `Activity proof ${randomUUID()}`
+    let projectId: string | undefined
+    try {
+      await signInAsDesignUser(page, '00000000-0000-4000-8000-000000000310')
+      await page.goto('/projects')
+      // The peek renders a project's three newest change events and, for each
+      // event that names a record, that record's *current* identifier and title
+      // (fetchProjectActivity). The seeded projects' newest events name sheet
+      // instances and datasets, so nothing there exercises the record identity:
+      // the spec creates a project and a draft experiment of its own through
+      // the app, and removes the project again, rather than reporting nothing
+      // about the feature.
+      await page.getByRole('button', { name: 'New project', exact: true }).click()
+      const dialog = page.getByRole('dialog', { name: 'New project' })
+      await dialog
+        .getByRole('textbox', { name: 'Name', exact: true })
+        .fill(projectTitle)
+      const creating = page.waitForResponse(
+        (result) =>
+          result.url().includes('/api/db/rpc/create_project') &&
+          result.request().method() === 'POST',
       )
-    expect(expected.length).toBeGreaterThan(0)
-    await page
-      .getByRole('button', { name: 'Show details for AAV9 process transfer' })
-      .click()
-    for (const record of expected) {
+      await page
+        .getByRole('button', { name: 'Create project', exact: true })
+        .click()
+      const project: { id: string } = await (await creating).json()
+      projectId = project.id
+      await expect(dialog).not.toBeVisible()
+      // A blank draft — the app's own path — is one record change event, and
+      // the new project's newest event.
+      await page.goto(`/experiments/new?project=${projectId}`)
+      // The form is server-rendered; its project select enables once the
+      // client's access read lands, which is also the point at which typing
+      // into it is safe. The field states its hint in the label, so the
+      // textbox's name is "Title What is being tested…".
+      await expect(
+        page.getByRole('combobox', { name: /^Project/ }),
+      ).toBeEnabled()
+      const titleField = page.getByRole('textbox', { name: /^Title/ })
+      await titleField.fill(recordTitle)
+      await expect(titleField).toHaveValue(recordTitle)
+      const writing = page.waitForResponse(
+        (result) =>
+          result.url().includes('/api/db/rpc/create_record_with_blocks') &&
+          result.request().method() === 'POST',
+      )
+      await page.getByRole('button', { name: 'Create draft' }).click()
+      const created: { record: { id: string } } = await (await writing).json()
+      const identity = await page.evaluate(async (id) => {
+        const response = await fetch(
+          `/api/db/records?id=eq.${id}&select=identifier,title`,
+        )
+        if (!response.ok) throw new Error('Native record read failed')
+        return (await response.json())[0]
+      }, created.record.id)
+      expect(identity.title).toBe(recordTitle)
+      await page.goto('/projects')
+      await page
+        .getByRole('button', {
+          name: `Quick view of ${projectTitle}`,
+          exact: true,
+        })
+        .click()
       await expect(
         page.getByTitle('Current record identity').filter({
-          hasText: `${record.identifier} · ${record.title}`,
+          hasText: `${identity.identifier} · ${recordTitle}`,
         }),
-      ).toBeVisible()
+      ).not.toHaveCount(0)
+      await page.screenshot({
+        path: '.amp/in/artifacts/proj01-integrated-activity.png',
+      })
+    } finally {
+      if (projectId) {
+        const database = new Client({
+          connectionString: process.env.MIGRATION_DATABASE_URL,
+        })
+        await database.connect()
+        try {
+          await database.query(
+            'DELETE FROM api.projects WHERE id=$1 AND title LIKE $2',
+            [projectId, `${projectTitle}%`],
+          )
+        } finally {
+          await database.end()
+        }
+      }
     }
-    await page.screenshot({
-      path: '.amp/in/artifacts/proj01-integrated-activity.png',
-    })
   })
 })

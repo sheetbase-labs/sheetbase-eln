@@ -244,6 +244,7 @@ function ProjectsIndexRoute() {
       }
       onCreate={(input) => create.mutate(input)}
       creating={create.isPending}
+      createdProjectId={create.data?.id ?? null}
       createError={
         create.error instanceof DataClientError
           ? create.error.message

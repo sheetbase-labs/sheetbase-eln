@@ -308,6 +308,8 @@ function NotebookDocumentContent({
     afterBlockId: string | null
     beforeBlockId: string | null
     label: string
+    /** What the banner says. Defaults to the delete copy. */
+    message?: string
     /**
      * Set when the undo has to restore the row above as well, because a join
      * moved this row's content into it.
@@ -836,23 +838,34 @@ function NotebookDocumentContent({
 
     if (previous && joined) {
       const previousPayload = previous.payload
+      let saved = false
       try {
-        await onSaveBlock(previous, joined)
+        saved = (await onSaveBlock(previous, joined)).ok
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Could not join the paragraphs.'
         setErrorById((prev) => ({ ...prev, [block.id]: message }))
         return
       }
+      if (!saved) {
+        // The row above did not take the text, so the row below stays exactly
+        // where it is. Deleting it here would lose the paragraph it carries.
+        setErrorById((prev) => ({
+          ...prev,
+          [previous.id]: 'Could not join the paragraphs. Nothing was changed.',
+        }))
+        return
+      }
       try {
         await onDeleteBlock(block)
       } catch (err) {
         // The text is already in the row above, so the row below must not be
-        // left behind: it would duplicate the paragraph.
+        // left behind: it would duplicate the paragraph. Say so rather than
+        // silently leaving both.
         const message =
           err instanceof Error
             ? err.message
-            : 'The paragraphs were joined but the empty block could not be removed.'
+            : 'The paragraphs were joined, but the block below could not be removed.'
         setErrorById((prev) => ({ ...prev, [block.id]: message }))
         selectAndFocus(previous.id)
         return
@@ -863,6 +876,7 @@ function NotebookDocumentContent({
         afterBlockId: prevId,
         beforeBlockId: nextId,
         label: `${block.type} block`,
+        message: 'Paragraphs joined.',
         restorePayload: { blockId: previous.id, payload: previousPayload },
       })
       selectAndFocus(previous.id)
@@ -1448,7 +1462,7 @@ function NotebookDocumentContent({
           role="status"
           className="flex items-center gap-3 rounded-md border bg-surface-muted/40 px-3 py-2 text-xs"
         >
-          <span>{'Block deleted.'}</span>
+          <span>{undo.message ?? 'Block deleted.'}</span>
           {onUndoDelete ? (
             <button
               type="button"

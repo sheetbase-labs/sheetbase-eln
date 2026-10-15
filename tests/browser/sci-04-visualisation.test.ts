@@ -74,6 +74,37 @@ async function ensureActiveVersion(schemaId: string): Promise<string> {
   return svId
 }
 
+// The fixture user's *active* workspace is shared state: the design seed and other
+// specs move it, and the app reads this spec's dataset through it. Own it for the run
+// and put it back afterwards.
+let previousActiveWorkspace: string | null = null
+
+async function claimActiveWorkspace() {
+  const prior = await admin.query<{ active_workspace_id: string | null }>(
+    `SELECT active_workspace_id FROM api.user_preferences WHERE user_id=$1`,
+    [FIXTURE_USER_ID],
+  )
+  previousActiveWorkspace = prior.rows[0]?.active_workspace_id ?? null
+  await admin.query(
+    `INSERT INTO api.user_preferences(user_id, active_workspace_id) VALUES($1,$2)
+     ON CONFLICT (user_id) DO UPDATE SET active_workspace_id = excluded.active_workspace_id`,
+    [FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID],
+  )
+}
+
+async function releaseActiveWorkspace() {
+  if (previousActiveWorkspace) {
+    await admin.query(
+      `UPDATE api.user_preferences SET active_workspace_id=$2 WHERE user_id=$1`,
+      [FIXTURE_USER_ID, previousActiveWorkspace],
+    )
+  } else {
+    await admin.query(`DELETE FROM api.user_preferences WHERE user_id=$1`, [
+      FIXTURE_USER_ID,
+    ])
+  }
+}
+
 test.beforeAll(async () => {
   admin = new Client({
     connectionString:
@@ -81,6 +112,7 @@ test.beforeAll(async () => {
   })
   await admin.connect()
   await deleteFixtureDatasets()
+  await claimActiveWorkspace()
   const schemaId = await ensureSchema()
   const svId = await ensureActiveVersion(schemaId)
   const dsRes = await admin.query(
@@ -116,6 +148,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await deleteFixtureDatasets()
+  await releaseActiveWorkspace()
   await admin.end()
 })
 

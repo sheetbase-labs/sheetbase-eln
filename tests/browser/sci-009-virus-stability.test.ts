@@ -310,6 +310,14 @@ test.beforeAll(async () => {
     `INSERT INTO api.workspaces(id,slug,name) VALUES ($1,'sci-009-browser','SCI 009 Browser')`,
     [WS],
   )
+  // The app reads this fixture's records through the viewer's *active* workspace, and
+  // that preference is shared state another spec or the design seed can move. Own it
+  // for the run; clean() removes the row afterwards.
+  await admin.query(
+    `INSERT INTO api.user_preferences(user_id, active_workspace_id) VALUES($1,$2)
+     ON CONFLICT (user_id) DO UPDATE SET active_workspace_id = excluded.active_workspace_id`,
+    [USER, WS],
+  )
   await admin.query(
     `INSERT INTO api.workspace_memberships(workspace_id,user_id,role) VALUES ($1,$2,'owner')`,
     [WS, USER],

@@ -78,6 +78,8 @@ import {
   PropertyList,
   ScientificRecordLinker,
   StatusBadge,
+  experimentStatusVocabulary,
+  statusLabel,
 } from '#/components/scientific'
 import type { InspectorTab } from '#/components/record'
 import { SignaturesTable } from '#/components/review/signatures-table'
@@ -1035,7 +1037,7 @@ export function StickyRecordHeader({
               assistive tech and the page-level h1 contract. */}
               <h1 className="sr-only">{record.title}</h1>
               <Input
-                className="h-auto border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
+                className="h-auto w-auto min-w-0 flex-1 border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
                 value={titleDraft}
                 aria-label="Notebook title"
                 onChange={(event) => setTitleDraft(event.target.value)}
@@ -1164,44 +1166,19 @@ export function StickyRecordHeader({
           ) : null}
         </div>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {recordKindLabel(record.kind)}
-        </span>
-        <StatusBadge domain="experiment" status={record.status} />
-        {/* Two states, labelled. The record's own status and the notebook's
-            evidence lifecycle are different things, and unlabelled they read
-            as a contradiction. */}
-        <span className="flex items-center gap-1.5">
-          <span className="text-muted-foreground/70">Notebook</span>
-          <span
-            className={
-              lifecycle === 'Submitted'
-                ? 'inline-flex items-center gap-1 rounded-full border border-success bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text'
-                : lifecycle === 'In review'
-                  ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
-                  : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
-            }
-          >
-            {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
-              <Icon name="lock" className="size-3" aria-hidden />
-            ) : null}
-            {lifecycle}
-          </span>
-        </span>
-        {projectName ? (
-          <span className="flex items-center gap-1.5">
-            <span className="text-muted-foreground/70">Project</span>
-            <span className="text-foreground">{projectName}</span>
-          </span>
-        ) : null}
-      </div>
-
-      {/* The dates are in the inspector; print hides the inspector, so the
-          printed page carries them itself. */}
-      <p className="mt-1 hidden text-xs text-muted-foreground print:block">
-        Created {formatDate(record.createdAt)} · Updated{' '}
-        {formatDate(record.updatedAt)}
+      {/* Everything about the record except its title, its identifier and the
+          state of its notebook lives in the inspector, where each fact is
+          labelled. Print hides the inspector, so the printed page carries the
+          whole record itself. */}
+      <p
+        className="mt-1 hidden text-xs text-muted-foreground print:block"
+        data-testid="record-provenance"
+      >
+        {recordKindLabel(record.kind)} ·{' '}
+        {statusLabel(experimentStatusVocabulary, record.status)} · Notebook{' '}
+        {lifecycle}
+        {projectName ? ` · Project ${projectName}` : ''} · Created{' '}
+        {formatDate(record.createdAt)} · Updated {formatDate(record.updatedAt)}
       </p>
       {extensionError ? (
         <p role="alert" className="mt-2 text-xs text-destructive">

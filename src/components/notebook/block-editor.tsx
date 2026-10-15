@@ -38,6 +38,19 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Textarea } from '#/components/v3/inventory/list'
 import { NativeSelect } from '#/components/v3/projects/select'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import {
+  CALLOUT_STYLES,
+  CALLOUT_VARIANT_LABELS,
+  CALLOUT_VARIANTS,
+  calloutVariantOf,
+} from './callout-styles'
+import type { CalloutVariant } from './callout-styles'
+import {
   Trash2,
   File as FileIcon,
   Image as ImageIcon,
@@ -706,19 +719,11 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
 // is still in that state deliberately — whether it earns its keep now that the
 // Sheet is the tabular surface is a separate product decision.
 //
-// Both editors use the native control wrappers already in this file rather than
-// introducing a new primitive.
+// Both editors are drawn as the block they edit: a callout keeps its tone's
+// surface and icon while being written, and a metric keeps its eyebrow and
+// display number. Fields here are borderless for that reason — a bordered
+// input would put a form inside the document instead of editing the document.
 // ---------------------------------------------------------------------------
-
-const CALLOUT_VARIANTS = ['info', 'warning', 'note', 'danger'] as const
-type CalloutVariant = (typeof CALLOUT_VARIANTS)[number]
-
-const CALLOUT_VARIANT_LABELS: Record<CalloutVariant, string> = {
-  info: 'Information',
-  warning: 'Warning',
-  note: 'Note',
-  danger: 'Danger',
-}
 
 interface CalloutDraft {
   text: string
@@ -737,56 +742,74 @@ function CalloutEditor({
     const payload = block.payload as { text?: unknown; variant?: unknown }
     return {
       text: typeof payload.text === 'string' ? payload.text : '',
-      variant:
-        CALLOUT_VARIANTS.find((variant) => variant === payload.variant) ??
-        'info',
+      variant: calloutVariantOf(payload.variant),
     }
   }, [block.payload])
   const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
+  const styles = CALLOUT_STYLES[a.draft.variant] ?? CALLOUT_STYLES.info
 
   return (
-    <div className={cn('space-y-2', className)}>
-      <label className="sr-only" htmlFor={`callout-text-${block.id}`}>
-        Callout text
-      </label>
-      <Textarea
-        id={`callout-text-${block.id}`}
-        value={a.draft.text}
-        autoFocus={autoFocus}
-        rows={2}
-        placeholder="What the reader must not miss"
-        onChange={(event) => {
-          a.setTouched(true)
-          a.setDraft({ ...a.draft, text: event.target.value })
-        }}
-        onBlur={() => a.flush()}
-      />
-      <div className="flex items-center gap-2">
-        <label
-          className="text-xs text-fg-muted"
-          htmlFor={`callout-variant-${block.id}`}
-        >
-          Tone
+    <div className={className}>
+      <div
+        className={cn(
+          'flex items-start gap-3 rounded-md px-3.5 py-2 text-sm leading-6',
+          styles.container,
+        )}
+      >
+        <Icon
+          name={styles.icon}
+          size={16}
+          className={cn('mt-0.5 shrink-0', styles.iconClass)}
+          aria-hidden="true"
+        />
+        <label className="sr-only" htmlFor={`callout-text-${block.id}`}>
+          Callout text
         </label>
-        <NativeSelect
-          id={`callout-variant-${block.id}`}
-          value={a.draft.variant}
+        <textarea
+          id={`callout-text-${block.id}`}
+          value={a.draft.text}
+          autoFocus={autoFocus}
+          rows={1}
+          placeholder="What the reader must not miss"
           onChange={(event) => {
-            const variant = CALLOUT_VARIANTS.find(
-              (candidate) => candidate === event.target.value,
-            )
             a.setTouched(true)
-            if (variant) a.setDraft({ ...a.draft, variant })
+            a.setDraft({ ...a.draft, text: event.target.value })
           }}
           onBlur={() => a.flush()}
-          className="w-40"
-        >
-          {CALLOUT_VARIANTS.map((variant) => (
-            <option key={variant} value={variant}>
-              {CALLOUT_VARIANT_LABELS[variant]}
-            </option>
-          ))}
-        </NativeSelect>
+          className="min-w-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm leading-6 text-fg outline-none field-sizing-content placeholder:text-fg-faint focus:ring-0"
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="quiet"
+                size="sm"
+                aria-label="Callout tone"
+                className="shrink-0 text-fg-muted"
+              />
+            }
+          >
+            {CALLOUT_VARIANT_LABELS[a.draft.variant]}
+            <Icon name="chevronDown" size={10} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {CALLOUT_VARIANTS.map((variant) => (
+              <DropdownMenuItem
+                key={variant}
+                icon={variant === a.draft.variant ? 'check' : undefined}
+                className={
+                  variant === a.draft.variant ? undefined : 'pl-[30px]'
+                }
+                onClick={() => {
+                  a.setTouched(true)
+                  a.setDraft({ ...a.draft, variant })
+                }}
+              >
+                {CALLOUT_VARIANT_LABELS[variant]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <AutosaveFooter
         status={a.status}
@@ -809,7 +832,7 @@ interface MetricDraft {
   label: string
   /** Exactly what the user typed. Converting while typing would eat a decimal
    * point or a space, because the converted value is written straight back
-   * into the controlled input. */
+   * into the controlled field. */
   value: string
   unit: string
   provenance: string
@@ -888,68 +911,70 @@ function MetricEditor({
 
   return (
     <div className={cn('space-y-2', className)}>
-      <div className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem]">
-        <div>
+      <dl className="flex flex-col gap-0.5">
+        <dt>
           <label className="sr-only" htmlFor={`metric-label-${block.id}`}>
             Metric label
           </label>
-          <Input
+          <input
             id={`metric-label-${block.id}`}
             value={a.draft.label}
             autoFocus={autoFocus}
-            placeholder="Yield"
+            placeholder="Metric"
             onChange={(event) => {
               a.setTouched(true)
               a.setDraft({ ...a.draft, label: event.target.value })
             }}
             onBlur={() => a.flush()}
+            className="w-full border-0 bg-transparent p-0 text-xs font-medium uppercase tracking-wide text-fg-muted outline-none placeholder:text-fg-faint focus:ring-0"
           />
-        </div>
-        <div>
+        </dt>
+        <dd className="flex items-baseline gap-1.5 font-display text-2xl font-semibold leading-tight tabular-nums text-fg">
           <label className="sr-only" htmlFor={`metric-value-${block.id}`}>
             Metric value
           </label>
-          <Input
+          <input
             id={`metric-value-${block.id}`}
             value={a.draft.value}
             inputMode="decimal"
-            placeholder="82.5"
+            placeholder="0"
             onChange={(event) => {
               a.setTouched(true)
               a.setDraft({ ...a.draft, value: event.target.value })
             }}
             onBlur={() => a.flush()}
+            className="w-[7ch] border-0 bg-transparent p-0 font-display text-2xl font-semibold tabular-nums text-fg outline-none placeholder:text-fg-faint focus:ring-0"
           />
-        </div>
-        <div>
           <label className="sr-only" htmlFor={`metric-unit-${block.id}`}>
             Metric unit
           </label>
-          <Input
+          <input
             id={`metric-unit-${block.id}`}
             value={a.draft.unit}
-            placeholder="%"
+            placeholder="unit"
             onChange={(event) => {
               a.setTouched(true)
               a.setDraft({ ...a.draft, unit: event.target.value })
             }}
             onBlur={() => a.flush()}
+            className="w-[6ch] border-0 bg-transparent p-0 text-sm font-normal text-fg-muted outline-none placeholder:text-fg-faint focus:ring-0"
           />
-        </div>
-      </div>
+        </dd>
+      </dl>
       <div>
         <label className="sr-only" htmlFor={`metric-provenance-${block.id}`}>
           Where the number comes from
         </label>
-        <Input
+        <input
           id={`metric-provenance-${block.id}`}
           value={a.draft.provenance}
-          placeholder="Provenance — where the number comes from"
+          placeholder="Where this number comes from"
           onChange={(event) => {
             a.setTouched(true)
             a.setDraft({ ...a.draft, provenance: event.target.value })
           }}
           onBlur={() => a.flush()}
+          className="w-full border-0 bg-transparent p-0 text-xs text-fg-muted outline-none placeholder:text-fg-faint focus:ring-0"
         />
       </div>
       <AutosaveFooter

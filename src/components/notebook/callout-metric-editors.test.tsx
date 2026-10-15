@@ -110,23 +110,39 @@ describe('BlockEditor — callout', () => {
     })
   })
 
-  it('offers exactly the contract’s four tones', () => {
+  it('names a payload with no tone as the information tone', () => {
+    renderWithQuery(
+      <BlockEditor
+        block={block({ type: 'callout', payload: { text: 'Legacy row.' } })}
+        save={vi.fn(async () => ({ ok: true }))}
+      />,
+    )
+    expect(screen.getByLabelText('Callout tone').textContent).toContain(
+      'Information',
+    )
+  })
+
+  it('offers exactly the contract’s four tones', async () => {
+    const user = userEvent.setup()
     renderWithQuery(
       <BlockEditor
         block={block({ type: 'callout', payload: { text: 'Note.' } })}
         save={vi.fn(async () => ({ ok: true }))}
       />,
     )
+    await user.click(screen.getByLabelText('Callout tone'))
     // The boundary validator accepts info, warning, note and danger, and
     // nothing else.
-    expect(
-      Array.from(screen.getByLabelText('Tone').querySelectorAll('option')).map(
-        (option) => option.value,
-      ),
-    ).toEqual(['info', 'warning', 'note', 'danger'])
+    const items = await screen.findAllByRole('menuitem')
+    expect(items.map((item) => item.textContent.trim())).toEqual([
+      'Information',
+      'Warning',
+      'Note',
+      'Danger',
+    ])
   })
 
-  it('saves a legacy payload as the information tone rather than failing', async () => {
+  it('saves the tone the author picks', async () => {
     const user = userEvent.setup()
     const save = vi.fn(async () => ({ ok: true }))
     renderWithQuery(
@@ -135,10 +151,15 @@ describe('BlockEditor — callout', () => {
         save={save}
       />,
     )
-    expect(screen.getByLabelText<HTMLSelectElement>('Tone').value).toBe('info')
-    await user.type(screen.getByLabelText('Callout text'), ' Still true.')
+    await user.click(screen.getByLabelText('Callout tone'))
+    await user.click(await screen.findByRole('menuitem', { name: 'Danger' }))
+    // Blur flushes the debounce, as it does for a typed edit.
+    await user.click(screen.getByLabelText('Callout text'))
     await user.tab()
-    expect(savedPayload(save).variant).toBe('info')
+    expect(savedPayload(save)).toEqual({
+      text: 'Legacy row.',
+      variant: 'danger',
+    })
   })
 })
 

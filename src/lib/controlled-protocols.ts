@@ -67,6 +67,24 @@ export async function acknowledgeProtocolVersion(
   return protocolAcknowledgementSchema.parse(row)
 }
 
+/**
+ * LAB-07 / GOV-01 — whether the acting identity may acknowledge at all.
+ * `api.acknowledge_protocol_version` gates on `api.is_workspace_writer`
+ * (drizzle/0335), the same capability the protocol start guard enforces. The
+ * surface asks that exact question so it never offers a control the server
+ * would refuse; the RPC's disclosure-avoiding refusal wording is left intact
+ * for the paths that still reach it.
+ */
+export async function fetchProtocolAcknowledgeWriter(
+  client: DataClient,
+  workspaceId: string,
+): Promise<boolean> {
+  const writer = await client.rpc('is_workspace_writer', {
+    p_workspace_id: z.uuid().parse(workspaceId),
+  })
+  return z.boolean().parse(writer)
+}
+
 export async function createProtocolVersion(
   client: DataClient,
   input: {

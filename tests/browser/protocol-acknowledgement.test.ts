@@ -18,12 +18,20 @@ import { signInAsDesignUser } from '../visual/sign-in'
 config({ path: ['.env.local', '.env'] })
 
 const PRIYA = '00000000-0000-4000-8000-000000000311'
+/** Anna B. — `viewer` in Process Development (DESIGN_USER_IDS). */
+const ANNA = '00000000-0000-4000-8000-000000000315'
+const WORKSPACE = '00000000-0000-4000-8000-000000000300'
 const PROTOCOL_IDENTIFIER = 'PRT-006'
 
 let admin: Client
 let protocolId: string
 let versionId: string
 let versionNumber: number
+// The viewer's *active* workspace is shared state: `user_preferences` decides
+// which workspace the app reads records through, and Anna also belongs to
+// Quality Control. Own it for the run and put it back afterwards.
+let annaActiveWorkspace: string | null = null
+let annaWorkspaceClaimed = false
 
 test.beforeAll(async () => {
   const connectionString = process.env.MIGRATION_DATABASE_URL
@@ -66,9 +74,36 @@ test.beforeAll(async () => {
       where protocol_version_id = $1 and user_id = $2`,
     [versionId, PRIYA],
   )
+
+  // Anna B. is the workspace `viewer` this spec contrasts against. The app
+  // reads records through her *active* workspace, and she also belongs to
+  // Quality Control, so pin it to the protocol's workspace for the run.
+  const preference = await admin.query<{ active_workspace_id: string | null }>(
+    `select active_workspace_id from api.user_preferences where user_id = $1`,
+    [ANNA],
+  )
+  annaActiveWorkspace = preference.rows[0]?.active_workspace_id ?? null
+  await admin.query(
+    `insert into api.user_preferences(user_id, active_workspace_id) values ($1, $2)
+     on conflict (user_id) do update set active_workspace_id = excluded.active_workspace_id`,
+    [ANNA, WORKSPACE],
+  )
+  annaWorkspaceClaimed = true
 })
 
 test.afterAll(async () => {
+  if (admin && annaWorkspaceClaimed) {
+    if (annaActiveWorkspace) {
+      await admin.query(
+        `update api.user_preferences set active_workspace_id = $2 where user_id = $1`,
+        [ANNA, annaActiveWorkspace],
+      )
+    } else {
+      await admin.query(`delete from api.user_preferences where user_id = $1`, [
+        ANNA,
+      ])
+    }
+  }
   await admin?.end()
 })
 
@@ -121,4 +156,40 @@ test('a member acknowledges the frozen version and the record survives a reload'
     training.getByRole('button', { name: 'Acknowledged' }),
   ).toBeDisabled()
   await expect(priya).toContainText(recordedDate)
+})
+
+test('a viewer is offered no acknowledgement it cannot complete', async ({
+  page,
+}) => {
+  await signInAsDesignUser(page, ANNA)
+  await page.goto(`/protocols/${protocolId}?section=training`)
+
+  const training = page.locator('section').filter({
+    has: page.getByRole('heading', { name: `Training on v${versionNumber}` }),
+  })
+  // `acknowledge_protocol_version` gates on `api.is_workspace_writer`, so a
+  // viewer's write would be refused; the surface must not offer it. The
+  // control is disabled and states the requirement rather than the server's
+  // disclosure-avoiding refusal ever being reachable.
+  const acknowledgeButton = training.getByRole('button', {
+    name: 'Read and acknowledge',
+  })
+  await expect(acknowledgeButton).toBeDisabled()
+  await expect(
+    training.getByText(
+      'Only a workspace writer can acknowledge a protocol version.',
+    ),
+  ).toBeVisible()
+  // The surface does not pretend Anna is trained: her row still reads as owed.
+  await expect(training.getByRole('row', { name: /Anna B\./ })).toContainText(
+    'Required',
+  )
+
+  // Nothing was written for the viewer — the refusal never had to happen.
+  const rows = await admin.query(
+    `select 1 from api.protocol_acknowledgements
+      where protocol_version_id = $1 and user_id = $2`,
+    [versionId, ANNA],
+  )
+  expect(rows.rowCount).toBe(0)
 })

@@ -32,6 +32,7 @@ describe('ProtocolVersionTraining', () => {
         members={members}
         currentUserId="sam"
         acknowledging={false}
+        writer
         onAcknowledge={onAcknowledge}
         acknowledgements={[
           {
@@ -59,6 +60,7 @@ describe('ProtocolVersionTraining', () => {
         members={members}
         currentUserId="sam"
         acknowledging={false}
+        writer
         onAcknowledge={vi.fn()}
         acknowledgements={[
           {
@@ -85,6 +87,7 @@ describe('ProtocolVersionTraining', () => {
         members={members}
         currentUserId="sam"
         acknowledging={false}
+        writer
         onAcknowledge={vi.fn()}
         acknowledgements={[]}
         error="The server refused acknowledgement."
@@ -109,6 +112,7 @@ describe('ProtocolVersionTraining', () => {
         members={members}
         currentUserId="sam"
         acknowledging={false}
+        writer
         onAcknowledge={onAcknowledge}
         acknowledgements={[]}
       />,
@@ -130,6 +134,7 @@ describe('ProtocolVersionTraining', () => {
         members={members}
         currentUserId="sam"
         acknowledging
+        writer
         onAcknowledge={onAcknowledge}
         acknowledgements={[]}
       />,
@@ -138,5 +143,32 @@ describe('ProtocolVersionTraining', () => {
     expect(button.hasAttribute('disabled')).toBe(true)
     fireEvent.click(button)
     expect(onAcknowledge).not.toHaveBeenCalled()
+  })
+
+  it('refuses to offer acknowledgement to a viewer and says why', () => {
+    const onAcknowledge = vi.fn()
+    render(
+      <ProtocolVersionTraining
+        version={version}
+        members={members}
+        currentUserId="anna"
+        acknowledging={false}
+        writer={false}
+        onAcknowledge={onAcknowledge}
+        acknowledgements={[]}
+      />,
+    )
+    // The viewer's own row still reads as owed, but the control is disabled —
+    // the server's `is_workspace_writer` gate would refuse the write.
+    expect(screen.getAllByText('Required')).toHaveLength(2)
+    const button = screen.getByRole('button', { name: 'Read and acknowledge' })
+    expect(button.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(button)
+    expect(onAcknowledge).not.toHaveBeenCalled()
+    expect(
+      screen.getByText(
+        'Only a workspace writer can acknowledge a protocol version.',
+      ),
+    ).toBeTruthy()
   })
 })

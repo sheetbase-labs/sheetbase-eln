@@ -22,6 +22,7 @@ export function ProtocolVersionTraining({
   currentUserId,
   acknowledging,
   error,
+  writer,
   onAcknowledge,
 }: {
   version: ProtocolVersion
@@ -30,6 +31,14 @@ export function ProtocolVersionTraining({
   currentUserId: string
   acknowledging: boolean
   error?: string
+  /**
+   * GOV-01 / LAB-07 — whether the signed-in identity is a workspace writer,
+   * the exact capability `api.acknowledge_protocol_version` gates on
+   * (drizzle/0335). A viewer's write is refused, so the control must not be
+   * offered to them. Supplied by the surface from the same
+   * `api.is_workspace_writer` RPC the server checks.
+   */
+  writer: boolean
   onAcknowledge: () => void
 }) {
   const acknowledged = new Map(
@@ -38,8 +47,9 @@ export function ProtocolVersionTraining({
       .map((row) => [row.user_id, row]),
   )
   const current = acknowledged.has(currentUserId)
-  const canAcknowledge =
+  const lifecycleAllows =
     version.status === 'in_review' || version.status === 'effective'
+  const canAcknowledge = writer && lifecycleAllows
   return (
     <Section
       title={`Training on v${version.version}`}
@@ -94,7 +104,11 @@ export function ProtocolVersionTraining({
         </TableBody>
       </Table>
       {!canAcknowledge ? (
-        <Muted>This version is not available for acknowledgement.</Muted>
+        <Muted>
+          {!writer
+            ? 'Only a workspace writer can acknowledge a protocol version.'
+            : 'This version is not available for acknowledgement.'}
+        </Muted>
       ) : null}
     </Section>
   )

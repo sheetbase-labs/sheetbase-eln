@@ -186,6 +186,7 @@ export const TrainingRequired: Story = {
         ]}
         currentUserId="fixture-sam"
         acknowledging={false}
+        writer
         onAcknowledge={() => {}}
       />
     </div>
@@ -201,6 +202,7 @@ export const TrainingFailed: Story = {
         acknowledgements={[]}
         currentUserId="fixture-sam"
         acknowledging={false}
+        writer
         error="The server refused acknowledgement. No acknowledgement was recorded."
         onAcknowledge={() => {}}
       />
@@ -216,6 +218,7 @@ export const TrainingPending: Story = {
       acknowledgements={[]}
       currentUserId="fixture-sam"
       acknowledging
+      writer
       onAcknowledge={() => {}}
     />
   ),
@@ -229,6 +232,7 @@ export const TrainingUnavailable: Story = {
       acknowledgements={[]}
       currentUserId="fixture-sam"
       acknowledging={false}
+      writer
       onAcknowledge={() => {}}
     />
   ),

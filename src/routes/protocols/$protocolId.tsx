@@ -34,6 +34,7 @@ import type { RevisionWire } from '#/lib/notebook-data'
 import {
   acknowledgeProtocolVersion,
   fetchProtocolAcknowledgements,
+  fetchProtocolAcknowledgeWriter,
   fetchProtocolVersions,
 } from '#/lib/controlled-protocols'
 import { useUserNames } from '#/lib/user-names'
@@ -343,6 +344,23 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       fetchProtocolAcknowledgements(notebookDataClient, version?.id ?? ''),
     enabled: Boolean(version),
   })
+  // GOV-01 / LAB-07 — the RPC refuses a viewer's acknowledgement, so the
+  // control is only offered to a writer. The surface asks the same
+  // `api.is_workspace_writer` question the server gates on, never a
+  // client-invented role.
+  const writer = useQuery({
+    queryKey: [
+      'ui-port',
+      'protocol-acknowledge-writer',
+      version?.workspace_id ?? '',
+    ],
+    queryFn: () =>
+      fetchProtocolAcknowledgeWriter(
+        notebookDataClient,
+        version?.workspace_id ?? '',
+      ),
+    enabled: Boolean(version),
+  })
   const members = useQuery({
     queryKey: ['ui-port', 'protocol-training-members'],
     queryFn: () =>
@@ -379,6 +397,13 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
     )
   }
 
+  // The writer capability decides whether an acknowledgement is offered at
+  // all. Rendering before it resolves would flash an actionable control to an
+  // identity the server would refuse, so the section waits for the answer.
+  if (writer.isPending) {
+    return <p role="status">Loading protocol training…</p>
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {rows.length > 1 ? (
@@ -408,6 +433,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
             ? acknowledge.error.message
             : undefined
         }
+        writer={writer.data ?? false}
         onAcknowledge={() => acknowledge.mutate(version.id)}
       />
     </div>

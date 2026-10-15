@@ -8,6 +8,7 @@ import { Route } from './$protocolId'
 const mocks = vi.hoisted(() => ({
   fetchProtocolVersions: vi.fn(),
   fetchProtocolAcknowledgements: vi.fn(),
+  fetchProtocolAcknowledgeWriter: vi.fn(),
   acknowledgeProtocolVersion: vi.fn(),
 }))
 
@@ -33,6 +34,8 @@ vi.mock('#/lib/controlled-protocols', () => ({
     mocks.fetchProtocolVersions(...args),
   fetchProtocolAcknowledgements: (...args: unknown[]) =>
     mocks.fetchProtocolAcknowledgements(...args),
+  fetchProtocolAcknowledgeWriter: (...args: unknown[]) =>
+    mocks.fetchProtocolAcknowledgeWriter(...args),
   acknowledgeProtocolVersion: (...args: unknown[]) =>
     mocks.acknowledgeProtocolVersion(...args),
 }))
@@ -86,6 +89,7 @@ beforeEach(() => {
     },
   ])
   mocks.fetchProtocolAcknowledgements.mockResolvedValue([])
+  mocks.fetchProtocolAcknowledgeWriter.mockResolvedValue(true)
   mocks.acknowledgeProtocolVersion.mockResolvedValue({
     protocol_version_id: VERSION_ID,
     user_id: 'me',
@@ -117,21 +121,46 @@ describe('protocol training tab', () => {
       ),
     )
     // The superseded record-level model is gone: no manual "Record training".
-    expect(screen.queryByRole('button', { name: /record training/i })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /record training/i }),
+    ).toBeNull()
   })
 
-  it('acknowledges the exact version shown', async () => {
+  it('offers acknowledgement to a writer and records it against the exact version', async () => {
     const user = userEvent.setup()
     renderScreen()
-    await user.click(
-      await screen.findByRole('button', { name: 'Read and acknowledge' }),
-    )
+    const button = await screen.findByRole('button', {
+      name: 'Read and acknowledge',
+    })
+    expect(button.hasAttribute('disabled')).toBe(false)
+    await user.click(button)
     await waitFor(() =>
       expect(mocks.acknowledgeProtocolVersion).toHaveBeenCalledWith(
         expect.anything(),
         VERSION_ID,
       ),
     )
+  })
+
+  it('does not offer acknowledgement to a viewer the server would refuse', async () => {
+    mocks.fetchProtocolAcknowledgeWriter.mockResolvedValue(false)
+    renderScreen()
+    await waitFor(() =>
+      expect(mocks.fetchProtocolAcknowledgeWriter).toHaveBeenCalledWith(
+        expect.anything(),
+        '00000000-0000-4000-8000-000000000001',
+      ),
+    )
+    const button = await screen.findByRole('button', {
+      name: 'Read and acknowledge',
+    })
+    expect(button.hasAttribute('disabled')).toBe(true)
+    expect(
+      screen.getByText(
+        'Only a workspace writer can acknowledge a protocol version.',
+      ),
+    ).toBeTruthy()
+    expect(mocks.acknowledgeProtocolVersion).not.toHaveBeenCalled()
   })
 
   it('explains the empty state when no version is frozen yet', async () => {

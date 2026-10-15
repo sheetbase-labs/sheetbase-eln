@@ -137,8 +137,33 @@ describe('StickyRecordHeader', () => {
     expect(screen.getByText('In progress')).toBeTruthy()
     expect(screen.getByText('Working')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Print' })).toBeTruthy()
+    // The rare record actions live behind the overflow: a row of bordered
+    // buttons above the work is chrome.
+    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'More record actions' }),
+    ).toBeTruthy()
+  })
+
+  it('offers the rare record actions from the overflow', async () => {
+    const user = userEvent.setup()
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'More record actions' }),
+    )
+    const items = (await screen.findAllByRole('menuitem')).map((item) =>
+      item.textContent.trim(),
+    )
+    expect(items).toContain('Print')
+    expect(items).toContain('Duplicate')
+    expect(items).toContain('Link records…')
   })
 
   it('keeps tags in the properties inspector instead of the document header', () => {
@@ -297,7 +322,9 @@ describe('StickyRecordHeader — lock state', () => {
       />,
     )
     expect(screen.getByLabelText('Notebook title')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'More record actions' }),
+    ).toBeTruthy()
     expect(screen.getByText('Working')).toBeTruthy()
   })
 

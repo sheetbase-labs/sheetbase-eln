@@ -36,11 +36,7 @@ import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-noteboo
 import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-panel'
 import { NotebookTemplateUpgradeBanner } from '#/components/notebook/notebook-template-upgrade-banner'
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
-import {
-  ExportEvidenceButton,
-  NotebookPrintStyles,
-  PrintNotebookButton,
-} from '#/components/notebook/print-notebook'
+import { NotebookPrintStyles } from '#/components/notebook/print-notebook'
 import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { NotebookDocument } from '#/components/notebook'
@@ -87,6 +83,12 @@ import type { InspectorTab } from '#/components/record'
 import { SignaturesTable } from '#/components/review/signatures-table'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
@@ -1026,7 +1028,7 @@ export function StickyRecordHeader({
           actions a line of their own left a band of empty space above the
           properties and pushed the title down the page. */}
       <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
           {canEditTitle ? (
             <>
               {/* The title is editable, so the document heading is kept for
@@ -1052,6 +1054,16 @@ export function StickyRecordHeader({
               {record.title}
             </h1>
           )}
+          {/* The identifier belongs beside the title: it is how the record is
+              named in a conversation, and it was previously buried in a line of
+              dates. The status badge sits with them, because the two states the
+              header used to show side by side — the experiment's status and the
+              notebook's evidence lifecycle — read as a contradiction when
+              neither is labelled. The lifecycle lives in the inspector, where
+              it is labelled. */}
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {record.identifier}
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2 pt-1" data-print-hide>
           {/* COLLAB-01: who else is in this record's room. Self-gates on
@@ -1059,26 +1071,44 @@ export function StickyRecordHeader({
           <PresenceStack />
           {/* FIND-02: deliberate pin for fast return; optimistic, never blocking. */}
           <FavouriteToggle kind="record" objectId={record.id} />
-          <PrintNotebookButton />
-          <ExportEvidenceButton revisionId={evidenceRevisionId} />
-          {!historicalRevisionId && !lockedAt ? (
-            <Button
-              type="button"
-              variant="quiet"
-              onClick={() => setLinkOpen(true)}
-            >
-              Link records…
-            </Button>
-          ) : null}
-          {projectId && !historicalRevisionId ? (
-            <Button
-              type="button"
-              variant="quiet"
-              onClick={() => setDuplicateOpen(true)}
-            >
-              Duplicate
-            </Button>
-          ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="quiet"
+                  size="icon"
+                  aria-label="More record actions"
+                  icon="more"
+                />
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => window.print()}>
+                Print
+              </DropdownMenuItem>
+              {evidenceRevisionId ? (
+                <DropdownMenuItem
+                  render={
+                    <a
+                      href={`/api/export/revision/${evidenceRevisionId}/package`}
+                    />
+                  }
+                >
+                  Export evidence
+                </DropdownMenuItem>
+              ) : null}
+              {!historicalRevisionId && !lockedAt ? (
+                <DropdownMenuItem onClick={() => setLinkOpen(true)}>
+                  Link records…
+                </DropdownMenuItem>
+              ) : null}
+              {projectId && !historicalRevisionId ? (
+                <DropdownMenuItem onClick={() => setDuplicateOpen(true)}>
+                  Duplicate
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canSubmit ? (
             <ConnectionRequired
               online={online}
@@ -1134,50 +1164,45 @@ export function StickyRecordHeader({
           ) : null}
         </div>
       </div>
-      {/* One quiet properties line: what this record is, and when it moved. */}
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {recordKindLabel(record.kind)}
         </span>
         <StatusBadge domain="experiment" status={record.status} />
-        <span
-          className={
-            lifecycle === 'Submitted'
-              ? 'inline-flex items-center gap-1 rounded-full border border-success bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text'
-              : lifecycle === 'In review'
-                ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
-                : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
-          }
-        >
-          {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
-            <Icon name="lock" className="size-3" aria-hidden />
-          ) : null}
-          {lifecycle}
-        </span>
-        <span className="font-mono tabular-nums text-muted-foreground">
-          {record.identifier}
-        </span>
-        <span className="text-muted-foreground/50">·</span>
-        <span>
-          Created{' '}
-          <span className="text-foreground">
-            {formatDate(record.createdAt)}
-          </span>
-        </span>
-        <span className="text-muted-foreground/50">·</span>
-        <span>
-          Updated{' '}
-          <span className="text-foreground">
-            {formatDate(record.updatedAt)}
+        {/* Two states, labelled. The record's own status and the notebook's
+            evidence lifecycle are different things, and unlabelled they read
+            as a contradiction. */}
+        <span className="flex items-center gap-1.5">
+          <span className="text-muted-foreground/70">Notebook</span>
+          <span
+            className={
+              lifecycle === 'Submitted'
+                ? 'inline-flex items-center gap-1 rounded-full border border-success bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text'
+                : lifecycle === 'In review'
+                  ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
+                  : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
+            }
+          >
+            {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
+              <Icon name="lock" className="size-3" aria-hidden />
+            ) : null}
+            {lifecycle}
           </span>
         </span>
         {projectName ? (
-          <>
-            <span className="text-muted-foreground/50">·</span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-muted-foreground/70">Project</span>
             <span className="text-foreground">{projectName}</span>
-          </>
+          </span>
         ) : null}
       </div>
+
+      {/* The dates are in the inspector; print hides the inspector, so the
+          printed page carries them itself. */}
+      <p className="mt-1 hidden text-xs text-muted-foreground print:block">
+        Created {formatDate(record.createdAt)} · Updated{' '}
+        {formatDate(record.updatedAt)}
+      </p>
       {extensionError ? (
         <p role="alert" className="mt-2 text-xs text-destructive">
           {extensionError}

@@ -1,19 +1,3 @@
-import { Button } from '#/components/v3/ui/button'
-
-export function PrintNotebookButton({ className }: { className?: string }) {
-  return (
-    <Button
-      type="button"
-      variant="quiet"
-      className={className}
-      data-print-hide
-      onClick={() => window.print()}
-    >
-      Print
-    </Button>
-  )
-}
-
 export function NotebookPrintStyles() {
   return (
     <style>{`
@@ -36,24 +20,5 @@ export function NotebookPrintStyles() {
   }
 }
 `}</style>
-  )
-}
-
-export function ExportEvidenceButton({
-  revisionId,
-}: {
-  revisionId?: string | null
-}) {
-  // DATA-02: the evidence package is a deterministic ZIP built server-side
-  // from api.revision_evidence_package; session cookies authenticate the GET.
-  if (!revisionId) return null
-  return (
-    <Button
-      variant="quiet"
-      nativeButton={false}
-      render={<a href={`/api/export/revision/${revisionId}/package`} />}
-    >
-      Export evidence
-    </Button>
   )
 }

@@ -31,7 +31,14 @@ const noPasswordRecord = randomUUID()
 const signer = `rev03-signer-${workspace}`
 const verifier = `rev03-verifier-${workspace}`
 const author = `rev03-author-${workspace}`
+// REV-03: the witness who can actually read the draft experiment. A draft
+// experiment is readable only by its creator and by workspace owners, so the
+// success path needs an owner with explicit project View; the workspace admin
+// (verifier) is the person the request must refuse.
+const witness = `rev03-witness-${workspace}`
 const signerName = 'Signing Fixture Reviewer'
+const witnessName = 'Signing Fixture Witness'
+const verifierName = 'Verification Fixture Admin'
 const signerEmail = `${signer}@sheetbase.test`
 const password = 'rev03-browser-fixture-password'
 let admin: Client
@@ -58,18 +65,22 @@ test.beforeAll(async () => {
   database = drizzle(url, { schema })
   await admin.query(
     `insert into internal."user"(id,name,email,"emailVerified") values
-    ($1,$2,$3,true),($4,'Verification Fixture Admin',$5,true),($6,'Fixture Author',$7,true)`,
+    ($1,$2,$3,true),($4,$5,$6,true),($7,'Fixture Author',$8,true),($9,$10,$11,true)`,
     [
       signer,
       signerName,
       signerEmail,
       verifier,
+      verifierName,
       `${verifier}@sheetbase.test`,
       author,
       `${author}@sheetbase.test`,
+      witness,
+      witnessName,
+      `${witness}@sheetbase.test`,
     ],
   )
-  for (const user of [signer, verifier, author])
+  for (const user of [signer, verifier, author, witness])
     await admin.query(
       `insert into internal.session(id,token,"userId","expiresAt") values($1,$1,$2,now()+interval '12 hours')`,
       [`parity-${user}`, user],
@@ -79,8 +90,8 @@ test.beforeAll(async () => {
     [workspace, `rev03-${workspace}`, 'REV-03 HTTP acceptance'],
   )
   await admin.query(
-    `insert into api.workspace_memberships(workspace_id,user_id,role) values($1,$2,'owner'),($1,$3,'admin'),($1,$4,'member')`,
-    [workspace, signer, verifier, author],
+    `insert into api.workspace_memberships(workspace_id,user_id,role) values($1,$2,'owner'),($1,$3,'admin'),($1,$4,'member'),($1,$5,'owner')`,
+    [workspace, signer, verifier, author, witness],
   )
   await admin.query(
     'insert into api.projects(id,workspace_id,key,title,lead_user_id) values($1,$2,$3,$4,$5)',
@@ -108,7 +119,7 @@ test.beforeAll(async () => {
   )
   const secret = z.string().min(32).parse(process.env.BETTER_AUTH_SECRET)
   const { createAuth } = await import('#/lib/auth')
-  for (const user of [signer, author, verifier]) {
+  for (const user of [signer, author, verifier, witness]) {
     const token = `parity-${user}`
     const signature = createHmac('sha256', secret)
       .update(token)
@@ -890,60 +901,121 @@ test('controlled author submission certifies and signs atomically through the re
   await expect(
     page.getByRole('option', { name: `${verifier} · admin`, exact: true }),
   ).toHaveCount(0)
-  // Certification authority alone is not record-read authority. Give this
-  // explicitly selected witness View only, through the real project owner.
+  // Certification authority alone is not record-read authority. Give both the
+  // owner witness and this administrator View only, through the real project
+  // owner: View is necessary for both, and the draft-experiment privacy rule is
+  // what still separates them.
   const ownerContext = await browser.newContext({ baseURL })
   try {
     const ownerPage = await ownerContext.newPage()
     await signInAsDesignUser(ownerPage, signer)
     await ownerPage.goto('/')
-    const access = await post(
-      ownerPage,
-      '/api/db/rpc/set_project_access_rule',
-      {
-        p_project_id: project,
-        p_user_id: verifier,
-        p_group_id: null,
-        p_can_view: true,
-        p_can_edit: false,
-        p_can_review: false,
-        p_client_portal: false,
-        p_can_manage: false,
-      },
-    )
-    expect(access.status, JSON.stringify(access.body)).toBe(200)
+    for (const [userId, expected] of [
+      [witness, 200],
+      [verifier, 200],
+    ] as const) {
+      const access = await post(
+        ownerPage,
+        '/api/db/rpc/set_project_access_rule',
+        {
+          p_project_id: project,
+          p_user_id: userId,
+          p_group_id: null,
+          p_can_view: true,
+          p_can_edit: false,
+          p_can_review: false,
+          p_client_portal: false,
+          p_can_manage: false,
+        },
+      )
+      expect(access.status, JSON.stringify(access.body)).toBe(expected)
+    }
   } finally {
     await ownerContext.close()
   }
-  const readableWitnesses = page.waitForResponse((response) =>
-    response.url().endsWith('/rpc/project_members'),
+  const witnessCandidates = page.waitForResponse((response) =>
+    response.url().endsWith('/rpc/signature_witness_candidates'),
   )
   await page.reload()
-  const membersResponse = await readableWitnesses
-  expect(membersResponse.status()).toBe(200)
-  const members = z
+  const candidatesResponse = await witnessCandidates
+  expect(candidatesResponse.status()).toBe(200)
+  const candidates = z
     .array(
       z.object({
         user_id: z.string(),
-        can_view: z.boolean(),
-        can_edit: z.boolean(),
-        can_review: z.boolean(),
-        client_portal: z.boolean(),
-        can_manage: z.boolean(),
+        name: z.string(),
+        workspace_role: z.string().nullable(),
+        can_read_record: z.boolean(),
       }),
     )
-    .parse(await membersResponse.json())
-  expect(members.find((member) => member.user_id === verifier)).toEqual({
+    .parse(await candidatesResponse.json())
+  // REV-03: the server answers the record-read question per candidate. The
+  // administrator holds View but not record-read authority, because a draft
+  // experiment stays private to its author and to workspace owners.
+  expect(candidates.find((member) => member.user_id === verifier)).toEqual({
     user_id: verifier,
-    can_view: true,
-    can_edit: false,
-    can_review: false,
-    client_portal: false,
-    can_manage: false,
+    name: verifierName,
+    workspace_role: 'admin',
+    can_read_record: false,
   })
+  expect(candidates.find((member) => member.user_id === witness)).toEqual({
+    user_id: witness,
+    name: witnessName,
+    workspace_role: 'owner',
+    can_read_record: true,
+  })
+  const witnessRequestCalls: string[] = []
+  page.on('request', (request) => {
+    if (request.url().endsWith('/rpc/request_signature_witness'))
+      witnessRequestCalls.push(request.url())
+  })
+  const picker = page.getByLabel('Request a witness for this frozen revision')
+  await picker.selectOption(verifier)
+  // The picker states the refusal, with the reason, before any call is made.
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'cannot read this record' }),
+  ).toContainText(
+    `${verifierName} cannot read this record, so they cannot witness it.`,
+  )
+  await expect(
+    page.getByRole('button', { name: 'Request witness', exact: true }),
+  ).toBeDisabled()
   await page
-    .getByLabel('Request a witness for this frozen revision')
-    .selectOption(verifier)
+    .getByRole('button', { name: 'Request witness', exact: true })
+    .evaluate((button) => (button as HTMLButtonElement).click())
+  expect(witnessRequestCalls).toEqual([])
+  // The same request is refused by the server, with the same reason, and
+  // writes nothing: no request row, no work item, no notification.
+  const refused = await post(page, '/api/db/rpc/request_signature_witness', {
+    p_submission_id: result.submission.id,
+    p_witness_user_id: verifier,
+    p_expected_revision_digest: result.revision.integrityDigest,
+    p_due_at: null,
+  })
+  expect(refused.status).toBe(403)
+  expect(refused.body).toMatchObject({
+    error: {
+      category: 'permission_denied',
+      message: 'witness cannot read this record',
+    },
+  })
+  expect(
+    (
+      await admin.query(
+        'select id from api.signature_witness_requests where submission_id=$1 and witness_user_id=$2',
+        [result.submission.id, verifier],
+      )
+    ).rows,
+  ).toEqual([])
+  expect(
+    (
+      await admin.query(
+        `select id from internal.notifications where workspace_id=$1 and user_id=$2 and event_type='signature_requested'`,
+        [workspace, verifier],
+      )
+    ).rows,
+  ).toEqual([])
+  await picker.selectOption(witness)
   const requested = page.waitForResponse((r) =>
     r.url().endsWith('/rpc/request_signature_witness'),
   )
@@ -951,6 +1023,17 @@ test('controlled author submission certifies and signs atomically through the re
     .getByRole('button', { name: 'Request witness', exact: true })
     .click()
   expect((await requested).status()).toBe(200)
+  expect(witnessRequestCalls).toHaveLength(2)
+  // The witness who can read the record is notified and the refusal above
+  // refused before any of that: the work arrives for one, never for the other.
+  expect(
+    (
+      await admin.query(
+        `select id from internal.notifications where workspace_id=$1 and user_id=$2 and event_type='signature_requested'`,
+        [workspace, witness],
+      )
+    ).rows,
+  ).toHaveLength(1)
   const witnessContext = await browser.newContext({
     baseURL,
     viewport: { width: 1280, height: 900 },
@@ -959,7 +1042,7 @@ test('controlled author submission certifies and signs atomically through the re
   const reviewerContext = await browser.newContext({ baseURL })
   try {
     const witnessPage = await witnessContext.newPage()
-    await signInAsDesignUser(witnessPage, verifier)
+    await signInAsDesignUser(witnessPage, witness)
     const witnessHydrated = witnessPage.waitForResponse((r) =>
       r.url().endsWith('/rpc/workspace_signature_certifications'),
     )
@@ -980,8 +1063,8 @@ test('controlled author submission certifies and signs atomically through the re
     expect(
       (
         await post(reviewerPage, '/api/db/rpc/verify_signature_identity', {
-          p_user_id: verifier,
-          p_email: `${verifier}@sheetbase.test`,
+          p_user_id: witness,
+          p_email: `${witness}@sheetbase.test`,
         })
       ).status,
     ).toBe(200)
@@ -1015,7 +1098,14 @@ test('controlled author submission certifies and signs atomically through the re
     expect((await witnessCertified).status()).toBe(200)
     await witnessPage.goto('/inbox')
     await witnessPage.getByRole('button', { name: /^Reviews 1$/ }).click()
-    await witnessPage.getByRole('button', { name: /^Later · 1 items$/ }).click()
+    // QA3-lists-inbox-2: `later` follows the default, which opens the bucket
+    // when it holds every row the tab would render — so this spec expands it
+    // only when the app has left it collapsed (its expander is only rendered
+    // then, and the strip offers Collapse while it is open).
+    const laterBucket = witnessPage.getByRole('button', {
+      name: /^Later · 1 items$/,
+    })
+    if (await laterBucket.isVisible()) await laterBucket.click()
     const witnessRow = witnessPage.getByRole('button', {
       name: /Atomic author submission acceptance/,
     })
@@ -1101,9 +1191,7 @@ test('controlled author submission certifies and signs atomically through the re
       witnessPage.getByLabel('Signature meaning').getByRole('option'),
     ).toHaveCount(1)
     await witnessPage.getByLabel('Signing password').fill(password)
-    await witnessPage
-      .getByLabel(/Type your name/)
-      .fill('Verification Fixture Admin')
+    await witnessPage.getByLabel(/Type your name/).fill(witnessName)
     await witnessPage.screenshot({
       path: '.amp/in/artifacts/rev02-witness-requested.png',
     })
@@ -1129,8 +1217,8 @@ test('controlled author submission certifies and signs atomically through the re
     )
     expect(witnessEvidence.rows).toHaveLength(1)
     expect(witnessEvidence.rows[0]).toMatchObject({
-      signer_user_id: verifier,
-      signer_name: 'Verification Fixture Admin',
+      signer_user_id: witness,
+      signer_name: witnessName,
       signature_meaning: 'witnessed',
       auth_method: 'password',
       revision_integrity_digest: result.revision.integrityDigest,
@@ -1163,25 +1251,41 @@ test('controlled author submission certifies and signs atomically through the re
     ])
     await page.goto(`/records/${controlledRecord}/notebook`)
     await page.getByRole('button', { name: /^Signatures/ }).click()
-    const table = page.getByRole('table', { name: 'Immutable signatures' })
+    // SignaturesTable renders one `Table` labelled "Signatures" for the whole
+    // record's evidence; the older 'Immutable signatures' label is gone, and the
+    // name cell holds the recorded signer name alone.
+    const table = page.getByRole('table', { name: 'Signatures' })
     await expect(
-      table.getByRole('cell', { name: /^Fixture Author / }),
+      table.getByRole('cell', { name: 'Fixture Author', exact: true }),
     ).toBeVisible()
     await expect(
-      table.getByRole('cell', { name: /^Verification Fixture Admin / }),
+      table.getByRole('cell', { name: 'Signing Fixture Witness', exact: true }),
     ).toBeVisible()
     await expect(table).not.toContainText('Renamed current author profile')
-    await expect(table.getByRole('cell', { name: /^Authored / })).toBeVisible()
-    await expect(table.getByRole('cell', { name: /^Witnessed / })).toBeVisible()
+    await expect(
+      table.getByRole('cell', { name: 'Authored', exact: true }),
+    ).toBeVisible()
+    await expect(
+      table.getByRole('cell', { name: 'Witnessed', exact: true }),
+    ).toBeVisible()
     await expect(
       table.getByText(evidence.rows[0].id, { exact: true }),
     ).toBeVisible()
     await expect(
       table.getByText(witnessEvidence.rows[0].id, { exact: true }),
     ).toBeVisible()
+    // The table states what the evidence binds to by naming the frozen version
+    // rather than printing the digest per row; the digest each signature
+    // carries is asserted from api.signatures above, and the panel that shows
+    // it is the review page.
     await expect(
-      table.getByText(result.revision.integrityDigest, { exact: true }),
-    ).toHaveCount(2)
+      page
+        .getByRole('region', { name: 'Signatures' })
+        .getByText(
+          'Each signature was made with a password re-entry and is bound to version 1 of this record.',
+          { exact: true },
+        ),
+    ).toBeVisible()
     await expect(table.locator('time')).toHaveCount(2)
     await page.screenshot({
       path: '.amp/in/artifacts/rev02-immutable-signatures-wide.png',

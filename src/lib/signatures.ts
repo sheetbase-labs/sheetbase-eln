@@ -172,32 +172,44 @@ export interface SignatureWitnessRequestWire {
   due_at: string | null
 }
 
-/** Effective project members, never the raw direct/group rule catalogue. */
+export interface SignatureWitnessCandidate {
+  user_id: string
+  name: string
+  workspace_role: string | null
+  /**
+   * REV-03: whether this person can read the record they would witness.
+   * Project View is not enough for a draft experiment, which stays private to
+   * its author and to workspace owners, so an administrator holding an explicit
+   * View rule is listed but cannot be asked.
+   */
+  can_read_record: boolean
+}
+
+/**
+ * Effective project members who may witness this record, minus the requester and
+ * the author. Computed server-side: read authority is a record-level RLS
+ * question (draft-experiment privacy), so `can_read_record` is the same
+ * predicate `request_signature_witness` enforces rather than a client mirror
+ * that could drift from it.
+ */
 export async function fetchSignatureWitnessCandidates(
   client: DataClient,
-  projectId: string,
-  currentUserId: string,
-  authorUserId: string,
-) {
-  const members = z
+  submissionId: string,
+): Promise<SignatureWitnessCandidate[]> {
+  return z
     .array(
       z.object({
         user_id: z.string(),
         name: z.string(),
         workspace_role: z.string().nullable(),
-        can_view: z.boolean().optional().default(false),
+        can_read_record: z.boolean(),
       }),
     )
-    .parse(await client.rpc('project_members', { p_project_id: projectId }))
-  return members.filter(
-    (member) =>
-      member.can_view === true &&
-      member.user_id !== currentUserId &&
-      member.user_id !== authorUserId &&
-      ['owner', 'admin', 'member', 'editor', 'reviewer', 'steward'].includes(
-        member.workspace_role ?? '',
-      ),
-  )
+    .parse(
+      await client.rpc('signature_witness_candidates', {
+        p_submission_id: submissionId,
+      }),
+    )
 }
 
 /** The server-mirrored gates that decide whether this person may sign. */

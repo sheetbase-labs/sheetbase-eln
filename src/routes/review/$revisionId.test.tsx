@@ -646,7 +646,7 @@ describe('WorkspaceHeader — post-submission navigation', () => {
 })
 
 describe('witness picker effective project authority', () => {
-  it('offers only readable human witnesses and disables a revoked selection without granting access', async () => {
+  it('refuses a witness who cannot read the record, with the reason, before any call is made', async () => {
     const rpc = vi
       .spyOn(reviewsDataClient, 'rpc')
       .mockResolvedValueOnce(true)
@@ -655,20 +655,13 @@ describe('witness picker effective project authority', () => {
           user_id: 'view-only',
           name: 'View only',
           workspace_role: 'member',
-          can_view: true,
-          can_review: false,
+          can_read_record: true,
         },
         {
           user_id: 'unreadable-admin',
           name: 'Unreadable admin',
           workspace_role: 'admin',
-          can_view: false,
-        },
-        {
-          user_id: 'owner-a',
-          name: 'Author',
-          workspace_role: 'member',
-          can_view: true,
+          can_read_record: false,
         },
       ])
     const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
@@ -703,27 +696,101 @@ describe('witness picker effective project authority', () => {
         </QueryClientProvider>,
       )
       await screen.findByRole('option', { name: 'View only · member' })
+      // The unreadable member is still named, and the picker states why they
+      // cannot be asked instead of hiding them.
       expect(
-        screen.queryByRole('option', { name: /Unreadable admin/ }),
-      ).toBeNull()
-      expect(screen.queryByRole('option', { name: /Author/ })).toBeNull()
+        screen.getByRole('option', {
+          name: 'Unreadable admin · admin — cannot read this record',
+        }),
+      ).toBeTruthy()
+      const picker = screen.getByLabelText(
+        'Request a witness for this frozen revision',
+      )
+      fireEvent.change(picker, { target: { value: 'unreadable-admin' } })
+      expect((await screen.findByRole('alert')).textContent).toContain(
+        'Unreadable admin cannot read this record, so they cannot witness it.',
+      )
+      expect(isDisabled('Request witness')).toBe(true)
+      fireEvent.click(screen.getByRole('button', { name: 'Request witness' }))
+      expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+        'is_workspace_writer',
+        'signature_witness_candidates',
+      ])
+      fireEvent.change(picker, { target: { value: 'view-only' } })
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(isDisabled('Request witness')).toBe(false)
+    } finally {
+      queryClient.clear()
+      rpc.mockRestore()
+      list.mockRestore()
+    }
+  })
+
+  it('offers the candidate list the server returns and disables a revoked selection without granting access', async () => {
+    const rpc = vi
+      .spyOn(reviewsDataClient, 'rpc')
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce([
+        {
+          user_id: 'view-only',
+          name: 'View only',
+          workspace_role: 'member',
+          can_read_record: true,
+        },
+      ])
+      .mockResolvedValueOnce([])
+    const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    try {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <SignaturePanel
+            submission={submission()}
+            revision={{
+              id: 'rev-1',
+              record_id: 'rec-1',
+              structure_version: 1,
+              metadata_version: 1,
+              metadata_snapshot: {},
+              block_snapshot: [],
+              reason: 'submit',
+              superseded_by_revision_id: null,
+              created_at: '2026-10-04T12:00:00Z',
+              created_by_user_id: 'owner-a',
+            }}
+            projectId="exact-project"
+            signatures={[]}
+            integrityDigest={DIGEST}
+            currentUserId="owner-a"
+            currentUserName="Author"
+            open={false}
+            onOpenChange={vi.fn()}
+          />
+        </QueryClientProvider>,
+      )
+      await screen.findByRole('option', { name: 'View only · member' })
       const picker = screen.getByLabelText(
         'Request a witness for this frozen revision',
       )
       fireEvent.change(picker, { target: { value: 'view-only' } })
       expect(isDisabled('Request witness')).toBe(false)
-      rpc.mockResolvedValueOnce([])
       await act(async () => {
         await queryClient.invalidateQueries({
           queryKey: ['signature-witness-candidates'],
         })
       })
       await waitFor(() => expect(isDisabled('Request witness')).toBe(true))
-      fireEvent.click(screen.getByRole('button', { name: 'Request witness' }))
+      expect(
+        screen.getByText(
+          'No other member of this project may witness this revision, so there is nobody to ask.',
+        ),
+      ).toBeTruthy()
       expect(rpc.mock.calls.map(([name]) => name)).toEqual([
         'is_workspace_writer',
-        'project_members',
-        'project_members',
+        'signature_witness_candidates',
+        'signature_witness_candidates',
       ])
     } finally {
       queryClient.clear()
@@ -1200,10 +1267,7 @@ describe('QA-182 — the decision dialog owns its pending state', () => {
     )
     const onAfterAmendment = vi.fn(async () => {})
     render(
-      <AmendmentSection
-        recordId="rec-1"
-        onAfterAmendment={onAfterAmendment}
-      />,
+      <AmendmentSection recordId="rec-1" onAfterAmendment={onAfterAmendment} />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Start amendment' }))
     const dialog = await screen.findByRole('alertdialog')
@@ -1252,15 +1316,11 @@ describe('QA-183 — an unusable witness picker states why', () => {
 describe('QA-184 — signing always states why it is unavailable', () => {
   it('says so when the certification lookup failed', async () => {
     fetchWorkspaceCertificationsMock.mockRejectedValueOnce(new Error('nope'))
-    const rpc = vi
-      .spyOn(reviewsDataClient, 'rpc')
-      .mockResolvedValue(true)
+    const rpc = vi.spyOn(reviewsDataClient, 'rpc').mockResolvedValue(true)
     const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
     const queryClient = renderSignaturePanel()
     try {
-      expect(
-        await screen.findByText(/could not be checked/i),
-      ).toBeTruthy()
+      expect(await screen.findByText(/could not be checked/i)).toBeTruthy()
       expect(screen.queryByRole('dialog')).toBeNull()
     } finally {
       queryClient.clear()

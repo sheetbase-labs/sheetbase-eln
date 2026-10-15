@@ -1689,9 +1689,7 @@ function ReviewInspector({
                     </span>
                     <span>{name}</span>
                     {userId === currentUserId ? (
-                      <span className="text-xs font-medium text-link">
-                        you
-                      </span>
+                      <span className="text-xs font-medium text-link">you</span>
                     ) : null}
                   </li>
                 )
@@ -2115,11 +2113,7 @@ function DecisionDialog({
           {/* QA-182: the action is a plain button, not a DialogClose — the
               dialog stays open for as long as the transition RPC runs, so a
               refusal is read where the action was taken. */}
-          <Button
-            variant="primary"
-            disabled={submitting}
-            onClick={onConfirm}
-          >
+          <Button variant="primary" disabled={submitting} onClick={onConfirm}>
             {submitting ? 'Submitting…' : label}
           </Button>
         </ConfirmDialogFooter>
@@ -2358,20 +2352,10 @@ export function SignaturePanel({
     signatures,
   })
   const members = useQuery({
-    queryKey: [
-      'signature-witness-candidates',
-      projectId,
-      currentUserId,
-      submission.submitted_by_user_id,
-    ],
+    queryKey: ['signature-witness-candidates', submission.id],
     queryFn: () =>
       projectId
-        ? fetchSignatureWitnessCandidates(
-            reviewsDataClient,
-            projectId,
-            currentUserId,
-            submission.submitted_by_user_id,
-          )
+        ? fetchSignatureWitnessCandidates(reviewsDataClient, submission.id)
         : Promise.resolve([]),
     enabled: projectId !== null,
   })
@@ -2468,6 +2452,9 @@ export function SignaturePanel({
       !canRequestWitness ||
       !integrityDigest ||
       !selectedWitness ||
+      // REV-03: a witness who cannot read this record would never see the work
+      // item, so the request is refused before it is made.
+      !selectedWitness.can_read_record ||
       members.isFetching ||
       members.isError
     )
@@ -2648,6 +2635,9 @@ export function SignaturePanel({
                 {member.workspace_role
                   ? `${member.name} · ${member.workspace_role}`
                   : member.name}
+                {/* REV-03: the server's answer for this person, stated here so
+                    a member who cannot read the record reads as not askable. */}
+                {member.can_read_record ? '' : ' — cannot read this record'}
               </option>
             ))}
           </select>
@@ -2667,11 +2657,21 @@ export function SignaturePanel({
               there is nobody to ask.
             </p>
           ) : null}
+          {/* REV-03: the picker states the refusal before the call, with the
+              reason the server enforces — this person cannot read this record,
+              so the request would be a dead end. */}
+          {selectedWitness && !selectedWitness.can_read_record ? (
+            <p role="alert" className="text-xs text-destructive">
+              {selectedWitness.name} cannot read this record, so they cannot
+              witness it. Choose a member who can see this record.
+            </p>
+          ) : null}
           <Button
             size="sm"
             variant="secondary"
             disabled={
               !selectedWitness ||
+              !selectedWitness.can_read_record ||
               requestingWitness ||
               members.isFetching ||
               members.isError
@@ -2785,10 +2785,7 @@ function EvidenceExportSection({ revisionId }: { revisionId: string }) {
         nativeButton={false}
         className="w-full"
         render={
-          <a
-            href={`/api/export/revision/${revisionId}/package`}
-            role="link"
-          />
+          <a href={`/api/export/revision/${revisionId}/package`} role="link" />
         }
       >
         <Icon name="download" className="size-3.5 shrink-0" aria-hidden />

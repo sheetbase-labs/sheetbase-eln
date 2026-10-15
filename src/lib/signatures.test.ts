@@ -188,70 +188,62 @@ describe('signature meaning eligibility', () => {
 })
 
 describe('effective project witness candidates', () => {
-  it('uses effective View, not Review, workspace admin status or a missing legacy flag', async () => {
-    const member = {
-      name: 'Candidate',
-      workspace_role: 'member',
-      can_view: true,
-    }
+  it('takes the server read answer per candidate instead of re-deriving membership', async () => {
     const fetchImpl = vi.fn(async () =>
       Response.json([
-        { ...member, user_id: 'view-only', can_review: false },
-        { ...member, user_id: 'group-view', access_level: 'viewer' },
         {
-          ...member,
-          user_id: 'admin-without-view',
+          user_id: 'view-only',
+          name: 'View only',
+          workspace_role: 'member',
+          can_read_record: true,
+        },
+        {
+          user_id: 'admin-without-record-read',
+          name: 'Unreadable admin',
           workspace_role: 'admin',
-          can_view: false,
+          can_read_record: false,
         },
-        {
-          ...member,
-          user_id: 'review-without-view',
-          can_review: true,
-          can_view: false,
-        },
-        {
-          user_id: 'legacy-missing-flag',
-          name: 'Legacy admin',
-          workspace_role: 'admin',
-        },
-        { ...member, user_id: 'client', workspace_role: 'client_viewer' },
-        { ...member, user_id: 'unknown-role', workspace_role: null },
-        { ...member, user_id: 'requester' },
-        { ...member, user_id: 'author' },
       ]),
     )
     const candidates = await fetchSignatureWitnessCandidates(
       createDataClient(fetchImpl),
-      'exact-project',
-      'requester',
-      'author',
+      'submission-1',
     )
-    expect(candidates.map((candidate) => candidate.user_id)).toEqual([
-      'view-only',
-      'group-view',
+    expect(candidates).toEqual([
+      {
+        user_id: 'view-only',
+        name: 'View only',
+        workspace_role: 'member',
+        can_read_record: true,
+      },
+      {
+        user_id: 'admin-without-record-read',
+        name: 'Unreadable admin',
+        workspace_role: 'admin',
+        can_read_record: false,
+      },
     ])
     expect(fetchImpl).toHaveBeenCalledWith(
-      '/api/db/rpc/project_members',
+      '/api/db/rpc/signature_witness_candidates',
       expect.objectContaining({
-        body: JSON.stringify({ p_project_id: 'exact-project' }),
+        body: JSON.stringify({ p_submission_id: 'submission-1' }),
       }),
     )
   })
 
-  it('rejects malformed permission flags instead of interpreting truthy wire values as grants', async () => {
+  it('rejects malformed read flags instead of interpreting truthy wire values as read authority', async () => {
     const client = createDataClient(async () =>
       Response.json([
         {
           user_id: 'candidate',
           name: 'Candidate',
           workspace_role: 'member',
-          can_view: 'true',
+          can_read_record: 'true',
         },
       ]),
     )
     await expect(
-      fetchSignatureWitnessCandidates(client, 'project', 'requester', 'author'),
+      fetchSignatureWitnessCandidates(client, 'submission-1'),
     ).rejects.toThrow()
   })
 })

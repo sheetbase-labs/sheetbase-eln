@@ -3023,6 +3023,13 @@
       "when": 1792060430540,
       "tag": "0433_inbox_needs_action_counts",
       "breakpoints": true
+    },
+    {
+      "idx": 434,
+      "version": "7",
+      "when": 1792072176810,
+      "tag": "0434_witness_reads_the_record",
+      "breakpoints": true
     }
   ]
 }

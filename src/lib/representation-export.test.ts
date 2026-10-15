@@ -10,7 +10,11 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
-import { ANALYSIS_DEFINITION_VERSION, runAnalysis } from './analysis-definition'
+import {
+  ANALYSIS_DEFINITION_VERSION,
+  ANALYSIS_METHOD_VERSION,
+  runAnalysis,
+} from './analysis-definition'
 import type { AnalysisDefinition } from './analysis-definition'
 import { validateBlock } from './blocks/index'
 import {
@@ -28,6 +32,7 @@ import { PLATE_MAP_SPEC_VERSION } from './plate-map'
 import type { PlateMapSpec } from './plate-map'
 import {
   SHEET_REPRESENTATION_CONFIG_VERSION,
+  analysisExportStamp,
   analysisToRepresentationHandle,
   chartToRepresentationHandle,
   comparativeViewToRepresentationHandle,
@@ -336,6 +341,104 @@ describe('frozen evidence reconstruction', () => {
     const csvAt = (rows: Array<Array<string | number | null>>) =>
       serialiseRepresentationCsv({ columns: ['signal'], rows, stamp })
     expect(csvAt([['a'], ['b']])).toBe(csvAt([['a'], ['b']]))
+  })
+})
+
+describe('frozen analysis method version (R5-STUDIO-01)', () => {
+  it('withholds numbers whose recorded method version differs', () => {
+    const handle = analysisToRepresentationHandle({
+      definition: descriptiveDefinition(),
+      datasetId: DATASET_ID,
+      versionId: VERSION_ID,
+      title: 'Signal',
+    })!
+    const frozen = { ...frozenAnalysisPayload(), methodVersion: 2 }
+    expect(
+      reconstructFrozenRepresentation(handle, frozen, {
+        columns: COLUMNS,
+        rows: ROWS,
+      }),
+    ).toEqual({
+      kind: 'analysis',
+      outcome: {
+        ok: false,
+        error: {
+          code: 'method_mismatch',
+          recorded: 2,
+          current: ANALYSIS_METHOD_VERSION,
+        },
+      },
+    })
+  })
+
+  it('reconstructs normally for the recorded version and for legacy payloads', () => {
+    const handle = analysisToRepresentationHandle({
+      definition: descriptiveDefinition(),
+      datasetId: DATASET_ID,
+      versionId: VERSION_ID,
+      title: 'Signal',
+    })!
+    const input = { columns: COLUMNS, rows: ROWS }
+    const current = reconstructFrozenRepresentation(
+      handle,
+      { ...frozenAnalysisPayload(), methodVersion: ANALYSIS_METHOD_VERSION },
+      input,
+    )
+    expect(current).toEqual({
+      kind: 'analysis',
+      outcome: runAnalysis(descriptiveDefinition(), COLUMNS, ROWS),
+    })
+    // A payload frozen before the method was recorded still reconstructs; the
+    // reader reports the method as unrecorded rather than assuming agreement.
+    expect(
+      reconstructFrozenRepresentation(handle, frozenAnalysisPayload(), input),
+    ).toEqual({
+      kind: 'analysis',
+      outcome: runAnalysis(descriptiveDefinition(), COLUMNS, ROWS),
+    })
+  })
+
+  it('stamps the exported result with its method and every check', () => {
+    const handle = analysisToRepresentationHandle({
+      definition: descriptiveDefinition(),
+      datasetId: DATASET_ID,
+      versionId: VERSION_ID,
+      title: 'Signal',
+    })!
+    const outcome = runAnalysis(descriptiveDefinition(), COLUMNS, ROWS)
+    if (!outcome.ok) throw new Error('expected ok')
+    const stamp = analysisExportStamp(handle, EXPORTED_AT, outcome.result)
+    expect(stamp.method).toEqual({
+      id: 'one_way_anova',
+      version: ANALYSIS_METHOD_VERSION,
+      label: 'One-way ANOVA',
+      runner: 'sheetbase-analysis-kernel@1',
+    })
+    expect(stamp.checks?.map((check) => check.id)).toEqual(
+      outcome.result.checks.map((check) => check.id),
+    )
+    const csv = serialiseRepresentationCsv({
+      columns: ['signal'],
+      rows: [['a']],
+      stamp,
+    })
+    expect(csv).toContain(
+      `# method: one_way_anova v${ANALYSIS_METHOD_VERSION} — One-way ANOVA`,
+    )
+    expect(csv).toContain('# method_runner: sheetbase-analysis-kernel@1')
+    expect(csv).toContain('# check: residual_normality not_checked —')
+    // The provenance line names the method too, so a figure footer is enough.
+    expect(buildFigureProvenanceLine(stamp)).toContain(
+      `one_way_anova v${ANALYSIS_METHOD_VERSION}`,
+    )
+  })
+
+  it('refuses to stamp a non-analysis handle', () => {
+    const outcome = runAnalysis(descriptiveDefinition(), COLUMNS, ROWS)
+    if (!outcome.ok) throw new Error('expected ok')
+    expect(() =>
+      analysisExportStamp(chartHandle(), EXPORTED_AT, outcome.result),
+    ).toThrow(/analysis handle/)
   })
 })
 

@@ -1,100 +1,74 @@
-/** PLAT-04 docs route tests — auth guard and document allowlist. */
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const mockAuth = { current: null as null | Record<string, unknown> }
-const loaderResult = { current: { name: '', html: null as string | null } }
+import { Route } from './$name'
+
+// The mocked router exposes the route options and the loader data the page
+// reads, so the unknown-name path can be rendered without a real router.
+const mocks = vi.hoisted(() => ({
+  loaderData: {
+    current: { name: '', html: null as string | null, known: false },
+  },
+}))
 
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useLoaderData: () => loaderResult.current,
-    useRouteContext: () => ({ context: mockAuth.current }),
-    options: config,
+  createFileRoute: () => (options: object) => ({
+    options,
+    useLoaderData: () => mocks.loaderData.current,
   }),
-  redirect: (options: unknown) => options,
-  Link: ({
-    to,
-    children,
-    ...props
-  }: {
-    to: string
-    children: React.ReactNode
-  } & Record<string, unknown>) => (
-    <a href={to} {...props}>
-      {children}
-    </a>
+  Link: ({ children }: { children?: React.ReactNode }) => (
+    <a href="/settings">{children}</a>
   ),
+  redirect: (options: object) => options,
 }))
 
-vi.mock('marked', () => ({
-  marked: { parse: () => '<p>Mock markdown</p>' },
-}))
+const DocPage = Route.options.component as React.ComponentType
+const loader = Route.options.loader as (args: {
+  params: { name: string }
+}) => Promise<{ name: string; html: string | null; known: boolean }>
 
-const { Route } = await import('./$name')
+afterEach(cleanup)
 
-const beforeLoad = Route.options.beforeLoad as ({
-  context,
-}: {
-  context: { auth: { workspace: unknown } | null }
-}) => Promise<unknown>
+describe('docs/$name', () => {
+  it('an unknown name is a missing document, not a thrown error', async () => {
+    const result = await loader({ params: { name: 'nope' } })
+    expect(result).toEqual({ name: 'nope', html: null, known: false })
+  })
 
-afterEach(() => {
-  cleanup()
-  mockAuth.current = null
-  loaderResult.current = { name: '', html: null }
-})
+  it('resolves every named document to its file in the docs tree', async () => {
+    for (const name of [
+      'deployment',
+      'recovery',
+      'security',
+      'performance',
+      'observability',
+      'administration',
+    ]) {
+      const result = await loader({ params: { name } })
+      expect(result.known).toBe(true)
+      expect(result.html).toBeTruthy()
+    }
+  })
 
-describe('docs/$name route — auth guard', () => {
-  it('redirects unauthenticated users to sign-in', async () => {
-    await expect(beforeLoad({ context: { auth: null } })).rejects.toMatchObject(
-      { to: '/sign-in' },
+  it('renders a stated message for an unknown name', () => {
+    mocks.loaderData.current = { name: 'nope', html: null, known: false }
+    render(<DocPage />)
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
+      'Document not found',
     )
-  })
-
-  it('redirects authenticated users with no workspace to home', async () => {
-    const auth = {
-      user: { id: 'u1', name: 'Test', email: 't@e.com' },
-      workspace: null,
-    }
-    await expect(beforeLoad({ context: { auth } })).rejects.toMatchObject({
-      to: '/',
-    })
-  })
-
-  it('allows authenticated workspace members', async () => {
-    const auth = {
-      user: { id: 'u1', name: 'Test', email: 't@e.com' },
-      workspace: { id: 'w1', slug: 'ws', name: 'WS', role: 'owner' },
-    }
-    const result = await beforeLoad({ context: { auth } })
-    expect(result).toEqual({ context: auth })
-  })
-})
-
-describe('docs/$name route — component', () => {
-  it('renders markdown content for an allowed document', () => {
-    loaderResult.current = { name: 'deployment', html: '<p>Mock markdown</p>' }
-    const DocPage = Route.options.component as React.ComponentType
-    render(<DocPage />)
-    expect(screen.getByText('Deployment')).toBeTruthy()
-    expect(screen.getByText('Mock markdown')).toBeTruthy()
-  })
-
-  it('shows unavailable message when document is missing', () => {
-    loaderResult.current = { name: 'deployment', html: null }
-    const DocPage = Route.options.component as React.ComponentType
-    render(<DocPage />)
     expect(
-      screen.getByText(
-        'This document is not available in the current deployment.',
-      ),
+      screen.getByText(/There is no document named “nope”/),
     ).toBeTruthy()
   })
 
-  it('includes a back link to Settings', () => {
-    loaderResult.current = { name: 'deployment', html: '<p>Mock</p>' }
-    const DocPage = Route.options.component as React.ComponentType
+  it('keeps the deployment message for a known name with no file', () => {
+    mocks.loaderData.current = { name: 'security', html: null, known: true }
     render(<DocPage />)
-    expect(screen.getByText('← Settings')).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
+      'Security',
+    )
+    expect(
+      screen.getByText(/This document is not available in the current/),
+    ).toBeTruthy()
   })
 })

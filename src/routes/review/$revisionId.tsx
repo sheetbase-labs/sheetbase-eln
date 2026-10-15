@@ -25,7 +25,7 @@ import {
   useSearch,
 } from '@tanstack/react-router'
 import { z } from 'zod'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
@@ -41,9 +41,15 @@ import type { ApprovalStepDef, ApprovalStepStatus } from '#/components/audit'
 import { CommentPanel } from '#/components/comments'
 import {
   commentsQueryKeys,
+  fetchCommentsForRecord,
   fetchCommentsForRevision,
   groupCommentsIntoThreads,
   threadState,
+} from '#/lib/comments-data'
+import type {
+  CommentTarget,
+  CommentTargetKind,
+  CommentWire,
 } from '#/lib/comments-data'
 import {
   returnWithCommentsLabel,
@@ -55,8 +61,12 @@ import type {
   ReviewCommentDrafts,
 } from '#/lib/review-comment-drafts'
 import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-block'
-import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
-import { ReviewCheckResults, RevisionDiffReview } from '#/components/review'
+import type { CanonicalRevisionEnvelope } from '#/lib/revision-diff'
+import {
+  ReviewCheckResults,
+  RevisionDiffReview,
+  RevisionDocumentReview,
+} from '#/components/review'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { StatusBadge } from '#/components/scientific/status-badge'
@@ -66,7 +76,6 @@ import type {
 } from '#/components/scientific/status-badge'
 import {
   ConfirmDialog,
-  ConfirmDialogAction,
   ConfirmDialogCancel,
   ConfirmDialogContent,
   ConfirmDialogDescription,
@@ -75,7 +84,7 @@ import {
   ConfirmDialogTitle,
   ConfirmDialogTrigger,
 } from '#/components/v3/ui/confirm-dialog'
-import { DialogBody } from '#/components/v3/ui/dialog'
+import { SignatureDialog } from '#/components/review/sign-dialogs'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
@@ -123,17 +132,18 @@ import type {
 import type { ReviewSubmissionWire } from '#/lib/reviews'
 import type { RevisionWire } from '#/lib/notebook-data'
 import {
-  ASSURANCE_LEVEL_STATEMENT,
   availableSignatureMeanings,
   fetchSignatureEligibility,
   fetchSignatureWitnessCandidates,
   fetchSignaturesForSubmission,
+  signatureChecksPassed,
   signatureQueryKeys,
-  SIGNATURE_MEANING_OPTIONS,
   SIGNATURE_MEANING_LABEL,
   signRevision,
   requestSignatureWitness,
   requestSignatureStepUp,
+  expiredSigningSignInSearch,
+  isExpiredSigningSession,
 } from '#/lib/signatures'
 import type {
   PostSubmissionSignatureMeaning,
@@ -158,6 +168,7 @@ import {
   deriveSignatureApplicability,
 } from '#/lib/review-lifecycle'
 import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
+import { useUserNames } from '#/lib/user-names'
 import {
   useRegisterShortcuts,
   useShortcutScope,
@@ -198,6 +209,32 @@ function RouteShell({
 // comparison revision id lets a reviewer link to a specific before/after
 // diff view.
 // ---------------------------------------------------------------------------
+
+/**
+ * R5-NOTE-01: the review workspace's pending comment target. It started as a
+ * frozen-Sheet selection (REV-004); the annotated document also anchors a
+ * comment to a block, a change or the whole revision, so the workspace carries
+ * the target kind and target the `create_comment` RPC validates.
+ */
+export type ReviewCommentTarget = {
+  targetKind: CommentTargetKind
+  target: CommentTarget
+}
+
+const COMMENT_TARGET_LABELS: Record<CommentTargetKind, string> = {
+  revision: 'the whole revision',
+  block: 'a block in the frozen revision',
+  table_region: 'a region of a scientific table',
+  diff: 'a change in this comparison',
+  sheet_cell: 'a frozen Sheet cell',
+  sheet_row: 'a frozen Sheet row',
+  sheet_range: 'a frozen Sheet range',
+}
+
+/** Human name for the pending comment target, shared with the comments tab. */
+export function commentTargetLabel(target: ReviewCommentTarget): string {
+  return COMMENT_TARGET_LABELS[target.targetKind]
+}
 
 const workspaceSearchSchema = z.object({
   tab: z.enum(['diff', 'comments', 'checks', 'history']).optional(),
@@ -304,7 +341,7 @@ export function ReviewWorkspaceRoute() {
   const activeTab = search.tab ?? 'diff'
   const [commentSelection, setCommentSelection] = useState<{
     revisionId: string
-    anchor: SheetCommentAnchor
+    anchor: ReviewCommentTarget
   } | null>(null)
   const commentAnchor =
     commentSelection?.revisionId === revisionId ? commentSelection.anchor : null
@@ -488,6 +525,18 @@ export function ReviewWorkspaceRoute() {
     [decisions],
   )
 
+  // QA-180: the banner names who returned the submission. A decision row only
+  // carries the actor's id, so resolve it the way the rest of the app does
+  // rather than printing a UUID at the author.
+  const returnedByUserId = latestReturn?.actor_user_id ?? null
+  const returnedByNames = useUserNames(
+    returnedByUserId ? [returnedByUserId] : [],
+    { id: currentUserId, name: currentUserName },
+  )
+  const returnedByName = returnedByUserId
+    ? (returnedByNames.names[returnedByUserId] ?? 'a colleague')
+    : null
+
   const integrityDigest = revision?.integrity_digest ?? null
 
   // --- Error / permission state ------------------------------------------
@@ -647,7 +696,7 @@ export function ReviewWorkspaceRoute() {
           {submission?.state === 'returned' ? (
             <ReturnedCommentsBanner
               openCommentCount={openCommentCount}
-              returnedByUserId={latestReturn?.actor_user_id ?? null}
+              returnedByName={returnedByName}
               returnedAt={latestReturn?.created_at ?? null}
               recordId={recordId}
               onGoToComment={() => {
@@ -702,6 +751,17 @@ export function ReviewWorkspaceRoute() {
                 currentRevisionId={revisionId}
                 effectiveComparisonId={effectiveComparisonId}
                 onComparisonChange={navigateComparison}
+                recordId={recordId}
+                revisionComments={commentsQuery.data ?? []}
+                focusCommentId={search.commentId}
+                onOpenComment={(commentId) =>
+                  void navigate({
+                    to: '/review/$revisionId',
+                    params: { revisionId },
+                    search: { ...search, tab: 'comments', commentId },
+                    replace: true,
+                  })
+                }
                 onCommentTarget={
                   permission?.canReview === true ||
                   permission?.canWithdraw === true
@@ -727,8 +787,7 @@ export function ReviewWorkspaceRoute() {
                   {commentAnchor ? (
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <p className="text-xs text-fg-muted">
-                        New comment target: frozen{' '}
-                        {commentAnchor.targetKind.replace('sheet_', '')}.
+                        New comment target: {commentTargetLabel(commentAnchor)}.
                         Submitted identities only.
                       </p>
                       <Button
@@ -897,20 +956,11 @@ export function WorkspaceHeader({
           {/* COLLAB-04: who else is reviewing right now; renders null before
               the room mounts and when nobody else is present. */}
           <PresenceStack className="justify-end" />
-          {state ? (
-            <StatusBadge
-              status={lifecycle.status}
-              vocabulary={lifecycleVocabulary}
-              size="sm"
-            />
-          ) : null}
-          {!state ? (
-            <StatusBadge
-              status={lifecycle.status}
-              vocabulary={lifecycleVocabulary}
-              size="sm"
-            />
-          ) : null}
+          <StatusBadge
+            status={lifecycle.status}
+            vocabulary={lifecycleVocabulary}
+            size="sm"
+          />
           {projectTitle ? (
             <span className="text-xs text-muted-foreground">
               {projectTitle}
@@ -989,13 +1039,14 @@ export function WorkspaceHeader({
  */
 export function ReturnedCommentsBanner({
   openCommentCount,
-  returnedByUserId,
+  returnedByName,
   returnedAt,
   recordId,
   onGoToComment,
 }: {
   openCommentCount: number
-  returnedByUserId: string | null
+  /** Display name of the reviewer who returned it, when the workspace can name them. */
+  returnedByName: string | null
   returnedAt: string | null
   recordId: string | null
   onGoToComment: () => void
@@ -1009,7 +1060,7 @@ export function ReturnedCommentsBanner({
       <Icon name="arrowLeft" size={14} aria-hidden />
       <span>
         <span className="font-semibold">Returned for changes</span>
-        {returnedByUserId ? ` by ${returnedByUserId}` : ''}
+        {returnedByName ? ` by ${returnedByName}` : ''}
         {returnedAt ? ` · ${formatDate(returnedAt)}` : ''} · {openCommentCount}{' '}
         {noun} to resolve before you resubmit
       </span>
@@ -1185,18 +1236,76 @@ function DiffPanel({
   onComparisonChange,
   comparisonLoading,
   onCommentTarget,
+  onOpenComment,
+  recordId,
+  revisionComments,
+  focusCommentId,
 }: {
-  beforeEnvelope: ReturnType<typeof toCanonicalEnvelope> | null
-  afterEnvelope: ReturnType<typeof toCanonicalEnvelope> | null
+  beforeEnvelope: CanonicalRevisionEnvelope | null
+  afterEnvelope: CanonicalRevisionEnvelope | null
   revisionOptions: RevisionOptionWire[]
   currentRevisionId: string
   effectiveComparisonId: string | null
   onComparisonChange: (id: string | null) => void
   comparisonLoading: boolean
-  onCommentTarget?: (anchor: SheetCommentAnchor) => void
+  onCommentTarget?: (target: ReviewCommentTarget) => void
+  /** Comment → comments panel: reveal this thread beside the document. */
+  onOpenComment?: (commentId: string) => void
+  recordId: string | null
+  /** The frozen revision's own comments (the workspace's existing query). */
+  revisionComments: CommentWire[]
+  focusCommentId?: string
 }) {
   const comparableOptions = revisionOptions.filter(
     (option) => option.id !== currentRevisionId,
+  )
+  // R5-NOTE-01: the document reads by default; the change list stays one
+  // click away for reviews that are better read as a list of changes.
+  const [view, setView] = useState<'document' | 'changes'>('document')
+
+  /**
+   * R5-NOTE-01: an amendment creates a new revision, so a comment written
+   * against an earlier round is anchored to that earlier revision. The record
+   * read is the canonical `record_comments` RPC the comments panel already
+   * uses; only threads anchored to an older revision of this record are taken,
+   * and they are reported as no longer applying rather than re-anchored.
+   */
+  const reviewedAt = revisionOptions.find(
+    (option) => option.id === currentRevisionId,
+  )?.created_at
+  const recordCommentsQuery = useQuery({
+    queryKey: commentsQueryKeys.forRecord(recordId ?? ''),
+    queryFn: () => fetchCommentsForRecord(reviewsDataClient, recordId!),
+    enabled:
+      view === 'document' && recordId !== null && reviewedAt !== undefined,
+  })
+  const earlierComments = useMemo(() => {
+    if (!reviewedAt) return []
+    const reviewed = Date.parse(reviewedAt)
+    return (recordCommentsQuery.data ?? []).filter(
+      (comment) =>
+        comment.revision_id !== null &&
+        comment.revision_id !== currentRevisionId &&
+        Number.isFinite(reviewed) &&
+        Date.parse(
+          revisionOptions.find((option) => option.id === comment.revision_id)
+            ?.created_at ?? '',
+        ) < reviewed,
+    )
+  }, [currentRevisionId, recordCommentsQuery.data, reviewedAt, revisionOptions])
+  const revisionLabels = useMemo(() => {
+    const labels = new Map<string, string>()
+    for (const option of revisionOptions) {
+      labels.set(
+        option.id,
+        `${formatDate(option.created_at)} · ${option.reason}`,
+      )
+    }
+    return labels
+  }, [revisionOptions])
+  const documentComments = useMemo(
+    () => [...earlierComments, ...revisionComments],
+    [earlierComments, revisionComments],
   )
 
   if (!afterEnvelope) {
@@ -1234,14 +1343,53 @@ function DiffPanel({
             ))}
           </select>
         </div>
-        {comparisonLoading ? (
-          <span className="text-xs text-muted-foreground">
-            Loading comparison…
-          </span>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          {comparisonLoading ? (
+            <span className="text-xs text-muted-foreground">
+              Loading comparison…
+            </span>
+          ) : null}
+          <div
+            role="group"
+            aria-label="Reading view"
+            className="flex flex-wrap gap-1"
+          >
+            <Button
+              variant={view === 'document' ? 'primary' : 'secondary'}
+              size="sm"
+              aria-pressed={view === 'document'}
+              onClick={() => setView('document')}
+            >
+              Document
+            </Button>
+            <Button
+              variant={view === 'changes' ? 'primary' : 'secondary'}
+              size="sm"
+              aria-pressed={view === 'changes'}
+              onClick={() => setView('changes')}
+            >
+              Change list
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {!beforeEnvelope ? (
+      {view === 'document' ? (
+        <RevisionDocumentReview
+          after={afterEnvelope}
+          before={beforeEnvelope}
+          revisionId={currentRevisionId}
+          comparisonRevisionId={effectiveComparisonId}
+          beforeLabel="Earlier revision"
+          afterLabel="Submitted revision"
+          comments={documentComments}
+          focusCommentId={focusCommentId}
+          onOpenComment={onOpenComment}
+          onCommentTarget={onCommentTarget}
+          onSheetCommentTarget={onCommentTarget}
+          revisionLabels={revisionLabels}
+        />
+      ) : !beforeEnvelope ? (
         <>
           <div className="rounded-lg border border-dashed bg-muted/20 p-8 text-center">
             <h2 className="text-sm font-semibold">
@@ -1442,6 +1590,17 @@ function ReviewInspector({
 }) {
   const queryClient = useQueryClient()
   const [signingOpen, setSigningOpen] = useState(false)
+  // REV-03.4: Control+Shift+Enter approves and then opens the signing dialog.
+  // The handler is stable so `ReviewInspector`'s shortcut definitions keep one
+  // identity across renders; an unstable array re-registers every render and
+  // the shortcut registry's state update loops.
+  const openSigningAfterApproval = useCallback(() => setSigningOpen(true), [])
+  // QA-180: an assigned reviewer is a person, not a UUID. Resolve them to names
+  // the way the rest of the app does; initials come from the name.
+  const reviewerNames = useUserNames(
+    submission?.assigned_reviewer_user_ids ?? [],
+    { id: currentUserId, name: currentUserName },
+  )
 
   if (loading && !revision) {
     return (
@@ -1505,34 +1664,36 @@ function ReviewInspector({
         </dl>
 
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Approval workflow
-          </h3>
+          </h2>
           <ApprovalStepper steps={steps} reviewState={reviewState} />
         </section>
 
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Assigned reviewers
-          </h3>
+          </h2>
           {submission && submission.assigned_reviewer_user_ids.length > 0 ? (
             <ul className="space-y-1">
-              {submission.assigned_reviewer_user_ids.map((userId) => (
-                <li
-                  key={userId}
-                  className="flex items-center gap-2 text-xs text-muted-foreground"
-                >
-                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                    {userId.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span className="font-mono">{userId}</span>
-                  {userId === currentUserId ? (
-                    <span className="text-xs font-medium text-primary">
-                      you
+              {submission.assigned_reviewer_user_ids.map((userId) => {
+                const name =
+                  reviewerNames.names[userId] ?? 'Unknown workspace member'
+                return (
+                  <li
+                    key={userId}
+                    className="flex items-center gap-2 text-xs text-muted-foreground"
+                  >
+                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                      {name.slice(0, 2).toUpperCase()}
                     </span>
-                  ) : null}
-                </li>
-              ))}
+                    <span>{name}</span>
+                    {userId === currentUserId ? (
+                      <span className="text-xs font-medium text-link">you</span>
+                    ) : null}
+                  </li>
+                )
+              })}
             </ul>
           ) : (
             <p className="text-xs text-muted-foreground">No assignees.</p>
@@ -1597,9 +1758,11 @@ function ReviewInspector({
       </div>
 
       <div className="shrink-0 space-y-2 border-t p-3">
-        <Link
-          to="/inbox"
-          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border text-sm font-medium no-underline hover:bg-muted"
+        <Button
+          variant="secondary"
+          nativeButton={false}
+          className="w-full"
+          render={<Link to="/inbox" role="link" />}
         >
           <Icon
             name="chevronRight"
@@ -1608,14 +1771,14 @@ function ReviewInspector({
             aria-hidden
           />
           Back to inbox
-        </Link>
+        </Button>
         {submission && permission ? (
           <ActionButtons
             submission={submission}
             permission={permission}
             integrityDigest={integrityDigest}
             draftCommentCount={commentDrafts.count}
-            onApprovedForSigning={() => setSigningOpen(true)}
+            onApprovedForSigning={openSigningAfterApproval}
             onAfterDecision={async (kind, input) => {
               // REV-01.3: returning carries the reviewer's private drafts —
               // the decision is taken first (the drafts cannot leak if the
@@ -1697,6 +1860,10 @@ export function ActionButtons({
   const [pendingKind, setPendingKind] = useState<ReviewDecisionKind | null>(
     null,
   )
+  // QA-182: the decision RPC is awaited, so the dialog must not close under a
+  // failed action and the button must not accept a second submission.
+  const [submittingKind, setSubmittingKind] =
+    useState<ReviewDecisionKind | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [signAfterApproval, setSignAfterApproval] = useState(false)
   useRegisterShortcuts(
@@ -1726,21 +1893,24 @@ export function ActionButtons({
   }
 
   async function confirm() {
-    if (!pendingKind) return
+    if (!pendingKind || submittingKind) return
+    const kind = pendingKind
     setError(null)
+    setSubmittingKind(kind)
     try {
-      await onAfterDecision(pendingKind, {
+      await onAfterDecision(kind, {
         submissionId: submission.id,
         note: note.trim() || undefined,
         expectedRevisionDigest: integrityDigest!,
       })
       setPendingKind(null)
       setNote('')
-      if (pendingKind === 'approve' && signAfterApproval)
-        onApprovedForSigning?.()
+      if (kind === 'approve' && signAfterApproval) onApprovedForSigning?.()
       setSignAfterApproval(false)
     } catch (err) {
       setError(renderError(err))
+    } finally {
+      setSubmittingKind(null)
     }
   }
 
@@ -1790,6 +1960,8 @@ export function ActionButtons({
               note={note}
               setNote={setNote}
               open={pendingKind === action.kind}
+              error={pendingKind === action.kind ? error : null}
+              submitting={submittingKind === action.kind}
               onOpen={() => {
                 setNote('')
                 setSignAfterApproval(false)
@@ -1799,7 +1971,10 @@ export function ActionButtons({
                 if (open) {
                   setPendingKind(action.kind)
                   setError(null)
-                } else if (pendingKind === action.kind) {
+                } else if (
+                  submittingKind === null &&
+                  pendingKind === action.kind
+                ) {
                   setPendingKind(null)
                 }
               }}
@@ -1817,26 +1992,20 @@ export function ActionButtons({
         blockedReason={permission.withdrawBlockedReason ?? undefined}
         note={note}
         setNote={setNote}
+        open={pendingKind === 'withdraw'}
+        error={pendingKind === 'withdraw' ? error : null}
+        submitting={submittingKind === 'withdraw'}
         onOpen={() => setNote('')}
         onConfirm={confirm}
         onOpenChange={(open) => {
           if (open) {
             setPendingKind('withdraw')
             setError(null)
-          } else if (pendingKind === 'withdraw') {
+          } else if (submittingKind === null && pendingKind === 'withdraw') {
             setPendingKind(null)
           }
         }}
       />
-
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
-        >
-          {error}
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -1851,6 +2020,8 @@ function DecisionDialog({
   draftCommentCount = 0,
   note,
   setNote,
+  error,
+  submitting,
   onOpen,
   onConfirm,
   onOpenChange,
@@ -1866,6 +2037,9 @@ function DecisionDialog({
   draftCommentCount?: number
   note: string
   setNote: (value: string) => void
+  /** QA-182: why the decision failed, shown where the action was taken. */
+  error?: string | null
+  submitting?: boolean
   onOpen: () => void
   onConfirm: () => void
   onOpenChange: (open: boolean) => void
@@ -1927,9 +2101,21 @@ function DecisionDialog({
           onChange={(event) => setNote(event.target.value)}
           aria-label={`${label} note`}
         />
+        {error ? (
+          <p role="alert" className="m-0 text-label text-danger-text">
+            {error}
+          </p>
+        ) : null}
         <ConfirmDialogFooter>
-          <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
-          <ConfirmDialogAction onClick={onConfirm}>{label}</ConfirmDialogAction>
+          <ConfirmDialogCancel disabled={submitting}>
+            Cancel
+          </ConfirmDialogCancel>
+          {/* QA-182: the action is a plain button, not a DialogClose — the
+              dialog stays open for as long as the transition RPC runs, so a
+              refusal is read where the action was taken. */}
+          <Button variant="primary" disabled={submitting} onClick={onConfirm}>
+            {submitting ? 'Submitting…' : label}
+          </Button>
         </ConfirmDialogFooter>
       </ConfirmDialogContent>
     </ConfirmDialog>
@@ -2121,6 +2307,8 @@ export function SignaturePanel({
   const [witnessUserId, setWitnessUserId] = useState('')
   const [requestingWitness, setRequestingWitness] = useState(false)
   const search = useSearch({ from: '/review/$revisionId' })
+  const navigate = useNavigate()
+  const { revisionId } = useParams({ from: '/review/$revisionId' })
   const eligibility = useQuery({
     queryKey: signatureQueryKeys.eligibility(submission.id, currentUserId),
     queryFn: () =>
@@ -2142,6 +2330,17 @@ export function SignaturePanel({
   const certificationCurrent = isCurrentStatement(
     (certifications.data ?? []).find((row) => row.userId === currentUserId),
   )
+  // The sign target requires the revision's checks to have passed for the
+  // signed digest (SB008). Read them so the panel states the requirement
+  // instead of letting the password attempt be refused opaquely.
+  const checksQuery = useQuery({
+    queryKey: reviewCheckQueryKeys.resultsForRevision(submission.revision_id),
+    queryFn: () =>
+      fetchReviewCheckResults(reviewsDataClient, submission.revision_id),
+  })
+  const checksPassed = checksQuery.isSuccess
+    ? signatureChecksPassed(checksQuery.data, integrityDigest)
+    : true
   const meanings = availableSignatureMeanings({
     submission,
     currentUserId,
@@ -2149,23 +2348,14 @@ export function SignaturePanel({
     supersededByRevisionId: revision.superseded_by_revision_id,
     eligibility: eligibility.data,
     certificationCurrent,
+    checksPassed,
     signatures,
   })
   const members = useQuery({
-    queryKey: [
-      'signature-witness-candidates',
-      projectId,
-      currentUserId,
-      submission.submitted_by_user_id,
-    ],
+    queryKey: ['signature-witness-candidates', submission.id],
     queryFn: () =>
       projectId
-        ? fetchSignatureWitnessCandidates(
-            reviewsDataClient,
-            projectId,
-            currentUserId,
-            submission.submitted_by_user_id,
-          )
+        ? fetchSignatureWitnessCandidates(reviewsDataClient, submission.id)
         : Promise.resolve([]),
     enabled: projectId !== null,
   })
@@ -2240,6 +2430,17 @@ export function SignaturePanel({
       })
       onOpenChange(false)
     } catch (err) {
+      // R5-SHELL-05: when the session behind the step-up has already ended, a
+      // retry can never succeed. Send the person to sign in and back to this
+      // review instead of leaving an error they cannot act on.
+      if (isExpiredSigningSession(err)) {
+        onOpenChange(false)
+        void navigate({
+          to: '/sign-in',
+          search: expiredSigningSignInSearch(`/review/${revisionId}`),
+        })
+        return
+      }
       setError(renderError(err))
     } finally {
       setSigning(false)
@@ -2251,6 +2452,9 @@ export function SignaturePanel({
       !canRequestWitness ||
       !integrityDigest ||
       !selectedWitness ||
+      // REV-03: a witness who cannot read this record would never see the work
+      // item, so the request is refused before it is made.
+      !selectedWitness.can_read_record ||
       members.isFetching ||
       members.isError
     )
@@ -2275,9 +2479,9 @@ export function SignaturePanel({
 
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Signatures
-      </h3>
+      </h2>
 
       {signatures.length > 0 ? (
         <ul className="space-y-2">
@@ -2350,6 +2554,11 @@ export function SignaturePanel({
               error={error}
               onConfirm={handleSigned}
             />
+          ) : certifications.isError || eligibility.isError ? (
+            <p className="text-xs text-muted-foreground">
+              Your certification and signing eligibility could not be checked,
+              so signing is unavailable here. Reload the review to try again.
+            </p>
           ) : certifications.isSuccess &&
             !alreadySigned &&
             !certificationCurrent ? (
@@ -2365,10 +2574,43 @@ export function SignaturePanel({
             <p className="text-xs text-muted-foreground">
               You have already signed this submission.
             </p>
+          ) : submission.submitted_by_user_id === currentUserId ? (
+            <p className="text-xs text-muted-foreground">
+              You submitted this revision, so you cannot sign it. A signature
+              must come from an assigned nonauthor reviewer or an explicit
+              witness request.
+            </p>
           ) : !isAssignedReviewer ? (
             <p className="text-xs text-muted-foreground">
               Signing requires assignment as a nonauthor reviewer or an explicit
               witness request.
+            </p>
+          ) : !integrityDigest ? (
+            <p className="text-xs text-muted-foreground">
+              The revision's integrity digest is unavailable, so signing is
+              disabled.
+            </p>
+          ) : revision.superseded_by_revision_id !== null ? (
+            <p className="text-xs text-muted-foreground">
+              This revision has been superseded — sign the active submission
+              instead.
+            </p>
+          ) : eligibility.isSuccess && !eligibility.data.writer ? (
+            <p className="text-xs text-muted-foreground">
+              Your workspace role cannot sign revisions.
+            </p>
+          ) : checksQuery.isSuccess && !checksPassed ? (
+            <p className="text-xs text-muted-foreground">
+              Signing requires this revision's review checks to have passed for
+              its digest. Run the checks and resolve any blocking failures
+              first.
+            </p>
+          ) : eligibility.isSuccess && certifications.isSuccess ? (
+            // QA-184: signing has an off switch for every reason the panel can
+            // withhold it, so a person never faces an unexplained gap. Both
+            // lookups must be settled first, or the statement would be a guess.
+            <p className="text-xs text-muted-foreground">
+              Signing is not available for you on this revision.
             </p>
           ) : null}
         </div>
@@ -2390,15 +2632,46 @@ export function SignaturePanel({
             <option value="">Choose another permitted member</option>
             {witnesses.map((member) => (
               <option key={member.user_id} value={member.user_id}>
-                {member.user_id} · {member.workspace_role}
+                {member.workspace_role
+                  ? `${member.name} · ${member.workspace_role}`
+                  : member.name}
+                {/* REV-03: the server's answer for this person, stated here so
+                    a member who cannot read the record reads as not askable. */}
+                {member.can_read_record ? '' : ' — cannot read this record'}
               </option>
             ))}
           </select>
+          {/* QA-183: a greyed picker states why it cannot be used. */}
+          {members.isError ? (
+            <p className="text-xs text-muted-foreground">
+              The members who may witness could not be loaded, so nobody can be
+              asked here. Reload the review to try again.
+            </p>
+          ) : members.isFetching ? (
+            <p className="text-xs text-muted-foreground">
+              Loading the members who may witness…
+            </p>
+          ) : witnesses.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No other member of this project may witness this revision, so
+              there is nobody to ask.
+            </p>
+          ) : null}
+          {/* REV-03: the picker states the refusal before the call, with the
+              reason the server enforces — this person cannot read this record,
+              so the request would be a dead end. */}
+          {selectedWitness && !selectedWitness.can_read_record ? (
+            <p role="alert" className="text-xs text-destructive">
+              {selectedWitness.name} cannot read this record, so they cannot
+              witness it. Choose a member who can see this record.
+            </p>
+          ) : null}
           <Button
             size="sm"
             variant="secondary"
             disabled={
               !selectedWitness ||
+              !selectedWitness.can_read_record ||
               requestingWitness ||
               members.isFetching ||
               members.isError
@@ -2418,226 +2691,8 @@ export function SignaturePanel({
   )
 }
 
-function SignatureDialog({
-  open,
-  onOpenChange,
-  revision,
-  integrityDigest,
-  meanings,
-  requestedMeaning,
-  currentUserName,
-  signing,
-  error,
-  onConfirm,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  revision: RevisionWire
-  integrityDigest: string | null
-  meanings: PostSubmissionSignatureMeaning[]
-  requestedMeaning?: PostSubmissionSignatureMeaning
-  currentUserName: string
-  signing: boolean
-  error: string | null
-  onConfirm: (
-    meaning: PostSubmissionSignatureMeaning,
-    confirmation: string,
-    password: string,
-  ) => void
-}) {
-  const initialMeaning =
-    requestedMeaning && meanings.includes(requestedMeaning)
-      ? requestedMeaning
-      : (meanings[0] ?? 'reviewed-and-approved')
-  const [meaning, setMeaning] =
-    useState<PostSubmissionSignatureMeaning>(initialMeaning)
-  const [confirmation, setConfirmation] = useState('')
-  const [password, setPassword] = useState('')
-  const passwordRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (open) {
-      setMeaning(initialMeaning)
-      setPassword('')
-      setConfirmation('')
-    }
-  }, [open, initialMeaning])
-
-  const selected = SIGNATURE_MEANING_OPTIONS.find((o) => o.value === meaning)!
-  const confirmationMatches =
-    confirmation.trim().toLowerCase() === currentUserName.trim().toLowerCase()
-
-  return (
-    <ConfirmDialog
-      open={open}
-      onOpenChange={(next) => {
-        if (next) {
-          setMeaning(initialMeaning)
-          setConfirmation('')
-        }
-        setPassword('')
-        onOpenChange(next)
-      }}
-    >
-      <ConfirmDialogTrigger asChild>
-        <Button size="sm" className="h-9 w-full text-xs">
-          <Icon name="edit" size={14} aria-hidden />
-          Sign revision
-        </Button>
-      </ConfirmDialogTrigger>
-      <ConfirmDialogContent initialFocus={passwordRef}>
-        <ConfirmDialogHeader>
-          <ConfirmDialogTitle>Sign this revision</ConfirmDialogTitle>
-          <ConfirmDialogDescription>
-            You are signing revision{' '}
-            <span className="font-mono">{revision.id.slice(0, 8)}</span> as an
-            attestation of your review. This is an internal electronic
-            signature, not a regulatory compliance certification.
-          </ConfirmDialogDescription>
-        </ConfirmDialogHeader>
-
-        <DialogBody>
-          <dl className="space-y-1 rounded-md border bg-muted/30 p-2 text-xs">
-            <InspectorPropStatic label="Signer">
-              {currentUserName}
-            </InspectorPropStatic>
-            <InspectorPropStatic label="Revision">
-              <span className="font-mono">{revision.id}</span>
-            </InspectorPropStatic>
-            <InspectorPropStatic label="Integrity">
-              <span className="font-mono break-all">
-                {integrityDigest ?? '—'}
-              </span>
-            </InspectorPropStatic>
-            <InspectorPropStatic label="Reason">
-              {revision.reason}
-            </InspectorPropStatic>
-          </dl>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="revision-signing-password"
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-            >
-              Signing password
-            </label>
-            <input
-              id="revision-signing-password"
-              ref={passwordRef}
-              type="password"
-              autoComplete="current-password"
-              className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Re-enter your local signing password for this signature. Three
-              failed attempts lock signing for 15 minutes.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="signature-meaning"
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-            >
-              Signature meaning
-            </label>
-            <select
-              id="signature-meaning"
-              className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-              value={meaning}
-              onChange={(event) => {
-                const option = SIGNATURE_MEANING_OPTIONS.find(
-                  (item) => item.value === event.target.value,
-                )
-                if (option) setMeaning(option.value)
-              }}
-            >
-              {SIGNATURE_MEANING_OPTIONS.filter((option) =>
-                meanings.includes(option.value),
-              ).map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">
-              {selected.description}
-            </p>
-          </div>
-
-          <p className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-xs text-muted-foreground">
-            {ASSURANCE_LEVEL_STATEMENT.standard}
-          </p>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="signature-confirmation"
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-            >
-              Type your name to confirm
-            </label>
-            <input
-              id="signature-confirmation"
-              type="text"
-              className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
-              placeholder={currentUserName}
-              value={confirmation}
-              onChange={(event) => setConfirmation(event.target.value)}
-              autoComplete="off"
-            />
-            <p className="text-xs text-muted-foreground">
-              Type your recorded name exactly to verify your signing intent.
-            </p>
-          </div>
-
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-            >
-              {error}
-            </p>
-          ) : null}
-        </DialogBody>
-
-        <ConfirmDialogFooter>
-          <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
-          <ConfirmDialogAction
-            disabled={signing || !password || !confirmationMatches}
-            onClick={() => {
-              const enteredPassword = password
-              setPassword('')
-              onConfirm(meaning, confirmation, enteredPassword)
-            }}
-          >
-            {signing ? 'Signing…' : 'Sign'}
-          </ConfirmDialogAction>
-        </ConfirmDialogFooter>
-      </ConfirmDialogContent>
-    </ConfirmDialog>
-  )
-}
-
 function signatureMeaningLabel(meaning: SignatureMeaning): string {
   return SIGNATURE_MEANING_LABEL[meaning]
-}
-
-function InspectorPropStatic({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-start justify-between gap-2">
-      <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-right break-all text-foreground">
-        {children}
-      </dd>
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -2672,9 +2727,9 @@ export function RevisionChainSection({
 
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Amendment chain
-      </h3>
+      </h2>
       <ol className="space-y-1">
         {chain.map((entry) => {
           const isCurrent = entry.id === currentRevisionId
@@ -2716,27 +2771,32 @@ export function RevisionChainSection({
 function EvidenceExportSection({ revisionId }: { revisionId: string }) {
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Evidence export
-      </h3>
+      </h2>
       <p className="mb-2 text-xs text-muted-foreground">
         Download a deterministic evidence package (ZIP): machine-readable JSON,
         frozen Sheet grids as CSV, the pinned file manifest and a sha256
         checksum list. Submitted revisions are immutable; the package never
         changes after download-time content is captured.
       </p>
-      <a
-        href={`/api/export/revision/${revisionId}/package`}
-        className="inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-center text-sm font-medium hover:bg-accent"
+      <Button
+        variant="secondary"
+        nativeButton={false}
+        className="w-full"
+        render={
+          <a href={`/api/export/revision/${revisionId}/package`} role="link" />
+        }
       >
         <Icon name="download" className="size-3.5 shrink-0" aria-hidden />
         Download evidence package (ZIP)
-      </a>
+      </Button>
     </section>
   )
 }
 
-function AmendmentSection({
+/** SIGN-002: begin an amendment from a locked record. Exported for tests. */
+export function AmendmentSection({
   recordId,
   onAfterAmendment,
 }: {
@@ -2794,9 +2854,9 @@ function AmendmentSection({
 
   return (
     <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Amendment
-      </h3>
+      </h2>
       <p className="mb-2 text-xs text-muted-foreground">
         This record is locked. Start an amendment to create a new draft
         revision, supersede the locked one and unlock the record for editing.
@@ -2805,6 +2865,7 @@ function AmendmentSection({
       <ConfirmDialog
         open={open}
         onOpenChange={(next) => {
+          if (!next && submitting) return
           setOpen(next)
           if (next) {
             setNote('')
@@ -2813,7 +2874,7 @@ function AmendmentSection({
         }}
       >
         <ConfirmDialogTrigger asChild>
-          <Button variant="secondary" size="sm" className="h-9 w-full text-xs">
+          <Button variant="secondary" className="w-full">
             <Icon name="check" size={14} aria-hidden />
             Start amendment
           </Button>
@@ -2844,10 +2905,18 @@ function AmendmentSection({
             </p>
           ) : null}
           <ConfirmDialogFooter>
-            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
-            <ConfirmDialogAction disabled={submitting} onClick={handleConfirm}>
+            <ConfirmDialogCancel disabled={submitting}>
+              Cancel
+            </ConfirmDialogCancel>
+            {/* QA-182: a plain button, not a DialogClose — the amendment is
+                awaited, so a refusal stays readable in the open dialog. */}
+            <Button
+              variant="primary"
+              disabled={submitting}
+              onClick={handleConfirm}
+            >
               {submitting ? 'Starting…' : 'Start amendment'}
-            </ConfirmDialogAction>
+            </Button>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
       </ConfirmDialog>

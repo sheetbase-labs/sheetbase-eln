@@ -9,12 +9,16 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import {
+  NO_PROJECT_ACCESS_BODY,
+  noProjectAccessTitle,
+  useHasProjectAccess,
+} from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   DescriptionList,
   Inspector,
-  InspectorSection,
 } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -59,7 +63,7 @@ type SampleTab = (typeof tabs)[number]
 const tabLabel: Record<SampleTab, string> = {
   instock: 'In stock',
   mine: 'Mine',
-  awaiting: 'Awaiting',
+  awaiting: 'Reserved',
   quarantine: 'Quarantine',
   consumed: 'Consumed',
 }
@@ -123,6 +127,7 @@ function SamplesList() {
     tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),
   ) as Record<SampleTab, number>
   const q = (search.q ?? '').trim().toLowerCase()
+  const hasProjectAccess = useHasProjectAccess()
   const visible = rows
     .filter((r) => inTab(r, tab))
     .filter(
@@ -287,14 +292,18 @@ function SamplesList() {
                 className="items-center py-14 text-center"
                 icon={q ? 'search' : 'tube'}
                 title={
-                  q
-                    ? `No samples match “${search.q}”`
-                    : `No samples in ${tabLabel[tab].toLowerCase()}`
+                  hasProjectAccess === false
+                    ? noProjectAccessTitle('samples')
+                    : q
+                      ? `No samples match “${search.q}”`
+                      : `No samples in ${tabLabel[tab].toLowerCase()}`
                 }
                 body={
-                  q
-                    ? 'Search looks at ID, name, type and location.'
-                    : 'Register a sample or import a plate map to start the registry.'
+                  hasProjectAccess === false
+                    ? NO_PROJECT_ACCESS_BODY
+                    : q
+                      ? 'Search looks at ID, name, type and location.'
+                      : 'Register a sample or import a plate map to start the registry.'
                 }
               >
                 <Button
@@ -330,9 +339,29 @@ function SamplesList() {
                 {sel.quantity !== '—' ? ` · ${sel.quantity}` : ''}
               </Status>
             </div>
+            <div className="mt-1.5">
+              <Button
+                size="sm"
+                variant="primary"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/samples/$sampleId"
+                    params={{ sampleId: sel.uuid }}
+                  />
+                }
+              >
+                Open sample
+              </Button>
+            </div>
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title="Key properties">
+            {/* The registry's inspector is a top-level section of the page, so
+                its heading is an H2 (H1 → H2, no skipped level). */}
+            <section>
+              <h2 className="mb-1.5 font-sans text-label font-semibold">
+                Key properties
+              </h2>
               <DescriptionList
                 labelWidth={104}
                 items={[
@@ -342,7 +371,7 @@ function SamplesList() {
                   ['Project', sel.project],
                 ]}
               />
-            </InspectorSection>
+            </section>
           </div>
         </Inspector>
       ) : null}

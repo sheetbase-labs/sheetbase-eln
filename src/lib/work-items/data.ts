@@ -9,8 +9,10 @@
  */
 import { useQuery } from '@tanstack/react-query'
 
+import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
 import { notebookDataClient } from '../notebook-data'
+import type { InboxCounts } from './predicate'
 
 export type WorkItemKind =
   | 'review_requested'
@@ -130,19 +132,93 @@ export function toWorkItem(
 
 export const workItemsQueryKeys = {
   list: () => ['work-items', 'list'] as const,
+  seen: () => ['work-items', 'seen'] as const,
 }
 
 export const WORK_ITEMS_FETCH_LIMIT = 200
+
+/**
+ * QA2-Inbox-2 — a stalled read must fail, not spin forever. The Inbox route
+ * has an error branch with a Try again control, but only a settled read reaches
+ * it; without a bound the tab row sat on counters of 0 indefinitely.
+ */
+const WORK_ITEMS_TIMEOUT_MS = 30_000
+
+async function fetchWithTimeout<T>(work: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new DataClientError(
+                'timeout',
+                'Your inbox did not answer in time.',
+                0,
+              ),
+            ),
+          WORK_ITEMS_TIMEOUT_MS,
+        )
+      }),
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 export async function fetchWorkItems(
   client: DataClient = notebookDataClient,
   limit: number = WORK_ITEMS_FETCH_LIMIT,
 ): Promise<WorkItem[]> {
-  const rows = await client.list<WorkItemWire>(
-    'my_work_items',
-    `?select=kind,record_id,identifier,title,project_id,reason,due_at,state,created_at,source_type,source_id,parser_version_id,connector_id,revision_id&order=created_at.desc&limit=${limit}`,
+  const rows = await fetchWithTimeout(
+    client.list<WorkItemWire>(
+      'my_work_items',
+      `?select=kind,record_id,identifier,title,project_id,reason,due_at,state,created_at,source_type,source_id,parser_version_id,connector_id,revision_id&order=due_at.asc,created_at.desc&limit=${limit}`,
+    ),
   )
   return rows.map((row) => toWorkItem(row))
+}
+
+/** The caller's seen item keys, the other half of the Inbox predicate. */
+export async function fetchSeenItemKeys(
+  client: DataClient = notebookDataClient,
+): Promise<Set<string>> {
+  const rows = await client.list<{ item_key: string }>(
+    'work_item_views',
+    '?select=item_key',
+  )
+  return new Set(rows.map((row) => row.item_key))
+}
+
+/**
+ * The server-side count the sidebar badge is built from, over the same two
+ * read models the list reads: `api.my_work_items` (the predicate's rows) and
+ * `api.work_item_views` (the caller's seen keys). `fetchWorkItems` is a
+ * `limit=200` preview, so its length understates a workspace with more than
+ * 200 waiting items; this counts every row the caller can see, so Home states
+ * the same number as the sidebar however large the workspace is.
+ *
+ * The predicate itself is restated in the function
+ * (`drizzle/0433_inbox_needs_action_counts.sql`), which is the only place both
+ * the seen state and the item identity are known without transferring rows.
+ */
+export async function fetchNeedsActionCounts(
+  client: DataClient = notebookDataClient,
+): Promise<InboxCounts> {
+  const rows = await client.rpc<InboxCounts[]>('inbox_needs_action_counts', {})
+  // An answer with no row is a failed count, not a zero: the same rule the
+  // `count=exact` reads follow, so a degraded read cannot read as calm.
+  if (rows.length === 0) {
+    throw new DataClientError(
+      'invalid_count',
+      'The server did not return an exact count.',
+      0,
+    )
+  }
+  const [counts] = rows
+  return { total: counts.total, reviews: counts.reviews }
 }
 
 /** The Inbox list, refetched when a change event invalidates its key. */

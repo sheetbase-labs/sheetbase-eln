@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
+import { toast } from '#/components/v3/ui/sonner'
 import { Section } from '#/components/v3/ui/layout'
 import { CheckRow } from './settings-page'
 import { NativeSelect } from '#/components/v3/projects/select'
@@ -16,6 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
+import { isIanaTimeZone } from '#/lib/pipeline-schedule'
+import { now } from '#/lib/clock'
 import {
   DATE_FORMATS,
   NUMBER_FORMATS,
@@ -41,6 +44,34 @@ const DEFAULTS: WorkspaceGeneral = {
   idPrefixes: {},
 }
 
+/** One prefix map equality test, so Save can tell a real edit from a re-render.
+ * An empty prefix means "no prefix", so a key cleared back to "" must compare
+ * equal to an absent key — otherwise Save stays enabled on an unchanged form. */
+function sameIdPrefixes(
+  a: Record<string, string>,
+  b: Record<string, string>,
+): boolean {
+  const aSet = Object.entries(a).filter(([, value]) => value !== '')
+  const bSet = Object.entries(b).filter(([, value]) => value !== '')
+  return (
+    aSet.length === bSet.length &&
+    aSet.every(([key, value]) => b[key] === value)
+  )
+}
+
+function sameGeneral(a: WorkspaceGeneral, b: WorkspaceGeneral): boolean {
+  return (
+    a.name === b.name &&
+    a.site === b.site &&
+    a.timezone === b.timezone &&
+    a.dateFormat === b.dateFormat &&
+    a.numberFormat === b.numberFormat &&
+    a.publicationApprovalRequired === b.publicationApprovalRequired &&
+    a.offlineEditingAllowed === b.offlineEditingAllowed &&
+    sameIdPrefixes(a.idPrefixes, b.idPrefixes)
+  )
+}
+
 /**
  * SET-01.1 — workspace general settings (site, time zone, date and number
  * format). The RPC refuses a non-admin. UI port: app-3's v3 kit.
@@ -58,9 +89,27 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
     if (query.data) setForm(query.data)
   }, [query.data])
 
+  // `workspace_settings.timezone` is free text in the database and the update
+  // RPC does not validate it, so an unknown zone would be saved and every
+  // surface that formats a date in it would fall back silently. Validate here
+  // against the same IANA check the scheduler uses.
+  const timezone = form.timezone.trim()
+  const timezoneError = isIanaTimeZone(timezone)
+    ? null
+    : 'Enter a valid IANA time zone, such as Europe/London.'
+  // `update_workspace_name` refuses anything outside 1–120 characters, so an
+  // empty name is not a saveable value: it is required here rather than
+  // skipped silently while the rest of the form is written.
+  const name = form.name?.trim() ?? ''
+  const nameError = name ? null : 'Enter a workspace name.'
+  const dirty = query.data ? !sameGeneral(form, query.data) : false
+  // The example number carries the year the app would mint today, so the
+  // sample cannot go stale as the calendar moves.
+  const exampleYear = now().getFullYear()
+
   const save = useMutation({
     mutationFn: async () => {
-      if (form.name) await updateWorkspaceName(workspaceId, form.name)
+      await updateWorkspaceName(workspaceId, name)
       await updateWorkspaceGeneral(workspaceId, form)
       await updateWorkspaceIdPrefixes(workspaceId, form.idPrefixes)
       await updateWorkspacePublicationPolicy(
@@ -72,8 +121,12 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
         form.offlineEditingAllowed,
       )
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: workspaceGeneralQueryKey }),
+    onSuccess: () => {
+      // Every write above has resolved, so the save really happened and the
+      // person gets told; the button going quiet again is not a confirmation.
+      void queryClient.invalidateQueries({ queryKey: workspaceGeneralQueryKey })
+      toast('Settings saved')
+    },
   })
 
   return (
@@ -83,7 +136,14 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
         <Button
           variant="primary"
           onClick={() => save.mutate()}
-          disabled={save.isPending || query.isLoading || query.isError}
+          disabled={
+            save.isPending ||
+            query.isLoading ||
+            query.isError ||
+            !dirty ||
+            timezoneError !== null ||
+            nameError !== null
+          }
         >
           {save.isPending ? 'Saving…' : 'Save changes'}
         </Button>
@@ -102,10 +162,11 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
       ) : null}
 
       <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
-        <Field label="Name">
+        <Field label="Name" required error={nameError}>
           <Input
             aria-label="Workspace name"
             value={form.name ?? ''}
+            aria-invalid={nameError !== null}
             onChange={(event) =>
               setForm((current) => ({
                 ...current,
@@ -126,10 +187,11 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
             }
           />
         </Field>
-        <Field label="Time zone">
+        <Field label="Time zone" error={timezoneError}>
           <Input
             aria-label="Time zone"
             value={form.timezone}
+            aria-invalid={timezoneError !== null}
             onChange={(event) =>
               setForm((current) => ({
                 ...current,
@@ -219,7 +281,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
                       />
                     </TableCell>
                     <TableCell className="mono text-fg-muted">
-                      {prefix ? `${prefix}-2025-0001` : '—'}
+                      {prefix ? `${prefix}-${exampleYear}-0001` : '—'}
                     </TableCell>
                   </TableRow>
                 )

@@ -310,6 +310,31 @@ describe('package figure per chart type', () => {
     expect(fit?.markers).toBe(false)
   })
 
+  it('announces the type the reader chose, not the kind it was built with', () => {
+    // The point/line family is built as the package's `line` kind so every
+    // series carries polyline geometry. The figure's own description is named
+    // after that kind, so a scatter, scatter-with-line, connected-scatter or
+    // strip chart would be announced as a line chart.
+    const announced: [ChartType, string][] = [
+      ['line', 'line chart of Titre (log10) against Time (d)'],
+      ['scatter', 'scatter chart of Titre (log10) against Time (d)'],
+      [
+        'scatter_line',
+        'scatter with line chart of Titre (log10) against Time (d)',
+      ],
+      [
+        'connected_scatter',
+        'connected scatter chart of Titre (log10) against Time (d)',
+      ],
+      ['strip', 'strip chart of Titre (log10) against Time (d)'],
+    ]
+    for (const [type, label] of announced) {
+      expect(buildPackageFigure(makeSpec(type), twoSeries())?.ariaLabel).toBe(
+        label,
+      )
+    }
+  })
+
   it('bar: one mark per (series, category) with a band x axis', () => {
     const figure = buildPackageFigure(makeSpec('grouped_bar'), twoSeries())
     expect(figure?.bars).toHaveLength(4)

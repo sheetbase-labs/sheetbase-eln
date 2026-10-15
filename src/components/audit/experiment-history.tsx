@@ -354,7 +354,7 @@ function EntryDetails({
         <dt className="text-fg-muted">Object</dt>
         <dd>
           {link ? (
-            <a className="text-primary" href={link.href}>
+            <a className="text-primary-text" href={link.href}>
               {described.subject}
             </a>
           ) : (

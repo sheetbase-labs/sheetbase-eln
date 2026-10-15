@@ -188,6 +188,49 @@ describe('notebook domain schema', () => {
     }
   })
 
+  it('accepts the R5-NOTE-02 sign-and-attach block types', async () => {
+    const recordId = await createRecord('experiment', 'EXP-2025-0110')
+    const inserted = await db
+      .insert(schema.blocks)
+      .values([
+        {
+          recordId,
+          type: 'signature_request',
+          payload: {
+            requestedUserId: null,
+            requestedUserName: 'Ada Lovelace',
+            meaning: 'reviewed-and-approved',
+            note: '',
+          },
+          order: 1,
+          createdByUserId: OWNER,
+        },
+        {
+          recordId,
+          type: 'corrective_actions',
+          payload: {
+            items: [
+              {
+                id: 'CAPA-1',
+                action: 'Repeat the reading',
+                ownerUserId: null,
+                ownerName: 'Gareth P.',
+                due: '2026-10-03',
+                status: 'open',
+              },
+            ],
+          },
+          order: 2,
+          createdByUserId: OWNER,
+        },
+      ])
+      .returning({ type: schema.blocks.type })
+    expect(inserted.map((row) => row.type).sort()).toEqual([
+      'corrective_actions',
+      'signature_request',
+    ])
+  })
+
   it('rejects duplicate block order within a record', async () => {
     const recordId = await createRecord('experiment', 'EXP-2025-0101')
     await db.insert(schema.blocks).values({

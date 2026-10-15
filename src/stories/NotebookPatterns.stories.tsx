@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import { Badge } from '#/components/ui/badge'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import { ChartFrame } from '#/components/viz/chart-frame'
 import { PlateMap } from '#/components/viz/plate-map'
 
@@ -132,7 +132,7 @@ export const BlockLanguage: Story = {
         <PlateMap rows={2} cols={6} wells={[]} ariaLabel="qPCR plate map" />
       </NotebookBlock>
       <div className="p-6">
-        <Button variant="outline">+ Add block</Button>
+        <Button variant="secondary">+ Add block</Button>
       </div>
     </div>
   ),

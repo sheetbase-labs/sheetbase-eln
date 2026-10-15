@@ -1073,3 +1073,126 @@ describe('CanonicalSheetEditor — cell conflict inspector (EXP-05.4)', () => {
     ).toBeNull()
   })
 })
+
+describe('CanonicalSheetWorkspace — stale cell write (GRID-04 parity)', () => {
+  /** A local-only Sheet whose first column accepts edits. */
+  async function editableLocalInstance(): Promise<SheetInstance> {
+    const base = await composedInstance()
+    const state = validSheetInstanceState()
+    return {
+      ...base,
+      sourceDefinitionVersionId: null,
+      state: {
+        ...state,
+        bindings: [],
+        presentation: { ...state.presentation, filters: [], sorts: [] },
+      },
+    }
+  }
+
+  it('re-reads the instance and retries the committed cell once when a sibling write moved the revision', async () => {
+    const instance = await editableLocalInstance()
+    const fresh: SheetInstance = {
+      ...instance,
+      revision: instance.revision + 1,
+    }
+    vi.mocked(mutateSheetLocalState)
+      .mockRejectedValueOnce(new Error('stale revision: the Sheet moved on'))
+      .mockResolvedValue(fresh)
+    listMock.mockImplementation(async (resource: string) =>
+      resource === 'sheet_instances'
+        ? [
+            {
+              id: fresh.id,
+              workspace_id: fresh.workspaceId,
+              project_id: fresh.projectId,
+              notebook_record_id: fresh.notebookRecordId,
+              source_definition_version_id: fresh.sourceDefinitionVersionId,
+              name: fresh.name,
+              description: fresh.description,
+              lifecycle: fresh.lifecycle,
+              revision: fresh.revision,
+              state: fresh.state,
+              duplicated_from_instance_id: fresh.duplicatedFromInstanceId,
+              created_at: fresh.createdAt,
+              updated_at: fresh.updatedAt,
+              created_by_user_id: fresh.createdByUserId,
+              updated_by_user_id: fresh.updatedByUserId,
+            },
+          ]
+        : [],
+    )
+    renderWorkspace(
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
+    )
+    await waitFor(() => expect(gridRender).toHaveBeenCalled())
+    const props: SheetbaseGridProps = gridRender.mock.lastCall?.[0]
+    const rowId = props.rows[0].id
+    const columnId = props.columns[0].id
+    act(() =>
+      props.onCellsChange?.(
+        [
+          {
+            rowIndex: 0,
+            rowId,
+            columnId,
+            previous: null,
+            next: 'committed once',
+          },
+        ],
+        'edit',
+      ),
+    )
+    await waitFor(() => expect(mutateSheetLocalState).toHaveBeenCalledTimes(2))
+    const calls = vi.mocked(mutateSheetLocalState).mock.calls
+    expect(calls[0][0]).toMatchObject({
+      expectedRevision: instance.revision,
+      cells: [{ rowKey: rowId, fieldId: columnId, value: 'committed once' }],
+    })
+    expect(calls[1][0]).toMatchObject({
+      expectedRevision: fresh.revision,
+      cells: [{ rowKey: rowId, fieldId: columnId, value: 'committed once' }],
+    })
+    expect(mutateSheetLocalState).toHaveBeenCalledTimes(2)
+  })
+
+  it('states a non-stale failure instead of retrying it', async () => {
+    const instance = await editableLocalInstance()
+    vi.mocked(mutateSheetLocalState).mockRejectedValue(
+      new Error('the value is not a number'),
+    )
+    renderWorkspace(
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
+    )
+    await waitFor(() => expect(gridRender).toHaveBeenCalled())
+    const props: SheetbaseGridProps = gridRender.mock.lastCall?.[0]
+    act(() =>
+      props.onCellsChange?.(
+        [
+          {
+            rowIndex: 0,
+            rowId: props.rows[0].id,
+            columnId: props.columns[0].id,
+            previous: null,
+            next: 'nope',
+          },
+        ],
+        'edit',
+      ),
+    )
+    await waitFor(() =>
+      // The inspector renders its content in the desktop aside and in the
+      // mobile sheet, so the status line appears twice.
+      expect(screen.getAllByText('the value is not a number')).not.toHaveLength(
+        0,
+      ),
+    )
+    expect(mutateSheetLocalState).toHaveBeenCalledTimes(1)
+  })
+})

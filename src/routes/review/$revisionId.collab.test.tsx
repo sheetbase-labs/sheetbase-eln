@@ -21,11 +21,9 @@ import {
   within,
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import * as React from 'react'
 import type { ReactNode } from 'react'
 
 import { ReviewWorkspaceRoute } from './$revisionId'
-import * as appShell from '#/components/shell'
 
 // ---------------------------------------------------------------------------
 // Hoisted state the mocks read per test.
@@ -106,32 +104,6 @@ h.routeContext = {
   user: { id: USER_ID, name: 'Rae Reviewer', email: 'rae@example.com' },
   workspace: { id: WS_ID, name: 'Lab', role: 'scientist' },
 }
-
-// The real AppShell renders the route's `inspector` slot in the persistent
-// shell tree, outside the route subtree. Mirror that: useShell records the
-// latest inspector and TestShellOutlet re-renders whenever it changes.
-vi.mock('#/components/shell', () => {
-  const listeners = new Set<() => void>()
-  let currentInspector: React.ReactNode = null
-  return {
-    useShell: (config?: { inspector?: React.ReactNode }) => {
-      currentInspector = config?.inspector ?? null
-      queueMicrotask(() => listeners.forEach((notify) => notify()))
-      return null
-    },
-    TestShellOutlet: () => {
-      const [, force] = React.useReducer((count: number) => count + 1, 0)
-      React.useEffect(() => {
-        const notify = () => force()
-        listeners.add(notify)
-        return () => {
-          listeners.delete(notify)
-        }
-      }, [])
-      return <>{currentInspector}</>
-    },
-  }
-})
 
 vi.mock('#/lib/data-client', () => ({
   DataClientError: class DataClientError extends Error {
@@ -296,6 +268,7 @@ vi.mock('#/components/notebook/notebook-sheet-block', () => ({
 vi.mock('#/components/review', () => ({
   ReviewCheckResults: () => <div />,
   RevisionDiffReview: () => <div />,
+  RevisionDocumentReview: () => <div />,
 }))
 
 // jsdom does not implement ResizeObserver; radix UI reads it on mount.
@@ -311,10 +284,6 @@ afterEach(() => {
   h.others = []
 })
 
-const TestShellOutlet = (
-  appShell as unknown as { TestShellOutlet: React.ComponentType }
-).TestShellOutlet
-
 function renderWorkspace() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -322,7 +291,6 @@ function renderWorkspace() {
   return render(
     <QueryClientProvider client={client}>
       <ReviewWorkspaceRoute />
-      <TestShellOutlet />
     </QueryClientProvider>,
   )
 }

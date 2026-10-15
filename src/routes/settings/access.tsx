@@ -177,7 +177,12 @@ function Access() {
             >
               Add rule
             </Button>
-          ) : null
+          ) : projects.isPending || permissions.isPending ? null : (
+            <Muted>
+              Only a project manager can add rules. You don’t manage any
+              project.
+            </Muted>
+          )
         }
       >
         Who can open each project. Roles decide what they can do there.

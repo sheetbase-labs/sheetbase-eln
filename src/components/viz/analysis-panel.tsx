@@ -6,6 +6,16 @@ import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import { Input } from '#/components/v3/ui/input'
 import { NativeSelect } from '#/components/v3/projects/select'
 import {
@@ -21,6 +31,7 @@ import {
   COLUMN_TRANSFORMS,
   MAX_DEGREE,
   TRANSFORM_FNS,
+  analysisMethodsText,
   regressionFitCurve,
   runAnalysis,
   validateAnalysisDefinition,
@@ -29,10 +40,14 @@ import type {
   AnalysisDefinition,
   AnalysisError,
   AnalysisResult,
+  AssumptionCheck,
+  DescriptiveResult,
   RegressionFitRow,
+  RegressionResult,
 } from '#/lib/analysis-definition'
 import { formatScientific } from '#/lib/chart-spec'
 import type { ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
+import { toast } from '#/components/v3/ui/sonner'
 import {
   analysisDefinitionQueryKeys,
   captureDefinitionSourceRevisions,
@@ -51,13 +66,18 @@ import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import { fetchActiveDatasetFlags } from '#/lib/dataset-flags'
 
 /**
- * SCI-02 — reusable analysis definitions in the Analysis Studio.
+ * SCI-02 — reusable analysis definitions in the Analysis Studio;
+ * R5-STUDIO-01 — every result states its method and its assumption checks.
  *
  * Define, run, save and reload grouped descriptive statistics and polynomial
  * regressions over stable dataset references. Execution is pure TypeScript
  * (`runAnalysis`) so results are deterministic and traceable to explicit
  * inputs; saved definitions record the source revisions captured at save
  * time and surface a stale-source badge when their inputs have evolved.
+ *
+ * The result panel always names the method (`AnalysisMethodSummary`) and
+ * lists its checks (`AssumptionCheckList`), including a failed one, which is
+ * shown as it stands.
  */
 
 export interface AnalysisPanelProps {
@@ -237,7 +257,17 @@ export function AnalysisPanel({
         queryKey: analysisDefinitionQueryKeys.all,
       })
     },
+    onError: (error: unknown) =>
+      toast('Could not delete the saved analysis', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      }),
   })
+
+  // Deleting a saved definition destroys it for the whole workspace with no
+  // undo, so the row action asks first, like the other destructive lists.
+  const [deleteTarget, setDeleteTarget] =
+    useState<AnalysisDefinitionWire | null>(null)
 
   // SCI-02 → SCI-01 link: overlay the fitted curve on its observations.
   const fitChart = useMemo(() => {
@@ -320,7 +350,7 @@ export function AnalysisPanel({
                 >
                   <Sigma className="size-3.5" aria-hidden />
                   {kind === 'descriptive'
-                    ? 'Descriptive statistics'
+                    ? 'Descriptive / ANOVA'
                     : 'Regression fit'}
                 </Button>
               ))}
@@ -431,8 +461,41 @@ export function AnalysisPanel({
         loading={definitionsQuery.isLoading}
         activeId={draft.editingId}
         onLoad={loadDefinition}
-        onDelete={(id) => deleteMutation.mutate(id)}
+        onDelete={setDeleteTarget}
       />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+      >
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Delete this saved analysis?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              “{deleteTarget?.name ?? ''}” and the source revisions it recorded
+              are deleted for everyone in the workspace. This cannot be undone;
+              charts already exported from it keep their own copy.
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel disabled={deleteMutation.isPending}>
+              Cancel
+            </ConfirmDialogCancel>
+            <ConfirmDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (!deleteTarget) return
+                deleteMutation.mutate(deleteTarget.id)
+                setDeleteTarget(null)
+              }}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }
@@ -676,36 +739,138 @@ export function describeExecutionError(error: AnalysisError): string {
       return `${error.count} row(s) have non-positive ${error.field} values and cannot be log-transformed. Filter them out or drop the transform.`
     case 'no_numeric_values':
       return `Column “${error.field}” has no numeric values to analyse.`
+    case 'method_mismatch':
+      return `Method mismatch: this evidence records analysis method v${error.recorded}, but this build computes method v${error.current}. The numbers are not shown because they cannot honestly be presented as the cited method's results.`
   }
 }
 
-export function AnalysisResultTable({ result }: { result: AnalysisResult }) {
-  if (result.kind === 'descriptive') {
-    const stats = [
-      ['n', (r: (typeof result.rows)[number]) => String(r.stats.n)],
-      ['missing', (r: (typeof result.rows)[number]) => String(r.missing)],
-      [
-        'mean',
-        (r: (typeof result.rows)[number]) => formatScientific(r.stats.mean),
-      ],
-      ['sd', (r: (typeof result.rows)[number]) => formatScientific(r.stats.sd)],
-      ['se', (r: (typeof result.rows)[number]) => formatScientific(r.stats.se)],
-      [
-        'min',
-        (r: (typeof result.rows)[number]) => formatScientific(r.stats.min),
-      ],
-      ['q1', (r: (typeof result.rows)[number]) => formatScientific(r.stats.q1)],
-      [
-        'median',
-        (r: (typeof result.rows)[number]) => formatScientific(r.stats.median),
-      ],
-      ['q3', (r: (typeof result.rows)[number]) => formatScientific(r.stats.q3)],
-      [
-        'max',
-        (r: (typeof result.rows)[number]) => formatScientific(r.stats.max),
-      ],
-    ] as const
+const CHECK_STATUS_LABEL: Record<AssumptionCheck['status'], string> = {
+  pass: 'Passes',
+  warn: 'Warning',
+  fail: 'Fails',
+  not_checked: 'Not checked',
+}
+
+const CHECK_STATUS_CLASS: Record<AssumptionCheck['status'], string> = {
+  pass: 'text-fg-muted',
+  warn: 'text-warning-text',
+  fail: 'font-medium text-danger-text',
+  not_checked: 'text-fg-muted',
+}
+
+function formatP(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value))
+    return '—'
+  return value < 0.001 ? '< 0.001' : formatScientific(value)
+}
+
+async function copyMethodsText(result: AnalysisResult): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(analysisMethodsText(result))
+    toast('Methods text copied', {
+      description: 'Paste it into the notebook’s Methods section.',
+    })
+  } catch {
+    toast('Could not copy', {
+      description: 'The clipboard rejected the write.',
+    })
+  }
+}
+
+/**
+ * The method panel: what ran, under which method-definition version and
+ * runner, and the statement of what it assumes. A result is never shown
+ * without it.
+ */
+function AnalysisMethodSummary({ result }: { result: AnalysisResult }) {
+  return (
+    <div className="rounded-md border bg-surface-muted/20 p-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium">{result.method.label}</span>
+        <Badge variant="kind">method v{result.method.version}</Badge>
+        <span className="font-mono text-xs text-fg-muted">
+          {result.method.runner}
+        </span>
+        <span className="flex-1" />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={() => void copyMethodsText(result)}
+        >
+          Copy methods text
+        </Button>
+      </div>
+      <p className="mt-1 text-xs leading-5 text-fg-muted">
+        {result.method.statement}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Assumption and design checks, in the order the kernel ran them. A failed
+ * check is rendered exactly as it came back — never softened, hidden or
+ * corrected — and a check that could not be run says `Not checked` rather
+ * than claiming a pass.
+ */
+function AssumptionCheckList({ checks }: { checks: AssumptionCheck[] }) {
+  if (checks.length === 0)
     return (
+      <p className="text-xs text-fg-muted">
+        No assumptions are checked: no model is fitted, so none apply.
+      </p>
+    )
+  return (
+    <div className="rounded-md border p-2">
+      <p className="text-xs font-medium text-fg-muted">Assumption checks</p>
+      <ul className="mt-1.5 space-y-1.5">
+        {checks.map((check) => (
+          <li
+            key={`${check.group ?? ''}:${check.id}`}
+            className="text-xs leading-5"
+          >
+            <span className={CHECK_STATUS_CLASS[check.status]}>
+              {CHECK_STATUS_LABEL[check.status]} ·{' '}
+              {check.group ? `Group “${check.group}” · ` : ''}
+              {check.label}
+            </span>
+            <span className="block text-fg-muted">{check.detail}</span>
+            {check.remedy && check.status !== 'pass' ? (
+              <span className="block text-fg-muted">{check.remedy}</span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
+  const stats = [
+    ['n', (r: (typeof result.rows)[number]) => String(r.stats.n)],
+    ['missing', (r: (typeof result.rows)[number]) => String(r.missing)],
+    [
+      'mean',
+      (r: (typeof result.rows)[number]) => formatScientific(r.stats.mean),
+    ],
+    ['sd', (r: (typeof result.rows)[number]) => formatScientific(r.stats.sd)],
+    ['se', (r: (typeof result.rows)[number]) => formatScientific(r.stats.se)],
+    ['min', (r: (typeof result.rows)[number]) => formatScientific(r.stats.min)],
+    ['q1', (r: (typeof result.rows)[number]) => formatScientific(r.stats.q1)],
+    [
+      'median',
+      (r: (typeof result.rows)[number]) => formatScientific(r.stats.median),
+    ],
+    ['q3', (r: (typeof result.rows)[number]) => formatScientific(r.stats.q3)],
+    ['max', (r: (typeof result.rows)[number]) => formatScientific(r.stats.max)],
+  ] as const
+  const intervalByGroup = new Map(
+    (result.anova?.groups ?? []).map((group) => [group.group, group.ci95]),
+  )
+  const anova = result.anova
+  return (
+    <div className="space-y-3">
       <div className="overflow-auto rounded-md border">
         <Table>
           <caption className="sr-only">
@@ -719,60 +884,205 @@ export function AnalysisResultTable({ result }: { result: AnalysisResult }) {
                   {label}
                 </TableHead>
               ))}
+              {anova ? <TableHead scope="col">95% CI of mean</TableHead> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {result.rows.map((row) => {
+              const interval = intervalByGroup.get(row.group)
+              return (
+                <TableRow key={row.group}>
+                  <TableCell className="font-medium">{row.group}</TableCell>
+                  {stats.map(([label, get]) => (
+                    <TableCell key={label} className="font-mono tabular-nums">
+                      {get(row)}
+                    </TableCell>
+                  ))}
+                  {anova ? (
+                    <TableCell className="font-mono tabular-nums">
+                      {interval
+                        ? `${formatScientific(interval.lo)} – ${formatScientific(interval.hi)}`
+                        : '—'}
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+      {anova ? (
+        <div className="overflow-auto rounded-md border">
+          <Table>
+            <caption className="sr-only">
+              One-way ANOVA of the group means (η² ={' '}
+              {formatScientific(anova.etaSquared)})
+            </caption>
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Source</TableHead>
+                <TableHead scope="col">SS</TableHead>
+                <TableHead scope="col">df</TableHead>
+                <TableHead scope="col">MS</TableHead>
+                <TableHead scope="col">F</TableHead>
+                <TableHead scope="col">p</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell className="font-medium">Between groups</TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatScientific(anova.ssBetween)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {anova.dfBetween}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatScientific(anova.msBetween)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatScientific(anova.f)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatP(anova.p)}
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="font-medium">Within groups</TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatScientific(anova.ssWithin)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {anova.dfWithin}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatScientific(anova.msWithin)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">—</TableCell>
+                <TableCell className="font-mono tabular-nums">—</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+          <p className="border-t px-2 py-1 text-xs text-fg-muted">
+            η² = {formatScientific(anova.etaSquared)} · {anova.n} observations
+            across {anova.groups.length} groups
+          </p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function RegressionResultTables({ result }: { result: RegressionResult }) {
+  return (
+    <div className="space-y-3">
+      <div className="overflow-auto rounded-md border">
+        <Table>
+          <caption className="sr-only">Regression fits per group</caption>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Group</TableHead>
+              <TableHead scope="col">n</TableHead>
+              <TableHead scope="col">degree</TableHead>
+              <TableHead scope="col">R²</TableHead>
+              <TableHead scope="col">RMSE</TableHead>
+              <TableHead scope="col">Equation</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {result.rows.map((row) => (
               <TableRow key={row.group}>
                 <TableCell className="font-medium">{row.group}</TableCell>
-                {stats.map(([label, get]) => (
-                  <TableCell key={label} className="font-mono tabular-nums">
-                    {get(row)}
-                  </TableCell>
-                ))}
+                <TableCell className="font-mono tabular-nums">
+                  {row.n}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {row.degree}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatScientific(row.r2)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {formatScientific(row.rmse)}
+                </TableCell>
+                <TableCell className="font-mono tabular-nums">
+                  {row.equation}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
-    )
-  }
+      {result.rows.map((row) => (
+        <div key={row.group} className="space-y-1 rounded-md border p-2">
+          <p className="text-xs font-medium text-fg-muted">
+            {row.group === 'all' ? 'Terms' : `Group “${row.group}” terms`} ·{' '}
+            {row.equation}
+          </p>
+          <p className="text-xs text-fg-muted">
+            Adjusted R² {formatScientific(row.adjR2)} · residual σ{' '}
+            {formatScientific(row.sigma)} on {row.dfResidual} df
+            {row.f === null
+              ? ''
+              : ` · overall F(${row.degree}, ${row.dfResidual}) = ${formatScientific(row.f)}, p = ${formatP(row.fP)}`}
+          </p>
+          <div className="overflow-auto">
+            <Table>
+              <caption className="sr-only">
+                Model terms in the fitted space
+              </caption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">Term</TableHead>
+                  <TableHead scope="col">Estimate</TableHead>
+                  <TableHead scope="col">SE</TableHead>
+                  <TableHead scope="col">95% CI</TableHead>
+                  <TableHead scope="col">t</TableHead>
+                  <TableHead scope="col">p</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {row.terms.map((term) => (
+                  <TableRow key={term.term}>
+                    <TableCell className="font-medium">{term.term}</TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {formatScientific(term.estimate)}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {formatScientific(term.se)}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {term.ci95
+                        ? `${formatScientific(term.ci95.lo)} – ${formatScientific(term.ci95.hi)}`
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {formatScientific(term.t)}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {formatP(term.p)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
+export function AnalysisResultTable({ result }: { result: AnalysisResult }) {
   return (
-    <div className="overflow-auto rounded-md border">
-      <Table>
-        <caption className="sr-only">Regression fits per group</caption>
-        <TableHeader>
-          <TableRow>
-            <TableHead scope="col">Group</TableHead>
-            <TableHead scope="col">n</TableHead>
-            <TableHead scope="col">degree</TableHead>
-            <TableHead scope="col">R²</TableHead>
-            <TableHead scope="col">RMSE</TableHead>
-            <TableHead scope="col">Equation</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {result.rows.map((row) => (
-            <TableRow key={row.group}>
-              <TableCell className="font-medium">{row.group}</TableCell>
-              <TableCell className="font-mono tabular-nums">{row.n}</TableCell>
-              <TableCell className="font-mono tabular-nums">
-                {row.degree}
-              </TableCell>
-              <TableCell className="font-mono tabular-nums">
-                {formatScientific(row.r2)}
-              </TableCell>
-              <TableCell className="font-mono tabular-nums">
-                {formatScientific(row.rmse)}
-              </TableCell>
-              <TableCell className="font-mono tabular-nums">
-                {row.equation}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="space-y-3">
+      <AnalysisMethodSummary result={result} />
+      {result.kind === 'descriptive' ? (
+        <DescriptiveResultTables result={result} />
+      ) : (
+        <RegressionResultTables result={result} />
+      )}
+      <AssumptionCheckList checks={result.checks} />
     </div>
   )
 }
@@ -792,7 +1102,7 @@ function SavedDefinitionsList({
   loading: boolean
   activeId: string | null
   onLoad: (saved: AnalysisDefinitionWire) => void
-  onDelete: (id: string) => void
+  onDelete: (saved: AnalysisDefinitionWire) => void
 }) {
   if (loading)
     return (
@@ -830,7 +1140,7 @@ function SavedDefinitionsList({
               size="icon"
               variant="quiet"
               aria-label={`Delete ${saved.name}`}
-              onClick={() => onDelete(saved.id)}
+              onClick={() => onDelete(saved)}
             >
               <Trash2 />
             </Button>

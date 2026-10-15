@@ -135,6 +135,35 @@ describe('analysis block preview', () => {
     expect(screen.getByText(/Evidence mismatch/i)).toBeTruthy()
   })
 
+  it('withholds the numbers when the recorded method version differs', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows: [{ [FIELD_RECOVERY]: 10 }, { [FIELD_RECOVERY]: 30 }],
+      totalCount: 2,
+      matchesProvenance: true,
+    })
+    renderPreview({
+      title: 'Method moved on',
+      definitionId: 'def-1',
+      frozen: { ...FROZEN, methodVersion: 99 },
+    })
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByText(/Method mismatch/i)).toBeTruthy()
+    expect(screen.getByText(/method v99/)).toBeTruthy()
+    expect(screen.queryByRole('table')).toBeNull()
+  })
+
+  it('names the method on a frozen reconstruction and notes a legacy snapshot', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows: [{ [FIELD_RECOVERY]: 10 }, { [FIELD_RECOVERY]: 30 }],
+      totalCount: 2,
+      matchesProvenance: true,
+    })
+    renderPreview({ title: 'Recovery', definitionId: 'def-1', frozen: FROZEN })
+    expect(await screen.findByText('Descriptive statistics')).toBeTruthy()
+    expect(screen.getByText('method v1')).toBeTruthy()
+    expect(screen.getByText(/predates method recording/)).toBeTruthy()
+  })
+
   it('renders a live block by loading the saved definition and dataset rows', async () => {
     mockFetchDefinition.mockResolvedValue({
       id: 'def-1',

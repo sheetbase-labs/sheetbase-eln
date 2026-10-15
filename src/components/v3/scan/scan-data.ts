@@ -1,4 +1,6 @@
 import type { Tone } from '#/components/v3/ui/status'
+import { intakeHealth } from '#/components/v3/instruments/instruments-data'
+import { sampleStatus } from '#/components/v3/samples/samples-data'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -34,7 +36,7 @@ interface InstrumentWire {
   display_id: string | null
   name: string
   instrument_type: string
-  connection_status: string
+  intake_method: string
 }
 
 interface AliasWire {
@@ -43,7 +45,7 @@ interface AliasWire {
 }
 
 const RECORD_FIELDS = 'id,identifier,title,kind,status'
-const INSTRUMENT_FIELDS = 'id,display_id,name,instrument_type,connection_status'
+const INSTRUMENT_FIELDS = 'id,display_id,name,instrument_type,intake_method'
 
 const KIND_LABELS: Record<string, string> = {
   sample: 'Sample',
@@ -61,13 +63,14 @@ export function scanKindLabel(kind: string): string {
 
 function toRecordTarget(row: RecordWire): ScanTarget {
   const kind = row.kind === 'sample' ? 'sample' : 'record'
+  const status = sampleStatus(row.status)
   return {
     id: row.id,
     identifier: row.identifier,
     title: row.title,
     kind,
-    status: { tone: 'stored', label: row.status.replace(/_/g, ' ') },
-    line: `${scanKindLabel(row.kind)} · ${row.status.replace(/_/g, ' ')}`,
+    status,
+    line: `${scanKindLabel(row.kind)} · ${status.label}`,
   }
 }
 
@@ -77,10 +80,7 @@ function toInstrumentTarget(row: InstrumentWire): ScanTarget {
     identifier: row.display_id ?? row.id.slice(0, 8),
     title: row.name,
     kind: 'instrument',
-    status:
-      row.connection_status === 'connected'
-        ? { tone: 'ok', label: 'Connected' }
-        : { tone: 'stored', label: 'Disconnected' },
+    status: intakeHealth(row.intake_method),
     line: `Instrument · ${row.instrument_type}`,
   }
 }

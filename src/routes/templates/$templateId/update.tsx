@@ -141,7 +141,7 @@ function TemplateUpdate() {
                   <TableRow>
                     <TableHead>Notebook</TableHead>
                     <TableHead>Title</TableHead>
-                    <TableHead align="right">{''}</TableHead>
+                    <TableHead align="right" aria-label="Actions" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>

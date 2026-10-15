@@ -38,6 +38,8 @@ import type { ExportField, ExportRow } from '#/lib/export/delimited'
 export interface ModelRow extends CanonicalDatasetSchemaDefinition {
   versions: CanonicalDatasetSchemaVersion[]
   latestVersion: CanonicalDatasetSchemaVersion | null
+  /** The in-service version: the highest published version, else the newest. */
+  publishedVersion: CanonicalDatasetSchemaVersion | null
   fieldCount: number
   datasetCount: number
 }
@@ -103,13 +105,19 @@ export function buildModelRows(
     )
   return definitions.map((d) => {
     const list = bySchema.get(d.id) ?? []
-    const latestId = list.at(0)?.id
+    // The board describes the in-service version: the highest published
+    // version, or the newest when nothing is published yet. Counting the
+    // newest unconditionally would describe an unpublished draft's fields for
+    // a model whose datasets are pinned to a published version.
+    const published = list.find((v) => v.lifecycle === 'published') ?? null
+    const reported = published ?? list.at(0) ?? null
     return {
       ...d,
       versions: list,
       latestVersion: list.at(0) ?? null,
-      fieldCount: latestId ? (fieldCounts.get(latestId) ?? 0) : 0,
-      datasetCount: latestId ? (datasetCounts.get(latestId) ?? 0) : 0,
+      publishedVersion: published,
+      fieldCount: reported ? (fieldCounts.get(reported.id) ?? 0) : 0,
+      datasetCount: reported ? (datasetCounts.get(reported.id) ?? 0) : 0,
     }
   })
 }
@@ -124,20 +132,27 @@ export function useModels(client: DataClient = notebookDataClient) {
         'dataset_schema_versions',
         '?select=id,schema_id,version,revision,lifecycle,published_at&order=version.desc',
       )
-      const latestVersionIds = definitions
-        .map((d) => versions.find((v) => v.schema_id === d.id)?.id)
+      // Fetch fields and datasets for the version the board reports on — the
+      // highest published version, else the newest — matching buildModelRows.
+      const reportedVersionIds = definitions
+        .map((d) => {
+          const own = versions.filter((v) => v.schema_id === d.id)
+          const reported =
+            own.find((v) => v.lifecycle === 'published') ?? own.at(0)
+          return reported?.id
+        })
         .filter((id): id is string => Boolean(id))
       const [fields, datasets] = await Promise.all([
-        latestVersionIds.length
+        reportedVersionIds.length
           ? client.list<{ field_id: string; schema_version_id: string }>(
               'dataset_schema_version_fields',
-              `?schema_version_id=in.(${latestVersionIds.join(',')})&select=field_id,schema_version_id`,
+              `?schema_version_id=in.(${reportedVersionIds.join(',')})&select=field_id,schema_version_id`,
             )
           : Promise.resolve([]),
-        latestVersionIds.length
+        reportedVersionIds.length
           ? client.list<{ id: string; schema_version_id: string }>(
               'datasets',
-              `?schema_version_id=in.(${latestVersionIds.join(',')})&select=id,schema_version_id`,
+              `?schema_version_id=in.(${reportedVersionIds.join(',')})&select=id,schema_version_id`,
             )
           : Promise.resolve([]),
       ])

@@ -117,7 +117,7 @@ function CommentRow({
               'flex size-6 items-center justify-center rounded-full text-xs font-semibold',
               deleted
                 ? 'bg-surface-muted text-fg-muted'
-                : 'bg-primary/15 text-primary',
+                : 'bg-primary/15 text-primary-text',
             )}
           >
             {authorInitials(label).toUpperCase()}

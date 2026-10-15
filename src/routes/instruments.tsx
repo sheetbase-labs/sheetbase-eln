@@ -13,7 +13,6 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   DescriptionList,
   Inspector,
-  InspectorSection,
   Muted,
 } from '#/components/v3/ui/layout'
 import {
@@ -26,6 +25,8 @@ import {
 } from '#/components/v3/ui/table'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Choice } from '#/components/v3/ui/choice'
+import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
 import {
@@ -48,13 +49,27 @@ import {
   stickyHead,
 } from '#/components/v3/inventory/list'
 import {
+  CALIBRATION_DUE_SOON_DAYS,
+  INTAKE_METHODS,
   createInstrument,
-  instrumentConnection,
+  formatInstrumentDay,
+  intakeHealth,
+  intakeMethodLabel,
+  intakeMethodNeedsParser,
+  setInstrumentIntakeMethod,
   setInstrumentRetired,
+  useInstrumentLastImport,
+  useInstrumentNextBooking,
+  useInstrumentParsers,
   useInstruments,
+  useLastImportsByInstrument,
   useLatestCalibrationsByInstrument,
+  useParserReadinessByInstrument,
 } from '#/components/v3/instruments/instruments-data'
-import type { InstrumentRow } from '#/components/v3/instruments/instruments-data'
+import type {
+  InstrumentRow,
+  IntakeMethod,
+} from '#/components/v3/instruments/instruments-data'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
 
@@ -103,10 +118,18 @@ export const Route = createFileRoute('/instruments')({
 
 const tabLabels = {
   all: 'All',
-  connected: 'Connected',
+  connected: 'Automatic intake',
   calibration: 'Calibration due',
   retired: 'Retired',
 } as const
+
+/** What the footer's "x of y …" counts, one phrase per tab. */
+const tabCountLabels: Record<keyof typeof tabLabels, string> = {
+  all: 'instruments in service',
+  connected: 'instruments taking automatic intake',
+  calibration: 'instruments with a calibration due',
+  retired: 'retired instruments',
+}
 
 function InstrumentsRoute() {
   const isIndex = useRouterState({
@@ -117,7 +140,8 @@ function InstrumentsRoute() {
 
 type CalibrationState = 'ok' | 'soon' | 'overdue' | 'na'
 
-function calibrationState(
+/** The registry's calibration due column and its Calibration tab. */
+export function calibrationState(
   dueAt: string | null | undefined,
   now: Date = new Date(),
 ): {
@@ -130,19 +154,20 @@ function calibrationState(
   if (Number.isNaN(due))
     return { state: 'na', label: 'Not calibrated', tone: 'none' }
   const days = Math.floor((due - now.getTime()) / 86_400_000)
+  const day = formatInstrumentDay(dueAt)
   if (days < 0)
     return {
       state: 'overdue',
-      label: `${dueAt.slice(0, 10)} · ${-days} d overdue`,
+      label: `${day} · ${-days} d overdue`,
       tone: 'bad',
     }
-  if (days <= 14)
+  if (days <= CALIBRATION_DUE_SOON_DAYS)
     return {
       state: 'soon',
-      label: `${dueAt.slice(0, 10)} · due in ${days} d`,
+      label: `${day} · due in ${days} d`,
       tone: 'warn',
     }
-  return { state: 'ok', label: dueAt.slice(0, 10), tone: 'ok' }
+  return { state: 'ok', label: day, tone: 'ok' }
 }
 
 function InstrumentsList() {
@@ -152,10 +177,25 @@ function InstrumentsList() {
   const workspaceId = context.workspace?.id ?? ''
   const query = useInstruments()
   const calibrations = useLatestCalibrationsByInstrument()
+  const imports = useLastImportsByInstrument()
+  const parserReadiness = useParserReadinessByInstrument()
   const rows = query.data ?? []
   const role = context.workspace?.role
 
   const latest = calibrations.data ?? new Map()
+  const lastImports = imports.data ?? new Map()
+  // The inspector reports health from the parser's own state, so the list does too:
+  // an automated method with no validated parser is "Parser not validated" here as
+  // well, not "Waiting for first data". Until the parsers load, the list passes no
+  // opinion and falls back to the import evidence.
+  const readiness = parserReadiness.data
+  const healthFor = (instrument: InstrumentRow) =>
+    intakeHealth(instrument.intakeMethod, {
+      parserReady: parserReadiness.isSuccess
+        ? (readiness?.get(instrument.id) ?? false)
+        : undefined,
+      lastImport: lastImports.get(instrument.id) ?? null,
+    })
   const calFor = (id: string) => calibrationState(latest.get(id)?.dueAt ?? null)
 
   const names = useUserNames(
@@ -169,10 +209,15 @@ function InstrumentsList() {
   )
 
   const tab = search.tab ?? 'all'
+  // "All" is the in-service registry: retired instruments have their own tab, so the
+  // count must be the rows the tab's list shows, not every row in the table.
+  const inService = rows.filter((i) => !i.retiredAt)
   const counts = {
-    all: rows.length,
+    all: inService.length,
     connected: rows.filter(
-      (i) => !i.retiredAt && i.connectionStatus === 'connected',
+      (i) =>
+        !i.retiredAt &&
+        (i.intakeMethod === 'filedrop' || i.intakeMethod === 'webhook'),
     ).length,
     calibration: rows.filter((i) => {
       if (i.retiredAt) return false
@@ -186,7 +231,8 @@ function InstrumentsList() {
   const visible = rows.filter((i) => {
     if (
       tab === 'connected' &&
-      (i.retiredAt || i.connectionStatus !== 'connected')
+      (i.retiredAt ||
+        (i.intakeMethod !== 'filedrop' && i.intakeMethod !== 'webhook'))
     )
       return false
     if (tab === 'calibration') {
@@ -196,8 +242,7 @@ function InstrumentsList() {
     if (tab === 'retired' && !i.retiredAt) return false
     if (tab === 'all' && i.retiredAt) return false
     if (search.type && i.instrumentType !== search.type) return false
-    if (search.connection && i.connectionStatus !== search.connection)
-      return false
+    if (search.connection && i.intakeMethod !== search.connection) return false
     if (search.calibration && calFor(i.id).state !== search.calibration)
       return false
     if (q) {
@@ -250,7 +295,7 @@ function InstrumentsList() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
           title="Instruments"
-          total={rows.filter((i) => !i.retiredAt).length}
+          total={inService.length}
           actions={
             <>
               <Button
@@ -319,17 +364,19 @@ function InstrumentsList() {
                 </Select>
               </label>
               <label className="flex items-center gap-1 text-label text-fg-muted">
-                Connection
+                How data gets in
                 <Select
-                  aria-label="Filter by connection"
+                  aria-label="Filter by how data gets in"
                   className="h-[26px] w-32 text-label"
                   value={search.connection ?? ''}
                   onChange={(e) => setParam('connection')(e.target.value)}
                 >
                   <option value="">Any</option>
-                  <option value="connected">Connected</option>
-                  <option value="disconnected">Disconnected</option>
-                  <option value="error">Error</option>
+                  {INTAKE_METHODS.map((method) => (
+                    <option key={method.value} value={method.value}>
+                      {method.title}
+                    </option>
+                  ))}
                 </Select>
               </label>
               <label className="flex items-center gap-1 text-label text-fg-muted">
@@ -342,7 +389,9 @@ function InstrumentsList() {
                 >
                   <option value="">Any</option>
                   <option value="ok">Current</option>
-                  <option value="soon">Due in 14 days</option>
+                  <option value="soon">
+                    Due in {CALIBRATION_DUE_SOON_DAYS} days
+                  </option>
                   <option value="overdue">Overdue</option>
                 </Select>
               </label>
@@ -356,12 +405,21 @@ function InstrumentsList() {
                 label="Instruments"
                 items={visible.map((i) => {
                   const c = calFor(i.id)
-                  const conn = instrumentConnection(i.connectionStatus)
+                  const health = healthFor(i)
                   return {
                     key: i.id,
                     id: i.displayId ?? i.id.slice(0, 8),
                     title: i.name,
-                    sub: `${conn.label} · ${i.location ?? 'No location'}`,
+                    // A phone has no table column for the registry state, so the row says
+                    // whether the instrument can be booked rather than leaving that to the
+                    // inspector or the Schedule page.
+                    sub: [
+                      intakeMethodLabel(i.intakeMethod),
+                      i.location ?? 'No location',
+                      i.retiredAt ? 'Retired — can’t be booked' : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · '),
                     selected: i.id === sel?.id,
                     onSelect: () =>
                       void navigate({
@@ -374,10 +432,14 @@ function InstrumentsList() {
                         <span className="text-danger-text">
                           Calibration overdue
                         </span>
-                      ) : conn.tone === 'bad' ? (
+                      ) : health.tone === 'bad' ? (
                         <span className="inline-flex items-center gap-1.5">
                           <Dot tone="bad" />
-                          Error
+                          {health.label}
+                        </span>
+                      ) : health.tone === 'warn' ? (
+                        <span className="text-warning-text">
+                          {health.label}
                         </span>
                       ) : c.state === 'soon' ? (
                         <span className="text-warning-text">
@@ -398,7 +460,7 @@ function InstrumentsList() {
                       <TableHead>Name and type</TableHead>
                       <TableHead>Make and model</TableHead>
                       <TableHead>Location</TableHead>
-                      <TableHead>Connection</TableHead>
+                      <TableHead>How data gets in</TableHead>
                       <TableHead>Calibration due</TableHead>
                       <TableHead className="pr-6">Owner</TableHead>
                     </TableRow>
@@ -406,7 +468,7 @@ function InstrumentsList() {
                   <TableBody>
                     {visible.map((i) => {
                       const c = calFor(i.id)
-                      const conn = instrumentConnection(i.connectionStatus)
+                      const health = healthFor(i)
                       return (
                         <TableRow
                           key={i.id}
@@ -450,11 +512,19 @@ function InstrumentsList() {
                           <TableCell>{i.location ?? '—'}</TableCell>
                           <TableCell>
                             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                              <Dot tone={conn.tone} />
-                              <span>{conn.label}</span>
-                              {i.lastConnectedAt ? (
-                                <span className="text-fg-muted">
-                                  · {i.lastConnectedAt.slice(0, 10)}
+                              <Dot tone={health.tone} />
+                              <span>{intakeMethodLabel(i.intakeMethod)}</span>
+                              {health.tone === 'bad' ||
+                              health.tone === 'warn' ? (
+                                <span
+                                  className={cn(
+                                    'text-fg-muted',
+                                    health.tone === 'bad' && 'text-danger-text',
+                                    health.tone === 'warn' &&
+                                      'text-warning-text',
+                                  )}
+                                >
+                                  · {health.label}
                                 </span>
                               ) : null}
                             </span>
@@ -526,10 +596,7 @@ function InstrumentsList() {
           )}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]}{' '}
-          {tab === 'all'
-            ? 'instruments in service'
-            : tabLabels[tab].toLowerCase()}
+          {visible.length} of {counts[tab]} {tabCountLabels[tab]}
         </ListFooter>
       </div>
 
@@ -545,7 +612,27 @@ function InstrumentsList() {
   )
 }
 
-function InstrumentInspector({
+/**
+ * The inspector's sections are the registry page's top-level sections, so they
+ * are h2 — `InspectorSection` is h3-only and belongs inside an already-titled
+ * page. Same label typography, one level up.
+ */
+function RegistrySection({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      <h2 className="mb-1.5 font-sans text-label font-semibold">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+export function InstrumentInspector({
   instrument,
   calibration,
   ownerLabel,
@@ -557,7 +644,37 @@ function InstrumentInspector({
   canManage: boolean
 }) {
   const queryClient = useQueryClient()
-  const conn = instrumentConnection(instrument.connectionStatus)
+  const parsers = useInstrumentParsers(instrument.id)
+  const lastImport = useInstrumentLastImport(instrument.id)
+  const booking = useInstrumentNextBooking(instrument.id)
+  const parserRows = parsers.data ?? []
+  const parserReady =
+    parserRows.length > 0 && parserRows.some((parser) => parser.validated)
+  const needsParser = intakeMethodNeedsParser(instrument.intakeMethod)
+  const parserFollowUp = needsParser && parsers.isSuccess && !parserReady
+  const health = intakeHealth(instrument.intakeMethod, {
+    parserReady: parsers.isSuccess ? parserReady : undefined,
+    lastImport: lastImport.data ?? null,
+  })
+  const lastDataAt =
+    lastImport.data?.status === 'committed' ? lastImport.data.createdAt : null
+  const nextBooking = !booking.isSuccess
+    ? '—'
+    : !booking.data.bookable
+      ? 'Not bookable'
+      : booking.data.next
+        ? `${booking.data.next.startsAt.slice(0, 16).replace('T', ' ')} · ${booking.data.next.title}`
+        : 'None'
+  const parserLabel = !needsParser
+    ? 'Not used'
+    : parserRows.length
+      ? parserRows
+          .map(
+            (parser) =>
+              `${parser.name} · ${parser.validated ? 'validated' : 'not validated'}`,
+          )
+          .join(', ')
+      : 'No parser attached'
   const retire = useMutation({
     mutationFn: (retired: boolean) =>
       setInstrumentRetired(instrument.id, retired),
@@ -568,6 +685,20 @@ function InstrumentInspector({
       toast(retired ? 'Instrument retired' : 'Instrument reinstated')
     },
     onError: () => toast('Could not change the instrument'),
+  })
+  const changeMethod = useMutation({
+    mutationFn: (method: IntakeMethod) =>
+      setInstrumentIntakeMethod(instrument.id, method),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'instruments'],
+      })
+      toast('How data gets in updated', {
+        description:
+          'Imports already committed keep the provenance they arrived with.',
+      })
+    },
+    onError: () => toast('Could not change how data gets in'),
   })
   return (
     <Inspector aria-label="Instrument details" className="w-[340px] gap-0 p-0">
@@ -601,7 +732,12 @@ function InstrumentInspector({
             <Button
               size="sm"
               nativeButton={false}
-              render={<Link to="/schedule" />}
+              // The Schedule opens its book dialog with this instrument already
+              // chosen, so the registry does not send the person back to a list
+              // to find the instrument they were just looking at.
+              render={
+                <Link to="/schedule" search={{ book: instrument.id }} />
+              }
             >
               Book
             </Button>
@@ -614,47 +750,76 @@ function InstrumentInspector({
             Data from {instrument.name} is flagged and can’t be cited in GxP
             records until a new certificate is attached.
           </Notice>
-        ) : instrument.connectionStatus === 'error' ? (
-          <Notice tone="warn" title="Connection error.">
-            No data has arrived recently. Check the parser and imports.
+        ) : parserFollowUp ? (
+          <Notice tone="warn" title="Parser not validated.">
+            Readings from {instrument.name} can’t be imported into a GxP dataset
+            until a validated parser is attached to it.
           </Notice>
         ) : null}
-        <InspectorSection title="Connection">
+        <RegistrySection title="How data gets in">
           <DescriptionList
             labelWidth={96}
             items={[
+              ['Method', intakeMethodLabel(instrument.intakeMethod)],
               [
                 'Health',
                 <span className="inline-flex items-center gap-1.5">
-                  <Dot tone={conn.tone} />
-                  {conn.label}
+                  <Dot tone={health.tone} />
+                  {health.label}
                 </span>,
               ],
               [
-                'Last connected',
-                instrument.lastConnectedAt
-                  ? instrument.lastConnectedAt.slice(0, 16).replace('T', ' ')
-                  : 'Not tracked yet',
+                'Last data',
+                lastDataAt
+                  ? lastDataAt.slice(0, 16).replace('T', ' ')
+                  : 'Nothing received',
               ],
+              ['Parser', parserLabel],
             ]}
           />
-          <Link
-            to="/settings/instruments"
-            className="mt-1.5 inline-block text-label"
-          >
-            Parser and imports
-          </Link>
-        </InspectorSection>
-        <InspectorSection title="Use">
+          {needsParser ? (
+            <Link
+              to="/settings/instruments"
+              className="mt-1.5 inline-block text-label"
+            >
+              Parser and imports
+            </Link>
+          ) : null}
+          {canManage ? (
+            <div className="mt-3 flex flex-col gap-1">
+              <Select
+                aria-label="How data gets in"
+                className="h-[26px] text-label"
+                value={instrument.intakeMethod}
+                disabled={changeMethod.isPending}
+                onChange={(e) =>
+                  changeMethod.mutate(e.target.value as IntakeMethod)
+                }
+              >
+                {INTAKE_METHODS.map((method) => (
+                  <option key={method.value} value={method.value}>
+                    {method.title}
+                  </option>
+                ))}
+              </Select>
+              <Muted>
+                Affects future data only. Imports already committed keep the
+                parser and source provenance they arrived with.
+              </Muted>
+            </div>
+          ) : null}
+        </RegistrySection>
+        <RegistrySection title="Use">
           <DescriptionList
             labelWidth={96}
             items={[
+              ['Next booking', nextBooking],
               ['Location', instrument.location ?? '—'],
               ['Owner', ownerLabel],
             ]}
           />
-        </InspectorSection>
-        <InspectorSection title="Calibration">
+        </RegistrySection>
+        <RegistrySection title="Calibration">
           <DescriptionList
             labelWidth={96}
             items={[
@@ -674,9 +839,9 @@ function InstrumentInspector({
           <Muted className="mt-1.5">
             Certificates and history are on the record.
           </Muted>
-        </InspectorSection>
+        </RegistrySection>
         {canManage ? (
-          <InspectorSection title="Registry">
+          <RegistrySection title="Registry">
             <Button
               size="sm"
               disabled={retire.isPending}
@@ -689,14 +854,14 @@ function InstrumentInspector({
             <Muted className="mt-1.5">
               Retired instruments stay for history and can’t be booked.
             </Muted>
-          </InspectorSection>
+          </RegistrySection>
         ) : null}
       </div>
     </Inspector>
   )
 }
 
-function RegisterInstrument({
+export function RegisterInstrument({
   types,
   workspaceId,
   ownerId,
@@ -708,7 +873,12 @@ function RegisterInstrument({
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [tried, setTried] = useState(false)
-  const [serverError, setServerError] = useState<string | null>(null)
+  // A refusal usually belongs to the form, not to one field: only a serial clash is
+  // about the serial number, everything else (permission, workspace) shows at the top.
+  const [serverError, setServerError] = useState<{
+    field: 'serial' | null
+    message: string
+  } | null>(null)
   const empty = {
     name: '',
     type: 'qpcr',
@@ -716,6 +886,7 @@ function RegisterInstrument({
     model: '',
     serial: '',
     location: '',
+    method: 'filedrop' as IntakeMethod,
   }
   const [f, setF] = useState(empty)
 
@@ -727,13 +898,17 @@ function RegisterInstrument({
     model: !f.model.trim() ? 'Enter the model.' : null,
     serial: !f.serial.trim()
       ? 'Enter the serial number from the rating plate.'
-      : serverError,
+      : serverError?.field === 'serial'
+        ? serverError.message
+        : null,
     location: !f.location.trim()
       ? 'Enter where it sits, e.g. Lab 2, bench 5.'
       : null,
   }
   const err = (k: keyof typeof errors) =>
-    tried || (k === 'serial' && serverError) ? errors[k] : null
+    tried || (k === 'serial' && serverError?.field === 'serial')
+      ? errors[k]
+      : null
 
   const create = useMutation({
     mutationFn: () =>
@@ -741,6 +916,7 @@ function RegisterInstrument({
         workspaceId,
         name: f.name.trim(),
         instrumentType: f.type,
+        intakeMethod: f.method,
         model: f.model.trim() || null,
         serialNumber: f.serial.trim() || null,
         vendor: f.make.trim() || null,
@@ -755,14 +931,26 @@ function RegisterInstrument({
       setF(empty)
       setTried(false)
       toast(`${f.name.trim()} registered`, {
-        description: `Created ${row.displayId ?? 'the instrument'}.`,
+        description:
+          f.method === 'filedrop'
+            ? `Created ${row.displayId ?? 'the instrument'}. Attach a validated parser to import its files.`
+            : f.method === 'webhook'
+              ? `Created ${row.displayId ?? 'the instrument'}. Attach a validated parser before its posts can import.`
+              : f.method === 'manual'
+                ? `Created ${row.displayId ?? 'the instrument'}. Readings are typed in and carry who entered them.`
+                : `Created ${row.displayId ?? 'the instrument'}. No data will arrive until you connect it.`,
       })
     },
     onError: (e) => {
+      const message = e instanceof Error ? e.message : String(e)
       setServerError(
-        String((e as { message?: string }).message ?? '').includes('serial')
-          ? 'An instrument with this serial number is already registered.'
-          : 'Could not register the instrument.',
+        message.includes('serial')
+          ? {
+              field: 'serial',
+              message:
+                'An instrument with this serial number is already registered.',
+            }
+          : { field: null, message: 'Could not register the instrument.' },
       )
     },
   })
@@ -785,9 +973,16 @@ function RegisterInstrument({
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
           title="Register instrument"
-          description="It can be booked right away; its data is held until a parser is validated."
+          description={
+            intakeMethodNeedsParser(f.method)
+              ? 'It can be booked right away; its data is held until a validated parser is attached.'
+              : 'It can be booked and cited right away.'
+          }
         />
         <DialogBody>
+          {serverError && !serverError.field ? (
+            <Notice tone="bad" title={serverError.message} />
+          ) : null}
           <Field label="Name" required error={err('name')}>
             <Input
               autoFocus
@@ -846,6 +1041,26 @@ function RegisterInstrument({
               placeholder="e.g. Lab 2, bench 5"
             />
           </Field>
+          <RadioGroup
+            aria-label="How data gets in"
+            value={f.method}
+            onValueChange={(value) =>
+              setF({ ...f, method: value as IntakeMethod })
+            }
+          >
+            <span className="text-label font-medium text-fg">
+              How data gets in
+            </span>
+            {INTAKE_METHODS.map((method) => (
+              <Choice
+                key={method.value}
+                value={method.value}
+                title={method.title}
+              >
+                {method.consequence}
+              </Choice>
+            ))}
+          </RadioGroup>
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button type="button" />}>Cancel</DialogClose>

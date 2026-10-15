@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import {
   Card,
   CardContent,

@@ -3,20 +3,28 @@ import { routeTree } from './routeTree.gen'
 
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { createRouterContext } from './integrations/tanstack-query/router-context'
+import { NotFound } from '#/components/v3/shell/not-found'
+import { noCapabilities } from './lib/capabilities'
 
 export function getRouter() {
   const context = {
     ...createRouterContext(),
     auth: null,
+    capabilities: noCapabilities,
     shellCounts: {},
     shellPinned: [],
     shellNotifications: [],
+    themePref: 'system' as const,
   }
 
   const router = createTanStackRouter({
     routeTree,
     context,
     scrollRestoration: true,
+    // R5-SURF-03: a notFound() thrown by a loader inside a matched layout (e.g.
+    // a record id that isn't in the workspace) renders the product's screen in
+    // that layout's outlet; the catch-all `/$` route covers unmatched URLs.
+    defaultNotFoundComponent: NotFound,
     defaultPreload: 'intent',
     // Reuse hover-preloaded data for the actual navigation. The
     // previous value of 0 marked every preload as instantly stale, so

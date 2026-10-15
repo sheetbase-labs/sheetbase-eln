@@ -213,6 +213,10 @@ describe('dataset snapshots route', () => {
         expect.stringContaining('Gareth P. · saved by hand'),
       ),
     )
+    // One confirmed save writes one snapshot and closes the dialog; a second
+    // click is only possible once it is reopened deliberately.
+    expect(product.snapshotDataset).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('surfaces an RPC refusal as a toast without crashing the tab', async () => {
@@ -249,6 +253,21 @@ describe('dataset snapshots route', () => {
     expect(
       screen.getByText(/You have read access to this dataset/),
     ).toBeTruthy()
+  })
+
+  it('blames a failed revision read, not the archive state', async () => {
+    dataClient.list.mockRejectedValueOnce(new Error('offline'))
+    renderRoute()
+
+    await screen.findByText(/current revision could not be read/)
+    expect(
+      screen.queryByText(/Archived datasets cannot be snapshotted/),
+    ).toBeNull()
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', {
+        name: 'Create snapshot',
+      }).disabled,
+    ).toBe(true)
   })
 
   it('shows the selected snapshot read model and a compare link to both versions', async () => {

@@ -14,9 +14,11 @@ import type {
   ProjectRow,
 } from '#/components/v3/projects/projects-page'
 import { createDataClient, DataClientError } from '#/lib/data-client'
+import { toast } from '#/components/v3/ui/sonner'
 import {
   createProject,
   fetchWorkspaceMemberIdentities,
+  withReadDeadline,
   workspaceMemberQueryKeys,
 } from '#/components/v3/projects/project-data'
 import { hasCapability } from '#/lib/capability'
@@ -103,7 +105,9 @@ export const Route = createFileRoute('/projects')({
           : undefined,
       q: typeof search.q === 'string' ? search.q : undefined,
       archived:
-        search.archived === true || search.archived === 'true' || undefined,
+        search.archived === 'include' || search.archived === 'exclude'
+          ? search.archived
+          : undefined,
       stage: typeof search.stage === 'string' ? search.stage : undefined,
       client: typeof search.client === 'string' ? search.client : undefined,
       modality:
@@ -149,18 +153,27 @@ function ProjectsIndexRoute() {
 
   const query = useQuery({
     queryKey: [...PROJECTS_KEY, context.workspace?.id],
-    queryFn: async () => {
-      const rows: ProjectSummaryWire[] = []
-      for (;;) {
-        const page = await dataClient.list<ProjectSummaryWire>(
-          'rpc/project_list_summary',
-          `?order=updated_at.desc,id.asc&limit=200&offset=${rows.length}`,
-        )
-        rows.push(...page)
-        if (page.length < 200) break
-      }
-      return rows
-    },
+    // A stalled data layer used to leave this page on "Loading projects…"
+    // forever and the header asserting a count of 0. One silent retry covers a
+    // blip; the deadline turns an unanswered read into a stated failure the
+    // page can offer a retry for.
+    retry: 1,
+    queryFn: () =>
+      withReadDeadline(
+        (async () => {
+          const rows: ProjectSummaryWire[] = []
+          for (;;) {
+            const page = await dataClient.list<ProjectSummaryWire>(
+              'rpc/project_list_summary',
+              `?order=updated_at.desc,id.asc&limit=200&offset=${rows.length}`,
+            )
+            rows.push(...page)
+            if (page.length < 200) break
+          }
+          return rows
+        })(),
+        'The project list',
+      ),
   })
 
   const clientsQuery = useQuery({
@@ -174,8 +187,11 @@ function ProjectsIndexRoute() {
 
   const create = useMutation({
     mutationFn: createProject,
-    onSuccess: () => {
+    // The dialog closes and the row appears, but nothing said the write landed.
+    // Same feedback the bulk archive/restore already gives.
+    onSuccess: (_created, input) => {
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
+      toast(`Project “${input.title}” created`)
       void navigate({
         to: '/projects',
         search: (s) => ({ ...s, new: undefined }),
@@ -204,8 +220,20 @@ function ProjectsIndexRoute() {
       meId={context.user.id}
       canCreate={hasCapability(context.workspace?.role, 'record.create')}
       loading={query.isLoading}
-      error={query.error ? 'Projects could not be loaded. Try again.' : null}
+      error={
+        query.error
+          ? query.error instanceof DataClientError
+            ? query.error.message
+            : 'Projects could not be loaded. Try again.'
+          : null
+      }
       onRetry={() => void query.refetch()}
+      onOpenProject={(p) =>
+        void navigate({
+          to: '/projects/$projectId',
+          params: { projectId: p.uuid },
+        })
+      }
       search={search}
       setSearch={(patch) =>
         void navigate({
@@ -216,6 +244,7 @@ function ProjectsIndexRoute() {
       }
       onCreate={(input) => create.mutate(input)}
       creating={create.isPending}
+      createdProjectId={create.data?.id ?? null}
       createError={
         create.error instanceof DataClientError
           ? create.error.message

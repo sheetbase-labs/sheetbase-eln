@@ -52,7 +52,20 @@ export const Route = createFileRoute('/sheets/$sheetId')({
   component: ComposedSheetRoute,
 })
 
-function ComposedSheetRoute() {
+/** NAV-02 Share: copies the sheet's deep link. Clipboard access can be denied
+ * (no permission, insecure context), so the toast reports the actual outcome —
+ * claiming "Link copied" when nothing reached the clipboard leaves the user
+ * with an empty paste and no explanation. */
+async function copyShareLink() {
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    toast('Link copied')
+  } catch {
+    toast.error('Could not copy the link. Copy it from the address bar.')
+  }
+}
+
+export function ComposedSheetRoute() {
   const { sheetId } = Route.useParams()
   const { projectId: projectIdParam, commentId } = Route.useSearch()
   const { context } = Route.useRouteContext()
@@ -142,8 +155,7 @@ function ComposedSheetRoute() {
             <FavouriteToggle kind="sheet" objectId={sheetId} />
             <Button
               onClick={() => {
-                void navigator.clipboard.writeText(window.location.href)
-                toast('Link copied')
+                void copyShareLink()
               }}
             >
               Share
@@ -155,8 +167,7 @@ function ComposedSheetRoute() {
         <CollaborationRoom roomId={collaborationRoomId}>
           <CanonicalSheetWorkspace
             instanceId={sheetId}
-            projectId={projectIdParam ?? null}
-            readOnly={!projectIdParam}
+            projectId={instanceProjectId}
             commentId={commentId}
           />
         </CollaborationRoom>

@@ -30,6 +30,13 @@ describe('proposalGroups', () => {
     expect(groups.map((g) => g.key)).toEqual(['waiting'])
   })
 
+  it('does not label an undecidable proposal as someone else handling it', () => {
+    // The viewer's own capability says nothing about who else can approve, so
+    // the group states what is true: it is still awaiting a decision.
+    const groups = proposalGroups([proposal('p1', 'pending')], false)
+    expect(groups[0].label).toBe('Awaiting approval')
+  })
+
   it('drops empty groups', () => {
     expect(proposalGroups([proposal('p1', 'succeeded')], true)).toHaveLength(1)
   })

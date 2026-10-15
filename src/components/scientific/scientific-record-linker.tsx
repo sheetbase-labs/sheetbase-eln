@@ -21,7 +21,7 @@ import {
 import { useState } from 'react'
 
 import { Icon } from '#/components/icons'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import { RecordPicker } from './record-picker'
 import { ScientificRecordSummary } from './scientific-record-summary'
 import { DataClientError } from '#/lib/data-client'
@@ -197,9 +197,9 @@ export function ScientificRecordLinker({
       <div>
         <Button
           type="button"
-          variant="ghost"
+          variant="quiet"
           size="sm"
-          className="h-7 px-2 text-xs text-muted-foreground"
+          className="text-muted-foreground"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls="sci-001-linker-picker"
@@ -218,7 +218,7 @@ export function ScientificRecordLinker({
               <Button
                 key={opt.kind}
                 type="button"
-                variant={activeKind === opt.kind ? 'default' : 'ghost'}
+                variant={activeKind === opt.kind ? 'primary' : 'quiet'}
                 size="sm"
                 role="tab"
                 aria-selected={activeKind === opt.kind}

@@ -34,6 +34,9 @@ const RUN_IN = '00000000-0000-4000-8000-000000000b1d'
 const RECORD = '00000000-0000-4000-8000-000000000b1e'
 const BLOCK = '00000000-0000-4000-8000-000000000b1f'
 const ANALYSIS_DEF = '00000000-0000-4000-8000-000000000b20'
+const V_IMPORT = '00000000-0000-4000-8000-000000000b21'
+const IMPORT_FILE = '00000000-0000-4000-8000-000000000b22'
+const IMPORT = '00000000-0000-4000-8000-000000000b23'
 const USER = 'list-user'
 const OTHER_USER = 'list-other-user'
 
@@ -58,6 +61,7 @@ interface VersionRow {
     runId: string | null
     definitionName: string | null
     status: string | null
+    label?: string | null
   } | null
   citedBy: {
     signedRevisions: unknown[]
@@ -113,7 +117,8 @@ beforeAll(async () => {
       ('${V_PLAIN}', '${DATASET}', '${WS}', '${SCHEMA_VERSION}', 1, 'Plain', '${USER}'),
       ('${V_RUN}', '${DATASET}', '${WS}', '${SCHEMA_VERSION}', 2, 'From run', '${USER}'),
       ('${V_CITED}', '${DATASET}', '${WS}', '${SCHEMA_VERSION}', 3, 'Cited', '${USER}'),
-      ('${V_KEPT}', '${DATASET}', '${WS}', '${SCHEMA_VERSION}', 4, 'Kept', '${USER}')`,
+      ('${V_KEPT}', '${DATASET}', '${WS}', '${SCHEMA_VERSION}', 4, 'Kept', '${USER}'),
+      ('${V_IMPORT}', '${DATASET}', '${WS}', '${SCHEMA_VERSION}', 5, 'Import qa3-append.csv', '${USER}')`,
   )
   await migrator.query(
     `INSERT INTO api.dataset_version_rows (dataset_version_id, row_id, revision) VALUES
@@ -150,6 +155,21 @@ beforeAll(async () => {
     `INSERT INTO api.pipeline_run_outputs
        (workspace_id, run_id, dataset_id, dataset_version_id, label)
      VALUES ('${WS}', '${RUN_OUT}', '${DATASET}', '${V_RUN}', 'Output A')`,
+  )
+
+  // The import receipt behind V_IMPORT: the wizard's commit snapshots the
+  // dataset and records the receipt, which is what names the snapshot's source.
+  await migrator.query(
+    `INSERT INTO api.dataset_import_files
+       (id, workspace_id, dataset_id, filename, byte_size, checksum, storage_key, format, status, created_by_user_id)
+     VALUES ('${IMPORT_FILE}', '${WS}', '${DATASET}', 'qa3-append.csv', 128,
+             repeat('a', 64), 'imports/qa3-append.csv', 'csv', 'parsed', '${USER}')`,
+  )
+  await migrator.query(
+    `INSERT INTO api.dataset_imports
+       (id, workspace_id, dataset_id, file_id, snapshot_version_id, status, idempotency_key, created_by_user_id)
+     VALUES ('${IMPORT}', '${WS}', '${DATASET}', '${IMPORT_FILE}', '${V_IMPORT}',
+             'committed', 'list-import-key', '${USER}')`,
   )
 
   // Analysis block citing V_CITED via its frozen provenance.
@@ -244,6 +264,23 @@ describe('api.dataset_version_list read model', () => {
     expect(fromRun.source?.runId).toBe(RUN_OUT)
     expect(fromRun.source?.definitionName).toBe('List pipeline')
     expect(fromRun.source?.status).toBe('succeeded')
+  })
+
+  it('names the import that froze a snapshot, not the person who ran it', async () => {
+    const client = await asAuthenticated()
+    const imported = byId(await listVersions(client), V_IMPORT)
+
+    // The person is still reported as the maker; the source is the import.
+    expect(imported.createdByName).toBe('List User')
+    expect(imported.source).toEqual({
+      kind: 'import',
+      runId: null,
+      definitionName: null,
+      triggerKind: null,
+      status: null,
+      label: 'qa3-append.csv',
+      startedAt: null,
+    })
   })
 
   it('computes a deterministic content hash that distinguishes content', async () => {

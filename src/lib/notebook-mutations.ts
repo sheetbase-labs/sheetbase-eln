@@ -14,6 +14,10 @@ import type { DataClient } from '#/lib/data-client'
 import { toBlock } from '#/lib/notebook-data'
 import type { BlockWire, NotebookBlock } from '#/lib/notebook-data'
 import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
+import {
+  EMPTY_CORRECTIVE_ACTIONS_PAYLOAD,
+  EMPTY_SIGNATURE_REQUEST_PAYLOAD,
+} from '#/lib/notebook-action-blocks'
 import { isCanonicalSheetBlock } from '#/lib/sheet-block'
 
 export interface UpdateBlockArgs {
@@ -253,6 +257,14 @@ export function defaultPayloadFor(type: string): Record<string, unknown> {
     // editor opens immediately; the user sets dimensions and assigns wells.
     case 'plate_map':
       return {}
+    // R5-NOTE-02: a signature request starts with no signer, so the block
+    // renders the honest missing-reference state until one is chosen.
+    case 'signature_request':
+      return { ...EMPTY_SIGNATURE_REQUEST_PAYLOAD }
+    // R5-NOTE-02: a CAPA list starts empty; the block says so rather than
+    // showing a header with nothing under it.
+    case 'corrective_actions':
+      return { ...EMPTY_CORRECTIVE_ACTIONS_PAYLOAD }
     default:
       return {}
   }

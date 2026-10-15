@@ -4,12 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { Icon } from '#/components/icons'
+import { Button } from '#/components/v3/ui/button'
 import {
-  Button,
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '#/components/ui'
+} from '#/components/v3/ui/popover'
 import {
   fetchMyNotifications,
   markNotificationsRead,
@@ -44,26 +44,28 @@ export function NotificationsBell() {
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="quiet"
-          size="icon-sm"
-          className="relative"
-          aria-label={
-            unread.length > 0
-              ? `Notifications, ${unread.length} unread`
-              : 'Notifications'
-          }
-        >
-          <Icon name="bell" className="size-4" />
-          {unread.length > 0 ? (
-            <span
-              className="absolute right-1 top-1 size-1.5 rounded-full bg-danger-text"
-              aria-hidden="true"
-            />
-          ) : null}
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="quiet"
+            size="icon"
+            className="relative"
+            aria-label={
+              unread.length > 0
+                ? `Notifications, ${unread.length} unread`
+                : 'Notifications'
+            }
+          />
+        }
+      >
+        <Icon name="bell" className="size-4" />
+        {unread.length > 0 ? (
+          <span
+            className="absolute right-1 top-1 size-1.5 rounded-full bg-danger-text"
+            aria-hidden="true"
+          />
+        ) : null}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-96 p-0">
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
@@ -127,13 +129,13 @@ export function NotificationsBell() {
         <div className="flex items-center gap-3 border-t border-border bg-surface-muted px-3 py-2 text-caption">
           <Link
             to="/inbox"
-            className="text-primary no-underline hover:underline"
+            className="text-primary-text no-underline hover:underline"
           >
             Open inbox
           </Link>
           <Link
             to="/settings"
-            className="text-primary no-underline hover:underline"
+            className="text-primary-text no-underline hover:underline"
           >
             Notification settings
           </Link>

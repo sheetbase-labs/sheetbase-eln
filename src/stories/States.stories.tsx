@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 
 import { Banner, Notice } from '#/components/ui/alert'
 import { Badge } from '#/components/ui/badge'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import { Field, FieldError, FieldLabel } from '#/components/ui/field'
 import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
@@ -47,7 +47,7 @@ export const Board: Story = {
         <Button variant="primary" disabled>
           Start run
         </Button>
-        <Button size="iconOnly" variant="quiet" aria-label="More actions">
+        <Button size="icon" variant="quiet" aria-label="More actions">
           <Icon name="more" />
         </Button>
       </Row>

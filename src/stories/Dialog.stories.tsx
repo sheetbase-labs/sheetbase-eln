@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/ui/input'
 import {
   Dialog,
@@ -35,7 +35,7 @@ export const Default: Story = {
         <Input defaultValue="Protein stability study" />
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="secondary">Cancel</Button>
           </DialogClose>
           <Button>Save</Button>
         </DialogFooter>

@@ -24,6 +24,7 @@ import {
   ActivityFeed,
   CommentList,
 } from '#/components/record'
+import { Button } from '#/components/v3/ui/button'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,27 +36,25 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   Badge,
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-  Input,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
   Textarea,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '#/components/ui'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import { Input } from '#/components/v3/ui/input'
+import { Tooltip } from '#/components/v3/ui/tooltip'
 import { contrastRatio, oklchToSrgb } from '#/lib/contrast'
 import type { Oklch } from '#/lib/contrast'
 import { cn } from '#/lib/utils'
@@ -91,9 +90,12 @@ function FoundationsPage() {
       <div className="mx-auto max-w-5xl px-6 py-10">
         <header className="flex flex-wrap items-end justify-between gap-4 border-b pb-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Foundations
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Foundations
+              </p>
+              <Badge variant="outline">Development only</Badge>
+            </div>
             <h1 className="mt-1 font-display text-2xl font-semibold tracking-tight">
               Visual rules and semantic tokens
             </h1>
@@ -269,15 +271,14 @@ function FoundationsPage() {
           description="Visible focus is required for every interactive control (DESIGN.md). Signal Blue ring, 2px outline, offset."
         >
           <div className="flex flex-wrap gap-3">
-            <button className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-4 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-              Outline button
-            </button>
-            <a
-              href="#focus"
-              className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            <Button variant="secondary">Outline button</Button>
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<a href="#focus" role="link" />}
             >
               Primary link
-            </a>
+            </Button>
             <input
               aria-label="Sample input"
               className="h-9 rounded-md border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -347,7 +348,7 @@ function FoundationsPage() {
         <Section
           id="shell"
           title="Application shell"
-          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/sign-out. The live shell wraps /projects; this is a framed taster, not a full re-render."
+          description="AppShell (UI-003). Fixed/collapsible desktop navigation, mobile Sheet navigation, top breadcrumbs/search/action bar, optional inspector, command palette, theme/sign-out. The shell that wraps /projects today is the adopted v3 AppShell; the frame below is the retired legacy chrome kept as a static reference, not a live render."
         >
           <AppShellPreview />
         </Section>
@@ -588,7 +589,7 @@ function RecordPreview() {
             </>
           }
           actions={
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               Share
             </Button>
           }
@@ -769,7 +770,7 @@ function NotebookVizPreview() {
           state="selected"
           draggable
           actions={
-            <Button variant="ghost" size="sm">
+            <Button variant="quiet" size="sm">
               Edit
             </Button>
           }
@@ -838,17 +839,16 @@ function PrimitivesGrid() {
     <div className="grid gap-4 lg:grid-cols-2">
       <Preview title="Buttons — variants, sizes, disabled">
         <div className="flex flex-wrap items-center gap-3">
-          <Button>Primary</Button>
-          <Button variant="secondary">Secondary</Button>
-          <Button variant="outline">Outline</Button>
-          <Button variant="ghost">Ghost</Button>
-          <Button variant="subtle">Subtle</Button>
-          <Button variant="destructive">Destructive</Button>
+          <Button>Secondary</Button>
+          <Button variant="primary">Primary</Button>
+          <Button variant="quiet">Quiet</Button>
+          <Button variant="danger">Danger</Button>
+          <Button variant="danger-fill">Danger fill</Button>
           <Button disabled>Disabled</Button>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Button size="sm">Small</Button>
-          <Button size="default">Default</Button>
+          <Button size="md">Medium</Button>
           <Button size="lg">Large</Button>
           <Button size="icon" aria-label="Add">
             <Icon name="plus" className="size-4" />
@@ -860,7 +860,7 @@ function PrimitivesGrid() {
         <div className="flex flex-wrap items-center gap-2">
           <Badge>Default</Badge>
           <Badge variant="secondary">Secondary</Badge>
-          <Badge variant="outline">Archived</Badge>
+          <Badge variant="secondary">Archived</Badge>
           <Badge variant="success">In progress</Badge>
           <Badge variant="info">Needs review</Badge>
           <Badge variant="warning">Expiring</Badge>
@@ -917,20 +917,15 @@ function PrimitivesGrid() {
       </Preview>
 
       <Preview title="Tooltip">
-        <TooltipProvider delayDuration={100}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline">Hover me</Button>
-            </TooltipTrigger>
-            <TooltipContent>Used inline in data tables.</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip content="Used inline in data tables.">
+          <Button variant="secondary">Hover me</Button>
+        </Tooltip>
       </Preview>
 
       <Preview title="Dropdown menu">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">Actions</Button>
+          <DropdownMenuTrigger render={<Button variant="secondary" />}>
+            Actions
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem>Rename…</DropdownMenuItem>
@@ -944,7 +939,7 @@ function PrimitivesGrid() {
       <Preview title="Destructive confirmation (AlertDialog)">
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="destructive">Delete notebook</Button>
+            <Button variant="danger-fill">Delete notebook</Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -1306,17 +1301,19 @@ function AppShellPreview() {
               </span>
             </div>
             <p className="text-xs text-muted-foreground">
-              The live shell wraps{' '}
-              <code className="text-foreground">/projects</code> with a
-              fixed/collapsible sidebar, mobile Sheet navigation, command
-              palette, theme/sign-out and an optional inspector pane.
+              The retired legacy shell drew a fixed/collapsible sidebar, mobile
+              Sheet navigation, command palette, theme/sign-out and an optional
+              inspector pane. The live shell that wraps{' '}
+              <code className="text-foreground">/projects</code> today is the
+              adopted v3 AppShell, with its own navigation.
             </p>
           </div>
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Visit <code>/projects</code> for the full interactive shell. Sidebar
-        state persists to localStorage; the command palette opens with Ctrl+K.
+        Visit <code>/projects</code> for the live shell. The sidebar&rsquo;s
+        collapsed state persists to localStorage; the search palette opens with{' '}
+        <code>⌘K</code>.
       </p>
     </div>
   )
@@ -1347,7 +1344,7 @@ function StatesMatrixPreview() {
               The dataset Stability_Raw_Data.csv could not be parsed: 2 rows
               reference missing samples.
             </p>
-            <Button variant="outline" size="sm">
+            <Button variant="secondary" size="sm">
               Retry
             </Button>
           </div>

@@ -32,6 +32,7 @@ import { NativeSelect } from '#/components/v3/projects/select'
 import {
   createProjectFolder,
   fetchProjectFolders,
+  fetchProjectMembers,
   moveRecordsToFolder,
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
@@ -54,6 +55,7 @@ export const Route = createFileRoute('/projects/$projectId/folders')({
 function ProjectFolders() {
   const { projectId } = Route.useParams()
   const { project } = useProjectSummary(projectId)
+  const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const foldersQuery = useQuery({
     queryKey: ['project-folders', projectId],
@@ -62,6 +64,12 @@ function ProjectFolders() {
   const recordsQuery = useQuery({
     queryKey: notebookQueryKeys.records(projectId),
     queryFn: () => fetchRecordsForProject(notebookDataClient, projectId),
+  })
+  // Same query the project frame reads, so the members are already cached.
+  const membersQuery = useQuery({
+    queryKey: ['project-members', projectId],
+    queryFn: () => fetchProjectMembers(projectId),
+    enabled: Boolean(project),
   })
   const folders = foldersQuery.data ?? []
   const records = recordsQuery.data ?? []
@@ -97,6 +105,10 @@ function ProjectFolders() {
       setCurrent(folder.id)
       toast(`Folder “${folder.name}” added`)
     },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : 'Could not add the folder.',
+      ),
   })
 
   const move = useMutation({
@@ -109,10 +121,39 @@ function ProjectFolders() {
       const dest = folders.find((f) => f.id === folderId)?.name ?? 'Unfiled'
       toast(`Moved ${n} ${n === 1 ? 'item' : 'items'} to ${dest}`)
     },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : 'Could not move the items.',
+      ),
   })
 
   const allOn = shown.length > 0 && shown.every((r) => selected.has(r.id))
-  const canEdit = project?.leadUserId ? true : false
+  // `project_members` derives `access_level` from the same permissions the
+  // folder RPCs enforce (`internal.can_edit_project`: the lead, a workspace
+  // owner/admin, or a project owner/editor), so owner or editor is exactly the
+  // server's `can_edit`. A project with a lead is not by itself editable.
+  const access = membersQuery.data?.find(
+    (member) => member.user_id === context.user.id,
+  )?.access_level
+  const canEdit = access === 'owner' || access === 'editor'
+
+  // Sidebar indentation follows the folder tree, not one level: a folder nested
+  // inside another nested folder sits deeper than its parent.
+  const depths = useMemo(() => {
+    const byId = new Map(folders.map((folder) => [folder.id, folder]))
+    const values = new Map<string, number>()
+    for (const folder of folders) {
+      let depth = 0
+      let parentId = folder.parent_id
+      // Bounded by the folder count, so a malformed chain cannot spin.
+      while (parentId && depth < folders.length) {
+        depth += 1
+        parentId = byId.get(parentId)?.parent_id ?? null
+      }
+      values.set(folder.id, depth)
+    }
+    return values
+  }, [folders])
 
   if (!project) return null
 
@@ -134,7 +175,7 @@ function ProjectFolders() {
             key={f.id}
             label={f.name}
             icon="folder"
-            depth={f.parent_id ? 1 : 0}
+            depth={depths.get(f.id) ?? 0}
             count={count(f.id)}
             current={current === f.id}
             onClick={() => setCurrent(f.id)}

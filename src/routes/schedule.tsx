@@ -1,8 +1,18 @@
 import { useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+} from '#/components/v3/ui/dialog'
 import { Dot } from '#/components/v3/ui/status'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
 import { Icon } from '#/components/v3/icons'
 import { toast } from '#/components/v3/ui/sonner'
@@ -10,7 +20,7 @@ import { BookDialog } from '#/components/v3/schedule/book-dialog'
 import {
   useBookingSamples,
   useRangeBookings,
-  useScheduleResources,
+  useScheduleInstruments,
 } from '#/components/v3/schedule/schedule-data'
 import type {
   BookingSample,
@@ -19,11 +29,18 @@ import type {
 } from '#/components/v3/schedule/schedule-data'
 import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 import { useWorkItems } from '#/lib/work-items/data'
+import { homeIsoDay } from '#/lib/home-quiet'
+import { cancelBooking, describeCalendarError } from '#/lib/calendar'
+import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  fetchWorkspaceGeneral,
+  workspaceGeneralQueryKey,
+} from '#/lib/workspace-general'
 import { cn } from '#/lib/utils'
 
 /** UI port (roadmap-4/ui-app3): the Schedule day/week instrument grid, wired
- * to calendar_resources and calendar_bookings; booking writes go through
- * create_booking. */
+ * to the instruments registry and calendar_bookings; a booking's resource_id is
+ * the instrument id (ADR-0054) and booking writes go through create_booking. */
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const parse = (s: string) => new Date(`${s}T12:00:00Z`)
@@ -43,14 +60,38 @@ const toMin = (t: string) => {
   const [h, m] = t.split(':').map(Number)
   return h * 60 + m
 }
+/** The core hours the day grid draws; it widens to cover the day's bookings. */
 const DAY_START = 8 * 60
 const DAY_END = 18 * 60
-const pct = (t: string) =>
-  ((toMin(t) - DAY_START) / (DAY_END - DAY_START)) * 100
 const hatch =
   'bg-[repeating-linear-gradient(135deg,var(--hatch)_0_6px,transparent_6px_12px)]'
 
+/**
+ * ADR-0054 — a Schedule row is an instrument, so it links to the registry
+ * record and shows the instrument's INS display id beside its name.
+ */
+function InstrumentLabel({ instrument }: { instrument: ScheduleInstrument }) {
+  return (
+    <Link
+      to="/instruments/$instrumentId"
+      params={{ instrumentId: instrument.id }}
+      className="flex min-w-0 items-center gap-1.5"
+    >
+      {instrument.displayId ? (
+        <span className="mono shrink-0 text-label text-fg-muted">
+          {instrument.displayId}
+        </span>
+      ) : null}
+      <span className="truncate">{instrument.name}</span>
+    </Link>
+  )
+}
+
 export const Route = createFileRoute('/schedule')({
+  // A deep link may ask to book one instrument (the registry inspector's Book
+  // action): `?book=<instrumentId>` opens the dialog with it preselected.
+  validateSearch: (search: Record<string, unknown>): { book?: string } =>
+    typeof search.book === 'string' && search.book ? { book: search.book } : {},
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) {
@@ -61,34 +102,65 @@ export const Route = createFileRoute('/schedule')({
   component: Schedule,
 })
 
-function Schedule() {
+export function Schedule() {
   const { context } = Route.useRouteContext()
+  const { book } = Route.useSearch()
   const workspaceId = context.workspace?.id
-  const today = useMemo(() => iso(new Date()), [])
+  // QA-022: a Schedule day is the workspace's day. Home groups the same
+  // bookings by the workspace timezone, so "today" comes from that clock rather
+  // than the UTC calendar day, which can be a day ahead or behind.
+  const workspaceQuery = useQuery({
+    queryKey: workspaceGeneralQueryKey,
+    queryFn: () => fetchWorkspaceGeneral(),
+    enabled: Boolean(workspaceId),
+  })
+  const timeZone = workspaceQuery.data?.timezone ?? 'UTC'
+  const today = useMemo(() => homeIsoDay(new Date(), timeZone), [timeZone])
   const [view, setView] = useState<'week' | 'day'>('week')
   const [anchor, setAnchor] = useState<string>(today)
   const [added, setAdded] = useState<ScheduleBooking[]>([])
+  // QA3: a booking is cancellable. The id opens the detail/cancel dialog, the
+  // error is the server's reason when it refuses, and cancelled ids drop the
+  // row immediately so the grid matches what the server now holds.
+  const queryClient = useQueryClient()
+  const [openBookingId, setOpenBookingId] = useState<string | null>(null)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
 
   const weekStart = view === 'day' ? anchor : monday(anchor)
+  const weekEnd = addDays(weekStart, 7)
+  // QA-023: on a phone the day list is the only schedule surface, so it follows
+  // the navigated anchor instead of being pinned to today: the anchor day in Day
+  // view, today while the viewed week contains it, otherwise the week's first
+  // day — so stepping the week changes what a phone shows.
+  const phoneDay =
+    view === 'day'
+      ? anchor
+      : today >= weekStart && today < weekEnd
+        ? today
+        : weekStart
   const rangeFrom = weekStart
   const rangeTo = addDays(weekStart, view === 'day' ? 1 : 7)
-  const resourcesQuery = useScheduleResources(workspaceId)
+  const instrumentsQuery = useScheduleInstruments(workspaceId)
   const bookingsQuery = useRangeBookings(
     workspaceId,
     `${rangeFrom}T00:00:00.000Z`,
     `${rangeTo}T00:00:00.000Z`,
   )
-  const instruments: ScheduleInstrument[] = resourcesQuery.data ?? []
+  const instruments: ScheduleInstrument[] = instrumentsQuery.data ?? []
   const membersQuery = useWorkspaceMemberNames()
   const meId = context.user.id
   const memberNames = membersQuery.data
-  const bookings = [...(bookingsQuery.data ?? []), ...added].map((b) => ({
-    ...b,
-    mine: Boolean(meId && b.createdByUserId === meId),
-    who: b.createdByUserId
-      ? (memberNames?.get(b.createdByUserId) ?? 'A colleague')
-      : 'A colleague',
-  }))
+  const bookings = [...(bookingsQuery.data ?? []), ...added]
+    .filter((b) => !cancelledIds.has(b.id))
+    .map((b) => ({
+      ...b,
+      mine: Boolean(meId && b.createdByUserId === meId),
+      who: b.createdByUserId
+        ? (memberNames?.get(b.createdByUserId) ?? 'A colleague')
+        : 'A colleague',
+    }))
   const mineCount = bookings.filter((b) => b.mine).length
   const bookingSamples = useBookingSamples(
     bookings.filter((b) => b.date === today).map((b) => b.id),
@@ -102,6 +174,35 @@ function Schedule() {
     setAnchor(
       dir === 0 ? today : addDays(weekStart, dir * (view === 'day' ? 1 : 7)),
     )
+  }
+  const selectedBooking =
+    bookings.find((b) => b.id === openBookingId) ?? null
+  const selectedInstrument = selectedBooking
+    ? instruments.find((i) => i.id === selectedBooking.resourceId)
+    : undefined
+  const openBooking = (id: string) => {
+    setOpenBookingId(id)
+    setCancelError(null)
+  }
+  const confirmCancel = async () => {
+    if (!selectedBooking) return
+    const bookingId = selectedBooking.id
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      await cancelBooking(notebookDataClient, { bookingId })
+      setCancelledIds((prev) => new Set(prev).add(bookingId))
+      setAdded((items) => items.filter((b) => b.id !== bookingId))
+      void queryClient.invalidateQueries({ queryKey: ['schedule', 'bookings'] })
+      toast('Booking cancelled')
+      setOpenBookingId(null)
+    } catch (error) {
+      // The server owns whether this booking may be cancelled; show its reason
+      // (already cancelled, not found, someone else's) rather than guessing.
+      setCancelError(describeCalendarError(error))
+    } finally {
+      setCancelling(false)
+    }
   }
   const instrumentsUsed = new Set(bookings.map((b) => b.resourceId)).size
   const subtitle =
@@ -118,28 +219,22 @@ function Schedule() {
         </div>
         <Button
           size="sm"
-          className="max-md:hidden"
           aria-label={view === 'day' ? 'Previous day' : 'Previous week'}
           onClick={() => go(-1)}
         >
           <Icon name="chevronRight" size={12} className="rotate-180" />
         </Button>
-        <Button size="sm" className="max-md:hidden" onClick={() => go(0)}>
+        <Button size="sm" onClick={() => go(0)}>
           Today
         </Button>
         <Button
           size="sm"
-          className="max-md:hidden"
           aria-label={view === 'day' ? 'Next day' : 'Next week'}
           onClick={() => go(1)}
         >
           <Icon name="chevronRight" size={12} />
         </Button>
-        <div
-          role="group"
-          aria-label="View"
-          className="ml-2 flex gap-1 max-md:hidden"
-        >
+        <div role="group" aria-label="View" className="ml-2 flex gap-1">
           <Button
             size="sm"
             variant={view === 'day' ? 'secondary' : 'quiet'}
@@ -161,6 +256,8 @@ function Schedule() {
           instruments={instruments}
           workspaceId={workspaceId}
           defaultDate={view === 'day' ? anchor : addDays(today, 3)}
+          defaultResourceId={book}
+          defaultOpen={Boolean(book)}
           onBooked={(b) => {
             setAdded((a) => [...a, b])
             toast('Booked')
@@ -168,30 +265,55 @@ function Schedule() {
         />
       </div>
 
-      <PhoneDay
-        day={view === 'day' ? anchor : today}
-        instruments={instruments}
-        bookings={bookings}
-      />
-      {view === 'day' ? (
-        <DayGrid day={anchor} instruments={instruments} bookings={bookings} />
+      {instrumentsQuery.isSuccess && instruments.length === 0 ? (
+        <EmptyState
+          icon="flask"
+          title="No instruments configured"
+          body="The Schedule draws the workspace's instrument registry. Add an instrument and it appears here as a bookable row."
+        >
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<Link to="/instruments" />}
+          >
+            Open the instrument registry
+          </Button>
+        </EmptyState>
       ) : (
-        <WeekGrid
-          start={weekStart}
-          instruments={instruments}
-          bookings={bookings}
-          onDay={(x) => {
-            setView('day')
-            setAnchor(x)
-          }}
-          today={today}
-        />
+        <>
+          <PhoneDay
+            day={phoneDay}
+            instruments={instruments}
+            bookings={bookings}
+            onSelect={openBooking}
+          />
+          {view === 'day' ? (
+            <DayGrid
+              day={anchor}
+              instruments={instruments}
+              bookings={bookings}
+              onSelect={openBooking}
+            />
+          ) : (
+            <WeekGrid
+              start={weekStart}
+              instruments={instruments}
+              bookings={bookings}
+              onSelect={openBooking}
+              onDay={(x) => {
+                setView('day')
+                setAnchor(x)
+              }}
+              today={today}
+            />
+          )}
+        </>
       )}
 
       {bookings.length === 0 ? (
         <p className="m-0 text-label text-fg-muted">
-          Nothing booked on these instruments yet. Weekend access needs a
-          supervisor-approved booking.
+          Nothing booked on these instruments yet. Bookings are created as
+          tentative and weekends are bookable like any other day.
         </p>
       ) : (
         <Below
@@ -205,23 +327,109 @@ function Schedule() {
           materials={bookingSamples.data ?? []}
         />
       )}
+
+      <Dialog
+        open={Boolean(selectedBooking)}
+        onOpenChange={(next) => {
+          if (!next) {
+            setOpenBookingId(null)
+            setCancelError(null)
+          }
+        }}
+      >
+        <DialogContent className="w-[min(420px,calc(100vw-32px))]">
+          <DialogHeader title="Booking" description={selectedBooking?.title} />
+          <DialogBody>
+            {selectedBooking ? (
+              <dl className="m-0 grid grid-cols-[92px_1fr] gap-x-2 gap-y-1.5 text-body">
+                <dt className="text-fg-muted">Instrument</dt>
+                <dd className="m-0">
+                  {selectedInstrument
+                    ? `${selectedInstrument.displayId ? `${selectedInstrument.displayId} · ` : ''}${selectedInstrument.name}`
+                    : '—'}
+                </dd>
+                <dt className="text-fg-muted">Date</dt>
+                <dd className="m-0">
+                  {fmt(selectedBooking.date, {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                  })}
+                </dd>
+                <dt className="text-fg-muted">Time</dt>
+                <dd className="num m-0">
+                  {selectedBooking.start}–{selectedBooking.end} (
+                  {selectedBooking.timezone})
+                </dd>
+                <dt className="text-fg-muted">Booked by</dt>
+                <dd className="m-0">
+                  {selectedBooking.mine ? 'You' : selectedBooking.who}
+                </dd>
+              </dl>
+            ) : null}
+            {cancelError ? (
+              <p role="alert" className="m-0 text-label text-danger-text">
+                {cancelError}
+              </p>
+            ) : null}
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose render={<Button />}>Keep booking</DialogClose>
+            <Button
+              variant="danger-fill"
+              disabled={cancelling}
+              onClick={confirmCancel}
+            >
+              {cancelling ? 'Cancelling…' : 'Cancel booking'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
+}
+
+/**
+ * QA-024: the grid's hour window. 08:00–18:00 by default, widened to whole
+ * hours that cover every booking on the day, so a booking the dialog allowed
+ * outside core hours is still drawn where it belongs instead of being clipped
+ * to a negative offset or a >100% width.
+ */
+function dayWindow(dayBookings: ScheduleBooking[]): {
+  start: number
+  end: number
+} {
+  let start = DAY_START
+  let end = DAY_END
+  for (const booking of dayBookings) {
+    const from = toMin(booking.start)
+    const to = toMin(booking.end)
+    if (!Number.isFinite(from) || !Number.isFinite(to)) continue
+    start = Math.min(start, Math.floor(from / 60) * 60)
+    end = Math.max(end, Math.ceil(to / 60) * 60)
+  }
+  return { start, end: Math.max(end, start + 60) }
 }
 
 function DayGrid({
   day,
   instruments,
   bookings,
+  onSelect,
 }: {
   day: string
   instruments: ScheduleInstrument[]
   bookings: ScheduleBooking[]
+  onSelect: (id: string) => void
 }) {
-  const hours = Array.from(
-    { length: 10 },
-    (_, i) => `${String(8 + i).padStart(2, '0')}:00`,
-  )
+  const dayBookings = bookings.filter((b) => b.date === day)
+  const bounds = dayWindow(dayBookings)
+  const span = bounds.end - bounds.start
+  const position = (t: string) => ((toMin(t) - bounds.start) / span) * 100
+  const hours = Array.from({ length: span / 60 }, (_, i) => {
+    const hour = bounds.start + i * 60
+    return `${String(hour / 60).padStart(2, '0')}:00`
+  })
   const closed = isWeekend(day)
   return (
     <section
@@ -236,7 +444,7 @@ function DayGrid({
               <span
                 key={h}
                 className="num absolute top-1 text-[11px] text-fg-muted"
-                style={{ left: `calc(${pct(h)}% + 4px)` }}
+                style={{ left: `calc(${position(h)}% + 4px)` }}
               >
                 {h}
               </span>
@@ -250,7 +458,7 @@ function DayGrid({
                   r < instruments.length - 1 && 'border-b border-border-subtle',
                 )}
               >
-                {ins.name}
+                <InstrumentLabel instrument={ins} />
               </div>
               <div
                 className={cn(
@@ -265,32 +473,38 @@ function DayGrid({
                     key={h}
                     aria-hidden="true"
                     className="absolute inset-y-0 w-px bg-border-subtle"
-                    style={{ left: `${pct(h)}%` }}
+                    style={{ left: `${position(h)}%` }}
                   />
                 ))}
-                {bookings
-                  .filter((b) => b.resourceId === ins.id && b.date === day)
+                {dayBookings
+                  .filter((b) => b.resourceId === ins.id)
                   .map((b) => (
                     <div
                       key={b.id}
                       role="listitem"
-                      title={`${b.start}–${b.end} · ${b.mine ? 'you' : b.who} · ${b.title}`}
-                      className={cn(
-                        'absolute top-1 flex h-7 items-center truncate rounded-sm border px-1.5 text-label',
-                        b.mine
-                          ? 'border-link bg-selection text-fg'
-                          : 'border-border bg-surface-muted text-fg-muted',
-                      )}
+                      className="absolute top-1 h-7"
                       style={{
-                        left: `calc(${pct(b.start)}% + 1px)`,
-                        width: `calc(${pct(b.end) - pct(b.start)}% - 2px)`,
+                        left: `calc(${position(b.start)}% + 1px)`,
+                        width: `calc(${position(b.end) - position(b.start)}% - 2px)`,
                       }}
                     >
-                      <span className="sr-only">
-                        {b.start}–{b.end}{' '}
-                      </span>
-                      {b.mine ? '' : `${b.who} · `}
-                      {b.title}
+                      <button
+                        type="button"
+                        onClick={() => onSelect(b.id)}
+                        title={`${b.start}–${b.end} · ${b.mine ? 'you' : b.who} · ${b.title}`}
+                        className={cn(
+                          'flex h-full w-full cursor-pointer items-center truncate rounded-sm border px-1.5 text-left text-label',
+                          b.mine
+                            ? 'border-link bg-selection text-fg'
+                            : 'border-border bg-surface-muted text-fg-muted',
+                        )}
+                      >
+                        <span className="sr-only">
+                          {b.start}–{b.end}{' '}
+                        </span>
+                        {b.mine ? '' : `${b.who} · `}
+                        {b.title}
+                      </button>
                     </div>
                   ))}
               </div>
@@ -309,7 +523,8 @@ function DayGrid({
                 No bookings on {fmt(day, { weekday: 'long' })}
               </div>
               <div className="mt-0.5 text-label text-fg-muted">
-                Weekend access needs a supervisor-approved booking.
+                Bookings are created as tentative and weekends are bookable
+                like any other day.
               </div>
             </div>
           </div>
@@ -323,12 +538,14 @@ function WeekGrid({
   start,
   instruments,
   bookings,
+  onSelect,
   onDay,
   today,
 }: {
   start: string
   instruments: ScheduleInstrument[]
   bookings: ScheduleBooking[]
+  onSelect: (id: string) => void
   onDay: (d: string) => void
   today: string
 }) {
@@ -383,7 +600,9 @@ function WeekGrid({
                   r < instruments.length - 1 && 'border-b border-border-subtle',
                 )}
               >
-                <div className="flex h-9 items-center">{ins.name}</div>
+                <div className="flex h-9 items-center">
+                  <InstrumentLabel instrument={ins} />
+                </div>
               </th>
               {days.map((x) => {
                 const list = bookings
@@ -400,18 +619,21 @@ function WeekGrid({
                   >
                     <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
                       {list.map((b) => (
-                        <li
-                          key={b.id}
-                          title={`${b.start}–${b.end} · ${b.mine ? 'you' : b.who} · ${b.title}`}
-                          className={cn(
-                            'truncate rounded-sm border px-1 leading-[18px]',
-                            b.mine
-                              ? 'border-link bg-selection text-fg'
-                              : 'border-border bg-surface-muted text-fg-muted',
-                          )}
-                        >
-                          {b.start} {b.mine ? '' : `${b.who} · `}
-                          {b.title}
+                        <li key={b.id}>
+                          <button
+                            type="button"
+                            onClick={() => onSelect(b.id)}
+                            title={`${b.start}–${b.end} · ${b.mine ? 'you' : b.who} · ${b.title}`}
+                            className={cn(
+                              'w-full cursor-pointer truncate rounded-sm border px-1 text-left leading-[18px]',
+                              b.mine
+                                ? 'border-link bg-selection text-fg'
+                                : 'border-border bg-surface-muted text-fg-muted',
+                            )}
+                          >
+                            {b.start} {b.mine ? '' : `${b.who} · `}
+                            {b.title}
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -430,10 +652,12 @@ function PhoneDay({
   day,
   instruments,
   bookings,
+  onSelect,
 }: {
   day: string
   instruments: ScheduleInstrument[]
   bookings: ScheduleBooking[]
+  onSelect: (id: string) => void
 }) {
   const list = bookings
     .filter((b) => b.date === day)
@@ -450,25 +674,41 @@ function PhoneDay({
       </div>
       {list.length ? (
         <ul className="m-0 list-none p-0">
-          {list.map((b) => (
-            <li
-              key={b.id}
-              className="grid min-h-14 grid-cols-[64px_1fr] gap-3 border-b border-border-subtle px-4 py-2.5"
-            >
-              <span className="num text-body">
-                {b.start}
-                <span className="block text-label text-fg-muted">{b.end}</span>
-              </span>
-              <span className="min-w-0">
-                <span className="block text-body font-medium">{b.title}</span>
-                <span className="block text-label text-fg-muted">
-                  {instruments.find((i) => i.id === b.resourceId)?.name ?? '—'}
-                  {' · '}
-                  {b.mine ? 'you' : b.who}
+          {list.map((b) => {
+            const instrument = instruments.find((i) => i.id === b.resourceId)
+            return (
+              <li
+                key={b.id}
+                className="grid min-h-14 grid-cols-[64px_1fr_auto] items-center gap-3 border-b border-border-subtle px-4 py-2.5"
+              >
+                <span className="num text-body">
+                  {b.start}
+                  <span className="block text-label text-fg-muted">
+                    {b.end}
+                  </span>
                 </span>
-              </span>
-            </li>
-          ))}
+                <span className="min-w-0">
+                  <span className="block text-body font-medium">{b.title}</span>
+                  <span className="flex items-center gap-1.5 text-label text-fg-muted">
+                    {instrument ? (
+                      <InstrumentLabel instrument={instrument} />
+                    ) : (
+                      <span>—</span>
+                    )}
+                    <span aria-hidden="true">·</span>
+                    {b.mine ? 'you' : b.who}
+                  </span>
+                </span>
+                <Button
+                  size="sm"
+                  onClick={() => onSelect(b.id)}
+                  aria-label={`Cancel or view booking ${b.title}`}
+                >
+                  Cancel
+                </Button>
+              </li>
+            )
+          })}
         </ul>
       ) : (
         <div className="px-4 py-6 text-center" role="status">

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '#/components/v3/icons'
+import { Button } from './button'
 import { Sheet, SheetContent } from './sheet'
 import { cn } from '#/lib/utils'
 
@@ -10,6 +11,7 @@ export function PageHeader({
   meta,
   actions,
   tabs,
+  titleLevel = 1,
   className,
 }: {
   crumbs?: React.ReactNode
@@ -17,8 +19,15 @@ export function PageHeader({
   meta?: React.ReactNode
   actions?: React.ReactNode
   tabs?: React.ReactNode
+  /**
+   * Heading level for `title`. Only for a header that sits under another
+   * page's H1 — the client portal's project header, where the topbar owns the
+   * page heading.
+   */
+  titleLevel?: 1 | 2 | 3
   className?: string
 }) {
+  const Title = `h${titleLevel}` as 'h1'
   return (
     <header
       className={cn(
@@ -36,9 +45,9 @@ export function PageHeader({
         </nav>
       ) : null}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-        <h1 className="min-w-0 flex-1 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6 md:truncate">
+        <Title className="min-w-0 flex-1 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6 md:truncate">
           {title}
-        </h1>
+        </Title>
         {actions ? (
           <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>
         ) : null}
@@ -86,15 +95,17 @@ export function Inspector({
       >
         {children}
       </aside>
-      <button
+      <Button
         type="button"
+        size="lg"
+        variant="secondary"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="fixed bottom-4 right-4 z-30 inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-surface px-4 text-body font-medium text-fg shadow-overlay hover:bg-surface-hover max-md:bottom-[76px] xl:hidden"
+        className="fixed bottom-4 right-4 z-30 rounded-full shadow-overlay max-md:bottom-[76px] xl:hidden"
       >
         <Icon name="info" size={14} />
         {label}
-      </button>
+      </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent title={label}>
           <div className="flex flex-col gap-5 p-4">{children}</div>
@@ -113,7 +124,11 @@ export function InspectorSection({
   return (
     <section>
       {title ? (
-        <h3 className="mb-1.5 font-sans text-label font-semibold">{title}</h3>
+        // Inspector sections sit beside the page's `Section`s, not inside one:
+        // they are the page's top-level sections, so they take the same H2
+        // level. An H3 here made inspector-only pages (e.g. /protocols) jump
+        // straight from the page H1 to H3.
+        <h2 className="mb-1.5 font-sans text-label font-semibold">{title}</h2>
       ) : null}
       {children}
     </section>

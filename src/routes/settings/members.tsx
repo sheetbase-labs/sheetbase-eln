@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { useId, useMemo, useState } from 'react'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -13,6 +13,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '#/components/v3/ui/dropdown-menu'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import {
   Dialog,
   DialogBody,
@@ -75,6 +85,30 @@ const roles = Object.keys(WORKSPACE_ROLE_LABELS) as WorkspaceRole[]
 function Members() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
+  // ADR-0049: a client account is not an internal member, so
+  // `workspace_members_list` and the invitation list are refused to it. An
+  // empty roster would claim this workspace has no members. The role decides
+  // this for the whole life of the route, so the refusal returns before the
+  // reads rather than issuing refused queries. The refusal precedes every other
+  // hook, so the hook order is stable for as long as the route stays mounted.
+  if (context.workspace?.role === 'client_viewer') {
+    return (
+      <>
+        <SettingsHeader title="Members and roles" />
+        <div className="px-4 md:px-6">
+          <EmptyState
+            icon="lock"
+            title="Only workspace members can see the roster"
+            body="This is a client account. It shows the records your CDMO team shares with your client, not the workspace's own members and invitations."
+          >
+            <Button nativeButton={false} render={<Link to="/client-portal" />}>
+              Open the client portal
+            </Button>
+          </EmptyState>
+        </div>
+      </>
+    )
+  }
   const queryClient = useQueryClient()
   const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
   const [dialog, setDialog] = useState<
@@ -88,6 +122,9 @@ function Members() {
         clientId: string | null
       }
     | { kind: 'remove'; userId: string; name: string }
+    | { kind: 'suspend'; userId: string; name: string }
+    | { kind: 'reinstate'; userId: string; name: string }
+    | { kind: 'revoke'; invitationId: string; email: string }
     | null
   >(null)
 
@@ -218,6 +255,7 @@ function Members() {
       revokeInvitation(dataClient, { workspaceId, invitationId }),
     onSuccess: () => {
       invalidate()
+      setDialog(null)
       toast('Invitation revoked')
     },
     onError: (error: unknown) =>
@@ -271,10 +309,10 @@ function Members() {
               <TableHead>E-signature</TableHead>
               <TableHead>Status</TableHead>
               <TableHead align="right">Last active</TableHead>
-              <TableHead align="right">{''}</TableHead>
+              <TableHead align="right" aria-label="Actions" />
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody loading={members.isLoading} colSpan={8}>
             {rows.map((m) => (
               <TableRow key={m.id}>
                 <TableCell>
@@ -396,9 +434,10 @@ function Members() {
                         {m.suspendedAt ? (
                           <DropdownMenuItem
                             onClick={() =>
-                              act.mutate({
+                              setDialog({
                                 kind: 'reinstate',
                                 userId: m.userId,
+                                name: names.userLabel(m.userId),
                               })
                             }
                           >
@@ -407,7 +446,11 @@ function Members() {
                         ) : (
                           <DropdownMenuItem
                             onClick={() =>
-                              act.mutate({ kind: 'suspend', userId: m.userId })
+                              setDialog({
+                                kind: 'suspend',
+                                userId: m.userId,
+                                name: names.userLabel(m.userId),
+                              })
                             }
                           >
                             Suspend
@@ -453,7 +496,7 @@ function Members() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Expires</TableHead>
-                    <TableHead align="right">{''}</TableHead>
+                    <TableHead align="right" aria-label="Actions" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -478,7 +521,13 @@ function Members() {
                             size="sm"
                             variant="quiet"
                             disabled={revoke.isPending}
-                            onClick={() => revoke.mutate(i.id)}
+                            onClick={() =>
+                              setDialog({
+                                kind: 'revoke',
+                                invitationId: i.id,
+                                email: i.email,
+                              })
+                            }
                           >
                             Revoke
                           </Button>
@@ -549,8 +598,100 @@ function Members() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      ) : dialog?.kind === 'suspend' ? (
+        <MembershipConfirmDialog
+          kind="suspend"
+          name={dialog.name}
+          busy={act.isPending}
+          onCancel={() => setDialog(null)}
+          onConfirm={() =>
+            act.mutate({ kind: 'suspend', userId: dialog.userId })
+          }
+        />
+      ) : dialog?.kind === 'reinstate' ? (
+        <MembershipConfirmDialog
+          kind="reinstate"
+          name={dialog.name}
+          busy={act.isPending}
+          onCancel={() => setDialog(null)}
+          onConfirm={() =>
+            act.mutate({ kind: 'reinstate', userId: dialog.userId })
+          }
+        />
+      ) : dialog?.kind === 'revoke' ? (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => (o ? undefined : setDialog(null))}
+        >
+          <ConfirmDialogContent>
+            <ConfirmDialogHeader>
+              <ConfirmDialogTitle>
+                Revoke the invitation to {dialog.email}?
+              </ConfirmDialogTitle>
+              <ConfirmDialogDescription>
+                The sign-in link stops working immediately. They cannot join
+                until you invite them again.
+              </ConfirmDialogDescription>
+            </ConfirmDialogHeader>
+            <ConfirmDialogFooter>
+              <ConfirmDialogCancel disabled={revoke.isPending}>
+                Cancel
+              </ConfirmDialogCancel>
+              <ConfirmDialogAction
+                variant="danger-fill"
+                disabled={revoke.isPending}
+                onClick={() => revoke.mutate(dialog.invitationId)}
+              >
+                Revoke invitation
+              </ConfirmDialogAction>
+            </ConfirmDialogFooter>
+          </ConfirmDialogContent>
+        </ConfirmDialog>
       ) : null}
     </>
+  )
+}
+
+/** Suspending and reinstating both change access at once, so both ask first. */
+function MembershipConfirmDialog({
+  kind,
+  name,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  kind: 'suspend' | 'reinstate'
+  name: string
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const suspending = kind === 'suspend'
+  return (
+    <ConfirmDialog open onOpenChange={(o) => (o ? undefined : onCancel())}>
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>
+            {suspending ? `Suspend ${name}?` : `Reinstate ${name}?`}
+          </ConfirmDialogTitle>
+          <ConfirmDialogDescription>
+            {suspending
+              ? 'They lose access to this workspace immediately. Their records, signatures and history stay as they are, and you can reinstate them.'
+              : 'They regain access to this workspace with the role they hold now.'}
+          </ConfirmDialogDescription>
+        </ConfirmDialogHeader>
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel disabled={busy}>Cancel</ConfirmDialogCancel>
+          <ConfirmDialogAction
+            variant={suspending ? 'danger-fill' : 'primary'}
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {suspending ? 'Suspend' : 'Reinstate'}
+          </ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
   )
 }
 
@@ -572,9 +713,14 @@ function InviteDialog({
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<WorkspaceRole>('viewer')
   const [clientId, setClientId] = useState(clients.at(0)?.id ?? '')
-  const error = /.+@.+\..+/.test(email.trim())
-    ? undefined
-    : 'Enter an email address.'
+  // The empty address is invalid from the first paint, but the dialog opens
+  // before anyone has used the field, so the message waits for the first
+  // keystroke or blur. Send stays disabled until the address is valid either
+  // way, which needs no message.
+  const [emailUsed, setEmailUsed] = useState(false)
+  const emailErrorId = useId()
+  const emailValid = /.+@.+\..+/.test(email.trim())
+  const error = emailValid || !emailUsed ? undefined : 'Enter an email address.'
   const clientError =
     role === 'client_viewer' && !clientId ? 'Choose a client.' : undefined
   return (
@@ -585,11 +731,20 @@ function InviteDialog({
           description="They get a sign-in link from your company sign-in. Access is decided by role and project membership."
         />
         <DialogBody>
-          <Field label="Email address" required error={error}>
+          <Field
+            label="Email address"
+            required
+            error={error ? <span id={emailErrorId}>{error}</span> : undefined}
+          >
             <Input
               value={email}
               aria-invalid={Boolean(error) || undefined}
-              onChange={(e) => setEmail(e.target.value)}
+              aria-describedby={error ? emailErrorId : undefined}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setEmailUsed(true)
+              }}
+              onBlur={() => setEmailUsed(true)}
               placeholder="name@cdmo.example"
             />
           </Field>
@@ -628,7 +783,7 @@ function InviteDialog({
           <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
             variant="primary"
-            disabled={busy || Boolean(error) || Boolean(clientError)}
+            disabled={busy || !emailValid || Boolean(clientError)}
             onClick={() =>
               onSubmit(
                 email.trim(),

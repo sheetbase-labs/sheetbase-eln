@@ -418,6 +418,86 @@ export const designSteps: Array<SeedStep> = [
         }
       }
 
+      // MDL-02.3 — the model's published versions. `record_models` records the
+      // published version (v4), so the versions it claims must exist: the
+      // Versions tab lists them and a new draft continues from the last one.
+      // The `mycoplasma` field arrived in v4, so it is absent from v1–v3.
+      const allVersionFields = DESIGN_CELL_BANK_FIELDS.map((field) => ({
+        id: field.id,
+        field_name: field.fieldName,
+        label: field.label,
+        logical_type: field.logicalType,
+        nullable: field.nullable,
+        display_order: field.displayOrder,
+        lifecycle: 'active',
+        default_value: null,
+        validation: field.validation ?? {},
+        cardinality: 'one',
+        options: field.options ?? [],
+      }))
+
+      const versions = [
+        {
+          id: '00000000-0000-4000-8000-000000000610',
+          version: 1,
+          publishedAt: new Date('2026-04-14T09:00:00+01:00'),
+          reason: 'Initial Cell bank model',
+          includeMycoplasma: false,
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000611',
+          version: 2,
+          publishedAt: new Date('2026-06-02T09:00:00+01:00'),
+          reason: 'Add identity (STR) release test',
+          includeMycoplasma: false,
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000612',
+          version: 3,
+          publishedAt: new Date('2026-07-21T09:00:00+01:00'),
+          reason: 'Tighten passage validation',
+          includeMycoplasma: false,
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000613',
+          version: 4,
+          publishedAt: new Date('2026-09-19T09:00:00+01:00'),
+          reason: 'Add mycoplasma release test',
+          includeMycoplasma: true,
+        },
+      ] as const
+      for (const version of versions) {
+        const definition = {
+          fields: allVersionFields.filter(
+            (field) =>
+              version.includeMycoplasma || field.field_name !== 'mycoplasma',
+          ),
+        }
+        await db
+          .insert(schema.recordModelVersions)
+          .values({
+            id: version.id,
+            workspaceId: PROCESS,
+            modelId: DESIGN_CELL_BANK_MODEL.id,
+            version: version.version,
+            revision: 1,
+            lifecycle: 'published',
+            definition,
+            reason: version.reason,
+            publishedAt: version.publishedAt,
+            createdAt: version.publishedAt,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+            updatedByUserId: DESIGN_USER_IDS.gareth,
+          })
+          // Published Record Model versions are immutable
+          // (`internal.guard_record_model_version_write` refuses any UPDATE of
+          // a published row), so an upsert here cannot converge on a reseed: it
+          // raises 'published Record Model versions are immutable' and aborts
+          // the whole seed. Insert-if-missing is the only idempotent write for
+          // these rows — a reseed keeps the version the database already holds.
+          .onConflictDoNothing()
+      }
+
       for (const record of DESIGN_CELL_BANK_RECORDS) {
         await db
           .insert(schema.records)
@@ -886,6 +966,10 @@ export const designSteps: Array<SeedStep> = [
   {
     name: 'design instruments',
     run: async (db) => {
+      // The fixture's instrument ids and INS display ids are referenced by other
+      // design rows, so they are inserted with their fixed identity. ADR-0054: the
+      // trigger on api.instruments derives each instrument's calendar resource, so
+      // the seed authors no resource row.
       for (const instrument of DESIGN_INSTRUMENTS) {
         await db
           .insert(schema.instruments)
@@ -902,6 +986,61 @@ export const designSteps: Array<SeedStep> = [
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
           .onConflictDoNothing()
+      }
+    },
+  },
+  {
+    name: 'design instrument calibration and qualifications',
+    run: async (db) => {
+      // The design reads "calibration valid" per instrument, and since ADR-0054
+      // booking an instrument always requires a current qualification
+      // (LAB-06.3). The fixture carries both, dated from the run so the demo
+      // stays bookable: a calibration performed a month ago and due in six, and
+      // a qualification for every design user so any of them can book. Both are
+      // idempotent — an existing current calibration is left alone, and the
+      // qualification upsert keys on instrument + user.
+      const now = Date.now()
+      const performedAt = new Date(now - 30 * 86_400_000)
+      const dueAt = new Date(now + 180 * 86_400_000)
+      const validUntil = new Date(now + 365 * 86_400_000)
+      for (const instrument of DESIGN_INSTRUMENTS) {
+        const current = await db
+          .select({ id: schema.instrumentCalibrations.id })
+          .from(schema.instrumentCalibrations)
+          .where(
+            and(
+              eq(schema.instrumentCalibrations.instrumentId, instrument.id),
+              sql`${schema.instrumentCalibrations.dueAt} > now()`,
+            ),
+          )
+          .limit(1)
+        if (!current.length) {
+          await db.insert(schema.instrumentCalibrations).values({
+            workspaceId: PROCESS,
+            instrumentId: instrument.id,
+            performedAt,
+            dueAt,
+            performedByUserId: DESIGN_USER_IDS.gareth,
+            createdByUserId: DESIGN_USER_IDS.gareth,
+          })
+        }
+        for (const userId of [
+          DESIGN_USER_IDS.gareth,
+          DESIGN_USER_IDS.priya,
+          DESIGN_USER_IDS.mei,
+          DESIGN_USER_IDS.tom,
+        ]) {
+          await db
+            .insert(schema.instrumentQualifications)
+            .values({
+              workspaceId: PROCESS,
+              instrumentId: instrument.id,
+              userId,
+              validUntil,
+              grantedByUserId: DESIGN_USER_IDS.gareth,
+            })
+            .onConflictDoNothing()
+        }
       }
     },
   },
@@ -3145,24 +3284,14 @@ async function seedDesignWorkItems(
 /**
  * DSYS-05.2 — today's schedule the design shows on Home: the Ambr 250 vessel
  * sampling, the plate-reader export and the tech-transfer review.
+ *
+ * ADR-0054 — an instrument's calendar resource is derived from the registry, so
+ * the seed authors no resource: it books by instrument id and the trigger on
+ * api.instruments has already created each instrument's resource row.
  */
 async function seedDesignBookings(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
-  await db
-    .insert(schema.calendarResources)
-    .values({
-      id: '00000000-0000-4000-8000-000000000500',
-      workspaceId: PROCESS,
-      name: 'Ambr 250',
-      code: 'AMB-250',
-      resourceType: 'instrument',
-      location: 'bay 2',
-      timezone: 'Europe/London',
-      createdByUserId: DESIGN_USER_IDS.gareth,
-    })
-    .onConflictDoNothing()
-
   const at = (hours: number, minutes: number) => {
     const date = new Date(DESIGN_CLOCK)
     date.setHours(hours, minutes, 0, 0)
@@ -3173,6 +3302,7 @@ async function seedDesignBookings(
       id: '00000000-0000-4000-8000-000000000501',
       displayId: 'CAL-0911',
       title: 'AMB-25-118 day 6 sampling',
+      instrumentId: '00000000-0000-4000-8000-0000000003e1',
       starts: at(9, 0),
       ends: at(9, 30),
       location: 'Ambr 250 · bay 2',
@@ -3182,6 +3312,7 @@ async function seedDesignBookings(
       id: '00000000-0000-4000-8000-000000000502',
       displayId: 'CAL-0913',
       title: 'ELISA plate 4, capsid titre',
+      instrumentId: '00000000-0000-4000-8000-0000000003e0',
       starts: at(11, 30),
       ends: at(12, 30),
       location: 'Plate reader PR-01',
@@ -3191,6 +3322,7 @@ async function seedDesignBookings(
       id: '00000000-0000-4000-8000-000000000503',
       displayId: 'CAL-0912',
       title: 'Tech-transfer review, CL-017',
+      instrumentId: '00000000-0000-4000-8000-0000000003e1',
       starts: at(14, 0),
       ends: at(15, 0),
       location: null,
@@ -3203,7 +3335,7 @@ async function seedDesignBookings(
       .values({
         id: booking.id,
         workspaceId: PROCESS,
-        resourceId: '00000000-0000-4000-8000-000000000500',
+        resourceId: booking.instrumentId,
         title: booking.title,
         status: 'confirmed',
         startsAt: booking.starts,
@@ -4527,6 +4659,37 @@ async function seedDesignProtocolTraining(
         t.status,
       ])
     }
+
+    // LAB-07: read-and-acknowledge training is recorded against an exact frozen
+    // version, so a protocol with no version has nothing to acknowledge and the
+    // Training tab cannot be exercised. Freeze the document as v1 and put it in
+    // review — the lifecycle state that invites acknowledgement — from the
+    // record's current blocks. A version that already exists keeps its own
+    // lifecycle, so a reseed neither creates v2 nor walks an approved version
+    // backwards.
+    const existing = await client.query<{ id: string; status: string }>(
+      `select id, status from api.protocol_versions
+        where protocol_record_id = $1 order by version desc limit 1`,
+      [protocolId],
+    )
+    const frozen = existing.rows.length
+      ? existing.rows[0]
+      : (
+          await client.query<{ id: string; status: string }>(
+            'select * from api.create_protocol_version($1,$2,$3)',
+            [
+              protocolId,
+              'First frozen revision of the transfection protocol.',
+              'Design fixture',
+            ],
+          )
+        ).rows[0]
+    if (frozen.status === 'draft') {
+      await client.query('select api.set_protocol_version_status($1,$2)', [
+        frozen.id,
+        'in_review',
+      ])
+    }
   })
 }
 
@@ -5430,7 +5593,7 @@ async function seedDesignPipelines(
             [
               workspaceId,
               definitionId,
-              JSON.stringify({ time: '09:10', timezone: 'Europe/London' }),
+              JSON.stringify({ dailyAt: '09:10', timeZone: 'Europe/London' }),
             ],
           )
         }

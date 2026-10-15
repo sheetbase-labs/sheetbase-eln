@@ -213,11 +213,17 @@ export function reviewerCandidates(
 }
 
 export function reviewerOptionLabel(
-  member: { userId: string; role: string },
+  member: { userId: string; role: string; name?: string | null },
   currentUserId: string,
 ): string {
   if (member.userId === currentUserId) return `You (${member.role})`
-  return `${member.userId.slice(0, 8)} · ${member.role}`
+  // Seeded user ids share their first eight characters, so the id slice is
+  // indistinguishable between people — a resolved name is what identifies a
+  // candidate. The slice stays only as the last resort for an unknown id.
+  const name = member.name?.trim()
+  return name
+    ? `${name} · ${member.role}`
+    : `${member.userId.slice(0, 8)} · ${member.role}`
 }
 
 export function fetchRevisionsForRecord(

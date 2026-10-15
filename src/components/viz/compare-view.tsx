@@ -22,27 +22,42 @@ import {
 } from '#/components/v3/ui/table'
 import { NativeSelect } from '#/components/v3/projects/select'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import { chartUsedFieldIds } from '#/lib/chart-data'
+import { filterRowsByFlags } from '#/lib/dataset-flags'
+import type { DatasetValueFlag } from '#/lib/dataset-flags'
 import {
   CHART_SPEC_VERSION,
   materialiseChart,
   formatScientific,
 } from '#/lib/chart-spec'
-import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
+import type { ChartColumn, ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
 import { createRepresentationHandle } from '#/lib/representations'
 import {
+  COMPARATIVE_MATCH_MODES,
+  COMPARATIVE_MATCH_MODE_LABELS,
   COMPARATIVE_VIEW_TYPES,
+  describeComparativeMatchRule,
+  pairComparativeSides,
   promoteToChartSpec,
   shapeComparativeView,
+  swapComparativeSides,
   validateComparativeViewConfig,
 } from '#/lib/comparative-view'
-import type { ComparativeViewConfig } from '#/lib/comparative-view'
+import type {
+  ComparativeMatchMode,
+  ComparativeSides,
+  ComparativeViewConfig,
+} from '#/lib/comparative-view'
 import { ChartRenderer } from './chart-renderer'
+import type { ChartSelection } from './chart-renderer'
 import { RepresentationFrame } from './representation-frame'
 
 export interface CompareViewProps {
   source: CanonicalDatasetSource
   columns: ChartColumn[]
   rows: Record<string, unknown>[]
+  /** Active value flags; a flagged value excludes its row, as elsewhere. */
+  flags?: DatasetValueFlag[]
   loading?: boolean
   error?: string | null
   config: ComparativeViewConfig
@@ -53,6 +68,28 @@ export interface CompareViewProps {
 
 const NUMERIC_TYPES = new Set(['decimal', 'integer'])
 
+/** The point the preview reports when a mark is clicked or reached by key. */
+function ComparePointSummary({
+  materialised,
+  selection,
+}: {
+  materialised: MaterialisedChart
+  selection: ChartSelection
+}) {
+  const series = materialised.series.find(
+    (item) => item.identifier === selection.seriesIdentifier,
+  )
+  const point = series?.points[selection.index]
+  if (!series || !point) return null
+  return (
+    <p className="text-xs text-fg-muted" role="status">
+      Selected {series.label}: x {formatScientific(point.x)}, y{' '}
+      {formatScientific(point.y)}
+      {point.rowId ? ` · Dataset row ${point.rowId}` : ''}
+    </p>
+  )
+}
+
 function columnOptions(columns: ChartColumn[], numericOnly: boolean) {
   return numericOnly
     ? columns.filter((c) => NUMERIC_TYPES.has(c.logicalType))
@@ -62,7 +99,8 @@ function columnOptions(columns: ChartColumn[], numericOnly: boolean) {
 export function CompareView({
   source,
   columns,
-  rows,
+  rows: sourceRows,
+  flags = [],
   loading = false,
   error = null,
   config,
@@ -72,6 +110,24 @@ export function CompareView({
   const errors = validateComparativeViewConfig(config)
   const draft: ChartSpec | null =
     errors.length === 0 ? promoteToChartSpec(config, columns) : null
+  // DSET-01.2 — a row whose used field is flagged is left out, matching the
+  // Analyse panel and notebook charts. The promoted draft's field bindings are
+  // the fields this surface reads; both the chart and the A/B tables use the
+  // filtered rows so nothing shows a value the app excludes.
+  const usedFieldIds = React.useMemo(
+    () =>
+      errors.length === 0
+        ? chartUsedFieldIds(promoteToChartSpec(config, columns))
+        : [],
+    [config, columns, errors.length],
+  )
+  const rows = React.useMemo(
+    () =>
+      flags.length === 0
+        ? sourceRows
+        : filterRowsByFlags(sourceRows, flags, usedFieldIds),
+    [sourceRows, flags, usedFieldIds],
+  )
   const shaped = React.useMemo(
     () =>
       errors.length === 0
@@ -109,6 +165,80 @@ export function CompareView({
 
   const numericColumns = columnOptions(columns, true)
   const valueColumns = numericColumns.length > 0 ? numericColumns : columns
+
+  // R5-STUDIO-03: the two compared sides are session state, never persisted —
+  // the saved ComparativeViewConfig stays the inspection config it always was.
+  const [sides, setSides] = React.useState<ComparativeSides>({
+    a: null,
+    b: null,
+  })
+  const [matchBy, setMatchBy] = React.useState<ComparativeMatchMode>('row_key')
+  const [matchFieldId, setMatchFieldId] = React.useState<string | null>(null)
+  // The preview's points are clickable and keyboard-reachable, so the
+  // selection it reports is surfaced here instead of being dropped.
+  const [selection, setSelection] = React.useState<ChartSelection | null>(null)
+  // A selection belongs to the rows it was made on; drop it when the config
+  // changes the materialisation underneath it.
+  React.useEffect(() => {
+    setSelection(null)
+  }, [config, columns])
+
+  const groupKeys = shaped.groups.map((group) => group.key)
+  React.useEffect(() => {
+    setSides((current) => {
+      const next: ComparativeSides = {
+        a:
+          current.a && groupKeys.includes(current.a)
+            ? current.a
+            : (groupKeys[0] ?? null),
+        b:
+          current.b && groupKeys.includes(current.b)
+            ? current.b
+            : (groupKeys[1] ?? null),
+      }
+      return next.a === current.a && next.b === current.b ? current : next
+    })
+    // groupKeys is derived from shaped.groups; keying on its join means the
+    // effect only runs when the available sides actually change.
+  }, [groupKeys.join('\u0000')])
+
+  React.useEffect(() => {
+    setMatchFieldId((current) => {
+      if (current && columns.some((column) => column.id === current)) {
+        return current
+      }
+      const fallback =
+        columns.find((column) => !config.groupBy.includes(column.id)) ??
+        columns.at(0)
+      return fallback ? fallback.id : null
+    })
+  }, [columns, config.groupBy.join('\u0000')])
+
+  const matchFieldLabel =
+    columns.find((column) => column.id === matchFieldId)?.label ?? matchFieldId
+  const pairing = React.useMemo(
+    () =>
+      pairComparativeSides(
+        rows,
+        config,
+        sides,
+        matchBy,
+        matchFieldId,
+        matchFieldLabel,
+      ),
+    [rows, config, sides, matchBy, matchFieldId, matchFieldLabel],
+  )
+  // Frozen side labels: after a swap the sides (and therefore the Δ sign and
+  // every presence flag) follow the new assignment; the labels come from the
+  // group labels so a swapped table cannot mislabel its columns.
+  const sideALabel =
+    shaped.groups.find((group) => group.key === sides.a)?.label ??
+    sides.a ??
+    'not selected'
+  const sideBLabel =
+    shaped.groups.find((group) => group.key === sides.b)?.label ??
+    sides.b ??
+    'not selected'
 
   function toggleGroupField(fieldId: string) {
     const next = config.groupBy.includes(fieldId)
@@ -249,6 +379,123 @@ export function CompareView({
           {errors.join('; ')}
         </p>
       ) : null}
+      <fieldset
+        className="rounded-md border border-border p-3"
+        aria-labelledby="compare-ab-title"
+      >
+        <legend id="compare-ab-title" className="px-1 text-xs font-medium">
+          A/B compare
+        </legend>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="space-y-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="compare-side-a"
+            >
+              Side A
+            </label>
+            <NativeSelect
+              id="compare-side-a"
+              value={sides.a ?? ''}
+              onChange={(event) =>
+                setSides((current) => ({
+                  ...current,
+                  a: event.target.value || null,
+                }))
+              }
+            >
+              <option value="">Select a group</option>
+              {shaped.groups.map((group) => (
+                <option key={group.key} value={group.key}>
+                  {group.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="compare-side-b"
+            >
+              Side B
+            </label>
+            <NativeSelect
+              id="compare-side-b"
+              value={sides.b ?? ''}
+              onChange={(event) =>
+                setSides((current) => ({
+                  ...current,
+                  b: event.target.value || null,
+                }))
+              }
+            >
+              <option value="">Select a group</option>
+              {shaped.groups.map((group) => (
+                <option key={group.key} value={group.key}>
+                  {group.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="compare-match-by"
+            >
+              Match rows by
+            </label>
+            <NativeSelect
+              id="compare-match-by"
+              aria-label="Match rows by"
+              value={matchBy}
+              onChange={(event) =>
+                setMatchBy(event.target.value as ComparativeMatchMode)
+              }
+            >
+              {COMPARATIVE_MATCH_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {COMPARATIVE_MATCH_MODE_LABELS[mode]}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        </div>
+        {matchBy === 'field' ? (
+          <div className="mt-2 max-w-xs space-y-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="compare-match-field"
+            >
+              Match field
+            </label>
+            <NativeSelect
+              id="compare-match-field"
+              value={matchFieldId ?? ''}
+              onChange={(event) => setMatchFieldId(event.target.value || null)}
+            >
+              <option value="">Select a field</option>
+              {columns.map((column) => (
+                <option key={column.id} value={column.id}>
+                  {column.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        ) : null}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="quiet"
+            onClick={() => setSides((current) => swapComparativeSides(current))}
+          >
+            Swap A/B
+          </Button>
+          <span className="text-xs text-fg-muted" data-compare-match-rule>
+            {describeComparativeMatchRule(matchBy, matchFieldLabel)}
+          </span>
+        </div>
+      </fieldset>
       {handle && draft && materialised ? (
         <RepresentationFrame
           title="Compare"
@@ -271,7 +518,15 @@ export function CompareView({
             error={error}
             plotHeight={220}
             showTableAlternative={false}
+            selection={selection}
+            onSelectionChange={setSelection}
           />
+          {selection ? (
+            <ComparePointSummary
+              materialised={materialised}
+              selection={selection}
+            />
+          ) : null}
           <Table aria-label="Compare group summary" data-density="compact">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -329,6 +584,62 @@ export function CompareView({
             {shaped.totalRows} rows · {shaped.groups.length} groups ·{' '}
             {shaped.droppedNullValues} null values excluded from statistics
             (never binned as zero) · source {source.name}
+          </p>
+          <Table aria-label="A/B comparison" data-density="compact">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Key</TableHead>
+                <TableHead>A · {sideALabel}</TableHead>
+                <TableHead>B · {sideBLabel}</TableHead>
+                <TableHead>Δ (B − A)</TableHead>
+                <TableHead>Present</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pairing.rows.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-xs text-fg-muted"
+                  >
+                    {shaped.groups.length < 2
+                      ? 'At least two groups are needed to compare A against B.'
+                      : 'Select side A and side B to compare them.'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                pairing.rows.map((row) => (
+                  <TableRow key={row.key}>
+                    <TableCell className="mono">{row.label}</TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {row.aValue === null ? '—' : formatScientific(row.aValue)}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {row.bValue === null ? '—' : formatScientific(row.bValue)}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {row.delta === null
+                        ? '—'
+                        : row.delta > 0
+                          ? `+${formatScientific(row.delta)}`
+                          : formatScientific(row.delta)}
+                    </TableCell>
+                    <TableCell className="text-xs text-fg-muted">
+                      {row.presence === 'both'
+                        ? 'both'
+                        : row.presence === 'a-only'
+                          ? `A only (${sideALabel})`
+                          : `B only (${sideBLabel})`}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          <p className="text-xs text-fg-muted" data-compare-pairing-summary>
+            {pairing.matchedCount} rows matched · {pairing.changedCount} changed
+            · {pairing.onlyACount + pairing.onlyBCount} unmatched ·{' '}
+            {pairing.rule}
           </p>
         </RepresentationFrame>
       ) : null}

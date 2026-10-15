@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   SCHEDULE_VALIDATED_SCALE,
-  WORKSPACE_QUOTA,
   buildAttentionItems,
   findIncompatibleExtensionKeys,
+  resolveQuotaContext,
+  resolveSeatLimit,
+  usageWarnLevel,
 } from './admin-platform'
 import type { AttentionCounts } from './admin-platform'
 
@@ -161,11 +163,41 @@ describe('findIncompatibleExtensionKeys', () => {
 
 describe('workspace quota context', () => {
   it('reports no configured byte quota rather than a theatre number', () => {
-    expect(WORKSPACE_QUOTA.byteLimit).toBeNull()
-    expect(WORKSPACE_QUOTA.atLimitBehaviour).toBeNull()
+    expect(resolveQuotaContext(undefined)).toEqual({
+      byteLimit: null,
+      atLimitBehaviour: null,
+    })
   })
 
   it('keeps the schedule threshold as guidance, not a quota', () => {
     expect(SCHEDULE_VALIDATED_SCALE).toBe(100)
+  })
+})
+
+describe('R5-CONFIG-01 configured plan limits', () => {
+  it('builds a quota context from configuration and drops behaviour without a limit', () => {
+    expect(resolveQuotaContext(10_000, 'uploads are rejected')).toEqual({
+      byteLimit: 10_000,
+      atLimitBehaviour: 'uploads are rejected',
+    })
+    expect(resolveQuotaContext(null, 'uploads are rejected')).toEqual({
+      byteLimit: null,
+      atLimitBehaviour: null,
+    })
+    expect(resolveSeatLimit(undefined, 'no new members')).toEqual({
+      seatLimit: null,
+      atLimitBehaviour: null,
+    })
+  })
+
+  it('warns at 80% and 90% only when a limit is configured', () => {
+    expect(usageWarnLevel(79, 100)).toBeNull()
+    expect(usageWarnLevel(80, 100)).toBe('warning')
+    expect(usageWarnLevel(89, 100)).toBe('warning')
+    expect(usageWarnLevel(90, 100)).toBe('danger')
+    expect(usageWarnLevel(150, 100)).toBe('danger')
+    // Unmeasured / unlimited figures never get a threshold.
+    expect(usageWarnLevel(5, null)).toBeNull()
+    expect(usageWarnLevel(5, 0)).toBeNull()
   })
 })

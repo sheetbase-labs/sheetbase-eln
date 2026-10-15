@@ -598,6 +598,15 @@ export async function fetchReplacementLot(
   client: DataClient,
   identifier: string,
 ): Promise<ReplacementLotLink | null> {
+  // PostgREST reads `in.(...)` as a literal value list, so a subquery there is
+  // cast to uuid and rejected. Resolve the record first, then filter by its id.
+  const source = (
+    await client.list<{ id: string }>(
+      'records',
+      `?identifier=eq.${encodeURIComponent(identifier)}&select=id&limit=1`,
+    )
+  ).at(0)
+  if (!source) return null
   const links = await client.list<{
     id: string
     target_record_id: string | null
@@ -605,7 +614,7 @@ export async function fetchReplacementLot(
     link_metadata: unknown
   }>(
     'record_links',
-    `?source_record_id=in.(select id from api.records where identifier=eq.${encodeURIComponent(identifier)})` +
+    `?source_record_id=eq.${encodeURIComponent(source.id)}` +
       `&link_type=eq.material&limit=25&select=id,target_record_id,target_identifier,link_metadata`,
   )
   const replacement = links.find(

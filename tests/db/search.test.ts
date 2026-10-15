@@ -122,7 +122,7 @@ async function search(
   const args: Record<string, unknown> = { p_query: query }
   Object.assign(args, params)
   const { rows } = await client.query(
-    `SELECT * FROM api.search($1::text, $2::uuid, $3::text, $4::text, $5::text, $6::timestamptz, $7::timestamptz, $8::int, $9::int)`,
+    `SELECT * FROM api.search($1::text, $2::uuid, $3::text, $4::text, $5::text, $6::timestamptz, $7::timestamptz, $8::int, $9::int, $10::text, $11::boolean)`,
     [
       args.p_query ?? '',
       args.p_project_id ?? null,
@@ -133,6 +133,8 @@ async function search(
       args.p_date_to ?? null,
       args.p_limit ?? 20,
       args.p_offset ?? 0,
+      args.p_result_type ?? null,
+      args.p_include_archived ?? true,
     ],
   )
   return rows
@@ -229,6 +231,81 @@ describe('SCI-008 search — archived records', () => {
     )
     const results = await search(owner, 'invisible sample')
     expect(results.find((r) => r.record_id === record.id)).toBeUndefined()
+  })
+
+  it('excludes archived records when the archived scope is off', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const live = await createRecord(
+      owner,
+      PROJ_A,
+      'sample',
+      'Scoped live sample',
+      'available',
+    )
+    const archived = await createRecord(
+      owner,
+      PROJ_A,
+      'sample',
+      'Scoped archived sample',
+      'available',
+    )
+    await owner.query(
+      `UPDATE api.records SET archived_at = now() WHERE id = $1`,
+      [archived.id],
+    )
+    const results = await search(owner, 'scoped', {
+      p_include_archived: false,
+    })
+    expect(results.find((r) => r.record_id === live.id)).toBeDefined()
+    expect(results.find((r) => r.record_id === archived.id)).toBeUndefined()
+  })
+
+  it('includes archived records when the archived scope is on', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const archived = await createRecord(
+      owner,
+      PROJ_A,
+      'sample',
+      'Requested archived sample',
+      'available',
+    )
+    await owner.query(
+      `UPDATE api.records SET archived_at = now() WHERE id = $1`,
+      [archived.id],
+    )
+    const results = await search(owner, 'requested archived', {
+      p_include_archived: true,
+    })
+    const hit = results.find((r) => r.record_id === archived.id)
+    expect(hit).toBeDefined()
+    expect(hit.archived).toBe(true)
+  })
+
+  it('never returns another workspace’s archived record, scope on or off', async () => {
+    const ownerA = await asAuthenticated(OWNER_A, WS_A)
+    const ownerB = await asAuthenticated(OWNER_B, WS_B)
+    const archivedB = await createRecord(
+      ownerB,
+      PROJ_B,
+      'sample',
+      'Cross-workspace archived scope zzzq',
+      'available',
+    )
+    await ownerB.query(
+      `UPDATE api.records SET archived_at = now() WHERE id = $1`,
+      [archivedB.id],
+    )
+
+    // Including archived does not widen the permission boundary: workspace
+    // isolation is enforced by RLS regardless of the scope.
+    const forA = await search(ownerA, 'zzzq', { p_include_archived: true })
+    expect(forA.find((r) => r.record_id === archivedB.id)).toBeUndefined()
+
+    // The owning workspace only sees it when it asks for archived work.
+    const off = await search(ownerB, 'zzzq', { p_include_archived: false })
+    expect(off.find((r) => r.record_id === archivedB.id)).toBeUndefined()
+    const on = await search(ownerB, 'zzzq', { p_include_archived: true })
+    expect(on.find((r) => r.record_id === archivedB.id)?.archived).toBe(true)
   })
 })
 

@@ -21,6 +21,8 @@ import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { RecordPicker } from '#/components/v3/record-picker/record-picker'
 import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
 import { insertBlock } from '#/lib/notebook-mutations'
+import { DataClientError } from '#/lib/data-client'
+import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { freezeAnalysisBlock } from '#/lib/analysis-definitions-data'
 import { toast } from '#/components/v3/ui/sonner'
@@ -33,6 +35,16 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { CompareView } from '#/components/viz/compare-view'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -45,6 +57,7 @@ import { Icon } from '#/components/v3/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/v3/ui/alert'
 import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
@@ -70,6 +83,7 @@ import {
   AXIS_SCALES,
   CHART_PALETTE,
   CHART_SPEC_VERSION,
+  CHART_TYPE_LABELS,
   formatScientific,
 } from '#/lib/chart-spec'
 import type { AxisScale, ChartSpec } from '#/lib/chart-spec'
@@ -86,18 +100,25 @@ import {
   exportChartSvg,
   exportDataCsv,
   exportViewJson,
+  fetchAnalysisViewCitations,
+  fetchAnalysisViewSourceStatus,
   fetchAnalysisViews,
   fetchDatasetSummaries,
   materialiseAnalysisChart,
   materialiseAnalysisFacets,
+  resolveAnalysisViewSources,
   saveAnalysisView,
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type {
+  AnalysisSourceResolution,
+  AnalysisViewCitation,
+  AnalysisViewSourceStatus,
   AnalysisViewWire,
   FacetedResult,
   ExportSettings,
 } from '#/lib/analysis-studio-data'
+import { CitationList } from '#/components/viz/citation-list'
 import { buildDefaultChartSpec } from '#/lib/dataset-explorer-data'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
 import { buildDefaultComparativeViewConfig } from '#/lib/comparative-view'
@@ -110,11 +131,18 @@ import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 export const Route = createFileRoute('/analysis/new')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { dataset?: string; x?: string; y?: string; mode?: string } => {
-    const next: { dataset?: string; x?: string; y?: string; mode?: string } = {}
+  ): { dataset?: string; x?: string; y?: string; mode?: string; view?: string } => {
+    const next: {
+      dataset?: string
+      x?: string
+      y?: string
+      mode?: string
+      view?: string
+    } = {}
     if (typeof search.dataset === 'string') next.dataset = search.dataset
     if (typeof search.x === 'string') next.x = search.x
     if (typeof search.y === 'string') next.y = search.y
+    if (typeof search.view === 'string') next.view = search.view
     if (
       search.mode === 'chart' ||
       search.mode === 'analyse' ||
@@ -183,6 +211,16 @@ function AnalysisStudio() {
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
   )
+  // A saved view whose dataset differs from the current selection is applied
+  // by the dataset-change effect below; until then it waits here, so loading
+  // it does not have its spec overwritten by the default rebuild.
+  const pendingViewRef = useRef<AnalysisViewWire | null>(null)
+  // The saved view named by `?view=` (the read-only route's "Edit in studio"
+  // link); consumed once the view list resolves.
+  const requestedViewRef = useRef<string | null>(search.view ?? null)
+  const [deleteTarget, setDeleteTarget] = useState<AnalysisViewWire | null>(
+    null,
+  )
 
   // Auto-select the first dataset once the list loads.
   useEffect(() => {
@@ -210,16 +248,26 @@ function AnalysisStudio() {
     [datasets],
   )
 
-  // Build a default spec when the dataset changes (or load a saved view).
+  // Build a default spec when the dataset changes, or apply the saved view
+  // whose dataset the user just switched to (loadView hands it over here so
+  // the rebuild below cannot discard it).
   useEffect(() => {
-    if (selectedDataset) {
-      const next = buildDefaultChartSpec(selectedDataset)
-      if (next && search.x) next.fields.x = { fieldId: search.x }
-      if (next && search.y) next.fields.y = { fieldId: search.y }
-      setSpec(next)
-      setSelectedViewId(null)
-      setViewName('')
+    if (!selectedDataset) return
+    const pending = pendingViewRef.current
+    if (pending) {
+      pendingViewRef.current = null
+      setSelectedViewId(pending.id)
+      setViewName(pending.name)
+      setSpec(pending.spec)
+      if (pending.export_settings) setExportSettings(pending.export_settings)
+      return
     }
+    const next = buildDefaultChartSpec(selectedDataset)
+    if (next && search.x) next.fields.x = { fieldId: search.x }
+    if (next && search.y) next.fields.y = { fieldId: search.y }
+    setSpec(next)
+    setSelectedViewId(null)
+    setViewName('')
   }, [selectedDataset, search.x, search.y])
   // Build a default compare config when the dataset (or its columns) change.
   // Explicit source fields only — never label-inferred.
@@ -257,6 +305,7 @@ function AnalysisStudio() {
       spec,
       datasetQuery.data.source.columns,
       datasetQuery.data.rows,
+      datasetQuery.data.flags ?? [],
     )
   }, [spec, datasetQuery.data, liveMaterialised])
   const analysisFacets = useMemo(() => {
@@ -267,6 +316,7 @@ function AnalysisStudio() {
       spec,
       datasetQuery.data.source.columns,
       datasetQuery.data.rows,
+      datasetQuery.data.flags ?? [],
     )
   }, [spec, datasetQuery.data])
 
@@ -300,29 +350,151 @@ function AnalysisStudio() {
         userId,
       )
     },
-    onSuccess: () => {
+    onSuccess: (view) => {
+      if (view) {
+        toast('Analysis view saved', {
+          description: `${view.name} v${view.version}`,
+        })
+      }
       queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+    },
+    onError: (error) => {
+      // The view the panel is armed on can be gone (deleted here, or in
+      // another tab). The panel then holds an id nothing can update, so it
+      // falls back to saving a new view — with the name the user typed.
+      if (
+        error instanceof DataClientError &&
+        error.code === 'analysis_view_missing'
+      ) {
+        setSelectedViewId(null)
+      }
+      toast('Could not save the analysis view', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      })
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) =>
       deleteAnalysisView(analysisStudioDataClient, id),
-    onSuccess: () => {
+    onSuccess: (_deleted, id) => {
+      toast('Analysis view deleted')
+      // The deleted view is gone from the list; the panel must not stay armed
+      // on it, or its Update button would write to a row that no longer exists.
+      if (selectedViewId === id) {
+        setSelectedViewId(null)
+        setViewName('')
+      }
       queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+    },
+    onError: (error) => {
+      toast('Could not delete the analysis view', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      })
     },
   })
 
   function loadView(view: AnalysisViewWire) {
+    const datasetId = view.spec.datasets[0]?.datasetId ?? null
+    const targetId =
+      datasetId && datasets.some((d) => d.id === datasetId) ? datasetId : null
+    if (targetId && targetId !== selectedDatasetId) {
+      // Switching dataset rebuilds a default spec in the effect above and
+      // would wipe the loaded view, so hand it to that effect instead.
+      pendingViewRef.current = view
+      setSelectedDatasetId(targetId)
+      return
+    }
     setSelectedViewId(view.id)
     setViewName(view.name)
     setSpec(view.spec)
     if (view.export_settings) setExportSettings(view.export_settings)
-    const datasetId = view.spec.datasets[0]?.datasetId ?? null
-    if (datasetId && datasets.some((d) => d.id === datasetId)) {
-      setSelectedDatasetId(datasetId)
-    }
   }
+
+  // `?view=<id>` (the read-only analysis route's "Edit in studio" link): load
+  // the named saved view once the list resolves, exactly as the Load button
+  // does. Consumed once so a later list refresh does not reapply it.
+  useEffect(() => {
+    const requested = requestedViewRef.current
+    // Wait for the dataset list too: until it loads, the view's dataset cannot
+    // be matched, and the default-spec rebuild after auto-select would wipe it.
+    if (!requested || views.length === 0 || summariesQuery.isLoading) return
+    requestedViewRef.current = null
+    const view = views.find((candidate) => candidate.id === requested)
+    if (!view) return
+    const datasetId = view.spec.datasets[0]?.datasetId ?? null
+    const targetId =
+      datasetId && datasets.some((d) => d.id === datasetId) ? datasetId : null
+    if (targetId && targetId !== selectedDatasetId) {
+      pendingViewRef.current = view
+      setSelectedDatasetId(targetId)
+      return
+    }
+    setSelectedViewId(view.id)
+    setViewName(view.name)
+    setSpec(view.spec)
+    if (view.export_settings) setExportSettings(view.export_settings)
+  }, [views, datasets, selectedDatasetId, summariesQuery.isLoading])
+
+  // R5-STUDIO-03: staleness and citations are answered by the canonical
+  // boundary, not re-derived in the browser, so the resolution the user
+  // chooses is the one the database records.
+  const sourceStatusQuery = useQuery({
+    queryKey: selectedViewId
+      ? analysisStudioQueryKeys.sourceStatus(selectedViewId)
+      : ['analysis-view', 'none', 'source-status'],
+    queryFn: () =>
+      fetchAnalysisViewSourceStatus(analysisStudioDataClient, selectedViewId!),
+    enabled: Boolean(selectedViewId),
+    staleTime: 5_000,
+  })
+  const citationsQuery = useQuery({
+    queryKey: selectedViewId
+      ? analysisStudioQueryKeys.citations(selectedViewId)
+      : ['analysis-view', 'none', 'citations'],
+    queryFn: () =>
+      fetchAnalysisViewCitations(analysisStudioDataClient, selectedViewId!),
+    enabled: Boolean(selectedViewId),
+    staleTime: 5_000,
+  })
+  const resolveMutation = useMutation({
+    mutationFn: (resolution: AnalysisSourceResolution) =>
+      resolveAnalysisViewSources(analysisStudioDataClient, {
+        viewId: selectedViewId as string,
+        expectedVersion: sourceStatusQuery.data?.version ?? 0,
+        resolution,
+      }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+      if (selectedViewId) {
+        queryClient.invalidateQueries({
+          queryKey: analysisStudioQueryKeys.sourceStatus(selectedViewId),
+        })
+        queryClient.invalidateQueries({
+          queryKey: analysisStudioQueryKeys.citations(selectedViewId),
+        })
+      }
+      toast(
+        result.resolution === 'keep'
+          ? 'Keeping the pinned versions'
+          : `Updated to the current versions (v${result.version})`,
+        {
+          description:
+            result.resolution === 'keep'
+              ? 'The decision is recorded against this analysis; the sources it pins are unchanged.'
+              : 'The view was re-pinned to the live schema version and dataset revision.',
+        },
+      )
+    },
+    onError: (error) => {
+      toast('Could not resolve the stale source', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      })
+    },
+  })
 
   // UI port (roadmap-4/ui-app3): the studio renders inside app-3's shell, so
   // the legacy shell wrapper is replaced by a content column with the chart
@@ -332,6 +504,7 @@ function AnalysisStudio() {
       <AnalysisInspector
         source={selectedSource}
         spec={spec}
+        mode={mode}
         onSpecChange={setSpec}
         views={views}
         selectedViewId={selectedViewId}
@@ -339,7 +512,7 @@ function AnalysisStudio() {
         onViewNameChange={setViewName}
         onLoad={loadView}
         onSave={() => saveMutation.mutate()}
-        onDelete={(id) => deleteMutation.mutate(id)}
+        onDelete={(view) => setDeleteTarget(view)}
         saving={saveMutation.isPending}
         exportSettings={exportSettings}
         onExportSettingsChange={setExportSettings}
@@ -348,6 +521,12 @@ function AnalysisStudio() {
         workspaceId={workspaceId}
         materialised={analysisMaterialised}
         selection={chartSelection}
+        citations={citationsQuery.data ?? []}
+        citationsLoading={citationsQuery.isLoading}
+        citationsError={
+          citationsQuery.error ? String(citationsQuery.error) : null
+        }
+        sourceStatus={sourceStatusQuery.data ?? null}
       />
     ) : undefined
 
@@ -443,6 +622,7 @@ function AnalysisStudio() {
                   datasetQuery.data?.source.columns ?? selectedSource.columns
                 }
                 rows={datasetQuery.data?.rows ?? []}
+                flags={datasetQuery.data?.flags ?? []}
                 loading={datasetQuery.isLoading}
                 error={datasetQuery.error ? String(datasetQuery.error) : null}
                 config={compareConfig}
@@ -486,6 +666,14 @@ function AnalysisStudio() {
                 }
                 selection={chartSelection}
                 onSelectionChange={setChartSelection}
+                sourceStatus={sourceStatusQuery.data ?? null}
+                sourceStatusError={
+                  sourceStatusQuery.error
+                    ? String(sourceStatusQuery.error)
+                    : null
+                }
+                resolving={resolveMutation.isPending}
+                onResolve={(resolution) => resolveMutation.mutate(resolution)}
               />
             </div>
           </div>
@@ -505,6 +693,35 @@ function AnalysisStudio() {
           </div>
         </InspectorPanel>
       ) : null}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+      >
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Delete this analysis view?</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {deleteTarget
+                ? `“${deleteTarget.name}” v${deleteTarget.version} is removed for everyone in the workspace. A record citing it keeps its own frozen copy.`
+                : ''}
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogAction
+              variant="danger-fill"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (deleteTarget) deleteMutation.mutate(deleteTarget.id)
+              }}
+            >
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }
@@ -530,7 +747,12 @@ export function AnalysisStudioHeader({
 }: AnalysisStudioHeaderProps) {
   return (
     <header
-      className="flex shrink-0 flex-wrap items-center justify-between gap-3"
+      // No `shrink-0`: the header is a flex item in the studio's toolbar, and
+      // refusing to shrink held it at its max-content width, so at 400 % zoom
+      // the data-source select was pushed past the column and clipped by the
+      // pane's `overflow-hidden` with nothing able to scroll to it. It shrinks
+      // and wraps instead (QA4-zoom-studio).
+      className="flex flex-wrap items-center justify-between gap-3"
       aria-labelledby="analysis-title"
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -689,6 +911,7 @@ function SelectedPointSummary({
 function AnalysisInspector({
   source,
   spec,
+  mode,
   onSpecChange,
   views,
   selectedViewId,
@@ -705,9 +928,14 @@ function AnalysisInspector({
   workspaceId,
   materialised,
   selection,
+  citations,
+  citationsLoading,
+  citationsError,
+  sourceStatus,
 }: {
   source: CanonicalDatasetSource
   spec: ChartSpec
+  mode: 'chart' | 'analyse' | 'compare'
   onSpecChange: (spec: ChartSpec) => void
   views: AnalysisViewWire[]
   selectedViewId: string | null
@@ -715,7 +943,7 @@ function AnalysisInspector({
   onViewNameChange: (name: string) => void
   onLoad: (view: AnalysisViewWire) => void
   onSave: () => void
-  onDelete: (id: string) => void
+  onDelete: (view: AnalysisViewWire) => void
   saving: boolean
   exportSettings: ExportSettings
   onExportSettingsChange: (settings: ExportSettings) => void
@@ -724,6 +952,10 @@ function AnalysisInspector({
   workspaceId: string
   materialised: ReturnType<typeof materialiseLiveChart>
   selection: ChartSelection | null
+  citations: AnalysisViewCitation[]
+  citationsLoading: boolean
+  citationsError: string | null
+  sourceStatus: AnalysisViewSourceStatus | null
 }) {
   function setScale(axis: 'x' | 'y', scale: AxisScale) {
     onSpecChange({
@@ -803,6 +1035,40 @@ function AnalysisInspector({
           ),
         },
         {
+          id: 'citations',
+          label: 'Cited by',
+          badge: citations.length > 0 ? citations.length : undefined,
+          content: (
+            <InspectorSectionStack>
+              <InspectorSection title="Records citing this analysis">
+                <CitationList
+                  citations={citations}
+                  loading={citationsLoading}
+                  error={citationsError}
+                  emptyBody={
+                    selectedViewId
+                      ? 'No record cites this analysis yet.'
+                      : 'Load or save an analysis to see what cites it.'
+                  }
+                />
+              </InspectorSection>
+              <InspectorSection title="What a citation means">
+                <p className="text-label text-fg-muted">
+                  {sourceStatus && sourceStatus.citedByCount > 0
+                    ? `${sourceStatus.citedByCount} record${
+                        sourceStatus.citedByCount === 1 ? '' : 's'
+                      } ${
+                        sourceStatus.citedByCount === 1 ? 'cites' : 'cite'
+                      } this analysis (${
+                        sourceStatus.citedByLockedCount
+                      } locked). A cited analysis keeps the sources it cited, so its pinned versions cannot be updated in place — save a new analysis and cite that instead.`
+                    : 'A cited analysis keeps the sources it cited. Citations are record links, so a locked or signed record’s evidence is never rewritten by a later change here.'}
+                </p>
+              </InspectorSection>
+            </InspectorSectionStack>
+          ),
+        },
+        {
           id: 'calculations',
           label: 'Calculations',
           content: (
@@ -837,6 +1103,7 @@ function AnalysisInspector({
           content: (
             <ExportPanel
               spec={spec}
+              mode={mode}
               settings={exportSettings}
               onSettingsChange={onExportSettingsChange}
               sources={sources}
@@ -865,7 +1132,7 @@ interface SavedViewsPanelProps {
   onViewNameChange: (name: string) => void
   onLoad: (view: AnalysisViewWire) => void
   onSave: () => void
-  onDelete: (id: string) => void
+  onDelete: (view: AnalysisViewWire) => void
   saving: boolean
   canSave: boolean
 }
@@ -955,7 +1222,7 @@ export function SavedViewsPanel({
                   variant="quiet"
                   size="icon"
                   aria-label={`Delete view ${view.name}`}
-                  onClick={() => onDelete(view.id)}
+                  onClick={() => onDelete(view)}
                 >
                   <Trash2 />
                 </Button>
@@ -974,6 +1241,7 @@ export function SavedViewsPanel({
 
 interface ExportPanelProps {
   spec: ChartSpec
+  mode: 'chart' | 'analyse' | 'compare'
   settings: ExportSettings
   onSettingsChange: (settings: ExportSettings) => void
   sources: CanonicalDatasetSource[]
@@ -987,6 +1255,7 @@ interface ExportPanelProps {
 
 export function ExportPanel({
   spec,
+  mode,
   settings,
   onSettingsChange,
   sources,
@@ -1054,12 +1323,15 @@ export function ExportPanel({
   }
 
   async function doExport(): Promise<void> {
+    // Provenance names a view that exists: the selected id is resolved against
+    // the loaded list, so an id whose row is gone (deleted since the list was
+    // read) is never stamped onto the file.
     const selectedView = views.find((v) => v.id === selectedViewId) ?? null
     const sourceRevisions = captureSourceRevisions(sources, spec)
     const provenance = buildExportProvenance(
       {
         name: viewName || selectedView?.name || 'Untitled analysis',
-        id: selectedViewId,
+        id: selectedView?.id ?? null,
         version: selectedView?.version ?? null,
       },
       user,
@@ -1067,51 +1339,56 @@ export function ExportPanel({
       spec,
     )
     const filename = (viewName || 'analysis').replace(/[^a-z0-9_-]+/gi, '_')
-    if (settings.format === 'png') {
-      const svg = exportChartSvg(svgRef.current, settings, provenance)
-      const blob = await rasteriseSvgToPng(svg, {
-        format: 'png',
-        width: settings.width,
-        height: settings.height,
-        scale: 2,
-        background: settings.theme === 'dark' ? 'opaque' : 'opaque',
-        includeProvenance: settings.includeProvenance,
+    const needsChart = settings.format === 'png' || settings.format === 'svg'
+    if (needsChart && !svgRef.current) {
+      toast('No chart to export', {
+        description:
+          'The image export reads the rendered chart. Open the Chart builder, then export the SVG or PNG.',
       })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${filename}.png`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
       return
     }
-    let content: string
-    let mime: string
-    let ext: string
-    if (settings.format === 'json') {
-      content = exportViewJson(spec, settings, provenance)
-      mime = 'application/json'
-      ext = 'json'
-    } else if (settings.format === 'csv') {
-      content = exportDataCsv(materialised)
-      mime = 'text/csv'
-      ext = 'csv'
-    } else {
-      content = exportChartSvg(svgRef.current, settings, provenance)
-      mime = 'image/svg+xml'
-      ext = 'svg'
+    try {
+      if (settings.format === 'png') {
+        const svg = exportChartSvg(svgRef.current, settings, provenance)
+        const blob = await rasteriseSvgToPng(svg, {
+          format: 'png',
+          width: settings.width,
+          height: settings.height,
+          scale: 2,
+          // The SVG carries the themed surface, so a dark export must not be
+          // painted over with white by the rasteriser.
+          background: settings.theme === 'dark' ? 'transparent' : 'opaque',
+          includeProvenance: settings.includeProvenance,
+        })
+        downloadTextFile(`${filename}.png`, blob, 'image/png')
+        return
+      }
+      let content: string
+      let mime: string
+      let ext: string
+      if (settings.format === 'json') {
+        content = exportViewJson(spec, settings, provenance)
+        mime = 'application/json'
+        ext = 'json'
+      } else if (settings.format === 'csv') {
+        content = exportDataCsv(
+          materialised,
+          settings.includeProvenance ? provenance : null,
+        )
+        mime = 'text/csv'
+        ext = 'csv'
+      } else {
+        content = exportChartSvg(svgRef.current, settings, provenance)
+        mime = 'image/svg+xml'
+        ext = 'svg'
+      }
+      downloadTextFile(`${filename}.${ext}`, content, mime)
+    } catch (error) {
+      toast('Could not export', {
+        description:
+          error instanceof Error ? error.message : 'The export failed.',
+      })
     }
-    const blob = new Blob([content], { type: mime })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${filename}.${ext}`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
   }
 
   return (
@@ -1122,6 +1399,13 @@ export function ExportPanel({
       <h2 id="export-title" className="text-sm font-semibold">
         Export
       </h2>
+      {mode === 'chart' ? null : (
+        <Notice tone="info" title="Export uses the Chart builder">
+          The chart, its data table and its specification are exported from the
+          Chart builder preview. Switch to Chart builder to export them; Analyse
+          and Compare read live data in place.
+        </Notice>
+      )}
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
           <label
@@ -1220,7 +1504,12 @@ export function ExportPanel({
           Include provenance metadata (owner, version, sources)
         </label>
       </div>
-      <Button size="sm" onClick={doExport} className="w-full">
+      <Button
+        size="sm"
+        onClick={doExport}
+        className="w-full"
+        disabled={mode !== 'chart'}
+      >
         <Icon name="download" size={14} /> Export{' '}
         {settings.format.toUpperCase()}
       </Button>
@@ -1321,6 +1610,11 @@ interface AnalysisPreviewProps {
   facets: FacetedResult | null
   selection: ChartSelection | null
   onSelectionChange: (selection: ChartSelection | null) => void
+  /** Canonical staleness answer for the loaded view (R5-STUDIO-03). */
+  sourceStatus: AnalysisViewSourceStatus | null
+  sourceStatusError: string | null
+  resolving: boolean
+  onResolve: (resolution: AnalysisSourceResolution) => void
 }
 
 export function AnalysisPreview({
@@ -1334,6 +1628,10 @@ export function AnalysisPreview({
   facets,
   selection,
   onSelectionChange,
+  sourceStatus,
+  sourceStatusError,
+  resolving,
+  onResolve,
 }: AnalysisPreviewProps) {
   const [dataPreviewOpen, setDataPreviewOpen] = useState(false)
   const validation = useMemo(
@@ -1341,13 +1639,31 @@ export function AnalysisPreview({
     [spec, datasetQuery.data],
   )
 
-  // Stale-source detection against the saved view's stored revisions.
-  const staleDetail = useMemo(() => {
+  // Local mirror of the canonical comparison, used only until the status read
+  // arrives (or when it fails); the resolution actions need the server answer.
+  const localStaleDetail = useMemo(() => {
     if (!selectedViewId) return null
     const view = views.find((v) => v.id === selectedViewId)
     if (!view) return null
     return detectStaleSources(view.source_revisions, sources)
   }, [selectedViewId, views, sources])
+
+  const movedSources =
+    sourceStatus?.sources.filter((item) => item.status !== 'current') ?? []
+  // `.at(0)` (not `[0]`) so the type admits the empty list: nothing has moved
+  // whenever the status says the sources are current.
+  const firstMoved = movedSources.at(0)
+  const staleDetail = sourceStatus
+    ? (firstMoved?.detail ?? null)
+    : localStaleDetail
+  const liveTarget = movedSources.find(
+    (item) => item.status === 'stale' && item.live,
+  )
+  const canUpdate =
+    sourceStatus !== null &&
+    sourceStatus.state === 'stale' &&
+    sourceStatus.removedCount === 0 &&
+    sourceStatus.citedByCount === 0
 
   const resultRowCount = datasetQuery.data?.rows.length ?? 0
   const excessiveSize = resultRowCount > ANALYSIS_MAX_RESULT_ROWS
@@ -1443,7 +1759,7 @@ export function AnalysisPreview({
         {staleDetail ? (
           <div
             role="status"
-            className="mx-4 mb-2 flex items-start gap-2 rounded-md border border-warning-border bg-warning-wash p-3 text-xs"
+            className="mx-4 mb-2 flex flex-wrap items-start gap-2 rounded-md border border-warning-border bg-warning-wash p-3 text-xs"
           >
             <Icon
               name="warn"
@@ -1451,7 +1767,77 @@ export function AnalysisPreview({
               className="mt-0.5 text-warning-text"
               aria-hidden="true"
             />
-            <span>{staleDetail}</span>
+            <div className="min-w-[12rem] flex-1 space-y-1">
+              <p>{staleDetail}</p>
+              {movedSources.slice(1).map((item) => (
+                <p key={item.datasetId} className="text-fg-muted">
+                  {item.detail}
+                </p>
+              ))}
+              {sourceStatus?.acknowledged ? (
+                <p className="text-fg-muted">
+                  Keeping the pinned versions — acknowledged{' '}
+                  {sourceStatus.acknowledged.at.slice(0, 10)} at v
+                  {sourceStatus.acknowledged.viewVersion}.
+                </p>
+              ) : null}
+              {sourceStatus && sourceStatus.citedByCount > 0 ? (
+                <p className="text-fg-muted">
+                  {sourceStatus.citedByCount} record
+                  {sourceStatus.citedByCount === 1 ? '' : 's'} cite this
+                  analysis, so it keeps the versions it cited. Save a new
+                  analysis and cite that to move on.
+                </p>
+              ) : null}
+              {sourceStatus && sourceStatus.removedCount > 0 ? (
+                <p className="text-fg-muted">
+                  A source dataset is no longer available; keep the pinned
+                  version or re-author the analysis.
+                </p>
+              ) : null}
+              {sourceStatusError ? (
+                <p className="text-fg-muted">
+                  The canonical source check could not be read (
+                  {sourceStatusError}); the resolution actions are unavailable.
+                </p>
+              ) : null}
+            </div>
+            {selectedViewId && sourceStatus ? (
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={resolving}
+                  onClick={() => onResolve('keep')}
+                >
+                  {firstMoved
+                    ? `Keep r${firstMoved.pinned.revision}`
+                    : 'Keep pinned'}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="primary"
+                  disabled={resolving || !canUpdate}
+                  aria-describedby="stale-update-reason"
+                  onClick={() => onResolve('update')}
+                >
+                  {liveTarget
+                    ? `Update to r${liveTarget.live?.revision}`
+                    : 'Update to current'}
+                </Button>
+                {!canUpdate ? (
+                  <span
+                    id="stale-update-reason"
+                    className="max-w-[14rem] text-fg-muted"
+                  >
+                    Updating in place is unavailable while the source is removed
+                    or the analysis is cited.
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
         {excessiveSize ? (
@@ -1478,7 +1864,7 @@ export function AnalysisPreview({
           data-analysis-chart
         >
           <ChartRenderer
-            title={`${source.name} — ${spec.type} chart`}
+            title={`${source.name} — ${CHART_TYPE_LABELS[spec.type]} chart`}
             spec={spec}
             materialised={analysisMaterialised}
             frozen={null}
@@ -1520,12 +1906,33 @@ export function AnalysisPreview({
               materialised={analysisMaterialised}
               loading={datasetQuery.isLoading}
               selection={selection}
+              datasetId={source.datasetId}
             />
           </div>
         ) : null}
       </div>
     </div>
   )
+}
+
+/**
+ * Serialise the rows a data preview shows, so the download matches the table
+ * on screen (the exact columns and the same 50-row window).
+ */
+function previewCsv(
+  columns: { key: string; label: string }[],
+  rows: Record<string, unknown>[],
+): string {
+  const cell = (value: unknown) => {
+    const text = value === null || value === undefined ? '' : String(value)
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+  }
+  return [
+    columns.map((column) => cell(column.label)).join(','),
+    ...rows.map((row) =>
+      columns.map((column) => cell(row[column.key])).join(','),
+    ),
+  ].join('\n')
 }
 
 /**
@@ -1538,10 +1945,13 @@ export function DataTableAlternative({
   materialised,
   loading,
   selection = null,
+  datasetId,
 }: {
   materialised: ReturnType<typeof materialiseLiveChart>
   loading: boolean
   selection?: ChartSelection | null
+  /** The dataset the rows came from; the full grid lives at its Rows tab. */
+  datasetId: string
 }) {
   if (loading) {
     return <Skeleton className="h-32 w-full" />
@@ -1595,13 +2005,27 @@ export function DataTableAlternative({
           </span>
         </h2>
         <div className="flex items-center gap-1">
-          <Button variant="quiet" size="sm">
+          <Button
+            variant="quiet"
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link to="/datasets/$datasetId/rows" params={{ datasetId }} />
+            }
+          >
             Open in data table
           </Button>
           <Button
             variant="quiet"
             size="icon"
             aria-label="Download data preview"
+            onClick={() => {
+              downloadTextFile(
+                `data-preview-${datasetId.slice(0, 8)}.csv`,
+                previewCsv(columns, rows),
+                'text/csv',
+              )
+            }}
           >
             <Icon name="download" size={16} />
           </Button>

@@ -208,10 +208,15 @@ export function ExperimentOverview({
   const status = experimentStatus(record.status)
 
   const protocolLinks = links.filter((link) => link.linkType === 'protocol')
-  const datasetLinks = links.filter(
-    (link) => link.linkType === 'dataset' && link.targetRecordId,
+  // A produced dataset is linked by identifier, and the dataset row is not
+  // always addressable (`target_record_id` is null for seeded links). The
+  // Datasets and Results tabs count these by `targetKind`, so the Overview has
+  // to use the same predicate — filtering on `targetRecordId` denied data the
+  // same page counted.
+  const datasetLinks = links.filter((link) => link.targetKind === 'dataset')
+  const analysisLinks = links.filter(
+    (link) => link.targetKind === 'analysis',
   )
-  const analysisLinks = links.filter((link) => link.linkType === 'analysis')
   const upstream = links.filter(
     (link) =>
       (link.linkType === 'upstream' || link.linkType === 'follows') &&
@@ -339,15 +344,21 @@ export function ExperimentOverview({
                           {datasetLinks.map((link, index) => (
                             <span key={link.id}>
                               {index ? ', ' : ''}
-                              <Link
-                                to="/datasets/$datasetId"
-                                params={{
-                                  datasetId: link.targetRecordId ?? '',
-                                }}
-                                className="text-link mono"
-                              >
-                                {link.targetIdentifier}
-                              </Link>
+                              {link.targetRecordId ? (
+                                <Link
+                                  to="/datasets/$datasetId"
+                                  params={{
+                                    datasetId: link.targetRecordId,
+                                  }}
+                                  className="text-link mono"
+                                >
+                                  {link.targetIdentifier}
+                                </Link>
+                              ) : (
+                                <span className="mono">
+                                  {link.targetIdentifier}
+                                </span>
+                              )}
                             </span>
                           ))}
                         </>,

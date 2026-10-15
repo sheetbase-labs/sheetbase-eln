@@ -2,26 +2,34 @@
  * PROJ-04.4 — the project's files tab.
  *
  * A file is a record of kind 'file' with a 1:1 api.file_objects row, so the tab lists
- * the project's file records and joins their object metadata. The design's columns are
- * Name, Kind, Linked to, Size, Uploaded by and Uploaded.
+ * the project's file records and joins their object metadata. The columns are Name,
+ * Kind, Size, Uploaded by and Uploaded; the reader is paged so a project with more
+ * files than one page says so rather than dropping the rest.
  */
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
-import { Section } from '#/components/v3/ui/layout'
-import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  ProjectList,
+  ProjectListFailure,
+  ProjectListOutOfRange,
+} from '#/components/v3/projects/project-list'
+import {
+  PROJECT_LIST_PAGE_SIZE,
+  parseProjectPage,
+  projectPageOffset,
+  projectPageSummary,
+} from '#/components/v3/projects/project-lists'
+import { useUserNames } from '#/lib/user-names'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
 
 export const Route = createFileRoute('/projects/$projectId/files')({
+  validateSearch: (search: Record<string, unknown>): { page?: number } => {
+    const page = parseProjectPage(search.page)
+    return page > 1 ? { page } : {}
+  },
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
     if (!context) throw redirect({ to: '/sign-in' })
@@ -55,16 +63,57 @@ interface ProjectFile {
   uploadedAt: string
 }
 
-export async function fetchProjectFiles(
+/** The row the tab renders; `uploadedBy` is the resolved name, never a raw id. */
+export interface ProjectFileDisplayRow {
+  key: string
+  id: string
+  name: string
+  kind: string
+  size: string
+  uploadedBy: string
+  uploaded: string
+}
+
+export function toFileDisplayRows(
+  files: readonly ProjectFile[],
+  userLabel: (userId: string) => string,
+): ProjectFileDisplayRow[] {
+  return files.map((file) => ({
+    key: file.id,
+    id: file.identifier,
+    name: file.name,
+    kind: formatKind(file.mediaType),
+    size: formatSize(file.byteSize),
+    uploadedBy: file.uploadedBy ? userLabel(file.uploadedBy) : '—',
+    uploaded: day(file.uploadedAt),
+  }))
+}
+
+export interface ProjectFilesPage {
+  rows: ProjectFile[]
+  total: number
+  page: number
+}
+
+const FILE_FILTER = (projectId: string) =>
+  `project_id=eq.${encodeURIComponent(projectId)}&kind=eq.file&deleted_at=is.null`
+
+export async function fetchProjectFilesPage(
   client: DataClient,
   projectId: string,
-): Promise<ProjectFile[]> {
-  const records = await client.list<FileRecordWire>(
-    'records',
-    `?project_id=eq.${encodeURIComponent(projectId)}&kind=eq.file&deleted_at=is.null` +
-      `&order=created_at.desc&limit=200&select=id,identifier,title,created_by_user_id,created_at`,
-  )
-  if (records.length === 0) return []
+  page: number,
+): Promise<ProjectFilesPage> {
+  const filter = FILE_FILTER(projectId)
+  const offset = projectPageOffset(page)
+  const [records, total] = await Promise.all([
+    client.list<FileRecordWire>(
+      'records',
+      `?${filter}&order=created_at.desc,id.asc&limit=${PROJECT_LIST_PAGE_SIZE}&offset=${offset}` +
+        `&select=id,identifier,title,created_by_user_id,created_at`,
+    ),
+    client.count('records', `?${filter}`),
+  ])
+  if (records.length === 0) return { rows: [], total, page }
   const ids = records.map((record) => record.id)
   const objects = await client.list<FileObjectWire>(
     'file_objects',
@@ -72,7 +121,7 @@ export async function fetchProjectFiles(
       `&select=record_id,display_name,media_type,byte_size`,
   )
   const byRecord = new Map(objects.map((object) => [object.record_id, object]))
-  return records.map((record) => {
+  const rows = records.map((record) => {
     const object = byRecord.get(record.id)
     return {
       id: record.id,
@@ -84,6 +133,7 @@ export async function fetchProjectFiles(
       uploadedAt: record.created_at,
     }
   })
+  return { rows, total, page }
 }
 
 function formatSize(bytes: number | null): string {
@@ -114,51 +164,140 @@ function day(value: string): string {
 
 function ProjectFilesTab() {
   const { projectId } = Route.useParams()
-  const files = useQuery({
-    queryKey: ['ui-port', 'project-files', projectId],
-    queryFn: () => fetchProjectFiles(notebookDataClient, projectId),
+  const { page: pageParam } = Route.useSearch()
+  const page = pageParam ?? 1
+  const query = useQuery({
+    queryKey: ['ui-port', 'project-files', projectId, page],
+    queryFn: () => fetchProjectFilesPage(notebookDataClient, projectId, page),
+    enabled: projectId.length > 0,
+    staleTime: 15_000,
   })
-  const rows = files.data ?? []
+  const rows = query.data?.rows ?? []
+  const total = query.data?.total ?? 0
+
+  const { userLabel } = useUserNames(
+    useMemo(
+      () => rows.flatMap((file) => (file.uploadedBy ? [file.uploadedBy] : [])),
+      [rows],
+    ),
+  )
+  const display = useMemo(
+    () => toFileDisplayRows(rows, userLabel),
+    [rows, userLabel],
+  )
+
+  if (query.isError) {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col overflow-auto px-4 py-[22px] md:px-8">
+        <ProjectListFailure
+          error={query.error}
+          onRetry={() => void query.refetch()}
+          what="this project's files"
+        />
+      </div>
+    )
+  }
+
+  const { pageCount, start, end } = projectPageSummary(page, total)
+
+  if (total > 0 && page > pageCount) {
+    return (
+      <ProjectListOutOfRange
+        total={total}
+        label="files"
+        link={{
+          to: '/projects/$projectId/files',
+          params: { projectId },
+          search: {},
+        }}
+      />
+    )
+  }
 
   return (
-    <Section title="Files">
-      {rows.length === 0 ? (
-        <EmptyState
-          title="No files yet"
-          body="Files uploaded to this project's records appear here."
-        />
-      ) : (
-        <Table aria-label="Project files">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Kind</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Uploaded by</TableHead>
-              <TableHead>Uploaded</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((file) => (
-              <TableRow key={file.id}>
-                <TableCell>
-                  <Link
-                    to="/records/$recordId"
-                    params={{ recordId: file.id }}
-                    className="hover:underline"
-                  >
-                    {file.name}
-                  </Link>
-                </TableCell>
-                <TableCell>{formatKind(file.mediaType)}</TableCell>
-                <TableCell align="right">{formatSize(file.byteSize)}</TableCell>
-                <TableCell>{file.uploadedBy ?? '—'}</TableCell>
-                <TableCell>{day(file.uploadedAt)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </Section>
+    <ProjectList
+      title="Files"
+      count={total}
+      cols={[
+        {
+          key: 'name',
+          label: 'Name',
+          cell: (file) => (
+            <Link
+              to="/records/$recordId"
+              params={{ recordId: file.key }}
+              className="hover:underline"
+            >
+              {file.name}
+            </Link>
+          ),
+        },
+        { key: 'kind', label: 'Kind', cell: (file) => file.kind },
+        {
+          key: 'size',
+          label: 'Size',
+          align: 'right',
+          cell: (file) => file.size,
+        },
+        {
+          key: 'uploadedBy',
+          label: 'Uploaded by',
+          cell: (file) => file.uploadedBy,
+        },
+        {
+          key: 'uploaded',
+          label: 'Uploaded',
+          align: 'right',
+          className: 'text-fg-muted',
+          cell: (file) => file.uploaded,
+        },
+      ]}
+      rows={display}
+      mobile={display.map((file) => ({
+        key: file.key,
+        title: file.name,
+        meta: (
+          <>
+            <span className="mono">{file.id}</span> · {file.kind} · {file.size} ·{' '}
+            {file.uploaded}
+          </>
+        ),
+        link: { to: '/records/$recordId', params: { recordId: file.key } },
+      }))}
+      empty={{
+        icon: 'upload',
+        title: 'No files yet',
+        body: "Files uploaded to this project's records appear here.",
+      }}
+      footer={
+        total > PROJECT_LIST_PAGE_SIZE ? (
+          <span className="flex flex-wrap items-center gap-3">
+            <span>
+              Showing {start}–{end} of {total} files
+            </span>
+            {page > 1 ? (
+              <Link
+                to="/projects/$projectId/files"
+                params={{ projectId }}
+                search={{ page: page - 1 }}
+                className="text-link"
+              >
+                Previous
+              </Link>
+            ) : null}
+            {page < pageCount ? (
+              <Link
+                to="/projects/$projectId/files"
+                params={{ projectId }}
+                search={{ page: page + 1 }}
+                className="text-link"
+              >
+                Next
+              </Link>
+            ) : null}
+          </span>
+        ) : undefined
+      }
+    />
   )
 }

@@ -235,6 +235,9 @@ export function describeSnapshotSource(
     if (source.label) bits.push(source.label)
     return bits.join(' · ')
   }
+  if (source.kind === 'import') {
+    return source.label ? `Imported from ${source.label}` : 'Imported'
+  }
   if (source.kind === 'api') return 'Saved through the API'
   return 'Saved by hand'
 }

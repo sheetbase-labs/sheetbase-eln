@@ -9,6 +9,8 @@ import { Status } from '#/components/v3/ui/status'
 import { DataTable } from '#/components/scientific/data-table'
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
+import { downloadTextFile } from '#/lib/download'
+import { toast } from '#/components/v3/ui/sonner'
 import { Icon } from '#/components/v3/icons'
 import {
   filterRecordModelRecords,
@@ -110,13 +112,18 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
 
   const exportCsv = () => {
     const csv = recordModelCsv(visible, fields)
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `${model.data?.key ?? modelKey}-records.csv`
-    anchor.click()
-    URL.revokeObjectURL(url)
+    try {
+      downloadTextFile(
+        `${model.data?.key ?? modelKey}-records.csv`,
+        csv,
+        'text/csv;charset=utf-8',
+      )
+    } catch (error) {
+      toast('Could not export records', {
+        description:
+          error instanceof Error ? error.message : 'The download failed.',
+      })
+    }
   }
 
   const loading =

@@ -74,14 +74,16 @@ export function GuidePanel({
                 {step.nextActions.map((action) => {
                   if (action.target.kind === 'navigate') {
                     return (
-                      <a
+                      <Button
                         key={action.label}
-                        href={action.target.href}
+                        size="sm"
+                        variant="secondary"
+                        nativeButton={false}
                         title={action.target.hint}
-                        className="inline-flex h-7 items-center justify-center rounded-md border px-2.5 font-medium no-underline hover:bg-surface-muted"
+                        render={<a href={action.target.href} role="link" />}
                       >
                         {action.label}
-                      </a>
+                      </Button>
                     )
                   }
                   const acceptKey = action.target.acceptKey

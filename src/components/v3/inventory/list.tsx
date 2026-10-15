@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
@@ -17,6 +17,12 @@ import { cn } from '#/lib/utils'
 
 const tabCls =
   'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:-outline-offset-2'
+
+/** How long the search box waits after the last keystroke before it tells the
+ * route. The field keeps the typed text itself, so a burst faster than a router
+ * round-trip — a hardware barcode scanner, or a paste — is never rendered back
+ * from stale state. */
+const SEARCH_SETTLE_MS = 200
 
 export function SearchTabs({
   items,
@@ -95,22 +101,33 @@ export function ListHeader({
 }
 
 export type ViewOptions = {
+  /** The route owns ordering: it supplies the keys and the handler that
+   * applies one. Only then does the toolbar render a Sort menu — a menu that
+   * cannot change the query only relabels its own trigger. */
   sorts?: string[]
   sort?: string
   onSort?: (s: string) => void
   showSortValue?: boolean
+  /** Accepted from existing callers; the toolbar renders no Group menu while
+   * no route owns grouping. */
   groupLabel?: string | false
   filters?: string[]
+  onFilter?: (filter: string) => void
   fields?: string[]
+  hiddenFields?: string[]
+  onToggleField?: (field: string) => void
 }
 
+/** The toolbar's Sort/Filter/Fields menus exist only when the route supplies
+ * the handler that applies the choice: a registry with no handler renders no
+ * control rather than a menu that does nothing. */
 export function ViewControls({
   sorts,
   sort,
   onSort,
   showSortValue = true,
-  groupLabel = 'none',
   filters,
+  onFilter,
 }: ViewOptions) {
   const [localSort, setLocalSort] = useState(sort ?? sorts?.[0])
   const cur = sort ?? localSort
@@ -136,25 +153,29 @@ export function ViewControls({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button size="sm" variant="quiet" className="max-md:hidden" />
-          }
-        >
-          Filter
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[220px]">
-          {(filters?.length ? filters : ['Status', 'Owner', 'Updated']).map(
-            (f) => (
-              <DropdownMenuItem key={f} className="pl-[30px]">
+      {filters?.length && onFilter ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button size="sm" variant="quiet" className="max-md:hidden" />
+            }
+          >
+            Filter
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-[220px]">
+            {filters.map((f) => (
+              <DropdownMenuItem
+                key={f}
+                className="pl-[30px]"
+                onClick={() => onFilter(f)}
+              >
                 {f}…
               </DropdownMenuItem>
-            ),
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {sorts?.length ? (
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+      {sorts?.length && onSort ? (
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -177,25 +198,22 @@ export function ViewControls({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
-      {groupLabel !== false ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button size="sm" variant="quiet" className="max-lg:hidden" />
-            }
-          >
-            {groupLabel ? `Group: ${groupLabel}` : 'Group'}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[180px]">
-            <DropdownMenuItem icon="check">No grouping</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
     </>
   )
 }
 
-export function FieldsButton({ fields }: { fields: string[] }) {
+/** Column visibility for a table the route renders. The route owns the hidden
+ * set and applies the toggle; the menu only reflects it. */
+export function FieldsButton({
+  fields,
+  hidden = [],
+  onToggle,
+}: {
+  fields: string[]
+  hidden?: string[]
+  onToggle: (field: string) => void
+}) {
+  const hiddenSet = new Set(hidden)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -205,7 +223,13 @@ export function FieldsButton({ fields }: { fields: string[] }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[200px]">
         {fields.map((f) => (
-          <DropdownMenuItem key={f} icon="check">
+          <DropdownMenuItem
+            key={f}
+            closeOnClick={false}
+            icon={hiddenSet.has(f) ? undefined : 'check'}
+            className={hiddenSet.has(f) ? 'pl-[30px]' : ''}
+            onClick={() => onToggle(f)}
+          >
             {f}
           </DropdownMenuItem>
         ))}
@@ -232,6 +256,38 @@ export function ListToolbar({
   views?: ViewOptions
 }) {
   const lead = views ? <ViewControls {...views} /> : children
+  const fields = views?.fields
+  const onToggleField = views?.onToggleField
+  // The box holds what was typed and reports a settled value up. Rendering it
+  // straight from the route's `q` lost characters: each keystroke navigated, and
+  // a re-render with the still-stale param wrote an older value back into the
+  // field before the router had caught up.
+  const [query, setQuery] = useState(q ?? '')
+  // The last value this box handed to the route, so a `q` that arrives from
+  // somewhere else (a tab, "Clear search") can be told apart from the echo of
+  // our own search and adopted without clobbering pending typing.
+  const sent = useRef(q ?? '')
+  const timer = useRef<number | null>(null)
+  useEffect(() => {
+    const next = q ?? ''
+    if (next === sent.current) return
+    // The route changed the query itself (a tab, "Clear search"): drop anything
+    // still queued from typing and adopt what the route now shows.
+    clearTimeout(timer.current ?? undefined)
+    timer.current = null
+    sent.current = next
+    setQuery(next)
+  }, [q])
+  useEffect(() => () => clearTimeout(timer.current ?? undefined), [])
+  const search = (next: string) => {
+    setQuery(next)
+    clearTimeout(timer.current ?? undefined)
+    timer.current = window.setTimeout(() => {
+      timer.current = null
+      sent.current = next
+      onSearch(next)
+    }, SEARCH_SETTLE_MS)
+  }
   return (
     <div className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6">
       {lead}
@@ -240,13 +296,19 @@ export function ListToolbar({
         <Input
           type="search"
           placeholder={placeholder}
-          value={q ?? ''}
+          value={query}
           className="h-[26px] text-label max-md:h-10 max-md:text-body"
-          onChange={(e) => onSearch(e.target.value)}
+          onChange={(e) => search(e.target.value)}
         />
       </label>
       <span className="flex-1 max-md:hidden" />
-      {views?.fields ? <FieldsButton fields={views.fields} /> : null}
+      {fields?.length && onToggleField ? (
+        <FieldsButton
+          fields={fields}
+          hidden={views.hiddenFields}
+          onToggle={onToggleField}
+        />
+      ) : null}
       {right}
     </div>
   )

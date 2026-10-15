@@ -15,6 +15,16 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -42,22 +52,19 @@ import {
   useProjectSummary,
 } from '#/components/v3/projects/project-data'
 
-const roles = [
-  'Scientist',
-  'Default reviewer',
-  'Collaborator',
-  'Oversight',
+/** The project-access levels a lead can grant here. They are the permission
+ * `set_project_member` accepts, and they match the Access column and the
+ * "How access works" copy. The lead's own level (owner) is set with the
+ * project, not on this screen. */
+const accessLevels = [
+  { label: 'Editor', value: 'editor' },
+  { label: 'Reviewer', value: 'reviewer' },
+  { label: 'Viewer', value: 'viewer' },
 ] as const
-const accessFor: Record<string, string> = {
-  Lead: 'owner',
-  Scientist: 'editor',
-  'Default reviewer': 'editor',
-  Collaborator: 'viewer',
-  Oversight: 'viewer',
-}
 const accessLabel: Record<string, string> = {
   owner: 'Owner',
   editor: 'Editor',
+  reviewer: 'Reviewer',
   viewer: 'Viewer',
 }
 
@@ -83,6 +90,10 @@ function ProjectMembers() {
   })
   const members = membersQuery.data ?? []
   const isLead = project?.leadUserId === context.user.id
+  const [pendingRemove, setPendingRemove] = useState<{
+    id: string
+    name: string
+  } | null>(null)
 
   const invalidate = () =>
     void queryClient.invalidateQueries({
@@ -93,10 +104,20 @@ function ProjectMembers() {
     mutationFn: (input: { userId: string; accessLevel: string }) =>
       setProjectMember(projectId, input.userId, input.accessLevel),
     onSuccess: invalidate,
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : 'Could not change access.',
+      ),
   })
   const remove = useMutation({
     mutationFn: (userId: string) => removeProjectMember(projectId, userId),
     onSuccess: invalidate,
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Could not remove them from the project.',
+      ),
   })
 
   const available = useMemo(() => {
@@ -112,7 +133,7 @@ function ProjectMembers() {
         {!isLead ? (
           <Notice icon="lock" title="You can see the team but not change it.">
             {project.leadName ?? 'The lead'} is the lead. Ask them to add people
-            or change roles.
+            or change their access.
           </Notice>
         ) : null}
 
@@ -171,7 +192,9 @@ function ProjectMembers() {
                               accessLevel: access,
                             })
                           }
-                          onRemove={() => remove.mutate(m.user_id)}
+                          onRemove={() =>
+                            setPendingRemove({ id: m.user_id, name: m.name })
+                          }
                         />
                       ) : null}
                     </TableCell>
@@ -183,7 +206,14 @@ function ProjectMembers() {
         </Section>
 
         <Section title="How access works">
-          <div className="grid grid-cols-1 gap-3 text-label leading-[18px] md:grid-cols-3 md:gap-6">
+          <div className="grid grid-cols-1 gap-3 text-label leading-[18px] md:grid-cols-2 md:gap-6 xl:grid-cols-4">
+            <div>
+              <b className="font-semibold">Owner</b>
+              <div className="text-fg-muted">
+                The project lead. Manages the project, its members and its
+                settings.
+              </div>
+            </div>
             <div>
               <b className="font-semibold">Editor</b>
               <div className="text-fg-muted">
@@ -207,6 +237,39 @@ function ProjectMembers() {
           </div>
         </Section>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingRemove)}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemove(null)
+        }}
+      >
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>
+              Remove {pendingRemove?.name} from this project?
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              They lose access to every record in this project. You can add
+              them again later.
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel>Cancel</ConfirmDialogCancel>
+            <ConfirmDialogAction
+              variant="danger-fill"
+              disabled={remove.isPending}
+              onClick={() => {
+                if (!pendingRemove) return
+                remove.mutate(pendingRemove.id)
+                setPendingRemove(null)
+              }}
+            >
+              Remove from project
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </>
   )
 }
@@ -231,24 +294,24 @@ function RoleMenu({
           <Button
             variant="quiet"
             size="sm"
-            aria-label={`Change role for ${name}`}
+            aria-label={`Change access for ${name}`}
             disabled={busy}
           />
         }
       >
-        Change role…
+        Change access…
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[240px]">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Project access</DropdownMenuLabel>
-          {roles.map((r) => (
+          {accessLevels.map((level) => (
             <DropdownMenuItem
-              key={r}
-              icon={accessLevel === accessFor[r] ? 'check' : undefined}
-              className={accessLevel === accessFor[r] ? '' : 'pl-[30px]'}
-              onClick={() => onRole(accessFor[r])}
+              key={level.value}
+              icon={accessLevel === level.value ? 'check' : undefined}
+              className={accessLevel === level.value ? '' : 'pl-[30px]'}
+              onClick={() => onRole(level.value)}
             >
-              {r}
+              {level.label}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
@@ -272,11 +335,10 @@ function AddPeople({
 }) {
   const [open, setOpen] = useState(false)
   const [person, setPerson] = useState('')
-  const [role, setRole] = useState<string>('Scientist')
+  const [access, setAccess] = useState<string>('editor')
   const [error, setError] = useState<string | null>(null)
   const add = useMutation({
-    mutationFn: () =>
-      setProjectMember(projectId, person, accessFor[role] ?? 'editor'),
+    mutationFn: () => setProjectMember(projectId, person, access),
     onSuccess: () => {
       onDone()
       setOpen(false)
@@ -284,6 +346,10 @@ function AddPeople({
       setError(null)
       toast('Added to project')
     },
+    onError: (caught: unknown) =>
+      toast.error(
+        caught instanceof Error ? caught.message : 'Could not add them.',
+      ),
   })
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -317,14 +383,14 @@ function AddPeople({
               ))}
             </NativeSelect>
           </Field>
-          <Field label="Project role">
+          <Field label="Project access">
             <NativeSelect
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
+              value={access}
+              onChange={(e) => setAccess(e.target.value)}
             >
-              {roles.map((r) => (
-                <option key={r} value={r}>
-                  {r}
+              {accessLevels.map((level) => (
+                <option key={level.value} value={level.value}>
+                  {level.label}
                 </option>
               ))}
             </NativeSelect>

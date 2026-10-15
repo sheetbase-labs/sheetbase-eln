@@ -37,25 +37,26 @@ if (await invite.count()) {
   await page.keyboard.press('Escape')
 }
 
-// Audit: the operation filter narrows the log.
+// Audit: the operation filter is applied by the server, and the grid reports
+// the selection it loaded (or its empty state).
 await go(page, '/settings/audit')
 const opFilter = page.getByLabel('Operation')
 if (await opFilter.count()) {
   const options = await opFilter.locator('option').count()
   if (options > 2) {
-    // Try each operation until the count narrows (or the empty state shows).
+    // Try each operation until the grid reports a count or its empty state.
     let narrowed = false
     for (let i = 1; i < options && !narrowed; i++) {
       await opFilter.selectOption({ index: i })
       await page.waitForTimeout(800)
       narrowed =
-        (await page.getByText(/of \d+ entries/i).count()) > 0 ||
+        (await page.getByText(/\d+ entries/i).count()) > 0 ||
         (await page.getByText(/No audit entries match/i).count()) > 0
     }
     check(narrowed, 'audit operation filter reports a narrowed count')
   } else {
-    // The recent window holds a single operation, so nothing to narrow to;
-    // the control is exercised above.
+    // The log holds a single operation, so nothing to narrow to; the control is
+    // exercised above.
     check(options > 1, 'audit operation filter is present')
   }
 }

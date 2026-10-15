@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Button } from '#/components/v3/ui/button'
 import { cn } from '#/lib/utils'
 import { parseWellCode, rowLabel } from '#/lib/plate-map'
 
@@ -263,28 +264,30 @@ export function PlateMap({
     <div className={cn('space-y-2', className)}>
       {windowing ? (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="secondary"
             aria-label="Previous row band"
             disabled={safeWindowIndex === 0}
             onClick={() => setWindowIndex(safeWindowIndex - 1)}
-            className="inline-flex h-6 items-center rounded-md border border-input bg-background px-2 font-medium disabled:opacity-40"
           >
             ←
-          </button>
+          </Button>
           <span aria-live="polite" className="tabular-nums">
             Rows {rowLabel(windowStartRow)}–{rowLabel(windowEndRow - 1)} of{' '}
             {rowLabel(rows - 1)} ({windowEndRow - windowStartRow}×{cols})
           </span>
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="secondary"
             aria-label="Next row band"
             disabled={safeWindowIndex >= windowCount - 1}
             onClick={() => setWindowIndex(safeWindowIndex + 1)}
-            className="inline-flex h-6 items-center rounded-md border border-input bg-background px-2 font-medium disabled:opacity-40"
           >
             →
-          </button>
+          </Button>
         </div>
       ) : null}
       <div

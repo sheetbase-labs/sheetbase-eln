@@ -6,10 +6,13 @@ import {
   useMatchRoute,
 } from '@tanstack/react-router'
 
+import { Notice } from '#/components/v3/ui/alert'
+import { Button } from '#/components/v3/ui/button'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { LinkTabs } from '#/components/v3/projects/search-tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
+  publishedTemplateVersion,
   templateLifecycle,
   useTemplate,
   useTemplateVersions,
@@ -40,6 +43,35 @@ function TemplateLayout() {
 
   const t = template.data
   if (onUpdate) return <Outlet />
+  if (template.isError) {
+    return (
+      <div className="flex min-w-0 flex-1 flex-col">
+        <PageHeader
+          crumbs={
+            <Link to="/templates" className="text-link">
+              Templates
+            </Link>
+          }
+          title="Template could not be loaded"
+        />
+        <div className="px-4 py-4 md:px-6">
+          <Notice
+            tone="bad"
+            title="Could not load this template"
+            className="max-w-[520px]"
+            action={
+              <Button size="sm" onClick={() => void template.refetch()}>
+                Try again
+              </Button>
+            }
+          >
+            The template could not be read. It may have been retired, or you may
+            not have access to it.
+          </Notice>
+        </div>
+      </div>
+    )
+  }
   if (!t) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -60,6 +92,9 @@ function TemplateLayout() {
   const lifecycle = templateLifecycle(t.lifecycle)
   const list = versions.data ?? []
   const latest = [...list].sort((a, b) => b.version - a.version).at(0)
+  // The Sections view renders the published version when there is one, so the
+  // badge counts that version's placements rather than the newest draft's.
+  const shown = publishedTemplateVersion(list) ?? latest
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -88,7 +123,7 @@ function TemplateLayout() {
             tabs={[
               {
                 label: 'Sections',
-                count: latest?.configuration.placements.length,
+                count: shown?.configuration.placements.length,
                 link: {
                   to: '/templates/$templateId',
                   params,

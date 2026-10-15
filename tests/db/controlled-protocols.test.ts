@@ -10,6 +10,7 @@ const AUTHOR = 'lab07-author'
 const TECHNICAL = 'lab07-technical'
 const QA = 'lab07-qa'
 const TRAINEE = 'lab07-trainee'
+const VIEWER = 'lab07-viewer'
 const ROLES = ['scientist', 'steward', 'reviewer', 'admin', 'owner']
 
 let migrator: Client
@@ -18,7 +19,7 @@ const clients: Client[] = []
 
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
-  for (const user of [AUTHOR, TECHNICAL, QA, TRAINEE]) {
+  for (const user of [AUTHOR, TECHNICAL, QA, TRAINEE, VIEWER]) {
     await migrator.query(
       `insert into internal."user"(id,name,email,"emailVerified") values($1,$1,$2,true)`,
       [user, `${user}@test.invalid`],
@@ -30,8 +31,8 @@ beforeAll(async () => {
   )
   await migrator.query(
     `insert into api.workspace_memberships(workspace_id,user_id,role) values
-     ($1,$2,'owner'),($1,$3,'scientist'),($1,$4,'reviewer'),($1,$5,'scientist')`,
-    [WS, AUTHOR, TECHNICAL, QA, TRAINEE],
+     ($1,$2,'owner'),($1,$3,'scientist'),($1,$4,'reviewer'),($1,$5,'scientist'),($1,$6,'viewer')`,
+    [WS, AUTHOR, TECHNICAL, QA, TRAINEE, VIEWER],
   )
   await migrator.query(
     `insert into api.projects(id,workspace_id,key,title,require_effective_protocol)
@@ -223,6 +224,27 @@ describe('LAB-07 controlled protocol server contracts', () => {
       [newVersionId, TRAINEE],
     )
     expect(count.rows[0]?.count).toBe(0)
+  })
+
+  it('refuses a viewer acknowledgement and records only the writer', async () => {
+    const versionId = await newVersion()
+    const viewer = await actor(VIEWER)
+    // GOV-01 / LAB-07: the writer gate (drizzle/0335) refuses a read-only
+    // viewer with the same disclosure-avoiding wording as a missing version.
+    await expect(
+      viewer.query(`select api.acknowledge_protocol_version($1)`, [versionId]),
+    ).rejects.toMatchObject({
+      code: '42501',
+      message: 'protocol version not found',
+    })
+
+    const trainee = await actor(TRAINEE)
+    const { rows } = await trainee.query(
+      `select * from api.acknowledge_protocol_version($1)`,
+      [versionId],
+    )
+    expect(rows[0]?.protocol_version_id).toBe(versionId)
+    expect(rows[0]?.user_id).toBe(TRAINEE)
   })
 
   it('refuses start without exact-version acknowledgement, then permits it', async () => {

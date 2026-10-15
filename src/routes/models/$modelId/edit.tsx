@@ -1,15 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { PageHeader, Muted } from '#/components/v3/ui/layout'
+import {
+  Inspector,
+  InspectorSection,
+  Muted,
+  PageHeader,
+} from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Badge } from '#/components/v3/ui/badge'
 import { Status } from '#/components/v3/ui/status'
 import { Notice } from '#/components/v3/ui/alert'
-import { Input } from '#/components/v3/ui/input'
+import { Field, Input } from '#/components/v3/ui/input'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { NativeSelect } from '#/components/v3/projects/select'
+import { Textarea } from '#/components/v3/inventory/list'
 import {
   Table,
   TableBody,
@@ -29,27 +35,88 @@ import {
 import { toast } from '#/components/v3/ui/sonner'
 import { hasCapability } from '#/lib/capability'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { DATASET_SCHEMA_VERSION_KIND } from '#/lib/approval-requests'
 import {
   createNextDatasetSchemaVersion,
   deleteDatasetSchemaVersion,
   publishDatasetSchemaVersion,
   replaceDatasetSchemaVersionFields,
 } from '#/lib/dataset-schema-definition-rpc'
-import type {
-  CanonicalDatasetSchemaField,
-  DatasetSchemaFieldInput,
-} from '#/lib/dataset-schema-definition-rpc'
+import {
+  DATASET_FIELD_TYPES,
+  DEFAULT_SECTION,
+  computeChanges,
+  detectDraftConflict,
+  fieldSnapshot,
+  groupBySection,
+  isApprovalLock,
+  isStaleRevision,
+  mergeDraftRows,
+  moveFieldWithinSection,
+  moveSection,
+  newDraftField,
+  orderedForSave,
+  sectionNames,
+  sectionOf,
+  setFieldSection,
+  toDraftField,
+  validateDraft,
+} from '#/lib/dataset-schema-draft'
+import type { DraftConflict, DraftField } from '#/lib/dataset-schema-draft'
+import {
+  fetchWorkspaceGeneral,
+  workspaceGeneralQueryKey,
+} from '#/lib/workspace-general'
 import {
   useModelDefinition,
   useModelFields,
   useModelVersions,
 } from '#/components/v3/models/models-data'
+import { useModelApprovalIndex } from '#/components/v3/models/model-approval-data'
+import { ModelApprovalPanel } from '#/components/v3/models/model-approval-panel'
+import { DraftConflictBanner } from '#/components/v3/models/draft-conflict-banner'
+import {
+  canPublishDraft,
+  pendingRequest,
+} from '#/components/v3/models/model-approval'
 
 /**
- * UI port (roadmap-4/ui-app3): the model editor (MDL-02). Edits a draft schema
- * version while the published one stays in use; publishing runs the CORE-05
- * RPC, so the capability and rules stay server-side. `?state=denied` drives
- * the acceptance suite.
+ * UI port (roadmap-4/ui-app3): the model editor (MDL-02/MDL-03/R5-CONFIG-03).
+ *
+ * Edits a draft schema version while the published one stays in use; publishing
+ * runs the CORE-05 RPC, so the capability and rules stay server-side.
+ * `?state=denied` drives the acceptance suite.
+ *
+ * R5-CONFIG-03 adds the three things the design's editor carries and the ELN's
+ * did not:
+ *
+ *  1. **Approval.** MDL-03 is in the accepted model, so this task is not
+ *     reduced. The draft is submitted from here through the same reusable
+ *     `api.approval_requests` RPCs the Versions tab uses, over the same draft
+ *     version — submission never forks the draft. The accepted policy keeps a
+ *     version locked while its request is open (SB085), so "edit after
+ *     submitting" means editing the same draft again after a *return* (or
+ *     withdraw), never a silent edit under review. Editing after an approval
+ *     bumps the revision, which invalidates the approval, and the panel says so
+ *     rather than letting a stale approval publish. Publication itself is
+ *     refused by `internal.approval_publish_blocker` (SB084).
+ *  2. **Conflict.** Every save sends the revision it read
+ *     (`p_expected_revision`), the pattern MDL-03 established on Record Model
+ *     versions. A save that lost the race is refused (SB001) and reconciled
+ *     explicitly: Reload theirs, or Merge and keep editing when the two sides
+ *     touched different fields, or Keep mine as an explicit overwrite when they
+ *     overlap. A conflict never silently wins.
+ *  3. **Sections and the field editor.** Sections are the grouping of each
+ *     field's `category`; reordering a section or re-sectioning a field just
+ *     reorders the draft list, and `display_order` follows list position on
+ *     save. The inspector reuses the canonical field-definition shapes
+ *     (`validation`, `quantity`, `cardinality`, `lifecycle`) instead of
+ *     inventing per-type options.
+ *
+ * Deliberate deviation: "Add section" on its own is not offered. Sections are
+ * derived from persisted fields and the table has no separate section record,
+ * so an empty section could not be stored. Create a section by naming it on a
+ * field in the inspector.
  */
 export const Route = createFileRoute('/models/$modelId/edit')({
   validateSearch: (
@@ -64,41 +131,6 @@ export const Route = createFileRoute('/models/$modelId/edit')({
   component: ModelEditor,
 })
 
-// Mirrors chk_dataset_schema_version_fields_type.
-const LOGICAL_TYPES = [
-  'text',
-  'integer',
-  'decimal',
-  'boolean',
-  'date',
-  'timestamp',
-  'category',
-  'reference',
-]
-
-interface DraftField extends DatasetSchemaFieldInput {
-  /** Stable key for React and comparison; the persisted field id when known. */
-  rowKey: string
-}
-
-function toDraftField(field: CanonicalDatasetSchemaField): DraftField {
-  return {
-    rowKey: field.field_id,
-    fieldId: field.field_id,
-    key: field.key,
-    label: field.label,
-    description: field.description,
-    logicalType: field.logical_type,
-    nullable: field.nullable,
-    quantity: field.quantity ?? null,
-    validation: field.validation ?? {},
-    category: field.category ?? null,
-    cardinality: field.cardinality === 'many' ? 'many' : 'one',
-    lifecycle: field.lifecycle === 'retired' ? 'retired' : 'active',
-    displayOrder: field.display_order,
-  }
-}
-
 function ModelEditor() {
   const { modelId } = Route.useParams()
   const { state } = Route.useSearch()
@@ -108,55 +140,187 @@ function ModelEditor() {
   const versions = useModelVersions(modelId)
 
   const draft = versions.data?.find((v) => v.lifecycle === 'draft') ?? null
-  const published =
-    versions.data?.find((v) => v.lifecycle === 'published') ?? null
+  // `chk_dataset_schema_versions_lifecycle` allows draft/active/retired: a
+  // version that has been published is `active` (or `retired`), never
+  // `published`. The in-use version is the highest non-draft one.
+  const inUse = versions.data?.find((v) => v.lifecycle !== 'draft') ?? null
   const draftFields = useModelFields(draft?.id)
-  const publishedFields = useModelFields(published?.id)
+  const publishedFields = useModelFields(inUse?.id)
+  const approval = useModelApprovalIndex(
+    draft ? [draft.id] : [],
+    notebookDataClient,
+    DATASET_SCHEMA_VERSION_KIND,
+  )
+  const policy = useQuery({
+    queryKey: workspaceGeneralQueryKey,
+    queryFn: () => fetchWorkspaceGeneral(),
+  })
 
-  const canEdit = hasCapability(context.workspace?.role, 'schema.edit')
+  const role = context.workspace?.role ?? null
+  const user = { id: context.user.id, name: context.user.name }
+  const workspaceId = context.workspace?.id ?? null
+  const canEdit = hasCapability(role, 'schema.edit')
+  const canPublish = hasCapability(role, 'schema.publish')
   const denied = state === 'denied' || !canEdit
+
+  const requests = draft ? (approval.data?.byVersion.get(draft.id) ?? []) : []
+  const decisions = approval.data?.decisions ?? []
+  const pending = pendingRequest(requests)
+  const approvalRequired = policy.data?.publicationApprovalRequired ?? false
+  const approvalGoverns = approvalRequired || requests.length > 0
+  const publishAllowed = draft
+    ? canPublishDraft(requests, approvalRequired, draft.revision)
+    : false
+  // The server locks a draft while a request is open (SB085), so the editor
+  // must not pretend to accept edits then.
+  const locked = denied || pending !== null
 
   const [rows, setRows] = useState<DraftField[]>([])
   const [dirty, setDirty] = useState(false)
+  const [baseRevision, setBaseRevision] = useState<number | null>(null)
+  const [conflict, setConflict] = useState<DraftConflict | null>(null)
+  // 'reconciling' while a refused stale save is being read back, 'blocked'
+  // after any other refusal; both stop the autosave until the author acts.
+  const [saveState, setSaveState] = useState<
+    'idle' | 'blocked' | 'reconciling'
+  >('idle')
+  const [error, setError] = useState<string | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [submitToken, setSubmitToken] = useState(0)
   const [publishOpen, setPublishOpen] = useState(false)
   const [discardOpen, setDiscardOpen] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const loadedRef = useRef<string | null>(null)
+  const baseSnapshot = useRef<Map<string, string>>(new Map())
+
+  function rebase(revision: number, snapshotRows: readonly DraftField[]) {
+    baseSnapshot.current = fieldSnapshot(snapshotRows)
+    setBaseRevision(revision)
+  }
 
   useEffect(() => {
-    if (!draft) return
+    if (!draft || !draftFields.data) return
     if (loadedRef.current === draft.id) return
-    if (draftFields.data) {
-      setRows(draftFields.data.map(toDraftField))
-      loadedRef.current = draft.id
-      setDirty(false)
-    }
+    const loaded = draftFields.data.map(toDraftField)
+    setRows(loaded)
+    rebase(draft.revision, loaded)
+    loadedRef.current = draft.id
+    setDirty(false)
+    setConflict(null)
+    setSaveState('idle')
   }, [draft, draftFields.data])
 
-  const save = useMutation({
-    mutationFn: (fields: DraftField[]) =>
-      replaceDatasetSchemaVersionFields(notebookDataClient, {
-        schemaVersionId: draft!.id,
-        fields,
-      }),
-    onSuccess: () => {
-      setDirty(false)
-      void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
-    },
-    onError: (e) => setError(errorMessage(e)),
-  })
-
-  // Debounced autosave of the draft while editing.
+  // A draft that is replaced by another model version (discard, publish) starts
+  // fresh; drop the inspector selection with it.
   useEffect(() => {
-    if (!dirty || denied || !draft) return
-    const t = setTimeout(() => save.mutate(rows), 600)
-    return () => clearTimeout(t)
-  }, [rows, dirty, denied, draft?.id])
+    setSelectedKey(null)
+  }, [draft?.id])
 
+  const issues = useMemo(() => {
+    const found = validateDraft(rows)
+    for (const [rowKey, message] of fieldContractIssues(rows)) {
+      if (!found.has(rowKey)) found.set(rowKey, message)
+    }
+    return found
+  }, [rows])
+  const grouped = useMemo(() => groupBySection(rows), [rows])
+  const sections = useMemo(() => sectionNames(rows), [rows])
   const changes = useMemo(
     () => computeChanges(rows, publishedFields.data ?? []),
     [rows, publishedFields.data],
   )
+  const publishedKeys = useMemo(
+    () => new Set((publishedFields.data ?? []).map((field) => field.key)),
+    [publishedFields.data],
+  )
+
+  function applyRows(next: DraftField[]) {
+    setRows(next)
+    setDirty(true)
+    setError(null)
+    setSaveState('idle')
+  }
+
+  function patchField(rowKey: string, patch: Partial<DraftField>) {
+    applyRows(
+      rows.map((row) => (row.rowKey === rowKey ? { ...row, ...patch } : row)),
+    )
+  }
+
+  const save = useMutation({
+    mutationFn: (input: { fields: DraftField[]; expectedRevision: number }) =>
+      replaceDatasetSchemaVersionFields(notebookDataClient, {
+        schemaVersionId: draft!.id,
+        expectedRevision: input.expectedRevision,
+        fields: orderedForSave(input.fields),
+      }),
+    onSuccess: (version, input) => {
+      setDirty(false)
+      setSaveState('idle')
+      rebase(version.revision, input.fields)
+      void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
+    },
+    onError: async (cause: unknown, input) => {
+      if (isStaleRevision(cause) && draft) {
+        // Never guess: read the server's current fields and revision, then let
+        // the author choose how to reconcile. `reconciling` keeps the autosave
+        // from firing again while that read is in flight.
+        setSaveState('reconciling')
+        const [freshFields, freshVersions] = await Promise.all([
+          draftFields.refetch(),
+          versions.refetch(),
+        ])
+        const serverRows = (freshFields.data ?? []).map(toDraftField)
+        const serverRevision =
+          freshVersions.data?.find((v) => v.id === draft.id)?.revision ??
+          input.expectedRevision
+        setConflict(
+          detectDraftConflict({
+            base: baseSnapshot.current,
+            mine: input.fields,
+            serverRows,
+            serverRevision,
+          }),
+        )
+        setSaveState('idle')
+        return
+      }
+      // A refusal that is not a conflict (permission, a locked draft, a bad
+      // field contract) stops the autosave rather than retrying every second;
+      // the next edit or the resolved conflict resumes it.
+      setSaveState('blocked')
+      setError(
+        isApprovalLock(cause)
+          ? 'The draft is locked while it is awaiting approval. Withdraw the submission to keep editing.'
+          : errorMessage(cause),
+      )
+    },
+  })
+  const { mutate: saveFields, isPending: saving } = save
+
+  // Debounced autosave of the draft while editing. It never runs while a save
+  // is in flight, while the draft is locked or conflicted, while a refusal is
+  // being reconciled, or while the draft would be refused — the row messages
+  // say which field to fix first.
+  useEffect(() => {
+    if (!dirty || locked || !draft || conflict || baseRevision === null) return
+    if (issues.size > 0 || saving || saveState !== 'idle') return
+    const timer = setTimeout(
+      () => saveFields({ fields: rows, expectedRevision: baseRevision }),
+      600,
+    )
+    return () => clearTimeout(timer)
+  }, [
+    rows,
+    dirty,
+    locked,
+    draft,
+    conflict,
+    baseRevision,
+    issues,
+    saving,
+    saveState,
+    saveFields,
+  ])
 
   const startDraft = useMutation({
     mutationFn: () =>
@@ -176,7 +340,7 @@ function ModelEditor() {
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
       toast('Draft discarded')
     },
-    onError: (e) => setError(errorMessage(e)),
+    onError: (cause) => setError(errorMessage(cause)),
   })
 
   const publish = useMutation({
@@ -190,10 +354,62 @@ function ModelEditor() {
         description: 'Datasets keep the version they are on.',
       })
     },
-    onError: (e) => setError(errorMessage(e)),
+    onError: (cause) => setError(errorMessage(cause)),
   })
 
+  /** Reload theirs: take the server's fields and revision as the new truth. */
+  function reloadTheirs() {
+    if (!conflict) return
+    setRows(conflict.serverRows)
+    rebase(conflict.serverRevision, conflict.serverRows)
+    setConflict(null)
+    setDirty(false)
+    setError(null)
+    setSaveState('idle')
+  }
+
+  /** Merge and keep editing: keep both sides when they changed different fields. */
+  function mergeTheirs() {
+    if (!conflict) return
+    const merged = mergeDraftRows({
+      base: baseSnapshot.current,
+      mine: rows,
+      theirs: conflict.theirs,
+      serverRows: conflict.serverRows,
+    })
+    setRows(merged)
+    rebase(conflict.serverRevision, conflict.serverRows)
+    setConflict(null)
+    setDirty(true)
+    setSaveState('idle')
+  }
+
+  /** Keep mine: an explicit, deliberate overwrite of the server's version. */
+  function keepMine() {
+    if (!conflict) return
+    rebase(conflict.serverRevision, conflict.serverRows)
+    setConflict(null)
+    setDirty(true)
+    setSaveState('idle')
+  }
+
   const model = definition.data
+  const selected = rows.find((row) => row.rowKey === selectedKey) ?? null
+  const selectedIssue = selected ? issues.get(selected.rowKey) : undefined
+  const savedState = conflict
+    ? 'Not saved: draft changed on the server'
+    : saveState === 'blocked'
+      ? 'Not saved'
+      : dirty
+        ? issues.size > 0
+          ? `Not saved: fix ${issues.size} ${issues.size === 1 ? 'field' : 'fields'}`
+          : saving || saveState === 'reconciling'
+            ? 'Saving…'
+            : 'Unsaved changes'
+        : baseRevision === null
+          ? 'Loading…'
+          : `Saved · revision ${baseRevision}`
+
   if (!model) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -209,278 +425,389 @@ function ModelEditor() {
     )
   }
 
-  function setField(rowKey: string, patch: Partial<DraftField>) {
-    setRows((current) =>
-      current.map((r) => (r.rowKey === rowKey ? { ...r, ...patch } : r)),
-    )
-    setDirty(true)
-    setError(null)
-  }
-
-  function addField() {
-    const rowKey = `new-${crypto.randomUUID()}`
-    setRows((current) => [
-      ...current,
-      {
-        rowKey,
-        key: '',
-        label: 'New field',
-        logicalType: 'text',
-        nullable: true,
-        displayOrder: current.length + 1,
-      },
-    ])
-    setDirty(true)
-  }
-
-  function removeField(rowKey: string) {
-    setRows((current) => current.filter((r) => r.rowKey !== rowKey))
-    setDirty(true)
-  }
-
-  const grouped = groupBySection(rows)
+  const canSubmitNow = Boolean(draft) && !denied && !pending && canEdit
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-      <PageHeader
-        crumbs={
-          <>
-            <Link to="/models" className="text-link">
-              Models
-            </Link>{' '}
-            /{' '}
-            <Link
-              to="/models/$modelId"
-              params={{ modelId }}
-              className="text-link"
-            >
-              {model.name}
-            </Link>{' '}
-            / Draft
-          </>
-        }
-        title={`Edit ${model.name}`}
-        meta={
-          <>
-            {draft ? (
-              <Status tone="draft">Draft v{draft.version}</Status>
-            ) : (
-              <Status tone="none">No draft</Status>
-            )}
-            {published ? (
-              <span className="text-fg-muted">v{published.version} in use</span>
-            ) : null}
-            <span className="text-fg-muted">
-              {save.isPending ? 'Saving…' : dirty ? 'Unsaved changes' : 'Saved'}
-            </span>
-          </>
-        }
-        actions={
-          draft ? (
+    <div className="flex min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+        <PageHeader
+          crumbs={
             <>
-              <Button
-                variant="quiet"
-                disabled={denied || save.isPending}
-                onClick={() => setDiscardOpen(true)}
+              <Link to="/models" className="text-link">
+                Models
+              </Link>{' '}
+              /{' '}
+              <Link
+                to="/models/$modelId"
+                params={{ modelId }}
+                className="text-link"
               >
-                Discard draft
-              </Button>
+                {model.name}
+              </Link>{' '}
+              / Draft
+            </>
+          }
+          title={`Edit ${model.name}`}
+          meta={
+            <>
+              {draft ? (
+                <Status tone="draft">Draft v{draft.version}</Status>
+              ) : (
+                <Status tone="none">No draft</Status>
+              )}
+              {inUse ? (
+                <span className="text-fg-muted">v{inUse.version} in use</span>
+              ) : null}
+              <span className="text-fg-muted">{savedState}</span>
+            </>
+          }
+          actions={
+            draft ? (
+              <>
+                <Button
+                  variant="quiet"
+                  disabled={locked || saving}
+                  onClick={() => setDiscardOpen(true)}
+                >
+                  Discard draft
+                </Button>
+                {canSubmitNow && !publishAllowed ? (
+                  <Button
+                    variant="secondary"
+                    disabled={changes.total === 0 || issues.size > 0}
+                    onClick={() => setSubmitToken((token) => token + 1)}
+                  >
+                    Submit for approval
+                  </Button>
+                ) : null}
+                {canPublish && publishAllowed ? (
+                  <Button
+                    variant="primary"
+                    disabled={changes.total === 0 || issues.size > 0 || saving}
+                    onClick={() => setPublishOpen(true)}
+                  >
+                    Publish v{draft.version}
+                  </Button>
+                ) : null}
+              </>
+            ) : (
               <Button
                 variant="primary"
-                disabled={denied || changes.total === 0 || save.isPending}
-                onClick={() => setPublishOpen(true)}
+                disabled={denied || startDraft.isPending}
+                onClick={() => startDraft.mutate()}
               >
-                Publish v{draft.version}
+                Start draft
               </Button>
-            </>
-          ) : (
-            <Button
-              variant="primary"
-              disabled={denied || startDraft.isPending}
-              onClick={() => startDraft.mutate()}
-            >
-              Start draft
-            </Button>
-          )
-        }
-      />
+            )
+          }
+        />
 
-      {denied ? (
-        <div className="px-4 pt-4 md:px-6">
-          <Notice tone="info" icon="lock">
-            View only. Only model owners and admins can change {model.name}.
-          </Notice>
-        </div>
-      ) : null}
-      {error ? (
-        <div className="px-4 pt-4 md:px-6">
-          <Notice tone="bad">{error}</Notice>
-        </div>
-      ) : null}
-
-      {!draft ? (
-        <div className="px-4 py-5 md:px-6">
-          <EmptyState
-            icon="schema"
-            title="No draft to edit"
-            body="Start a draft to change this model’s fields. The published version stays in use until the draft is published."
-          />
-        </div>
-      ) : (
-        <div className="flex flex-col gap-5 px-4 py-5 md:px-6">
-          <Notice tone="info">
-            Draft v{draft.version} · v{published?.version ?? '—'} stays in use
-            until this is published. Values already recorded never change.
-          </Notice>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Muted>
-              {rows.length} fields · {changes.total} changes since v
-              {published?.version ?? '—'}
-            </Muted>
-            <Button size="sm" disabled={denied} onClick={addField}>
-              Add field
-            </Button>
+        {denied ? (
+          <div className="px-4 pt-4 md:px-6">
+            <Notice tone="info" icon="lock">
+              View only. Only model owners and admins can change {model.name}.
+            </Notice>
           </div>
+        ) : null}
+        {error ? (
+          <div className="px-4 pt-4 md:px-6">
+            <Notice tone="bad">{error}</Notice>
+          </div>
+        ) : null}
 
-          {grouped.map((group) => (
-            <section key={group.section} aria-label={group.section}>
-              <h2 className="mb-1 text-section">{group.section}</h2>
-              <div className="overflow-hidden rounded-md border border-border">
-                <Table aria-label={`${group.section} fields`}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="first:pl-3">Name</TableHead>
-                      <TableHead>Key</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Required</TableHead>
-                      <TableHead>Change</TableHead>
-                      <TableHead className="pr-3" align="right" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {group.fields.map((field) => {
-                      const change = changes.byKey.get(field.key)
-                      return (
-                        <TableRow key={field.rowKey}>
-                          <TableCell className="first:pl-3">
-                            <Input
-                              aria-label="Field name"
-                              disabled={denied}
-                              value={field.label}
-                              onChange={(e) =>
-                                setField(field.rowKey, {
-                                  label: e.target.value,
-                                })
-                              }
-                              className="h-[26px] text-label"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              aria-label="Field key"
-                              disabled={denied}
-                              value={field.key}
-                              onChange={(e) =>
-                                setField(field.rowKey, { key: e.target.value })
-                              }
-                              className="mono h-[26px] text-label"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <NativeSelect
-                              aria-label="Field type"
-                              disabled={denied}
-                              value={field.logicalType}
-                              onChange={(e) =>
-                                setField(field.rowKey, {
-                                  logicalType: e.target.value,
-                                })
-                              }
-                              className="h-[26px]"
-                            >
-                              {LOGICAL_TYPES.map((t) => (
-                                <option key={t} value={t}>
-                                  {t}
-                                </option>
-                              ))}
-                            </NativeSelect>
-                          </TableCell>
-                          <TableCell>
-                            <input
-                              type="checkbox"
-                              aria-label="Required"
-                              disabled={denied}
-                              checked={!field.nullable}
-                              onChange={(e) =>
-                                setField(field.rowKey, {
-                                  nullable: !e.target.checked,
-                                })
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {change ? (
-                              <Badge
-                                variant={change === 'Added' ? 'add' : 'chg'}
+        {conflict ? (
+          <div className="px-4 pt-4 md:px-6">
+            <DraftConflictBanner
+              conflict={conflict}
+              busy={saving}
+              onReload={reloadTheirs}
+              onMerge={mergeTheirs}
+              onKeepMine={keepMine}
+            />
+          </div>
+        ) : null}
+
+        {!draft ? (
+          <div className="px-4 py-5 md:px-6">
+            <EmptyState
+              icon="schema"
+              title="No draft to edit"
+              body="Start a draft to change this model’s fields. The published version stays in use until the draft is published."
+            />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-5 px-4 py-5 md:px-6">
+            <ModelApprovalPanel
+              version={draft}
+              publishedVersion={inUse?.version ?? null}
+              requests={requests}
+              decisions={decisions}
+              role={role}
+              user={user}
+              workspaceId={workspaceId}
+              client={notebookDataClient}
+              submitToken={submitToken}
+            />
+
+            <Notice tone="info">
+              Draft v{draft.version} · v{inUse?.version ?? '—'} stays in use
+              until this is{' '}
+              {approvalGoverns ? 'approved and published' : 'published'}. Values
+              already recorded never change.
+            </Notice>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Muted>
+                {rows.length} {rows.length === 1 ? 'field' : 'fields'} in{' '}
+                {grouped.length} {grouped.length === 1 ? 'section' : 'sections'}{' '}
+                · {changes.total} changes since v{inUse?.version ?? '—'}
+                {issues.size > 0 ? ` · fix ${issues.size} before saving` : ''}
+              </Muted>
+              <Button
+                size="sm"
+                disabled={locked || issues.size > 0}
+                onClick={() => {
+                  const next = newDraftField(rows.length + 1)
+                  applyRows([...rows, next])
+                  setSelectedKey(next.rowKey)
+                }}
+              >
+                Add field
+              </Button>
+            </div>
+
+            {grouped.map((group, index) => (
+              <section
+                key={group.section}
+                aria-label={group.section}
+                className="flex flex-col gap-1"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="m-0 text-section">{group.section}</h2>
+                  <span className="text-label text-fg-muted">
+                    {group.fields.length}{' '}
+                    {group.fields.length === 1 ? 'field' : 'fields'}
+                  </span>
+                  <span className="flex-1" />
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    aria-label={`Move section ${group.section} up`}
+                    disabled={locked || index === 0}
+                    onClick={() =>
+                      applyRows(moveSection(rows, group.section, -1))
+                    }
+                  >
+                    Move up
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    aria-label={`Move section ${group.section} down`}
+                    disabled={locked || index === grouped.length - 1}
+                    onClick={() =>
+                      applyRows(moveSection(rows, group.section, 1))
+                    }
+                  >
+                    Move down
+                  </Button>
+                </div>
+                <div className="overflow-hidden rounded-md border border-border">
+                  <Table aria-label={`${group.section} fields`}>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="first:pl-3">Name</TableHead>
+                        <TableHead>Key</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Required</TableHead>
+                        <TableHead>Change</TableHead>
+                        <TableHead className="pr-3" align="right" aria-label="Actions" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {group.fields.map((field) => {
+                        const change = changes.byKey.get(field.key)
+                        const issue = issues.get(field.rowKey)
+                        return (
+                          <TableRow key={field.rowKey}>
+                            <TableCell className="first:pl-3">
+                              <Input
+                                aria-label={`Field name ${field.key || 'new field'}`}
+                                aria-invalid={issue ? true : undefined}
+                                disabled={locked}
+                                value={field.label}
+                                onChange={(event) =>
+                                  patchField(field.rowKey, {
+                                    label: event.target.value,
+                                  })
+                                }
+                                className="h-[26px] text-label"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                aria-label={`Field key ${field.key || 'new field'}`}
+                                aria-invalid={issue ? true : undefined}
+                                disabled={locked}
+                                value={field.key}
+                                onChange={(event) =>
+                                  patchField(field.rowKey, {
+                                    key: event.target.value,
+                                  })
+                                }
+                                className="mono h-[26px] text-label"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <NativeSelect
+                                aria-label={`Field type ${field.key || 'new field'}`}
+                                disabled={locked}
+                                value={field.logicalType}
+                                onChange={(event) =>
+                                  patchField(field.rowKey, {
+                                    logicalType: event.target.value,
+                                  })
+                                }
+                                className="h-[26px]"
                               >
-                                {change}
-                              </Badge>
-                            ) : (
-                              <span className="text-label text-fg-muted">
-                                —
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell align="right" className="pr-3">
-                            <Button
-                              size="sm"
-                              variant="quiet"
-                              disabled={denied}
-                              onClick={() => removeField(field.rowKey)}
-                            >
-                              Remove
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </section>
-          ))}
+                                {DATASET_FIELD_TYPES.map((type) => (
+                                  <option key={type} value={type}>
+                                    {type}
+                                  </option>
+                                ))}
+                              </NativeSelect>
+                            </TableCell>
+                            <TableCell>
+                              <input
+                                type="checkbox"
+                                aria-label={`Required ${field.key || 'new field'}`}
+                                disabled={locked}
+                                checked={!field.nullable}
+                                onChange={(event) =>
+                                  patchField(field.rowKey, {
+                                    nullable: !event.target.checked,
+                                  })
+                                }
+                              />
+                            </TableCell>
+                            <TableCell className="max-w-[280px] whitespace-normal">
+                              {issue ? (
+                                <span
+                                  role="alert"
+                                  className="text-label text-danger-text"
+                                >
+                                  {issue}
+                                </span>
+                              ) : change ? (
+                                <Badge
+                                  variant={change === 'Added' ? 'add' : 'chg'}
+                                >
+                                  {change}
+                                </Badge>
+                              ) : (
+                                <span className="text-label text-fg-muted">
+                                  —
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell align="right" className="pr-3">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="quiet"
+                                  aria-pressed={selectedKey === field.rowKey}
+                                  onClick={() => setSelectedKey(field.rowKey)}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="quiet"
+                                  disabled={locked}
+                                  aria-label={`Remove ${field.label || field.key || 'field'}`}
+                                  onClick={() =>
+                                    applyRows(
+                                      rows.filter(
+                                        (row) => row.rowKey !== field.rowKey,
+                                      ),
+                                    )
+                                  }
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </section>
+            ))}
 
-          {changes.removed.length ? (
-            <section aria-label="Removed fields">
-              <h2 className="mb-1 text-section">
-                Removed since v{published?.version}
-              </h2>
-              <ul className="m-0 flex list-none flex-col gap-1 p-0">
-                {changes.removed.map((f) => (
-                  <li key={f.key} className="text-body">
-                    <Badge variant="del">Removed</Badge>{' '}
-                    <span className="font-medium">{f.label}</span>{' '}
-                    <span className="mono text-label text-fg-muted">
-                      {f.key}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-        </div>
-      )}
+            {changes.removed.length ? (
+              <section aria-label="Removed fields">
+                <h2 className="mb-1 text-section">
+                  Removed since v{inUse?.version}
+                </h2>
+                <ul className="m-0 flex list-none flex-col gap-1 p-0">
+                  {changes.removed.map((field) => (
+                    <li key={field.key} className="text-body">
+                      <Badge variant="del">Removed</Badge>{' '}
+                      <span className="font-medium">{field.label}</span>{' '}
+                      <span className="mono text-label text-fg-muted">
+                        {field.key}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      <Inspector label="Field editor">
+        {selected ? (
+          <FieldEditor
+            field={selected}
+            issue={selectedIssue}
+            sections={sections}
+            locked={locked}
+            keyLocked={publishedKeys.has(selected.key)}
+            publishedVersion={inUse?.version ?? null}
+            onPatch={(patch) => patchField(selected.rowKey, patch)}
+            onSection={(section) =>
+              applyRows(setFieldSection(rows, selected.rowKey, section))
+            }
+            onMove={(delta) =>
+              applyRows(moveFieldWithinSection(rows, selected.rowKey, delta))
+            }
+            onRemove={() => {
+              applyRows(rows.filter((row) => row.rowKey !== selected.rowKey))
+              setSelectedKey(null)
+            }}
+          />
+        ) : (
+          <InspectorSection title="Field editor">
+            <Muted>
+              Choose a field’s Edit action to configure its type, unit,
+              validation and section.
+            </Muted>
+          </InspectorSection>
+        )}
+      </Inspector>
 
       {discardOpen && draft ? (
         <Dialog
           open
-          onOpenChange={(o) => (o ? undefined : setDiscardOpen(false))}
+          onOpenChange={(open) => (open ? undefined : setDiscardOpen(false))}
         >
           <DialogContent className="w-[min(480px,calc(100vw-32px))]">
             <DialogHeader
               title="Discard this draft?"
-              description={`Draft v${draft.version} and its field changes are deleted. v${published?.version ?? '—'} stays in use.`}
+              description={`Draft v${draft.version} and its field changes are deleted. v${inUse?.version ?? '—'} stays in use.`}
             />
             <DialogFooter>
               <DialogClose render={<Button type="button" />}>
@@ -488,7 +815,7 @@ function ModelEditor() {
               </DialogClose>
               <Button
                 variant="danger"
-                disabled={discard.isPending}
+                disabled={discard.isPending || locked}
                 onClick={() => discard.mutate()}
               >
                 {discard.isPending ? 'Discarding…' : 'Discard draft'}
@@ -500,17 +827,23 @@ function ModelEditor() {
       {publishOpen && draft ? (
         <Dialog
           open
-          onOpenChange={(o) => (o ? undefined : setPublishOpen(false))}
+          onOpenChange={(open) => (open ? undefined : setPublishOpen(false))}
         >
           <DialogContent className="w-[min(520px,calc(100vw-32px))]">
             <DialogHeader
               title={`Publish v${draft.version}`}
-              description={`New datasets use v${draft.version}. Datasets already on v${published?.version ?? '—'} keep it.`}
+              description={`New datasets use v${draft.version}. Datasets already on v${inUse?.version ?? '—'} keep it.`}
             />
             <DialogBody>
               <Muted>
-                {changes.total} changes since v{published?.version}.
+                {changes.total} changes since v{inUse?.version}.
               </Muted>
+              {approvalRequired ? (
+                <Muted className="mt-2">
+                  This workspace requires an approved request for the current
+                  revision before publishing.
+                </Muted>
+              ) : null}
             </DialogBody>
             <DialogFooter>
               <DialogClose render={<Button type="button" />}>
@@ -531,53 +864,365 @@ function ModelEditor() {
   )
 }
 
-function sectionOf(field: DatasetSchemaFieldInput): string {
-  const category = field.category
-  if (typeof category === 'string') return category
-  if (category && typeof category === 'object' && 'label' in category) {
-    const label = (category as { label?: unknown }).label
-    if (typeof label === 'string') return label
+/**
+ * The design's field editor: identity, section, and the type-specific
+ * configuration the canonical field shapes already carry.
+ */
+function FieldEditor({
+  field,
+  issue,
+  sections,
+  locked,
+  keyLocked,
+  publishedVersion,
+  onPatch,
+  onSection,
+  onMove,
+  onRemove,
+}: {
+  field: DraftField
+  issue: string | undefined
+  sections: string[]
+  locked: boolean
+  keyLocked: boolean
+  publishedVersion: number | null
+  onPatch: (patch: Partial<DraftField>) => void
+  onSection: (section: string) => void
+  onMove: (delta: -1 | 1) => void
+  onRemove: () => void
+}) {
+  const validation = field.validation ?? {}
+  const numeric =
+    field.logicalType === 'integer' || field.logicalType === 'decimal'
+  const quantity = field.quantity
+  const unit =
+    quantity && typeof quantity === 'object' && 'storageUnit' in quantity
+      ? quantity.storageUnit
+      : undefined
+
+  function setBound(bound: 'min' | 'max', raw: string) {
+    const next = { ...validation }
+    if (raw.trim() === '') delete next[bound]
+    else next[bound] = Number(raw)
+    onPatch({ validation: next })
   }
-  return 'Fields'
-}
 
-function groupBySection(rows: DraftField[]) {
-  const map = new Map<string, DraftField[]>()
-  for (const row of rows) {
-    const section = sectionOf(row)
-    map.set(section, [...(map.get(section) ?? []), row])
+  function setLengthBound(bound: 'minLength' | 'maxLength', raw: string) {
+    const next = { ...validation }
+    if (raw.trim() === '') delete next[bound]
+    else next[bound] = Number(raw)
+    onPatch({ validation: next })
   }
-  return [...map.entries()].map(([section, fields]) => ({ section, fields }))
-}
 
-interface ChangeSummary {
-  total: number
-  byKey: Map<string, 'Added' | 'Changed'>
-  removed: CanonicalDatasetSchemaField[]
-}
-
-/** Diff the draft rows against the published fields by key. */
-export function computeChanges(
-  rows: DatasetSchemaFieldInput[],
-  published: CanonicalDatasetSchemaField[],
-): ChangeSummary {
-  const byKey = new Map<string, 'Added' | 'Changed'>()
-  const publishedByKey = new Map(published.map((f) => [f.key, f]))
-  for (const row of rows) {
-    const before = publishedByKey.get(row.key)
-    if (!before) {
-      byKey.set(row.key, 'Added')
-    } else if (
-      before.label !== row.label ||
-      before.logical_type !== row.logicalType ||
-      before.nullable !== (row.nullable ?? true)
-    ) {
-      byKey.set(row.key, 'Changed')
+  function setUnit(raw: string) {
+    const trimmed = raw.trim()
+    if (trimmed === '') {
+      onPatch({ quantity: null })
+      return
     }
+    const existing =
+      quantity && typeof quantity === 'object' && !Array.isArray(quantity)
+        ? quantity
+        : {}
+    onPatch({
+      quantity: {
+        ...existing,
+        kind: 'kind' in existing ? existing.kind : field.key,
+        dimension: 'dimension' in existing ? existing.dimension : field.key,
+        storageUnit: trimmed,
+      },
+    })
   }
-  const draftKeys = new Set(rows.map((r) => r.key))
-  const removed = published.filter((f) => !draftKeys.has(f.key))
-  return { total: byKey.size + removed.length, byKey, removed }
+
+  const boundValue = (bound: 'min' | 'max' | 'minLength' | 'maxLength') =>
+    typeof validation[bound] === 'number' ? String(validation[bound]) : ''
+
+  return (
+    <>
+      <InspectorSection title="Field editor">
+        <p className="m-0 text-label text-fg-muted">
+          {field.key || 'New field'}
+          {keyLocked
+            ? ` · published in v${publishedVersion ?? '—'}`
+            : ' · not yet published'}
+        </p>
+        {issue ? (
+          <Notice tone="bad" className="mt-2">
+            {issue}
+          </Notice>
+        ) : null}
+        <div className="mt-3 flex flex-col gap-3">
+          <Field label="Name" required>
+            <Input
+              aria-label="Field label"
+              disabled={locked}
+              value={field.label}
+              onChange={(event) => onPatch({ label: event.target.value })}
+            />
+          </Field>
+          <Field
+            label="Key"
+            hint={
+              keyLocked
+                ? `Locked: published in v${publishedVersion ?? '—'}, so it identifies this field on every saved record.`
+                : 'Lower-case letters, numbers and _, starting with a letter.'
+            }
+          >
+            <Input
+              aria-label="Field key"
+              className="mono"
+              disabled={locked || keyLocked}
+              value={field.key}
+              onChange={(event) => onPatch({ key: event.target.value })}
+            />
+          </Field>
+          <Field label="Type">
+            <NativeSelect
+              aria-label="Field type"
+              disabled={locked}
+              value={field.logicalType}
+              onChange={(event) => onPatch({ logicalType: event.target.value })}
+            >
+              {DATASET_FIELD_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field
+            label="Section"
+            hint="Sections group fields in this editor; the order of sections here is the order of the draft."
+          >
+            <Input
+              aria-label="Field section"
+              list={`sections-${field.rowKey}`}
+              disabled={locked}
+              value={sectionOf(field)}
+              placeholder={DEFAULT_SECTION}
+              onChange={(event) => onSection(event.target.value)}
+            />
+            <datalist id={`sections-${field.rowKey}`}>
+              {sections.map((section) => (
+                <option key={section} value={section} />
+              ))}
+            </datalist>
+          </Field>
+          <Field label="Description">
+            <Textarea
+              aria-label="Field description"
+              rows={2}
+              disabled={locked}
+              value={field.description ?? ''}
+              onChange={(event) =>
+                onPatch({ description: event.target.value || null })
+              }
+            />
+          </Field>
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Configuration">
+        {numeric ? (
+          <div className="flex flex-col gap-3">
+            <Field
+              label="Unit"
+              hint="Values are stored in this unit; input units are converted for display."
+            >
+              <Input
+                aria-label="Unit"
+                disabled={locked}
+                placeholder="e.g. NTU"
+                value={typeof unit === 'string' ? unit : ''}
+                onChange={(event) => setUnit(event.target.value)}
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Minimum">
+                <Input
+                  aria-label="Minimum"
+                  type="number"
+                  step="any"
+                  disabled={locked}
+                  value={boundValue('min')}
+                  onChange={(event) => setBound('min', event.target.value)}
+                />
+              </Field>
+              <Field label="Maximum">
+                <Input
+                  aria-label="Maximum"
+                  type="number"
+                  step="any"
+                  disabled={locked}
+                  value={boundValue('max')}
+                  onChange={(event) => setBound('max', event.target.value)}
+                />
+              </Field>
+            </div>
+          </div>
+        ) : null}
+
+        {field.logicalType === 'text' ? (
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Min length">
+                <Input
+                  aria-label="Minimum length"
+                  type="number"
+                  min={0}
+                  disabled={locked}
+                  value={boundValue('minLength')}
+                  onChange={(event) =>
+                    setLengthBound('minLength', event.target.value)
+                  }
+                />
+              </Field>
+              <Field label="Max length">
+                <Input
+                  aria-label="Maximum length"
+                  type="number"
+                  min={0}
+                  disabled={locked}
+                  value={boundValue('maxLength')}
+                  onChange={(event) =>
+                    setLengthBound('maxLength', event.target.value)
+                  }
+                />
+              </Field>
+            </div>
+            <Field
+              label="Pattern"
+              hint="A regular expression every value must match."
+            >
+              <Input
+                aria-label="Pattern"
+                className="mono"
+                disabled={locked}
+                value={
+                  typeof validation.pattern === 'string'
+                    ? validation.pattern
+                    : ''
+                }
+                onChange={(event) => {
+                  const next = { ...validation }
+                  if (event.target.value === '') delete next.pattern
+                  else next.pattern = event.target.value
+                  onPatch({ validation: next })
+                }}
+              />
+            </Field>
+          </div>
+        ) : null}
+
+        {field.logicalType === 'boolean' ? (
+          <Field label="Default for new datasets">
+            <NativeSelect
+              aria-label="Default value"
+              disabled={locked}
+              value={
+                typeof field.defaultValue === 'boolean'
+                  ? String(field.defaultValue)
+                  : ''
+              }
+              onChange={(event) =>
+                onPatch({
+                  defaultValue:
+                    event.target.value === ''
+                      ? null
+                      : event.target.value === 'true',
+                })
+              }
+            >
+              <option value="">No default</option>
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </NativeSelect>
+          </Field>
+        ) : null}
+
+        {field.logicalType === 'reference' ? (
+          <Field
+            label="Cardinality"
+            hint="The target model or schema is configured on the model’s Relationships tab."
+          >
+            <NativeSelect
+              aria-label="Cardinality"
+              disabled={locked}
+              value={field.cardinality ?? 'one'}
+              onChange={(event) =>
+                onPatch({
+                  cardinality: event.target.value === 'many' ? 'many' : 'one',
+                })
+              }
+            >
+              <option value="one">Links to one record</option>
+              <option value="many">Allows several records</option>
+            </NativeSelect>
+          </Field>
+        ) : null}
+
+        <label className="mt-3 flex items-center gap-2 text-label">
+          <input
+            type="checkbox"
+            checked={!(field.nullable ?? true)}
+            disabled={locked}
+            onChange={(event) => onPatch({ nullable: !event.target.checked })}
+          />
+          Required for new datasets
+        </label>
+        <label className="mt-2 flex items-center gap-2 text-label">
+          <input
+            type="checkbox"
+            checked={field.lifecycle === 'retired'}
+            disabled={locked}
+            onChange={(event) =>
+              onPatch({
+                lifecycle: event.target.checked ? 'retired' : 'active',
+              })
+            }
+          />
+          Retire field, keep its identity and recorded values
+        </label>
+      </InspectorSection>
+
+      <InspectorSection title="Order">
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="quiet"
+            aria-label="Move field up"
+            disabled={locked}
+            onClick={() => onMove(-1)}
+          >
+            Move up
+          </Button>
+          <Button
+            size="sm"
+            variant="quiet"
+            aria-label="Move field down"
+            disabled={locked}
+            onClick={() => onMove(1)}
+          >
+            Move down
+          </Button>
+        </div>
+        <Muted className="mt-2">
+          Moving a field keeps it in its section; use Section to move it to
+          another one.
+        </Muted>
+      </InspectorSection>
+
+      <InspectorSection title="Remove">
+        <Button size="sm" variant="danger" disabled={locked} onClick={onRemove}>
+          Remove field
+        </Button>
+        <Muted className="mt-2">
+          Removing a field from the draft retires it on publish; recorded values
+          stay as they were recorded.
+        </Muted>
+      </InspectorSection>
+    </>
+  )
 }
 
 function errorMessage(error: unknown): string {
@@ -586,4 +1231,85 @@ function errorMessage(error: unknown): string {
     return 'You don’t have permission to change this model.'
   }
   return message
+}
+
+/** Postgres-only inline flag groups (`(?i)`, `(?m)`, …); JS RegExp has none. */
+const POSTGRES_INLINE_FLAGS = /\(\?[ismxnp]+\)/g
+
+/**
+ * Whether the stored pattern would survive being compiled where it is used. The
+ * database compiles `validation.pattern` as a regular expression and refuses an
+ * unusable one (SB071). Postgres-only inline flags are stripped before the
+ * check, because JS `RegExp` rejects syntax the database accepts.
+ */
+function patternCompiles(pattern: string): boolean {
+  try {
+    new RegExp(pattern.replace(POSTGRES_INLINE_FLAGS, ''))
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The field contract the server enforces on save
+ * (`internal.replace_dataset_schema_version_fields`: `^[a-z][a-z0-9_]{0,59}$`
+ * keys and 1–200 character labels) and on publish
+ * (`internal.assert_publishable_dataset_schema_version`: a usable pattern,
+ * numeric bounds, complete quantity metadata). `validateDraft` covers identity
+ * and bounds only, so the rest is named inline rather than after a round-trip.
+ * Values here are only stops: the server stays authoritative.
+ */
+function fieldContractIssues(
+  rows: readonly DraftField[],
+): Map<string, string> {
+  const issues = new Map<string, string>()
+  for (const row of rows) {
+    const key = row.key.trim()
+    const label = row.label.trim()
+    const validation = row.validation ?? {}
+    if (key.length > 60) {
+      issues.set(row.rowKey, 'Key must be 60 characters or fewer.')
+    } else if (label.length > 200) {
+      issues.set(row.rowKey, 'Name must be 200 characters or fewer.')
+    }
+    const pattern = validation.pattern
+    if (
+      pattern !== undefined &&
+      (typeof pattern !== 'string' || !patternCompiles(pattern))
+    ) {
+      issues.set(
+        row.rowKey,
+        'Pattern must be a regular expression the database can compile.',
+      )
+    }
+    for (const bound of ['min', 'max', 'minLength', 'maxLength'] as const) {
+      if (bound in validation && !Number.isFinite(validation[bound])) {
+        issues.set(row.rowKey, `Enter ${bound} as a number.`)
+      }
+    }
+    const quantity = row.quantity
+    if (quantity != null) {
+      const config =
+        typeof quantity === 'object' && !Array.isArray(quantity)
+          ? (quantity as Record<string, unknown>)
+          : null
+      const blank = (name: string) =>
+        typeof config?.[name] !== 'string' || config[name].trim() === ''
+      if (row.logicalType !== 'integer' && row.logicalType !== 'decimal') {
+        issues.set(row.rowKey, 'Only integer and decimal fields carry a unit.')
+      } else if (
+        config === null ||
+        blank('kind') ||
+        blank('dimension') ||
+        blank('storageUnit')
+      ) {
+        issues.set(
+          row.rowKey,
+          'A unit needs its kind, dimension and storage unit.',
+        )
+      }
+    }
+  }
+  return issues
 }

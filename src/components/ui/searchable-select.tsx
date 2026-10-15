@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Check, ChevronsUpDown } from 'lucide-react'
 
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import {
   Command,
   CommandEmpty,
@@ -73,11 +73,11 @@ export function SearchableSelect<T>({
         <Button
           id={id}
           type="button"
-          variant="outline"
+          variant="secondary"
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className="h-9 w-full justify-between font-normal"
+          className="w-full justify-between font-normal"
         >
           <span className="truncate">
             {selected ? getLabel(selected) : (triggerLabel ?? placeholder)}

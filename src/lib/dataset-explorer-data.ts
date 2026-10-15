@@ -807,12 +807,12 @@ export interface DatasetVersionRetention {
 
 /**
  * DSET-03.1 — what produced a snapshot. `pipeline_run` carries the run that
- * recorded the version as an output; otherwise the snapshot was saved by hand
- * (`manual`) or through the API (`api`). Imports do not yet record a
- * structured producer link, so they surface as `manual`/`api` until DSET-05/06.
+ * recorded the version as an output, `import` the import whose commit froze it
+ * (`label` is the file it read, or null for a connector's own run); otherwise
+ * the snapshot was saved by hand (`manual`) or through the API (`api`).
  */
 export interface DatasetVersionSource {
-  kind: 'pipeline_run' | 'manual' | 'api'
+  kind: 'pipeline_run' | 'import' | 'manual' | 'api'
   runId: string | null
   definitionName: string | null
   triggerKind: string | null

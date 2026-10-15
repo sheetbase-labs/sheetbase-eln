@@ -21,6 +21,7 @@ import {
   sniffImportFormat,
 } from '#/lib/import-parse'
 import type { ImportPreview, ImportSheet } from '#/lib/import-parse'
+import { describeImportRpcCode } from '#/lib/import-commit'
 import { mapImportSheet } from '#/lib/import-mapping'
 import type {
   ImportColumnMapping,
@@ -34,13 +35,14 @@ import {
   requestErrorResponse,
   resolveSessionAuth,
 } from '#/lib/request-auth'
-import type { SessionAuthDeps } from '#/lib/request-auth'
+import type { SessionAuthContext, SessionAuthDeps } from '#/lib/request-auth'
 import { recordParserFailure } from './parser-governance.server'
 import { z } from 'zod'
 import { IMPORT_PARSERS, recogniseImportParser } from './parsers'
 import type { ImportParserDefinition } from './parsers'
 import type {
   ImportColumnView,
+  ImportFileUploadResponse,
   ImportMappingDocument,
   ImportParserSummary,
 } from './types'
@@ -51,6 +53,54 @@ const REVIEW_SAMPLE_LIMIT = 20
 function asRow<T>(body: T | { error: unknown }): T | undefined {
   if (Array.isArray(body)) return (body as T[])[0]
   return body as T
+}
+
+/**
+ * PostgREST returns a RAISE EXCEPTION as `{ code, message, details, hint }`,
+ * where `code` is the SQLSTATE or the function's `SBxxx`. Its `message` names
+ * the cause that actually applied, so commit rejections surface it instead of
+ * a canned sentence that may be false for this Dataset.
+ */
+function raisedRpcError(
+  body: unknown,
+): { code: string; message: string } | undefined {
+  const record = Array.isArray(body) ? body[0] : body
+  if (!record || typeof record !== 'object') return undefined
+  const value = record as Record<string, unknown>
+  if (typeof value.code === 'string' && typeof value.message === 'string')
+    return { code: value.code, message: value.message }
+  if (typeof value.error === 'string' && value.error.trim())
+    return { code: 'rpc_error', message: value.error }
+  return undefined
+}
+
+/**
+ * The retained file's parser receipt must name the same cause the RPC raised,
+ * not a fixed "regulated Dataset" sentence. `SB107` covers three distinct
+ * parser causes; each maps to its own receipt.
+ */
+function parserFailureForRaisedError(error: {
+  code: string
+  message: string
+}): { code: string; message: string } | undefined {
+  if (error.code !== 'SB107') return undefined
+  if (error.message.includes('approved parser version'))
+    return {
+      code: 'parser_not_approved',
+      message:
+        'The regulated Dataset requires an approved matching parser version. Validate and approve this version before retrying.',
+    }
+  if (error.message.includes('format does not match'))
+    return {
+      code: 'parser_format_mismatch',
+      message:
+        'The parser does not match the retained file format. Choose a parser for this format before retrying.',
+    }
+  return {
+    code: 'parser_unrecognised',
+    message:
+      'The retained file does not match a usable registered parser version. Review its headers or register a matching version before retrying.',
+  }
 }
 
 function emptyStream(): ReadableStream<Uint8Array> {
@@ -375,6 +425,194 @@ async function ensureParsers(
   return summaries
 }
 
+/**
+ * The stored-file view shared by the upload response and the addressable
+ * re-read. Both derive it from the retained bytes, so a reloaded map/check step
+ * sees exactly what the upload saw. A re-read passes `record: false`: parse
+ * status and parser-failure receipts belong to the upload, not to every reload
+ * of a linked import.
+ */
+async function buildFileView(
+  context: SessionAuthContext,
+  storage: ObjectStorage,
+  file: ImportFileWire,
+  datasetId: string | null,
+  options: { record: boolean },
+): Promise<ImportFileUploadResponse> {
+  const base = {
+    ok: true,
+    fileId: file.id,
+    filename: file.filename,
+    mediaType: file.media_type,
+    byteSize: Number(file.byte_size),
+    checksum: file.checksum,
+    format: file.format,
+    datasetId,
+  }
+  let sheet: ImportSheet | null = null
+  let preview: ImportPreview | null = null
+  let parseError: string | undefined
+  try {
+    const parsed = await readAndParse(storage, file)
+    sheet = parsed.sheet
+    preview = parsed.preview
+  } catch (error) {
+    parseError =
+      error instanceof Error ? error.message : 'Could not parse file.'
+    if (options.record) {
+      await postgrestRpc(
+        'record_dataset_import_file_parse',
+        { p_file_id: file.id, p_status: 'failed', p_error: parseError },
+        context.token,
+      )
+      await recordParserFailure(
+        context,
+        file.id,
+        null,
+        'parse_failed',
+        parseError,
+      )
+    }
+  }
+
+  if (!sheet || !preview || parseError) {
+    return {
+      ...base,
+      parsed: false,
+      parseError,
+      parser: null,
+      sheet: null,
+      savedMapping: null,
+    }
+  }
+
+  const parsers = await ensureParsers(context.token, context.workspaceId)
+  const canonical = await canonicalReaders(context.token)
+  const rawTextHint =
+    file.format === 'xlsx' ? null : await readHeadText(storage, file)
+  const recognitionInput = {
+    format: sniffImportFormat(file.filename),
+    headers: sheet.headers,
+    rawTextHint,
+  }
+  const recognisedCanonical = canonical.find(
+    (reader) =>
+      reader.summary.status === 'approved' &&
+      recogniseImportParser(recognitionInput, [reader.definition]),
+  )
+  const recognition = recognisedCanonical
+    ? null
+    : recogniseImportParser(recognitionInput)
+  let parser: ImportParserSummary | null = null
+  if (recognisedCanonical) {
+    parser = recognisedCanonical.summary
+  } else if (recognition) {
+    const summary = parsers.get(recognition.key)
+    if (summary) parser = { ...summary, confidence: recognition.confidence }
+  }
+  if (!parser && options.record)
+    await recordParserFailure(
+      context,
+      file.id,
+      null,
+      'parser_unrecognised',
+      'The retained file does not match a registered parser. Review its headers or create a matching version.',
+    )
+
+  if (options.record)
+    await postgrestRpc(
+      'record_dataset_import_file_parse',
+      { p_file_id: file.id, p_status: 'parsed' },
+      context.token,
+    )
+
+  const savedMapping = parser
+    ? await loadSavedMapping(context.token, parser.parserId, datasetId)
+    : null
+  const draftParsers = canonical
+    .filter(
+      (reader) =>
+        reader.definition.format === file.format &&
+        reader.summary.status !== 'approved',
+    )
+    .map((reader) => reader.summary)
+  const shippedDrafts = IMPORT_PARSERS.filter(
+    (item) => item.format === file.format && item.status === 'draft',
+  ).flatMap((item) => {
+    const summary = parsers.get(item.key)
+    return summary ? [summary] : []
+  })
+  const draftOptions = draftParsers.length ? draftParsers : shippedDrafts
+  // Never print the found headers as the expected example: that is the reason
+  // recognition failed, not guidance. Name the drafts a matching file would
+  // need approved, or say that only approved versions recognise a file.
+  const foundHeaders = sheet.headers.slice(0, 6).join(', ')
+  const draftReason = draftOptions.length
+    ? ` ${draftOptions
+        .map((item) => `${item.label} v${item.version}`)
+        .join(', ')} ${
+        draftOptions.length === 1 ? 'is a draft' : 'are drafts'
+      }, so ${
+        draftOptions.length === 1 ? 'it is' : 'they are'
+      } not used until an admin approves ${
+        draftOptions.length === 1 ? 'that version' : 'one'
+      }.`
+    : ' Only approved parser versions are used for recognition.'
+
+  return {
+    ...base,
+    parsed: true,
+    parser,
+    draftParsers: draftOptions,
+    recognitionMessage: parser
+      ? `Recognised as ${parser.label} v${parser.version}.`
+      : `This file's headers (${foundHeaders}) match no approved parser.${draftReason}`,
+    sheet: {
+      name: sheet.name,
+      headers: sheet.headers,
+      sampleRows: sheet.rows.slice(0, SAMPLE_ROWS),
+      rowCount: sheet.rows.length,
+      sheetNames: preview.sheets.map((item) => item.name),
+    },
+    savedMapping,
+  }
+}
+
+/**
+ * GET /api/import/files?fileId=… — re-derive the stored import view so the
+ * map/check step is reloadable and linkable (R5-SURF-04). The URL identifies
+ * the stored import file, the stable identity `commit_dataset_import` pins
+ * (`p_file_id`); the file name is not an identity. Read-only, and the caller's
+ * workspace scopes the lookup: an unknown or foreign id is a plain not-found.
+ */
+export async function handleImportFileRead(
+  request: Request,
+  deps: SessionAuthDeps = realSessionAuthDeps,
+  storage: ObjectStorage = getObjectStorage(),
+): Promise<Response> {
+  if (request.method !== 'GET') {
+    return requestErrorResponse(405, 'method_not_allowed', 'Use GET.')
+  }
+  const auth = await resolveSessionAuth(request.headers, deps)
+  if (!auth.ok)
+    return requestErrorResponse(auth.status, auth.code, auth.message)
+  const { context } = auth
+
+  const params = new URL(request.url).searchParams
+  const fileId = params.get('fileId')
+  if (!fileId) {
+    return requestErrorResponse(400, 'invalid_request', 'fileId is required.')
+  }
+  const file = await loadStoredFile(context.token, fileId)
+  if (!file || file.workspace_id !== context.workspaceId) {
+    return requestErrorResponse(404, 'not_found', 'Import not found.')
+  }
+  const datasetId = params.get('datasetId') ?? file.dataset_id
+  return Response.json(
+    await buildFileView(context, storage, file, datasetId, { record: false }),
+  )
+}
+
 /** POST /api/import/files — store (checksum first), parse, recognise. */
 export async function handleImportFileUpload(
   request: Request,
@@ -446,124 +684,9 @@ export async function handleImportFileUpload(
     )
   }
 
-  let sheet: ImportSheet | null = null
-  let preview: ImportPreview | null = null
-  let parseError: string | undefined
-  try {
-    const parsed = await readAndParse(storage, file)
-    sheet = parsed.sheet
-    preview = parsed.preview
-  } catch (error) {
-    parseError =
-      error instanceof Error ? error.message : 'Could not parse file.'
-    await postgrestRpc(
-      'record_dataset_import_file_parse',
-      { p_file_id: file.id, p_status: 'failed', p_error: parseError },
-      context.token,
-    )
-    await recordParserFailure(
-      context,
-      file.id,
-      null,
-      'parse_failed',
-      parseError,
-    )
-  }
-
-  const base = {
-    ok: true,
-    fileId: file.id,
-    filename,
-    mediaType,
-    byteSize: Number(stored.byteSize),
-    checksum: stored.checksum,
-    format,
-  }
-
-  if (!sheet || !preview || parseError) {
-    return Response.json({
-      ...base,
-      parsed: false,
-      parseError,
-      parser: null,
-      sheet: null,
-      savedMapping: null,
-    })
-  }
-
-  const parsers = await ensureParsers(context.token, context.workspaceId)
-  const canonical = await canonicalReaders(context.token)
-  const rawTextHint =
-    format === 'xlsx' ? null : await readHeadText(storage, file)
-  const recognitionInput = {
-    format,
-    headers: sheet.headers,
-    rawTextHint,
-  }
-  const recognisedCanonical = canonical.find(
-    (reader) =>
-      reader.summary.status === 'approved' &&
-      recogniseImportParser(recognitionInput, [reader.definition]),
+  return Response.json(
+    await buildFileView(context, storage, file, datasetId, { record: true }),
   )
-  const recognition = recognisedCanonical
-    ? null
-    : recogniseImportParser(recognitionInput)
-  let parser: ImportParserSummary | null = null
-  if (recognisedCanonical) {
-    parser = recognisedCanonical.summary
-  } else if (recognition) {
-    const summary = parsers.get(recognition.key)
-    if (summary) parser = { ...summary, confidence: recognition.confidence }
-  }
-  if (!parser)
-    await recordParserFailure(
-      context,
-      file.id,
-      null,
-      'parser_unrecognised',
-      'The retained file does not match a registered parser. Review its headers or create a matching version.',
-    )
-
-  await postgrestRpc(
-    'record_dataset_import_file_parse',
-    { p_file_id: file.id, p_status: 'parsed' },
-    context.token,
-  )
-
-  const savedMapping = parser
-    ? await loadSavedMapping(context.token, parser.parserId, datasetId)
-    : null
-  const draftParsers = canonical
-    .filter(
-      (reader) =>
-        reader.definition.format === format &&
-        reader.summary.status !== 'approved',
-    )
-    .map((reader) => reader.summary)
-  const shippedDrafts = IMPORT_PARSERS.filter(
-    (item) => item.format === format && item.status === 'draft',
-  ).flatMap((item) => {
-    const summary = parsers.get(item.key)
-    return summary ? [summary] : []
-  })
-
-  return Response.json({
-    ...base,
-    parsed: true,
-    parser,
-    draftParsers: draftParsers.length ? draftParsers : shippedDrafts,
-    recognitionMessage: parser
-      ? `Recognised as ${parser.label} v${parser.version}.`
-      : `This file doesn't match a registered parser. Expected a header set such as sample, well (plate map) or sample, ntu, dil, timestamp (TB-02 CSV). Found ${sheet.headers.slice(0, 6).join(', ')}.`,
-    sheet: {
-      name: sheet.name,
-      headers: sheet.headers,
-      sampleRows: sheet.rows.slice(0, SAMPLE_ROWS),
-      rowCount: sheet.rows.length,
-      sheetNames: preview.sheets.map((item) => item.name),
-    },
-    savedMapping,
-  })
 }
 
 async function readHeadText(
@@ -1005,23 +1128,33 @@ export async function handleImportCommit(
   )
   const result = asRow(committed.body)
   if (committed.status >= 400 || !result || result.ok !== true) {
-    if (
-      committed.status >= 400 &&
-      'code' in committed.body &&
-      committed.body.code === 'SB107'
-    ) {
-      await recordParserFailure(
-        context,
-        prepared.file.id,
-        parserVersionId,
-        'parser_not_approved',
-        'The regulated Dataset requires an approved matching parser version. Validate and approve this version before retrying.',
-      )
+    // A raised RPC names the cause that actually applied; collapsing every
+    // failure into one sentence reports a cause that may be false for this
+    // Dataset (DSET-06.2). Surface the raised message and keep any parser
+    // receipt in step with the cause that was actually raised.
+    const raised =
+      committed.status >= 400 ? raisedRpcError(committed.body) : undefined
+    if (raised) {
+      const failure = parserFailureForRaisedError(raised)
+      if (failure) {
+        await recordParserFailure(
+          context,
+          prepared.file.id,
+          parserVersionId,
+          failure.code,
+          failure.message,
+        )
+      }
+      return Response.json({
+        ok: false,
+        committed: 0,
+        errors: [{ code: 'commit_failed', message: raised.message }],
+      })
     }
     const errors = (result?.errors ?? []).map((error) => ({
       row: error.rowIndex,
       code: error.code,
-      message: error.code,
+      message: describeImportRpcCode(error.code),
     }))
     return Response.json({
       ok: false,
@@ -1032,8 +1165,7 @@ export async function handleImportCommit(
           : [
               {
                 code: 'commit_failed',
-                message:
-                  'The import was rejected. Regulated datasets require an approved parser version; the file is kept for retry.',
+                message: 'The import was rejected. The file is kept for retry.',
               },
             ],
     })

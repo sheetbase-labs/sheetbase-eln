@@ -103,6 +103,21 @@ export async function copySvgToClipboard(svg: string): Promise<boolean> {
 // EXPORT_PRESETS / FigureExportSettings above — no new export engine.
 // ---------------------------------------------------------------------------
 
+/** R5-STUDIO-01: the statistical method an analysis export reports. */
+export interface FigureProvenanceMethod {
+  id: string
+  version: number
+  label: string
+  runner: string
+}
+
+/** One assumption check as reported, including a failing one. */
+export interface FigureProvenanceCheck {
+  id: string
+  status: string
+  detail: string
+}
+
 /** Source identity stamped into every representation export. */
 export interface FigureProvenanceStamp {
   kind: string
@@ -112,6 +127,13 @@ export interface FigureProvenanceStamp {
   configVersion: number
   /** Export wall-clock time, ISO-8601. Callers pin this for byte-identical rebuilds. */
   exportedAt: string
+  /**
+   * R5-STUDIO-01: analysis exports name the method they ran and every
+   * assumption check they reported — a citation still describes its model.
+   * Other kinds omit both.
+   */
+  method?: FigureProvenanceMethod
+  checks?: FigureProvenanceCheck[]
 }
 
 function escapeXml(text: string): string {
@@ -140,6 +162,7 @@ export function buildFigureProvenanceLine(
   else if (stamp.datasetId) parts.push('live')
   if (!stamp.datasetId && !stamp.versionId) parts.push(stamp.kind)
   parts.push(`config v${stamp.configVersion}`)
+  if (stamp.method) parts.push(`${stamp.method.id} v${stamp.method.version}`)
   parts.push(`Exported ${stamp.exportedAt}`)
   return parts.join(' · ')
 }
@@ -186,7 +209,7 @@ export function stampFigureSvg(
 export function buildDataExportHeaderLines(
   stamp: FigureProvenanceStamp,
 ): string[] {
-  return [
+  const lines = [
     `# ${buildFigureProvenanceLine(stamp)}`,
     `# kind: ${stamp.kind}`,
     `# dataset_id: ${stamp.datasetId ?? 'none'}`,
@@ -194,6 +217,15 @@ export function buildDataExportHeaderLines(
     `# config_version: ${stamp.configVersion}`,
     `# exported_at: ${stamp.exportedAt}`,
   ]
+  if (stamp.method) {
+    lines.push(
+      `# method: ${stamp.method.id} v${stamp.method.version} — ${stamp.method.label}`,
+    )
+    lines.push(`# method_runner: ${stamp.method.runner}`)
+  }
+  for (const check of stamp.checks ?? [])
+    lines.push(`# check: ${check.id} ${check.status} — ${check.detail}`)
+  return lines
 }
 
 function csvEscapeCell(value: string | number | null): string {

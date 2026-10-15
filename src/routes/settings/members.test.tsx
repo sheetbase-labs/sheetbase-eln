@@ -1,8 +1,31 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import { Route } from './members'
+
+const { suspendMock, routeRef } = vi.hoisted(() => ({
+  suspendMock: vi.fn(),
+  routeRef: {
+    role: 'viewer',
+    members: null as null | unknown[],
+    gate: null as null | Promise<void>,
+  },
+}))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: object) => ({
@@ -10,24 +33,29 @@ vi.mock('@tanstack/react-router', () => ({
     useRouteContext: () => ({
       context: {
         user: { id: 'viewer', name: 'Reader', email: 'reader@sheetbase.test' },
-        workspace: { id: 'ws', name: 'Workspace', role: 'viewer' },
+        workspace: { id: 'ws', name: 'Workspace', role: routeRef.role },
       },
     }),
   }),
 }))
+vi.mock('#/components/v3/ui/sonner', () => ({ toast: vi.fn() }))
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id }),
 }))
 vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
   ...(await importOriginal()),
-  fetchWorkspaceMembers: async () =>
-    ['current', 'old', 'revoked'].map((userId) => ({
+  suspendMember: (...args: unknown[]) => suspendMock(...args),
+  fetchWorkspaceMembers: async () => {
+    if (routeRef.gate) await routeRef.gate
+    if (routeRef.members) return routeRef.members
+    return ['current', 'old', 'revoked'].map((userId) => ({
       id: userId,
       userId,
       role: 'scientist',
       suspendedAt: null,
       createdAt: '2026-09-01T00:00:00Z',
-    })),
+    }))
+  },
   fetchInvitations: async () => [],
   fetchClients: async () => [],
 }))
@@ -61,19 +89,31 @@ vi.mock('#/lib/signature-certification', async (importOriginal) => ({
 
 afterEach(cleanup)
 
+beforeEach(() => {
+  routeRef.role = 'viewer'
+  routeRef.members = null
+  routeRef.gate = null
+  suspendMock.mockReset()
+  suspendMock.mockResolvedValue(undefined)
+})
+
+function renderMembers() {
+  const Component = Route.options.component
+  if (!Component) throw new Error('Members component required')
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <Component />
+    </QueryClientProvider>,
+  )
+}
+
 describe('SET-02 members status', () => {
   it('shows current-statement certification, explicit groups and real training separately', async () => {
-    const Component = Route.options.component
-    if (!Component) throw new Error('Members component required')
-    render(
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <Component />
-      </QueryClientProvider>,
-    )
+    renderMembers()
     const current = (await screen.findByText('current')).closest('tr')
     const old = (await screen.findByText('old')).closest('tr')
     const revoked = (await screen.findByText('revoked')).closest('tr')
@@ -89,5 +129,101 @@ describe('SET-02 members status', () => {
     expect(await within(revoked).findByText('1 overdue')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Groups' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Invite people' })).toBeNull()
+  })
+
+  it('keeps a body state in the members table while the members load', async () => {
+    let release: () => void = () => {}
+    routeRef.gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    renderMembers()
+
+    const table = screen.getByRole('table', { name: 'Members' })
+    // The header row plus the primitive's state row: never a bare header.
+    expect(within(table).getAllByRole('row')).toHaveLength(2)
+    expect(screen.queryByText('No members')).toBeNull()
+
+    release()
+    expect(await screen.findByText('current')).toBeTruthy()
+  })
+
+  it('states the empty members copy once the load returns no members', async () => {
+    routeRef.members = []
+    renderMembers()
+
+    expect(await screen.findByText('No members')).toBeTruthy()
+    expect(
+      screen.getByText('Invite people to work in this workspace.'),
+    ).toBeTruthy()
+  })
+
+  it('confirms before suspending, so a dropdown choice cannot end access alone', async () => {
+    const user = userEvent.setup()
+    // `workspace.admin` is owner-only in the capability map, so the row
+    // management menu is only offered to an owner.
+    routeRef.role = 'owner'
+    renderMembers()
+
+    await user.click(await screen.findByRole('button', { name: 'Manage old' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Suspend' }))
+    expect(suspendMock).not.toHaveBeenCalled()
+
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Suspend' }))
+    await waitFor(() =>
+      expect(suspendMock).toHaveBeenCalledWith(expect.anything(), {
+        workspaceId: 'ws',
+        userId: 'old',
+      }),
+    )
+  })
+
+  it('leaves the invite address unflagged until the dialog is used', async () => {
+    const user = userEvent.setup()
+    routeRef.role = 'owner'
+    renderMembers()
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Invite people' }),
+    )
+    const email = await screen.findByRole('textbox', { name: /Email address/ })
+    // The dialog opens on an empty address and Send is disabled; saying the
+    // address is wrong before anyone has used the field is a false complaint.
+    expect(email.getAttribute('aria-invalid')).toBeNull()
+    expect(email.hasAttribute('aria-describedby')).toBe(false)
+    expect(screen.queryByText('Enter an email address.')).toBeNull()
+    const send = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Send invitation',
+    })
+    expect(send.disabled).toBe(true)
+
+    await user.type(email, 'not-an-email')
+    expect(screen.getByText('Enter an email address.')).toBeTruthy()
+    expect(email.getAttribute('aria-invalid')).toBe('true')
+
+    await user.clear(email)
+    await user.type(email, 'qa@cdmo.example')
+    expect(screen.queryByText('Enter an email address.')).toBeNull()
+    expect(send.disabled).toBe(false)
+  })
+
+  it('explains a rejected invite address and links the reason to the field', async () => {
+    const user = userEvent.setup()
+    routeRef.role = 'owner'
+    renderMembers()
+
+    await user.click(await screen.findByRole('button', { name: 'Invite people' }))
+    const email = await screen.findByRole('textbox', { name: /Email address/ })
+    await user.type(email, 'not-an-email')
+
+    const describedBy = email.getAttribute('aria-describedby')
+    expect(describedBy).toBeTruthy()
+    const message = describedBy ? document.getElementById(describedBy) : null
+    expect(message?.textContent).toBe('Enter an email address.')
+    expect(email.getAttribute('aria-invalid')).toBe('true')
+    const send = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Send invitation',
+    })
+    expect(send.disabled).toBe(true)
   })
 })

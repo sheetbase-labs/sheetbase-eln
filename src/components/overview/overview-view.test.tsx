@@ -288,6 +288,30 @@ describe('EXP-02.4 ExperimentOverview', () => {
     expect(screen.getByText('Reviewed and approved')).toBeDefined()
   })
 
+  it('counts a dataset linked by identifier, as the Datasets tab does', () => {
+    render(
+      <ExperimentOverview
+        {...baseProps()}
+        links={[
+          ...baseProps().links,
+          {
+            id: 'link-dataset-unaddressable',
+            linkType: 'dataset',
+            targetKind: 'dataset',
+            targetIdentifier: 'DS-0310',
+            targetRecordId: null,
+          },
+        ]}
+      />,
+    )
+
+    // A dataset link without a record id is still an experiment dataset.
+    expect(screen.getByText('DS-0310')).toBeDefined()
+    expect(
+      screen.queryByText(/No datasets or analyses are linked yet/),
+    ).toBeNull()
+  })
+
   it('names an absent fact rather than faking it', () => {
     render(
       <ExperimentOverview

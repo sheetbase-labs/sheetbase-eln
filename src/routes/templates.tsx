@@ -7,11 +7,23 @@ import {
   useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTrigger,
+} from '#/components/v3/ui/dialog'
+import { Field, Input } from '#/components/v3/ui/input'
+import { toast } from '#/components/v3/ui/sonner'
 import {
   DescriptionList,
   Inspector,
@@ -32,15 +44,18 @@ import {
   ListToolbar,
   MobileList,
   SearchTabs,
+  Textarea,
   stickyCell,
   stickyHead,
 } from '#/components/v3/inventory/list'
 import {
+  templateDataQueryKeys,
   templateLifecycle,
   useTemplateRows,
 } from '#/components/v3/templates/templates-data'
 import type { TemplateRow } from '#/components/v3/templates/templates-data'
 import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
+import { createNotebookTemplate } from '#/lib/notebook-template-data'
 
 const tabs = ['all', 'active', 'retired'] as const
 type TemplateTab = (typeof tabs)[number]
@@ -49,6 +64,9 @@ const tabLabel: Record<TemplateTab, string> = {
   active: 'Active',
   retired: 'Retired',
 }
+
+/** The key format the catalogue and the create RPC both accept. */
+const templateKeyPattern = /^[a-z][a-z0-9_]{0,59}$/
 
 /** UI port (roadmap-4/ui-app3): the Templates board on the CORE-06 notebook
  * template catalogue. Templates pin immutable published versions; a new version
@@ -115,7 +133,9 @@ function TemplatesList() {
       ) as Record<TemplateTab, number>,
     [rows],
   )
-  const q = (search.q ?? '').trim().toLowerCase()
+  const queryText = (search.q ?? '').trim()
+  const q = queryText.toLowerCase()
+  const tabName = tabLabel[tab].toLowerCase()
   const visible = rows
     .filter((t) => inTab(t, tab))
     .filter((t) => !q || `${t.key} ${t.name}`.toLowerCase().includes(q))
@@ -129,6 +149,7 @@ function TemplatesList() {
         <ListHeader
           title="Templates"
           total={rows.length}
+          actions={<NewTemplateDialog />}
           tabs={
             <SearchTabs
               label="Template lists"
@@ -260,7 +281,9 @@ function TemplatesList() {
           ) : null}
         </div>
         <ListFooter right={sel ? '1 selected' : undefined}>
-          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
+          {queryText
+            ? `${visible.length} matching “${queryText}” of ${counts[tab]} ${tabName}`
+            : `${visible.length} of ${counts[tab]} ${tabName}`}
         </ListFooter>
       </div>
 
@@ -348,5 +371,122 @@ function TemplatesList() {
         </Inspector>
       ) : null}
     </div>
+  )
+}
+
+/** Creating a template opens an empty draft version, so the new catalogue
+ * entry has somewhere to hang its sections and parameters. */
+function NewTemplateDialog() {
+  const { context } = Route.useRouteContext()
+  const workspaceId = context.workspace?.id ?? ''
+  const navigate = useNavigate({ from: Route.fullPath })
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [key, setKey] = useState('')
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+
+  const create = useMutation({
+    mutationFn: () =>
+      createNotebookTemplate({
+        workspaceId,
+        key: key.trim(),
+        name: name.trim(),
+        description: description.trim() || null,
+        configuration: { formatVersion: 1, parameters: [], placements: [] },
+      }),
+    onSuccess: ({ template }) => {
+      void queryClient.invalidateQueries({
+        queryKey: templateDataQueryKeys.list,
+      })
+      setOpen(false)
+      toast(`${template.name} created`, {
+        description: 'Add its sections and parameters, then save a version.',
+      })
+      void navigate({
+        to: '/templates/$templateId',
+        params: { templateId: template.id },
+      })
+    },
+    onError: (error: unknown) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Could not create the template.',
+      )
+    },
+  })
+
+  const trimmedKey = key.trim()
+  const trimmedName = name.trim()
+  const keyOk = templateKeyPattern.test(trimmedKey)
+  const keyError =
+    trimmedKey.length > 0 && !keyOk
+      ? 'Lowercase letters, digits and underscore, starting with a letter.'
+      : null
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) {
+          setKey('')
+          setName('')
+          setDescription('')
+        }
+      }}
+    >
+      <DialogTrigger render={<Button variant="primary" icon="plus" />}>
+        New template
+      </DialogTrigger>
+      <DialogContent className="w-[min(520px,calc(100vw-32px))]">
+        <DialogHeader
+          title="New template"
+          description="A template holds the sections and parameters a notebook is made from. Saving later makes a new version; notebooks already made keep the one they started on."
+        />
+        <DialogBody>
+          <Field
+            label="Key"
+            required
+            hint="Lowercase letters, digits and underscore, e.g. depth_filter."
+            error={keyError}
+          >
+            <Input
+              autoFocus
+              className="mono"
+              value={key}
+              aria-invalid={keyError ? true : undefined}
+              placeholder="depth_filter"
+              onChange={(e) => setKey(e.target.value)}
+            />
+          </Field>
+          <Field label="Name" required>
+            <Input
+              value={name}
+              placeholder="e.g. Depth-filter clarification screen"
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Field>
+          <Field label="Description" hint="Optional">
+            <Textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <Button
+            variant="primary"
+            disabled={create.isPending || !keyOk || trimmedName.length === 0}
+            onClick={() => create.mutate()}
+          >
+            {create.isPending ? 'Creating…' : 'Create template'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

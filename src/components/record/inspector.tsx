@@ -18,8 +18,9 @@ import { Icon } from '#/components/v3/icons'
  *   - four honest states: skeleton, no-selection, unavailable-record and
  *     permission-denied.
  *
- * Width and the narrow-screen Sheet conversion are handled by AppShell; the
- * inspector itself is a plain column so it works in tests and in any slot.
+ * Width and the narrow-screen Sheet conversion belong to the surface that
+ * renders the column; the inspector itself is a plain column so it works in
+ * tests and in any slot.
  */
 
 export type InspectorState =

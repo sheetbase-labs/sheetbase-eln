@@ -20,8 +20,8 @@ export interface InstrumentRow {
   location: string | null
   ownerId: string | null
   retiredAt: string | null
-  connectionStatus: string
-  lastConnectedAt: string | null
+  /** R5-CONFIG-02 — how this instrument's data arrives. */
+  intakeMethod: string
   position: number
   updatedAt: string
 }
@@ -37,24 +37,121 @@ interface InstrumentWire {
   location: string | null
   owner_id: string | null
   retired_at: string | null
-  connection_status: string
-  last_connected_at: string | null
+  intake_method: string
   position: number
   updated_at: string
 }
 
-export function instrumentConnection(status: string): {
-  tone: Tone
-  label: string
-} {
-  switch (status) {
-    case 'connected':
-      return { tone: 'ok', label: 'Connected' }
-    case 'error':
-      return { tone: 'bad', label: 'Error' }
-    default:
-      return { tone: 'stored', label: 'Disconnected' }
-  }
+// ---------------------------------------------------------------------------
+// R5-CONFIG-02 — how an instrument's data gets in.
+//
+// The method is instrument configuration, not an integration: it says who writes the data and
+// therefore what its provenance is. `filedrop` and `webhook` data can only arrive through a
+// parser the workspace validated, so while none is attached the honest state is "parser not
+// validated" and nothing has been imported; `manual` names the person entering the reading;
+// `none` is registration for booking and citing only.
+// ---------------------------------------------------------------------------
+
+export type IntakeMethod = 'filedrop' | 'webhook' | 'manual' | 'none'
+
+export const INTAKE_METHODS: readonly {
+  value: IntakeMethod
+  title: string
+  consequence: string
+  needsParser: boolean
+}[] = [
+  {
+    value: 'filedrop',
+    title: 'File drop',
+    consequence:
+      'The instrument or its PC saves exports to a watched folder. Needs a validated parser.',
+    needsParser: true,
+  },
+  {
+    value: 'webhook',
+    title: 'Webhook',
+    consequence:
+      'The instrument’s software posts results to Sheetbase. Needs a validated parser.',
+    needsParser: true,
+  },
+  {
+    value: 'manual',
+    title: 'Manual entry',
+    consequence:
+      'People type readings in. Whoever enters a reading is its provenance.',
+    needsParser: false,
+  },
+  {
+    value: 'none',
+    title: 'Not connected yet',
+    consequence: 'Registered for booking and citing only. No data arrives.',
+    needsParser: false,
+  },
+]
+
+/** The label for a stored method; an unknown value reads as "Not connected". */
+export function intakeMethodLabel(method: string): string {
+  return (
+    INTAKE_METHODS.find((m) => m.value === method)?.title ?? 'Not connected'
+  )
+}
+
+export function intakeMethodNeedsParser(method: string): boolean {
+  return INTAKE_METHODS.find((m) => m.value === method)?.needsParser ?? false
+}
+
+/** How long since the last committed import before an automated method reads stale. */
+const INTAKE_STALE_DAYS = 30
+
+export interface InstrumentIntakeEvidence {
+  /** Whether a parser with a validated or approved version is attached. */
+  parserReady?: boolean
+  /** The instrument's most recent import, whatever its status. */
+  lastImport?: { status: string; createdAt: string } | null
+}
+
+/**
+ * Per-method health. A method with no ingestion (manual, none) reports what it is rather than a
+ * heartbeat, and an automated method never reports healthy without a committed import to prove it.
+ */
+export function intakeHealth(
+  method: string,
+  evidence: InstrumentIntakeEvidence = {},
+  now: Date = new Date(),
+): { tone: Tone; label: string } {
+  if (method === 'manual') return { tone: 'none', label: 'Manual entry' }
+  if (method === 'none' || !intakeMethodNeedsParser(method))
+    return { tone: 'none', label: 'Not connected' }
+  if (evidence.parserReady === false)
+    return { tone: 'warn', label: 'Parser not validated' }
+  const last = evidence.lastImport
+  if (!last) return { tone: 'draft', label: 'Waiting for first data' }
+  if (last.status === 'failed')
+    return { tone: 'bad', label: 'Last import failed' }
+  if (last.status !== 'committed')
+    return { tone: 'draft', label: 'Waiting for first data' }
+  const ageDays = (now.getTime() - Date.parse(last.createdAt)) / 86_400_000
+  if (!Number.isFinite(ageDays) || ageDays <= INTAKE_STALE_DAYS)
+    return { tone: 'ok', label: 'Healthy' }
+  return { tone: 'warn', label: `No data for ${Math.floor(ageDays)} days` }
+}
+
+/**
+ * A calibration or qualification day, in the lab surfaces' shared style
+ * ("9 Apr 2027", never "09 Apr 2027" or "Sept"). Both are recorded as UTC days
+ * (`…T00:00:00.000Z`), so the parts are read in UTC: rendering them in the
+ * reader's zone shows the day before to anyone west of Greenwich.
+ */
+export function formatInstrumentDay(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const parsed = Date.parse(iso)
+  if (Number.isNaN(parsed)) return '—'
+  const date = new Date(parsed)
+  // `en-GB` gives the four-letter "Sept"; the design uses three-letter months.
+  const month = date
+    .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
+    .slice(0, 3)
+  return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`
 }
 
 export const instrumentQueryKeys = {
@@ -64,10 +161,15 @@ export const instrumentQueryKeys = {
   runs: (id: string) => ['ui-port', 'instruments', 'runs', id] as const,
   calibrations: (id: string) =>
     ['ui-port', 'instruments', 'calibrations', id] as const,
+  lastImport: (id: string) =>
+    ['ui-port', 'instruments', 'last-import', id] as const,
+  parsers: (id: string) => ['ui-port', 'instruments', 'parsers', id] as const,
+  nextBooking: (id: string) =>
+    ['ui-port', 'instruments', 'next-booking', id] as const,
 }
 
 const FIELDS =
-  'id,display_id,name,instrument_type,model,serial_number,vendor,location,owner_id,retired_at,connection_status,last_connected_at,position,updated_at'
+  'id,display_id,name,instrument_type,model,serial_number,vendor,location,owner_id,retired_at,intake_method,position,updated_at'
 
 function toInstrument(row: InstrumentWire): InstrumentRow {
   return {
@@ -81,8 +183,7 @@ function toInstrument(row: InstrumentWire): InstrumentRow {
     location: row.location,
     ownerId: row.owner_id,
     retiredAt: row.retired_at,
-    connectionStatus: row.connection_status,
-    lastConnectedAt: row.last_connected_at,
+    intakeMethod: row.intake_method,
     position: row.position,
     updatedAt: row.updated_at,
   }
@@ -115,6 +216,224 @@ export function useInstrument(
           `?select=${FIELDS}&id=eq.${encodeURIComponent(instrumentId)}`,
         )
         .then((rows) => (rows[0] ? toInstrument(rows[0]) : null)),
+    staleTime: 15_000,
+  })
+}
+
+export interface InstrumentLastImport {
+  status: string
+  createdAt: string
+}
+
+interface ImportWire {
+  instrument_id: string | null
+  status: string
+  created_at: string
+}
+
+const IMPORT_FIELDS = 'instrument_id,status,created_at'
+
+/** The instrument's most recent import, whatever its status. */
+export function useInstrumentLastImport(
+  instrumentId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: instrumentQueryKeys.lastImport(instrumentId),
+    enabled: instrumentId.length > 0,
+    queryFn: () =>
+      client
+        .list<ImportWire>(
+          'dataset_imports',
+          `?select=${IMPORT_FIELDS}&instrument_id=eq.${encodeURIComponent(instrumentId)}&order=created_at.desc,id.desc&limit=1`,
+        )
+        .then((rows) =>
+          rows[0]
+            ? { status: rows[0].status, createdAt: rows[0].created_at }
+            : null,
+        ),
+    staleTime: 15_000,
+  })
+}
+
+/** The latest import per instrument, for the registry list's health column. */
+export function useLastImportsByInstrument(
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'instruments', 'last-import', 'all'] as const,
+    queryFn: () =>
+      client
+        .list<ImportWire>(
+          'dataset_imports',
+          `?select=${IMPORT_FIELDS}&instrument_id=not.is.null&order=created_at.desc,id.desc&limit=500`,
+        )
+        .then((rows) => {
+          const latest = new Map<string, InstrumentLastImport>()
+          for (const row of rows) {
+            if (!row.instrument_id || latest.has(row.instrument_id)) continue
+            latest.set(row.instrument_id, {
+              status: row.status,
+              createdAt: row.created_at,
+            })
+          }
+          return latest
+        }),
+    staleTime: 15_000,
+  })
+}
+
+export interface InstrumentParserRow {
+  name: string
+  /** A validated or approved version exists, so the parser may import GxP data. */
+  validated: boolean
+}
+
+interface ParserWire {
+  id: string
+  name: string
+}
+
+interface InstrumentParserWire {
+  id: string
+  instrument_id: string
+}
+
+interface ParserVersionWire {
+  parser_id: string
+  status: string
+}
+
+/**
+ * Which instruments have a parser that may import, accumulated from every attached
+ * parser. This is the same evidence the inspector derives for one instrument, so the
+ * registry list's health column can report the same state without a query per row.
+ */
+export function parserReadinessByInstrument(
+  parsers: Array<{ id: string; instrumentId: string }>,
+  validatedParserIds: ReadonlySet<string>,
+): Map<string, boolean> {
+  const ready = new Map<string, boolean>()
+  for (const parser of parsers) {
+    ready.set(
+      parser.instrumentId,
+      (ready.get(parser.instrumentId) ?? false) ||
+        validatedParserIds.has(parser.id),
+    )
+  }
+  return ready
+}
+
+/** Parser readiness for every instrument, for the registry list's health column. */
+export function useParserReadinessByInstrument(
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'instruments', 'parsers', 'all'] as const,
+    queryFn: async (): Promise<Map<string, boolean>> => {
+      const parsers = await client.list<InstrumentParserWire>(
+        'parsers',
+        '?select=id,instrument_id&instrument_id=not.is.null&limit=500',
+      )
+      if (!parsers.length) return new Map()
+      const ids = parsers.map((parser) => parser.id).join(',')
+      const versions = await client.list<ParserVersionWire>(
+        'parser_versions',
+        `?select=parser_id,status&parser_id=in.(${ids})&status=in.(validated,approved)&limit=500`,
+      )
+      return parserReadinessByInstrument(
+        parsers.map((parser) => ({
+          id: parser.id,
+          instrumentId: parser.instrument_id,
+        })),
+        new Set(versions.map((version) => version.parser_id)),
+      )
+    },
+    staleTime: 15_000,
+  })
+}
+
+/** The parsers attached to the instrument, with whether any version is validated. */
+export function useInstrumentParsers(
+  instrumentId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: instrumentQueryKeys.parsers(instrumentId),
+    enabled: instrumentId.length > 0,
+    queryFn: async (): Promise<InstrumentParserRow[]> => {
+      const parsers = await client.list<ParserWire>(
+        'parsers',
+        `?select=id,name&instrument_id=eq.${encodeURIComponent(instrumentId)}&order=name.asc&limit=50`,
+      )
+      if (!parsers.length) return []
+      const ids = parsers.map((parser) => parser.id).join(',')
+      const versions = await client.list<ParserVersionWire>(
+        'parser_versions',
+        `?select=parser_id,status&parser_id=in.(${ids})&status=in.(validated,approved)&limit=200`,
+      )
+      const validated = new Set(versions.map((version) => version.parser_id))
+      return parsers.map((parser) => ({
+        name: parser.name,
+        validated: validated.has(parser.id),
+      }))
+    },
+    staleTime: 15_000,
+  })
+}
+
+export interface InstrumentNextBooking {
+  id: string
+  title: string
+  startsAt: string
+}
+
+/**
+ * The instrument's next booking. ADR-0054: a booking for an instrument is
+ * stored with `resource_id` = the instrument id (the instrument's calendar
+ * resource is derived from it), so this is a plain join on the booking and the
+ * registry decides bookability — a retired instrument keeps its history but
+ * takes no new booking.
+ */
+export function useInstrumentNextBooking(
+  instrumentId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: instrumentQueryKeys.nextBooking(instrumentId),
+    enabled: instrumentId.length > 0,
+    queryFn: async (): Promise<{
+      bookable: boolean
+      next: InstrumentNextBooking | null
+    }> => {
+      const instrument = await client.list<{
+        id: string
+        retired_at: string | null
+      }>(
+        'instruments',
+        `?select=id,retired_at&id=eq.${encodeURIComponent(instrumentId)}&limit=1`,
+      )
+      if (!instrument.length || instrument[0].retired_at !== null)
+        return { bookable: false, next: null }
+      const bookings = await client.list<{
+        id: string
+        title: string
+        starts_at: string
+      }>(
+        'calendar_bookings',
+        `?select=id,title,starts_at&resource_id=eq.${encodeURIComponent(instrumentId)}&status=neq.cancelled&starts_at=gt.${encodeURIComponent(new Date().toISOString())}&order=starts_at.asc&limit=1`,
+      )
+      return {
+        bookable: true,
+        next: bookings[0]
+          ? {
+              id: bookings[0].id,
+              title: bookings[0].title,
+              startsAt: bookings[0].starts_at,
+            }
+          : null,
+      }
+    },
     staleTime: 15_000,
   })
 }
@@ -229,6 +548,13 @@ function toCalibration(row: CalibrationWire): InstrumentCalibrationRow {
   }
 }
 
+/**
+ * How far ahead a calibration counts as due soon. One window for every surface —
+ * the record page, the registry list's due column, its filter and ITS tab — so an
+ * instrument is never "due" on one screen and "valid" on another.
+ */
+export const CALIBRATION_DUE_SOON_DAYS = 30
+
 /** Current standing of the latest calibration: overdue, due soon or valid. */
 export function calibrationStatus(
   dueAt: string | null,
@@ -238,7 +564,7 @@ export function calibrationStatus(
   const due = Date.parse(dueAt)
   if (Number.isNaN(due)) return { tone: 'none', label: 'Not calibrated' }
   if (due < now.getTime()) return { tone: 'bad', label: 'Overdue' }
-  if (due - now.getTime() <= 30 * 86_400_000)
+  if (due - now.getTime() <= CALIBRATION_DUE_SOON_DAYS * 86_400_000)
     return { tone: 'warn', label: 'Due soon' }
   return { tone: 'ok', label: 'Valid' }
 }
@@ -288,6 +614,8 @@ export interface NewInstrumentInput {
   workspaceId: string
   name: string
   instrumentType: string
+  /** R5-CONFIG-02 — how the instrument's data will arrive. */
+  intakeMethod: IntakeMethod
   model?: string | null
   serialNumber?: string | null
   vendor?: string | null
@@ -304,11 +632,28 @@ export async function createInstrument(
     p_workspace_id: input.workspaceId,
     p_name: input.name,
     p_instrument_type: input.instrumentType,
+    p_intake_method: input.intakeMethod,
     p_model: input.model ?? null,
     p_serial_number: input.serialNumber ?? null,
     p_vendor: input.vendor ?? null,
     p_location: input.location ?? null,
     p_owner_id: input.ownerId ?? null,
+  })
+  return toInstrument(row)
+}
+
+/**
+ * Declare how the instrument's data now arrives. Configuration for future data: imports already
+ * committed keep the parser and source provenance they arrived with, so this rewrites no history.
+ */
+export async function setInstrumentIntakeMethod(
+  instrumentId: string,
+  intakeMethod: IntakeMethod,
+  client: DataClient = notebookDataClient,
+): Promise<InstrumentRow> {
+  const row = await client.rpc<InstrumentWire>('set_instrument_intake_method', {
+    p_instrument_id: instrumentId,
+    p_intake_method: intakeMethod,
   })
   return toInstrument(row)
 }
@@ -326,6 +671,28 @@ export async function setInstrumentRetired(
   return toInstrument(row)
 }
 
+/**
+ * The calibration that states an instrument's standing: the one performed most
+ * recently, not the one with the furthest due date. A recalibration with a nearer
+ * due date must not be masked by an older certificate that expires later.
+ */
+export function latestCalibrationByInstrument(
+  rows: InstrumentCalibrationRow[],
+): Map<string, InstrumentCalibrationRow> {
+  const latest = new Map<string, InstrumentCalibrationRow>()
+  for (const row of rows) {
+    const current = latest.get(row.instrumentId)
+    if (
+      !current ||
+      row.performedAt > current.performedAt ||
+      (row.performedAt === current.performedAt && row.id > current.id)
+    ) {
+      latest.set(row.instrumentId, row)
+    }
+  }
+  return latest
+}
+
 /** Latest calibration per instrument, for the registry list's due column. */
 export function useLatestCalibrationsByInstrument(
   client: DataClient = notebookDataClient,
@@ -336,15 +703,9 @@ export function useLatestCalibrationsByInstrument(
       client
         .list<CalibrationWire>(
           'instrument_calibrations',
-          `?select=${CALIBRATION_FIELDS}&order=due_at.desc,id.desc&limit=500`,
+          `?select=${CALIBRATION_FIELDS}&order=performed_at.desc,id.desc&limit=500`,
         )
-        .then((rows) => {
-          const latest = new Map<string, InstrumentCalibrationRow>()
-          for (const row of rows.map(toCalibration)) {
-            if (!latest.has(row.instrumentId)) latest.set(row.instrumentId, row)
-          }
-          return latest
-        }),
+        .then((rows) => latestCalibrationByInstrument(rows.map(toCalibration))),
     staleTime: 15_000,
   })
 }

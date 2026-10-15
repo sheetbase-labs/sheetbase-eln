@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  useNavigate,
+  useRouter,
+  useSearch,
+} from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '#/components/v3/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -19,10 +25,16 @@ import {
 } from '#/components/shortcuts/shortcut-provider'
 import { listShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
-import { groupWorkItems, useWorkItems } from '#/lib/work-items/data'
+import {
+  fetchSeenItemKeys,
+  groupWorkItems,
+  useWorkItems,
+  workItemsQueryKeys,
+} from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
+import { itemKey, itemTab, workItemType } from '#/lib/work-items/predicate'
+import type { InboxTab } from '#/lib/work-items/predicate'
 
-type InboxTab = 'needs-action' | 'following' | 'done-today'
 type InboxType = 'reviews' | 'data' | 'runs' | 'materials' | 'following'
 
 const tabs: [InboxTab, string][] = [
@@ -35,23 +47,32 @@ const types: [InboxType, string, Tone, WorkItemKind][] = [
   ['data', 'Data issues', 'bad', 'data_issue'],
   ['runs', 'Runs', 'analysis', 'run_failed'],
   ['materials', 'Materials', 'warn', 'material_expiring'],
-  ['following', 'Following', 'stored', 'following'],
 ]
 
 /** UI port (roadmap-4/ui-app3): the Inbox, wired to `my_work_items`. */
 export const Route = createFileRoute('/inbox')({
+  // The Home chips open a specific tab/type here, so the set a chip counted is
+  // the set the page shows.
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab?: InboxTab; type?: InboxType } => ({
+    tab:
+      search.tab === 'following' ||
+      search.tab === 'done-today' ||
+      search.tab === 'needs-action'
+        ? search.tab
+        : undefined,
+    type:
+      search.type === 'reviews' ||
+      search.type === 'data' ||
+      search.type === 'runs' ||
+      search.type === 'materials' ||
+      search.type === 'following'
+        ? search.type
+        : undefined,
+  }),
   component: Inbox,
 })
-
-function kindToType(kind: WorkItemKind): InboxType {
-  if (kind === 'review_requested' || kind === 'witness_requested')
-    return 'reviews'
-  if (kind === 'data_issue') return 'data'
-  if (kind === 'run_failed' || kind === 'run_waiting') return 'runs'
-  if (kind === 'material_expiring') return 'materials'
-  if (kind === 'cell_conflict') return 'data'
-  return 'following'
-}
 
 function toneFor(kind: WorkItemKind): Tone {
   if (kind === 'review_requested' || kind === 'witness_requested')
@@ -78,11 +99,6 @@ function labelFor(kind: WorkItemKind, state: string): string {
   return 'Following'
 }
 
-/** Stable key for an Inbox item across reloads. */
-export function itemKey(item: WorkItem): string {
-  return `${item.kind}:${item.sourceId ?? item.recordId ?? item.identifier ?? item.title}`
-}
-
 /** The per-row identity used for selection and the rendered list key. */
 export function rowKey(item: WorkItem): string {
   return item.sourceId ?? item.recordId ?? item.identifier ?? item.title
@@ -103,14 +119,6 @@ export function moveListSelection(
   const base = index === -1 ? 0 : index
   const next = Math.min(keys.length - 1, Math.max(0, base + delta))
   return keys[next]
-}
-
-function itemTab(item: WorkItem, seen: Set<string>): InboxTab {
-  if (item.state === 'following' || item.kind === 'following')
-    return 'following'
-  if (seen.has(itemKey(item)) || item.state === 'done_today')
-    return 'done-today'
-  return 'needs-action'
 }
 
 export function itemLink(item: WorkItem) {
@@ -166,36 +174,50 @@ export function reviewNeedsLargerScreen(item: WorkItem): boolean {
 function Inbox() {
   const query = useWorkItems()
   const items = query.data ?? []
-  const [tab, setTab] = useState<InboxTab>('needs-action')
-  const [type, setType] = useState<InboxType | undefined>(undefined)
-  const [later, setLater] = useState(false)
+  const search = useSearch({ from: '/inbox' })
+  const [tab, setTab] = useState<InboxTab>(search.tab ?? 'needs-action')
+  const [type, setType] = useState<InboxType | undefined>(search.type)
+  // QA3-lists-inbox-2 — `later` is the person's explicit choice: null means
+  // "follow the default", which expands the bucket when it holds every row the
+  // tab would render. A tab whose items are all undated then shows its rows
+  // instead of its count over an empty list, and the group's Collapse control
+  // still wins once the person has chosen.
+  const [later, setLater] = useState<boolean | null>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [selection, setSelection] = useState<Set<string>>(() => new Set())
 
+  // A chip on Home links to /inbox?type=… — follow the URL when it changes on
+  // an already-mounted page, not only on first mount.
+  useEffect(() => {
+    if (search.tab) setTab(search.tab)
+    setType(search.type)
+  }, [search.tab, search.type])
+
   const queryClient = useQueryClient()
+  const router = useRouter()
   const seenQuery = useQuery({
-    queryKey: ['ui-port', 'inbox', 'seen'],
-    queryFn: async () => {
-      const rows = await notebookDataClient.list<{ item_key: string }>(
-        'work_item_views',
-        '?select=item_key',
-      )
-      return new Set(rows.map((r) => r.item_key))
-    },
+    queryKey: workItemsQueryKeys.seen(),
+    queryFn: () => fetchSeenItemKeys(),
     staleTime: 15_000,
   })
   const seen = seenQuery.data ?? new Set<string>()
 
   const groups = useMemo(() => groupWorkItems(items), [items])
   const inTab = items.filter((i) => itemTab(i, seen) === tab)
-  const visible = inTab.filter((i) => !type || kindToType(i.kind) === type)
+  const visible = inTab.filter((i) => !type || workItemType(i.kind) === type)
   const visibleKeys = useMemo(
     () => new Set(visible.map((i) => itemKey(i))),
     [visible],
   )
-  const shown = visible.filter((i) => later || !groups.later.includes(i))
+  // The Later bucket is the tab's only group when every visible row lives in
+  // it (in this workspace every needs-action item is undated, so that is the
+  // whole tab).
+  const laterHoldsEveryRow =
+    visible.length > 0 && visible.every((i) => groups.later.includes(i))
+  const laterExpanded = later ?? laterHoldsEveryRow
+  const shown = visible.filter((i) => laterExpanded || !groups.later.includes(i))
   const hiddenLater = groups.later.filter(
-    (i) => itemTab(i, seen) === tab && (!type || kindToType(i.kind) === type),
+    (i) => itemTab(i, seen) === tab && (!type || workItemType(i.kind) === type),
   ).length
   const sections: [string | null, WorkItem[]][] = useMemo(
     () =>
@@ -208,13 +230,13 @@ function Inbox() {
             ],
             [
               'Later',
-              later
+              laterExpanded
                 ? groups.later.filter((i) => visibleKeys.has(itemKey(i)))
                 : [],
             ],
           ]
         : [[null, shown]],
-    [tab, groups, later, shown, visibleKeys],
+    [tab, groups, laterExpanded, shown, visibleKeys],
   )
   const orderedRows = useMemo(
     () => sections.flatMap(([, group]) => group),
@@ -229,16 +251,93 @@ function Inbox() {
   const tabCount = (t: InboxTab) =>
     items.filter((i) => itemTab(i, seen) === t).length
   const typeCount = (t: InboxType) =>
-    inTab.filter((i) => kindToType(i.kind) === t).length
+    inTab.filter((i) => workItemType(i.kind) === t).length
+  const typeLabel = type
+    ? (types.find(([t]) => t === type)?.[1] ?? type)
+    : undefined
 
-  const needsActionKeys = items
-    .filter((i) => itemTab(i, seen) === 'needs-action')
-    .map(itemKey)
+  // QA2-Inbox-2: while the read is outstanding the counts are unknown, not
+  // zero. Stating 0 made the page disagree with the sidebar and hid the fact
+  // that nothing had answered yet.
+  const countsKnown = !query.isLoading
+
+  // QA3-inbox-1 — "Mark all seen" acts on the items the current tab and type
+  // chip show, not on every needs-action item. On Following and Done today
+  // there is nothing of the sort on screen, and a type chip narrows the list,
+  // so marking the rest reported success for work the person could not see.
+  const markableKeys = useMemo(
+    () =>
+      visible
+        .filter((i) => itemTab(i, seen) === 'needs-action')
+        .map(itemKey),
+    [visible, seen],
+  )
 
   // SHELL-03.3 — the List scope through the single shortcut registry. The
   // ordered rows and the current selection live in refs so the registered
   // handlers stay stable and the provider does not re-register every render.
   const navigate = useNavigate()
+
+  // QA3-inbox-4 — the tab and the type chips write the URL, so a reload and
+  // Back agree with the list on screen. The URL was only ever read: clicking
+  // Following left `?type=reviews` in the address bar and a reload restored
+  // the old filter.
+  const updateSearch = useCallback(
+    (patch: { tab?: InboxTab; type?: InboxType }) => {
+      void navigate({
+        to: '/inbox',
+        search: (previous: { tab?: InboxTab; type?: InboxType }) => ({
+          ...previous,
+          ...patch,
+        }),
+      } as never)
+    },
+    [navigate],
+  )
+  const selectTab = (next: InboxTab) => {
+    setTab(next)
+    setType(undefined)
+    setLater(null)
+    updateSearch({
+      tab: next === 'needs-action' ? undefined : next,
+      type: undefined,
+    })
+  }
+  const selectType = (next: InboxType | undefined) => {
+    setType(next)
+    updateSearch({ type: next })
+  }
+
+  // QA3-inbox-3 — the tabs announce `role="tab"`, so the arrow keys move
+  // between them and only the selected tab sits in the tab order, matching
+  // what a screen reader is told.
+  const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
+  const onTabKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const current = tabs.findIndex(([t]) => t === tab)
+    let next: number
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        next = (current + 1) % tabs.length
+        break
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        next = (current - 1 + tabs.length) % tabs.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = tabs.length - 1
+        break
+      default:
+        return
+    }
+    event.preventDefault()
+    selectTab(tabs[next][0])
+    tabsRef.current[next]?.focus()
+  }
+
   const filterRef = useRef<HTMLDivElement>(null)
   const rowsRef = useRef<WorkItem[]>(orderedRows)
   const selectedKeyRef = useRef<string | null>(selectedKey)
@@ -290,7 +389,10 @@ function Inbox() {
       notebookDataClient.rpc('mark_work_items_seen', { p_item_keys: keys }),
     onSuccess: () => {
       toast('Marked as seen')
-      void queryClient.invalidateQueries({ queryKey: ['ui-port', 'inbox'] })
+      void queryClient.invalidateQueries({ queryKey: ['work-items'] })
+      // The Inbox badge and Home counts come from the router context, which
+      // only a route re-resolution refreshes.
+      void router.invalidate()
     },
     onError: (error: unknown) =>
       toast.error(
@@ -302,12 +404,20 @@ function Inbox() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-col gap-1 border-b border-border px-4 pt-4 md:px-6">
-          <div className="flex items-center gap-2">
+          {/* WCAG 1.4.10 — the phone reference header (PhoneInbox) is the
+              title alone; the two actions cannot share its line with it (at
+              390 they measured 408px and pushed Mark all seen outside the
+              viewport with no ancestor able to scroll to it). The row wraps,
+              exactly as the shell's own TopBar does below `md`, so both
+              controls reflow into view instead of being clipped or dropped.
+              There is nothing to fill here once they wrap, so the desktop
+              spacer goes with the row it spaced. */}
+          <div className="flex items-center gap-2 max-md:flex-wrap">
             <h1 className="text-title">Inbox</h1>
             <span className="ml-1 text-body text-fg-muted max-md:hidden">
               Everything waiting on you, across projects
             </span>
-            <span className="flex-1" />
+            <span className="flex-1 max-md:hidden" />
             <Button
               nativeButton={false}
               render={<Link to="/settings/notifications" />}
@@ -315,8 +425,8 @@ function Inbox() {
               Notification settings
             </Button>
             <Button
-              disabled={markSeen.isPending || needsActionKeys.length === 0}
-              onClick={() => markSeen.mutate(needsActionKeys)}
+              disabled={markSeen.isPending || markableKeys.length === 0}
+              onClick={() => markSeen.mutate(markableKeys)}
             >
               Mark all seen
             </Button>
@@ -324,19 +434,20 @@ function Inbox() {
           <div
             role="tablist"
             aria-label="Inbox"
+            onKeyDown={onTabKeys}
             className="mt-1 flex gap-5 overflow-x-auto [scrollbar-width:none]"
           >
-            {tabs.map(([t, l]) => (
+            {tabs.map(([t, l], index) => (
               <button
                 key={t}
+                ref={(el) => {
+                  tabsRef.current[index] = el
+                }}
                 type="button"
                 role="tab"
                 aria-selected={tab === t}
-                onClick={() => {
-                  setTab(t)
-                  setType(undefined)
-                  setLater(false)
-                }}
+                tabIndex={tab === t ? 0 : -1}
+                onClick={() => selectTab(t)}
                 className={cn(
                   'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted hover:text-fg max-md:h-11',
                   tab === t && 'border-link text-fg',
@@ -344,7 +455,7 @@ function Inbox() {
               >
                 {l}
                 <span className="text-label font-normal text-fg-muted">
-                  {tabCount(t)}
+                  {countsKnown ? tabCount(t) : '—'}
                 </span>
               </button>
             ))}
@@ -362,7 +473,7 @@ function Inbox() {
             variant="quiet"
             aria-pressed={!type}
             className={!type ? 'bg-selection hover:bg-selection' : undefined}
-            onClick={() => setType(undefined)}
+            onClick={() => selectType(undefined)}
           >
             All types
           </Button>
@@ -375,10 +486,10 @@ function Inbox() {
               className={
                 type === t ? 'bg-selection hover:bg-selection' : undefined
               }
-              onClick={() => setType(type === t ? undefined : t)}
+              onClick={() => selectType(type === t ? undefined : t)}
             >
               <Dot tone={tone} />
-              {l} {typeCount(t)}
+              {l} {countsKnown ? typeCount(t) : '—'}
             </Button>
           ))}
           <span className="flex-1" />
@@ -402,7 +513,28 @@ function Inbox() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {orderedRows.length === 0 && hiddenLater === 0 ? (
+          {query.isError ? (
+            <div
+              role="alert"
+              className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
+            >
+              <div className="text-prose font-semibold">
+                Couldn’t load your inbox
+              </div>
+              <div className="max-w-[460px] leading-[19px] text-fg-muted">
+                {query.error instanceof Error
+                  ? query.error.message
+                  : 'The work list could not be read. Try again.'}
+              </div>
+              <Button
+                size="sm"
+                disabled={query.isFetching}
+                onClick={() => void query.refetch()}
+              >
+                {query.isFetching ? 'Trying…' : 'Try again'}
+              </Button>
+            </div>
+          ) : orderedRows.length === 0 && hiddenLater === 0 ? (
             <div
               role="status"
               className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
@@ -411,10 +543,21 @@ function Inbox() {
                 {query.isLoading ? 'Loading…' : 'Nothing here'}
               </div>
               <div className="max-w-[460px] leading-[19px] text-fg-muted">
-                {tab === 'following'
-                  ? 'Records you follow appear here.'
-                  : 'Nothing needs your action right now.'}
+                {type
+                  ? `No ${typeLabel} items in this tab.`
+                  : tab === 'following'
+                    ? 'Records you follow appear here.'
+                    : tab === 'done-today'
+                      ? 'Nothing has been marked seen or done today.'
+                      : 'Nothing needs your action right now.'}
               </div>
+              {/* QA3-inbox-2 — the type chips narrow the list, so the state
+                  that empties it offers the way back. */}
+              {type ? (
+                <Button size="sm" onClick={() => selectType(undefined)}>
+                  Clear filter
+                </Button>
+              ) : null}
             </div>
           ) : (
             <div role="list" aria-label="Inbox items">
@@ -427,7 +570,12 @@ function Inbox() {
                       className="flex h-8 items-center gap-2 border-b border-border-subtle bg-surface-muted px-4 text-label font-medium text-fg-muted md:px-6"
                     >
                       {g ?? tabs.find(([t]) => t === tab)![1]}
-                      <span className="num font-normal">{rows.length}</span>
+                      {/* QA3-lists-inbox-2 — the tab's own group states the
+                          tab's total, so the strip and the list agree in one
+                          viewport; a due-date group states its own rows. */}
+                      <span className="num font-normal">
+                        {g === null ? visible.length : rows.length}
+                      </span>
                       {g === 'Later' ? (
                         <button
                           type="button"
@@ -439,11 +587,17 @@ function Inbox() {
                         </button>
                       ) : null}
                     </div>
-                    {rows.map((i) => {
+                    {rows.map((i, index) => {
                       const key = rowKey(i)
                       return (
                         <div
-                          key={key}
+                          // QA3-lists-inbox-1 — `rowKey` mirrors the boundary
+                          // identity, but distinct work items can share it
+                          // (many data issues carry one dataset's identifier),
+                          // and duplicate keys leave removed rows on screen.
+                          // The position disambiguates the rendered siblings;
+                          // `key` still drives selection.
+                          key={`${key}#${index}`}
                           role="listitem"
                           aria-current={selected === i ? true : undefined}
                         >
@@ -507,7 +661,7 @@ function Inbox() {
               })}
             </div>
           )}
-          {hiddenLater > 0 && !later ? (
+          {hiddenLater > 0 && !laterExpanded ? (
             <button
               type="button"
               aria-expanded={false}

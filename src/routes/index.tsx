@@ -10,7 +10,6 @@ import {
   Section,
 } from '#/components/v3/ui/layout'
 import { Dot, Status } from '#/components/v3/ui/status'
-import type { Tone } from '#/components/v3/ui/status'
 import {
   Table,
   TableBody,
@@ -21,9 +20,15 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { experimentStatus } from '#/components/v3/experiments/experiments-data'
+import { HomeQuiet, recentTone } from '#/components/v3/home/home-quiet'
 import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
-import { fetchCalendarBookings, isSameDayInZone } from '#/lib/calendar'
+import {
+  fetchCalendarBookings,
+  fetchCalendarInstruments,
+  fetchCalendarResources,
+  isSameDayInZone,
+  toCalendarBooking,
+} from '#/lib/calendar'
 import type { CalendarBookingWire } from '#/lib/calendar'
 import { formatRelativeTime, notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -31,13 +36,32 @@ import {
   fetchRecentItems,
   recentStatusLabel,
 } from '#/lib/recents'
-import type { RecentItem } from '#/lib/recents'
 import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
   signatureCertificationDataClient,
 } from '#/lib/signature-certification'
-import { describeAuditEvent, fetchAuditEvents } from '#/lib/audit-history'
+import {
+  auditLinkFor,
+  describeAuditEvent,
+  ENTITY_LABELS,
+  fetchAuditEvents,
+} from '#/lib/audit-history'
+import type { DescribedAuditEvent } from '#/lib/audit-history'
+import { ObjectHistoryDialog } from '#/components/audit/object-history-dialog'
+import {
+  buildComingUp,
+  continueWorkingItems,
+  fetchProjectApprovalProgress,
+  fetchUpcomingMilestones,
+  fetchUpcomingRecordEnds,
+  freeInstruments,
+  groupComingUp,
+  homePace,
+  homeUpcomingWindow,
+  homeWaitingItem,
+  pickUpItems,
+} from '#/lib/home-quiet'
 import {
   fetchHomeCounts,
   fetchHomeReviews,
@@ -50,6 +74,8 @@ import {
   homeDueLabel,
   homeMaterialExpiryLabel,
 } from '#/lib/home-data'
+import { fetchSeenItemKeys, workItemsQueryKeys } from '#/lib/work-items/data'
+import { needsAction } from '#/lib/work-items/predicate'
 import {
   fetchWorkspaceGeneral,
   workspaceGeneralQueryKey,
@@ -76,12 +102,14 @@ export const Route = createFileRoute('/')({
   component: Home,
 })
 
+/** No seen keys until that read answers; an empty set marks nothing seen. */
+const EMPTY_SEEN: ReadonlySet<string> = new Set()
+
 interface FirstRunProject {
   id: string
   title: string
   accessLevel: string
 }
-
 export interface FirstRunInput {
   workspaceName: string
   accountHint?: string
@@ -145,18 +173,8 @@ export function firstRunProgress(steps: FirstRunStep[]): {
   return { done: steps.filter((step) => step.done).length, total: steps.length }
 }
 
-/** Status tone for a resolved recent item, from the same palette as the rest
- * of v3. Record statuses reuse the experiment status mapping; lifecycle
- * objects map active/archived directly. */
-export function recentTone(item: Pick<RecentItem, 'kind' | 'status'>): Tone {
-  if (item.kind === 'record') return experimentStatus(item.status ?? '').tone
-  if (item.status === 'active') return 'progress'
-  if (item.status === 'archived' || item.status === 'retired') return 'stored'
-  return 'none'
-}
-
-function Home() {
-  const { context } = Route.useRouteContext()
+export function Home() {
+  const { context, shellCounts } = Route.useRouteContext()
   const workspaceId = context.workspace?.id
   const userId = context.user.id
   const reviewsQuery = useQuery({
@@ -176,13 +194,36 @@ function Home() {
     enabled: Boolean(workspaceId),
   })
   const timeZone = workspaceQuery.data?.timezone ?? 'UTC'
-  const range = homeDayRange(new Date(), timeZone)
+  const now = new Date()
+  const range = homeDayRange(now, timeZone)
+  // R5-HOME-01: one booking read serves both the busy Home (today only) and
+  // the quiet Home's "Coming up" list, so the calm state adds no second read.
+  const upcomingWindow = homeUpcomingWindow(now, timeZone)
   const countsQuery = useQuery({
     queryKey: ['home-counts', workspaceId, userId, range.start, range.end],
     queryFn: () => fetchHomeCounts(notebookDataClient, workspaceId!, range),
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
   })
   const counts = countsQuery.data
+  // The sidebar badge states the caller's inbox total and Home displays the
+  // same number, so one screen cannot show two numbers for the same work: the
+  // shell context wins when it carries one. It carries none for a zero inbox
+  // and `null` for a count that could not be read, and in both cases Home falls
+  // back to its own read rather than stating a number it cannot back.
+  const shellInbox = 'inbox' in shellCounts ? shellCounts.inbox : undefined
+  const inboxCount = shellInbox != null ? Number(shellInbox) : counts?.inbox
+  // The pace is decided by this page's own reads — the reads that fill the
+  // banner, Coming up and the review table — so whatever Home says is waiting
+  // is something the page can name and open, not a badge snapshot it cannot
+  // substantiate. Both reads state the one Inbox predicate.
+  const waitingCounts = counts
+    ? {
+        inbox: counts.inbox,
+        datasetsWithErrors: counts.datasetsWithErrors,
+        unreadNotifications: counts.unreadNotifications,
+      }
+    : null
+  const pace = waitingCounts ? homePace(waitingCounts) : 'busy'
   const bookingsQuery = useQuery({
     queryKey: ['home-bookings', workspaceId, userId, range.start],
     queryFn: () =>
@@ -190,7 +231,7 @@ function Home() {
         notebookDataClient,
         workspaceId!,
         range.start,
-        range.end,
+        upcomingWindow.end,
       ),
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
   })
@@ -210,6 +251,10 @@ function Home() {
   })
   const recents = recentsQuery.data ?? []
   const showFirstRun = recentsQuery.isSuccess && recents.length === 0
+  // R5-HOME-01: the calm page shows the person's projects, so their project
+  // summaries are shared with the first-run state rather than re-read.
+  const calm = !showFirstRun && pace !== 'busy'
+  const needsProjects = showFirstRun || calm
 
   const onboardingQuery = useQuery({
     queryKey: workspaceAccessKeys.onboarding(workspaceId ?? '', userId),
@@ -231,12 +276,13 @@ function Home() {
   const assignmentsQuery = useQuery({
     queryKey: workspaceAccessKeys.assignments(workspaceId ?? '', userId),
     queryFn: () => fetchMyProjectAssignments(notebookDataClient),
-    enabled: Boolean(workspaceId) && showFirstRun,
+    enabled: Boolean(workspaceId) && needsProjects,
   })
   const projectsQuery = useQuery({
     queryKey: ['home-first-run-projects', workspaceId, userId],
     queryFn: () => fetchProjectSummaries(workspaceId),
-    enabled: Boolean(workspaceId) && showFirstRun && assignmentsQuery.isSuccess,
+    enabled:
+      Boolean(workspaceId) && needsProjects && assignmentsQuery.isSuccess,
   })
   const projects = homeAssignedProjects(
     projectsQuery.data ?? [],
@@ -263,19 +309,167 @@ function Home() {
     enabled: Boolean(workspaceId) && showFirstRun,
   })
 
+  // R5-HOME-01 — the quiet Home's own reads, all enabled only in the calm
+  // states: the workspace's instruments, the experiments with a planned end
+  // inside the next two weeks, the person's project milestones due in the same
+  // window, and each project's own approval counts.
+  const resourcesQuery = useQuery({
+    queryKey: ['home-resources', workspaceId],
+    queryFn: () => fetchCalendarResources(notebookDataClient, workspaceId!),
+    enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
+  })
+  // ADR-0054 — the free-instrument list is the registry, not the mirror of it.
+  const instrumentsQuery = useQuery({
+    queryKey: ['home-instruments', workspaceId],
+    queryFn: () => fetchCalendarInstruments(notebookDataClient, workspaceId!),
+    enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
+  })
+  const upcomingEndsQuery = useQuery({
+    queryKey: ['home-upcoming', workspaceId, userId, range.start],
+    queryFn: () =>
+      fetchUpcomingRecordEnds(notebookDataClient, workspaceId!, upcomingWindow),
+    enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
+  })
+  const milestonesQuery = useQuery({
+    queryKey: [
+      'home-upcoming-milestones',
+      workspaceId,
+      userId,
+      range.start,
+      projectIds.join(','),
+    ],
+    queryFn: () =>
+      fetchUpcomingMilestones(notebookDataClient, projectIds, upcomingWindow),
+    enabled: calm && projectsQuery.isSuccess && projectIds.length > 0,
+  })
+  const approvalsQuery = useQuery({
+    queryKey: [
+      'home-project-approvals',
+      workspaceId,
+      userId,
+      projectIds.join(','),
+    ],
+    queryFn: () => fetchProjectApprovalProgress(notebookDataClient, projects),
+    enabled: calm && projectsQuery.isSuccess && projects.length > 0,
+  })
+
   const activityQuery = useQuery({
     queryKey: ['home-activity', workspaceId, userId],
     queryFn: () => fetchAuditEvents(notebookDataClient, { limit: 6 }),
     enabled: Boolean(workspaceId),
   })
 
-  const reviews = reviewsQuery.data ?? []
+  // QA2-Inbox-1: the same seen state the Inbox list drops items by, so the
+  // reviews and materials Home names cannot outlive what the Inbox lists.
+  const seenQuery = useQuery({
+    queryKey: workItemsQueryKeys.seen(),
+    queryFn: () => fetchSeenItemKeys(),
+    enabled: Boolean(workspaceId),
+  })
+  const seen = seenQuery.data ?? EMPTY_SEEN
+
+  const reviews = (reviewsQuery.data ?? []).filter((review) =>
+    needsAction(
+      {
+        kind: 'review_requested',
+        state: 'needs_action',
+        recordId: review.recordId,
+        identifier: review.identifier,
+        title: review.title,
+      },
+      seen,
+    ),
+  )
   const datasetIssues = datasetIssuesQuery.data ?? []
-  const materials = materialsQuery.data ?? []
+  const materials = (materialsQuery.data ?? []).filter((material) =>
+    needsAction(material, seen),
+  )
   const bookings = (bookingsQuery.data ?? []).filter(
     (b: CalendarBookingWire) => !b.cancelled_at,
   )
   const activity = (activityQuery.data?.events ?? []).map(describeAuditEvent)
+
+  // The booking read now spans the "Coming up" window; the busy Home still
+  // means today.
+  const calendarBookings = bookings.map((booking) => toCalendarBooking(booking))
+  const todayBookings = calendarBookings.filter((booking) =>
+    isSameDayInZone(new Date(booking.startsAt), now, timeZone),
+  )
+  const waiting =
+    pace === 'near-quiet' && waitingCounts
+      ? homeWaitingItem({
+          counts: waitingCounts,
+          reviews: reviews.map((review) => ({
+            revisionId: review.revisionId,
+            identifier: review.identifier,
+          })),
+          materials: materials.map((material) => ({
+            recordId: material.recordId,
+            identifier: material.identifier,
+            reason: homeMaterialExpiryLabel(material, now, timeZone),
+          })),
+          datasetIssues: datasetIssues.map((issue) => ({
+            id: issue.id,
+            identifier: issue.identifier,
+            label: issue.label,
+          })),
+        })
+      : null
+  const pickUp = calm
+    ? pickUpItems(recents, recentStatusLabel, describeRecentChange)
+    : []
+  const continueWorking = calm ? continueWorkingItems(recents, pickUp) : recents
+  const comingUp = calm
+    ? groupComingUp(
+        buildComingUp({
+          bookings: calendarBookings,
+          // A booking names a resource id, which is the instrument id for an
+          // instrument booking (its resource row mirrors the registry). Rooms
+          // and other resources name themselves here.
+          resourceNames: new Map(
+            (resourcesQuery.data ?? []).map((resource) => [
+              resource.id,
+              resource.name,
+            ]),
+          ),
+          reviews: reviews.flatMap((review) =>
+            review.dueAt
+              ? [
+                  {
+                    revisionId: review.revisionId,
+                    identifier: review.identifier,
+                    dueAt: review.dueAt,
+                  },
+                ]
+              : [],
+          ),
+          materials: materials.map((material) => ({
+            recordId: material.recordId,
+            identifier: material.identifier,
+            title: material.title,
+            dueAt: material.dueAt,
+            reason: homeMaterialExpiryLabel(material, now, timeZone),
+          })),
+          plannedEnds: upcomingEndsQuery.data ?? [],
+          milestones: milestonesQuery.data ?? [],
+          projectNames: new Map(
+            projects.map((project) => [project.id, project.title]),
+          ),
+          now,
+          timeZone,
+        }),
+        now,
+        timeZone,
+      )
+    : []
+  const instrumentsFree = calm
+    ? freeInstruments(
+        instrumentsQuery.data ?? [],
+        calendarBookings,
+        now,
+        timeZone,
+      )
+    : []
 
   const mine = (certificationsQuery.data ?? []).find((c) => c.userId === userId)
   const setupSteps = firstRunSteps({
@@ -292,35 +486,10 @@ function Home() {
   })
   const progress = firstRunProgress(setupSteps)
 
-  const chips = [
-    {
-      n: counts?.reviews,
-      label: 'to review',
-      tone: 'review' as Tone,
-      to: '/inbox' as const,
-    },
-    {
-      n: counts?.datasetsWithErrors,
-      label:
-        counts?.datasetsWithErrors === 1
-          ? 'dataset with errors'
-          : 'datasets with errors',
-      tone: 'bad' as Tone,
-      to: '/datasets' as const,
-    },
-    {
-      n: counts?.experimentsInProgress,
-      label: 'experiments in progress',
-      tone: 'progress' as Tone,
-      to: '/experiments' as const,
-    },
-    {
-      n: counts?.instrumentRuns,
-      label: 'instrument runs today',
-      tone: 'analysis' as Tone,
-      to: '/schedule' as const,
-    },
-  ]
+  // QA2-Home-1: a chip leads to the set it counts, so the destination opens
+  // filtered to that set instead of its unfiltered default.
+  const chipClass =
+    'inline-flex items-center gap-2 text-body text-fg no-underline hover:underline'
 
   const today = new Date().toLocaleDateString('en-GB', {
     timeZone,
@@ -338,6 +507,7 @@ function Home() {
     recentsQuery,
     reviewsQuery,
     materialsQuery,
+    seenQuery,
     activityQuery,
     ...(showFirstRun
       ? [
@@ -348,6 +518,20 @@ function Home() {
           projectOpensQuery,
           peopleQuery,
           experimentsQuery,
+        ]
+      : []),
+    ...(calm
+      ? [
+          resourcesQuery,
+          upcomingEndsQuery,
+          // The calm page owns the project cards, so it waits for them too.
+          assignmentsQuery,
+          projectsQuery,
+          // These two stay disabled (and so must stay out of the gate) when the
+          // person has no project of their own to report on.
+          ...(projectsQuery.isSuccess && projectIds.length > 0
+            ? [milestonesQuery, approvalsQuery]
+            : []),
         ]
       : []),
   ]
@@ -377,55 +561,74 @@ function Home() {
     )
   }
 
+  const header = (
+    <PageHeader
+      className="border-b-0 bg-transparent"
+      title="Home"
+      meta={
+        <span>
+          {today} · {context.workspace?.name ?? 'Workspace'}
+          {showFirstRun &&
+          onboarding &&
+          isSameDayInZone(new Date(onboarding.joined_at), new Date(), timeZone)
+            ? ' · you joined today'
+            : ''}
+        </span>
+      }
+      actions={
+        showFirstRun ? undefined : (
+          <>
+            {openNotebookId ? (
+              <Button
+                className="max-md:hidden"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/records/$recordId/notebook"
+                    params={{ recordId: openNotebookId }}
+                  />
+                }
+              >
+                Open notebook
+              </Button>
+            ) : null}
+            <Button
+              variant="primary"
+              className="max-md:hidden"
+              nativeButton={false}
+              render={<Link to="/experiments/new" />}
+            >
+              New experiment
+            </Button>
+          </>
+        )
+      }
+    />
+  )
+
+  if (calm) {
+    return (
+      <HomeQuiet
+        header={header}
+        pace={pace === 'quiet' ? 'quiet' : 'near-quiet'}
+        waiting={waiting}
+        comingUp={comingUp}
+        pickUp={pickUp}
+        continueWorking={continueWorking}
+        projects={approvalsQuery.data ?? []}
+        todayBookings={todayBookings}
+        freeInstruments={instrumentsFree}
+        activity={activity}
+        userId={userId}
+        timeZone={timeZone}
+      />
+    )
+  }
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        <PageHeader
-          className="border-b-0 bg-transparent"
-          title="Home"
-          meta={
-            <span>
-              {today} · {context.workspace?.name ?? 'Workspace'}
-              {showFirstRun &&
-              onboarding &&
-              isSameDayInZone(
-                new Date(onboarding.joined_at),
-                new Date(),
-                timeZone,
-              )
-                ? ' · you joined today'
-                : ''}
-            </span>
-          }
-          actions={
-            showFirstRun ? undefined : (
-              <>
-                {openNotebookId ? (
-                  <Button
-                    className="max-md:hidden"
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to="/records/$recordId/notebook"
-                        params={{ recordId: openNotebookId }}
-                      />
-                    }
-                  >
-                    Open notebook
-                  </Button>
-                ) : null}
-                <Button
-                  variant="primary"
-                  className="max-md:hidden"
-                  nativeButton={false}
-                  render={<Link to="/experiments/new" />}
-                >
-                  New experiment
-                </Button>
-              </>
-            )
-          }
-        />
+        {header}
         {showFirstRun ? (
           <div className="flex flex-col gap-6 px-4 pb-8 pt-2 md:px-6">
             <section className="flex max-w-[760px] flex-col gap-2">
@@ -495,15 +698,15 @@ function Home() {
                   </Link>
                 }
               >
-                {bookings.length ? (
+                {todayBookings.length ? (
                   <ul className="m-0 flex list-none flex-col p-0">
-                    {bookings.map((b) => (
+                    {todayBookings.map((b) => (
                       <li
                         key={b.id}
                         className="flex min-h-11 items-center gap-3 border-b border-border-subtle py-2 last:border-0"
                       >
                         <span className="num w-10 shrink-0 font-medium text-link">
-                          {new Date(b.starts_at).toLocaleTimeString('en-GB', {
+                          {new Date(b.startsAt).toLocaleTimeString('en-GB', {
                             timeZone,
                             hour: '2-digit',
                             minute: '2-digit',
@@ -531,21 +734,57 @@ function Home() {
               aria-label="Summary"
               className="flex flex-wrap items-center gap-x-6 gap-y-2 border-y border-border-subtle py-2.5"
             >
-              {chips.map((c) => (
-                <Link
-                  key={c.label}
-                  to={c.to}
-                  className="inline-flex items-center gap-2 text-body text-fg no-underline hover:underline"
-                >
-                  <Dot tone={c.tone} />
-                  <span>
-                    <b className="num font-semibold">{c.n ?? '—'}</b> {c.label}
-                  </span>
-                </Link>
-              ))}
+              <Link
+                to="/inbox"
+                search={{ type: 'reviews' }}
+                className={chipClass}
+              >
+                <Dot tone="review" />
+                <span>
+                  <b className="num font-semibold">{counts?.reviews ?? '—'}</b>{' '}
+                  to review
+                </span>
+              </Link>
+              <Link
+                to="/datasets"
+                search={{ tab: 'issues' }}
+                className={chipClass}
+              >
+                <Dot tone="bad" />
+                <span>
+                  <b className="num font-semibold">
+                    {counts?.datasetsWithErrors ?? '—'}
+                  </b>{' '}
+                  {counts?.datasetsWithErrors === 1
+                    ? 'dataset with errors'
+                    : 'datasets with errors'}
+                </span>
+              </Link>
+              <Link
+                to="/experiments"
+                search={{ tab: 'inprogress' }}
+                className={chipClass}
+              >
+                <Dot tone="progress" />
+                <span>
+                  <b className="num font-semibold">
+                    {counts?.experimentsInProgress ?? '—'}
+                  </b>{' '}
+                  experiments in progress
+                </span>
+              </Link>
+              <Link to="/schedule" className={chipClass}>
+                <Dot tone="analysis" />
+                <span>
+                  <b className="num font-semibold">
+                    {counts?.instrumentRuns ?? '—'}
+                  </b>{' '}
+                  instrument runs today
+                </span>
+              </Link>
               <span className="flex-1" />
               <Link to="/inbox" className="text-label">
-                Open inbox · {counts?.inbox ?? '—'} items
+                Open inbox · {inboxCount ?? '—'} items
               </Link>
             </nav>
 
@@ -576,10 +815,16 @@ function Home() {
                       {reviews.map((r) => (
                         <TableRow key={r.id}>
                           <TableCell>
-                            <span className="mono text-fg-muted">
-                              {r.identifier}
-                            </span>{' '}
-                            {r.title}
+                            <Link
+                              to="/review/$revisionId"
+                              params={{ revisionId: r.revisionId }}
+                              className="text-fg hover:text-link"
+                            >
+                              <span className="mono text-fg-muted">
+                                {r.identifier}
+                              </span>{' '}
+                              {r.title}
+                            </Link>
                           </TableCell>
                           <TableCell>{r.projectTitle ?? '—'}</TableCell>
                           <TableCell>{r.submittedByName ?? '—'}</TableCell>
@@ -759,15 +1004,15 @@ function Home() {
               </span>
             }
           >
-            {bookings.length ? (
+            {todayBookings.length ? (
               <ul className="m-0 flex list-none flex-col p-0">
-                {bookings.map((b) => (
+                {todayBookings.map((b) => (
                   <li
                     key={b.id}
                     className="flex gap-3 border-b border-border-subtle py-2 last:border-0"
                   >
                     <span className="num w-10 shrink-0 font-medium text-link">
-                      {new Date(b.starts_at).toLocaleTimeString('en-GB', {
+                      {new Date(b.startsAt).toLocaleTimeString('en-GB', {
                         timeZone,
                         hour: '2-digit',
                         minute: '2-digit',
@@ -870,7 +1115,7 @@ function Home() {
                             ? 'You'
                             : (a.event.actorName ?? 'System')}
                         </b>{' '}
-                        {a.action} {a.subject}
+                        {a.action} <ActivitySubject described={a} />
                       </div>
                       {a.changes.map((change, index) => (
                         <div
@@ -896,5 +1141,34 @@ function Home() {
         </Inspector>
       )}
     </div>
+  )
+}
+
+/**
+ * QA2-Home-2 — an activity entry must name the thing it changed and offer a
+ * way to open it. A subject with a canonical product route opens it; one
+ * without (workspace settings, template versions, …) opens its authoritative
+ * history instead, so no entry is inert.
+ */
+function ActivitySubject({ described }: { described: DescribedAuditEvent }) {
+  const link = auditLinkFor(described.event)
+  if (link)
+    return (
+      <a href={link.href} className="hover:text-link">
+        {described.subject}
+      </a>
+    )
+  return (
+    <>
+      {described.subject}{' '}
+      <ObjectHistoryDialog
+        objectId={described.event.entityUuid}
+        objectLabel={
+          ENTITY_LABELS[described.event.entityType] ??
+          described.event.entityType
+        }
+        triggerLabel="History"
+      />
+    </>
   )
 }

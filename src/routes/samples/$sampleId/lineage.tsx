@@ -24,7 +24,11 @@ import type { LineageGraph, LineageNode } from '#/lib/lineage-data'
 import { deriveSampleVolumeSummary, fetchSampleEvents } from '#/lib/samples'
 import type { SampleRecord, SampleVolumeSummary } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { sampleEventsQueryKey, useSampleRecord } from '../$sampleId'
+import {
+  downloadLineageCsv,
+  sampleEventsQueryKey,
+  useSampleRecord,
+} from '../$sampleId'
 
 /**
  * LAB-03 — the sample Lineage tab (SampleLineage). Reads the real relationship
@@ -76,9 +80,27 @@ function SampleLineage() {
         action={
           <Button
             size="sm"
-            onClick={() =>
-              toast('Export started. You will get a link when it is ready.')
-            }
+            onClick={() => {
+              try {
+                const wrote = downloadLineageCsv(
+                  sample.data?.identifier ?? 'sample',
+                  rows.map((row) => ({
+                    identifier: row.node.identifier,
+                    title: row.node.title,
+                    relation: row.relation,
+                    status: sampleStatus(row.node.status).label,
+                  })),
+                )
+                if (!wrote) toast('Nothing to export — no lineage links yet.')
+              } catch (error) {
+                toast('Could not export lineage', {
+                  description:
+                    error instanceof Error
+                      ? error.message
+                      : 'The download failed.',
+                })
+              }
+            }}
           >
             Export lineage
           </Button>

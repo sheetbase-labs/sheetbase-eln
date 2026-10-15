@@ -11,6 +11,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/shell'
 import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
+import { Toaster } from '#/components/v3/ui/sonner'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { CollaborationProvider } from '../components/collaboration/collaboration-provider'
@@ -26,6 +27,10 @@ import type { CurrentContext } from '#/lib/current-user'
 import type { ShellCounts } from '#/lib/shell-counts.server'
 import type { ShellPinned } from '#/lib/shell-chrome.server'
 import type { Notification } from '#/components/v3/types'
+import { parseThemeCookie, themeScript } from '#/lib/theme-cookie'
+import type { ThemePref } from '#/lib/theme-cookie'
+import { capabilitiesFromEnv } from '#/lib/capabilities'
+import type { Capabilities } from '#/lib/capabilities'
 
 interface RouterContext {
   queryClient: QueryClient
@@ -33,19 +38,36 @@ interface RouterContext {
   shellCounts: ShellCounts
   shellPinned: ShellPinned[]
   shellNotifications: Notification[]
+  themePref: ThemePref
+  /** R5-SHELL-03: the deployment's capability flags, resolved once per request. */
+  capabilities: Capabilities
 }
 
-// Fetch auth context once at the root so every child route can read it
-// from the router context without each making its own server round-trip.
+// Fetch the deployment context (auth, capability flags) once at the root so
+// every child route can read it from the router context without each making its
+// own server round-trip.
 // The dynamic imports inside the handler are server-only — TanStack
 // Start's import protection allows them because the handler never runs
 // in the client bundle.
 const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const { getRequestHeaders } = await import('@tanstack/react-start/server')
+  const headers = getRequestHeaders()
+  // R5-SHELL-02: the appearance preference is a cookie the server can read, so
+  // the root document renders the person's theme on the first paint. An absent
+  // or unknown cookie resolves to System, never to a stored default.
+  const themePref = parseThemeCookie(headers.get('cookie')) ?? 'system'
   const { getCurrentContext } = await import('#/lib/current-user')
-  const context = await getCurrentContext(getRequestHeaders())
+  const capabilities = capabilitiesFromEnv()
+  const context = await getCurrentContext(headers)
   if (!context?.workspace)
-    return { context, counts: {}, pinned: [], notifications: [] }
+    return {
+      context,
+      capabilities,
+      counts: {},
+      pinned: [],
+      notifications: [],
+      themePref,
+    }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
   const { getShellPinned, getShellNotifications } =
     await import('#/lib/shell-chrome.server')
@@ -54,7 +76,7 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
     getShellPinned(context.workspace.id, context.user.id),
     getShellNotifications(context.workspace.id, context.user.id),
   ])
-  return { context, counts, pinned, notifications }
+  return { context, capabilities, counts, pinned, notifications, themePref }
 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -92,15 +114,19 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async () => {
     const {
       context: auth,
+      capabilities,
       counts: shellCounts,
       pinned,
       notifications,
+      themePref,
     } = await getAuthContextFn()
     return {
       auth,
+      capabilities,
       shellCounts,
       shellPinned: pinned,
       shellNotifications: notifications,
+      themePref,
     }
   },
 })
@@ -118,144 +144,35 @@ function RootRouteComponent() {
   const { auth, shellCounts, shellPinned, shellNotifications } =
     Route.useRouteContext()
 
-  // Map the auth context to the AppShell context shape so the sidebar
-  // (workspace name, user info, nav) renders during SSR — not after
-  // hydration.  This eliminates the multi-second delay where main
-  // content appeared but the sidebar was missing.
-  const shellContext = auth
-    ? {
-        workspace: auth.workspace
-          ? {
-              id: auth.workspace.id,
-              slug: auth.workspace.slug,
-              name: auth.workspace.name,
-            }
-          : null,
-        workspaces: auth.workspaces,
-        user: {
-          name: auth.user.name,
-          email: auth.user.email,
-          role: auth.workspace?.role,
-        },
-      }
-    : null
-
-  // UI port (roadmap-4/ui-app3): routes already ported from sheetbase-app-3
-  // render inside app-3's shell; every other route keeps the ELN shell until it
-  // is ported. The list grows area by area, then this branch and the ELN shell
-  // are deleted.
-  const v3RouteIds = [
-    '/',
-    '/inbox',
-    '/review/$revisionId',
-    '/evidence/$revisionId',
-    '/instruments',
-    '/instruments/$instrumentId',
-    '/scan',
-    '/readings/new',
-    '/sheets/$sheetId',
-    '/sheets/new',
-    '/records/$recordId',
-    '/records/$recordId/',
-    '/records/$recordId/notebook',
-    '/schedule',
-    '/search',
-    '/settings',
-    '/settings/',
-    '/settings/members',
-    '/settings/access',
-    '/settings/signatures',
-    '/settings/instruments',
-    '/settings/integrations',
-    '/settings/integrations/$connectorId',
-    '/settings/audit',
-    '/settings/diagnostics',
-    '/settings/usage',
-    '/settings/api',
-    '/settings/profile',
-    '/settings/notifications',
-    '/protocols',
-    '/protocols/$protocolId',
-    '/templates',
-    '/templates/$templateId',
-    '/templates/$templateId/',
-    '/templates/$templateId/versions',
-    '/templates/$templateId/in-use',
-    '/templates/$templateId/update',
-    '/experiments',
-    '/experiments/new',
-    '/experiments/$expId',
-    '/experiments/$expId/',
-    '/experiments/$expId/overview',
-    '/experiments/$expId/notebook',
-    '/experiments/$expId/samples',
-    '/experiments/$expId/datasets',
-    '/experiments/$expId/results',
-    '/experiments/$expId/files',
-    '/experiments/$expId/history',
-    '/models',
-    '/models/$modelId',
-    '/models/$modelId/',
-    '/models/$modelId/fields',
-    '/models/$modelId/versions',
-    '/models/$modelId/records',
-    '/models/$modelId/records/',
-    '/models/$modelId/records/new',
-    '/models/$modelId/records/$recordId',
-    '/models/$modelId/rules',
-    '/models/$modelId/relations',
-    '/models/$modelId/usage',
-    '/models/$modelId/datasets',
-    '/models/$modelId/edit',
-    '/analysis',
-    '/analysis/',
-    '/analysis/new',
-    '/analysis/$analysisId',
-    '/help',
-    '/help/',
-    '/help/records',
-    '/help/shortcuts',
-    '/pipelines',
-    '/pipelines/agents',
-    '/pipelines/runs/$runId',
-    '/pipelines/$pipelineId',
-    '/pipelines/$pipelineId/',
-    '/pipelines/$pipelineId/runs',
-    '/pipelines/$pipelineId/runs/',
-    '/pipelines/$pipelineId/runs/$runId',
-    '/pipelines/$pipelineId/triggers',
-    '/pipelines/$pipelineId/steps',
-    '/import',
-    '/datasets',
-    '/datasets/$datasetId',
-    '/datasets/$datasetId/',
-    '/datasets/$datasetId/snapshots',
-    '/datasets/$datasetId/rows',
-    '/datasets/$datasetId/compare',
-    '/samples',
-    '/materials',
-    '/samples/$sampleId',
-    '/samples/$sampleId/',
-    '/samples/$sampleId/usage',
-    '/samples/$sampleId/history',
-    '/samples/$sampleId/lineage',
-    '/samples/$sampleId/measurements',
-    '/projects',
-    '/projects/$projectId',
-    '/projects/$projectId/',
-    '/projects/$projectId/milestones',
-    '/projects/$projectId/folders',
-    '/projects/$projectId/members',
-    '/projects/$projectId/settings',
+  // R5-SHELL-01: the adopted (v3) shell is the default for every route, so a
+  // new product route cannot silently appear without product navigation. Only
+  // these recorded internal reference routes keep the legacy ShellProvider
+  // wrapper, and the routes with their own chrome render bare. This replaced
+  // the hand-maintained allow-list of ported route ids, whose "any matched
+  // ancestor" semantics made most entries redundant and its gaps invisible.
+  const legacyShellRouteIds = [
+    // The operator documents rendered from docs/*.md (deployment, recovery,
+    // security, …). Reference material, not product navigation.
+    '/docs/$name',
+    // The legacy component gallery: it renders the pre-port kit
+    // (src/components/scientific, record, notebook) and is not in product nav.
+    '/foundations',
+    // The printed-label redirect shim: it renders only while resolving the
+    // identifier, then replaces the location with the ported record route.
+    '/r/$identifier',
+    // The development-only grid demo. It redirects to `/` in production and
+    // carries no business data.
+    '/sheetbase-components',
   ]
   // Routes with their own chrome (the client portal, ADR-0049) render without
   // either shell: no internal navigation and no workspace data.
   const bareRouteIds = ['/client-portal', '/sign-in']
-  const bareRoute = useMatches().some((match) =>
+  const matches = useMatches()
+  const bareRoute = matches.some((match) =>
     bareRouteIds.includes(match.routeId),
   )
-  const portedToV3 = useMatches().some((match) =>
-    v3RouteIds.includes(match.routeId),
+  const legacyShell = matches.some((match) =>
+    legacyShellRouteIds.includes(match.routeId),
   )
   const appShellData = auth
     ? {
@@ -294,14 +211,14 @@ function RootRouteComponent() {
           <CollaborationProvider>
             {bareRoute ? (
               <Outlet />
-            ) : portedToV3 ? (
+            ) : legacyShell ? (
+              <ShellProvider>
+                <Outlet />
+              </ShellProvider>
+            ) : (
               <V3AppShell data={appShellData}>
                 <Outlet />
               </V3AppShell>
-            ) : (
-              <ShellProvider initialContext={shellContext}>
-                <Outlet />
-              </ShellProvider>
             )}
           </CollaborationProvider>
         </CollaborationEnabledContext.Provider>
@@ -323,19 +240,31 @@ function initialsOf(name: string): string {
  * Inline no-flash script: applies the saved theme to <html> before the React
  * tree hydrates, so there is no flash of the wrong theme on reload. Runs
  * synchronously in <head>. Production CSP allowlists inline scripts by
- * per-request nonce (see docs/operations/security-headers.md).
+ * per-request nonce (see docs/operations/security-headers.md); the development
+ * policy keeps 'unsafe-inline'.
  */
-const themeNoFlash = `(function(){try{var t=localStorage.getItem('sheetbase-theme')||'light';var dark=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(dark)document.documentElement.classList.add('dark');}catch(e){}})();`
-
 function RootDocument({ children }: { children: React.ReactNode }) {
+  // R5-SHELL-02: the server read the `sb-theme` cookie, so the first paint
+  // already carries the person's choice. `system` cannot be resolved on the
+  // server (the device setting is not sent), so it is left unclassed here and
+  // the inline script fills it in before paint.
+  const { themePref } = Route.useRouteContext()
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={themePref === 'dark' ? 'dark' : undefined}
+      data-theme-pref={themePref}
+      suppressHydrationWarning
+    >
       <head>
         <HeadContent />
-        <script dangerouslySetInnerHTML={{ __html: themeNoFlash }} />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
         {children}
+        {/* Every `toast()` in the app renders here: the call sites were
+            mounted nowhere, so 140 confirmations and failures were invisible. */}
+        <Toaster />
         {import.meta.env.DEV && !import.meta.env.VITE_PARITY ? (
           <TanStackDevtools
             config={{ position: 'bottom-right' }}

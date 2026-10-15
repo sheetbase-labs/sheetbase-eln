@@ -1,7 +1,18 @@
 import { Fragment, useEffect, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 
 import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
+import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -118,8 +129,10 @@ function JsonValue({ label, value }: { label: string; value: unknown }) {
 // Proposals
 // ---------------------------------------------------------------------------
 
-/** Group proposals the way the design does: what needs you, what waits on
- * others, and what is already decided. */
+/** Group proposals the way the design does: what needs you, what is still
+ * undecided, and what is already decided. The middle group is an approval the
+ * caller cannot give themselves; it does not claim a colleague has picked it
+ * up, because nothing here knows who else can approve. */
 export function proposalGroups(
   proposals: AgentOperationProposal[],
   canApprove: boolean,
@@ -133,7 +146,7 @@ export function proposalGroups(
   }
   return [
     { key: 'needs', label: 'Needs your approval', items: needsYou },
-    { key: 'waiting', label: 'Waiting on others', items: waiting },
+    { key: 'waiting', label: 'Awaiting approval', items: waiting },
     { key: 'decided', label: 'Decided', items: decided },
   ].filter((g) => g.items.length)
 }
@@ -677,6 +690,9 @@ export function AgentPoliciesPanel({
   const [maxRows, setMaxRows] = useState('100')
   const [reason, setReason] = useState('')
   const [meaning, setMeaning] = useState('I approve this delegation')
+  /** PIPE-01: disabling removes a delegation, so it is confirmed first. */
+  const [pendingDisable, setPendingDisable] =
+    useState<AgentOperationPolicy | null>(null)
 
   useEffect(() => {
     if (!credentialId && credentials[0]) setCredentialId(credentials[0].id)
@@ -701,6 +717,26 @@ export function AgentPoliciesPanel({
           credential, a canonical target and a row limit. Updates, overwrites
           and other credentials stay human-required.
         </Muted>
+        {/* PIPE-01: with no service credential there is nothing to delegate to,
+            so the form stays disabled — and now says why. */}
+        {canManage && credentials.length === 0 ? (
+          <Notice
+            tone="warn"
+            title="No service credentials"
+            action={
+              <Link
+                to="/settings/api"
+                className={buttonVariants({ variant: 'quiet', size: 'sm' })}
+              >
+                Open API and SDK
+              </Link>
+            }
+          >
+            A policy delegates dataset row writes to one workspace service
+            credential, and this workspace has none yet. Create one, then return
+            here to delegate its writes.
+          </Notice>
+        ) : null}
         {canManage ? (
           <form
             className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_150px_1fr_100px_auto]"
@@ -818,7 +854,7 @@ export function AgentPoliciesPanel({
                   <TableHead>Target</TableHead>
                   <TableHead>Limit</TableHead>
                   <TableHead>Enabled</TableHead>
-                  <TableHead />
+                  <TableHead aria-label="Actions" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -863,7 +899,7 @@ export function AgentPoliciesPanel({
                         <Button
                           variant="danger"
                           size="sm"
-                          onClick={() => onDisable(p)}
+                          onClick={() => setPendingDisable(p)}
                         >
                           Disable
                         </Button>
@@ -883,6 +919,38 @@ export function AgentPoliciesPanel({
           />
         )}
       </Section>
+      <ConfirmDialog
+        open={pendingDisable !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDisable(null)
+        }}
+      >
+        <ConfirmDialogContent>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>
+              Disable {pendingDisable?.name ?? 'this policy'}?
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              Dataset row commits for its credential go back to requiring a
+              human approval. The policy and its signature stay in the audit
+              trail.
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel />
+            <ConfirmDialogAction
+              variant="danger-fill"
+              onClick={() => {
+                const policy = pendingDisable
+                setPendingDisable(null)
+                if (policy) onDisable(policy)
+              }}
+            >
+              Disable policy
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
     </div>
   )
 }

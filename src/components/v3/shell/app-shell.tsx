@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Link,
   useNavigate,
@@ -49,11 +49,12 @@ import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import { RegistryShortcutsDialog } from '#/components/shortcuts/shortcuts-dialog'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
-import type { Notification } from '#/components/v3/types'
+import type { Notification, NotificationTarget } from '#/components/v3/types'
+import type { ShellCounts } from '#/lib/shell-counts.server'
+import { markNotificationsRead } from '#/lib/notifications-data'
 import { isHomeSection, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
-import { Sheet, SheetContent } from '#/components/v3/ui/sheet'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
 import { authClient } from '#/lib/auth-client'
@@ -76,7 +77,7 @@ type ShellData = {
   notifications: Notification[]
   pinned: { id: string; name: string; tone: 'progress' | 'review' }[]
   /** Live counts keyed by nav label: Inbox, Datasets, Pipelines. */
-  counts?: { inbox?: string; datasets?: string; pipelines?: string }
+  counts?: ShellCounts
   /** SHELL-01: the caller's active workspace and all their memberships. */
   workspace?: { id: string; name: string } | null
   workspaces?: { id: string; name: string }[]
@@ -96,11 +97,19 @@ export function AppShell({
   const navigate = useNavigate()
   const router = useRouter()
   const theme = useTheme()
-  const [menu, setMenu] = useState(false)
   const [search, setSearch] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  /** SHELL-01/03: a toggle the user has already made outranks the slower fetch. */
+  const collapseTouched = useRef(false)
+  /**
+   * SHELL-02: the ids marked read in this session. The bell's rows come from the
+   * server snapshot, so the action has to be remembered here until the shell
+   * re-resolves — otherwise the rows revert to unread on the next render.
+   */
+  const [readNotifications, setReadNotifications] =
+    useState<ReadonlySet<string>>(() => new Set())
 
   // SHELL-01.2: omit navigation a workspace role cannot open. Everyday
   // scientific items declare no `roles`/`capability`, so they stay visible.
@@ -120,7 +129,21 @@ export function AppShell({
     let cancelled = false
     void fetchUserPreferences(createDataClient())
       .then((preferences) => {
-        if (!cancelled && preferences) setCollapsed(preferences.navCollapsed)
+        if (cancelled || !preferences) return
+        // SHELL-01/03: the stored preference is the source of truth, but it must
+        // not overwrite a toggle the user has already made while it was in
+        // flight. Applying it also reconciles the local mirror, so the next load
+        // starts from the same value.
+        if (collapseTouched.current) return
+        setCollapsed(preferences.navCollapsed)
+        try {
+          localStorage.setItem(
+            SIDEBAR_COLLAPSE_KEY,
+            preferences.navCollapsed ? '1' : '0',
+          )
+        } catch {
+          /* ignore */
+        }
       })
       .catch(() => undefined)
     return () => {
@@ -129,6 +152,7 @@ export function AppShell({
   }, [])
 
   const toggleCollapsed = useCallback(() => {
+    collapseTouched.current = true
     setCollapsed((current) => {
       const next = !current
       try {
@@ -145,17 +169,38 @@ export function AppShell({
   }, [theme.pref])
 
   // SHELL-01: switch the active workspace, then re-resolve the shell context
-  // (and every workspace-scoped query) for the new workspace.
+  // (and every workspace-scoped query) for the new workspace. A refused switch
+  // throws: the switcher shows the reason, and the shell is not re-resolved onto
+  // a workspace the caller never became active in.
   const switchWorkspace = useCallback(
     async (workspaceId: string) => {
-      try {
-        await setActiveWorkspace(createDataClient(), workspaceId)
-      } catch {
-        /* keep the current workspace if the switch is refused */
-      }
-      router.invalidate()
+      await setActiveWorkspace(createDataClient(), workspaceId)
+      await router.invalidate()
     },
     [router],
+  )
+
+  // SHELL-02: mark read is a real write through the same RPC the legacy bell
+  // uses, so the rows stay read after a reload instead of reverting.
+  const markNotifications = useCallback(
+    async (ids: string[]) => {
+      if (ids.length === 0) return
+      await markNotificationsRead(createDataClient(), ids)
+      setReadNotifications((current) => new Set([...current, ...ids]))
+      await router.invalidate()
+    },
+    [router],
+  )
+
+  /** SHELL-02: unread means unread on the server and not marked read here. */
+  const unreadIds = useMemo(
+    () =>
+      new Set(
+        data.notifications
+          .filter((n) => n.unread && !readNotifications.has(n.id))
+          .map((n) => n.id),
+      ),
+    [data.notifications, readNotifications],
   )
 
   // SHELL-03: one registry for the shell; the `?` dialog is generated from it.
@@ -190,57 +235,38 @@ export function AppShell({
         </a>
         <TopBar
           data={data}
-          onMenu={() => setMenu(true)}
+          unreadIds={unreadIds}
+          onMarkNotificationsRead={markNotifications}
           onSearch={() => setSearch(true)}
           createOpen={createOpen}
           onCreateOpenChange={setCreateOpen}
-          onSwitchWorkspace={(workspaceId) => {
-            void switchWorkspace(workspaceId)
-          }}
+          onSwitchWorkspace={switchWorkspace}
+          navCollapsed={collapsed}
+          onToggleNav={toggleCollapsed}
         />
         <div className="flex min-h-0 flex-1">
-          {collapsed ? (
-            <NavRail
-              className="hidden lg:flex"
-              primaryItems={primaryItems}
-              recordItems={recordItems}
-            />
-          ) : (
-            <>
-              <SideNav
-                pinned={data.pinned}
-                counts={data.counts}
-                primaryItems={primaryItems}
-                recordItems={recordItems}
-                className="hidden xl:flex"
-              />
-              <NavRail
-                className="hidden lg:flex xl:hidden"
-                primaryItems={primaryItems}
-                recordItems={recordItems}
-              />
-            </>
-          )}
-          <main id="main" className="flex min-w-0 flex-1 bg-background">
-            {children}
-          </main>
-        </div>
-        <BottomTabs
-          onMenu={() => setMenu(true)}
-          unread={data.notifications.filter((n) => n.unread).length}
-        />
-        <Sheet open={menu} onOpenChange={setMenu}>
-          <SheetContent side="left" title="Sheetbase">
+          {/* SHELL-01: one sidebar at every width. It is the icon rail where
+              there is no room for the full navigation or when the user has
+              minimised it, and the full sidebar otherwise — same items, same
+              order, same place. There is no drawer and no bottom bar. */}
+          <NavRail
+            className={collapsed ? 'flex' : 'flex xl:hidden'}
+            primaryItems={primaryItems}
+            recordItems={recordItems}
+          />
+          {collapsed ? null : (
             <SideNav
               pinned={data.pinned}
               counts={data.counts}
               primaryItems={primaryItems}
               recordItems={recordItems}
-              onNavigate={() => setMenu(false)}
-              className="h-full border-r-0"
+              className="hidden xl:flex"
             />
-          </SheetContent>
-        </Sheet>
+          )}
+          <main id="main" className="flex min-w-0 flex-1 bg-background">
+            {children}
+          </main>
+        </div>
         <SearchPalette open={search} onOpenChange={setSearch} />
         <RegistryShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
       </div>
@@ -310,67 +336,7 @@ function NavRail({
   )
 }
 
-function BottomTabs({
-  onMenu,
-  unread,
-}: {
-  onMenu: () => void
-  unread: number
-}) {
-  const homeSelected = useRouterState({
-    select: (state) => isHomeSection(state.location.pathname),
-  })
-  const selectedProps = {
-    className: 'text-link!',
-    'aria-current': 'page' as const,
-  }
-  const cls =
-    'flex min-h-14 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 border-0 bg-transparent text-[11px] font-medium text-fg-muted no-underline hover:text-fg hover:no-underline'
-  return (
-    <nav
-      aria-label="Main"
-      className="flex shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
-    >
-      <Link
-        to="/"
-        className={cls}
-        activeOptions={{ exact: true }}
-        activeProps={selectedProps}
-        inactiveProps={homeSelected ? selectedProps : undefined}
-      >
-        <Icon name="calendar" size={22} />
-        Today
-      </Link>
-      <Link
-        to="/scan"
-        className={cls}
-        activeProps={{ className: 'text-link!', 'aria-current': 'page' }}
-      >
-        <Icon name="scan" size={22} />
-        Scan
-      </Link>
-      <Link
-        to="/inbox"
-        className={cn(cls, 'relative')}
-        activeProps={{ className: 'text-link!', 'aria-current': 'page' }}
-      >
-        <Icon name="inbox" size={22} />
-        Inbox
-        {unread ? (
-          <span className="absolute right-[calc(50%-18px)] top-2 min-w-4 rounded-full bg-link px-1 text-[10px] leading-4 text-on-accent">
-            {unread}
-          </span>
-        ) : null}
-      </Link>
-      <button type="button" onClick={onMenu} className={cls}>
-        <Icon name="more" size={22} />
-        Menu
-      </button>
-    </nav>
-  )
-}
-
-/** The destinations the bottom bar owns; a phone has nowhere to go back from. */
+/** The top-level destinations, where the phone header has nowhere to go back to. */
 const PHONE_TOP_LEVEL_PATHS = new Set(['/', '/scan', '/inbox', '/settings'])
 
 /**
@@ -399,28 +365,44 @@ function PhoneBackButton() {
 
 function TopBar({
   data,
-  onMenu,
+  unreadIds,
+  onMarkNotificationsRead,
   onSearch,
   createOpen,
   onCreateOpenChange,
   onSwitchWorkspace,
+  navCollapsed,
+  onToggleNav,
 }: {
   data: ShellData
-  onMenu: () => void
+  unreadIds: ReadonlySet<string>
+  onMarkNotificationsRead: (ids: string[]) => Promise<void>
   onSearch: () => void
   createOpen: boolean
   onCreateOpenChange: (open: boolean) => void
-  onSwitchWorkspace: (workspaceId: string) => void
+  onSwitchWorkspace: (workspaceId: string) => Promise<void>
+  navCollapsed: boolean
+  onToggleNav: () => void
 }) {
   return (
-    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:gap-3 md:px-3">
+    // WCAG 1.4.10: below `md` the controls cannot share the 44px row — at 320
+    // they measured 356px wide and the account menu sat entirely outside the
+    // viewport with no ancestor able to scroll to it. The bar wraps and grows
+    // instead, so every control reflows into view rather than being clipped.
+    <header className="flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-2 max-md:min-h-topbar max-md:flex-wrap max-md:h-auto md:gap-3 md:px-3">
+      {/* SHELL-01: it minimises the sidebar to the icon rail and expands it
+          again — the sidebar itself never moves and never becomes a drawer.
+          The full sidebar only renders from `xl` up, so below that breakpoint
+          the control has nothing to minimise and is hidden rather than
+          claiming a state the frame cannot show. */}
       <Button
         variant="quiet"
         size="icon"
-        icon="schema"
-        aria-label="Open navigation"
-        onClick={onMenu}
-        className="lg:hidden max-md:hidden"
+        icon="panelLeft"
+        aria-label={navCollapsed ? 'Expand navigation' : 'Minimise navigation'}
+        aria-keyshortcuts="Control+\\ Meta+\\"
+        onClick={onToggleNav}
+        className="max-xl:hidden"
       />
       {/* MOB-01.1: on a phone the header carries a back button, because the
           sidebar that would otherwise show where you came from is hidden. It is
@@ -450,7 +432,10 @@ function TopBar({
         workspaces={data.workspaces ?? []}
         onSwitch={onSwitchWorkspace}
       />
-      <div className="flex min-w-0 flex-1 justify-end md:justify-center">
+      {/* The phone search button is `size-10` below `md`, so the container keeps
+          room for it: squeezed below its content the icon overflowed the box
+          (justify-end) and painted over the brand link. */}
+      <div className="flex min-w-0 flex-1 justify-end max-md:min-w-10 md:justify-center">
         <Button
           variant="quiet"
           size="icon"
@@ -471,38 +456,78 @@ function TopBar({
         </button>
       </div>
       <NewMenu open={createOpen} onOpenChange={onCreateOpenChange} />
-      <Notifications items={data.notifications} />
+      <Notifications
+        items={data.notifications}
+        unreadIds={unreadIds}
+        onMarkRead={onMarkNotificationsRead}
+      />
       <AccountMenu me={data.me} />
     </header>
   )
 }
 
 /**
- * SHELL-01: the top-bar workspace switcher. Lists the caller's memberships and
- * sets the active workspace for the session; a non-member workspace is refused
- * by the `set_active_workspace` RPC.
+ * SHELL-01: the workspace switcher. Lists the caller's memberships and sets the
+ * active workspace for the session; a non-member workspace is refused by the
+ * `set_active_workspace` RPC, which the menu reports instead of silently
+ * staying on the old workspace. There is no phone drawer, so the trigger is
+ * visible at every width: it is the one place the shell chrome names the active
+ * workspace.
+ *
+ * There is no non-membership entry: a workspace is provisioned by its owner, and
+ * no surface in the product creates one from here.
  */
 function WorkspaceSwitcher({
   workspace,
   workspaces,
   onSwitch,
+  className,
 }: {
   workspace: { id: string; name: string } | null
   workspaces: { id: string; name: string }[]
-  onSwitch: (workspaceId: string) => void
+  onSwitch: (workspaceId: string) => Promise<void>
+  className?: string
 }) {
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const [open, setOpen] = useState(false)
+
+  async function choose(workspaceId: string) {
+    setError(null)
+    setPending(true)
+    try {
+      await onSwitch(workspaceId)
+      setOpen(false)
+    } catch {
+      // The menu stays open so the reason is visible where the click was made.
+      setError(
+        'That workspace could not be opened. Check that you are still a member, then try again.',
+      )
+    } finally {
+      setPending(false)
+    }
+  }
+
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setError(null)
+      }}
+    >
       <DropdownMenuTrigger
         render={
           <Button
             variant="quiet"
             aria-label="Switch workspace"
-            className="hidden max-w-52 gap-1.5 sm:flex"
+            className={cn('max-w-52 gap-1.5', className ?? 'flex min-w-16 shrink')}
           />
         }
       >
-        <span className="truncate">{workspace?.name ?? 'No workspace'}</span>
+        {/* `truncate` only ellipsizes a flex child that is allowed to shrink;
+            without the floor the name forced the whole bar wider. */}
+        <span className="min-w-0 truncate">{workspace?.name ?? 'No workspace'}</span>
         <svg
           width="12"
           height="12"
@@ -522,16 +547,27 @@ function WorkspaceSwitcher({
             <DropdownMenuItem
               key={item.id}
               icon={item.id === workspace?.id ? 'check' : undefined}
+              disabled={pending}
+              closeOnClick={false}
               onClick={() => {
-                if (item.id !== workspace?.id) onSwitch(item.id)
+                // Choosing the workspace you are already in is a dismissal, not
+                // a switch.
+                if (item.id === workspace?.id) {
+                  setOpen(false)
+                  return
+                }
+                void choose(item.id)
               }}
             >
               {item.name}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>Create workspace</DropdownMenuItem>
+        {error ? (
+          <div className="p-1">
+            <Notice tone="bad">{error}</Notice>
+          </div>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -552,7 +588,6 @@ function NewMenu({
             variant="primary"
             icon="plus"
             aria-label="New"
-            className="max-md:size-10 max-md:px-0"
           />
         }
       >
@@ -595,11 +630,87 @@ function NewMenu({
   )
 }
 
-function Notifications({ items }: { items: Notification[] }) {
-  const [read, setRead] = useState(false)
-  const unread = read ? 0 : items.filter((n) => n.unread).length
+/** Where a notification's server-computed target leads in the route tree. */
+function notificationLink(target: NotificationTarget) {
+  switch (target.kind) {
+    case 'pipeline-run':
+      return {
+        to: '/pipelines/runs/$runId' as const,
+        params: { runId: target.id },
+      }
+    case 'dataset':
+      return {
+        to: '/datasets/$datasetId' as const,
+        params: { datasetId: target.id },
+      }
+    case 'sample':
+      return {
+        to: '/samples/$sampleId' as const,
+        params: { sampleId: target.id },
+      }
+    case 'sheet':
+      return {
+        to: '/sheets/$sheetId' as const,
+        params: { sheetId: target.id },
+      }
+    default:
+      return {
+        to: '/records/$recordId' as const,
+        params: { recordId: target.id },
+      }
+  }
+}
+
+/**
+ * SHELL-02: the bell. Every row opens the record its target names and marks
+ * itself read; "Mark all read" is a real write through the RPC the legacy bell
+ * uses, so both the list and the bottom-tab badge stay clear after it.
+ */
+function Notifications({
+  items,
+  unreadIds,
+  onMarkRead,
+}: {
+  items: Notification[]
+  unreadIds: ReadonlySet<string>
+  onMarkRead: (ids: string[]) => Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const unread = unreadIds.size
+
+  async function markRead(ids: string[]): Promise<boolean> {
+    setError(null)
+    setPending(true)
+    try {
+      await onMarkRead(ids)
+      return true
+    } catch {
+      setError('The notifications could not be marked read. Try again.')
+      return false
+    } finally {
+      setPending(false)
+    }
+  }
+
+  /**
+   * A row is a link, so its navigation does not wait for the write. The popover
+   * closes once the row is read; when the write fails it stays open, because the
+   * reason has to be readable where the click was made.
+   */
+  async function readRow(id: string) {
+    if (await markRead([id])) setOpen(false)
+  }
+
   return (
-    <Popover>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setError(null)
+      }}
+    >
       <PopoverTrigger
         render={
           <Button
@@ -628,30 +739,54 @@ function Notifications({ items }: { items: Notification[] }) {
           <Button
             variant="quiet"
             size="sm"
-            disabled={!unread}
-            onClick={() => setRead(true)}
+            disabled={!unread || pending}
+            onClick={() => void markRead([...unreadIds])}
           >
             Mark all read
           </Button>
         </div>
-        {items.map((n) => (
-          <Link
-            key={n.id}
-            to="/inbox"
-            className="grid grid-cols-[8px_1fr_auto] gap-2.5 border-b border-border-subtle px-3 py-2.5 text-label leading-[17px] text-fg no-underline hover:bg-row-hover hover:text-fg hover:no-underline"
-          >
-            {n.unread && !read ? (
-              <span
-                aria-label="Unread"
-                className="mt-[5px] size-[7px] rounded-full bg-link"
-              />
-            ) : (
-              <span />
-            )}
-            <span dangerouslySetInnerHTML={{ __html: n.html }} />
-            <span className="whitespace-nowrap text-fg-muted">{n.when}</span>
-          </Link>
-        ))}
+        {error ? (
+          <div className="border-b border-border px-3 py-2">
+            <Notice tone="bad">{error}</Notice>
+          </div>
+        ) : null}
+        {items.length === 0 ? (
+          <p className="px-3 py-2.5 text-label text-fg-muted">
+            Nothing new right now.
+          </p>
+        ) : (
+          <div className="max-h-80 overflow-y-auto">
+            {items.map((n) => {
+              const isUnread = unreadIds.has(n.id)
+              return (
+                <Link
+                  key={n.id}
+                  {...notificationLink(n.to)}
+                  onClick={() => {
+                    // A row that is already read has nothing to write; it still
+                    // dismisses, like the ones whose write resolves.
+                    if (isUnread) void readRow(n.id)
+                    else setOpen(false)
+                  }}
+                  className="grid grid-cols-[8px_1fr_auto] gap-2.5 border-b border-border-subtle px-3 py-2.5 text-label leading-[17px] text-fg no-underline hover:bg-row-hover hover:text-fg hover:no-underline"
+                >
+                  {isUnread ? (
+                    <span
+                      aria-label="Unread"
+                      className="mt-[5px] size-[7px] rounded-full bg-link"
+                    />
+                  ) : (
+                    <span />
+                  )}
+                  <span dangerouslySetInnerHTML={{ __html: n.html }} />
+                  <span className="whitespace-nowrap text-fg-muted">
+                    {n.when}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
         <div className="bg-surface-muted px-3 py-2 text-label">
           <Link to="/inbox">Open inbox</Link> ·{' '}
           <Link to="/settings">Notification settings</Link>
@@ -814,7 +949,7 @@ function NavLink({ item }: { item: NavItem }) {
     <Link
       {...item.link}
       activeOptions={{ exact: item.label === 'Home' }}
-      className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-lg:h-11 [&_svg]:text-fg-muted"
+      className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"
       activeProps={selectedProps}
       inactiveProps={
         item.label === 'Home' && homeSelected ? selectedProps : undefined
@@ -836,14 +971,12 @@ function SideNav({
   counts,
   primaryItems,
   recordItems,
-  onNavigate,
   className,
 }: {
   pinned: ShellData['pinned']
   counts?: ShellData['counts']
   primaryItems: NavItem[]
   recordItems: NavItem[]
-  onNavigate?: () => void
   className?: string
 }) {
   const withCount = (item: NavItem): NavItem => {
@@ -851,16 +984,16 @@ function SideNav({
       counts?.[
         item.label.toLowerCase() as keyof NonNullable<ShellData['counts']>
       ]
-    return live ? { ...item, count: live } : item
+    // Only a number is a number: an unknown count (`null` — the read failed,
+    // see `shell-counts.server.ts`) renders no number at all, rather than a
+    // zero the server could not back, while the counts that did read still show.
+    return typeof live === 'string' ? { ...item, count: live } : item
   }
   return (
     <nav
       aria-label="Main"
-      onClick={(e) => {
-        if (onNavigate && (e.target as HTMLElement).closest('a')) onNavigate()
-      }}
       className={cn(
-        'flex w-nav shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-surface p-2.5 max-lg:w-full',
+        'flex w-nav shrink-0 flex-col gap-px overflow-y-auto border-r border-border bg-surface p-2.5',
         className,
       )}
     >
@@ -871,20 +1004,24 @@ function SideNav({
       {recordItems.map((i) => (
         <NavLink key={i.label} item={withCount(i)} />
       ))}
-      <div className="shrink-0 px-2 pb-1 pt-3.5 text-label leading-[normal] font-medium text-fg-muted">
-        Pinned projects
-      </div>
-      {pinned.map((p) => (
-        <Link
-          key={p.id}
-          to="/projects/$projectId"
-          params={{ projectId: p.id }}
-          className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
-        >
-          <Dot tone={p.tone} className="mx-1" />
-          {p.name}
-        </Link>
-      ))}
+      {pinned.length ? (
+        <>
+          <div className="shrink-0 px-2 pb-1 pt-3.5 text-label leading-[normal] font-medium text-fg-muted">
+            Pinned projects
+          </div>
+          {pinned.map((p) => (
+            <Link
+              key={p.id}
+              to="/projects/$projectId"
+              params={{ projectId: p.id }}
+              className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
+            >
+              <Dot tone={p.tone} className="mx-1" />
+              {p.name}
+            </Link>
+          ))}
+        </>
+      ) : null}
       <div className="flex-1" />
       <Link
         to="/settings"

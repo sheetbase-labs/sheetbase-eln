@@ -237,7 +237,10 @@ function NewReading() {
     },
   })
 
-  const noPlans = !datasets.isLoading && datasetsWithPlans.length === 0
+  // The dataset list is built from both queries: until the planned rows land it
+  // is empty, so the warning waits for them instead of flashing before data.
+  const plansLoading = datasets.isLoading || plannedRows.isLoading
+  const noPlans = !plansLoading && datasetsWithPlans.length === 0
   const noFields =
     Boolean(dataset) &&
     !fieldsQuery.isLoading &&

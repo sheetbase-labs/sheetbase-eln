@@ -66,7 +66,16 @@ beforeAll(async () => {
     `INSERT INTO api.dataset_value_flags
        (workspace_id, dataset_id, row_id, field_id, kind, reason, set_by_user_id)
      VALUES ('${WS}', '${DATASET}', '${ROW_1}', '${FIELD}', 'out_of_range', 'above range', '${MEMBER}'),
-            ('${WS}', '${DATASET}', '${ROW_2}', '${FIELD}', 'missing_unit', 'unit missing', '${MEMBER}')`,
+            ('${WS}', '${DATASET}', '${ROW_2}', '${FIELD}', 'missing_unit', 'unit missing', '${MEMBER}'),
+            ('${WS}', '${DATASET}', '${ROW_1}', '${FIELD}', 'missing_unit', 'unit missing', '${MEMBER}')`,
+  )
+  // A second flag on the same value, from the other source: a rule decided the
+  // value is out of range and a person flagged it too. Both are live rows in
+  // `dataset_value_flags`, but the value is out of range once.
+  await migrator.query(
+    `INSERT INTO api.dataset_value_flags
+       (workspace_id, dataset_id, row_id, field_id, kind, source, reason, system_rule)
+     VALUES ('${WS}', '${DATASET}', '${ROW_1}', '${FIELD}', 'out_of_range', 'system', 'above range (rule)', 'out_of_range')`,
   )
   // The producing experiment (DSET-02.2): the Experiment column and the
   // Validation suffix come from the record_links row and its status.
@@ -129,7 +138,31 @@ describe('api.dataset_list_summary', () => {
       review_state: 'locked',
     })
     expect(Number(rows[0]!.row_count)).toBe(2)
-    expect(Number(rows[0]!.issue_count)).toBe(2)
+    // Four active flags (two out of range, two missing unit) on two rows.
+    expect(Number(rows[0]!.issue_count)).toBe(4)
+    // One value is out of range however many flags sit on it, and one column
+    // is missing a unit however many of its values are.
+    expect(Number(rows[0]!.out_of_range_count)).toBe(1)
+    expect(Number(rows[0]!.missing_unit_count)).toBe(1)
+  })
+
+  it('counts values and columns, not the flags on them', async () => {
+    const member = await asAuthenticated(MEMBER, WS)
+    const flags = await member.query<{ kind: string; flags: string }>(
+      `SELECT kind, count(*) AS flags FROM api.dataset_value_flags
+        WHERE cleared_at IS NULL GROUP BY kind ORDER BY kind`,
+    )
+    expect(
+      flags.rows.map((row) => [row.kind, Number(row.flags)]),
+    ).toEqual([
+      ['missing_unit', 2],
+      ['out_of_range', 2],
+    ])
+
+    const { rows } = await member.query<{
+      out_of_range_count: string
+      missing_unit_count: string
+    }>(`SELECT * FROM api.dataset_list_summary()`)
     expect(Number(rows[0]!.out_of_range_count)).toBe(1)
     expect(Number(rows[0]!.missing_unit_count)).toBe(1)
   })

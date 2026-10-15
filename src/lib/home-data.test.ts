@@ -86,6 +86,7 @@ describe('Home authority enrichment', () => {
     ).toEqual([
       {
         id: 's1',
+        recordId: 'r1',
         revisionId: 'rev-frozen',
         identifier: 'EXP-0138',
         title: 'PEI:DNA sweep',
@@ -344,6 +345,14 @@ describe('Home exact totals', () => {
     const fetchImpl = vi.fn<typeof fetch>(async (input) => {
       const url = new URL(String(input), 'http://sheetbase.test')
       urls.push(url.pathname + url.search)
+      if (url.pathname.endsWith('/rpc/inbox_needs_action_counts')) {
+        // The Inbox total is the server's count over every row the caller can
+        // see, seen state included. Reading the list instead — as Home did —
+        // returns at most `limit=200` rows, so a workspace past that cap
+        // stated 200 where the sidebar stated more.
+        expect(url.searchParams.has('limit')).toBe(false)
+        return new Response(JSON.stringify([{ total: 250, reviews: 41 }]))
+      }
       let total: number
       if (url.pathname.endsWith('/rpc/dataset_list_summary')) {
         expect(url.searchParams.get('issue_count')).toBe('gt.0')
@@ -362,10 +371,9 @@ describe('Home exact totals', () => {
         expect(url.searchParams.get('status')).toBe('eq.in_progress')
         expect(url.searchParams.get('deleted_at')).toBe('is.null')
         total = 1403
-      } else if (url.pathname.endsWith('/my_work_items')) {
-        expect(url.searchParams.get('state')).toBe('in.(needs_action,overdue)')
-        total =
-          url.searchParams.get('kind') === 'eq.review_requested' ? 257 : 280
+      } else if (url.pathname.endsWith('/my_notifications')) {
+        expect(url.searchParams.get('read_at')).toBe('is.null')
+        total = 3
       } else {
         throw new Error(`Unexpected Home authority: ${url.pathname}`)
       }
@@ -380,11 +388,14 @@ describe('Home exact totals', () => {
         end: '2026-09-25T23:00:00.000Z',
       }),
     ).toEqual({
-      reviews: 257,
+      // The server states 250 needs-action items and 41 of them reviews; the
+      // 200-row preview Home used to measure would have capped this at 200.
+      reviews: 41,
       datasetsWithErrors: 7,
       experimentsInProgress: 1403,
       instrumentRuns: 2,
-      inbox: 280,
+      inbox: 250,
+      unreadNotifications: 3,
     })
     expect(urls).toHaveLength(5)
   })

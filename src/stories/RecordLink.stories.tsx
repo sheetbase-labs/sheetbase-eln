@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Icon } from '#/components/icons'
 import { RecordLink } from '#/components/scientific/record-link'
-import { Button } from '#/components/ui'
+import { Button } from '#/components/v3/ui/button'
 
 const meta = {
   title: 'Scientific/Record link',
@@ -32,7 +32,7 @@ export const States: Story = {
           meta={`SMP-2026-0142 · ${state}`}
           state={state}
           actions={
-            <Button variant="ghost" size="icon-sm">
+            <Button variant="quiet" size="icon">
               <Icon name="more" />
             </Button>
           }

@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
+import {
+  NO_PROJECT_ACCESS_BODY,
+  noProjectAccessTitle,
+  useHasProjectAccess,
+} from './project-access'
 import { Status } from '#/components/v3/ui/status'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -20,9 +25,20 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+} from '#/components/v3/ui/confirm-dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -48,6 +64,7 @@ import {
   fetchProjectActivity,
   useProjectMilestones,
   projectDataClient,
+  PROJECTS_KEY,
 } from './project-data'
 import { fetchRecordsForProject, notebookQueryKeys } from '#/lib/notebook-data'
 import { describeAuditEvent } from '#/lib/audit-history'
@@ -68,10 +85,26 @@ const tabLabel: Record<ProjectsTab, string> = {
 const sorts = { updated: 'Updated', id: 'ID', name: 'Name' } as const
 export type ProjectsSort = keyof typeof sorts
 
+/** How a tab treats archived projects. `all` means all, and `archived` means
+ * the archived ones; the status tabs list current work, so they hide them until
+ * the person lifts the "Status is not Archived" filter — which is stated as a
+ * chip whenever it hides anything. */
+export type ArchivedMode = 'include' | 'exclude'
+
+export function archivedModeFor(tab: ProjectsTab): ArchivedMode {
+  return tab === 'all' || tab === 'archived' ? 'include' : 'exclude'
+}
+
+/** Why a create action cannot run, in one voice wherever it is stated. */
+const CREATE_DISABLED_REASON = 'Your workspace role cannot create projects.'
+const CREATE_DISABLED_BODY =
+  'Your role cannot create projects. Ask a workspace owner or admin to create one, or to give you permission to create them.'
+
 export interface ProjectsSearch {
   tab?: ProjectsTab
   q?: string
-  archived?: boolean
+  /** The person's own archived choice, overriding the tab's default. */
+  archived?: ArchivedMode
   stage?: string
   client?: string
   modality?: string
@@ -96,11 +129,13 @@ export function ProjectsPage({
   loading = false,
   error = null,
   onRetry,
+  onOpenProject,
   search,
   setSearch,
   onCreate,
   creating = false,
   createError = null,
+  createdProjectId = null,
   clientOptions = [],
   memberOptions = [],
 }: {
@@ -111,23 +146,83 @@ export function ProjectsPage({
   loading?: boolean
   error?: string | null
   onRetry?: () => void
+  /** Opening a project is the route's job: it owns navigation. */
+  onOpenProject?: (p: ProjectRow) => void
   search: ProjectsSearch
   setSearch: (patch: Partial<ProjectsSearch>) => void
   onCreate: (input: NewProjectInput) => void
   creating?: boolean
   createError?: string | null
+  /** The project the last create produced, from the route's mutation. A create
+   * that lands ends the dialog: the route drops `?new=true`, and this closes
+   * the dialog the click opened, exactly as the design's `onCreated` closes
+   * its URL-gated dialog. */
+  createdProjectId?: string | null
   clientOptions?: { id: string; label: string }[]
   memberOptions?: { id: string; label: string }[]
 }) {
+  const hasProjectAccess = useHasProjectAccess()
   const tab: ProjectsTab = search.tab ?? 'all'
-  const includeArchived = tab === 'archived' || !!search.archived
+  const archived: ArchivedMode = search.archived ?? archivedModeFor(tab)
   const sort: ProjectsSort = search.sort ?? 'updated'
   const group = search.group ?? 'none'
   const hidden = new Set(search.fields?.split(',').filter(Boolean) ?? [])
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [active, setActive] = useState<string | null>(null)
   const [draftQ, setDraftQ] = useState(search.q ?? '')
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  // A create intent arrives from the URL (`?new=true`: the shell's New →
+  // Project link, a refresh, a bookmark) or from this page's own button. Once
+  // one has arrived the dialog's open state is local: a click's client
+  // navigation can be superseded while the page is still loading — the URL
+  // commits ?new=true and the page's search never carries it, leaving the
+  // button apparently dead — and a close must close whatever the URL holds.
+  const [newProjectOpen, setNewProjectOpen] = useState(
+    canCreate && !!search.new,
+  )
+  // Whether a refused intent has already been answered: the param can outlive
+  // the navigation that set it, and the person hears the reason once.
+  const refusedNewProject = useRef(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   useEffect(() => setDraftQ(search.q ?? ''), [search.q])
+
+  const requestedNewProject = canCreate && !!search.new
+  const lastRequestedNewProject = useRef(requestedNewProject)
+  useEffect(() => {
+    if (requestedNewProject && !lastRequestedNewProject.current) {
+      setNewProjectOpen(true)
+    }
+    lastRequestedNewProject.current = requestedNewProject
+  }, [requestedNewProject])
+
+  // A create that lands ends the intent. The route clears `?new=true` and
+  // invalidates the list, but that navigation cannot close a dialog whose open
+  // state is local, so the created project itself is the signal: without this
+  // the dialog stays up over the list after the write is already done.
+  useEffect(() => {
+    if (createdProjectId) setNewProjectOpen(false)
+  }, [createdProjectId])
+
+  const requestNewProject = () => {
+    setNewProjectOpen(true)
+    setSearch({ new: true })
+  }
+
+  // A create intent the role cannot honour says so, rather than leaving the
+  // link or bookmark that carried it apparently dead. The guard resets once the
+  // intent is gone, so a later link is answered too — and a param that outlives
+  // its navigation is answered once, not on every render.
+  useEffect(() => {
+    if (!search.new) {
+      refusedNewProject.current = false
+      return
+    }
+    if (canCreate || refusedNewProject.current) return
+    refusedNewProject.current = true
+    toast.error(CREATE_DISABLED_REASON, { description: CREATE_DISABLED_BODY })
+    setSearch({ new: undefined })
+  }, [search.new, canCreate, setSearch])
 
   const inTab = (p: ProjectRow, t: ProjectsTab) =>
     t === 'all'
@@ -141,8 +236,17 @@ export function ProjectsPage({
           : t === 'inreview'
             ? p.status.tone === 'review'
             : !!p.archived
+  // A tab's count is the number of rows it lists, so the strip and the table
+  // agree: every tab's rows pass through the same `inTab` and archived test.
   const counts = Object.fromEntries(
-    tabs.map((t) => [t, projects.filter((p) => inTab(p, t)).length]),
+    tabs.map((t) => [
+      t,
+      projects.filter(
+        (p) =>
+          inTab(p, t) &&
+          ((search.archived ?? archivedModeFor(t)) === 'include' || !p.archived),
+      ).length,
+    ]),
   ) as Record<ProjectsTab, number>
   const q = (search.q ?? '').trim().toLowerCase()
   const matchesQ = (p: ProjectRow) =>
@@ -156,20 +260,19 @@ export function ProjectsPage({
       (!search.modality || p.modality === search.modality),
   )
   const rows = base
-    .filter((p) => includeArchived || !p.archived)
+    .filter((p) => archived === 'include' || !p.archived)
     .sort((a, b) =>
       sort === 'updated'
         ? b.updated - a.updated || b.id.localeCompare(a.id)
         : sort === 'id'
-          ? b.id.localeCompare(a.id)
+          ? a.id.localeCompare(b.id)
           : a.name.localeCompare(b.name),
     )
-  const archivedHidden = includeArchived
-    ? 0
-    : base.filter((p) => p.archived).length
+  const archivedHidden =
+    archived === 'exclude' ? base.filter((p) => p.archived).length : 0
   const activeRow = rows.find((p) => p.id === active) ?? null
   const filterCount =
-    (includeArchived ? 0 : 1) +
+    (archived === 'exclude' ? 1 : 0) +
     (search.stage ? 1 : 0) +
     (search.client ? 1 : 0) +
     (search.modality ? 1 : 0)
@@ -187,7 +290,76 @@ export function ProjectsPage({
           g,
           rows.filter((r) => r[group] === g),
         ])
-  const colSpan = 5 + cols.length
+  // `archive_project`/`unarchive_project` admit a workspace owner or admin
+  // only, so the selection exists only for a caller the server will accept.
+  const role = useQuery({
+    queryKey: ['workspace', 'my-role', meId ?? ''],
+    enabled: Boolean(meId),
+    queryFn: () =>
+      projectDataClient
+        .list<{ role: string }>(
+          'workspace_memberships',
+          `?user_id=eq.${encodeURIComponent(meId ?? '')}&select=role&limit=1`,
+        )
+        .then((memberships) => memberships[0]?.role ?? null),
+    staleTime: 60_000,
+  })
+  const canBulkArchive = role.data === 'owner' || role.data === 'admin'
+  const selected = rows.filter((p) => checked.has(p.id))
+  const archivable = selected.filter((p) => !p.archived)
+  const restorable = selected.filter((p) => p.archived)
+
+  const bulk = useMutation({
+    mutationFn: async (operation: 'archive' | 'restore') => {
+      const targets = operation === 'archive' ? archivable : restorable
+      const settled = await Promise.allSettled(
+        targets.map((p) =>
+          projectDataClient.rpc(
+            operation === 'archive' ? 'archive_project' : 'unarchive_project',
+            { p_project_id: p.uuid },
+          ),
+        ),
+      )
+      return {
+        operation,
+        count: targets.length,
+        refused: settled.filter((result) => result.status === 'rejected')
+          .length,
+      }
+    },
+    onMutate: () => setBulkError(null),
+    onSuccess: ({ operation, count, refused }) => {
+      void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
+      setConfirmArchive(false)
+      const done = count - refused
+      if (refused) {
+        setBulkError(
+          `${done} of ${count} ${count === 1 ? 'project was' : 'projects were'} ${operation === 'archive' ? 'archived' : 'restored'}; the server refused the rest.`,
+        )
+        return
+      }
+      setChecked(new Set())
+      toast(
+        `${count} ${count === 1 ? 'project' : 'projects'} ${operation === 'archive' ? 'archived' : 'restored'}`,
+      )
+    },
+    onError: (error: unknown) => {
+      setConfirmArchive(false)
+      setBulkError(
+        error instanceof Error
+          ? error.message
+          : 'The database refused the change.',
+      )
+    },
+  })
+  const colSpan = (canBulkArchive ? 4 : 3) + cols.length
+  // A disabled control has to say why (QA2-projects-1): the header button was
+  // disabled with no stated reason.
+  const createDisabledReason = !canCreate
+    ? CREATE_DISABLED_REASON
+    : loading
+      ? 'Waiting for the project list to load.'
+      : null
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
@@ -198,16 +370,21 @@ export function ProjectsPage({
             !projects.length && 'pb-3',
           )}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex max-md:flex-wrap items-center gap-2">
             <h1 className="text-title">Projects</h1>
-            <span className="num text-body text-fg-muted">
-              {projects.length}
-            </span>
+            {/* A number here would be asserted as fact. While the read is
+                unresolved — stalled or failed — the page does not know it. */}
+            {loading || error ? null : (
+              <span className="num text-body text-fg-muted">
+                {projects.length}
+              </span>
+            )}
             <span className="flex-1" />
             <Button
               variant="primary"
               disabled={!canCreate || loading}
-              onClick={() => setSearch({ new: true })}
+              title={createDisabledReason ?? undefined}
+              onClick={requestNewProject}
             >
               New project
             </Button>
@@ -231,7 +408,10 @@ export function ProjectsPage({
                   } as LinkProps,
                 }))}
               />
-              <div className="flex items-center gap-5 lg:hidden">
+              {/* Three tabs plus the "More" menu are wider than the column at
+                  400 % zoom, and the row had no way to scroll, so "More" sat
+                  past the viewport (QA4-zoom-projects). */}
+              <div className="flex flex-wrap items-center gap-5 lg:hidden">
                 <SearchTabs
                   label="Project views"
                   tabs={tabs.slice(0, 3).map((t) => ({
@@ -313,32 +493,37 @@ export function ProjectsPage({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-[260px]">
                   <DropdownMenuItem
-                    icon={includeArchived ? undefined : 'check'}
-                    className={includeArchived ? 'pl-[30px]' : ''}
+                    icon={archived === 'exclude' ? 'check' : undefined}
+                    className={archived === 'exclude' ? '' : 'pl-[30px]'}
                     onClick={() =>
                       setSearch({
-                        archived: includeArchived ? undefined : true,
+                        archived:
+                          archived === 'exclude' ? 'include' : 'exclude',
                       })
                     }
                   >
                     Status is not Archived
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Stage is</DropdownMenuLabel>
-                  {stages.map((s) => (
-                    <DropdownMenuItem
-                      key={s}
-                      icon={search.stage === s ? 'check' : undefined}
-                      className={search.stage === s ? '' : 'pl-[30px]'}
-                      onClick={() =>
-                        setSearch({ stage: search.stage === s ? undefined : s })
-                      }
-                    >
-                      {s}
-                    </DropdownMenuItem>
-                  ))}
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Stage is</DropdownMenuLabel>
+                    {stages.map((s) => (
+                      <DropdownMenuItem
+                        key={s}
+                        icon={search.stage === s ? 'check' : undefined}
+                        className={search.stage === s ? '' : 'pl-[30px]'}
+                        onClick={() =>
+                          setSearch({
+                            stage: search.stage === s ? undefined : s,
+                          })
+                        }
+                      >
+                        {s}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
                   {(['client', 'modality'] as const).map((field) => (
-                    <div key={field}>
+                    <DropdownMenuGroup key={field}>
                       <DropdownMenuSeparator />
                       <DropdownMenuLabel>
                         {field === 'client' ? 'Client is' : 'Modality is'}
@@ -359,7 +544,7 @@ export function ProjectsPage({
                             {value}
                           </DropdownMenuItem>
                         ))}
-                    </div>
+                    </DropdownMenuGroup>
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -424,33 +609,35 @@ export function ProjectsPage({
                   Fields
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px]">
-                  <DropdownMenuLabel>Show columns</DropdownMenuLabel>
-                  {(
-                    [
-                      'client',
-                      'modality',
-                      'stage',
-                      'lead',
-                      'experiments',
-                    ] as const
-                  ).map((k) => (
-                    <DropdownMenuItem
-                      key={k}
-                      closeOnClick={false}
-                      icon={hidden.has(k) ? undefined : 'check'}
-                      className={hidden.has(k) ? 'pl-[30px]' : ''}
-                      onClick={() => {
-                        const next = new Set(hidden)
-                        if (next.has(k)) next.delete(k)
-                        else next.add(k)
-                        setSearch({
-                          fields: [...next].sort().join(',') || undefined,
-                        })
-                      }}
-                    >
-                      {k[0].toUpperCase() + k.slice(1)}
-                    </DropdownMenuItem>
-                  ))}
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+                    {(
+                      [
+                        'client',
+                        'modality',
+                        'stage',
+                        'lead',
+                        'experiments',
+                      ] as const
+                    ).map((k) => (
+                      <DropdownMenuItem
+                        key={k}
+                        closeOnClick={false}
+                        icon={hidden.has(k) ? undefined : 'check'}
+                        className={hidden.has(k) ? 'pl-[30px]' : ''}
+                        onClick={() => {
+                          const next = new Set(hidden)
+                          if (next.has(k)) next.delete(k)
+                          else next.add(k)
+                          setSearch({
+                            fields: [...next].sort().join(',') || undefined,
+                          })
+                        }}
+                      >
+                        {k[0].toUpperCase() + k.slice(1)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
               <DropdownMenu>
@@ -481,10 +668,10 @@ export function ProjectsPage({
 
             {filterCount ? (
               <div className="flex flex-wrap items-center gap-2 px-4 py-2 md:px-6">
-                {!includeArchived ? (
+                {archived === 'exclude' ? (
                   <FilterChip
                     removeLabel="Remove filter: status is not Archived"
-                    onRemove={() => setSearch({ archived: true })}
+                    onRemove={() => setSearch({ archived: 'include' })}
                   >
                     Status is not <b className="font-medium">Archived</b>
                   </FilterChip>
@@ -535,20 +722,22 @@ export function ProjectsPage({
               <Table aria-label="Projects" className="max-md:hidden">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-9 max-xl:hidden">
-                      <Checkbox
-                        aria-label="Select all projects"
-                        checked={
-                          rows.length > 0 &&
-                          rows.every((r) => checked.has(r.id))
-                        }
-                        onCheckedChange={(on) =>
-                          setChecked(
-                            on ? new Set(rows.map((r) => r.id)) : new Set(),
-                          )
-                        }
-                      />
-                    </TableHead>
+                    {canBulkArchive ? (
+                      <TableHead className="w-9 max-xl:hidden">
+                        <Checkbox
+                          aria-label="Select all projects"
+                          checked={
+                            rows.length > 0 &&
+                            rows.every((r) => checked.has(r.id))
+                          }
+                          onCheckedChange={(on) =>
+                            setChecked(
+                              on ? new Set(rows.map((r) => r.id)) : new Set(),
+                            )
+                          }
+                        />
+                      </TableHead>
+                    ) : null}
                     <TableHead className="max-xl:hidden">ID</TableHead>
                     <TableHead className={stickyCol}>Project</TableHead>
                     {cols.map((c) => (
@@ -584,25 +773,27 @@ export function ProjectsPage({
                             key={p.id}
                             selected={active === p.id}
                             className="cursor-pointer"
-                            onClick={() => setActive(p.id)}
+                            onClick={() => onOpenProject?.(p)}
                           >
-                            <TableCell
-                              className="max-xl:hidden"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Checkbox
-                                aria-label={`Select ${p.id}`}
-                                checked={checked.has(p.id)}
-                                onCheckedChange={(on) =>
-                                  setChecked((s) => {
-                                    const n = new Set(s)
-                                    if (on) n.add(p.id)
-                                    else n.delete(p.id)
-                                    return n
-                                  })
-                                }
-                              />
-                            </TableCell>
+                            {canBulkArchive ? (
+                              <TableCell
+                                className="max-xl:hidden"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Checkbox
+                                  aria-label={`Select ${p.id}`}
+                                  checked={checked.has(p.id)}
+                                  onCheckedChange={(on) =>
+                                    setChecked((s) => {
+                                      const n = new Set(s)
+                                      if (on) n.add(p.id)
+                                      else n.delete(p.id)
+                                      return n
+                                    })
+                                  }
+                                />
+                              </TableCell>
+                            ) : null}
                             <TableCell className="mono text-fg-muted max-xl:hidden">
                               {p.id}
                             </TableCell>
@@ -613,17 +804,13 @@ export function ProjectsPage({
                                 active === p.id && 'font-medium',
                               )}
                             >
-                              <button
-                                type="button"
-                                className="cursor-pointer border-0 bg-transparent p-0 text-left text-inherit font-[inherit]"
-                                aria-label={`Show details for ${p.name}`}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setActive(p.id)
-                                }}
+                              <Link
+                                to="/projects/$projectId"
+                                params={{ projectId: p.uuid }}
+                                className="cursor-pointer text-inherit underline-offset-2 hover:underline"
                               >
                                 {p.name}
-                              </button>
+                              </Link>
                               <span className="mono block text-[11px] text-fg-muted xl:hidden">
                                 {p.id}
                               </span>
@@ -644,9 +831,20 @@ export function ProjectsPage({
                               </TableCell>
                             ))}
                             <TableCell>
-                              <Status tone={p.status.tone}>
-                                {p.status.label}
-                              </Status>
+                              <span className="flex items-center justify-end gap-2">
+                                <Status tone={p.status.tone}>
+                                  {p.status.label}
+                                </Status>
+                                <Button
+                                  variant="quiet"
+                                  icon="chevronRight"
+                                  aria-label={`Quick view of ${p.name}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    setActive(p.id)
+                                  }}
+                                />
+                              </span>
                             </TableCell>
                           </TableRow>
                         )),
@@ -658,9 +856,9 @@ export function ProjectsPage({
                 <NoResults
                   q={search.q}
                   tab={tab}
-                  includeArchived={includeArchived}
+                  archived={archived}
                   archivedMatches={archivedHidden}
-                  onIncludeArchived={() => setSearch({ archived: true })}
+                  onIncludeArchived={() => setSearch({ archived: 'include' })}
                   onClear={() =>
                     setSearch({
                       q: undefined,
@@ -673,29 +871,95 @@ export function ProjectsPage({
               ) : null}
             </div>
             <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
-              <span className="max-lg:hidden">
+              <span>
                 {rows.length} {rows.length === 1 ? 'project' : 'projects'}
-              </span>
-              <span className="lg:hidden">
-                {rows.length} projects · scroll sideways for all columns ·
-                project name stays pinned
               </span>
               {archivedHidden ? (
                 <span className="max-lg:hidden">
                   {archivedHidden} archived hidden by filter
                 </span>
               ) : null}
+              {bulkError ? (
+                <span role="alert" className="text-danger-text">
+                  {bulkError}
+                </span>
+              ) : null}
               {checked.size ? (
-                <span className="ml-auto text-fg max-xl:hidden">
-                  {checked.size} selected
+                <span className="ml-auto flex items-center gap-2 text-fg">
+                  <span className="max-xl:hidden">
+                    {checked.size} selected
+                  </span>
+                  {archivable.length ? (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={bulk.isPending}
+                      onClick={() => setConfirmArchive(true)}
+                    >
+                      Archive {archivable.length}
+                    </Button>
+                  ) : null}
+                  {restorable.length ? (
+                    <Button
+                      size="sm"
+                      disabled={bulk.isPending}
+                      onClick={() => bulk.mutate('restore')}
+                    >
+                      Restore {restorable.length}
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    onClick={() => setChecked(new Set())}
+                  >
+                    Clear
+                  </Button>
                 </span>
               ) : null}
             </div>
           </>
         ) : (
-          <EmptyProjects onNew={() => setSearch({ new: true })} />
+          <EmptyProjects
+            noAccess={hasProjectAccess === false}
+            canCreate={canCreate}
+            onNew={requestNewProject}
+          />
         )}
       </div>
+
+      <ConfirmDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+        <ConfirmDialogContent className="w-[min(480px,calc(100vw-32px))]">
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>
+              Archive {archivable.length}{' '}
+              {archivable.length === 1 ? 'project' : 'projects'}?
+            </ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              {archivable.map((p) => p.id).join(', ')} · every record becomes
+              read-only
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <DialogBody>
+            <p className="m-0 text-body leading-5">
+              The projects leave the Projects list and the navigation. Signed
+              records, datasets and audit trails stay available, and an
+              archived project can be restored from the Archived tab.
+            </p>
+          </DialogBody>
+          <ConfirmDialogFooter>
+            <ConfirmDialogCancel disabled={bulk.isPending} />
+            <ConfirmDialogAction
+              variant="danger-fill"
+              disabled={bulk.isPending}
+              onClick={() => bulk.mutate('archive')}
+            >
+              Archive{' '}
+              {archivable.length === 1 ? 'this project' : 'these projects'}
+            </ConfirmDialogAction>
+          </ConfirmDialogFooter>
+        </ConfirmDialogContent>
+      </ConfirmDialog>
 
       {activeRow ? (
         <ProjectPeek
@@ -707,8 +971,12 @@ export function ProjectsPage({
       ) : null}
 
       <NewProjectDialog
-        open={canCreate && !!search.new}
-        onOpenChange={(o) => setSearch({ new: o ? true : undefined })}
+        open={newProjectOpen}
+        onOpenChange={(open) => {
+          if (open) return
+          setNewProjectOpen(false)
+          if (search.new) setSearch({ new: undefined })
+        }}
         onCreate={onCreate}
         creating={creating}
         error={createError}
@@ -722,14 +990,14 @@ export function ProjectsPage({
 function NoResults({
   q,
   tab,
-  includeArchived,
+  archived,
   archivedMatches,
   onIncludeArchived,
   onClear,
 }: {
   q?: string
   tab: ProjectsTab
-  includeArchived: boolean
+  archived: ArchivedMode
   archivedMatches: number
   onIncludeArchived: () => void
   onClear: () => void
@@ -748,7 +1016,7 @@ function NoResults({
         {q ? (
           <>
             Searched names, IDs and clients in{' '}
-            {includeArchived ? '' : 'non-archived '}projects.
+            {archived === 'exclude' ? 'non-archived ' : ''}projects.
             {archivedMatches
               ? ` ${archivedMatches} archived ${archivedMatches === 1 ? 'project matches' : 'projects match'}.`
               : ''}
@@ -771,16 +1039,32 @@ function NoResults({
   )
 }
 
-function EmptyProjects({ onNew }: { onNew: () => void }) {
+function EmptyProjects({
+  onNew,
+  noAccess,
+  canCreate,
+}: {
+  onNew: () => void
+  noAccess: boolean
+  canCreate: boolean
+}) {
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-14 text-center md:px-6">
-      <h2 className="text-doc">No projects yet</h2>
+      <h2 className="text-doc">
+        {noAccess ? noProjectAccessTitle('projects') : 'No projects yet'}
+      </h2>
       <p className="m-0 max-w-[460px] leading-[19px] text-fg-muted">
-        A project groups the experiments, samples and datasets for one programme
-        or client. Members and permissions are set per project.
+        {noAccess
+          ? NO_PROJECT_ACCESS_BODY
+          : 'A project groups the experiments, samples and datasets for one programme or client. Members and permissions are set per project.'}
       </p>
+      {!noAccess && !canCreate ? (
+        <p className="m-0 max-w-[460px] leading-[19px] text-fg-muted">
+          {CREATE_DISABLED_BODY}
+        </p>
+      ) : null}
       <div className="mt-2 flex gap-1.5">
-        <Button variant="primary" onClick={onNew}>
+        <Button variant="primary" disabled={!canCreate} onClick={onNew}>
           New project
         </Button>
       </div>
@@ -858,7 +1142,6 @@ function ProjectPeek({
           <Button
             size="icon"
             variant="quiet"
-            className="size-6"
             aria-label="Close details"
             onClick={onClose}
           >

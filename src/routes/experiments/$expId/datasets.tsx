@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { LinkTab } from './links-tab'
+import { LinkTab } from './-links-tab'
 
 export const Route = createFileRoute('/experiments/$expId/datasets')({
   component: () => {

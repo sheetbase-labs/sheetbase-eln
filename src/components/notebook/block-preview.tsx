@@ -28,6 +28,11 @@ import type { IconName } from '#/components/v3/icons'
 import { isInlinePreviewableImage } from '#/lib/file-policy'
 import { datasetPath, recordDestination, sheetPath } from '#/lib/navigation'
 import { PipelineOutputBlockPreview } from './pipeline-output-block-preview'
+import {
+  CorrectiveActionsPreview,
+  SignatureRequestPreview,
+} from './action-block-previews'
+import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
 import { useUnsyncedBlock } from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
@@ -49,6 +54,10 @@ import type { ChartBlockPayload, ChartSpec } from '#/lib/chart-spec'
 import { runAnalysis } from '#/lib/analysis-definition'
 import type { AnalysisDefinition } from '#/lib/analysis-definition'
 import type { AnalysisBlockPayload, FrozenAnalysis } from '#/lib/analysis-block'
+import {
+  frozenAnalysisMethodMismatch,
+  frozenAnalysisMethodVersion,
+} from '#/lib/analysis-block'
 import {
   analysisDefinitionQueryKeys,
   fetchAnalysisDefinition,
@@ -113,6 +122,12 @@ export interface BlockPreviewProps {
    * frozen payload and ignore this flag.
    */
   frozen?: boolean
+  /**
+   * R5-NOTE-02: the revision a sign-and-attach block is being read against.
+   * Absent on live canvases; the two action block kinds then read as "applies
+   * to the next submission". Passed unchanged to their previews.
+   */
+  actionContext?: ActionBlockContext
 }
 
 function asString(value: unknown): string | null {
@@ -161,6 +176,7 @@ export function BlockPreview({
   className,
   hiddenNodeIndexes,
   frozen = false,
+  actionContext,
 }: BlockPreviewProps) {
   const { type, payload } = block
   // EXP-05.2: a block with a local draft carries a marker where it renders.
@@ -173,6 +189,7 @@ export function BlockPreview({
     `section-${block.id}`,
     hiddenNodeIndexes,
     frozen,
+    actionContext,
   )
   return (
     <div className={cn('text-sm leading-6', className)}>
@@ -188,6 +205,7 @@ function renderPayload(
   anchorPrefix?: string,
   hiddenNodeIndexes?: ReadonlySet<number>,
   frozen?: boolean,
+  actionContext?: ActionBlockContext,
 ): React.ReactNode {
   switch (type) {
     case 'rich_text':
@@ -220,6 +238,14 @@ function renderPayload(
       return <PlateMapBlockPreview payload={payload} frozen={frozen} />
     case 'file':
       return <FileBlockPreview payload={payload} />
+    case 'signature_request':
+      return (
+        <SignatureRequestPreview payload={payload} context={actionContext} />
+      )
+    case 'corrective_actions':
+      return (
+        <CorrectiveActionsPreview payload={payload} context={actionContext} />
+      )
     default:
       return renderUnsupported(type, payload)
   }
@@ -1744,8 +1770,12 @@ function FrozenAnalysisPreview({
     label: c.label,
     logicalType: c.logicalType,
   }))
+  // R5-STUDIO-01: a snapshot that recorded a method version this build cannot
+  // reproduce is reported, never silently re-executed under the current method.
+  const methodMismatch = frozenAnalysisMethodMismatch(frozen)
+  const recordedMethodVersion = frozenAnalysisMethodVersion(frozen)
   const executed =
-    rowsQuery.data && rowsQuery.data.matchesProvenance
+    !methodMismatch && rowsQuery.data && rowsQuery.data.matchesProvenance
       ? runAnalysis(frozen.definition, columns, rowsQuery.data.rows)
       : null
 
@@ -1787,8 +1817,23 @@ function FrozenAnalysisPreview({
           Evidence mismatch: the Dataset Version row count does not match the
           pinned provenance ({rowsQuery.data.totalCount} ≠ {pin.rowCount}).
         </EvidenceAlert>
+      ) : methodMismatch ? (
+        <EvidenceAlert>
+          Method mismatch: this snapshot records analysis method v
+          {methodMismatch.recorded}, and this build computes method v
+          {methodMismatch.current}. The pinned numbers are withheld because they
+          cannot honestly be presented as the cited method&apos;s results.
+        </EvidenceAlert>
       ) : executed && executed.ok ? (
-        <AnalysisResultTable result={executed.result} />
+        <>
+          <AnalysisResultTable result={executed.result} />
+          {recordedMethodVersion === null ? (
+            <p className="text-xs text-fg-muted">
+              This snapshot predates method recording, so the method version it
+              ran is not recorded.
+            </p>
+          ) : null}
+        </>
       ) : executed ? (
         <EvidenceAlert>
           The pinned inputs no longer execute: {executed.error.code}.

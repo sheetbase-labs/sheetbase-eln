@@ -63,6 +63,13 @@ const paths = {
       <path d="M3 3.5h10M3 8h10M3 12.5h6" />
     </>
   ),
+  /** The sidebar itself: a panel with its navigation column marked. */
+  panelLeft: (
+    <>
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <path d="M6.5 3v10" />
+    </>
+  ),
   settings: (
     <>
       <circle cx="8" cy="8" r="2" />

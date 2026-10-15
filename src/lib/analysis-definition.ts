@@ -13,24 +13,138 @@
  * Deliberately narrow per the roadmap: two kinds — grouped descriptive
  * statistics and polynomial least-squares regression (degree 1–4 covers
  * linear fits and curve fitting) with optional monotonic log transforms.
+ *
+ * R5-STUDIO-01: every result states the method it ran (`method`), the runtime
+ * that produced it, and the assumption checks that were run, each with an
+ * explicit pass/warn/fail/not_checked status. A failed check is reported as
+ * it stands — no result is auto-corrected, transformed or hidden, and a check
+ * that cannot be run says so rather than reporting a pass.
  */
 
-import { fitQuality, olsFit, polyEval, summaryStats } from './stats'
+import {
+  breuschPaganTest,
+  brownForsytheTest,
+  jarqueBeraTest,
+  olsFitWithInference,
+  oneWayAnova,
+  polyEval,
+  summaryStats,
+  tCritical95,
+  tTwoSidedP,
+} from './stats'
+import type { LinearModelFit, OneWayAnovaResult, SummaryStats } from './stats'
 import { buildFlagIndex, isValueFlagged } from './dataset-flags'
 import type { DatasetValueFlag } from './dataset-flags'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
-import type { SummaryStats } from './stats'
 
 import type { ChartColumn } from './chart-spec'
 
 export const ANALYSIS_DEFINITION_VERSION = 1 as const
 export const ANALYSIS_KINDS = ['descriptive', 'regression'] as const
-export type AnalysisKind = (typeof ANALYSIS_KINDS)[number]
 
 export const COLUMN_TRANSFORMS = ['none', 'log10', 'ln'] as const
 export type ColumnTransform = (typeof COLUMN_TRANSFORMS)[number]
 
 export const MAX_DEGREE = 4 as const
+
+// ---------------------------------------------------------------------------
+// R5-STUDIO-01 — the method contract
+//
+// A scientific result must name its method, its runner and its checks. The
+// method definition version is recorded with frozen evidence (migration 0426,
+// `freeze_analysis_block`), so a citation keeps describing the method it was
+// computed under even after this kernel changes; bump it whenever a reported
+// quantity changes meaning and add the matching recorded value in the freeze
+// RPC.
+// ---------------------------------------------------------------------------
+
+export const ANALYSIS_METHOD_VERSION = 1 as const
+
+/** Runtime identity of the kernel that produces every reported quantity. */
+export const ANALYSIS_RUNNER = 'sheetbase-analysis-kernel@1' as const
+
+export const ANALYSIS_METHOD_IDS = [
+  'descriptive',
+  'linear_model',
+  'one_way_anova',
+] as const
+export type AnalysisMethodId = (typeof ANALYSIS_METHOD_IDS)[number]
+
+export type AssumptionCheckStatus = 'pass' | 'warn' | 'fail' | 'not_checked'
+
+/**
+ * One assumption or design check reported alongside a result. `fail` and
+ * `not_checked` are first-class: a violated assumption is visible and never
+ * corrected for the analyst, and a test the data cannot support says so.
+ */
+export interface AssumptionCheck {
+  id: string
+  label: string
+  status: AssumptionCheckStatus
+  /**
+   * The fit's group when the analysis fits one model per group, so a check
+   * belongs to the model it describes. Absent for single-model results.
+   */
+  group?: string
+  /** The check's statistic, when it is a formal test. */
+  statistic?: number
+  /** The check's p-value, when it is a formal test. */
+  pValue?: number
+  detail: string
+  /** What an analyst may do about a failure. Never applied automatically. */
+  remedy?: string
+}
+
+/** Identity of the statistical method a result was computed under. */
+export interface AnalysisMethod {
+  id: AnalysisMethodId
+  /** Method-definition version, recorded with frozen evidence. */
+  version: number
+  label: string
+  /** What the method reports and what it assumes, in one sentence. */
+  statement: string
+  /** Runtime identity — the kernel that produced the numbers. */
+  runner: string
+}
+
+/**
+ * The method a definition runs, stated before any number is read. The
+ * descriptive kind makes no distributional claim; a grouped descriptive
+ * definition reports a one-way ANOVA; a regression definition reports a
+ * least-squares linear model with per-term inference.
+ */
+export function analysisMethodFor(
+  definition: AnalysisDefinition,
+): AnalysisMethod {
+  const base = { version: ANALYSIS_METHOD_VERSION, runner: ANALYSIS_RUNNER }
+  if (definition.kind === 'descriptive') {
+    if (definition.group)
+      return {
+        ...base,
+        id: 'one_way_anova',
+        label: 'One-way ANOVA',
+        statement:
+          'One-way fixed-effects analysis of variance on the grouping factor: per-group means with 95% confidence intervals and an F test of equal group means. Assumes independent observations, normally distributed residuals and equal variance in every group.',
+      }
+    return {
+      ...base,
+      id: 'descriptive',
+      label: 'Descriptive statistics',
+      statement:
+        'Grouped summary statistics. No model is fitted and no distributional assumption is made, so no p-values are reported.',
+    }
+  }
+  const degree = definition.degree ?? 1
+  return {
+    ...base,
+    id: 'linear_model',
+    label:
+      degree === 1
+        ? 'Linear model (ordinary least squares)'
+        : `Polynomial linear model, degree ${degree} (ordinary least squares)`,
+    statement: `Ordinary least squares fit of the outcome on the predictor basis of degree ${degree}, evaluated in the transformed space when a transform is set: per-term estimates with standard errors, 95% confidence intervals and two-sided p-values, plus an overall F test. Assumes independent observations, normally distributed residuals with constant variance, and a correctly specified mean function.`,
+  }
+}
 
 /** A binding to a field of a Dataset Schema Version (identical to charts).
  * fieldId is authoritative; labels are presentation metadata only. */
@@ -86,17 +200,57 @@ export interface RegressionFitRow {
   r2: number
   rmse: number
   equation: string
+  /** Residual degrees of freedom, n − (degree + 1). */
+  dfResidual: number
+  /** Residual standard error; null when there is no residual df. */
+  sigma: number | null
+  /** Adjusted R²; null when there is no residual df. */
+  adjR2: number | null
+  /** Overall F over every non-intercept term; null when not estimable. */
+  f: number | null
+  /** Upper-tail p-value of the overall F; null when not estimable. */
+  fP: number | null
+  /** Term table in the fitted predictor space: intercept first. */
+  terms: LinearModelTerm[]
 }
 
-export interface AnalysisResultBase {
-  kind: AnalysisKind
+/** One row of the reported term table, in the fitted (transformed) space. */
+export interface LinearModelTerm {
+  /** `Intercept`, `x`, `x²`, … — the predictor transform is named in the term. */
+  term: string
+  estimate: number
+  /** Standard error; null when the fit has no residual variance to estimate it. */
+  se: number | null
+  /** Two-sided 95% confidence interval; null when not estimable. */
+  ci95: { lo: number; hi: number } | null
+  /** t statistic; null when not estimable. */
+  t: number | null
+  /** Two-sided p-value; null when not estimable. */
+  p: number | null
+}
+
+export interface DescriptiveResult {
+  kind: 'descriptive'
+  method: AnalysisMethod
+  checks: AssumptionCheck[]
   /** Groups appear in codepoint-sorted order; single-run analyses use 'all'. */
-  rows: DescriptiveRow[] | RegressionFitRow[]
+  rows: DescriptiveRow[]
+  /**
+   * One-way ANOVA over the groups, when the definition groups and the data
+   * supports the test. Null otherwise — the checks state why.
+   */
+  anova: OneWayAnovaResult | null
 }
 
-export type AnalysisResult =
-  | { kind: 'descriptive'; rows: DescriptiveRow[] }
-  | { kind: 'regression'; rows: RegressionFitRow[] }
+export interface RegressionResult {
+  kind: 'regression'
+  method: AnalysisMethod
+  checks: AssumptionCheck[]
+  /** Groups appear in codepoint-sorted order; single-run analyses use 'all'. */
+  rows: RegressionFitRow[]
+}
+
+export type AnalysisResult = DescriptiveResult | RegressionResult
 
 /** Honest execution states instead of silent empty tables. */
 export type AnalysisError =
@@ -110,6 +264,12 @@ export type AnalysisError =
       count: number
     }
   | { code: 'no_numeric_values'; field: string }
+  /**
+   * Frozen evidence records a method-definition version this build cannot
+   * reproduce. The pinned numbers are not shown: they could not honestly be
+   * presented as the cited method's results.
+   */
+  | { code: 'method_mismatch'; recorded: number; current: number }
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -300,6 +460,9 @@ export function runAnalysis(
   flags: readonly DatasetValueFlag[] = [],
 ): { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError } {
   // DSET-01.2 — a row whose analysed field is flagged is excluded by default.
+  // The count travels into the reported checks: an exclusion is stated, never
+  // silently applied.
+  let excludedRows = 0
   if (flags.length > 0) {
     const usedFields = (
       definition.kind === 'descriptive'
@@ -313,9 +476,11 @@ export function runAnalysis(
       rows = rows.filter((row) => {
         const rowId = row[CHART_ROW_ID_KEY]
         if (typeof rowId !== 'string') return true
-        return !usedFields.some((fieldId) =>
+        const flagged = usedFields.some((fieldId) =>
           isValueFlagged(index, rowId, fieldId),
         )
+        if (flagged) excludedRows += 1
+        return !flagged
       })
     }
   }
@@ -336,18 +501,39 @@ export function runAnalysis(
       return { ok: false, error: { code: 'missing_field', fields: ['group'] } }
 
     const outRows: DescriptiveRow[] = []
+    const anovaGroups: Array<{ group: string; values: number[] }> = []
     for (const [key, group] of groupRows(rows, groupCol?.id ?? null)) {
       const { values, missing } = toNumeric(group.map((r) => r[valueCol.id]))
       const stats = summaryStats(values)
       if (!stats) continue
       outRows.push({ group: key, missing, stats })
+      anovaGroups.push({ group: key, values })
     }
     if (outRows.length === 0)
       return {
         ok: false,
         error: { code: 'no_numeric_values', field: valueCol.id },
       }
-    return { ok: true, result: { kind: 'descriptive', rows: outRows } }
+
+    // Grouped descriptive statistics ARE a one-way ANOVA; ungrouped ones make
+    // no distributional claim. Either way the method and every check it ran
+    // travel with the numbers.
+    const method = analysisMethodFor(definition)
+    const checks: AssumptionCheck[] = []
+    let anova: OneWayAnovaResult | null = null
+    if (method.id === 'one_way_anova') {
+      anova = oneWayAnova(anovaGroups)
+      checks.push(
+        ...(anova
+          ? anovaAssumptionChecks(anova, anovaGroups)
+          : [anovaUndefinedCheck(anovaGroups)]),
+      )
+    }
+    pushExcludedRowsCheck(checks, excludedRows)
+    return {
+      ok: true,
+      result: { kind: 'descriptive', method, checks, rows: outRows, anova },
+    }
   }
 
   // Regression.
@@ -365,6 +551,7 @@ export function runAnalysis(
   const outcomeTransform = definition.outcomeTransform ?? 'none'
   const predictorTransform = definition.predictorTransform ?? 'none'
   const outRows: RegressionFitRow[] = []
+  const checks: AssumptionCheck[] = []
   for (const [key, group] of groupRows(rows, groupCol?.id ?? null)) {
     // Pair jointly so one missing side drops the whole observation rather
     // than silently shifting the alignment between predictor and outcome.
@@ -421,14 +608,14 @@ export function runAnalysis(
         error: { code: 'insufficient_data', group: key, needed: degree + 1 },
       }
 
-    const fit = olsFit(xs, ys, degree)
+    const fit = olsFitWithInference(xs, ys, degree)
     if (!fit) return { ok: false, error: { code: 'singular_fit', group: key } }
-    const quality = fitQuality(xs, ys, fit.coefficients)
-    const terms = fit.coefficients
+    const predictorSpace = spaceLabel('x', predictorTransform)
+    const coefficientTerms = fit.coefficients
       .map((c, d) =>
         d === 0
           ? formatCoef(c)
-          : `${formatCoef(c)}·x${d > 1 ? superscript(d) : ''}`,
+          : `${formatCoef(c)}·${predictorSpace}${d > 1 ? superscript(d) : ''}`,
       )
       .reverse()
       .join(' + ')
@@ -437,17 +624,471 @@ export function runAnalysis(
       n: xs.length,
       degree,
       coefficients: fit.coefficients,
-      r2: quality.r2,
-      rmse: quality.rmse,
-      equation: `y = ${terms}`,
+      r2: fit.r2,
+      rmse: fit.rmse,
+      equation: `${spaceLabel('y', outcomeTransform)} = ${coefficientTerms}`,
+      dfResidual: fit.dfResidual,
+      sigma: fit.sigma,
+      adjR2: fit.adjR2,
+      f: fit.f,
+      fP: fit.fP,
+      terms: linearModelTerms(fit, predictorTransform),
     })
+    const fitted = ys.map((y, i) => y - fit.residuals[i])
+    // A grouped definition fits one model per group, so each check names the
+    // group whose model it describes.
+    checks.push(
+      ...linearModelChecks({
+        fit,
+        xs,
+        fitted,
+        degree,
+        predictorTransform,
+        outcomeTransform,
+      }).map((check) => (definition.group ? { ...check, group: key } : check)),
+    )
   }
   if (outRows.length === 0)
     return {
       ok: false,
       error: { code: 'no_numeric_values', field: outcomeCol!.id },
     }
-  return { ok: true, result: { kind: 'regression', rows: outRows } }
+  pushExcludedRowsCheck(checks, excludedRows)
+  return {
+    ok: true,
+    result: {
+      kind: 'regression',
+      method: analysisMethodFor(definition),
+      checks,
+      rows: outRows,
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// R5-STUDIO-01 — method statements, term tables and assumption checks
+// ---------------------------------------------------------------------------
+
+const TRANSFORM_LABEL: Record<Exclude<ColumnTransform, 'none'>, string> = {
+  log10: 'log10',
+  ln: 'ln',
+}
+
+/** `x`, `ln(x)`, `log10(x)` — the space a fit and its checks describe. */
+function spaceLabel(base: string, transform: ColumnTransform): string {
+  return transform === 'none' ? base : `${TRANSFORM_LABEL[transform]}(${base})`
+}
+
+function termLabel(power: number, predictorTransform: ColumnTransform): string {
+  if (power === 0) return 'Intercept'
+  const base = spaceLabel('x', predictorTransform)
+  return power === 1 ? base : `${base}${superscript(power)}`
+}
+
+/**
+ * Term table in the fitted predictor space. The 95% intervals come off the
+ * kernel's deterministic t table, the same table the descriptive mean
+ * intervals use. `se`, `t`, `p` and the interval are null when the fit has no
+ * residual variance to estimate them from: a fit with zero residual variance
+ * reports its estimates exactly and says so rather than dividing by zero.
+ */
+function linearModelTerms(
+  fit: LinearModelFit,
+  predictorTransform: ColumnTransform,
+): LinearModelTerm[] {
+  const tCritical = tCritical95(fit.dfResidual)
+  return fit.coefficients.map((estimate, power) => {
+    const term = termLabel(power, predictorTransform)
+    if (fit.sigma === null || fit.sigma === 0) {
+      return {
+        term,
+        estimate,
+        se: fit.sigma === 0 ? 0 : null,
+        ci95: null,
+        t: null,
+        p: null,
+      }
+    }
+    const variance = fit.covariance[power]?.[power] ?? Number.NaN
+    if (!(variance > 0) || !Number.isFinite(variance))
+      return { term, estimate, se: null, ci95: null, t: null, p: null }
+    const se = Math.sqrt(variance)
+    const t = estimate / se
+    return {
+      term,
+      estimate,
+      se,
+      ci95: { lo: estimate - tCritical * se, hi: estimate + tCritical * se },
+      t,
+      p: tTwoSidedP(t, fit.dfResidual),
+    }
+  })
+}
+
+interface LinearModelCheckInput {
+  fit: LinearModelFit
+  xs: number[]
+  /** Fitted values, in observation order (ys[i] − residuals[i]). */
+  fitted: number[]
+  degree: number
+  predictorTransform: ColumnTransform
+  outcomeTransform: ColumnTransform
+}
+
+/**
+ * The assumption and design checks a least-squares fit can actually run.
+ * Formal tests report their statistic and p-value; structural checks that the
+ * data cannot support report `not_checked` with the reason. A failed check is
+ * reported as it stands — nothing is transformed, dropped or corrected.
+ */
+function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
+  const { fit, xs, fitted, degree } = input
+  const n = fit.residuals.length
+  const checks: AssumptionCheck[] = []
+
+  const normality = jarqueBeraTest(fit.residuals)
+  if (!normality)
+    checks.push({
+      id: 'residual_normality',
+      label: 'Residuals are normal',
+      status: 'not_checked',
+      detail: `Jarque–Bera needs at least 8 residuals; this fit has ${n}.`,
+    })
+  else
+    checks.push({
+      id: 'residual_normality',
+      label: 'Residuals are normal',
+      status:
+        normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
+      statistic: normality.statistic,
+      pValue: normality.p,
+      detail: `Jarque–Bera ${formatQuantity(normality.statistic)} on ${n} residuals (skewness ${formatQuantity(normality.skewness)}, excess kurtosis ${formatQuantity(normality.excessKurtosis)}), p = ${formatPValue(normality.p)}.`,
+      ...(normality.p < 0.05
+        ? {
+            remedy:
+              'Inspect the residuals and consider a transform or a different mean function. The reported fit is unchanged.',
+          }
+        : {}),
+    })
+
+  const heteroscedasticity = breuschPaganTest(fitted, fit.residuals)
+  if (!heteroscedasticity)
+    checks.push({
+      id: 'constant_variance',
+      label: 'Residual variance is constant',
+      status: 'not_checked',
+      detail:
+        'Breusch–Pagan needs at least 3 observations with varying fitted values and varying squared residuals.',
+    })
+  else
+    checks.push({
+      id: 'constant_variance',
+      label: 'Residual variance is constant',
+      status: heteroscedasticity.p < 0.05 ? 'fail' : 'pass',
+      statistic: heteroscedasticity.statistic,
+      pValue: heteroscedasticity.p,
+      detail: `Breusch–Pagan against fitted values: LM = ${formatQuantity(heteroscedasticity.statistic)} (${heteroscedasticity.df} df), p = ${formatPValue(heteroscedasticity.p)}.`,
+      ...(heteroscedasticity.p < 0.05
+        ? {
+            remedy:
+              'Residual spread changes with the fitted value; consider transforming the outcome or weighting the fit. No transform is applied automatically.',
+          }
+        : {}),
+    })
+
+  checks.push(independentObservationsCheck())
+
+  const distinct = new Set(xs).size
+  checks.push(
+    distinct === n
+      ? {
+          id: 'replicate_predictor_values',
+          label: 'Replicates separate lack of fit',
+          status: 'warn',
+          detail: `All ${n} predictor values are distinct, so run-to-run noise cannot be separated from lack of fit; intervals may be too narrow.`,
+        }
+      : {
+          id: 'replicate_predictor_values',
+          label: 'Replicates separate lack of fit',
+          status: 'pass',
+          detail: `${n - distinct} of ${n} predictor values repeat, so pure error is separable from lack of fit.`,
+        },
+  )
+
+  const cooks = fit.maxCooksDistance
+  checks.push(
+    cooks === null
+      ? {
+          id: 'influence',
+          label: 'No single observation drives the fit',
+          status: 'not_checked',
+          detail:
+            'Cook’s distance needs residual degrees of freedom and non-zero residual variance.',
+        }
+      : {
+          id: 'influence',
+          label: 'No single observation drives the fit',
+          status: cooks > 1 ? 'warn' : 'pass',
+          statistic: cooks,
+          detail: `Largest Cook’s distance ${formatQuantity(cooks)}${cooks > 1 ? ' — above the conventional threshold of 1.' : '.'}`,
+          ...(cooks > 1
+            ? {
+                remedy:
+                  'Check the influential observation against the source record; the fit is reported with it included.',
+              }
+            : {}),
+        },
+  )
+
+  checks.push(
+    fit.dfResidual < 5
+      ? {
+          id: 'residual_df',
+          label: 'Enough residual degrees of freedom',
+          status: 'warn',
+          detail: `${fit.dfResidual} residual df for ${degree + 1} term(s); treat p-values as a guide.`,
+        }
+      : {
+          id: 'residual_df',
+          label: 'Enough residual degrees of freedom',
+          status: 'pass',
+          detail: `${fit.dfResidual} residual df for ${degree + 1} term(s).`,
+        },
+  )
+
+  const transforms = [
+    input.predictorTransform === 'none'
+      ? null
+      : `the predictor transform ${TRANSFORM_LABEL[input.predictorTransform]}`,
+    input.outcomeTransform === 'none'
+      ? null
+      : `the outcome transform ${TRANSFORM_LABEL[input.outcomeTransform]}`,
+  ].filter((part): part is string => part !== null)
+  if (transforms.length > 0)
+    checks.push({
+      id: 'transform_scope',
+      label: 'Transform is appropriate',
+      status: 'not_checked',
+      detail: `${transforms.join(' and ')} ${transforms.length > 1 ? 'are' : 'is'} applied before fitting and never back-transformed. The checks above are computed in that transformed space; none of them verifies that the transform is the right one.`,
+    })
+
+  return checks
+}
+
+function independentObservationsCheck(): AssumptionCheck {
+  return {
+    id: 'independent_observations',
+    label: 'Observations are independent',
+    status: 'not_checked',
+    detail:
+      'Rows are treated as independent observations. This dataset carries no replicate or time structure the kernel can test, so independence is assumed and left unverified.',
+  }
+}
+
+/** Why `oneWayAnova` refused to run, stated as a visible not-checked entry. */
+function anovaUndefinedCheck(
+  groups: Array<{ group: string; values: number[] }>,
+): AssumptionCheck {
+  const used = groups.filter((entry) => entry.values.length > 0)
+  const total = used.reduce((acc, entry) => acc + entry.values.length, 0)
+  const reason =
+    used.length < 2
+      ? `only ${used.length} group(s) hold values; the F test needs at least two`
+      : total - used.length < 1
+        ? `the groups hold ${total} observation(s) in total, leaving no within-group degrees of freedom`
+        : 'every group is perfectly constant, so there is no within-group variance'
+  return {
+    id: 'anova_defined',
+    label: 'One-way ANOVA is defined',
+    status: 'not_checked',
+    detail: `No F test was run: ${reason}.`,
+  }
+}
+
+function anovaAssumptionChecks(
+  anova: OneWayAnovaResult,
+  groups: Array<{ group: string; values: number[] }>,
+): AssumptionCheck[] {
+  const used = groups.filter((entry) => entry.values.length > 0)
+  const residuals = used.flatMap((entry) => {
+    const mean =
+      entry.values.reduce((acc, v) => acc + v, 0) / entry.values.length
+    return entry.values.map((v) => v - mean)
+  })
+  const checks: AssumptionCheck[] = []
+
+  const normality = jarqueBeraTest(residuals)
+  if (!normality)
+    checks.push({
+      id: 'residual_normality',
+      label: 'Residuals are normal',
+      status: 'not_checked',
+      detail: `Jarque–Bera needs at least 8 residuals inside the groups; this ANOVA has ${residuals.length}.`,
+    })
+  else
+    checks.push({
+      id: 'residual_normality',
+      label: 'Residuals are normal',
+      status:
+        normality.p < 0.01 ? 'fail' : normality.p < 0.05 ? 'warn' : 'pass',
+      statistic: normality.statistic,
+      pValue: normality.p,
+      detail: `Jarque–Bera ${formatQuantity(normality.statistic)} on ${residuals.length} within-group residuals (skewness ${formatQuantity(normality.skewness)}, excess kurtosis ${formatQuantity(normality.excessKurtosis)}), p = ${formatPValue(normality.p)}.`,
+      ...(normality.p < 0.05
+        ? {
+            remedy:
+              'Inspect the within-group residuals; a transform or a rank-based test may fit better. The reported ANOVA is unchanged.',
+          }
+        : {}),
+    })
+
+  const variance = brownForsytheTest(used)
+  if (!variance)
+    checks.push({
+      id: 'equal_variance',
+      label: 'Equal variance in every group',
+      status: 'not_checked',
+      detail:
+        'Brown–Forsythe needs two or more groups with within-group variation.',
+    })
+  else
+    checks.push({
+      id: 'equal_variance',
+      label: 'Equal variance in every group',
+      status: variance.p < 0.05 ? 'fail' : 'pass',
+      statistic: variance.f,
+      pValue: variance.p,
+      detail: `Brown–Forsythe (median-centred Levene) F(${variance.df1}, ${variance.df2}) = ${formatQuantity(variance.f)}, p = ${formatPValue(variance.p)}.`,
+      ...(variance.p < 0.05
+        ? {
+            remedy:
+              'Group spreads differ; a variance-stabilising transform or a Welch-style test is more appropriate. The reported F test is unchanged.',
+          }
+        : {}),
+    })
+
+  checks.push(independentObservationsCheck())
+
+  const smallest = anova.groups.reduce(
+    (min, group) => Math.min(min, group.n),
+    Number.POSITIVE_INFINITY,
+  )
+  checks.push(
+    smallest < 2
+      ? {
+          id: 'group_sizes',
+          label: 'Every group has replicate observations',
+          status: 'warn',
+          detail: `The smallest group has ${smallest} observation(s); its variance is not estimable and it adds no within-group degrees of freedom.`,
+        }
+      : {
+          id: 'group_sizes',
+          label: 'Every group has replicate observations',
+          status: 'pass',
+          detail: `Every group has at least ${smallest} observations.`,
+        },
+  )
+  return checks
+}
+
+/** An exclusion is stated in the checks; it is never re-included silently. */
+function pushExcludedRowsCheck(
+  checks: AssumptionCheck[],
+  excludedRows: number,
+): void {
+  if (excludedRows === 0) return
+  checks.push({
+    id: 'excluded_rows',
+    label: 'Flagged rows are excluded',
+    status: 'warn',
+    detail: `${excludedRows} row(s) were excluded because a value this analysis uses is flagged. Exclusions stay excluded — nothing is re-included or corrected automatically.`,
+  })
+}
+
+function formatQuantity(value: number): string {
+  if (!Number.isFinite(value)) return 'not estimable'
+  return Number(value.toPrecision(4)).toString()
+}
+
+function formatPValue(value: number): string {
+  if (!Number.isFinite(value)) return 'not estimable'
+  return value < 0.001 ? '< 0.001' : Number(value.toPrecision(3)).toString()
+}
+
+/**
+ * A citable sentence describing what was run, over how many observations,
+ * with which checks passed or failed. Deterministic: the same result always
+ * produces the same text, so a Methods section can be re-derived from frozen
+ * evidence instead of retyped.
+ */
+export function analysisMethodsText(result: AnalysisResult): string {
+  const { method } = result
+  const parts: string[] = [
+    `${method.label} (${method.runner}, method v${method.version}).`,
+  ]
+
+  if (result.kind === 'descriptive') {
+    const observations = result.rows.reduce((acc, row) => acc + row.stats.n, 0)
+    parts.push(`n = ${observations} across ${result.rows.length} group(s).`)
+    const anova = result.anova
+    if (anova) {
+      parts.push(
+        `One-way ANOVA F(${anova.dfBetween}, ${anova.dfWithin}) = ${formatQuantity(anova.f)}, p = ${formatPValue(anova.p)}, η² = ${formatQuantity(anova.etaSquared)}.`,
+      )
+      parts.push(
+        `Group means: ${anova.groups
+          .map(
+            (group) =>
+              `${group.group} ${formatQuantity(group.mean)} (n = ${group.n}${group.ci95 ? `, 95% CI ${formatQuantity(group.ci95.lo)}–${formatQuantity(group.ci95.hi)}` : ''})`,
+          )
+          .join('; ')}.`,
+      )
+    } else {
+      parts.push('No model was fitted, so no p-values are reported.')
+    }
+  } else {
+    for (const row of result.rows) {
+      const scope = row.group === 'all' ? '' : `group ${row.group}: `
+      parts.push(
+        `${scope}n = ${row.n}; R² = ${formatQuantity(row.r2)}` +
+          (row.adjR2 === null
+            ? ''
+            : ` (adjusted ${formatQuantity(row.adjR2)})`) +
+          `; residual σ = ${formatQuantity(row.sigma ?? Number.NaN)} on ${row.dfResidual} df` +
+          (row.f === null || row.fP === null
+            ? ''
+            : `; overall F(${row.degree}, ${row.dfResidual}) = ${formatQuantity(row.f)}, p = ${formatPValue(row.fP)}`) +
+          '.',
+      )
+      parts.push(
+        `${scope}Terms (estimate, 95% CI): ${row.terms
+          .map(
+            (term) =>
+              `${term.term} ${formatQuantity(term.estimate)}${
+                term.ci95
+                  ? ` [${formatQuantity(term.ci95.lo)}, ${formatQuantity(term.ci95.hi)}]`
+                  : ''
+              }${term.p === null ? '' : `, p = ${formatPValue(term.p)}`}`,
+          )
+          .join('; ')}.`,
+      )
+    }
+  }
+
+  if (result.checks.length > 0)
+    parts.push(
+      `Checks: ${result.checks
+        .map(
+          (check) =>
+            `${check.group ? `Group ${check.group} ` : ''}${check.label} — ${check.status.replace('_', ' ')}${
+              check.pValue === undefined
+                ? ''
+                : ` (p = ${formatPValue(check.pValue)})`
+            }`,
+        )
+        .join('; ')}.`,
+    )
+  return parts.join(' ')
 }
 
 export const TRANSFORM_FNS: Record<

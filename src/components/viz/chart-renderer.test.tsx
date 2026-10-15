@@ -124,6 +124,24 @@ describe('ChartRenderer', () => {
     expect(document.querySelectorAll('circle').length).toBeGreaterThan(0)
   })
 
+  it('names the plot after the type it draws, not the kind it was built with', () => {
+    // Every point/line type is built as the package's `line` kind so its series
+    // carry polyline geometry; the plot a reader lands on must not therefore be
+    // announced as a line chart.
+    render(
+      <ChartRenderer
+        title="Scatter"
+        spec={{ ...spec, type: 'scatter' }}
+        materialised={{ ...okMaterialised(), xUnit: undefined }}
+        frozen={null}
+      />,
+    )
+    const plot = document.querySelector('[role="group"][tabindex="0"]')
+    expect(plot?.getAttribute('aria-label')).toBe(
+      'scatter chart of Log titer (log₁₀) against Time (days)',
+    )
+  })
+
   it('renders a bar chart from the package bar primitive', () => {
     render(
       <ChartRenderer
@@ -398,6 +416,71 @@ describe('SCI-01 distribution chart types', () => {
       document.querySelectorAll('svg.sb-figure rect').length,
     ).toBeGreaterThan(0)
     expect(screen.getByText('4 °C')).toBeTruthy() // legend entry
+  })
+
+  it('names the empty measured field instead of a cartesian mapping problem', () => {
+    // A histogram over a field with no numeric values used to fall through to
+    // "Choose an X and Y field to create a scatter plot." — false for a
+    // histogram, whose X mapping does not exist. It must state the real reason.
+    const materialised = {
+      state: { kind: 'ok' as const },
+      columns: [],
+      rows: [
+        { c2: null, c3: '4C' },
+        { c2: null, c3: '4C' },
+      ],
+      series: [],
+      xLabel: 'Bin start',
+      yLabel: 'Log titer',
+      xUnit: undefined,
+      yUnit: undefined,
+      droppedPoints: 2,
+    }
+    for (const type of ['histogram', 'box', 'violin', 'summary'] as const) {
+      cleanup()
+      render(
+        <ChartRenderer
+          title={type}
+          spec={{
+            ...distSpec,
+            type,
+            fields: { ...distSpec.fields, x: null },
+          }}
+          materialised={materialised}
+          frozen={null}
+        />,
+      )
+      expect(
+        screen.getByText(
+          'No numeric values in “Log titer” to plot — 2 rows omitted (missing or non-numeric values).',
+        ),
+      ).toBeTruthy()
+      expect(screen.queryByText(/Choose an X and Y field/)).toBeNull()
+    }
+  })
+
+  it('explains a heatmap with no X dimension instead of throwing', () => {
+    render(
+      <ChartRenderer
+        title="Heatmap"
+        spec={{
+          ...distSpec,
+          type: 'heatmap',
+          fields: { ...distSpec.fields, x: null, series: null, color: null },
+        }}
+        materialised={{
+          ...okMaterialised(),
+          state: { kind: 'missing_field', fields: ['x'] },
+          series: [],
+        }}
+        frozen={null}
+      />,
+    )
+    expect(
+      screen.getByText(
+        'A heatmap needs an X dimension. Map a field to the X axis to build the grid.',
+      ),
+    ).toBeTruthy()
   })
 
   it('renders a violin from the package density primitive', () => {

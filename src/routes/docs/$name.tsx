@@ -1,14 +1,16 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { marked } from 'marked'
 
-const DOC_NAMES = [
-  'deployment',
-  'recovery',
-  'security',
-  'performance',
-  'observability',
-  'administration',
-] as const
+// The rendered documents live in the repository's docs tree; map each stable
+// name to its file so the surface renders the document it names.
+const DOC_PATHS: Record<string, string> = {
+  deployment: 'docs/operations/deployment.md',
+  recovery: 'docs/operations/recovery.md',
+  security: 'docs/operations/security.md',
+  performance: 'docs/subsystems/performance.md',
+  observability: 'docs/operations/observability.md',
+  administration: 'docs/subsystems/administration.md',
+}
 
 export const Route = createFileRoute('/docs/$name')({
   beforeLoad: async ({ context: rootContext }) => {
@@ -19,18 +21,21 @@ export const Route = createFileRoute('/docs/$name')({
   },
   loader: async ({ params }) => {
     const name = params.name
-    if (!DOC_NAMES.includes(name as (typeof DOC_NAMES)[number])) {
-      throw new Error('Unknown document')
+    // An unknown name is a missing document, not a server error: report it in
+    // the page so the route's error boundary stays for real failures.
+    const relativePath = DOC_PATHS[name]
+    if (!relativePath) {
+      return { name, html: null, known: false }
     }
     const { readFileSync } = await import('node:fs')
     const { resolve } = await import('node:path')
-    const filePath = resolve(process.cwd(), 'docs', `${name}.md`)
+    const filePath = resolve(process.cwd(), relativePath)
     try {
       const content = readFileSync(filePath, 'utf-8')
       const html = marked.parse(content, { async: false })
-      return { name, html }
+      return { name, html, known: true }
     } catch {
-      return { name, html: null }
+      return { name, html: null, known: true }
     }
   },
   component: DocPage,
@@ -46,7 +51,7 @@ const DOC_TITLES: Record<string, string> = {
 }
 
 function DocPage() {
-  const { name, html } = Route.useLoaderData()
+  const { name, html, known } = Route.useLoaderData()
   const title = DOC_TITLES[name] ?? name
 
   if (!html) {
@@ -55,9 +60,13 @@ function DocPage() {
         <Link to="/settings" className="text-sm text-primary hover:underline">
           ← Settings
         </Link>
-        <h1 className="mt-4 text-2xl font-semibold">{title}</h1>
+        <h1 className="mt-4 text-2xl font-semibold">
+          {known ? title : 'Document not found'}
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This document is not available in the current deployment.
+          {known
+            ? 'This document is not available in the current deployment.'
+            : `There is no document named “${name}”. Check the name or return to Settings.`}
         </p>
       </div>
     )

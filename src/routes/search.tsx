@@ -3,6 +3,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/v3/ui/alert'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { Radio, RadioGroup } from '#/components/v3/ui/radio-group'
@@ -12,12 +13,15 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import { Sheet, SheetContent, SheetTrigger } from '#/components/v3/ui/sheet'
 import { Highlight } from '#/components/v3/search/highlight'
+import {
+  searchResultContext,
+  searchResultLabel,
+} from '#/components/v3/search/result-text'
 import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import { cn } from '#/lib/utils'
 import {
   executeSearch,
   filterSearchResults,
-  parseMatchedContext,
   searchDidYouMean,
   searchQueryKeys,
   searchResultGroup,
@@ -64,6 +68,23 @@ export const Route = createFileRoute('/search')({
   },
   component: SearchPage,
 })
+
+/**
+ * QA3-search-2 — the number of matches to state. The service's `total_count`
+ * is the whole match set for the query and the facets it was given; when a
+ * client-side facet has already dropped rows from the loaded page, only the
+ * rows in hand can be counted, so the page states that instead of a number it
+ * cannot back.
+ */
+export function searchMatchCount(
+  loadedCount: number,
+  shownCount: number,
+  total: number | undefined,
+): number {
+  return total !== undefined && loadedCount === shownCount
+    ? total
+    : shownCount
+}
 
 function statusTone(status: string): Tone {
   switch (status) {
@@ -124,20 +145,34 @@ function SearchPage() {
   })
 
   const loaded = useMemo(() => query.data?.pages.flat() ?? [], [query.data])
-  // Archived is the one facet the RPC cannot express, so the loaded page is
-  // always filtered client-side against the URL. This is the authoritative
-  // facet filter; the RPC narrowing may be a superset.
+  // QA3-search-2 — the service's own total, not just the page in hand, is the
+  // number of matches the heading and the "All" facet state.
+  const totalCount = query.data?.pages.at(-1)?.at(0)?.totalCount
+  // Archived is pushed to the RPC as p_include_archived (via
+  // urlFiltersToSearchFilters); the remaining facets are still applied here as
+  // the authoritative client filter because the RPC narrowing may be a
+  // superset (a Records facet still returns samples).
   const results = filterSearchResults(loaded, {
     type: search.type,
     project: search.project,
     updated: search.updated,
-    archived: search.archived,
   })
+  const matchCount = searchMatchCount(
+    loaded.length,
+    results.length,
+    totalCount,
+  )
 
   const suggestionQuery = useQuery({
     queryKey: ['did-you-mean', q],
     queryFn: () => searchDidYouMean(notebookDataClient, q),
-    enabled: q.trim().length > 0 && results.length === 0 && !query.isLoading,
+    // A failed search is not a miss, so it must not produce a correction for
+    // a query that was never run.
+    enabled:
+      q.trim().length > 0 &&
+      results.length === 0 &&
+      !query.isLoading &&
+      !query.isError,
     staleTime: 30_000,
   })
 
@@ -157,11 +192,12 @@ function SearchPage() {
   const projectFilter = search.project ?? []
   const updatedFilter = search.updated ?? 'any'
 
+  // A query or facet change is a new place in the history: Back returns to the
+  // previous query rather than skipping past it.
   const setSearch = (patch: Partial<SearchSearch>) =>
     void navigate({
       to: '/search',
       search: (s) => ({ ...s, ...patch }),
-      replace: true,
     })
   const toggleType = (g: SearchResultGroup, on: boolean) =>
     setSearch({
@@ -180,11 +216,15 @@ function SearchPage() {
           : undefined,
     })
 
-  const activeFilters =
+  // QA3-search-1 — only the type, project and updated facets narrow the
+  // results. "Include archived" widens the *query*, so ticking it alone must
+  // not make the empty state blame filters (nor offer a Clear filters button
+  // that resets facets which are already unset).
+  const facetFilterCount =
     typeFilter.length +
     projectFilter.length +
-    (updatedFilter === '7d' ? 1 : 0) +
-    (search.archived ? 1 : 0)
+    (updatedFilter === '7d' ? 1 : 0)
+  const activeFilters = facetFilterCount + (search.archived ? 1 : 0)
 
   const facetsEl = q ? (
     <>
@@ -194,7 +234,7 @@ function SearchPage() {
         </legend>
         <FacetRow
           label="All"
-          count={results.length}
+          count={matchCount}
           checked={!typeFilter.length}
           onChange={() => setSearch({ type: undefined })}
         />
@@ -322,11 +362,14 @@ function SearchPage() {
                 Results for “{q}”
               </h1>
               <span className="num text-body text-fg-muted">
-                {results.length}
+                {matchCount}
               </span>
               <span className="flex-1" />
+              {/* The `search` RPC ranks by relevance and takes no sort
+                  parameter, so the page states the ordering instead of
+                  offering a control that could not change it. */}
               <span className="text-label text-fg-muted max-md:hidden">
-                Sort: Relevance
+                Ranked by relevance
               </span>
             </div>
             <div className="mt-0.5 text-label text-fg-muted">
@@ -334,15 +377,40 @@ function SearchPage() {
               access
             </div>
 
-            {!query.isLoading && results.length === 0 && !query.hasNextPage ? (
+            {query.isError ? (
+              <Notice
+                tone="bad"
+                title="Search could not run"
+                className="mt-3"
+                action={
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void query.refetch()}
+                  >
+                    Try again
+                  </Button>
+                }
+              >
+                The search service did not answer. This is not a result of
+                nothing matching.
+              </Notice>
+            ) : null}
+
+            {!query.isError &&
+            !query.isLoading &&
+            results.length === 0 &&
+            !query.hasNextPage ? (
               <NoResults
                 q={q}
                 archived={Boolean(search.archived)}
-                filtered={activeFilters > 0}
+                filtered={facetFilterCount > 0}
                 suggestions={(suggestionQuery.data ?? []).filter(
                   (s) => s.identifier.toLowerCase() !== q.trim().toLowerCase(),
                 )}
-                onArchived={() => setSearch({ archived: true })}
+                onArchivedChange={(on) =>
+                  setSearch({ archived: on || undefined })
+                }
                 onClear={() =>
                   setSearch({
                     type: undefined,
@@ -415,14 +483,15 @@ function FacetRow({
 }
 
 function Result({ result, q }: { result: SearchResult; q: string }) {
-  const context = parseMatchedContext(result.matchedContext)
+  const context = searchResultContext(result, result.matchedContext)
+  // `identifier` is the object's own id for sheets and datasets; such a row
+  // leads with its title instead of a UUID.
+  const label = searchResultLabel(result)
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b border-border-subtle py-2.5 md:grid-cols-[minmax(0,1fr)_200px_90px] xl:grid-cols-[minmax(0,1fr)_260px_90px]">
       <div className="min-w-0">
         <Link to={result.deepLink} className="text-body">
-          {result.identifier ? (
-            <span className="mono mr-1.5">{result.identifier}</span>
-          ) : null}
+          {label ? <span className="mono mr-1.5">{label}</span> : null}
           <Highlight text={result.title} q={q} />
         </Link>
         <div className="text-label text-fg-muted">
@@ -462,14 +531,14 @@ function NoResults({
   archived,
   filtered,
   suggestions,
-  onArchived,
+  onArchivedChange,
   onClear,
 }: {
   q: string
   archived: boolean
   filtered: boolean
   suggestions: { kind: string; identifier: string; title: string }[]
-  onArchived: () => void
+  onArchivedChange: (on: boolean) => void
   onClear: () => void
 }) {
   return (
@@ -509,13 +578,22 @@ function NoResults({
       ) : null}
       <p className="m-0 text-label text-fg-muted">
         {archived ? (
-          `Archived projects searched too: still no matches for "${q}".`
+          <>
+            Archived projects searched too: still no matches for “{q}”.{' '}
+            <button
+              type="button"
+              onClick={() => onArchivedChange(false)}
+              className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+            >
+              Search active work only
+            </button>
+          </>
         ) : (
           <>
             Archived projects and other workspaces aren’t searched.{' '}
             <button
               type="button"
-              onClick={onArchived}
+              onClick={() => onArchivedChange(true)}
               className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
             >
               Include archived

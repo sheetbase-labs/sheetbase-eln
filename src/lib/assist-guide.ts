@@ -399,6 +399,16 @@ function recordLink(state: SubmissionReadinessState): string {
   return `/records/${state.recordId}`
 }
 
+/**
+ * The review workspace is addressed by revision (`/review/$revisionId`); there
+ * is no page for bare `/review`. Until a revision exists the submission's state
+ * is only readable on its record, so the link names the record instead of a
+ * route the router answers with 'Not found'.
+ */
+function reviewLink(state: SubmissionReadinessState): string {
+  return state.revisionId ? `/review/${state.revisionId}` : recordLink(state)
+}
+
 const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
   {
     id: 'drafts-saved',
@@ -515,7 +525,7 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
             {
               kind: 'review',
               id: s.submissionId,
-              deepLink: s.revisionId ? `/review/${s.revisionId}` : '/review',
+              deepLink: reviewLink(s),
             },
           ]
         : [{ kind: 'notebook', id: s.recordId, deepLink: recordLink(s) }],
@@ -540,14 +550,21 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
           hint: 'Runs the ordinary requestChangesOnReview transition RPC with your permissions — the same action the review workspace offers. Reviewer-only; nothing happens until you confirm.',
         },
       },
-      {
-        label: 'Open review workspace',
-        target: {
-          kind: 'navigate',
-          href: s.revisionId ? `/review/${s.revisionId}` : '/review',
-          hint: 'Opens the canonical review workspace. Guidance only navigates — nothing is changed.',
-        },
-      },
+      // The review workspace only exists once a revision does, so before then
+      // the step carries the decision accepts alone rather than a link to a
+      // route the router answers with 'Not found'.
+      ...(s.revisionId
+        ? [
+            {
+              label: 'Open review workspace',
+              target: {
+                kind: 'navigate',
+                href: reviewLink(s),
+                hint: 'Opens the canonical review workspace. Guidance only navigates — nothing is changed.',
+              } as GuideActionTarget,
+            },
+          ]
+        : []),
     ],
   },
 ]

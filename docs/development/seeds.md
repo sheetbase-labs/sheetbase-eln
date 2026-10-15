@@ -28,8 +28,11 @@ empty sheets (SHT-0019/SHT-0020, via `create_sheet_instance`), the review
 lifecycle (preview → `submit_record_revision` → `run_revision_checks` →
 `approve_review`/`request_changes_on_review` → `sign_revision`, plus a
 `create_amendment` for the frozen-vs-live history), project folders and files,
-integrations and API tokens, and the client portal (shares, reports and
-messages). Some steps use canonical RPCs, but direct business-table writes,
+integrations and API tokens, the client portal (shares, reports and messages),
+and the first design protocol's frozen version, which `create_protocol_version`
+takes from the record's own blocks and `set_protocol_version_status` puts in
+review so read-and-acknowledge training has an exact version to record against.
+Some steps use canonical RPCs, but direct business-table writes,
 timestamp overrides and manufactured webhook deliveries remain. These are
 DSYS-05 authority gaps, not accepted ways to reproduce the design. A
 successful CLI run does not establish the task's original exit.
@@ -120,8 +123,11 @@ fabricate verification or provider assurances.
 
 `prepareDesignScenario(db, screen)` in `src/db/seed/design.ts` prepares
 `ReviewSign`, `SettingsSignature` or `HomeFirstRun`. It is not a seed step and
-does not change the default 43-step CLI sequence. The caller provisions each
-database newly, applies the full migrations and runs the design seed first.
+does not change the CLI sequence: `pnpm db:seed` applies the fixture steps, and
+`pnpm db:seed:design` adds the design steps and the dev-session step on top (48
+steps at the time of writing; `--demo` and `--month` add their own). The caller
+provisions each database newly, applies the full migrations and runs the design
+seed first.
 
 | Screen            | Exact database                        | App / PostgREST / admin ports |
 | ----------------- | ------------------------------------- | ----------------------------- |

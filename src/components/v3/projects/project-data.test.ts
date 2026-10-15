@@ -8,10 +8,14 @@ import {
   updateProjectDetails,
   fetchProjectActivity,
   useProjectMilestones,
+  withReadDeadline,
+  PROJECT_READ_DEADLINE_MS,
 } from './project-data'
+import type * as DataClient from '#/lib/data-client'
 
 const { rpc, list } = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
-vi.mock('#/lib/data-client', () => ({
+vi.mock('#/lib/data-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof DataClient>()),
   createDataClient: () => ({ rpc, list }),
 }))
 
@@ -248,5 +252,34 @@ describe('canonical typed project callers', () => {
     await expect(fetchProjectActivity('project-1')).rejects.toThrow('Denied')
     expect(list).toHaveBeenCalledTimes(2)
     expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('withReadDeadline', () => {
+  it('turns a read the data layer never answers into a stated failure', async () => {
+    vi.useFakeTimers()
+    try {
+      // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
+      const stalled = withReadDeadline(new Promise(() => {}), 'The project list')
+      const failed = expect(stalled).rejects.toMatchObject({
+        code: 'read_timeout',
+        status: 504,
+        message: `The project list did not answer within ${PROJECT_READ_DEADLINE_MS / 1000} s.`,
+      })
+      await vi.advanceTimersByTimeAsync(PROJECT_READ_DEADLINE_MS)
+      await failed
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('passes a real result and a real failure through unchanged', async () => {
+    await expect(
+      withReadDeadline(Promise.resolve(['PRJ-0001']), 'The project list'),
+    ).resolves.toEqual(['PRJ-0001'])
+    const refused = new Error('upstream refused the read')
+    await expect(
+      withReadDeadline(Promise.reject(refused), 'The project list'),
+    ).rejects.toBe(refused)
   })
 })

@@ -41,6 +41,7 @@ import type {
   AnalysisResult,
 } from './analysis-definition'
 import type { FrozenAnalysis } from './analysis-block'
+import { frozenAnalysisMethodMismatch } from './analysis-block'
 import {
   materialiseFrozenChart,
   materialiseFrozenFacets,
@@ -427,6 +428,19 @@ export function reconstructFrozenRepresentation(
           'analysis reconstruction requires a FrozenAnalysis payload',
         )
       }
+      // R5-STUDIO-01: when the freeze recorded a method version this build
+      // cannot reproduce, the numbers are withheld rather than silently
+      // recomputed under a method the citation never named.
+      const methodMismatch = frozenAnalysisMethodMismatch(frozen)
+      if (methodMismatch) {
+        return {
+          kind: 'analysis',
+          outcome: {
+            ok: false,
+            error: { code: 'method_mismatch', ...methodMismatch },
+          },
+        }
+      }
       if (!input) {
         return {
           kind: 'analysis',
@@ -692,6 +706,35 @@ export function representationExportStamp(
     versionId: handle.source.versionId,
     configVersion: handle.config.configVersion,
     exportedAt,
+  }
+}
+
+/**
+ * R5-STUDIO-01 — an analysis export stamp that carries the reported method
+ * and every check it reported, so an exported result still describes the
+ * model it ran. The checks travel as reported: a failing check is exported as
+ * failing, never smoothed into a pass.
+ */
+export function analysisExportStamp(
+  handle: RepresentationHandle,
+  exportedAt: string,
+  result: AnalysisResult,
+): FigureProvenanceStamp {
+  if (handle.config.kind !== 'analysis')
+    throw new Error('analysis export stamp requires an analysis handle')
+  return {
+    ...representationExportStamp(handle, exportedAt),
+    method: {
+      id: result.method.id,
+      version: result.method.version,
+      label: result.method.label,
+      runner: result.method.runner,
+    },
+    checks: result.checks.map((check) => ({
+      id: check.id,
+      status: check.status,
+      detail: check.detail,
+    })),
   }
 }
 

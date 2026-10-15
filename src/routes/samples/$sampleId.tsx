@@ -65,6 +65,7 @@ import type {
   WithdrawDialogInput,
 } from '#/components/v3/samples/withdraw-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { downloadTextFile } from '#/lib/download'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 
@@ -99,6 +100,36 @@ export function useSampleRecord(recordId: string) {
     queryKey: sampleQueryKey(recordId),
     queryFn: () => fetchSample(notebookDataClient, recordId),
   })
+}
+
+/**
+ * LAB-03 — the export behind "Export lineage" on the sample header and the
+ * Lineage tab. There is no server-side export job, so the file is written from
+ * the lineage the caller already rendered; it returns false when there is
+ * nothing to write, so the caller can say so rather than promise a link. A
+ * browser that refuses the download throws, so the caller states that too.
+ */
+export function downloadLineageCsv(
+  identifier: string,
+  rows: {
+    identifier: string
+    title: string | null
+    relation: string | null
+    status: string | null
+  }[],
+): boolean {
+  if (rows.length === 0) return false
+  const lines = rows.map((row) =>
+    [row.identifier, row.title, row.relation, row.status]
+      .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
+      .join(','),
+  )
+  downloadTextFile(
+    `${identifier}-lineage.csv`,
+    ['sample,title,relation,status', ...lines].join('\n'),
+    'text/csv',
+  )
+  return true
 }
 
 type SampleDialog =
@@ -290,18 +321,42 @@ function SampleLayout() {
   const showRelease = state === 'quarantined' && allowRelease
   const showDispose =
     (state === 'hold_exceeded' || state === 'expired') && allowDispose
+  // QA-121: the tab badge counts live usage — consumptions plus reservations
+  // that still hold volume — so a cancelled reservation cannot inflate it.
   const usageCount =
     (events.data ?? []).filter((event) => event.operation === 'consume')
-      .length + (reservations.data?.length ?? 0)
+      .length +
+    (reservations.data ?? []).filter((row) => row.state !== 'cancelled').length
+
+  const exportLineage = () => {
+    try {
+      const wrote = downloadLineageCsv(
+        sample.identifier,
+        (derivedSamples.data ?? []).map((row) => ({
+          identifier: row.identifier,
+          title: row.title,
+          relation: row.relation,
+          status: row.status ? sampleStatus(row.status).label : null,
+        })),
+      )
+      if (!wrote)
+        toast('Nothing to export — this sample has no derived lineage yet.')
+    } catch (error) {
+      toast('Could not export lineage', {
+        description:
+          error instanceof Error ? error.message : 'The download failed.',
+      })
+    }
+  }
 
   const bannerAction =
     state === 'quarantined' ? (
       <Button
         size="sm"
         nativeButton={false}
-        render={<Link to="/samples/$sampleId/measurements" params={params} />}
+        render={<Link to="/samples/$sampleId" params={params} />}
       >
-        View release checks
+        View release basis
       </Button>
     ) : showDispose ? (
       <Button size="sm" onClick={() => setDialog('dispose')}>
@@ -343,15 +398,7 @@ function SampleLayout() {
           actions={
             <span className="flex gap-2 max-md:hidden">
               {terminal ? (
-                <Button
-                  onClick={() =>
-                    toast(
-                      'Export started. You will get a link when it is ready.',
-                    )
-                  }
-                >
-                  Export lineage
-                </Button>
+                <Button onClick={exportLineage}>Export lineage</Button>
               ) : (
                 <>
                   <PrintLabelButton record={sample} onPrinted={invalidate} />
@@ -429,6 +476,7 @@ function SampleLayout() {
           actions={{
             openWithdraw: () => setDialog('withdraw'),
             openReserve: () => setDialog('reserve'),
+            canWithdraw: withdrawable,
           }}
         >
           <div className="min-h-0 flex-1 overflow-auto">

@@ -83,7 +83,7 @@ export function RecordLink({
           'flex size-8 shrink-0 items-center justify-center rounded-md',
           unavailable
             ? 'bg-muted text-muted-foreground'
-            : 'bg-primary/10 text-primary',
+            : 'bg-primary/10 text-primary-text',
         )}
       >
         {stateInfo ? stateInfo.icon : <Icon name={icon} className="size-4" />}

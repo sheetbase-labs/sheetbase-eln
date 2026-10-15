@@ -51,7 +51,12 @@ function rpcRequestSchema(name: string): {
 
 describe('API-03 external OpenAPI', () => {
   it('keeps generate-routes and adds openapi:generate', () => {
-    expect(packageJson.scripts['generate-routes']).toBe('tsr generate')
+    // The route generator still exists alongside the OpenAPI one. It runs the
+    // wrapper, not `tsr generate` directly: the raw generator strips the
+    // committed SSR registration block from routeTree.gen.ts.
+    expect(packageJson.scripts['generate-routes']).toContain(
+      'scripts/generate-routes.mjs',
+    )
     expect(packageJson.scripts['openapi:generate']).toContain(
       'scripts/generate-public-openapi.ts',
     )

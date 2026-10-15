@@ -380,7 +380,7 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
     state: {
       kind: 'selected-row',
       identifier: 'PRJ-0217',
-      trigger: 'Show details for AAV9 process transfer',
+      trigger: 'Quick view of AAV9 process transfer',
     },
   },
   { screen: 'ProjectsTablet', route: '/projects' },

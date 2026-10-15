@@ -1,10 +1,10 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 
-import { ImportFlow } from '#/components/import/import-flow'
-
-/** DSET-05 — the import route: the three-step Stepper (Upload → Map columns →
- * Review and import). Files are stored checksum-first and parsed on the
- * server; commit goes through the canonical Dataset batch writer. */
+/** DSET-05 / R5-SURF-04 — the import wizard. Step 1 chooses the target and
+ * stores the file; the stored file's own route carries the mapping and check
+ * steps. Both are children of this route, so it renders the outlet and nothing
+ * else — the child route could never appear while this route rendered the
+ * upload form itself. */
 export const Route = createFileRoute('/import')({
   beforeLoad: async ({ context: rootContext }) => {
     const context = rootContext.auth
@@ -13,9 +13,5 @@ export const Route = createFileRoute('/import')({
     }
     return { context }
   },
-  component: ImportPage,
+  component: () => <Outlet />,
 })
-
-function ImportPage() {
-  return <ImportFlow />
-}

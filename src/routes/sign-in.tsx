@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 
 import { describeSignInError } from '#/lib/auth-errors'
@@ -7,28 +7,75 @@ import {
   SignedOutSurface,
   useRetainedDrafts,
 } from '#/components/offline/signed-out-surface'
-import { Button } from '#/components/v3/ui/button'
+import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
+import { cn } from '#/lib/utils'
 import { useHelp } from '#/lib/help'
+import type { ReleaseInfo } from '#/lib/help'
 
 /**
- * UI port (roadmap-4/ui-app3): the redesigned sign-in. The ELN signs in with
- * GitHub OAuth through Better Auth (the real provider), not a password store,
- * so the fallback copy states that only company sign-in is available.
- * `?state=` drives the designed states; `?next=` is a validated same-origin
- * path to return to. Outside the app shell, like the client portal.
+ * UI port (roadmap-4/ui-app3): the redesigned sign-in, outside the app shell
+ * like the client portal.
+ *
+ * R5-SHELL-05 — the product signs in with GitHub OAuth through Better Auth
+ * (the real provider) and nothing else: there is no password sign-in (the
+ * Better Auth password HTTP routes are disabled), and no sign-in attempt
+ * limit. The only re-authentication path in the product is REV-03's signing
+ * password step-up, which is a step-up, not a sign-in. So of the design's
+ * five states:
+ *
+ *   - `signed-out` — supported (the account menu sends the person here).
+ *   - `expired-signing` — supported: the signing surface sends the person
+ *     here with `next` when its step-up loses the session, and the SSO
+ *     callback returns them to the review.
+ *   - `password` — deliberately absent: no email/password form exists, and
+ *     none is rendered (a dead form is worse than a plain statement).
+ *   - `sso-only` — this is the product's actual state; company SSO is the
+ *     only method.
+ *   - `locked` — deliberately absent for sign-in: there is no sign-in attempt
+ *     lock. The one lock in the product is the signing-password lock (three
+ *     wrong attempts, 15 minutes, self-lifting); it is stated where it
+ *     applies — the signing dialog — and enforced server-side.
+ *
+ * The `?state=` values are the design's QA affordances; each renders a plain
+ * statement rather than a control that cannot work. `?next=` is a validated
+ * same-origin path the SSO callback returns to. `SignInSurface` is exported
+ * for component tests.
  */
-const states = [
+export const states = [
   'signed-out',
   'expired-signing',
   'locked',
   'password',
   'sso-only',
 ] as const
-type SignInState = (typeof states)[number]
+export type SignInState = (typeof states)[number]
+
+/**
+ * The same-origin path the SSO callback may return to, or `undefined`.
+ *
+ * `startsWith('/')` alone lets an open redirect through: `//evil.example` is a
+ * protocol-relative URL, and browsers read `/\evil.example` as `//`, so either
+ * would leave the site after sign-in. Only a rooted path with no backslash and
+ * no control character is a path on this origin; anything else is dropped, so
+ * the callback falls back to the app root.
+ */
+export function safeNextPath(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  if (!value.startsWith('/')) return undefined
+  if (value.startsWith('//') || value.includes('\\')) return undefined
+  const control = [...value].some((char) => {
+    const code = char.charCodeAt(0)
+    return code < 0x20 || code === 0x7f
+  })
+  if (control) return undefined
+  return value
+}
 
 const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
+  // Server-only module (reads process env and the DB client); a static import
+  // would pull it into the browser bundle, so it is loaded inside the handler.
   const { isDevAuthFreeEnabled, isGithubConfigured } =
     await import('#/lib/auth')
   return {
@@ -44,10 +91,7 @@ export const Route = createFileRoute('/sign-in')({
     state: (states as readonly string[]).includes(search.state as string)
       ? (search.state as SignInState)
       : undefined,
-    next:
-      typeof search.next === 'string' && search.next.startsWith('/')
-        ? search.next
-        : undefined,
+    next: safeNextPath(search.next),
     error: typeof search.error === 'string' ? search.error : undefined,
   }),
   loader: () => getSignInState(),
@@ -86,41 +130,66 @@ function ProviderGlyph() {
   )
 }
 
-function SignIn() {
-  const { devAuthFree, githubEnabled } = Route.useLoaderData()
-  const { state, next, error } = Route.useSearch()
-  const help = useHelp()
-  const [redirecting, setRedirecting] = useState(false)
-  const message = describeSignInError(error)
-  // EXP-05.5: the drafts this device kept when its last user signed out.
-  const retainedDrafts = useRetainedDrafts()
+export interface SignInSurfaceProps {
+  state?: SignInState
+  next?: string
+  /** The raw `?error=` code; mapped to a message the person can act on. */
+  error?: string
+  devAuthFree: boolean
+  githubEnabled: boolean
+  release: ReleaseInfo | undefined
+  /** EXP-05.5 — drafts this device kept for the person who signed out. */
+  retainedDrafts: number
+}
 
+export function SignInSurface({
+  state,
+  next,
+  error,
+  devAuthFree,
+  githubEnabled,
+  release,
+  retainedDrafts,
+}: SignInSurfaceProps) {
+  const [redirecting, setRedirecting] = useState(false)
+  const [ssoError, setSsoError] = useState<string | null>(null)
+  const message = describeSignInError(error)
   const provider = 'GitHub'
+
   const title =
     state === 'signed-out'
       ? 'You’re signed out'
       : state === 'expired-signing'
         ? 'Sign in again to finish signing'
-        : state === 'locked'
-          ? 'This account is locked'
-          : 'Sign in to Sheetbase'
+        : 'Sign in to Sheetbase'
 
   async function sso() {
     setRedirecting(true)
+    setSsoError(null)
     try {
       const res = await fetch('/api/auth/sign-in/social', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ provider: 'github', callbackURL: next ?? '/' }),
+        body: JSON.stringify({
+          provider: 'github',
+          // The router already validated `?next=`; the surface validates again
+          // so a callback URL can never reach the provider unvalidated.
+          callbackURL: safeNextPath(next) ?? '/',
+        }),
       })
       const data = (await res.json()) as { url?: string }
       if (data.url) {
         window.location.href = data.url
         return
       }
+      setSsoError(
+        'GitHub sign-in did not start. Try again, and contact the workspace owner if it keeps failing.',
+      )
     } catch {
-      /* fall through to re-enable the button */
+      setSsoError(
+        'Could not reach GitHub to start sign-in. Check your connection and try again.',
+      )
     }
     setRedirecting(false)
   }
@@ -144,7 +213,9 @@ function SignIn() {
               </h1>
             </div>
 
-            {message ? <Notice tone="bad">{message}</Notice> : null}
+            {ssoError || message ? (
+              <Notice tone="bad">{ssoError ?? message}</Notice>
+            ) : null}
 
             {state === 'signed-out' ? (
               <SignedOutSurface retained={retainedDrafts} />
@@ -154,42 +225,42 @@ function SignIn() {
                 was recorded. Sign in and you’ll go back to the review to sign
                 again.
               </Notice>
+            ) : state === 'locked' ? (
+              <Notice tone="warn" title="There is nothing to unlock here.">
+                Sheetbase signs in with your company account, and sign-in has no
+                attempt limit. The one lock in the product is the signing
+                password: three wrong attempts lock signing for 15 minutes, and
+                it clears on its own.
+              </Notice>
+            ) : state === 'password' ? (
+              <Notice tone="info" title="Password sign-in is not available.">
+                Sheetbase signs in with your company account. A password is
+                asked for only when you sign a record.
+              </Notice>
             ) : null}
 
-            {state === 'locked' ? (
-              <>
-                <Notice tone="bad" icon="lock">
-                  Too many unsuccessful sign-in attempts. The account stays
-                  locked until an administrator unlocks it.
-                </Notice>
-                <div className="flex flex-col gap-1 text-body leading-5">
-                  <p className="m-0">
-                    Contact your workspace admin or the IT service desk. Give
-                    them this reference:
-                  </p>
-                  <p className="m-0">
-                    <span className="mono rounded-sm bg-surface-muted px-1.5 py-0.5 text-label">
-                      LCK-0000-0000
-                    </span>
-                  </p>
-                  <p className="m-0 text-label text-fg-muted">
-                    If this wasn’t you trying to sign in, tell them. Every
-                    attempt is recorded with its time and network address.
-                  </p>
-                </div>
-                <Button
-                  size="lg"
-                  nativeButton={false}
-                  render={<Link to="/sign-in" />}
+            {devAuthFree ? (
+              <div className="flex flex-col gap-2">
+                <p className="m-0 text-body leading-6 text-fg-muted">
+                  This disposable development or preview environment is open for
+                  review. No sign-in or OAuth setup is required.
+                </p>
+                {/* Open access still needs a way onward: a visitor who lands
+                    here by URL has no session to sign in with and no other
+                    link into the app. */}
+                <a
+                  className={cn(
+                    buttonVariants({ variant: 'primary', size: 'lg' }),
+                    'w-full',
+                  )}
+                  href={next ?? '/'}
                 >
-                  Use a different account
-                </Button>
-              </>
-            ) : devAuthFree ? (
-              <p className="text-body leading-6 text-fg-muted">
-                This disposable development or preview environment is open for
-                review. No sign-in or OAuth setup is required.
-              </p>
+                  Continue to Sheetbase
+                </a>
+                <p className="m-0 text-center text-label text-fg-muted">
+                  Released deployments require company sign-in.
+                </p>
+              </div>
             ) : githubEnabled ? (
               <>
                 <div className="flex flex-col gap-2">
@@ -234,21 +305,50 @@ function SignIn() {
       </main>
       <footer className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-border px-4 py-3 text-center text-caption text-fg-muted">
         <span>
-          Sheetbase <span className="mono">{help?.release.version ?? '—'}</span>{' '}
-          · {help?.release.validation.label ?? 'Development build'} release
+          Sheetbase <span className="mono">{release?.version ?? '—'}</span> ·{' '}
+          {release?.validation.label ?? 'Development build'} release
         </span>
         <span aria-hidden="true" className="max-md:hidden">
           ·
         </span>
-        <span>
-          {help?.release.statement ??
-            '21 CFR Part 11 / EU GMP Annex 11 controlled system'}
-        </span>
-        <span aria-hidden="true" className="max-md:hidden">
-          ·
-        </span>
-        <span>Authorised users only; activity is recorded</span>
+        {/* An open environment is not an authorised-users-only controlled
+            system, so the release statement describes the released product
+            only where this deployment actually enforces it. */}
+        {devAuthFree ? (
+          <span>Open preview environment — not a validated system</span>
+        ) : (
+          <>
+            <span>
+              {release?.statement ??
+                '21 CFR Part 11 / EU GMP Annex 11 controlled system'}
+            </span>
+            <span aria-hidden="true" className="max-md:hidden">
+              ·
+            </span>
+            <span>Authorised users only; activity is recorded</span>
+          </>
+        )}
       </footer>
     </div>
+  )
+}
+
+function SignIn() {
+  const { devAuthFree, githubEnabled } = Route.useLoaderData()
+  const { state, next, error } = Route.useSearch()
+  const help = useHelp()
+  // EXP-05.5: the drafts this device kept when its last user signed out.
+  const retainedDrafts = useRetainedDrafts()
+
+  return (
+    <SignInSurface
+      state={state}
+      next={next}
+      error={error}
+      devAuthFree={devAuthFree}
+      githubEnabled={githubEnabled}
+      release={help?.release}
+      retainedDrafts={retainedDrafts}
+    />
   )
 }

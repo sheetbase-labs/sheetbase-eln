@@ -2217,6 +2217,22 @@ function materialiseHeatmap(
   filtered: Record<string, unknown>[],
   meta: MaterialiseMeta,
 ): MaterialisedChart {
+  // The grid needs both dimensions. A heatmap whose X or Y is unmapped (a
+  // type switch from histogram/box clears X, and a saved spec may never have
+  // mapped one) has no grid to build: report the missing dimension rather
+  // than dereferencing a null column.
+  if (!xCol || !yCol) {
+    const fields: string[] = []
+    if (!xCol) fields.push('x')
+    if (!yCol) fields.push('y')
+    return {
+      state: { kind: 'missing_field', fields },
+      ...meta,
+      rows: [],
+      series: [],
+      droppedPoints: 0,
+    }
+  }
   const params = spec.typeParams.heatmap ?? {
     aggregate: 'count' as HeatmapAggregate,
     valueField: null,
@@ -2276,8 +2292,8 @@ function materialiseHeatmap(
     }
   }
 
-  const xDim = buildDim(xCol!, params.xBins ?? 10)
-  const yDim = buildDim(yCol!, params.yBins ?? 10)
+  const xDim = buildDim(xCol, params.xBins ?? 10)
+  const yDim = buildDim(yCol, params.yBins ?? 10)
 
   const cellMap = new Map<
     string,
@@ -2286,11 +2302,11 @@ function materialiseHeatmap(
   let omittedRows = 0
   for (const row of filtered) {
     const xv = xDim.categorical
-      ? String(row[xCol!.id] ?? '—')
-      : toNumber(row[xCol!.id])
+      ? String(row[xCol.id] ?? '—')
+      : toNumber(row[xCol.id])
     const yv = yDim.categorical
-      ? String(row[yCol!.id] ?? '—')
-      : toNumber(row[yCol!.id])
+      ? String(row[yCol.id] ?? '—')
+      : toNumber(row[yCol.id])
     const xi = xDim.indexOf(xv)
     const yi = yDim.indexOf(yv)
     // One row invalid in either dimension is one omitted row — never summed

@@ -134,6 +134,30 @@ Parity for `ProjectDetail`, `ProjectLVV`, `ProjectAmbr`.
 A milestone links to the records that evidence it and derives its status from
 them where configured; the design's project overview renders from real data.
 
+### Extension (R5-CONFIG-05, 2026-10-11)
+
+The plan surface gains scale, dependency and risk evidence without a second
+planning model and **without new milestone columns** — dates, status,
+dependencies (`study_task_dependencies`), client visibility
+(`client_visible`/`shared_since`) and date history (`study_task_due_changes`)
+already existed:
+
+- **Risk is derived, never stored.** Migration `0422` adds the read model
+  `api.milestone_risks` (security-invoker, so SET-02 project access still
+  applies). The rule, stated in the plan UI: `done` when completed; `late` when
+  the due date has passed and it is not completed; `at_risk` when due within 14
+  days while a "done when" condition is open or a milestone it depends on is not
+  completed; otherwise `on_track`.
+- **A plan can start from another project's plan.** `api.create_plan_from_project`
+  reads a source project's milestones and creates phases and milestones through
+  the canonical RPCs (`create_study_workstream`, `create_study_task`,
+  `create_study_deliverable`, `set_study_task_client_visible`), resetting
+  completion and copying no records or evidence, as PROJ-01's structure copy
+  does. The source is untouched.
+- **A cycle stays impossible to store.** `authenticated` holds only SELECT on
+  `study_task_dependencies`; `api.create_dependency` refuses a direct or
+  transitive cycle with `SB029`.
+
 ## PROJ-03 — Members, roles and project settings
 
 **Status (2026-10-02):** partial; nod `in-progress`. [Evidence and remaining work](../RECONCILIATION.md#proj-03).

@@ -31,9 +31,13 @@ import type {
 } from '#/lib/review-workspace'
 import type { ReviewSubmissionWire } from '#/lib/reviews'
 import { reviewsDataClient } from '#/lib/reviews'
+import { SignatureStepUpError } from '#/lib/signatures'
+import type { WorkspaceCertification } from '#/lib/signature-certification'
+import type * as sign002 from '#/lib/sign-002'
 
 import {
   ActionButtons,
+  AmendmentSection,
   buildApprovalSteps,
   buildStepperState,
   canCommentOnRevision,
@@ -45,10 +49,26 @@ import {
   WorkspaceHeader,
 } from './$revisionId'
 
+const {
+  navigateMock,
+  requestSignatureStepUpMock,
+  signRevisionMock,
+  fetchWorkspaceCertificationsMock,
+  createAmendmentMock,
+} = vi.hoisted(() => ({
+  navigateMock: vi.fn(),
+  requestSignatureStepUpMock: vi.fn(),
+  signRevisionMock: vi.fn(),
+  fetchWorkspaceCertificationsMock: vi.fn<
+    (...args: unknown[]) => Promise<WorkspaceCertification[]>
+  >(async () => []),
+  createAmendmentMock: vi.fn(),
+}))
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateMock,
   useSearch: () => ({}),
   useParams: () => ({ revisionId: 'rev-1' }),
   Link: ({
@@ -93,7 +113,20 @@ vi.mock('@tanstack/react-start/server', () => ({
 
 vi.mock('#/lib/signature-certification', async (importOriginal) => ({
   ...(await importOriginal()),
-  fetchWorkspaceCertifications: vi.fn(async () => []),
+  fetchWorkspaceCertifications: (...args: unknown[]) =>
+    fetchWorkspaceCertificationsMock(...args),
+}))
+
+vi.mock('#/lib/sign-002', async (importOriginal) => ({
+  ...(await importOriginal<typeof sign002>()),
+  createAmendment: (...args: unknown[]) => createAmendmentMock(...args),
+}))
+
+vi.mock('#/lib/signatures', async (importOriginal) => ({
+  ...(await importOriginal()),
+  requestSignatureStepUp: (...args: unknown[]) =>
+    requestSignatureStepUpMock(...args),
+  signRevision: (...args: unknown[]) => signRevisionMock(...args),
 }))
 
 // jsdom does not implement ResizeObserver; radix UI reads it on mount.
@@ -128,6 +161,33 @@ function submission(
 }
 
 const DIGEST = 'a'.repeat(64)
+
+/** The SB008 check evidence a revision needs before a signature is offered. */
+function passingCheckResult() {
+  return {
+    id: 'check-1',
+    workspace_id: 'ws-1',
+    record_id: 'rec-1',
+    revision_id: 'rev-1',
+    check_definition_key: 'default',
+    check_definition_version: 1,
+    revision_integrity_digest: DIGEST,
+    check_definition_digest: DIGEST,
+    input_digest: DIGEST,
+    overall_status: 'pass',
+    pass_count: 1,
+    blocking_failure_count: 0,
+    warning_failure_count: 0,
+    info_failure_count: 0,
+    results: [],
+    run_by_user_id: 'reviewer-a',
+    run_session_id: 'session-owner-a',
+    run_role: 'authenticated',
+    run_at: '2026-10-04T12:00:00Z',
+    idempotency_key: 'check-key',
+    created_at: '2026-10-04T12:00:00Z',
+  }
+}
 
 /** Whether a button is disabled (avoids the HTMLElement/ButtonElement cast
  * divergence between tsc and eslint). Native disabled buttons carry the
@@ -586,7 +646,7 @@ describe('WorkspaceHeader — post-submission navigation', () => {
 })
 
 describe('witness picker effective project authority', () => {
-  it('offers only readable human witnesses and disables a revoked selection without granting access', async () => {
+  it('refuses a witness who cannot read the record, with the reason, before any call is made', async () => {
     const rpc = vi
       .spyOn(reviewsDataClient, 'rpc')
       .mockResolvedValueOnce(true)
@@ -595,20 +655,13 @@ describe('witness picker effective project authority', () => {
           user_id: 'view-only',
           name: 'View only',
           workspace_role: 'member',
-          can_view: true,
-          can_review: false,
+          can_read_record: true,
         },
         {
           user_id: 'unreadable-admin',
           name: 'Unreadable admin',
           workspace_role: 'admin',
-          can_view: false,
-        },
-        {
-          user_id: 'owner-a',
-          name: 'Author',
-          workspace_role: 'member',
-          can_view: true,
+          can_read_record: false,
         },
       ])
     const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
@@ -642,28 +695,102 @@ describe('witness picker effective project authority', () => {
           />
         </QueryClientProvider>,
       )
-      await screen.findByRole('option', { name: 'view-only · member' })
+      await screen.findByRole('option', { name: 'View only · member' })
+      // The unreadable member is still named, and the picker states why they
+      // cannot be asked instead of hiding them.
       expect(
-        screen.queryByRole('option', { name: /unreadable-admin/ }),
-      ).toBeNull()
-      expect(screen.queryByRole('option', { name: /owner-a/ })).toBeNull()
+        screen.getByRole('option', {
+          name: 'Unreadable admin · admin — cannot read this record',
+        }),
+      ).toBeTruthy()
+      const picker = screen.getByLabelText(
+        'Request a witness for this frozen revision',
+      )
+      fireEvent.change(picker, { target: { value: 'unreadable-admin' } })
+      expect((await screen.findByRole('alert')).textContent).toContain(
+        'Unreadable admin cannot read this record, so they cannot witness it.',
+      )
+      expect(isDisabled('Request witness')).toBe(true)
+      fireEvent.click(screen.getByRole('button', { name: 'Request witness' }))
+      expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+        'is_workspace_writer',
+        'signature_witness_candidates',
+      ])
+      fireEvent.change(picker, { target: { value: 'view-only' } })
+      expect(screen.queryByRole('alert')).toBeNull()
+      expect(isDisabled('Request witness')).toBe(false)
+    } finally {
+      queryClient.clear()
+      rpc.mockRestore()
+      list.mockRestore()
+    }
+  })
+
+  it('offers the candidate list the server returns and disables a revoked selection without granting access', async () => {
+    const rpc = vi
+      .spyOn(reviewsDataClient, 'rpc')
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce([
+        {
+          user_id: 'view-only',
+          name: 'View only',
+          workspace_role: 'member',
+          can_read_record: true,
+        },
+      ])
+      .mockResolvedValueOnce([])
+    const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    try {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <SignaturePanel
+            submission={submission()}
+            revision={{
+              id: 'rev-1',
+              record_id: 'rec-1',
+              structure_version: 1,
+              metadata_version: 1,
+              metadata_snapshot: {},
+              block_snapshot: [],
+              reason: 'submit',
+              superseded_by_revision_id: null,
+              created_at: '2026-10-04T12:00:00Z',
+              created_by_user_id: 'owner-a',
+            }}
+            projectId="exact-project"
+            signatures={[]}
+            integrityDigest={DIGEST}
+            currentUserId="owner-a"
+            currentUserName="Author"
+            open={false}
+            onOpenChange={vi.fn()}
+          />
+        </QueryClientProvider>,
+      )
+      await screen.findByRole('option', { name: 'View only · member' })
       const picker = screen.getByLabelText(
         'Request a witness for this frozen revision',
       )
       fireEvent.change(picker, { target: { value: 'view-only' } })
       expect(isDisabled('Request witness')).toBe(false)
-      rpc.mockResolvedValueOnce([])
       await act(async () => {
         await queryClient.invalidateQueries({
           queryKey: ['signature-witness-candidates'],
         })
       })
       await waitFor(() => expect(isDisabled('Request witness')).toBe(true))
-      fireEvent.click(screen.getByRole('button', { name: 'Request witness' }))
+      expect(
+        screen.getByText(
+          'No other member of this project may witness this revision, so there is nobody to ask.',
+        ),
+      ).toBeTruthy()
       expect(rpc.mock.calls.map(([name]) => name)).toEqual([
         'is_workspace_writer',
-        'project_members',
-        'project_members',
+        'signature_witness_candidates',
+        'signature_witness_candidates',
       ])
     } finally {
       queryClient.clear()
@@ -804,7 +931,7 @@ describe('REV-01.3 — author returned banner', () => {
     render(
       <ReturnedCommentsBanner
         openCommentCount={1}
-        returnedByUserId="reviewer-a"
+        returnedByName="Reviewer A"
         returnedAt="2026-10-10T00:00:00.000Z"
         recordId="rec-1"
         onGoToComment={onGoToComment}
@@ -813,6 +940,8 @@ describe('REV-01.3 — author returned banner', () => {
     expect(
       screen.getByText(/1 comment to resolve before you resubmit/),
     ).toBeTruthy()
+    // The author is told who returned it, by name — never a user id.
+    expect(screen.getByRole('status').textContent).toContain('by Reviewer A')
     const resubmit = screen.getByRole('button', { name: 'Resubmit (1 open)' })
     expect(resubmit.hasAttribute('disabled')).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: 'Go to comment' }))
@@ -823,7 +952,7 @@ describe('REV-01.3 — author returned banner', () => {
     render(
       <ReturnedCommentsBanner
         openCommentCount={0}
-        returnedByUserId="reviewer-a"
+        returnedByName="Reviewer A"
         returnedAt="2026-10-10T00:00:00.000Z"
         recordId="rec-1"
         onGoToComment={vi.fn()}
@@ -920,6 +1049,283 @@ describe('REV-01.3 — author resolve and reply path', () => {
       rpc.mockRestore()
       list.mockRestore()
       client.clear()
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// R5-SHELL-05 — the signing session outliving its session, and the signing
+// lock that a direct URL must not bypass.
+// ---------------------------------------------------------------------------
+
+function certifiedReviewer(userId: string) {
+  return {
+    userId,
+    name: 'Reviewer A',
+    statementVersion: 1,
+    certifiedAt: '2026-10-04T12:01:00Z',
+    revokedAt: null,
+    identityVerifiedAt: '2026-10-04T12:00:00Z',
+    identityVerifiedBy: 'admin',
+    verifiedEmail: 'reviewer.a@sheetbase.test',
+    verificationRequested: false,
+    authMethod: 'password',
+  }
+}
+
+describe('R5-SHELL-05 — signing session expiry and lockout', () => {
+  async function renderSigningPanel() {
+    navigateMock.mockReset()
+    requestSignatureStepUpMock.mockReset()
+    signRevisionMock.mockReset()
+    const rpc = vi.spyOn(reviewsDataClient, 'rpc').mockResolvedValue(true)
+    const list = vi
+      .spyOn(reviewsDataClient, 'list')
+      .mockImplementation(async (resource: string) =>
+        resource === 'review_check_results' ? [passingCheckResult()] : [],
+      )
+    const onOpenChange = vi.fn()
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+    fetchWorkspaceCertificationsMock.mockResolvedValueOnce([
+      certifiedReviewer('reviewer-a'),
+    ])
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SignaturePanel
+          submission={submission()}
+          revision={{
+            id: 'rev-1',
+            record_id: 'rec-1',
+            structure_version: 1,
+            metadata_version: 1,
+            metadata_snapshot: {},
+            block_snapshot: [],
+            reason: 'submit',
+            superseded_by_revision_id: null,
+            created_at: '2026-10-04T12:00:00Z',
+            created_by_user_id: 'owner-a',
+          }}
+          projectId={null}
+          signatures={[]}
+          integrityDigest={DIGEST}
+          currentUserId="reviewer-a"
+          currentUserName="Reviewer A"
+          open
+          onOpenChange={onOpenChange}
+        />
+      </QueryClientProvider>,
+    )
+    // The dialog renders once eligibility and certification resolve.
+    await screen.findByLabelText('Signing password')
+    fireEvent.change(screen.getByLabelText('Signing password'), {
+      target: { value: 'local-signing-password' },
+    })
+    fireEvent.change(screen.getByLabelText('Type your name to confirm'), {
+      target: { value: 'Reviewer A' },
+    })
+    return { rpc, list, queryClient, onOpenChange }
+  }
+
+  it('returns to the review to sign again when the session ended mid-signing', async () => {
+    const { rpc, list, queryClient, onOpenChange } = await renderSigningPanel()
+    requestSignatureStepUpMock.mockRejectedValueOnce(
+      new SignatureStepUpError(401, 'Sign in again.', 'session_expired'),
+    )
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Sign' }))
+      await waitFor(() =>
+        expect(requestSignatureStepUpMock).toHaveBeenCalledOnce(),
+      )
+      await waitFor(() =>
+        expect(navigateMock).toHaveBeenCalledWith({
+          to: '/sign-in',
+          search: { state: 'expired-signing', next: '/review/rev-1' },
+        }),
+      )
+      // Nothing was recorded, and the dead retry is not left open.
+      expect(signRevisionMock).not.toHaveBeenCalled()
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    } finally {
+      rpc.mockRestore()
+      list.mockRestore()
+      queryClient.clear()
+    }
+  })
+
+  it('refuses to sign while locked, whatever URL reached the dialog', async () => {
+    const { rpc, list, queryClient } = await renderSigningPanel()
+    requestSignatureStepUpMock.mockRejectedValueOnce(
+      new SignatureStepUpError(
+        423,
+        'Signing is locked for 15 minutes after three failed attempts.',
+      ),
+    )
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Sign' }))
+      const alert = await screen.findByRole('alert')
+      expect(alert.textContent).toContain(
+        'Signing is locked for 15 minutes after three failed attempts.',
+      )
+      // The lock is enforced by the step-up endpoint: no token, no signature,
+      // and no navigation lets the person around it.
+      expect(signRevisionMock).not.toHaveBeenCalled()
+      expect(navigateMock).not.toHaveBeenCalled()
+    } finally {
+      rpc.mockRestore()
+      list.mockRestore()
+      queryClient.clear()
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// QA-182 / QA-183 / QA-184 — the decision dialog's pending state, and the
+// stated reasons behind a signing control that cannot be used.
+// ---------------------------------------------------------------------------
+
+function revisionFixture() {
+  return {
+    id: 'rev-1',
+    record_id: 'rec-1',
+    structure_version: 1,
+    metadata_version: 1,
+    metadata_snapshot: {},
+    block_snapshot: [],
+    reason: 'submit',
+    superseded_by_revision_id: null,
+    created_at: '2026-10-04T12:00:00Z',
+    created_by_user_id: 'owner-a',
+  }
+}
+
+function renderSignaturePanel(
+  overrides: { currentUserId?: string; currentUserName?: string } = {},
+) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={queryClient}>
+      <SignaturePanel
+        submission={submission()}
+        revision={revisionFixture()}
+        projectId="exact-project"
+        signatures={[]}
+        integrityDigest={DIGEST}
+        currentUserId={overrides.currentUserId ?? 'reviewer-a'}
+        currentUserName={overrides.currentUserName ?? 'Reviewer A'}
+        open={false}
+        onOpenChange={vi.fn()}
+      />
+    </QueryClientProvider>,
+  )
+  return queryClient
+}
+
+describe('QA-182 — the decision dialog owns its pending state', () => {
+  it('stays open and blocks a second submit until the decision lands', async () => {
+    let land: () => void = () => {}
+    const onAfterDecision = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          land = resolve
+        }),
+    )
+    renderActionButtons({
+      permission: makePermission({ canReview: true, canWithdraw: false }),
+      onAfterDecision,
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }))
+
+    // The RPC is still running: the dialog is open, the action is disabled and
+    // neither it nor Cancel can be used again.
+    const pending = await within(dialog).findByRole('button', {
+      name: 'Submitting…',
+    })
+    expect(pending.hasAttribute('disabled')).toBe(true)
+    fireEvent.click(pending)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(onAfterDecision).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('alertdialog')).toBeTruthy()
+
+    await act(async () => {
+      land()
+    })
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+  })
+
+  it('keeps an amendment refusal inside its dialog instead of dismissing it', async () => {
+    createAmendmentMock.mockRejectedValueOnce(
+      new Error('amendment refused by the server'),
+    )
+    const onAfterAmendment = vi.fn(async () => {})
+    render(
+      <AmendmentSection recordId="rec-1" onAfterAmendment={onAfterAmendment} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start amendment' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Start amendment' }),
+    )
+
+    expect(
+      await within(dialog).findByText('amendment refused by the server'),
+    ).toBeTruthy()
+    // The dialog is still on screen, nothing was recorded, and the record was
+    // not reported as unlocked.
+    expect(screen.getByRole('alertdialog')).toBeTruthy()
+    expect(createAmendmentMock).toHaveBeenCalledTimes(1)
+    expect(onAfterAmendment).not.toHaveBeenCalled()
+  })
+})
+
+describe('QA-183 — an unusable witness picker states why', () => {
+  it('explains a failed member lookup instead of a greyed select', async () => {
+    const rpc = vi
+      .spyOn(reviewsDataClient, 'rpc')
+      .mockResolvedValueOnce(true)
+      .mockRejectedValueOnce(new Error('nope'))
+    const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
+    const queryClient = renderSignaturePanel()
+    try {
+      await waitFor(() =>
+        expect(
+          screen
+            .getByLabelText('Request a witness for this frozen revision')
+            .hasAttribute('disabled'),
+        ).toBe(true),
+      )
+      expect(
+        screen.getByText(/members who may witness could not be loaded/i),
+      ).toBeTruthy()
+    } finally {
+      queryClient.clear()
+      rpc.mockRestore()
+      list.mockRestore()
+    }
+  })
+})
+
+describe('QA-184 — signing always states why it is unavailable', () => {
+  it('says so when the certification lookup failed', async () => {
+    fetchWorkspaceCertificationsMock.mockRejectedValueOnce(new Error('nope'))
+    const rpc = vi.spyOn(reviewsDataClient, 'rpc').mockResolvedValue(true)
+    const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
+    const queryClient = renderSignaturePanel()
+    try {
+      expect(await screen.findByText(/could not be checked/i)).toBeTruthy()
+      expect(screen.queryByRole('dialog')).toBeNull()
+    } finally {
+      queryClient.clear()
+      rpc.mockRestore()
+      list.mockRestore()
     }
   })
 })

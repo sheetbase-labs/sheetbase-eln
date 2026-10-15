@@ -2,7 +2,19 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/v3/ui/button'
 import { Banner, Notice } from '#/components/v3/ui/alert'
+import {
+  ConfirmDialog,
+  ConfirmDialogAction,
+  ConfirmDialogCancel,
+  ConfirmDialogContent,
+  ConfirmDialogDescription,
+  ConfirmDialogFooter,
+  ConfirmDialogHeader,
+  ConfirmDialogTitle,
+  ConfirmDialogTrigger,
+} from '#/components/v3/ui/confirm-dialog'
 import {
   DescriptionList,
   Inspector,
@@ -22,8 +34,12 @@ import {
 import { toast } from '#/components/v3/ui/sonner'
 import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
 import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
-import { answerPipelineRunPrompt } from '#/lib/pipelines/data'
+import {
+  answerPipelineRunPrompt,
+  cancelPipelineRun,
+} from '#/lib/pipelines/data'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
+import { notebookDataClient } from '#/lib/notebook-data'
 import {
   pipelineDataQueryKeys,
   readDeliveryIds,
@@ -59,8 +75,14 @@ function RunPage() {
   const answer = useMutation({
     mutationFn: (value: PipelineRunPromptAnswer) =>
       answerPipelineRunPrompt(runId, value),
-    onSuccess: () => {
-      toast('Answer recorded — the run is resuming.')
+    onSuccess: (_updated, value) => {
+      toast(
+        value.decision === 'stop'
+          ? 'Answer recorded — the run stopped.'
+          : value.decision === 'skip'
+            ? 'Answer recorded — the run is resuming without the skipped step.'
+            : 'Answer recorded — the run is resuming.',
+      )
       void queryClient.invalidateQueries({
         queryKey: pipelineDataQueryKeys.run(runId),
       })
@@ -86,6 +108,36 @@ function RunPage() {
     ? promptList[promptList.length - 1]
     : undefined
   const nameOf = (userId: string) => members.data?.[userId] ?? userId
+  // A running run is stopped through api.cancel_pipeline_run; a waiting run is
+  // moved on by answering its prompt (a Stop decision cancels it there).
+  const cancel = useMutation({
+    mutationFn: () => {
+      if (!r) throw new Error('This run is not loaded yet.')
+      return cancelPipelineRun(notebookDataClient, {
+        workspaceId: r.workspace_id,
+        runId,
+      })
+    },
+    onSuccess: () => {
+      toast('Run cancelled', {
+        description:
+          'It stops at the next safe point; work already in flight finishes.',
+      })
+      void queryClient.invalidateQueries({
+        queryKey: pipelineDataQueryKeys.run(runId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: pipelineDataQueryKeys.runLogs(runId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: pipelineDataQueryKeys.list,
+      })
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : 'Could not cancel the run.',
+      ),
+  })
 
   if (!r) {
     return (
@@ -133,6 +185,36 @@ function RunPage() {
             <span>Took {runDuration(r)}</span>
           </>
         }
+        actions={
+          r.status === 'running' ? (
+            <ConfirmDialog>
+              <ConfirmDialogTrigger>
+                <Button size="sm" variant="quiet" disabled={cancel.isPending}>
+                  Cancel run
+                </Button>
+              </ConfirmDialogTrigger>
+              <ConfirmDialogContent>
+                <ConfirmDialogHeader>
+                  <ConfirmDialogTitle>Cancel this run?</ConfirmDialogTitle>
+                  <ConfirmDialogDescription>
+                    It stops at the next safe point; work already in flight
+                    finishes. A cancelled run keeps what it already recorded and
+                    cannot be resumed.
+                  </ConfirmDialogDescription>
+                </ConfirmDialogHeader>
+                <ConfirmDialogFooter>
+                  <ConfirmDialogCancel />
+                  <ConfirmDialogAction
+                    variant="danger-fill"
+                    onClick={() => cancel.mutate()}
+                  >
+                    Cancel run
+                  </ConfirmDialogAction>
+                </ConfirmDialogFooter>
+              </ConfirmDialogContent>
+            </ConfirmDialog>
+          ) : undefined
+        }
       />
 
       {r.status === 'failed' && r.error_message ? (
@@ -166,6 +248,15 @@ function RunPage() {
                   : null
               }
             />
+          ) : r.status === 'waiting' ? (
+            // A waiting run always raises a prompt; if it is not here yet (or
+            // not readable), say so rather than leave the banner's promise
+            // without a control.
+            <Notice tone="info">
+              {prompts.isLoading
+                ? 'Loading the decision prompt…'
+                : 'This run is waiting for a decision, but no prompt could be read for it. Reload the page — if it stays empty, the run has no recorded prompt left to answer.'}
+            </Notice>
           ) : null}
 
           {outputs.data?.length ? (

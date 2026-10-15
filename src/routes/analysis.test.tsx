@@ -402,6 +402,7 @@ describe('ExportPanel', () => {
     render(
       <ExportPanel
         spec={spec()}
+        mode="chart"
         settings={DEFAULT_EXPORT_SETTINGS}
         onSettingsChange={() => {}}
         sources={[source()]}
@@ -427,6 +428,45 @@ describe('ExportPanel', () => {
     expect(screen.getByLabelText('Export theme')).toBeTruthy()
     expect(screen.getByLabelText('Export width')).toBeTruthy()
     expect(screen.getByLabelText('Export height')).toBeTruthy()
+    expect(
+      screen
+        .getByRole('button', { name: /Export JSON/ })
+        .hasAttribute('disabled'),
+    ).toBe(false)
+  })
+
+  it('states why export is unavailable outside the Chart builder', () => {
+    render(
+      <ExportPanel
+        spec={spec()}
+        mode="compare"
+        settings={DEFAULT_EXPORT_SETTINGS}
+        onSettingsChange={() => {}}
+        sources={[source()]}
+        viewName="Test"
+        selectedViewId={null}
+        views={[]}
+        user={{ id: 'u-1', name: 'Alice' }}
+        workspaceId="ws-1"
+        materialised={{
+          state: { kind: 'ok' },
+          columns: [],
+          rows: [],
+          series: [],
+          xLabel: 'x',
+          yLabel: 'y',
+          xUnit: undefined,
+          droppedPoints: 0,
+          yUnit: undefined,
+        }}
+      />,
+    )
+    expect(screen.getByText('Export uses the Chart builder')).toBeTruthy()
+    expect(
+      screen
+        .getByRole('button', { name: /Export JSON/ })
+        .hasAttribute('disabled'),
+    ).toBe(true)
   })
 })
 
@@ -435,7 +475,7 @@ describe('ExportPanel', () => {
 describe('DataTableAlternative', () => {
   it('renders a loading skeleton while data loads', () => {
     const { container } = render(
-      <DataTableAlternative materialised={null as never} loading />,
+      <DataTableAlternative materialised={null as never} loading datasetId="d-1" />,
     )
     // The v3 Skeleton renders as a div with the skeleton surface token.
     expect(container.querySelector('.bg-skeleton')).toBeTruthy()
@@ -456,6 +496,7 @@ describe('DataTableAlternative', () => {
           yUnit: undefined,
         }}
         loading={false}
+        datasetId="d-1"
       />,
     )
     expect(
@@ -488,11 +529,41 @@ describe('DataTableAlternative', () => {
           yUnit: undefined,
         }}
         loading={false}
+        datasetId="d-1"
       />,
     )
     expect(screen.getByText('Data preview')).toBeTruthy()
     expect(screen.getByText('First 2 rows')).toBeTruthy()
     expect(screen.getByLabelText('Chart data table')).toBeTruthy()
+  })
+
+  it('links the preview to the dataset grid and downloads the shown rows', () => {
+    const createObjectURL = vi.fn(() => 'blob:preview')
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
+    render(
+      <DataTableAlternative
+        materialised={{
+          state: { kind: 'ok' },
+          columns: [{ id: 'f-ph', label: 'pH', logicalType: 'decimal' }],
+          rows: [{ 'f-ph': 7.2 }],
+          series: [],
+          xLabel: 'x',
+          yLabel: 'pH',
+          xUnit: undefined,
+          droppedPoints: 0,
+          yUnit: undefined,
+        }}
+        loading={false}
+        datasetId="d-1"
+      />,
+    )
+    const open = screen.getByText('Open in data table').closest('a')
+    expect(open?.getAttribute('href')).toBe('/datasets/$datasetId/rows')
+    expect(createObjectURL).not.toHaveBeenCalled()
+    void screen.getByLabelText('Download data preview').click()
+    expect(createObjectURL).toHaveBeenCalledTimes(1)
+    vi.unstubAllGlobals()
   })
 })
 
@@ -507,5 +578,33 @@ describe('EmptyAnalysisState', () => {
   it('renders a friendly empty message when idle', () => {
     render(<EmptyAnalysisState loading={false} error={null} />)
     expect(screen.getByText(/Create a dataset first/i)).toBeTruthy()
+  })
+})
+
+describe('AnalysisStudioHeader reflows at 400 % zoom (QA4-zoom-studio)', () => {
+  // The header is a flex item of the studio tool row. With `shrink-0` it stayed
+  // at its max-content width (380 px in a 312 px column at 400 % zoom) and the
+  // data-source select was pushed past the pane, clipped by its `overflow-hid-
+  // den` ancestors with nothing able to scroll to it (WCAG 1.4.10). It shrinks
+  // and wraps instead.
+  it('shrinks and wraps rather than holding its max-content width', () => {
+    const t = source()
+    render(
+      <AnalysisStudioHeader
+        datasets={[
+          { id: t.datasetId, name: t.name, lifecycle: 'active' } as never,
+        ]}
+        loading={false}
+        error={null}
+        selectedDatasetId={t.datasetId}
+        onSelect={() => {}}
+      />,
+    )
+
+    const header = screen.getByText('Analysis Studio').closest('header')
+    expect(header).not.toBeNull()
+    expect(header!.className).toContain('flex-wrap')
+    expect(header!.className).not.toContain('shrink-0')
+    expect(screen.getByLabelText('Select data source')).toBeTruthy()
   })
 })

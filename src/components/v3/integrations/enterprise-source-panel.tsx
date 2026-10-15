@@ -457,7 +457,7 @@ function S3SourcePanel({
                 <TableHead>Key</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead>Modified</TableHead>
-                <TableHead />
+                <TableHead aria-label="Actions" />
               </TableRow>
             </TableHeader>
             <TableBody>

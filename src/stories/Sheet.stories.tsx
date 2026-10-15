@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 import {
   Sheet,
   SheetContent,
@@ -24,7 +24,7 @@ const Demo = ({
 }) => (
   <Sheet>
     <SheetTrigger asChild>
-      <Button variant="outline">Open {side} sheet</Button>
+      <Button variant="secondary">Open {side} sheet</Button>
     </SheetTrigger>
     <SheetContent side={side}>
       <SheetHeader>

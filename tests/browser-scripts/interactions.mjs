@@ -53,6 +53,13 @@ check(
   )) === nowDark,
   'appearance survives reload',
 )
+// R5-SHELL-02: the preference is a server-readable cookie, so the raw document
+// already carries the theme before any script runs — the switch cannot flash.
+const firstPaint = await (await page.request.get(`${base}/`)).text()
+check(
+  /<html[^>]*class="dark"/.test(firstPaint) === (target === 'Dark'),
+  'server renders the stored theme on first paint (no flash)',
+)
 // Restore the original preference so the run leaves no side effects.
 await account.click()
 await page.waitForTimeout(200)

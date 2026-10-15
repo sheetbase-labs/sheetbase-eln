@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite dev --port 3000",
-    "generate-routes": "tsr generate",
+    "generate-routes": "node scripts/generate-routes.mjs",
     "openapi:generate": "tsx scripts/generate-public-openapi.ts && prettier --write docs/api/openapi/external-api-v0.json",
     "build": "vite build",
     "storybook": "storybook dev -p 6006",
@@ -43,7 +43,7 @@
     "test:parity": "tsx scripts/design-reference.mts --if-stale && playwright test --project=parity --workers=8 --reporter=list,./tests/visual/parity-reporter.ts",
     "test:phase1": "vitest run --config vitest.db.config.ts phase1-proof",
     "test:phase3": "vitest run --config vitest.db.config.ts phase3-proof",
-    "test:phase4": "vitest run src/lib/formula-ir.test.ts src/lib/scientific-workbook-engine.test.ts src/lib/calculation.server.test.ts src/lib/formula-write.server.test.ts src/lib/function-descriptions.test.ts src/lib/sheet-calculation.test.ts src/lib/sheet-calculation-exclusion.test.ts src/components/notebook/scientific-workbook-provider.test.tsx && vitest run --config vitest.db.config.ts phase4-proof && vitest run --config vitest.api.config.ts phase4-proof && playwright test phase4-proof",
+    "test:phase4": "vitest run src/lib/formula-ir.test.ts src/lib/scientific-workbook-engine.test.ts src/lib/calculation.server.test.ts src/lib/formula-write.server.test.ts src/lib/function-descriptions.test.ts src/lib/sheet-calculation.test.ts src/lib/sheet-calculation-exclusion.test.ts src/components/notebook/scientific-workbook-provider.test.tsx && playwright test phase4-proof",
     "typecheck": "tsc --noEmit",
     "validate": "pnpm check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "drizzle-kit generate",

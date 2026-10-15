@@ -193,14 +193,29 @@ export const materialListQueryKeys = {
   page: ['ui-port', 'materials', 'page'] as const,
 }
 
+/**
+ * The registry list renders every lot it fetched, and the tab counts and footer
+ * are computed from those rows, so the whole registry is read rather than its
+ * first page: a single 200-row read made the counts and the footer understate a
+ * larger registry while the header showed the server total.
+ */
+const REAGENT_PAGE_SIZE = 200
+
 export function useReagentPage(client: DataClient = notebookDataClient) {
   return useQuery({
     queryKey: materialListQueryKeys.page,
     queryFn: async () => {
-      const [rows, total] = await Promise.all([
-        fetchReagentsPage(client, EMPTY_QUERY),
-        fetchReagentsCount(client, EMPTY_QUERY),
-      ])
+      const rows: Reagent[] = []
+      for (;;) {
+        const page = await fetchReagentsPage(client, {
+          ...EMPTY_QUERY,
+          pageIndex: Math.floor(rows.length / REAGENT_PAGE_SIZE),
+          pageSize: REAGENT_PAGE_SIZE,
+        })
+        rows.push(...page)
+        if (page.length < REAGENT_PAGE_SIZE) break
+      }
+      const total = await fetchReagentsCount(client, EMPTY_QUERY)
       return { rows, total }
     },
     staleTime: 15_000,

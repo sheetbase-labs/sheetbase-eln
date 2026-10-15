@@ -1,13 +1,27 @@
+import { Children } from 'react'
+
 import { cn } from '#/lib/utils'
+import { Skeleton } from './skeleton'
 
 // Record table (.t): 32px rows, 12px muted headers on surface-muted, tabular numerals.
-export function Table({ className, ...props }: React.ComponentProps<'table'>) {
+export function Table({
+  className,
+  caption,
+  children,
+  ...props
+}: React.ComponentProps<'table'> & {
+  /** Accessible name for the table, rendered as the native caption. */
+  caption?: React.ReactNode
+}) {
   return (
     <table
       data-slot="table"
       className={cn('num w-full border-collapse text-body', className)}
       {...props}
-    />
+    >
+      {caption ? <caption className="sr-only">{caption}</caption> : null}
+      {children}
+    </table>
   )
 }
 export function TableBox({ className, ...props }: React.ComponentProps<'div'>) {
@@ -24,7 +38,58 @@ export function TableBox({ className, ...props }: React.ComponentProps<'div'>) {
 export const TableHeader = (p: React.ComponentProps<'thead'>) => (
   <thead {...p} />
 )
-export const TableBody = (p: React.ComponentProps<'tbody'>) => <tbody {...p} />
+/**
+ * The body either holds rows or states why it holds none: `loading` shows a
+ * skeleton row, `empty` the message a caller gives. Call sites that pass
+ * neither keep rendering their children untouched.
+ */
+export function TableBody({
+  children,
+  loading = false,
+  empty,
+  colSpan,
+  ...props
+}: React.ComponentProps<'tbody'> & {
+  loading?: boolean
+  empty?: React.ReactNode
+  /** Columns the loading or empty row spans. */
+  colSpan?: number
+}) {
+  const hasRows = Children.count(children) > 0
+  return (
+    <tbody {...props}>
+      {loading ? (
+        <TableStateRow colSpan={colSpan}>
+          <Skeleton className="h-3.5 w-40" />
+        </TableStateRow>
+      ) : hasRows || empty === undefined ? (
+        children
+      ) : (
+        <TableStateRow colSpan={colSpan}>{empty}</TableStateRow>
+      )}
+    </tbody>
+  )
+}
+
+/** The one-row body state a table without records renders. */
+export function TableStateRow({
+  colSpan,
+  children,
+}: {
+  colSpan?: number
+  children: React.ReactNode
+}) {
+  return (
+    <tr data-slot="table-state-row">
+      <td
+        colSpan={colSpan}
+        className="h-[44px] px-2.5 text-label text-fg-muted first:pl-6"
+      >
+        {children}
+      </td>
+    </tr>
+  )
+}
 export function TableRow({
   className,
   selected,

@@ -293,11 +293,13 @@ describe('sample detail state banner', () => {
 
     await screen.findByText('In quarantine since 16 Sep 2026.')
     expect(screen.getByText(/Endotoxin result pending from QC/)).toBeTruthy()
+    // The release basis is the Details tab's "Release basis" row, so the banner
+    // action says so and goes there — not to Measurements, which shows none.
     expect(
       screen
-        .getByRole('button', { name: 'View release checks' })
+        .getByRole('button', { name: 'View release basis' })
         .getAttribute('href'),
-    ).toBe('/samples/s-1/measurements')
+    ).toBe('/samples/s-1')
 
     await user.click(screen.getByRole('button', { name: 'Release…' }))
     const dialog = await screen.findByRole('dialog')
@@ -498,5 +500,53 @@ describe('sample withdraw dialog', () => {
         'Only 2 mg available. Enter 2 or less.',
       ),
     )
+  })
+})
+
+describe('sample lineage export', () => {
+  it('writes a CSV of the lineage it shows instead of promising a link', async () => {
+    const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:lineage')
+    const revokeObjectURL = vi.fn()
+    const originalCreate = URL.createObjectURL
+    const originalRevoke = URL.revokeObjectURL
+    URL.createObjectURL = createObjectURL
+    URL.revokeObjectURL = revokeObjectURL
+    samples.fetchSample.mockResolvedValue(sample({ status: 'disposed' }))
+    samples.fetchSampleDerivedSamples.mockResolvedValue([
+      {
+        linkId: 'l-1',
+        recordId: 's-2',
+        parentRecordId: 's-1',
+        identifier: 'SMP-2221',
+        title: 'Aliquot A',
+        status: 'available',
+        relation: 'Derived by withdrawal',
+        depth: 0,
+      },
+    ])
+    try {
+      renderRoute()
+      const button = await screen.findByRole('button', {
+        name: 'Export lineage',
+      })
+      vi.useFakeTimers()
+      button.click()
+
+      const blob = createObjectURL.mock.calls[0][0]
+      expect(blob.type).toBe('text/csv')
+      const csv = await blob.text()
+      expect(csv).toContain('SMP-2221')
+      expect(csv).toContain('Derived by withdrawal')
+      // The blob URL is held open past the click so the browser can read it.
+      expect(revokeObjectURL).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(60_000)
+      expect(revokeObjectURL).toHaveBeenCalledWith('blob:lineage')
+      // Nothing was promised that does not exist.
+      expect(sonner.toast).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+      URL.createObjectURL = originalCreate
+      URL.revokeObjectURL = originalRevoke
+    }
   })
 })

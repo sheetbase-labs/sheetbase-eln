@@ -46,7 +46,7 @@ async function createResource(
   name = code,
 ): Promise<Record<string, any>> {
   const { rows } = await client.query(
-    `SELECT * FROM api.create_calendar_resource($1, $2, $3, 'instrument', 'Lab A')`,
+    `SELECT * FROM api.create_calendar_resource($1, $2, $3, 'room', 'Lab A')`,
     [WS_A, name, code],
   )
   return rows[0]
@@ -92,32 +92,45 @@ afterAll(async () => {
 })
 
 describe('OPS-004 create_calendar_resource', () => {
-  it('creates an instrument resource', async () => {
+  it('creates a resource of an explicit non-instrument type', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     const { rows } = await owner.query(
-      `SELECT * FROM api.create_calendar_resource($1, $2, $3)`,
+      `SELECT * FROM api.create_calendar_resource($1, $2, $3, 'room')`,
       [WS_A, 'qPCR-01', 'qpcr-01'],
     )
     expect(rows[0]).toMatchObject({
       workspace_id: WS_A,
       name: 'qPCR-01',
       code: 'qpcr-01',
-      resource_type: 'instrument',
+      resource_type: 'room',
       status: 'active',
       capacity: 1,
       timezone: 'UTC',
     })
   })
 
+  it('refuses a hand-authored instrument resource', async () => {
+    // ADR-0054: an instrument's resource is derived from the registry (id =
+    // instrument id), so it is not written here — the default type included.
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    await expectDenied(
+      owner.query(`SELECT * FROM api.create_calendar_resource($1, $2, $3)`, [
+        WS_A,
+        'Invented instrument',
+        'invented-instrument',
+      ]),
+      'SB021',
+    )
+  })
+
   it('enforces unique code per workspace', async () => {
     const owner = await asAuthenticated(OWNER_A, WS_A)
     await createResource(owner, 'dup-code')
     await expectDenied(
-      owner.query(`SELECT * FROM api.create_calendar_resource($1, $2, $3)`, [
-        WS_A,
-        'Dup again',
-        'dup-code',
-      ]),
+      owner.query(
+        `SELECT * FROM api.create_calendar_resource($1, $2, $3, 'room')`,
+        [WS_A, 'Dup again', 'dup-code'],
+      ),
       '23505',
     )
   })
@@ -558,7 +571,7 @@ describe('OPS-004 RLS isolation', () => {
     const ownerA = await asAuthenticated(OWNER_A, WS_A)
     const ownerB = await asAuthenticated(OWNER_B, WS_B)
     const { rows: bResource } = await ownerB.query(
-      `SELECT * FROM api.create_calendar_resource($1, $2, $3)`,
+      `SELECT * FROM api.create_calendar_resource($1, $2, $3, 'room')`,
       [WS_B, 'B resource', 'b-res'],
     )
     await expectDenied(

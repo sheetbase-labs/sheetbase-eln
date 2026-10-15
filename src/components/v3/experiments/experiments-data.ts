@@ -5,8 +5,13 @@ import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /** UI port (roadmap-4/ui-app3): the experiments list, mapped from real
- * experiment records. Protocol version, open issues and started date are
- * design fields the data model does not carry yet and render as gaps. */
+ * experiment records. Protocol version and open issues are design fields the
+ * data model does not carry yet and render as gaps; the model carries no
+ * experiment start date either, so the list shows when the record was created.
+ *
+ * The list loads one page at a time (`EXPERIMENT_LIST_PAGE_SIZE`) and reads the
+ * exact total separately, so a workspace with more experiments than one page
+ * states how many are loaded instead of dropping the rest silently. */
 
 export interface ExperimentListRow {
   uuid: string
@@ -17,9 +22,13 @@ export interface ExperimentListRow {
   ownerId: string
   owner: string
   status: { tone: Tone; label: string }
+  /** The status tab that lists this record, so the tabs filter the same
+   * statuses their counts count. Null only for a status the table does not
+   * know, which stays reachable in `all`. */
+  statusTab: ExperimentStatusTab | null
   protocol: string
   protocolRecordId: string | null
-  started: string
+  created: string
   updated: string
   recent: boolean
 }
@@ -35,33 +44,79 @@ interface ExperimentWire {
   updated_at: string
 }
 
-const STATUS: Record<string, { tone: Tone; label: string }> = {
-  draft: { tone: 'draft', label: 'Draft' },
-  planned: { tone: 'draft', label: 'Planned' },
-  in_progress: { tone: 'progress', label: 'In progress' },
-  in_review: { tone: 'review', label: 'In review' },
-  approved: { tone: 'ok', label: 'Approved' },
-  locked: { tone: 'stored', label: 'Locked' },
-  paused: { tone: 'warn', label: 'On hold' },
-  failed: { tone: 'bad', label: 'Failed' },
+/** The list's tabs. `experiments.tsx` renders exactly these. */
+export type ExperimentTabKey =
+  | 'all'
+  | 'mine'
+  | 'inprogress'
+  | 'onhold'
+  | 'inreview'
+  | 'approved'
+  | 'drafts'
+
+/** The tabs that group experiments by status. `all` is the whole workspace and
+ * `mine` is the caller's own experiments, so neither is a status tab. */
+export type ExperimentStatusTab = Exclude<ExperimentTabKey, 'all' | 'mine'>
+
+/**
+ * Every status an experiment record can carry, and the status tab that lists
+ * it. `api.start_experiment` leaves `draft`; `api.set_experiment_status` moves
+ * the record through `in_progress` → `in_review` → `returned`/`approved`; and
+ * the rows written before that lifecycle still carry `planned`, `paused` and
+ * `on_hold`. `returned` stays in the review tab it came back from, exactly as
+ * `planned` sits with `draft` in Drafts. The remaining entries are the shared
+ * record vocabulary this list renders for other kinds too, and sit with the
+ * terminal stage.
+ *
+ * `tab` is what makes every experiment reachable from a tab: each status is
+ * listed by exactly one, so the status tabs' counts add up to `all`.
+ */
+const STATUS: Partial<
+  Record<string, { tone: Tone; label: string; tab: ExperimentStatusTab }>
+> = {
+  draft: { tone: 'draft', label: 'Draft', tab: 'drafts' },
+  planned: { tone: 'draft', label: 'Planned', tab: 'drafts' },
+  in_progress: { tone: 'progress', label: 'In progress', tab: 'inprogress' },
+  in_review: { tone: 'review', label: 'In review', tab: 'inreview' },
+  returned: { tone: 'warn', label: 'Returned', tab: 'inreview' },
+  approved: { tone: 'ok', label: 'Approved', tab: 'approved' },
+  locked: { tone: 'stored', label: 'Locked', tab: 'approved' },
+  failed: { tone: 'bad', label: 'Failed', tab: 'approved' },
+  paused: { tone: 'warn', label: 'On hold', tab: 'onhold' },
+  on_hold: { tone: 'warn', label: 'On hold', tab: 'onhold' },
 }
 
 export function experimentStatus(status: string): {
   tone: Tone
   label: string
 } {
-  return (
-    STATUS[status] ?? {
-      tone: 'none',
-      label: status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-    }
-  )
+  const known = STATUS[status]
+  return known
+    ? { tone: known.tone, label: known.label }
+    : {
+        tone: 'none',
+        label: status
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase()),
+      }
 }
 
 export const experimentListQueryKeys = {
-  page: (workspaceId: string | undefined) =>
-    ['ui-port', 'experiments', workspaceId] as const,
+  page: (workspaceId: string | undefined, limit: number) =>
+    ['ui-port', 'experiments', workspaceId, limit] as const,
+  tabCounts: (userId: string | undefined) =>
+    ['ui-port', 'experiments', 'tab-counts', userId] as const,
 }
+
+/** One page of the experiments list. Loading is explicit: the route raises the
+ * limit to load more, and the exact totals come from `useExperimentTabCounts`. */
+export const EXPERIMENT_LIST_PAGE_SIZE = 300
+
+/** The record filter every experiment read and count shares. */
+const EXPERIMENT_FILTER = 'kind=eq.experiment&deleted_at=is.null'
+
+const EXPERIMENT_SELECT =
+  'select=id,project_id,identifier,title,status,created_by_user_id,created_at,updated_at'
 
 export function toExperimentListRow(
   row: ExperimentWire,
@@ -78,9 +133,10 @@ export function toExperimentListRow(
     ownerId: row.created_by_user_id,
     owner: ownerNames.get(row.created_by_user_id) ?? '—',
     status: experimentStatus(row.status),
+    statusTab: STATUS[row.status]?.tab ?? null,
     protocol: '—',
     protocolRecordId: null,
-    started: row.created_at.slice(0, 10),
+    created: row.created_at.slice(0, 10),
     updated: row.updated_at.slice(0, 10),
     recent: !Number.isNaN(updated) && Date.now() - updated <= 30 * 86_400_000,
   }
@@ -88,15 +144,77 @@ export function toExperimentListRow(
 
 export function useExperimentRecords(
   workspaceId: string | undefined,
+  limit: number = EXPERIMENT_LIST_PAGE_SIZE,
   client: DataClient = notebookDataClient,
 ) {
   return useQuery({
-    queryKey: experimentListQueryKeys.page(workspaceId),
+    queryKey: experimentListQueryKeys.page(workspaceId, limit),
     queryFn: () =>
       client.list<ExperimentWire>(
         'records',
-        '?kind=eq.experiment&deleted_at=is.null&select=id,project_id,identifier,title,status,created_by_user_id,created_at,updated_at&order=updated_at.desc&limit=300',
+        `?${EXPERIMENT_FILTER}&${EXPERIMENT_SELECT}&order=updated_at.desc&limit=${limit}`,
       ),
+    staleTime: 15_000,
+  })
+}
+
+export type ExperimentTabCounts = Record<ExperimentTabKey, number>
+
+/** The tabs in strip order. `useExperimentTabCounts` zips its counts with this
+ * list, so it must cover every key exactly once. */
+const EXPERIMENT_TAB_KEYS: readonly ExperimentTabKey[] = [
+  'all',
+  'mine',
+  'inprogress',
+  'onhold',
+  'inreview',
+  'approved',
+  'drafts',
+]
+
+/**
+ * The record filter a tab counts and lists. `all` counts the workspace and
+ * `mine` the caller's own experiments; a status tab filters by the statuses the
+ * status table files under it, so the tab's count is exactly the rows its list
+ * shows — and since every status has a tab, the status tabs add up to `all`.
+ */
+function experimentTabFilter(tab: ExperimentTabKey, userId: string): string {
+  if (tab === 'all') return ''
+  if (tab === 'mine')
+    return `&created_by_user_id=eq.${encodeURIComponent(userId)}`
+  const statuses = Object.keys(STATUS).filter(
+    (status) => STATUS[status]?.tab === tab,
+  )
+  return statuses.length === 1
+    ? `&status=eq.${statuses.join('')}`
+    : `&status=in.(${statuses.join(',')})`
+}
+
+/**
+ * Exact per-tab totals (and the workspace total on `all`). The list itself
+ * loads one page at a time, so counting the loaded rows would understate a
+ * busy workspace; these counts come from the database instead.
+ */
+export function useExperimentTabCounts(
+  userId: string | undefined,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: experimentListQueryKeys.tabCounts(userId),
+    enabled: Boolean(userId),
+    queryFn: async (): Promise<ExperimentTabCounts> => {
+      const totals = await Promise.all(
+        EXPERIMENT_TAB_KEYS.map((tab) =>
+          client.count(
+            'records',
+            `?${EXPERIMENT_FILTER}${experimentTabFilter(tab, userId ?? '')}`,
+          ),
+        ),
+      )
+      return Object.fromEntries(
+        EXPERIMENT_TAB_KEYS.map((tab, index) => [tab, totals[index]]),
+      ) as ExperimentTabCounts
+    },
     staleTime: 15_000,
   })
 }

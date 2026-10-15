@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
+
+import { Button } from '#/components/v3/ui/button'
 import {
-  Button,
   ButtonGroup,
   Command,
   CommandEmpty,
@@ -13,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -55,10 +57,12 @@ export const DetailedMenu: Story = {
         <Button>View options</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuLabel>Display</DropdownMenuLabel>
-        <DropdownMenuCheckboxItem checked>
-          Show archived
-        </DropdownMenuCheckboxItem>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Display</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem checked>
+            Show archived
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup value="compact">
           <DropdownMenuRadioItem value="compact">Compact</DropdownMenuRadioItem>
@@ -81,9 +85,9 @@ export const DetailedMenu: Story = {
 export const GroupedButtons: Story = {
   render: () => (
     <ButtonGroup>
-      <Button variant="outline">Day</Button>
+      <Button variant="secondary">Day</Button>
       <Button variant="secondary">Week</Button>
-      <Button variant="outline">Month</Button>
+      <Button variant="secondary">Month</Button>
     </ButtonGroup>
   ),
 }

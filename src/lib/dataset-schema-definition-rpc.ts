@@ -60,14 +60,31 @@ export async function createDatasetSchemaDefinition(
   })
 }
 
+/**
+ * Replace a draft version's fields.
+ *
+ * `expectedRevision` is the revision the caller read with the fields. The
+ * server refuses a save whose expectation is stale (SB001) so two editors
+ * cannot silently overwrite each other, and returns the saved version so the
+ * caller can keep the authoritative revision. Server-side canonical callers
+ * that already hold the row lock may omit it.
+ */
 export async function replaceDatasetSchemaVersionFields(
   client: DataClient,
-  input: { schemaVersionId: string; fields: DatasetSchemaFieldInput[] },
-): Promise<void> {
-  await client.rpc('replace_dataset_schema_version_fields', {
-    p_schema_version_id: input.schemaVersionId,
-    p_fields: input.fields.map(fieldWire),
-  })
+  input: {
+    schemaVersionId: string
+    fields: DatasetSchemaFieldInput[]
+    expectedRevision?: number | null
+  },
+): Promise<CanonicalDatasetSchemaVersion> {
+  return client.rpc<CanonicalDatasetSchemaVersion>(
+    'replace_dataset_schema_version_fields',
+    {
+      p_schema_version_id: input.schemaVersionId,
+      p_fields: input.fields.map(fieldWire),
+      p_expected_revision: input.expectedRevision ?? null,
+    },
+  )
 }
 
 export async function publishDatasetSchemaVersion(

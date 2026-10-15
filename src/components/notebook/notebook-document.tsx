@@ -7,6 +7,7 @@ import type {
   NotebookBlock as NotebookBlockData,
   NotebookRecord,
 } from '#/lib/notebook-data'
+import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
 import { Button } from '#/components/v3/ui/button'
 import {
   ConfirmDialog,
@@ -202,6 +203,11 @@ export interface NotebookDocumentProps {
   collaborationWorkspaceId?: string
   /** COLLAB-02: workspace role hint for the block comment composer. */
   collaborationRole?: string
+  /**
+   * R5-NOTE-02: the revision a sign-and-attach block is read against. Absent on
+   * a live canvas, where the blocks read as "applies to the next submission".
+   */
+  actionBlockContext?: ActionBlockContext
   className?: string
 }
 
@@ -217,6 +223,8 @@ const EDITABLE_TYPES = new Set([
   'analysis',
   'pipeline_output',
   'plate_map',
+  'signature_request',
+  'corrective_actions',
 ])
 
 /**
@@ -267,6 +275,7 @@ function NotebookDocumentContent({
   collaborationRole = 'viewer',
   frozenSheetEvidence,
   onCellSelectionChange,
+  actionBlockContext,
   className,
   /** NOTE-02 section collapse — presentation state only, route-owned. */
   collapsedSections,
@@ -1237,6 +1246,7 @@ function NotebookDocumentContent({
                   <BlockPreview
                     block={block}
                     hiddenNodeIndexes={hiddenNodeIndexesByBlockId.get(block.id)}
+                    actionContext={actionBlockContext}
                   />
                 )}
               </NotebookBlock>
@@ -1367,7 +1377,7 @@ function NotebookDocumentContent({
             <button
               type="button"
               onClick={() => void handleUndo()}
-              className="font-medium text-primary underline"
+              className="font-medium text-primary-text underline"
             >
               Undo
             </button>
@@ -1432,6 +1442,8 @@ function blockLabel(block: NotebookBlockData): string {
     materials: 'Materials',
     analysis: 'Analysis',
     pipeline_output: 'Pipeline output',
+    signature_request: 'Signature request',
+    corrective_actions: 'Corrective actions',
   }
   return map[block.type] ?? block.type
 }

@@ -62,8 +62,10 @@ function ResultsTab() {
   const datasetIds = all
     .filter((l) => l.target_kind === 'dataset')
     .map((l) => l.target_identifier)
+  // A cited analysis is a `record_links` row with `link_type` and `target_kind`
+  // 'analysis' — the exact predicate `internal.analysis_view_citations` reads.
   const analysisIds = all
-    .filter((l) => l.target_kind === 'analysis' || l.link_type === 'analysis')
+    .filter((l) => l.link_type === 'analysis' && l.target_kind === 'analysis')
     .map((l) => l.target_identifier)
 
   const record = useQuery({
@@ -88,15 +90,13 @@ function ResultsTab() {
       datasetIds.join(','),
     ],
     enabled: datasetIds.length > 0,
-    queryFn: async () => {
-      const rows = await notebookDataClient.rpc<DatasetSummaryWire[]>(
-        'dataset_list_summary',
-        {},
-      )
-      return rows.filter(
-        (d) => d.display_id && datasetIds.includes(d.display_id),
-      )
-    },
+    queryFn: () =>
+      notebookDataClient.list<DatasetSummaryWire>(
+        'rpc/dataset_list_summary',
+        `?display_id=in.(${datasetIds
+          .map(encodeURIComponent)
+          .join(',')})&select=display_id,name,model,row_count,issue_count`,
+      ),
   })
 
   const analyses = useQuery({
@@ -122,7 +122,7 @@ function ResultsTab() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <Section title="Figure" count={analyses.data?.length ?? 0}>
+      <Section title="Analyses" count={analyses.data?.length ?? 0}>
         {analyses.data?.length ? (
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
             {analyses.data.map((a) => (
@@ -143,7 +143,7 @@ function ResultsTab() {
         )}
       </Section>
 
-      <Section title="Table" count={datasets.data?.length ?? 0}>
+      <Section title="Datasets" count={datasets.data?.length ?? 0}>
         {datasets.data?.length ? (
           <TableBox>
             <Table aria-label="Result datasets">

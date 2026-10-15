@@ -356,6 +356,24 @@ describe('block payload validation (ELN-002)', () => {
         datasetVersionId: '0198d970-e266-4000-8000-000000000021',
         label: 'scaled measurements',
       },
+      signature_request: {
+        requestedUserId: null,
+        requestedUserName: 'Ada Lovelace',
+        meaning: 'reviewed',
+        note: 'Please review the clarification runs.',
+      },
+      corrective_actions: {
+        items: [
+          {
+            id: 'CAPA-1',
+            action: 'Repeat the reading at 1:5 dilution',
+            ownerUserId: null,
+            ownerName: 'Gareth P.',
+            due: '2026-10-03',
+            status: 'in-progress',
+          },
+        ],
+      },
     }
     for (const type of KNOWN_BLOCK_TYPES) {
       expect(validateBlock({ type, payload: samples[type] }).ok).toBe(true)

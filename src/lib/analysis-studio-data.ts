@@ -12,14 +12,17 @@
  * later reader can detect a stale source. Exports carry explicit format,
  * dimensions, theme and provenance metadata.
  */
-import { createDataClient } from './data-client'
+import { createDataClient, DataClientError } from './data-client'
 import type { DataClient } from './data-client'
 import { serializeChartSvg as serializePackageChartSvg } from '@sheetbase-labs/sheetbase-explorer'
 import {
   fetchDatasetSummaries,
   datasetExplorerDataClient,
 } from './dataset-explorer-data'
+import { chartUsedFieldIds } from './chart-data'
 import type { CanonicalDatasetSource } from './chart-data'
+import { filterRowsByFlags } from './dataset-flags'
+import type { DatasetValueFlag } from './dataset-flags'
 import {
   validateChartSpec,
   materialiseChart,
@@ -54,6 +57,8 @@ export const analysisStudioQueryKeys = {
   views: ['analysis-views'] as const,
   datasets: ['analysis-datasets'] as const,
   view: (id: string) => ['analysis-view', id] as const,
+  sourceStatus: (id: string) => ['analysis-view', id, 'source-status'] as const,
+  citations: (id: string) => ['analysis-view', id, 'citations'] as const,
 }
 
 // --- Source revision capture ---------------------------------------------
@@ -112,7 +117,126 @@ export function detectStaleSources(
   return null
 }
 
-// --- Saved view wire + persistence ---------------------------------------
+// --- Stale-source status, resolution and citations (R5-STUDIO-03) ---------
+//
+// The canonical comparison lives in the database
+// (`api.analysis_view_source_status`), because "newer" is defined against the
+// frozen-source contract rather than against whatever a browser session happened
+// to load: a source is stale when its live schema version number or dataset
+// revision differs from the pinned pair, and removed when the dataset no longer
+// resolves in the workspace. `detectStaleSources` above stays for callers that
+// hold both sides in memory (the read-only route); the studio resolves through
+// the RPC so the resolution is recorded server-side.
+
+export type AnalysisSourceStatus = 'current' | 'stale' | 'removed'
+
+export interface AnalysisSourceState {
+  datasetId: string
+  datasetName: string
+  displayId: string | null
+  pinned: { schemaVersionNumber: number; revision: number }
+  live: { schemaVersionNumber: number; revision: number } | null
+  status: AnalysisSourceStatus
+  detail: string
+}
+
+export interface AnalysisViewSourceStatus {
+  viewId: string
+  displayId: string | null
+  name: string
+  version: number
+  state: 'current' | 'stale'
+  staleCount: number
+  removedCount: number
+  sources: AnalysisSourceState[]
+  /** Records that cite the view through the existing citation records. */
+  citedByCount: number
+  /** Citing records that are locked (an approve-for-record signature). */
+  citedByLockedCount: number
+  /** The last explicit `keep` that still applies to the pinned revisions. */
+  acknowledged: {
+    at: string
+    actorUserId: string
+    viewVersion: number
+    revisions: SourceRevision[]
+  } | null
+}
+
+export interface AnalysisViewCitation {
+  linkId: string
+  sourceRecordId: string
+  identifier: string
+  title: string
+  recordStatus: string
+  linkedAt: string
+  locked: boolean
+  lockedAt: string | null
+  signed: boolean
+  signedAt: string | null
+  signerUserId: string | null
+}
+
+export type AnalysisSourceResolution = 'keep' | 'update'
+
+export interface ResolveAnalysisViewSourcesInput {
+  viewId: string
+  /** The version the caller read; the server refuses a stale expectation. */
+  expectedVersion: number
+  resolution: AnalysisSourceResolution
+  /** Optional note recorded with the decision in the history path. */
+  justification?: string | null
+}
+
+export interface ResolveAnalysisViewSourcesResult {
+  resolution: AnalysisSourceResolution
+  state: 'current' | 'stale'
+  acknowledged: boolean
+  version: number
+  revisions: SourceRevision[]
+}
+
+/**
+ * The canonical staleness answer for one saved view: per-source status,
+ * whether the view is cited, and the last recorded `keep`.
+ */
+export async function fetchAnalysisViewSourceStatus(
+  client: DataClient,
+  viewId: string,
+): Promise<AnalysisViewSourceStatus> {
+  return client.rpc<AnalysisViewSourceStatus>('analysis_view_source_status', {
+    p_view_id: viewId,
+  })
+}
+
+/** The records citing this view, with their signed/locked state. */
+export async function fetchAnalysisViewCitations(
+  client: DataClient,
+  viewId: string,
+): Promise<AnalysisViewCitation[]> {
+  return client.rpc<AnalysisViewCitation[]>('analysis_view_citations', {
+    p_view_id: viewId,
+  })
+}
+
+/**
+ * Resolve a stale source deliberately. `keep` leaves the pins untouched and
+ * records the decision; `update` re-pins to the live version and is refused for
+ * a view cited by a record (a cited analysis keeps the sources it cited).
+ */
+export async function resolveAnalysisViewSources(
+  client: DataClient,
+  input: ResolveAnalysisViewSourcesInput,
+): Promise<ResolveAnalysisViewSourcesResult> {
+  return client.rpc<ResolveAnalysisViewSourcesResult>(
+    'resolve_analysis_view_sources',
+    {
+      p_view_id: input.viewId,
+      p_expected_version: input.expectedVersion,
+      p_resolution: input.resolution,
+      p_justification: input.justification ?? null,
+    },
+  )
+}
 
 export interface AnalysisViewWire {
   id: string
@@ -190,6 +314,10 @@ export async function createAnalysisView(
  * Update an existing analysis view's spec and source revisions. The
  * `bump_analysis_view_version` trigger increments `version` and `updated_at`
  * server-side, so the caller sends the full spec, not a patch.
+ *
+ * PostgREST answers a PATCH that matches no row with an empty representation
+ * and no error, so a view deleted since the list was read would otherwise look
+ * updated. The write is only reported as saved when the row came back.
  */
 export async function updateAnalysisView(
   client: DataClient,
@@ -206,6 +334,13 @@ export async function updateAnalysisView(
       export_settings: input.export_settings,
     },
   )
+  if (updated.length === 0) {
+    throw new DataClientError(
+      'analysis_view_missing',
+      'This view no longer exists — it was deleted, or you can no longer see it. Saving again creates a new view.',
+      404,
+    )
+  }
   return updated[0]
 }
 
@@ -285,24 +420,37 @@ export function applyTransformations(
 /**
  * Materialise an analysis chart. Transforms now live inside
  * `materialiseChart`, so the studio uses the same pipeline as Notebook charts.
+ * `flags` carries the dataset's active value flags: a row is left out when any
+ * field the spec binds is flagged, exactly as `materialiseLiveChart` does, so
+ * the studio preview/export cannot plot a value the UI excludes from analyses.
  */
 export function materialiseAnalysisChart(
   spec: ChartSpec,
   columns: ChartColumn[],
   rows: Record<string, unknown>[],
+  flags: readonly DatasetValueFlag[] = [],
 ): MaterialisedChart {
-  return materialiseChart(spec, columns, rows)
+  const chartRows =
+    flags.length === 0
+      ? rows
+      : filterRowsByFlags(rows, flags, chartUsedFieldIds(spec))
+  return materialiseChart(spec, columns, chartRows)
 }
 
 /**
- * Facet the analysis preview into small multiples.
+ * Facet the analysis preview into small multiples, under the same flag rule.
  */
 export function materialiseAnalysisFacets(
   spec: ChartSpec,
   columns: ChartColumn[],
   rows: Record<string, unknown>[],
+  flags: readonly DatasetValueFlag[] = [],
 ): FacetedResult {
-  return materialiseFacetedCharts(spec, columns, rows)
+  const chartRows =
+    flags.length === 0
+      ? rows
+      : filterRowsByFlags(rows, flags, chartUsedFieldIds(spec))
+  return materialiseFacetedCharts(spec, columns, chartRows)
 }
 
 // --- Export helpers -------------------------------------------------------
@@ -368,11 +516,36 @@ export function exportViewJson(
 /**
  * Serialise the materialised chart's underlying rows to CSV. The data table
  * is the accessible alternative to the visual; the CSV carries the exact
- * rows the chart plots so the export is verifiable without the visual.
+ * rows the chart plots so the export is verifiable without the visual. When
+ * `provenance` is supplied (the export setting requests it) the header block
+ * names the view, its version, the exporter and the pinned source revisions,
+ * so the CSV is reproducible on its own.
  */
-export function exportDataCsv(materialised: MaterialisedChart): string {
-  const header = ['series', 'x', 'y', 'yError']
-  const lines: string[] = [header.join(',')]
+export function exportDataCsv(
+  materialised: MaterialisedChart,
+  provenance: ExportProvenance | null = null,
+): string {
+  const lines: string[] = []
+  if (provenance) {
+    // The version line states what was exported. An ad-hoc export has no
+    // stored version, and the header says so by leaving it out rather than
+    // printing a placeholder as if it were the version.
+    const version =
+      provenance.viewVersion === null ? '' : ` v${provenance.viewVersion}`
+    const view = `${provenance.viewName}${
+      provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''
+    }${version}`
+    const sources = provenance.sourceRevisions
+      .map((revision) => revision.datasetId.slice(0, 8))
+      .join(', ')
+    lines.push(
+      '# Sheetbase Analysis Studio export',
+      `# view: ${view.replace(/\s+/g, ' ')}`,
+      `# exported by ${provenance.exportedBy} at ${provenance.exportedAt}`,
+      `# sources: ${sources || 'none'}`,
+    )
+  }
+  lines.push(['series', 'x', 'y', 'yError'].join(','))
   for (const s of materialised.series) {
     for (const p of s.points) {
       lines.push(
@@ -401,9 +574,38 @@ function csvField(value: string): string {
 }
 
 /**
+ * Resolve the theme variables an SVG references into concrete declarations.
+ * The figure draws with `var(--text)`, `var(--series-a)`… so a standalone
+ * document must inline them; the probe carries the v3 scope and the requested
+ * theme class so Light and Dark resolve to the values the app would render.
+ */
+function resolveThemeDeclarations(svg: string, theme: 'light' | 'dark'): string {
+  if (typeof document === 'undefined') return ''
+  const names = new Set<string>(['--surface'])
+  for (const match of svg.matchAll(/var\(\s*(--[a-z0-9-]+)/gi)) names.add(match[1])
+  const probe = document.createElement('div')
+  probe.className = theme === 'dark' ? 'sheetbase-scope dark' : 'sheetbase-scope'
+  probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none'
+  document.body.appendChild(probe)
+  const computed = getComputedStyle(probe)
+  const rootComputed = getComputedStyle(document.documentElement)
+  const declarations: string[] = []
+  for (const name of names) {
+    const value =
+      computed.getPropertyValue(name).trim() ||
+      rootComputed.getPropertyValue(name).trim()
+    if (value) declarations.push(`${name}:${value}`)
+  }
+  probe.remove()
+  return declarations.join(';')
+}
+
+/**
  * Serialise the chart's SVG element to a standalone SVG document string with
- * explicit width/height and a provenance comment. The caller passes the
- * rendered SVG element so the export matches what the user saw.
+ * explicit width/height, the themed colours inlined and a provenance comment.
+ * The caller passes the rendered SVG element so the export matches what the
+ * user saw; the theme setting changes the exported colours, and the
+ * provenance comment is emitted only when the settings request it.
  */
 export function exportChartSvg(
   svgEl: SVGSVGElement | null,
@@ -426,13 +628,27 @@ export function exportChartSvg(
   root.setAttribute('height', String(settings.height))
   root.setAttribute('viewBox', `0 0 ${settings.width} ${settings.height}`)
   root.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-  if (settings.theme === 'dark') {
-    root.setAttribute('data-theme', 'dark')
+  const svgNamespace = 'http://www.w3.org/2000/svg'
+  const declarations = resolveThemeDeclarations(base, settings.theme)
+  if (declarations) {
+    const style = parsed.createElementNS(svgNamespace, 'style')
+    style.textContent = `:root{${declarations}}`
+    root.insertBefore(style, root.firstChild)
   }
+  // An opaque surface under the figure, so a dark export is not transparent
+  // and the Light/Dark setting changes the background the rasteriser keeps.
+  const background = parsed.createElementNS(svgNamespace, 'rect')
+  background.setAttribute('x', '0')
+  background.setAttribute('y', '0')
+  background.setAttribute('width', String(settings.width))
+  background.setAttribute('height', String(settings.height))
+  background.setAttribute('fill', 'var(--surface, #ffffff)')
+  root.insertBefore(background, root.firstChild)
   const serialised = new XMLSerializer().serializeToString(root)
-  const comment = provenance
-    ? `\n<!-- Sheetbase Analysis Studio export\nview: ${provenance.viewName}${provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''} v${provenance.viewVersion ?? '?'}\nexported by ${provenance.exportedBy} at ${provenance.exportedAt}\nsources: ${provenance.sourceRevisions.map((r) => r.datasetId.slice(0, 8)).join(', ')}\n-->\n`
-    : ''
+  const comment =
+    settings.includeProvenance && provenance
+      ? `\n<!-- Sheetbase Analysis Studio export\nview: ${provenance.viewName}${provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''} v${provenance.viewVersion ?? '?'}\nexported by ${provenance.exportedBy} at ${provenance.exportedAt}\nsources: ${provenance.sourceRevisions.map((r) => r.datasetId.slice(0, 8)).join(', ')}\n-->\n`
+      : ''
   return `${comment}${serialised}`
 }
 

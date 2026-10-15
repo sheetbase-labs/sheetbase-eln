@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 import { livenessResponse } from './health'
+import { themeScript } from './theme-cookie'
 import {
   CONTENT_SECURITY_POLICY,
   PERMISSIONS_POLICY,
@@ -156,5 +157,18 @@ describe('PLAT-03 nonce CSP', () => {
     const out = injectNonceIntoHtml('<script nonce="a">x()</script>', 'b')
     expect(out).toContain('nonce="a"')
     expect(out).not.toContain('nonce="a" nonce="b"')
+  })
+
+  it('permits the R5-SHELL-02 theme script in both policies', () => {
+    // Rendered as `<script dangerouslySetInnerHTML>` with no `src`, so the
+    // document nonce is injected into it in production …
+    const tag = `<script>${themeScript}</script>`
+    expect(injectNonceIntoHtml(tag, 'n0nce-theme')).toBe(
+      `<script nonce="n0nce-theme">${themeScript}</script>`,
+    )
+    // … and development keeps 'unsafe-inline' for the same inline script.
+    expect(buildContentSecurityPolicy('development')).toContain(
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    )
   })
 })

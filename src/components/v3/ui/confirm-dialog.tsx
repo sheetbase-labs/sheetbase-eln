@@ -26,11 +26,28 @@ export const ConfirmDialogFooter = DialogFooter
 
 export function ConfirmDialogTrigger({
   children,
-}: {
-  children: React.ReactElement
+  asChild = true,
+  ...props
+}: Omit<
+  React.ComponentProps<typeof DialogPrimitive.Trigger>,
+  'children' | 'render'
+> & {
+  /** `true` (default): the child element is the trigger. `false`: the trigger
+   * renders its own button and the children are its label. */
   asChild?: boolean
+  children: React.ReactNode
 }) {
-  return <DialogPrimitive.Trigger render={children} />
+  if (asChild) {
+    return (
+      <DialogPrimitive.Trigger
+        {...props}
+        render={children as React.ReactElement}
+      />
+    )
+  }
+  return (
+    <DialogPrimitive.Trigger {...props}>{children}</DialogPrimitive.Trigger>
+  )
 }
 
 export function ConfirmDialogHeader({

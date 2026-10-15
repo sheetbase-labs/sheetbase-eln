@@ -122,11 +122,44 @@ function AnalysisHome() {
           return false
         return true
       }),
-    [rows, tab, needle, userId],
+    // `citedIds` resolves from its own query after the first render, so it has
+    // to be a dependency: without it a direct load of ?tab=cited filters against
+    // the empty set and never recomputes when the citations land.
+    [rows, tab, needle, userId, citedIds],
   )
 
   const recent = (datasets.data ?? []).slice(0, 3)
   const selected = visible.find((v) => v.id === selectedId) ?? null
+
+  // The empty state says why the list is empty, so a tab filter that matches
+  // nothing does not read as a workspace with no analyses: the header above
+  // reports "N saved analyses" from the unfiltered rows.
+  const emptyCopy = (() => {
+    if (needle)
+      return {
+        title: 'No analyses match',
+        body: 'No analysis ID, name, kind or dataset matches that search. Clear it to see every saved analysis.',
+      }
+    if (rows.length > 0 && tab === 'cited')
+      return {
+        title: 'No analyses are cited in records',
+        body: 'An analysis appears here once a notebook or record cites it. Open an analysis to cite it, or start a new one.',
+      }
+    if (rows.length > 0 && tab === 'mine')
+      return {
+        title: 'No analyses of your own',
+        body: 'You have not saved an analysis in this workspace yet. Start one, or open All to see analyses other people saved.',
+      }
+    if (rows.length > 0 && tab === 'drafts')
+      return {
+        title: 'No draft analyses',
+        body: 'Every analysis in this workspace has been edited past its first version, so none is still a draft.',
+      }
+    return {
+      title: 'No analyses yet',
+      body: 'An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start.',
+    }
+  })()
 
   if (state === 'denied') {
     return (
@@ -196,41 +229,47 @@ function AnalysisHome() {
         ) : null}
 
         <div className="border-b border-border px-4 md:px-6">
-          <SearchTabs
-            label="Analysis lists"
-            current={tab ?? 'all'}
-            items={[
-              {
-                key: 'all',
-                label: 'All',
-                count: rows.length,
-                link: { to: '/analysis', search: {} },
-              },
-              {
-                key: 'mine',
-                label: 'Mine',
-                count: rows.filter((v) => v.owner_user_id === userId).length,
-                link: { to: '/analysis', search: { tab: 'mine' } },
-              },
-              {
-                key: 'cited',
-                label: 'Cited in records',
-                count: rows.filter((v) => citedIds.has(v.display_id ?? ''))
-                  .length,
-                link: { to: '/analysis', search: { tab: 'cited' } },
-              },
-              {
-                key: 'drafts',
-                label: 'Drafts',
-                count: rows.filter((v) => v.version <= 1).length,
-                link: { to: '/analysis', search: { tab: 'drafts' } },
-              },
-            ]}
-          />
+          {/* The strip scrolls instead of pushing the page sideways: "Cited in
+              records" + "Drafts" are wider than the column at 400 % zoom, and
+              the row had no scroll of its own, so it overflowed the document
+              (QA4-zoom-analysis). */}
+          <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
+            <SearchTabs
+              label="Analysis lists"
+              current={tab ?? 'all'}
+              items={[
+                {
+                  key: 'all',
+                  label: 'All',
+                  count: rows.length,
+                  link: { to: '/analysis', search: {} },
+                },
+                {
+                  key: 'mine',
+                  label: 'Mine',
+                  count: rows.filter((v) => v.owner_user_id === userId).length,
+                  link: { to: '/analysis', search: { tab: 'mine' } },
+                },
+                {
+                  key: 'cited',
+                  label: 'Cited in records',
+                  count: rows.filter((v) => citedIds.has(v.display_id ?? ''))
+                    .length,
+                  link: { to: '/analysis', search: { tab: 'cited' } },
+                },
+                {
+                  key: 'drafts',
+                  label: 'Drafts',
+                  count: rows.filter((v) => v.version <= 1).length,
+                  link: { to: '/analysis', search: { tab: 'drafts' } },
+                },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {views.isLoading ? (
+          {views.isLoading || (tab === 'cited' && citations.isLoading) ? (
             <div className="px-4 py-5 md:px-6">
               <Muted>Loading analyses…</Muted>
             </div>
@@ -242,8 +281,8 @@ function AnalysisHome() {
               <EmptyState
                 icon="chart"
                 className="items-center text-center"
-                title={needle ? 'No analyses match' : 'No analyses yet'}
-                body="An analysis reads a pinned dataset snapshot and makes a figure or table you can cite in a notebook. Pick how you want to start."
+                title={emptyCopy.title}
+                body={emptyCopy.body}
               >
                 <div className="flex flex-wrap justify-center gap-2">
                   {MODES.map((m) => (
@@ -359,7 +398,10 @@ function AnalysisHome() {
               {datasetName(selected.spec.datasets[0]?.datasetId)}
             </span>
           </div>
-          <Muted>Cited analyses are frozen: editing makes a new version.</Muted>
+          <Muted>
+            Editing an analysis updates it in place and bumps its version, so a
+            citation always points at the latest version.
+          </Muted>
         </aside>
       ) : null}
     </div>

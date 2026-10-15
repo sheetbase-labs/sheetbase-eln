@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import * as materializationData from '#/lib/sheet-materialization-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 
@@ -157,5 +158,44 @@ describe('CanonicalSheetLifecyclePanel', () => {
     renderPanelWithInstance({ sourceDefinitionVersionId: 'pinned-version-2' })
     await waitFor(() => expect(fetchDefinitionVersions).toHaveBeenCalled())
     expect(screen.queryByText(/Upgrade available/)).toBeNull()
+  })
+
+  it('writes no Dataset until the confirmation is accepted, and none on cancel', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Apply materialise' }),
+    )
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(materializationData.previewSheetMaterialization).not.toHaveBeenCalled()
+    expect(materializationData.materializeSheetInstance).not.toHaveBeenCalled()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(materializationData.materializeSheetInstance).not.toHaveBeenCalled()
+  })
+
+  it('publishes no Definition until the extract-and-publish confirmation is accepted', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Extract and publish' }),
+    )
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(extractDraft).not.toHaveBeenCalled()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(extractDraft).not.toHaveBeenCalled()
   })
 })

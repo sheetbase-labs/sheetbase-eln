@@ -237,7 +237,7 @@ function SaveStatusIndicator({
           type="button"
           variant="quiet"
           size="sm"
-          className="h-5 px-1.5 text-[10px] text-danger-text"
+          className="text-danger-text"
           onClick={onRetry}
         >
           <RotateCcw className="size-3" />
@@ -2043,7 +2043,6 @@ export function ScientificSheetBlock({
               type="button"
               variant="quiet"
               size="sm"
-              className="h-7 text-xs"
               aria-label="Add row"
               onClick={addRow}
             >
@@ -2053,9 +2052,12 @@ export function ScientificSheetBlock({
           <Button
             variant="quiet"
             size="sm"
-            className="h-7 text-xs"
+            nativeButton={false}
             render={
-              <a href={`/datasets?dataset=${encodeURIComponent(tableId)}`} />
+              <a
+                href={`/datasets?dataset=${encodeURIComponent(tableId)}`}
+                role="link"
+              />
             }
           >
             Explore dataset
@@ -2135,7 +2137,6 @@ export function ScientificSheetBlock({
           <ScientificTransferPanel
             table={table}
             rows={allRowsQuery.data ?? []}
-            readOnly={readOnly}
           />
         </DialogContent>
       </Dialog>

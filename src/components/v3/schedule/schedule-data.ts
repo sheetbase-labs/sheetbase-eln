@@ -4,18 +4,21 @@ import {
   createBooking,
   fetchBookingSamples,
   fetchCalendarBookings,
-  fetchCalendarResources,
+  fetchCalendarInstruments,
 } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { CalendarBookingSample, CalendarBookingWire } from '#/lib/calendar'
 import type { DataClient } from '#/lib/data-client'
 
-/** UI port (roadmap-4/ui-app3): Schedule reads calendar_resources (instruments)
- * and calendar_bookings for the visible range; booking writes go through the
- * canonical create_booking RPC. */
+/** UI port (roadmap-4/ui-app3): Schedule books instruments. ADR-0054 makes the
+ * booking subject the instrument itself — a booking's resource_id is the
+ * instrument id (its calendar resource is derived), so the grid, the picker and
+ * the day view read `api.instruments` and link to /instruments/$id. Booking
+ * writes still go through the canonical create_booking RPC. */
 
 export interface ScheduleInstrument {
   id: string
+  displayId: string | null
   name: string
 }
 
@@ -66,23 +69,24 @@ export function toScheduleBooking(wire: CalendarBookingWire): ScheduleBooking {
 }
 
 export const scheduleQueryKeys = {
-  resources: (workspaceId: string) =>
-    ['schedule', 'resources', workspaceId] as const,
+  instruments: (workspaceId: string) =>
+    ['schedule', 'instruments', workspaceId] as const,
   bookings: (workspaceId: string, from: string, to: string) =>
     ['schedule', 'bookings', workspaceId, from, to] as const,
 }
 
-export function useScheduleResources(
+/** The bookable instruments: the registry minus anything retired. */
+export function useScheduleInstruments(
   workspaceId: string | undefined,
   client: DataClient = notebookDataClient,
 ) {
   return useQuery({
-    queryKey: scheduleQueryKeys.resources(workspaceId ?? 'none'),
+    queryKey: scheduleQueryKeys.instruments(workspaceId ?? 'none'),
     queryFn: async (): Promise<ScheduleInstrument[]> => {
-      const resources = await fetchCalendarResources(client, workspaceId!)
-      return resources
-        .filter((r) => r.resourceType === 'instrument')
-        .map((r) => ({ id: r.id, name: r.name }))
+      const instruments = await fetchCalendarInstruments(client, workspaceId!)
+      return instruments
+        .filter((i) => i.retiredAt === null)
+        .map((i) => ({ id: i.id, displayId: i.displayId, name: i.name }))
     },
     enabled: Boolean(workspaceId),
   })

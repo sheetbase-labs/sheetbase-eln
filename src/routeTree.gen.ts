@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SplatRouteImport } from './routes/$'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as ClientPortalRouteImport } from './routes/client-portal'
 import { Route as DatasetsRouteImport } from './routes/datasets'
@@ -48,6 +49,8 @@ import { Route as ExperimentsNewRouteImport } from './routes/experiments/new'
 import { Route as HelpIndexRouteImport } from './routes/help/index'
 import { Route as HelpRecordsRouteImport } from './routes/help/records'
 import { Route as HelpShortcutsRouteImport } from './routes/help/shortcuts'
+import { Route as ImportIndexRouteImport } from './routes/import.index'
+import { Route as ImportImportIdRouteImport } from './routes/import.$importId'
 import { Route as InstrumentsInstrumentIdRouteImport } from './routes/instruments/$instrumentId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
@@ -64,6 +67,7 @@ import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
 import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
 import { Route as SettingsDiagnosticsRouteImport } from './routes/settings/diagnostics'
+import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
 import { Route as SettingsIntegrationsRouteImport } from './routes/settings/integrations'
 import { Route as SettingsMembersRouteImport } from './routes/settings/members'
@@ -117,10 +121,13 @@ import { Route as PipelinesPipelineIdStepsRouteImport } from './routes/pipelines
 import { Route as PipelinesPipelineIdTriggersRouteImport } from './routes/pipelines/$pipelineId/triggers'
 import { Route as PipelinesRunsRunIdRouteImport } from './routes/pipelines/runs/$runId'
 import { Route as ProjectsProjectIdIndexRouteImport } from './routes/projects/$projectId/index'
+import { Route as ProjectsProjectIdDatasetsRouteImport } from './routes/projects/$projectId/datasets'
+import { Route as ProjectsProjectIdExperimentsRouteImport } from './routes/projects/$projectId/experiments'
 import { Route as ProjectsProjectIdFilesRouteImport } from './routes/projects/$projectId/files'
 import { Route as ProjectsProjectIdFoldersRouteImport } from './routes/projects/$projectId/folders'
 import { Route as ProjectsProjectIdMembersRouteImport } from './routes/projects/$projectId/members'
 import { Route as ProjectsProjectIdMilestonesRouteImport } from './routes/projects/$projectId/milestones'
+import { Route as ProjectsProjectIdSamplesRouteImport } from './routes/projects/$projectId/samples'
 import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId/settings'
 import { Route as RecordsRecordIdIndexRouteImport } from './routes/records/$recordId/index'
 import { Route as RecordsRecordIdNotebookRouteImport } from './routes/records/$recordId/notebook'
@@ -156,6 +163,11 @@ import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/exp
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SplatRoute = SplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalysisRoute = AnalysisRouteImport.update({
@@ -348,6 +360,16 @@ const HelpShortcutsRoute = HelpShortcutsRouteImport.update({
   path: '/shortcuts',
   getParentRoute: () => HelpRoute,
 } as any)
+const ImportIndexRoute = ImportIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ImportRoute,
+} as any)
+const ImportImportIdRoute = ImportImportIdRouteImport.update({
+  id: '/$importId',
+  path: '/$importId',
+  getParentRoute: () => ImportRoute,
+} as any)
 const InstrumentsInstrumentIdRoute = InstrumentsInstrumentIdRouteImport.update({
   id: '/$instrumentId',
   path: '/$instrumentId',
@@ -426,6 +448,11 @@ const SettingsAuditRoute = SettingsAuditRouteImport.update({
 const SettingsDiagnosticsRoute = SettingsDiagnosticsRouteImport.update({
   id: '/diagnostics',
   path: '/diagnostics',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
+  id: '/general',
+  path: '/general',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsInstrumentsRoute = SettingsInstrumentsRouteImport.update({
@@ -702,6 +729,18 @@ const ProjectsProjectIdIndexRoute = ProjectsProjectIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProjectsProjectIdRoute,
 } as any)
+const ProjectsProjectIdDatasetsRoute =
+  ProjectsProjectIdDatasetsRouteImport.update({
+    id: '/datasets',
+    path: '/datasets',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const ProjectsProjectIdExperimentsRoute =
+  ProjectsProjectIdExperimentsRouteImport.update({
+    id: '/experiments',
+    path: '/experiments',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
 const ProjectsProjectIdFilesRoute = ProjectsProjectIdFilesRouteImport.update({
   id: '/files',
   path: '/files',
@@ -723,6 +762,12 @@ const ProjectsProjectIdMilestonesRoute =
   ProjectsProjectIdMilestonesRouteImport.update({
     id: '/milestones',
     path: '/milestones',
+    getParentRoute: () => ProjectsProjectIdRoute,
+  } as any)
+const ProjectsProjectIdSamplesRoute =
+  ProjectsProjectIdSamplesRouteImport.update({
+    id: '/samples',
+    path: '/samples',
     getParentRoute: () => ProjectsProjectIdRoute,
   } as any)
 const ProjectsProjectIdSettingsRoute =
@@ -902,13 +947,14 @@ const ApiExportRevisionIdPackageRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRouteWithChildren
-  '/import': typeof ImportRoute
+  '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
@@ -938,6 +984,7 @@ export interface FileRoutesByFullPath {
   '/experiments/new': typeof ExperimentsNewRoute
   '/help/records': typeof HelpRecordsRoute
   '/help/shortcuts': typeof HelpShortcutsRoute
+  '/import/$importId': typeof ImportImportIdRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -953,6 +1000,7 @@ export interface FileRoutesByFullPath {
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
+  '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
@@ -965,6 +1013,7 @@ export interface FileRoutesByFullPath {
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
+  '/import/': typeof ImportIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -1003,10 +1052,13 @@ export interface FileRoutesByFullPath {
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/datasets': typeof ProjectsProjectIdDatasetsRoute
+  '/projects/$projectId/experiments': typeof ProjectsProjectIdExperimentsRoute
   '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
+  '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
@@ -1047,11 +1099,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/client-portal': typeof ClientPortalRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
-  '/import': typeof ImportRoute
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
@@ -1078,6 +1130,7 @@ export interface FileRoutesByTo {
   '/experiments/new': typeof ExperimentsNewRoute
   '/help/records': typeof HelpRecordsRoute
   '/help/shortcuts': typeof HelpShortcutsRoute
+  '/import/$importId': typeof ImportImportIdRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
@@ -1088,6 +1141,7 @@ export interface FileRoutesByTo {
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
+  '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
@@ -1099,6 +1153,7 @@ export interface FileRoutesByTo {
   '/sheets/new': typeof SheetsNewRoute
   '/analysis': typeof AnalysisIndexRoute
   '/help': typeof HelpIndexRoute
+  '/import': typeof ImportIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -1136,10 +1191,13 @@ export interface FileRoutesByTo {
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/datasets': typeof ProjectsProjectIdDatasetsRoute
+  '/projects/$projectId/experiments': typeof ProjectsProjectIdExperimentsRoute
   '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
+  '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
@@ -1181,13 +1239,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$': typeof SplatRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
   '/help': typeof HelpRouteWithChildren
-  '/import': typeof ImportRoute
+  '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
   '/materials': typeof MaterialsRoute
@@ -1217,6 +1276,7 @@ export interface FileRoutesById {
   '/experiments/new': typeof ExperimentsNewRoute
   '/help/records': typeof HelpRecordsRoute
   '/help/shortcuts': typeof HelpShortcutsRoute
+  '/import/$importId': typeof ImportImportIdRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
@@ -1232,6 +1292,7 @@ export interface FileRoutesById {
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
+  '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
   '/settings/integrations': typeof SettingsIntegrationsRouteWithChildren
   '/settings/members': typeof SettingsMembersRoute
@@ -1244,6 +1305,7 @@ export interface FileRoutesById {
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
+  '/import/': typeof ImportIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
@@ -1282,10 +1344,13 @@ export interface FileRoutesById {
   '/pipelines/$pipelineId/steps': typeof PipelinesPipelineIdStepsRoute
   '/pipelines/$pipelineId/triggers': typeof PipelinesPipelineIdTriggersRoute
   '/pipelines/runs/$runId': typeof PipelinesRunsRunIdRoute
+  '/projects/$projectId/datasets': typeof ProjectsProjectIdDatasetsRoute
+  '/projects/$projectId/experiments': typeof ProjectsProjectIdExperimentsRoute
   '/projects/$projectId/files': typeof ProjectsProjectIdFilesRoute
   '/projects/$projectId/folders': typeof ProjectsProjectIdFoldersRoute
   '/projects/$projectId/members': typeof ProjectsProjectIdMembersRoute
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
+  '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
@@ -1328,6 +1393,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$'
     | '/analysis'
     | '/client-portal'
     | '/datasets'
@@ -1364,6 +1430,7 @@ export interface FileRouteTypes {
     | '/experiments/new'
     | '/help/records'
     | '/help/shortcuts'
+    | '/import/$importId'
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1379,6 +1446,7 @@ export interface FileRouteTypes {
     | '/settings/api'
     | '/settings/audit'
     | '/settings/diagnostics'
+    | '/settings/general'
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
@@ -1391,6 +1459,7 @@ export interface FileRouteTypes {
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
+    | '/import/'
     | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -1429,10 +1498,13 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/datasets'
+    | '/projects/$projectId/experiments'
     | '/projects/$projectId/files'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
     | '/projects/$projectId/milestones'
+    | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
@@ -1473,11 +1545,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$'
     | '/client-portal'
     | '/datasets'
     | '/experiments'
     | '/foundations'
-    | '/import'
     | '/inbox'
     | '/instruments'
     | '/materials'
@@ -1504,6 +1576,7 @@ export interface FileRouteTypes {
     | '/experiments/new'
     | '/help/records'
     | '/help/shortcuts'
+    | '/import/$importId'
     | '/instruments/$instrumentId'
     | '/pipelines/agents'
     | '/protocols/$protocolId'
@@ -1514,6 +1587,7 @@ export interface FileRouteTypes {
     | '/settings/api'
     | '/settings/audit'
     | '/settings/diagnostics'
+    | '/settings/general'
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
@@ -1525,6 +1599,7 @@ export interface FileRouteTypes {
     | '/sheets/new'
     | '/analysis'
     | '/help'
+    | '/import'
     | '/settings'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -1562,10 +1637,13 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/datasets'
+    | '/projects/$projectId/experiments'
     | '/projects/$projectId/files'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
     | '/projects/$projectId/milestones'
+    | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
@@ -1606,6 +1684,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/$'
     | '/analysis'
     | '/client-portal'
     | '/datasets'
@@ -1642,6 +1721,7 @@ export interface FileRouteTypes {
     | '/experiments/new'
     | '/help/records'
     | '/help/shortcuts'
+    | '/import/$importId'
     | '/instruments/$instrumentId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
@@ -1657,6 +1737,7 @@ export interface FileRouteTypes {
     | '/settings/api'
     | '/settings/audit'
     | '/settings/diagnostics'
+    | '/settings/general'
     | '/settings/instruments'
     | '/settings/integrations'
     | '/settings/members'
@@ -1669,6 +1750,7 @@ export interface FileRouteTypes {
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
+    | '/import/'
     | '/settings/'
     | '/api/auth/$'
     | '/api/collaboration/auth'
@@ -1707,10 +1789,13 @@ export interface FileRouteTypes {
     | '/pipelines/$pipelineId/steps'
     | '/pipelines/$pipelineId/triggers'
     | '/pipelines/runs/$runId'
+    | '/projects/$projectId/datasets'
+    | '/projects/$projectId/experiments'
     | '/projects/$projectId/files'
     | '/projects/$projectId/folders'
     | '/projects/$projectId/members'
     | '/projects/$projectId/milestones'
+    | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
@@ -1752,13 +1837,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SplatRoute: typeof SplatRoute
   AnalysisRoute: typeof AnalysisRouteWithChildren
   ClientPortalRoute: typeof ClientPortalRoute
   DatasetsRoute: typeof DatasetsRouteWithChildren
   ExperimentsRoute: typeof ExperimentsRouteWithChildren
   FoundationsRoute: typeof FoundationsRoute
   HelpRoute: typeof HelpRouteWithChildren
-  ImportRoute: typeof ImportRoute
+  ImportRoute: typeof ImportRouteWithChildren
   InboxRoute: typeof InboxRoute
   InstrumentsRoute: typeof InstrumentsRouteWithChildren
   MaterialsRoute: typeof MaterialsRoute
@@ -1824,6 +1910,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/$': {
+      id: '/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analysis': {
@@ -2092,6 +2185,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HelpShortcutsRouteImport
       parentRoute: typeof HelpRoute
     }
+    '/import/': {
+      id: '/import/'
+      path: '/'
+      fullPath: '/import/'
+      preLoaderRoute: typeof ImportIndexRouteImport
+      parentRoute: typeof ImportRoute
+    }
+    '/import/$importId': {
+      id: '/import/$importId'
+      path: '/$importId'
+      fullPath: '/import/$importId'
+      preLoaderRoute: typeof ImportImportIdRouteImport
+      parentRoute: typeof ImportRoute
+    }
     '/instruments/$instrumentId': {
       id: '/instruments/$instrumentId'
       path: '/$instrumentId'
@@ -2202,6 +2309,13 @@ declare module '@tanstack/react-router' {
       path: '/diagnostics'
       fullPath: '/settings/diagnostics'
       preLoaderRoute: typeof SettingsDiagnosticsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/general': {
+      id: '/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof SettingsGeneralRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/instruments': {
@@ -2575,6 +2689,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdIndexRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
+    '/projects/$projectId/datasets': {
+      id: '/projects/$projectId/datasets'
+      path: '/datasets'
+      fullPath: '/projects/$projectId/datasets'
+      preLoaderRoute: typeof ProjectsProjectIdDatasetsRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/experiments': {
+      id: '/projects/$projectId/experiments'
+      path: '/experiments'
+      fullPath: '/projects/$projectId/experiments'
+      preLoaderRoute: typeof ProjectsProjectIdExperimentsRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
     '/projects/$projectId/files': {
       id: '/projects/$projectId/files'
       path: '/files'
@@ -2601,6 +2729,13 @@ declare module '@tanstack/react-router' {
       path: '/milestones'
       fullPath: '/projects/$projectId/milestones'
       preLoaderRoute: typeof ProjectsProjectIdMilestonesRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
+    '/projects/$projectId/samples': {
+      id: '/projects/$projectId/samples'
+      path: '/samples'
+      fullPath: '/projects/$projectId/samples'
+      preLoaderRoute: typeof ProjectsProjectIdSamplesRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
     '/projects/$projectId/settings': {
@@ -2921,6 +3056,19 @@ const HelpRouteChildren: HelpRouteChildren = {
 
 const HelpRouteWithChildren = HelpRoute._addFileChildren(HelpRouteChildren)
 
+interface ImportRouteChildren {
+  ImportImportIdRoute: typeof ImportImportIdRoute
+  ImportIndexRoute: typeof ImportIndexRoute
+}
+
+const ImportRouteChildren: ImportRouteChildren = {
+  ImportImportIdRoute: ImportImportIdRoute,
+  ImportIndexRoute: ImportIndexRoute,
+}
+
+const ImportRouteWithChildren =
+  ImportRoute._addFileChildren(ImportRouteChildren)
+
 interface InstrumentsRouteChildren {
   InstrumentsInstrumentIdRoute: typeof InstrumentsInstrumentIdRoute
 }
@@ -3023,19 +3171,25 @@ const PipelinesRouteWithChildren = PipelinesRoute._addFileChildren(
 )
 
 interface ProjectsProjectIdRouteChildren {
+  ProjectsProjectIdDatasetsRoute: typeof ProjectsProjectIdDatasetsRoute
+  ProjectsProjectIdExperimentsRoute: typeof ProjectsProjectIdExperimentsRoute
   ProjectsProjectIdFilesRoute: typeof ProjectsProjectIdFilesRoute
   ProjectsProjectIdFoldersRoute: typeof ProjectsProjectIdFoldersRoute
   ProjectsProjectIdMembersRoute: typeof ProjectsProjectIdMembersRoute
   ProjectsProjectIdMilestonesRoute: typeof ProjectsProjectIdMilestonesRoute
+  ProjectsProjectIdSamplesRoute: typeof ProjectsProjectIdSamplesRoute
   ProjectsProjectIdSettingsRoute: typeof ProjectsProjectIdSettingsRoute
   ProjectsProjectIdIndexRoute: typeof ProjectsProjectIdIndexRoute
 }
 
 const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
+  ProjectsProjectIdDatasetsRoute: ProjectsProjectIdDatasetsRoute,
+  ProjectsProjectIdExperimentsRoute: ProjectsProjectIdExperimentsRoute,
   ProjectsProjectIdFilesRoute: ProjectsProjectIdFilesRoute,
   ProjectsProjectIdFoldersRoute: ProjectsProjectIdFoldersRoute,
   ProjectsProjectIdMembersRoute: ProjectsProjectIdMembersRoute,
   ProjectsProjectIdMilestonesRoute: ProjectsProjectIdMilestonesRoute,
+  ProjectsProjectIdSamplesRoute: ProjectsProjectIdSamplesRoute,
   ProjectsProjectIdSettingsRoute: ProjectsProjectIdSettingsRoute,
   ProjectsProjectIdIndexRoute: ProjectsProjectIdIndexRoute,
 }
@@ -3114,6 +3268,7 @@ interface SettingsRouteChildren {
   SettingsApiRoute: typeof SettingsApiRoute
   SettingsAuditRoute: typeof SettingsAuditRoute
   SettingsDiagnosticsRoute: typeof SettingsDiagnosticsRoute
+  SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
   SettingsIntegrationsRoute: typeof SettingsIntegrationsRouteWithChildren
   SettingsMembersRoute: typeof SettingsMembersRoute
@@ -3129,6 +3284,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsApiRoute: SettingsApiRoute,
   SettingsAuditRoute: SettingsAuditRoute,
   SettingsDiagnosticsRoute: SettingsDiagnosticsRoute,
+  SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsInstrumentsRoute: SettingsInstrumentsRoute,
   SettingsIntegrationsRoute: SettingsIntegrationsRouteWithChildren,
   SettingsMembersRoute: SettingsMembersRoute,
@@ -3202,13 +3358,14 @@ const ApiExportRecordIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SplatRoute: SplatRoute,
   AnalysisRoute: AnalysisRouteWithChildren,
   ClientPortalRoute: ClientPortalRoute,
   DatasetsRoute: DatasetsRouteWithChildren,
   ExperimentsRoute: ExperimentsRouteWithChildren,
   FoundationsRoute: FoundationsRoute,
   HelpRoute: HelpRouteWithChildren,
-  ImportRoute: ImportRoute,
+  ImportRoute: ImportRouteWithChildren,
   InboxRoute: InboxRoute,
   InstrumentsRoute: InstrumentsRouteWithChildren,
   MaterialsRoute: MaterialsRoute,

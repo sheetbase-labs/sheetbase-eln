@@ -28,6 +28,7 @@ import type {
   FigurePoint,
 } from '@sheetbase-labs/sheetbase-explorer'
 
+import { CHART_TYPE_LABELS } from './chart-spec'
 import type {
   AxisScale,
   ChartSpec,
@@ -534,10 +535,34 @@ export function buildPackageFigure(
     showYAxisTitle: options.showYAxisTitle ?? true,
   })
   if (!figure) return null
-  const withSemantics = pointLine
-    ? applyRenderSemantics(figure, spec, materialised.series)
-    : figure
-  return applyDisplayOptions(withSemantics, spec)
+  if (!pointLine) return applyDisplayOptions(figure, spec)
+  const model = applyDisplayOptions(
+    applyRenderSemantics(figure, spec, materialised.series),
+    spec,
+  )
+  return { ...model, ariaLabel: pointLineAriaLabel(spec, materialised) }
+}
+
+/**
+ * The plot's accessible name. `buildFigure` names the figure after the kind it
+ * was built with, and the point/line family is built as `line` (so every series
+ * carries the polyline geometry the semantics above keep or drop) — which would
+ * announce a scatter, scatter-with-line, connected-scatter or strip chart as a
+ * line chart. The name is built from the type the reader chose instead, over
+ * the axes the figure draws, with their units.
+ */
+function pointLineAriaLabel(
+  spec: ChartSpec,
+  materialised: MaterialisedChart,
+): string {
+  const withUnit = (label: string, unit: string | undefined) => {
+    const trimmed = (unit ?? '').trim()
+    return trimmed && !label.includes(`(${trimmed})`)
+      ? `${label} (${trimmed})`
+      : label
+  }
+  const axes = `${withUnit(materialised.yLabel, materialised.yUnit)} against ${withUnit(materialised.xLabel, materialised.xUnit)}`
+  return `${CHART_TYPE_LABELS[spec.type]} chart of ${axes}`
 }
 
 function applyRenderSemantics(

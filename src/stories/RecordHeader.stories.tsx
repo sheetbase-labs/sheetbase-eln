@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { RecordHeader } from '#/components/record/record-header'
 import { Badge } from '#/components/ui/badge'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 
 const meta = {
   title: 'Features/RecordHeader',

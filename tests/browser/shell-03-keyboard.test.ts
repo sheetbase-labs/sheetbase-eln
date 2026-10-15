@@ -18,6 +18,22 @@ let admin: Client
 
 test.use({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 })
 
+/**
+ * The PostgREST authenticator's own connection string, pointed at the database
+ * DATABASE_URL already names. `.env.local` gives PGRST_DB_URI the Compose-only
+ * host `postgres` (docs/development/testing.md), which the machine running the
+ * tests cannot resolve; the seeds combine the two the same way.
+ */
+function actorConnectionString(): string {
+  const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
+  if (!pgrst.username)
+    throw new Error('PGRST_DB_URI is required for the keyboard actor')
+  const local = new URL(process.env.DATABASE_URL ?? '')
+  local.username = pgrst.username
+  local.password = pgrst.password
+  return local.toString()
+}
+
 test.beforeAll(async () => {
   const url = process.env.MIGRATION_DATABASE_URL
   if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname))
@@ -40,7 +56,7 @@ test.beforeAll(async () => {
        values($1,$2,$3,'experiment',$4,'SHELL-03 keyboard fixture','draft',$5)`,
       [id, workspace, sheet.projectId, `EXP-SHELL03-${id}`, user],
     )
-  const actor = new Client({ connectionString: process.env.PGRST_DB_URI })
+  const actor = new Client({ connectionString: actorConnectionString() })
   await actor.connect()
   try {
     await actor.query('set role authenticated')
@@ -128,6 +144,13 @@ test.beforeEach(async ({ page }) => {
 test('global bindings, Windows modifiers, input suppression and overlay focus', async ({
   page,
 }) => {
+  // `mod` resolves from the platform the browser reports, and this suite runs
+  // on Macs as well as on Linux, so the test pins the platform whose modifiers
+  // it asserts (the same Windows ones the page is opened with) instead of
+  // inheriting whatever the machine reports.
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, 'platform', { value: 'Win32' }),
+  )
   const preferences = page.waitForResponse(
     (response) =>
       response.url().includes('/api/db/user_preferences') && response.ok(),
@@ -203,7 +226,13 @@ test('global bindings, Windows modifiers, input suppression and overlay focus', 
 test('Inbox arrows, J/K, Space/X selection, filter and Enter open actual items', async ({
   page,
 }) => {
-  await page.goto('/inbox')
+  // Needs action is the tab the person is working through, so its membership
+  // shrinks as RM-116 records what they have seen — persisted state that
+  // earlier runs (and the other specs) already wrote back to the seed. The
+  // Following tab is part of the same list with the same bindings, and its two
+  // rows come from the seeded follows, so the bindings are asserted against a
+  // list whose length the run cannot exhaust.
+  await page.goto('/inbox?tab=following')
   const rows = page
     .getByRole('list', { name: 'Inbox items' })
     .getByRole('listitem')
@@ -310,6 +339,11 @@ test('actual sheet Enter edits, Escape cancels, Tab advances and Ctrl+Enter pers
 test('Notebook slash inserts a real block and Ctrl+Alt+M opens selected cell comments', async ({
   page,
 }) => {
+  // The Comment binding is `alt+mod+m`, so Ctrl+Alt+M is the Windows
+  // rendering of it; pin the platform rather than depend on the host.
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, 'platform', { value: 'Win32' }),
+  )
   await page.goto(`/records/${notebook}/notebook`)
   const grid = page.getByRole('grid')
   await expect(grid).toBeVisible()
@@ -352,6 +386,10 @@ test('Review N/P navigate real changes and R focuses an actual comment reply', a
   page,
 }) => {
   await page.goto(`/review/${revision}`)
+  // The review opens on the marked document, which has no change selection of
+  // its own; the change list is the surface that owns N/P (SHELL-03.3), and it
+  // starts on its first change, so open it before navigating changes.
+  await page.getByRole('button', { name: 'Change list', exact: true }).click()
   const changes = page.locator('[data-revision-change-id]')
   await expect.poll(() => changes.count()).toBeGreaterThan(1)
   const active = page.locator('[data-revision-change-id][aria-current="step"]')
@@ -370,6 +408,13 @@ test('Review N/P navigate real changes and R focuses an actual comment reply', a
   await page.getByRole('button', { name: 'Add comment', exact: true }).click()
   await expect(
     page.getByText('SHELL-03 reply fixture', { exact: true }),
+  ).toBeVisible()
+  // The panel lists the new thread once its comments read comes back, and the
+  // reply binding has no thread to open a reply on until that card is on
+  // screen, so wait for the card (its Reply control) rather than for the body
+  // text alone.
+  await expect(
+    page.getByRole('button', { name: 'Reply to thread' }).first(),
   ).toBeVisible()
   await page.getByRole('tab', { name: 'Comments', exact: true }).focus()
   await page.keyboard.press('r')

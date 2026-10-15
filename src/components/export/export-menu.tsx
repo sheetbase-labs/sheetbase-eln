@@ -10,6 +10,7 @@ import { Button } from '#/components/v3/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -77,15 +78,19 @@ export function ExportMenu({
         {busy ? 'Exporting…' : label}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuLabel>Download as</DropdownMenuLabel>
-        {formats.map((option) => (
-          <DropdownMenuItem
-            key={option.format}
-            onClick={() => download(option.format)}
-          >
-            {option.label}
-          </DropdownMenuItem>
-        ))}
+        {/* The label has to live inside a group: Base UI's MenuGroupLabel reads
+            MenuGroupContext and throws without it, which takes the page down. */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Download as</DropdownMenuLabel>
+          {formats.map((option) => (
+            <DropdownMenuItem
+              key={option.format}
+              onClick={() => download(option.format)}
+            >
+              {option.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
         {extraItems.length > 0 ? (
           <>
             <DropdownMenuSeparator />

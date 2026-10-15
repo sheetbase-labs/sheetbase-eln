@@ -130,6 +130,14 @@ function ApiSettings() {
     },
   })
 
+  const failed =
+    createToken.error ??
+    revokeToken.error ??
+    rotateToken.error ??
+    createService.error ??
+    revokeService.error ??
+    rotateService.error
+
   return (
     <>
       <SettingsHeader title="API and SDK">
@@ -137,11 +145,11 @@ function ApiSettings() {
         here by owners.
       </SettingsHeader>
       <SettingsBody>
-        {createToken.isError ? (
+        {failed ? (
           <p role="alert" className="text-label text-danger-text">
-            {createToken.error instanceof Error
-              ? createToken.error.message
-              : 'Could not create the token.'}
+            {failed instanceof Error
+              ? failed.message
+              : 'The token request could not be completed.'}
           </p>
         ) : null}
         {query.isLoading ? (

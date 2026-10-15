@@ -58,6 +58,17 @@ import {
 import type { MaterialItem } from '#/lib/protocol-materials'
 import { useAutosave } from './use-autosave'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
+import {
+  CORRECTIVE_ACTION_STATUSES,
+  CORRECTIVE_ACTION_STATUS_LABEL,
+  SIGNATURE_REQUEST_MEANINGS,
+} from '#/lib/notebook-action-blocks'
+import type {
+  CorrectiveActionItem,
+  CorrectiveActionsPayload,
+  SignatureRequestPayload,
+} from '#/lib/notebook-action-blocks'
+import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import { SaveStatus } from './save-status'
 import { useUnsyncedBlock } from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
@@ -208,6 +219,10 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <PipelineOutputBlockEditor {...props} />
     case 'plate_map':
       return <PlateMapBlockEditor {...props} />
+    case 'signature_request':
+      return <SignatureRequestEditor {...props} />
+    case 'corrective_actions':
+      return <CorrectiveActionsEditor {...props} />
     default:
       return (
         <UnsupportedEditor block={props.block} className={props.className} />
@@ -494,6 +509,242 @@ interface ChecklistItem {
 }
 interface ChecklistDraft {
   items: ChecklistItem[]
+}
+
+// ---------------------------------------------------------------------------
+// R5-NOTE-02: the two sign-and-attach blocks.
+//
+// Both declare intent and are ordinary autosaved payloads. The request stores
+// a captured label (not a foreign key) so a later membership change shows as
+// "no longer a member" instead of dropping the request; the CAPA list carries
+// an owner label per action. Neither editor raises a live signature request —
+// that stays the REV-03 submission/review flow.
+// ---------------------------------------------------------------------------
+
+function SignatureRequestEditor(props: BlockEditorProps) {
+  const initialDraft = React.useMemo<SignatureRequestPayload>(() => {
+    const p = props.block.payload as Partial<SignatureRequestPayload>
+    return {
+      requestedUserId:
+        typeof p.requestedUserId === 'string' ? p.requestedUserId : null,
+      requestedUserName:
+        typeof p.requestedUserName === 'string' ? p.requestedUserName : null,
+      meaning: SIGNATURE_REQUEST_MEANINGS.includes(
+        p.meaning as SignatureRequestPayload['meaning'],
+      )
+        ? (p.meaning as SignatureRequestPayload['meaning'])
+        : 'reviewed',
+      note: typeof p.note === 'string' ? p.note : '',
+    }
+  }, [props.block.payload])
+  const a = useBlockAutosave(
+    props.block,
+    initialDraft,
+    props.save,
+    props.offline,
+    props.onStatusChange,
+  )
+
+  if (props.readOnly) {
+    return (
+      <p className={cn('m-0 text-sm text-fg-muted', props.className)}>
+        {a.draft.requestedUserName?.trim()
+          ? `${a.draft.requestedUserName} — ${SIGNATURE_MEANING_LABEL[a.draft.meaning]}`
+          : 'No signer chosen'}
+      </p>
+    )
+  }
+
+  return (
+    <div className={cn('max-w-[560px] space-y-2', props.className)}>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex min-w-[200px] flex-1 flex-col gap-1 text-label">
+          <span className="text-fg-muted">Who signs</span>
+          <Input
+            type="text"
+            value={a.draft.requestedUserName ?? ''}
+            autoFocus={props.autoFocus}
+            placeholder="Name of the person who signs"
+            onChange={(event) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, requestedUserName: event.target.value })
+            }}
+            onBlur={() => a.flush()}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-label">
+          <span className="text-fg-muted">Meaning</span>
+          <NativeSelect
+            aria-label="Requested signature meaning"
+            value={a.draft.meaning}
+            onChange={(event) => {
+              a.setTouched(true)
+              a.setDraft({
+                ...a.draft,
+                meaning: event.target
+                  .value as SignatureRequestPayload['meaning'],
+              })
+            }}
+          >
+            {SIGNATURE_REQUEST_MEANINGS.map((value) => (
+              <option key={value} value={value}>
+                {SIGNATURE_MEANING_LABEL[value]}
+              </option>
+            ))}
+          </NativeSelect>
+        </label>
+      </div>
+      <label className="flex flex-col gap-1 text-label">
+        <span className="text-fg-muted">Note (optional)</span>
+        <Textarea
+          rows={2}
+          value={a.draft.note}
+          placeholder="What the signer is being asked to attest."
+          onChange={(event) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, note: event.target.value })
+          }}
+          onBlur={() => a.flush()}
+        />
+      </label>
+      <p className="m-0 text-label text-fg-muted">
+        The request is raised when the Notebook is submitted. Signing still asks
+        for the signer&rsquo;s password and records the server time.
+      </p>
+    </div>
+  )
+}
+
+function CorrectiveActionsEditor(props: BlockEditorProps) {
+  const initialDraft = React.useMemo<CorrectiveActionsPayload>(() => {
+    const p = props.block.payload as { items?: CorrectiveActionItem[] }
+    return { items: Array.isArray(p.items) ? p.items : [] }
+  }, [props.block.payload])
+  const a = useBlockAutosave(
+    props.block,
+    initialDraft,
+    props.save,
+    props.offline,
+    props.onStatusChange,
+  )
+
+  function update(index: number, patch: Partial<CorrectiveActionItem>) {
+    a.setTouched(true)
+    a.setDraft({
+      items: a.draft.items.map((item, i) =>
+        i === index ? { ...item, ...patch } : item,
+      ),
+    })
+  }
+  function remove(index: number) {
+    a.setTouched(true)
+    a.setDraft({ items: a.draft.items.filter((_, i) => i !== index) })
+  }
+  function add() {
+    a.setTouched(true)
+    a.setDraft({
+      items: [
+        ...a.draft.items,
+        {
+          id: `CAPA-${a.draft.items.length + 1}`,
+          action: '',
+          ownerUserId: null,
+          ownerName: null,
+          due: null,
+          status: 'open',
+        },
+      ],
+    })
+  }
+
+  if (props.readOnly) {
+    return (
+      <p className={cn('m-0 text-sm text-fg-muted', props.className)}>
+        {a.draft.items.length === 0
+          ? 'No corrective actions'
+          : `${a.draft.items.length} corrective action${a.draft.items.length === 1 ? '' : 's'}`}
+      </p>
+    )
+  }
+
+  return (
+    <div className={cn('space-y-2', props.className)}>
+      {a.draft.items.length === 0 ? (
+        <p className="m-0 text-sm text-fg-muted">No corrective actions yet.</p>
+      ) : null}
+      <ul className="space-y-2">
+        {a.draft.items.map((item, i) => (
+          <li
+            key={item.id}
+            className="grid grid-cols-[64px_1fr_120px_120px_auto] items-center gap-2 max-md:grid-cols-1"
+          >
+            <span className="mono text-label text-fg-muted">{item.id}</span>
+            <Input
+              aria-label={`Action ${i + 1}`}
+              type="text"
+              value={item.action}
+              autoFocus={props.autoFocus && i === a.draft.items.length - 1}
+              placeholder="The correction"
+              onChange={(event) => update(i, { action: event.target.value })}
+              onBlur={() => a.flush()}
+            />
+            <Input
+              aria-label={`Owner ${i + 1}`}
+              type="text"
+              value={item.ownerName ?? ''}
+              placeholder="Owner"
+              onChange={(event) =>
+                update(i, {
+                  ownerName: event.target.value || null,
+                  ownerUserId: null,
+                })
+              }
+              onBlur={() => a.flush()}
+            />
+            <Input
+              aria-label={`Due date ${i + 1}`}
+              type="date"
+              value={item.due ?? ''}
+              onChange={(event) =>
+                update(i, { due: event.target.value || null })
+              }
+              onBlur={() => a.flush()}
+            />
+            <div className="flex items-center gap-1">
+              <NativeSelect
+                aria-label={`Status ${i + 1}`}
+                value={item.status}
+                onChange={(event) =>
+                  update(i, {
+                    status: event.target
+                      .value as CorrectiveActionItem['status'],
+                  })
+                }
+              >
+                {CORRECTIVE_ACTION_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {CORRECTIVE_ACTION_STATUS_LABEL[status]}
+                  </option>
+                ))}
+              </NativeSelect>
+              <Button
+                type="button"
+                variant="quiet"
+                size="icon"
+                aria-label={`Remove action ${i + 1}`}
+                onClick={() => remove(i)}
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <Button type="button" variant="quiet" size="sm" onClick={add}>
+        Add action
+      </Button>
+    </div>
+  )
 }
 
 function ChecklistEditor({
@@ -2312,7 +2563,7 @@ function WellInspector({
             variant="quiet"
             size="sm"
             onClick={onRemoveWell}
-            className="text-xs text-danger-text"
+            className="text-danger-text"
           >
             <Trash2 /> Remove
           </Button>
@@ -2356,7 +2607,7 @@ function WellInspector({
                 variant="quiet"
                 size="sm"
                 onClick={onClearSample}
-                className="shrink-0 text-xs text-danger-text"
+                className="shrink-0 text-danger-text"
               >
                 Clear
               </Button>
@@ -2429,7 +2680,7 @@ function WellInspector({
                 variant="quiet"
                 size="sm"
                 onClick={onClearVolume}
-                className="text-xs text-danger-text"
+                className="text-danger-text"
               >
                 Clear
               </Button>

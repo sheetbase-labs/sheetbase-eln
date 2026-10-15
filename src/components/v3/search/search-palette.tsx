@@ -1,24 +1,30 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 
 import { Dialog, DialogContent } from '#/components/v3/ui/dialog'
+import { Button } from '#/components/v3/ui/button'
 import { Kbd } from '#/components/v3/ui/kbd'
 import { NativeSelect } from '#/components/v3/projects/select'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import { Highlight } from './highlight'
+import { searchResultContext, searchResultLabel } from './result-text'
 import {
   contextualSearchActions,
   executeSearch,
   filterBySearchScope,
   groupSearchResults,
+  rankByTier,
   searchActionHref,
+  searchDidYouMean,
+  searchResultGroup,
   searchResultNewTabUrl,
   SEARCH_SCOPE_ALL,
 } from '#/lib/search'
 import type {
+  DidYouMeanSuggestion,
   SearchContextAction,
   SearchResult,
   SearchResultGroup,
@@ -33,6 +39,10 @@ import { cn } from '#/lib/utils'
  * actions, and keyboard parity: ↑↓ move, ↵ open, ⌘↵ open in a new tab, Esc
  * closes and returns focus. The shell owns the Cmd-K shortcut, so this
  * component installs no global key listener.
+ *
+ * R5-SHELL-04 adds the archived scope (pushed to the search boundary as
+ * `p_include_archived`, never filtered here) and a "Did you mean {id}?"
+ * correction from `api.search_did_you_mean` when a query finds nothing.
  */
 const MAX_PER_GROUP = 3
 const FETCH_LIMIT = 24
@@ -44,6 +54,17 @@ const GROUP_ICONS: Record<SearchResultGroup, IconName> = {
   Records: 'box',
   Files: 'download',
   Templates: 'template',
+}
+
+/** Human type of a record kind, for the identifier suggestion line. */
+const SUGGESTION_KIND_LABELS: Record<string, string> = {
+  sample: 'Sample',
+  material: 'Material',
+  experiment: 'Experiment',
+  protocol_template: 'Protocol',
+  report: 'Report',
+  study: 'Study',
+  file: 'File',
 }
 
 type PaletteEntry =
@@ -75,22 +96,69 @@ export function SearchPalette({
   const listId = useId()
   const [q, setQ] = useState(initialQuery)
   const [scope, setScope] = useState<string>(SEARCH_SCOPE_ALL)
+  // Archived scope: pushed to the search boundary, never a browser-side
+  // filter. Off by default, matching the results page.
+  const [archived, setArchived] = useState(false)
   const [res, setRes] = useState<SearchResult[] | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const [searching, setSearching] = useState(false)
+  const [suggestion, setSuggestion] = useState<DidYouMeanSuggestion | null>(
+    null,
+  )
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
+  // A response must not write into the palette once a newer search, or the
+  // close that follows it, has superseded it.
+  const searchGeneration = useRef(0)
   const projects = useProjectNameMap()
+
+  const reset = () => {
+    searchGeneration.current += 1
+    setQ(initialQuery)
+    setScope(SEARCH_SCOPE_ALL)
+    setArchived(false)
+    setRes(null)
+    setError(null)
+    setSearching(false)
+    setSuggestion(null)
+  }
 
   const setOpen = (o: boolean) => {
     onOpenChange?.(o)
     if (openProp === undefined) setOpenState(o)
-    if (!o) {
-      setQ(initialQuery)
-      setScope(SEARCH_SCOPE_ALL)
-      setRes(null)
-    }
+    if (!o) reset()
   }
+
+  // The palette's search: the failure is kept so the palette can say what
+  // happened and offer the retry, rather than leaving an empty listbox.
+  const runSearch = useCallback(
+    (term: string, nextScope: string, nextArchived: boolean) => {
+      const generation = (searchGeneration.current += 1)
+      setSearching(true)
+      setError(null)
+      void executeSearch(notebookDataClient, {
+        query: term,
+        limit: FETCH_LIMIT,
+        projectId: nextScope === SEARCH_SCOPE_ALL ? undefined : nextScope,
+        includeArchived: nextArchived,
+      })
+        .then((rows) => {
+          if (generation !== searchGeneration.current) return
+          setRes(rows)
+          setSearching(false)
+          setActive(0)
+        })
+        .catch((cause: unknown) => {
+          if (generation !== searchGeneration.current) return
+          setRes(null)
+          setSearching(false)
+          setError(cause)
+        })
+    },
+    [],
+  )
 
   // Esc is owned by the Dialog primitive, which calls onOpenChange(false).
   // Capture the previously focused element before moving focus into the
@@ -112,28 +180,48 @@ export function SearchPalette({
     const term = q.trim()
     if (!term) {
       setRes(null)
+      setError(null)
+      setSearching(false)
+      return
+    }
+    setSuggestion(null)
+    setSearching(true)
+    const t = setTimeout(() => runSearch(term, scope, archived), 120)
+    return () => {
+      searchGeneration.current += 1
+      clearTimeout(t)
+    }
+  }, [q, open, scope, archived, runSearch])
+
+  // When a query genuinely finds nothing the palette offers a corrected
+  // identifier, resolved at the canonical search boundary
+  // (`api.search_did_you_mean`), so a suggestion never names an object the
+  // person cannot see. Accepting it navigates through `/records/$recordId`,
+  // where the existing identifier resolver turns the display id into its row.
+  useEffect(() => {
+    if (!open) return
+    const term = q.trim()
+    if (!term || res === null || res.length > 0) {
+      setSuggestion(null)
       return
     }
     let live = true
     const t = setTimeout(() => {
-      void executeSearch(notebookDataClient, {
-        query: term,
-        limit: FETCH_LIMIT,
-        projectId: scope === SEARCH_SCOPE_ALL ? undefined : scope,
-      }).then((rows) => {
-        if (live) {
-          setRes(rows)
-          setActive(0)
-        }
+      void searchDidYouMean(notebookDataClient, term, archived).then((rows) => {
+        if (live) setSuggestion(rows[0] ?? null)
       })
-    }, 120)
+    }, 150)
     return () => {
       live = false
       clearTimeout(t)
     }
-  }, [q, open, scope])
+  }, [q, open, res, archived])
 
   const items = res ?? []
+  // The chosen project's name, so the empty state can name the scope rather
+  // than the id it was chosen by.
+  const scopeLabel =
+    scope === SEARCH_SCOPE_ALL ? null : (projects.data?.get(scope) ?? null)
   const scoped = useMemo(
     () =>
       filterBySearchScope(
@@ -142,10 +230,24 @@ export function SearchPalette({
       ),
     [items, scope],
   )
-  const buckets = useMemo(
-    () => groupSearchResults(scoped, MAX_PER_GROUP),
-    [scoped],
-  )
+  const buckets = useMemo(() => {
+    // The palette is a jump list, so its rows follow relevance, not the results
+    // page's fixed section order: grouping a weak sheet or dataset hit into the
+    // second section would put it above the record that matched the query best.
+    // The list is ranked by the canonical tiers (exact identifier, then title,
+    // then structured, then text) and each section sits where its best row
+    // does, with the canonical order left as the tie-break.
+    const ranked = rankByTier(scoped, q.trim())
+    const grouped = groupSearchResults(ranked, MAX_PER_GROUP)
+    const sectionAt = new Map<SearchResultGroup, number>()
+    ranked.forEach((result, index) => {
+      const group = searchResultGroup(result)
+      if (!sectionAt.has(group)) sectionAt.set(group, index)
+    })
+    return [...grouped].sort(
+      (a, b) => (sectionAt.get(a.group) ?? 0) - (sectionAt.get(b.group) ?? 0),
+    )
+  }, [scoped, q])
   const actions = useMemo(() => contextualSearchActions(scoped), [scoped])
   const rows = useMemo<PaletteRow[]>(() => {
     const out: PaletteRow[] = []
@@ -223,6 +325,18 @@ export function SearchPalette({
     void navigate({ to: '/search', search: { q: q.trim() } })
   }
 
+  // Accepting the correction navigates by display identifier; the record route
+  // resolves it through the canonical identifier resolver (`/records/$recordId`
+  // → resolveIdentifierParam), so a mistyped id lands on the real object or on
+  // nothing at all — never on a different one.
+  const acceptSuggestion = (s: DidYouMeanSuggestion) => {
+    setOpen(false)
+    void navigate({
+      to: '/records/$recordId',
+      params: { recordId: s.identifier },
+    })
+  }
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
@@ -246,19 +360,14 @@ export function SearchPalette({
     scope === SEARCH_SCOPE_ALL && totalCount
       ? `See all ${totalCount} results`
       : 'See all results'
+  // QA3-palette-2 — the listbox only replaces the error and no-match states
+  // when it is actually rendered; `aria-controls` must not point at an id the
+  // document does not contain in those states.
+  const showList =
+    !error && !(res !== null && q.trim() && entryCount === 0 && !searching)
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o)
-        if (!o) {
-          setQ(initialQuery)
-          setScope(SEARCH_SCOPE_ALL)
-          setRes(null)
-        }
-      }}
-    >
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
         className="top-20 w-[min(640px,calc(100vw-32px))] max-md:inset-0 max-md:max-h-dvh max-md:rounded-none max-md:border-0"
         aria-label="Search"
@@ -278,9 +387,9 @@ export function SearchPalette({
               placeholder="Search experiments, samples, datasets"
               role="combobox"
               aria-expanded={entryCount > 0}
-              aria-controls={listId}
+              aria-controls={showList ? listId : undefined}
               aria-activedescendant={
-                entryCount ? `${listId}-${activeIndex}` : undefined
+                showList && entryCount ? `${listId}-${activeIndex}` : undefined
               }
               aria-autocomplete="list"
               className="w-full border-0 bg-transparent font-sans text-[15px] text-fg outline-none placeholder:text-fg-faint"
@@ -302,17 +411,118 @@ export function SearchPalette({
               ))}
             </NativeSelect>
           </label>
+          <button
+            type="button"
+            aria-pressed={archived}
+            aria-label="Include archived"
+            onClick={() => setArchived((a) => !a)}
+            className={cn(
+              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-label text-fg hover:bg-surface-hover max-md:px-2 [&_svg]:text-fg-muted',
+              archived &&
+                'border-selection-border bg-selection font-medium hover:bg-selection',
+            )}
+          >
+            <Icon name="archive" size={12} />
+            {/* QA3-palette-1 — the scope stays available at every width: the
+                label becomes screen-reader only rather than being removed
+                with the control (the label is also the accessible name). */}
+            <span className="max-md:sr-only">Include archived</span>
+          </button>
           <DialogPrimitive.Close className="inline-flex h-9 cursor-pointer items-center rounded-md border-0 bg-transparent px-2 text-body text-link md:hidden">
             Cancel
           </DialogPrimitive.Close>
         </div>
-        {res !== null && q.trim() && entryCount === 0 ? (
-          <div role="status" className="flex flex-col gap-2.5 px-5 py-7">
-            <div className="font-semibold">No matches for “{q.trim()}”</div>
+        {error ? (
+          <div role="alert" className="flex flex-col gap-2.5 px-5 py-7">
+            <div className="font-semibold">Search could not run</div>
             <div className="text-body leading-[19px] text-fg-muted">
-              Nothing in names, IDs, cell values, comments or files you can
-              access.
+              The search service did not answer, so nothing was searched.
             </div>
+            <div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => runSearch(q.trim(), scope, archived)}
+              >
+                Try again
+              </Button>
+            </div>
+          </div>
+        ) : !showList ? (
+          <div role="status" className="flex flex-col gap-2.5 px-5 py-7">
+            {items.length > 0 ? (
+              <>
+                <div className="font-semibold">
+                  No matches in {scopeLabel ?? 'this project'}
+                </div>
+                <div className="text-body leading-[19px] text-fg-muted">
+                  {items.length}{' '}
+                  {items.length === 1 ? 'match is' : 'matches are'} for “
+                  {q.trim()}” outside {scopeLabel ?? 'it'}.
+                </div>
+                <div className="text-body">
+                  <button
+                    type="button"
+                    onClick={() => setScope(SEARCH_SCOPE_ALL)}
+                    className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+                  >
+                    Search all projects
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-semibold">No matches for “{q.trim()}”</div>
+                <div className="text-body leading-[19px] text-fg-muted">
+                  Nothing in names, IDs, cell values, comments or files you can
+                  access.
+                </div>
+                {suggestion ? (
+                  <div className="text-body">
+                    Did you mean{' '}
+                    <button
+                      type="button"
+                      onClick={() => acceptSuggestion(suggestion)}
+                      className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] font-medium text-link hover:underline"
+                    >
+                      {suggestion.identifier}
+                    </button>
+                    ?{' '}
+                    <span className="text-fg-muted">
+                      {suggestion.title} ·{' '}
+                      {SUGGESTION_KIND_LABELS[suggestion.kind] ??
+                        suggestion.kind}
+                    </span>
+                  </div>
+                ) : null}
+                <div className="text-label text-fg-muted">
+                  {archived ? (
+                    <>
+                      Archived work searched too: still no matches for “
+                      {q.trim()}”.{' '}
+                      <button
+                        type="button"
+                        onClick={() => setArchived(false)}
+                        className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+                      >
+                        Search active work only
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      Archived work isn’t searched.{' '}
+                      <button
+                        type="button"
+                        onClick={() => setArchived(true)}
+                        className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+                      >
+                        Include archived
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           <div
@@ -320,12 +530,18 @@ export function SearchPalette({
             id={listId}
             role="listbox"
             aria-label="Results"
+            aria-busy={searching}
             className="max-h-[440px] overflow-auto pb-2 pt-1 max-md:max-h-none max-md:min-h-0 max-md:flex-1"
           >
             {!q.trim() ? (
               <div className="px-3.5 py-6 text-body text-fg-muted">
                 Type an ID like <span className="mono">EXP-0001</span>, a name,
                 or a value like <span className="mono">C-150</span>.
+              </div>
+            ) : null}
+            {searching ? (
+              <div role="status" className="px-3.5 py-3 text-body text-fg-muted">
+                Searching…
               </div>
             ) : null}
             {rows.map((row) => {
@@ -349,6 +565,7 @@ export function SearchPalette({
               const action =
                 row.entry.type === 'action' ? row.entry.action : null
               const group = row.kind === 'result' ? row.group : null
+              const label = result ? searchResultLabel(result) : null
               return (
                 <div
                   key={
@@ -376,12 +593,33 @@ export function SearchPalette({
                   <span className="min-w-0">
                     {result ? (
                       <>
-                        <span className="mono mr-1.5 text-fg-muted">
-                          {result.identifier}
-                        </span>
+                        {label ? (
+                          <span className="mono mr-1.5 text-fg-muted">
+                            {label}
+                          </span>
+                        ) : null}
+                        {result.archived ? (
+                          <span className="mr-1.5 rounded-sm border border-border px-1 align-middle text-label text-fg-muted">
+                            Archived
+                          </span>
+                        ) : null}
                         <Highlight text={result.title} q={q.trim()} />
                         <span className="block truncate text-label text-fg-muted">
-                          {result.matchedContext}
+                          {searchResultContext(
+                            result,
+                            result.matchedContext,
+                          ).map((segment, i) =>
+                            segment.highlighted ? (
+                              <mark
+                                key={i}
+                                className="rounded-[2px] bg-highlight px-px text-fg"
+                              >
+                                {segment.text}
+                              </mark>
+                            ) : (
+                              <span key={i}>{segment.text}</span>
+                            ),
+                          )}
                         </span>
                       </>
                     ) : (

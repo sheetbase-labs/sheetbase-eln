@@ -6,6 +6,7 @@ import { DescriptionList, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { RecordHistoryTimeline } from '#/components/audit/record-history-timeline'
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
+import { formatDate } from '#/lib/notebook-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import {
   laterAddedModelFields,
@@ -16,12 +17,6 @@ import {
   useRecordModelUsedBy,
   useWorkspaceRecordModel,
 } from './models-data'
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const parsed = Date.parse(value)
-  return Number.isFinite(parsed) ? new Date(parsed).toLocaleDateString() : value
-}
 
 /**
  * MDL-04.3 — a record page for a workspace model: the model's fields as a
@@ -50,6 +45,7 @@ export function RecordModelRecord({
   const fields = fieldsQuery.data ?? []
   const record = recordQuery.data
   const usedBy = usedByQuery.data ?? []
+  const timeline = timelineQuery.data ?? []
 
   if (!recordQuery.isLoading && !record) {
     return (
@@ -146,15 +142,19 @@ export function RecordModelRecord({
             items={[
               ['ID', <span className="mono">{record.identifier}</span>],
               ['Name', record.title],
-              ['Status', record.status],
+              ['Status', status ? status.label : record.status],
               ['Created', formatDate(record.created_at)],
-              ...fields.map<[React.ReactNode, React.ReactNode]>((field) => [
-                field.label,
-                displayModelFieldValue(
-                  field,
-                  recordFieldValue(record, field.fieldName),
-                ),
-              ]),
+              ...fields.map<[React.ReactNode, React.ReactNode]>((field) => {
+                // A date-typed field stores an ISO date; show it in the same
+                // short form as the record's own metadata, not the raw string.
+                const raw = recordFieldValue(record, field.fieldName)
+                return [
+                  field.label,
+                  field.logicalType === 'date'
+                    ? formatDate(raw == null ? null : String(raw))
+                    : displayModelFieldValue(field, raw),
+                ]
+              }),
             ]}
           />
         ) : (
@@ -196,7 +196,7 @@ export function RecordModelRecord({
 
       <Section title="History">
         <RecordHistoryTimeline
-          events={timelineQuery.data ?? []}
+          events={timeline}
           loading={timelineQuery.isLoading}
           error={timelineQuery.error}
         />
@@ -204,8 +204,9 @@ export function RecordModelRecord({
 
       <Section title="Integrations">
         <p className="m-0 text-label text-fg-muted">
-          Results from QC LIMS and other integrations arrive as history entries
-          above. No integration has written to this record yet.
+          {timeline.length
+            ? 'Results from QC LIMS and other integrations arrive as history entries above. This record has history, so an integration write is one of those entries.'
+            : 'Results from QC LIMS and other integrations arrive as history entries above. This record has no history yet, so no person, integration or API client has written to it.'}
         </p>
       </Section>
 

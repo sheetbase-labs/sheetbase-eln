@@ -1,0 +1,1222 @@
+{
+ "findings": [
+  {
+   "id": "QA2-analysis-1",
+   "severity": "blocker",
+   "area": "Analysis / Chart builder",
+   "route": "/analysis/new",
+   "width": 1440,
+   "action": "Opened the Chart builder (/analysis/new, default dataset \"Bench ELISA, planned plate PR-01\") and clicked the \"heatmap\" chart-type radio in the Chart configuration panel (also reproduced on a second fresh load, as the last step of clicking every chart type in turn).",
+   "expected": "The preview re-renders as a heatmap grid, exactly as the other chart types re-render when selected.",
+   "observed": "The whole route unmounts and the entire app is replaced by the TanStack error surface: \"Something went wrong!\" with a \"Hide Error\" button and the message \"Cannot read properties of null (reading 'id')\". The left navigation disappears with it, so nothing in the app is reachable until a manual reload. Console: \"The above error occurred in the <AnalysisStudio> component. React will try to recreate this component tree from scratch using the error boundary you provided, CatchBoundaryImpl.\" and \"Warning: The following error wasn't caught by any route! At the very least, consider setting an 'errorComponent' in your RootRoute!\" and \"Warning: Cannot read properties of null (reading 'id')\". Reproduced twice; not a one-off.",
+   "repro": "1. Go to /analysis/new and wait for the \"Select data source\" combobox. 2. In the \"Chart configuration\" panel click the \"heatmap\" radio (aria-label \"heatmap\"). 3. Observe the full-screen \"Something went wrong! \u2026 reading 'id'\" page and the loss of the whole app shell.",
+   "evidence": "/tmp/qa2/shots/an-heatmap-crash.png (and /tmp/qa2/shots/an-types-state.png from the first occurrence). Console text as quoted above.",
+   "verified": "verified-live",
+   "source": "result-analysis.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "materialiseHeatmap no longer dereferences a null X/Y column (it returns a missing_field state), and switching to heatmap from a histogram/box plot now restores a default X from the first measured field, so the grid renders instead of throwing.",
+   "outcome_files": [
+    "src/lib/chart-spec.ts",
+    "src/components/viz/chart-configurator.tsx",
+    "src/components/viz/chart-renderer.tsx",
+    "src/lib/chart-spec.test.ts",
+    "src/components/viz/chart-configurator-proposal.test.tsx",
+    "src/components/viz/chart-renderer.test.tsx"
+   ],
+   "outcome_proof": "Reproduced live: on /analysis/new (DS-0311) clicking all 13 type radios in turn crashed at heatmap with 'null is not an object (evaluating \\'col.id\\')' and the TanStack error surface; after the fix the same sweep ends on heatmap with 1 svg.sb-figure in [data-analysis-chart] and no 'Something went wrong'. Fresh-load heatmap on DS-0311 renders (1 figure); heatmap on the value-less DS-0320 states 'No heatmap grid available.' Tests: chart-spec.test.ts 'reports a missing dimension instead of throwing when a heatmap has no X'; chart-configurator-proposal.test.tsx 'restores an X dimension when a heatmap follows a box plot' and 'keeps the mapped X when a heatmap follows a chart that carries one'; chart-renderer.test.tsx 'explains a heatmap with no X dimension instead of throwing'. Caveat: the finding's first repro (fresh load then heatmap) did not reproduce \u2014 a fresh load maps X, so heatmap rendered; the crash reproduced only via the histogram/box -> heatmap path the finding also records."
+  },
+  {
+   "id": "QA2-datasets-1",
+   "severity": "blocker",
+   "area": "Datasets \u2014 Imports",
+   "route": "/import (lands on /import/$importId?step=map)",
+   "width": 1440,
+   "action": "On /import chose 'New dataset', model 'Bench ELISA reading v1', name 'QA2 Datasets probe', linked no experiment, and uploaded a 3-row CSV (/tmp/qa2/qa2-valid.csv, headers Sample,Well,Dilution,Capsid titre,Note). Waited, then hard-reloaded the URL the app navigated to.",
+   "expected": "The flow advances to step 2 'Map columns' (map the CSV columns onto the model's fields, then step 3 'Review and import'), so the rows can be committed to the dataset.",
+   "observed": "The file was stored and the dataset was created (api.datasets row DS-0321 'QA2 Datasets probe', uuid 9872c1b4-ee40-43cc-91ba-3d4ae6eb025c, lifecycle active, 0 rows), and the URL became /import/1fd26c3b-9e62-43d8-9681-8de1912c2edf?step=map&dataset=9872c1b4-ee40-43cc-91ba-3d4ae6eb025c \u2014 but the page still renders the step-1 upload form, now blank ('Import into / Append to a Dataset / New dataset / Model Choose a model\u2026 / Dataset name / Laboratory file'). No mapping UI, no column selects, no data table, no error. A hard reload of that URL renders the same step-1 form. The http calls that would feed it went out and returned 200 (GET /api/import/files?datasetId=9872c1b4-\u2026 , module /src/routes/import.$importId.tsx). The dataset therefore stays at 0 rows and the import can never be completed.",
+   "repro": "1. Go to /import. 2. 'New dataset' \u2192 model 'Bench ELISA reading v1' \u2192 name 'QA2 Datasets probe'. 3. Upload any small CSV matching that model's columns. 4. Watch the URL become /import/<fileId>?step=map\u2026 while the page keeps showing the upload form. 5. Reload \u2014 same.",
+   "evidence": "Live URL /import/1fd26c3b-9e62-43d8-9681-8de1912c2edf?step=map&dataset=9872c1b4-ee40-43cc-91ba-3d4ae6eb025c rendering the step-1 form (page text captured, 0 <table> elements); routeTree.gen.ts:361-365 gives /import/$importId parentRoute ImportRoute, and src/routes/import.tsx's ImportPage returns <ImportUploadFlow/> with no <Outlet/> \u2014 no component under src/components/import renders an Outlet, so the child route can never appear.",
+   "verified": "verified-live",
+   "source": "result-datasets.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "Re-drove the import end to end on the healthy server: the layout route fix holds and the whole flow completes; the only code change here is the creator passed from the upload step (QA2-datasets-4).",
+   "outcome_files": [
+    "src/routes/import.tsx",
+    "src/routes/import.index.tsx",
+    "src/components/import/import-flow.tsx"
+   ],
+   "outcome_proof": "Live journey: /import -> 'New dataset' + model 'Bench ELISA reading v1' + name 'QA2 fx import probe' + /tmp/qa2/qa2-valid.csv -> URL /import/c3995152-6e4c-42c4-bb90-7a878834b064?step=map&dataset=033af0d4-d145-42a0-9c18-ec6af71e9103 rendered the step-2 mapping table ('5 of 5 mapped'), Continue -> step 3 ('Import 3 rows') -> 'Imported 3 rows \u00b7 Snapshot 8106c0ba \u00b7 import b069d7b6'; SQL: api.dataset_rows count = 3 for that dataset (QA2-001, QA2-002, QA2-003) and api.dataset_versions count = 1."
+  },
+  {
+   "id": "QA2-experiments-1",
+   "severity": "blocker",
+   "area": "experiments / new experiment",
+   "route": "/experiments/new",
+   "width": 1440,
+   "action": "Opened /experiments/new (Project preselected = \"AAV full/empty assay qualification\"), typed Title \"QA2 experiments probe\", clicked \"Create draft\". Repeated 3 times.",
+   "expected": "A draft experiment is created, a toast confirms it and the form navigates to the new record's notebook.",
+   "observed": "Nothing happens. POST /api/db/rpc/create_record_with_blocks returns 403 (body: {\"error\":{\"category\":\"permission_denied\",\"message\":\"new row violates row-level security policy \\\"records_live_insert\\\" for table \\\"records\\\"\"}}). URL stays /experiments/new, title text stays in the field, no toast and no inline error at 1.2 s, 3 s or 5 s (alert region null; only \"Datasets 2 errors\" / \"Pipelines 1 failed\" text on the page). No row was created (DB check: no record titled QA2% and the workspace experiment count unchanged).",
+   "repro": "1. Go to /experiments/new (leave Project at its default). 2. Type a title of 5+ characters. 3. Click \"Create draft\". 4. Watch the network: POST /api/db/rpc/create_record_with_blocks -> 403; page does not move and reports nothing.",
+   "evidence": "403 POST /api/db/rpc/create_record_with_blocks (request id 48e46486e2afcdbf56ac76da9efea106, error category permission_denied, RLS policy records_live_insert); assertions \"still on new page\" passed while \"navigated to detail\" failed on /experiments/new; screenshots: /tmp/qa2/shots/exp-new-create-1440.png",
+   "verified": "verified-live",
+   "source": "result-experiments.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The new-experiment form resolves project access and archive state behind a bounded gate, defaults to the first project the account can edit that is not archived, and states a create refusal inline in a role=\"alert\" region as well as by toast.",
+   "outcome_files": [
+    "src/routes/experiments/new.tsx"
+   ],
+   "outcome_proof": "Live on the plain dev server (3001): POST /api/db/rpc/create_record_with_blocks 200 on the default path, toast \"Draft EXP-0003 created\", URL moved to /records/b478ed70-716e-4b9a-b575-3e9352a329de/notebook. Refusal path covered by test 'reports the server refusal inline and in a toast when the create is denied' (inline alert + sonner.toast.error, no navigation)."
+  },
+  {
+   "id": "QA2-Settings-1",
+   "severity": "blocker",
+   "area": "Settings / Usage",
+   "route": "/settings/usage",
+   "width": 1440,
+   "action": "Clicked the header button 'Export CSV' on the Usage page; watched the network, the DOM and the download list for 2.5 s.",
+   "expected": "A CSV named sheetbase-usage.csv is produced (download or blob), and/or a confirmation is shown.",
+   "observed": "Nothing happens at all: 0 new requests, 0 downloads, body text length unchanged, no element added (MutationObserver log empty), no 'exported' text anywhere. The handler is toast('sheetbase-usage.csv exported', \u2026) only (src/routes/settings/usage.tsx:167) \u2014 it never builds a file \u2014 and that toast never renders (see QA2-Settings-2), so the user gets zero feedback for a button that claims a successful export.",
+   "repro": "Open /settings/usage, click 'Export CSV'. Observe no download, no request, no message.",
+   "evidence": "new reqs []; downloads before/after []; body length identical; window.__log []; src/routes/settings/usage.tsx:167 shows onClick={() => toast('sheetbase-usage.csv exported', \u2026)} with no Blob/anchor download. (Contrast: /settings/audit export really builds a 22,560-byte text/csv blob and triggers audit-log.csv.)",
+   "verified": "verified-live",
+   "source": "result-settings-review.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "Export CSV now builds a text/csv blob from the same figures the page renders and triggers sheetbase-usage.csv; a failure to hand it to the browser is reported in a toast instead of a false success.",
+   "outcome_files": [
+    "src/routes/settings/usage.tsx",
+    "src/routes/settings/usage.test.tsx"
+   ],
+   "outcome_proof": "Live /settings/usage click: URL.createObjectURL called with a Blob of type text/csv, anchor clicked with download=\"sheetbase-usage.csv\"; test 'exports a real CSV file, with the figures the page shows' passes."
+  },
+  {
+   "id": "QA2-analysis-2",
+   "severity": "major",
+   "area": "Analysis / Chart builder",
+   "route": "/analysis/new",
+   "width": 1440,
+   "action": "On a fresh load of /analysis/new (default dataset, default spec) clicked each of the 13 chart-type radios in turn and read the preview container after each click.",
+   "expected": "Every chart type either renders a figure, or explains why it cannot (a validation message, an empty state, or a \"rows omitted\" caption) \u2014 the app never goes silently blank.",
+   "observed": "line, scatter, scatter with line, connected scatter, bar, grouped bar, stacked bar and strip each rendered an <svg> in [data-analysis-chart] (1 svg, 1+ marks). histogram, box and violin rendered NO svg and nothing at all in the preview container, with no [role=alert] and no explanatory text anywhere on the page \u2014 a silent blank. summary also rendered no svg but did show one \"Specification problems\" alert. heatmap crashed the route (see QA2-analysis-1). The same dataset renders line/bar/scatter fine, so the blank states are not \"no data at all\".",
+   "repro": "1. Open /analysis/new (default dataset). 2. Click the \"histogram\" radio, then \"box\", then \"violin\". 3. The preview area is empty after each click and no message explains it.",
+   "evidence": "Per-type measurement from the sweep (svg count inside [data-analysis-chart] / count of [role=alert]): line 1/0, scatter 1/0, scatter with line 1/0, connected scatter 1/0, bar 1/0, grouped bar 1/0, stacked bar 1/0, strip 1/0, histogram 0/0, box 0/0, violin 0/0, summary 0/1, heatmap \u2014 route crash.",
+   "verified": "verified-live",
+   "source": "result-analysis.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The empty preview for histogram/box/violin/strip/summary now names the measured field that carried no numeric values (e.g. 'No numeric values in \"Capsid titre\" to plot \u2014 4 rows omitted (missing or non-numeric values).') instead of the false cartesian text 'Choose an X and Y field to create a scatter plot.' / 'No plottable points after filtering.'",
+   "outcome_files": [
+    "src/components/viz/chart-renderer.tsx",
+    "src/components/viz/chart-renderer.test.tsx"
+   ],
+   "outcome_proof": "Reproduced live on /analysis/new?dataset=00000000-0000-4000-8000-00000000038a (4 rows, no stored values): before the fix histogram/box/violin showed 'Choose an X and Y field to create a scatter plot.' \u2014 false for a type with no X mapping \u2014 and summary the same text plus a validation alert; after the fix each shows the measured-field message above (see also strip). Caveat: the literal 'silent blank' did not reproduce \u2014 the preview container carried that misleading message rather than nothing, so the defect was the false explanation, not the absence of text; on the same dataset line/scatter/bar/strip draw no figure either and say so. On the data-rich DS-0311 every one of the 13 types, histogram/box/violin included, renders a figure (1 svg.sb-figure). Test: chart-renderer.test.tsx 'names the empty measured field instead of a cartesian mapping problem' (histogram, box, violin, summary)."
+  },
+  {
+   "id": "QA2-datasets-2",
+   "severity": "major",
+   "area": "Datasets \u2014 Snapshots",
+   "route": "/datasets/$datasetId/snapshots",
+   "width": 1440,
+   "action": "Opened 'Create snapshot' on my own dataset (DS-0321) and clicked 'Save snapshot' four times (the dialog stayed on screen after every click).",
+   "expected": "One snapshot per confirmed save; the dialog closes on success and a confirmation toast names the new snapshot.",
+   "observed": "Four snapshots exist \u2014 api.dataset_versions now holds four rows for dataset 9872c1b4-\u2026 (created_at 19:36:26.789, 19:36:35.003, 19:36:52.491, 19:37:xx), all labelled 'Fixture Owner \u00b7 saved by hand', each with source_dataset_revision 1. The tab count went 'Snapshots 0' \u2192 'Snapshots 4' behind the modal while the dialog was still open. No toast/role=alert appeared after the POST (POST /api/db/rpc/snapshot_dataset \u2192 200 each time) and the label field was re-prefilled with 'Fixture Owner \u00b7 saved by hand'. Clicking Save again after that produced the label 'Fixture Owner \u00b7 saved by handQA2 probe snapshot'. Only 'Cancel' removed the dialog.",
+   "repro": "1. Open a dataset you own \u2192 Snapshots \u2192 'Create snapshot'. 2. Click 'Save snapshot' with the Label field empty. 3. The snapshot is saved (poll api.dataset_versions / the row count behind the modal) but the dialog stays open with no message. 4. Click 'Save snapshot' again \u2014 a second, identical snapshot is created.",
+   "evidence": "Four api.dataset_versions rows for 9872c1b4-ee40-43cc-91ba-3d4ae6eb025c after four Save clicks; 'Snapshots 4' in the tab; dialog innerText ('Create snapshot \u2026 Label * \u2026 Cancel Save snapshot') still present after each save; role=alert/status empty; POST /api/db/rpc/snapshot_dataset 200 (captured in tab.requests()). Note: the source's onSuccess does call setDialogOpen(false) and toast(\u2026), so the observed behaviour disagrees with the code path.",
+   "verified": "verified-live",
+   "source": "result-datasets.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The create (and keep) confirmation dialogs are unmounted the moment they close \u2014 base-ui only removes a closed popup after a frame has painted past the exit transition, so in a hidden or throttled tab the closed dialog stayed on screen with live controls and every further click on Save snapshot wrote another snapshot; a saved dialog can now never be submitted twice.",
+   "outcome_files": [
+    "src/routes/datasets/$datasetId/snapshots.tsx",
+    "src/routes/datasets/$datasetId/snapshots.test.tsx"
+   ],
+   "outcome_proof": "Live, in a tab with requestAnimationFrame disabled (the exact condition that reproduced the finding): after one click on Save snapshot the DOM went to document.querySelectorAll('[role=dialog]').length === 0, the tab count went Snapshots 9 -> 10, and the second attempt returned 'no save control left' with the count unchanged at 10. Test 'creates a manual snapshot with the entered label and reports success' (src/routes/datasets/$datasetId/snapshots.test.tsx:219-220) asserts snapshotDataset was called exactly once and screen.queryByRole('dialog') is null after success; failure path still keeps the dialog open and toasts 'Could not save the snapshot / stale Dataset revision' (observed live with the dataset revision bumped)."
+  },
+  {
+   "id": "QA2-experiments-2",
+   "severity": "major",
+   "area": "experiments / new experiment",
+   "route": "/experiments/new",
+   "width": 1440,
+   "action": "Opened the Project picker on the new-experiment form and listed its options; then submitted with the default.",
+   "expected": "The picker offers only projects the signed-in user may create records in (or marks the read-only ones), and the default is a project the user can write to.",
+   "observed": "The picker lists all 15 workspace projects with no access distinction and defaults to the alphabetically first one, \"AAV full/empty assay qualification\" (project 00000000-0000-4000-8000-000000000328), where the fixture owner has viewer access only (api.project_access: access_level=viewer, can_edit=false). Submitting on the default therefore always fails with the 403 above. Choosing a project the user owns (\"AAV9 process transfer\", can_edit=true) made the identical form succeed (EXP-0001 created, navigated to /records/<id>/notebook).",
+   "repro": "1. Go to /experiments/new. 2. Open the Project dropdown - note it contains projects such as \"AAV8 TFF concentration\" and \"CAR-T expansion media screen\" that the account can only view. 3. Submit without changing Project -> 403. 4. Change Project to \"AAV9 process transfer\" and submit -> draft created.",
+   "evidence": "select options included 15 projects including viewer-only ones; default select value 00000000-0000-4000-8000-000000000328; POST /api/db/rpc/create_record_with_blocks 403 on the default vs 200 on \"AAV9 process transfer\"; created record EXP-0001 id 4aaea930-904d-48d0-b807-150170eac987 (deleted after the sweep)",
+   "verified": "verified-live",
+   "source": "result-experiments.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The Project picker resolves api.my_project_permissions and project archive state, lists every project but disables and marks the unusable ones ('\u00b7 read-only' / '\u00b7 archived'), and defaults to a project that is both editable and not archived.",
+   "outcome_files": [
+    "src/routes/experiments/new.tsx"
+   ],
+   "outcome_proof": "Live picker read: 16 options, 12 disabled (9 read-only + 3 archived), default \"AAV9 process transfer\" (can_edit=true, archived_at null) instead of the previous viewer-only \"AAV full/empty assay qualification\". Tests 'defaults to a project the account can edit and marks view-only projects' and 'never defaults to an archived project and says why it is unusable'."
+  },
+  {
+   "id": "QA2-experiments-3",
+   "severity": "major",
+   "area": "experiments / submit for review",
+   "route": "/records/$recordId/notebook (opened from /experiments/$expId)",
+   "width": 1440,
+   "action": "On the probe record's notebook, clicked Submit, ran \"Check snapshot\", then clicked the dialog's Submit.",
+   "expected": "Either the submission is created and the record moves to In review, or the dialog refuses with a reason the author can act on and does not present the action as ready.",
+   "observed": "The readiness checklist showed every item green, including \"Snapshot verified against the server\" (digest pinned after Check snapshot), and the dialog's Submit stayed enabled. Clicking it produced POST /api/db/rpc/submit_record_revision -> 422 and the toast \"valid submission session required\" (ERRCODE SB002). The dialog stayed open, and the record was unchanged (status still draft, 0 revisions, 0 review_submissions). The message names an internal precondition the UI never mentions or offers to satisfy.",
+   "repro": "1. Create/open a draft experiment. 2. Open its notebook and click Submit. 3. Click \"Check snapshot\" (goes green). 4. Click Submit -> 422 \"valid submission session required\".",
+   "evidence": "422 POST /api/db/rpc/submit_record_revision; toast text \"valid submission session required\"; DB after the attempt: status=draft, revisions=0, review_submissions=0. Guard is internal.session id vs the dev auth-free session id (src/lib/dev-auth.ts DEV_SESSION_ID = 'dev-auth-free-session'); internal.session only holds parity-*/design-* rows - flagged as likely environment-specific for the fixer.",
+   "verified": "verified-live",
+   "source": "result-experiments.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "fixtureSteps writes the internal.session row the auth-free development identity presents (id 'dev-auth-free-session', userId SHEETBASE_DEV_USER_ID, token, +365d expiry, upserted on every seed), because api.submit_record_revision requires a live internal.session row and nothing signs the auth-free identity in.",
+   "outcome_files": [
+    "src/db/seed/run.ts",
+    "src/lib/dev-identity.ts",
+    "src/lib/dev-auth.ts",
+    "docs/development/dev-environment.md"
+   ],
+   "outcome_proof": "Live: POST /api/db/rpc/submit_record_revision returned 200 from the Submit-for-review dialog and the app navigated to /review/b61eb045-5085-4428-9199-7ced265f7269 (previously 422 SB002 'valid submission session required'). Step executed in isolation via tsx against the dev DB: 'dev-auth-free-session dev-auth-free-session-token 00000000-0000-4000-8000-000000000310 2027-10-13T20:34:02.893Z'."
+  },
+  {
+   "id": "QA2-experiments-4",
+   "severity": "major",
+   "area": "experiments / submit for review",
+   "route": "/records/$recordId/notebook -> Submit for review dialog",
+   "width": 1440,
+   "action": "Opened the Submit for review dialog and read the reviewer list.",
+   "expected": "Each reviewer candidate is identifiable by name (as in the new-experiment form's Reviewer picker, which shows \"Ana C. (CL-017)\", \"Anna B.\", ...).",
+   "observed": "The five candidate reviewers all render as \"00000000 \u00b7 member\", \"00000000 \u00b7 reviewer\", \"00000000 \u00b7 member\", \"00000000 \u00b7 member\", \"00000000 \u00b7 owner\" - the first eight characters of each UUID, which are identical for every seeded account. The only distinguishable entry is the preselected \"You (owner)\". The names exist (internal.user: Gareth P., Priya S., Mei L., Tom H., Sam R.) but are never shown.",
+   "repro": "1. Open any draft experiment's notebook. 2. Click Submit. 3. Look at the Reviewers list: every option other than \"You (owner)\" reads \"00000000 \u00b7 <role>\".",
+   "evidence": "dialog text \"Reviewers | You (owner) | 00000000 \u00b7 member | 00000000 \u00b7 reviewer | 00000000 \u00b7 member | 00000000 \u00b7 member | 00000000 \u00b7 owner\"; src/lib/notebook-experience.ts reviewerOptionLabel returns `${member.userId.slice(0, 8)} \u00b7 ${member.role}`",
+   "verified": "verified-live",
+   "source": "result-experiments.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The dialog resolves candidate names with useUserNames and reviewerOptionLabel prefers a resolved name over the id slice, so options read 'Mei L. \u00b7 reviewer' instead of '00000000 \u00b7 reviewer'.",
+   "outcome_files": [
+    "src/components/notebook/submit-notebook-dialog.tsx",
+    "src/lib/notebook-experience.ts",
+    "src/lib/notebook-experience.test.ts",
+    "src/components/notebook/submit-notebook-dialog.test.tsx"
+   ],
+   "outcome_proof": "Live dialog listed: You (owner) | Priya S. \u00b7 member | Mei L. \u00b7 reviewer | Tom H. \u00b7 member | Sam R. \u00b7 member | Fixture Owner \u00b7 owner. Tests 'names the candidate whenever a name is resolved' and 'names every reviewer candidate instead of the shared uuid prefix'."
+  },
+  {
+   "id": "QA2-experiments-5",
+   "severity": "major",
+   "area": "experiments / detail overview",
+   "route": "/experiments/EXP-0142/overview",
+   "width": 1440,
+   "action": "Opened seeded experiment EXP-0142 (Harvest clarification: depth filter screening) and read the Overview, then opened its Datasets and Results tabs. Repeated the overview read after a 12 s settle.",
+   "expected": "The Overview's \"Key results\" summarises the experiment's own data, or at least does not deny data the same page's tabs are counting.",
+   "observed": "Overview \"Key results - Preliminary\" states \"No datasets or analyses are linked yet. Produced datasets appear on the Datasets tab.\" while the tab bar on the same screen shows \"Datasets 2\", the Datasets tab lists DS-0310 and DS-0311, and the Results tab shows \"Datasets 2\" with the same two rows. Still contradictory after 12 s, so it is not a loading state.",
+   "repro": "1. Open /experiments/EXP-0142. 2. Read \"Key results\" on Overview (says no datasets linked). 3. Click the Datasets tab (badge 2) and see DS-0310/DS-0311 listed.",
+   "evidence": "Overview text \"Key results Preliminary No datasets or analyses are linked yet. Produced datasets appear on the Datasets tab.\" vs tab badge \"Datasets 2\" and Results table rows DS-0311 / DS-0310",
+   "verified": "verified-live",
+   "source": "result-experiments.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "Key results counts dataset and analysis links by target kind \u2014 the predicate the Datasets and Results tabs use \u2014 instead of requiring a non-null target_record_id, and renders a dataset linked by identifier as text when it has no addressable record.",
+   "outcome_files": [
+    "src/components/overview/overview-view.tsx",
+    "src/components/overview/overview-view.test.tsx"
+   ],
+   "outcome_proof": "Live /experiments/EXP-0142/overview Key results reads 'Datasets | DS-0310, DS-0311' (was 'No datasets or analyses are linked yet'), matching the Datasets tab which lists DS-0310/DS-0311 (both links have target_record_id null). Test 'counts a dataset linked by identifier, as the Datasets tab does'."
+  },
+  {
+   "id": "QA2-Inbox-1",
+   "severity": "major",
+   "area": "inbox counts / shell badge / home inbox chip",
+   "route": "/inbox",
+   "width": 1440,
+   "action": "Loaded /inbox fresh three times at 1440 and compared the sidebar Inbox badge with the Inbox's own Needs action tab and filter counts; loaded / in the same session and compared Home's \"1 to review\" chip, \"Open inbox \u00b7 N items\" link and the \"Awaiting your review\" table against what the Inbox lists.",
+   "expected": "The Inbox badge, Home's \"Open inbox \u00b7 N items\" and the Inbox's \"Needs action\" tab state the same set of items, so a person clicking through sees the items they were told about.",
+   "observed": "They disagree, in the same page load. Load A (/inbox, 1440): sidebar \"Inbox 7\"; tabs \"Needs action 0\", \"Following 2\", \"Done today 7\"; filters \"All types / Reviews 0 / Data issues 0 / Runs 0 / Materials 0\"; list body \"Nothing here / Nothing needs your action right now.\" Load C (/inbox, 1440, later): sidebar \"Inbox 8\"; tabs \"Needs action 1\", \"Following 2\", \"Done today 7\". Load B (/ 1440): chip \"1 to review\", link \"Open inbox \u00b7 7 items\", \"Awaiting your review 1\" listing \"EXP-0130 HEK293 WCB viability panel | HEK293 cell bank characterisation | Mei L. | 18 Oct | Review\" \u2014 while the Inbox showed \"Reviews 0\" and \"Nothing here\". Clicking the \"1 to review\" chip lands on /inbox, which showed \"Needs action 0\" and \"Nothing here\" \u2014 the set the chip counted is not on the page.",
+   "repro": "1. Open /inbox at 1440 with the fixture owner. 2. Read the sidebar \"Inbox N\" badge and the \"Needs action\" tab number \u2014 they differ (7 vs 0 in load A, 8 vs 1 in load C). 3. Open /. 4. Read \"1 to review\" and \"Open inbox \u00b7 N items\"; click \"1 to review\" \u2014 /inbox opens with the Reviews filter at 0 and an empty list, although Home's \"Awaiting your review\" still shows the review row.",
+   "evidence": "Observed text, load A: nav aria link \"Inbox 7\" while tab rendered \"Needs action 0\"; load C: nav \"Inbox 8\" with tab \"Needs action 1\". Read-only DB check (api): select kind,state,count(*) from api.my_work_items group by 1,2 -> data_issue/needs_action 4, material_expiring/needs_action 2, review_requested/needs_action 1, run_failed/needs_action 1, following/following 2 (8 needs-action rows, returned in 20 ms); api.work_item_views holds 6 seen rows for user 00000000-0000-4000-8000-000000000310 in workspace 00000000-0000-4000-8000-000000000300 (all seen_at 2026-10-13T18:40:10.850Z). The badge/Home count query counts states only, while the Inbox list additionally drops items the user has marked seen, so 6 items are counted by the badge and hidden from the tab.",
+   "verified": "verified-live",
+   "source": "result-home-inbox.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The Inbox's needs-action predicate (state needs_action/overdue, not following, not seen, not done_today) now lives once in work-items/predicate.ts and is used by the sidebar badge (server), Home's counts/chips and the Inbox list, so a seen item leaves all three together.",
+   "outcome_files": [
+    "src/lib/work-items/predicate.ts",
+    "src/lib/work-items/inbox-counts.server.ts",
+    "src/lib/shell-counts.server.ts",
+    "src/lib/work-items/data.ts",
+    "src/lib/home-data.ts",
+    "src/routes/inbox.tsx",
+    "src/routes/index.tsx",
+    "src/lib/work-items/predicate.test.ts",
+    "src/routes/inbox.test.tsx",
+    "src/routes/index.test.tsx",
+    "src/lib/home-data.test.ts"
+   ],
+   "outcome_proof": "SSR of /inbox now renders the sidebar badge 'Inbox 1' (was 8) with tabs/filters reading '\u2014' until the read answers; running the shipped predicate over the live /api/db/my_work_items + /api/db/work_item_views rows returns {total:1,reviews:0}; tests 'counts only unseen items, so a seen item leaves Needs action for Done today' (src/routes/inbox.test.tsx) and predicate.test.ts 'counts unseen needs-action rows and their Reviews subset'."
+  },
+  {
+   "id": "QA2-ProtocolsTemplates-1",
+   "severity": "major",
+   "area": "Templates \u2014 create",
+   "route": "/templates",
+   "width": 1440,
+   "action": "Opened /templates, clicked the \u201cNew template\u201d button, filled Key = qa2_protocols_probe and Name = \u201cQA2 templates probe\u201d (left Description empty), then clicked \u201cCreate template\u201d. The click resolved without an error (the dialog\u2019s create button was really pressed with both required fields populated).",
+   "expected": "A toast like \u201cQA2 templates probe created\u201d, the dialog closing, and navigation to /templates/<new id> showing the new template with an empty draft v1 \u2014 i.e. a new row in the template catalogue.",
+   "observed": "The dialog stayed open on /templates, the URL never changed, and no template was created: a read-only check of api.notebook_templates still listed only the three seeded entries (aav9_transfection_notebook, depth_filter_screening, stability_pull) and api.notebook_template_versions still held only the three seeded v1 rows. Nothing in the UI told the user the create had failed. Caveat: the shared browser stopped accepting new tabs immediately afterwards, so I could not repeat this with a reload assertion; I cannot fully rule out that the typed values never reached the form\u2019s own state, but the input values were read back from the dialog before the click and the \u201cCreate template\u201d click itself resolved.",
+   "repro": "1. Open http://localhost:3000/templates at 1440px. 2. Click \u201cNew template\u201d. 3. Type key qa2_protocols_probe and name \u201cQA2 templates probe\u201d. 4. Click \u201cCreate template\u201d. 5. Observe: dialog stays open, no navigation, no toast; query `select key from api.notebook_templates` and see no new row.",
+   "evidence": "Read-only SQL after the click: `select key,name,lifecycle from api.notebook_templates order by created_at` returned only the three seeded templates; `select count(*) from api.notebook_template_versions` = 3. Dialog remained open with the typed values still in it. (No screenshot: the tab was released before the screenshot call.)",
+   "verified": "verified-live",
+   "source": "result-protocols-templates.json",
+   "also_reported_by": [],
+   "outcome": "not-a-defect",
+   "outcome_change": "No code change: re-driven live on the healthy server, the New template dialog creates the template, closes and navigates, so the reported failure does not reproduce (the sweep ran while the shared server/browser was degraded, which is the caveat recorded in the finding).",
+   "outcome_files": [],
+   "outcome_proof": "Journeys 'tpl-create-b-1440' and 'tpl-toast-1440' at 1440px: clicked New template, filled Key=qa2_ui_probe3 / Name='QA2 UI probe3', clicked Create template. The dialog closed, the router landed on /templates/qa2_ui_probe3 (screenshot FAIL-tpl-create-b-1440.png shows the created template page) and api.notebook_templates gained qa2_ui_probe3 (2026-10-13T20:14:09Z) plus qa2_ui_probe4 (2026-10-13T20:14:41Z) from the second run \u2014 exact keys/names driven through the dialog. The write-refused path is stated: POST /api/db/rpc/create_notebook_template with a duplicate key returns 409 {\"error\":{\"category\":\"conflict\",\"message\":\"duplicate key value violates unique constraint ...\"}}, which the client's onError turns into a toast.error, and <Toaster/> is mounted in __root.tsx."
+  },
+  {
+   "id": "QA2-SEARCH-1",
+   "severity": "major",
+   "area": "Search / command palette",
+   "route": "/ (palette overlay)",
+   "width": 1440,
+   "action": "At 1440 opened the command palette from the topbar search button, typed EXP-0091, waited for the single result row (aria-activedescendant _R_1iq_-0, option text 'EXP-0091 Clarification run, screening'), then pressed Cmd+Enter (Meta+Enter) on the highlighted row; repeated with Ctrl+Enter and with a page-dispatched KeyboardEvent({key:'Enter', metaKey:true}). Also pressed plain Enter on the same highlighted row for contrast.",
+   "expected": "The documented shortcut 'Cmd Enter - open in new tab' (rendered in the palette footer) opens the highlighted result in a new tab and leaves the palette/current page alone.",
+   "observed": "Nothing happens at all. palette stays open, location stays '/', a window.open spy installed on the page (verified working: it records a manual window.open call) records [] after the keypress, and page.on('popup') never fires. Plain Enter on the very same highlighted row does work and navigates the current tab. The keyboard handler does run for the modified key: preventDefault() is observed (defaultPrevented true on the bubbled keydown) and the modifier is delivered, because with a nonsense query (0 results) Meta+Enter DOES run the fallback and navigates to /search?q=zzzzz.",
+   "repro": "1. Open http://localhost:3000/ at 1440. 2. Click the topbar 'Search experiments, samples, datasets' button (or press Cmd+K). 3. Type EXP-0091 and wait for the result row. 4. With the first row highlighted, press Cmd+Enter (macOS) or Ctrl+Enter. 5. Observe: no new tab, no navigation, palette still open. Compare with step 4 using plain Enter, which navigates to /records/00000000-0000-4000-8000-0000000003b0/notebook.",
+   "evidence": "window.open spy self-test recorded 1 call for a manual window.open(); after Meta+Enter and after Ctrl+Enter the array was []. page.on('popup') resolved null; location.pathname+location.search stayed '/'; document.querySelector('[role=\"dialog\"]') stayed non-null. Source path that should run: src/components/v3/search/search-palette.tsx line 336 'activate(entries[activeIndex], e.metaKey || e.ctrlKey)' -> go(result, true) -> window.open(searchResultNewTabUrl(...), '_blank', 'noopener,noreferrer'); no unit test in search-palette.test.tsx covers metaKey/window.open.",
+   "verified": "verified-live",
+   "source": "result-search.json",
+   "also_reported_by": [],
+   "outcome": "not-a-defect",
+   "outcome_change": "No change: the documented Cmd/Ctrl+Enter shortcut already opens the highlighted palette result in a new tab, on both engines driven; the QA observation only held on the degraded shared browser it was taken on.",
+   "outcome_files": [],
+   "outcome_proof": "Live exact QA repro, healthy HeadlessChrome/149 (Playwright, 1440, palette opened from the topbar Search button and from Cmd+K): the bubbled keydown for Meta+Enter reported key=Enter meta=true defaultPrevented=true AND the handler called window.open('http://localhost:3000/records/00000000-0000-4000-8000-0000000003b0', '_blank', 'noopener,noreferrer'); with the spy removed the same key opened a real page at /records/00000000-0000-4000-8000-0000000003b0/notebook while location stayed '/' and the palette stayed open. Ctrl+Enter and a page-dispatched KeyboardEvent({key:'Enter', metaKey:true}) produced the identical call; plain Enter navigated the current tab. Regression lock added: search-palette.test.tsx 'SearchPalette result labels and ranking (SRCH-02) > opens the highlighted result in a new tab on \u2318\u21b5 and leaves the page alone'."
+  },
+  {
+   "id": "QA2-SEARCH-2",
+   "severity": "major",
+   "area": "Search page",
+   "route": "/search?q=\u2026",
+   "width": 1440,
+   "action": "Loaded /search?q=EXP-0091 at 1440 (hydrated: 1 result row, facets Type All 1 / Records 1 / project 'Ambr 250 perfusion scale-down' 1), focused the page's own query field (the visible input[type=search] with placeholder 'Search everything', the other with the same placeholder is a 0x0 duplicate), typed 'clarification' so the field read 'EXP-0091clarification', waited ~13 s, then pressed Enter.",
+   "expected": "Submitting a new query re-runs the search for the new query: the heading reads the new query, the result list shows the new matches (or an honest empty state) and the URL matches what is displayed.",
+   "observed": "location.search changed to ?q=EXP-0091clarification but the results area did not follow: the H1 still read 'Results for \"EXP-0091\"' with the count 1 and the single EXP-0091 row still rendered 15+ s later, and no additional POST /api/db/rpc/search was made for the whole session (tab.requests() contained exactly one rpc/search request, the original EXP-0091 one). Typing alone never updates the result set either - the query box does not search on input, only (partially) on submit.",
+   "repro": "1. Open http://localhost:3000/search?q=EXP-0091 and wait for the result row. 2. Click into the page's query field at the top of the results pane (placeholder 'Search everything'). 3. Type 'clarification' and press Enter. 4. Observe the URL becomes /search?q=EXP-0091clarification while the heading and the row list still describe EXP-0091.",
+   "evidence": "After Enter: tab.evaluate('location.pathname+location.search') = '/search?q=EXP-0091clarification'; document.body.innerText still contained 'Results for \"EXP-0091\" 1 ... EXP-0091 Clarification run, screening'; tab.requests() filtered on 'rpc/search' returned a single 200 entry (duration ~3.7 s) for the pre-Enter query. Note: this run happened while the shared browser was already degraded, and the browser restart prevented a clean second observation - worth one quick re-check.",
+   "verified": "verified-live",
+   "source": "result-search.json",
+   "also_reported_by": [],
+   "outcome": "not-a-defect",
+   "outcome_change": "No change: a submitted query already re-runs the search and the heading, rows and facets all follow the URL; the stale heading the QA saw came from the degraded shared browser it was observed on.",
+   "outcome_files": [],
+   "outcome_proof": "Live on a healthy browser: /search?q=clarification then submitting 'EXP-0091' from the page's own field (the visible 191px input[type=search]; the same-placeholder sibling is 0-width) gave h1 'Results for \u201cclarification\u201d' -> 'Results for \u201cEXP-0091\u201d', url '/search?q=EXP-0091', a fresh POST /api/db/rpc/search with {\"p_query\":\"EXP-0091\"...} after {\"p_query\":\"clarification\"...}, and the honest empty state with a 'Did you mean EXP-0091?' suggestion. Regression lock added: search.test.tsx 'Search results page (SRCH-02) > re-runs the search when the query changes, and follows it in the heading and rows'."
+  },
+  {
+   "id": "QA2-Settings-2",
+   "severity": "major",
+   "area": "Settings / feedback",
+   "route": "/settings/signatures (and every surface that calls toast)",
+   "width": 1440,
+   "action": "Clicked 'Save changes' in the Workspace policy section of Electronic signatures while watching the network and the DOM with a MutationObserver.",
+   "expected": "The action's confirmation is visible ('Signature policy saved', sonner toast, 6 s duration).",
+   "observed": "The save really runs (POST /api/db/rpc/update_workspace_settings 200, followed by a re-read of workspace_signature_certifications 200) but no toast is ever rendered: 0 elements with [data-sonner-toast], 0 elements with class containing 'sonner', and no section[aria-label=\"Notifications alt+T\"]. The <Toaster> component (src/components/v3/ui/sonner.tsx) is never mounted \u2014 it appears only in tests and stories (grep 'Toaster' finds no mount in any route or the root). Every toast-only confirmation in the app is therefore silent: 'Signature policy saved' (signatures.tsx), 'Checks finished' / 'Copied <id>' (diagnostics.tsx:203,601), 'sheetbase-usage.csv exported' (usage.tsx:167), the 6 toasts in members.tsx, the 6 in access.tsx and the 3 in profile.tsx.",
+   "repro": "Open /settings/signatures, click 'Save changes' under Workspace policy (scroll to it). Watch DevTools: a 200 RPC fires, no visible feedback appears anywhere on screen.",
+   "evidence": "MutationObserver on document.body captured [] across the click; document.querySelector('[aria-label=\"Notifications alt+T\"]') === false; document.querySelectorAll('[data-sonner-toast]').length === 0; RPC list shows '200 update_workspace_settings'. Screenshot /tmp/qa2/shots/sig-policy-save.png.",
+   "verified": "verified-live",
+   "source": "result-settings-review.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "No code change in this slice: the root Toaster mount (src/routes/__root.tsx:290) renders every confirmation; each toast site in the settings area was verified to now appear.",
+   "outcome_files": [],
+   "outcome_proof": "Live: after Export CSV, document.querySelectorAll('[data-sonner-toast]').length === 1 with text 'sheetbase-usage.csv exported'; after Save changes on /settings/signatures, a toast reading 'Signature policy saved' rendered and the toaster container is present."
+  },
+  {
+   "id": "QA2-Settings-3",
+   "severity": "major",
+   "area": "Settings / Profile",
+   "route": "/settings/profile",
+   "width": 1440,
+   "action": "Loaded /settings/profile and waited, then read the 'Sessions' section.",
+   "expected": "The member's signed-in devices are listed, or a truthful empty state.",
+   "observed": "The Sessions section permanently shows \"My sessions / Devices signed in as you. Ending a session signs that device out. Unauthorized\" with a 'Try again' button; the browser logged 401 four times on GET /api/auth/list-sessions. There is no way past it (the retry button just repeats the 401).",
+   "repro": "Open /settings/profile, scroll to Sessions. Expect four 401s on /api/auth/list-sessions and the text 'Unauthorized'.",
+   "evidence": "bad requests: [\"401 /api/auth/list-sessions\", \"401 /api/auth/list-sessions\", \"401 /api/auth/list-sessions\", \"401 /api/auth/list-sessions\"]; section text ends 'Unauthorized Try again'.",
+   "verified": "verified-live",
+   "source": "result-settings-review.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The Sessions panel lists sessions through a server function that resolves the app session (reporting the single deployment-identity session when the deployment runs without sign-in), instead of calling Better Auth's list-sessions endpoint which always 401s there.",
+   "outcome_files": [
+    "src/components/v3/settings/settings-sessions-data.ts",
+    "src/components/v3/settings/settings-sessions.tsx",
+    "src/components/v3/settings/settings-sessions.test.tsx"
+   ],
+   "outcome_proof": "Live /settings/profile Sessions shows 'My sessions ... Unknown device \u00b7 this device \u2014 \u00b7 started 13 Oct 2026 Current' with zero /api/auth/list-sessions requests and no 'Unauthorized'; tests 'lists the devices...' and 'reports a deployment session without a sign-out it cannot perform' pass."
+  },
+  {
+   "id": "QA2-sheets-1",
+   "severity": "major",
+   "area": "Sheet \u2014 cell write-back",
+   "route": "/sheets/e12fc86e-b799-45ca-912a-fb63fb5b70fb",
+   "width": 1440,
+   "action": "On the seeded 'Untitled sheet' (one local text column 'Column 1', no local values) I clicked cell A1, typed a letter to open the cell editor, set the editor value to a probe string and pressed Enter to commit.",
+   "expected": "The cell edit commits to the Sheet Instance (revision bump + the value in state.localValues) and survives a reload; if the write is refused or fails, the app reports it.",
+   "observed": "The grid showed the new value after Enter and the editor closed, with no error, no toast and no pending indicator. The mutation request the app fired, 'POST /api/db/rpc/mutate_sheet_instance_local_state', is present in the tab's request log but never returned a status while the tab was open. Two later read-only database checks showed the instance unchanged: revision=1, state.localValues={} (updated_at still 2026-10-11T12:01:47Z) and no row in api.sheet_instance_local_mutations for the instance. So the visible grid value never reached the database and nothing told the user. Caveat: the shared browser was already degraded during this run (an in-page fetch to /api/db/sheet_instances took 22.4 s and the client module graph was stalling), so part of the delay may be the environment rather than the app; a clean retest was not possible.",
+   "repro": "Open /sheets/e12fc86e-b799-45ca-912a-fb63fb5b70fb, click A1, type a value, press Enter, then read api.sheet_instances for that id (revision / state.localValues) and api.sheet_instance_local_mutations for the instance.",
+   "evidence": "Page request log: POST /api/db/rpc/mutate_sheet_instance_local_state with status undefined (never completed). pg (read-only) after the edit: revision=1, state.localValues={}, updated_at=2026-10-11T12:01:47.809Z, no sheet_instance_local_mutations row. Control: the same RPC via curl with an equivalent body returned HTTP 200 in 0.06 s and raised revision to 2 (and a second call to 3), so the server path itself works.",
+   "verified": "verified-live",
+   "source": "result-sheets.json",
+   "also_reported_by": [],
+   "outcome": "not-a-defect",
+   "outcome_change": "No change: re-driven on the healthy server, the cell edit's mutate_sheet_instance_local_state completed and the instance revision advanced with the typed value stored.",
+   "outcome_files": [],
+   "outcome_proof": "Live re-drive of /sheets/e12fc86e-b799-45ca-912a-fb63fb5b70fb: clicking the first cell, typing and pressing Enter fired POST /api/db/rpc/mutate_sheet_instance_local_state -> HTTP 200 (and read_sheet_instance_calculation_results -> 200); pg read of api.sheet_instances then showed revision 3 -> 4 with state.localValues['407a7e0c-94cb-4d02-b72d-c3f5e19f639f']['00000000-0000-4000-8000-000000000718'] = 'QA2 probe text'. A second in-app edit returned 200 again and took revision 4 -> 5 with 'QA2 row3 write' stored; a full page reload then still rendered both typed values in the grid (no error, no write-status message needed). The original finding's 'request never completed / revision stayed at 1' did not reproduce in either run; the two probes the finding cites (a 22.4 s in-page fetch and a stalled module graph) were the environment, which was still degraded while I worked (load average 590-670)."
+  },
+  {
+   "id": "QA2-shell-1",
+   "severity": "major",
+   "area": "app shell / topbar / drawer \u2014 client hydration",
+   "route": "/ (all)",
+   "width": 834,
+   "action": "At 834 opened `http://localhost:3000/`, waited for `main` plus 1.2 s, 1.5 s and 5 s in three separate tabs, then clicked the topbar `Open navigation` button (DOM click in one tab, real Puppeteer mouse click on `button[aria-label=\"Open navigation\"]` in another). Repeated in two more tabs waiting 6 s and 15 s, and also clicked `Switch workspace` and `New`.",
+   "expected": "Hydration completes (as it does at 390 and 1440), the topbar controls carry React handlers, and `Open navigation` opens the left navigation drawer (a `[data-slot=\"sheet\"]` panel) so the md-width user can reach Inbox/Schedule/Projects/\u2026.",
+   "observed": "Nothing the app renders at 834 is ever interactive. Every click was a silent no-op: `document.body.innerHTML.length` stayed at 34905 before and after, `document.querySelectorAll('[data-slot=\"sheet\"]')` = 0, no dialog, no DOM mutation, no console entry and no request with status >= 400. At 15-21 s after load, no element on the page carried a React key (`Object.keys(button).filter(k => k.startsWith('__react'))` = [], same for `document.body`), i.e. React never attached: `main` was still the server-rendered Suspense fallback `Loading your home\u2026`, `Open navigation` had no `aria-expanded` change, `Switch workspace` stayed `aria-expanded=\"false\"` with 0 `[role=\"menu\"]` nodes, and clicking `New` left `aria-expanded=\"false\"` with 0 `[role=\"menu\"]` nodes. At 390 and 1440 the same controls work (390 `New` toggled `aria-expanded` false\u2192true and rendered `[role=\"menu\"]`, DOM grew 34905\u219271659; 1440 SPA navigation produced no new `performance.getEntriesByType('navigation')` entry). Leading explanation is a width-dependent hydration failure at md (768-1023 px), but the shared dev server was degraded by concurrent sweeps late in the run so this is not 100% excluded. If it reproduces on a quiet server it is a blocker: at 834 there is no other shell nav at all (sidebar is `hidden xl:flex`, rail `hidden lg:flex`, bottom tabs `flex md:hidden`).",
+   "repro": "1) Open http://localhost:3000/ with viewport width 834. 2) Wait 10 s. 3) In devtools: `Object.keys(document.querySelector('button')).some(k=>k.startsWith('__react'))` -> false; `document.querySelector('main').innerText` -> `Loading your home\u2026`. 4) Click the hamburger `Open navigation` button (top-left). 5) Observe no drawer appears (`document.querySelector('[data-slot=\"sheet\"]')` is null) and the DOM is byte-for-byte unchanged. Compare with width 390, where the bottom-tab `Menu` button opens the same drawer.",
+   "evidence": "/tmp/qa2/shots/834-after-menu.png (no drawer after real mouse click), /tmp/qa2/shots/drawer-834.png; request log at 834 contained no 4xx/5xx, with several Vite modules still at status 0 (e.g. `/node_modules/.vite/deps/react-dom_client.js`) when sampled",
+   "verified": "verified-live",
+   "source": "result-shell.json",
+   "also_reported_by": [],
+   "outcome": "not-a-defect",
+   "outcome_change": "No change: the claimed 834 hydration failure does not reproduce on the healthy server.",
+   "outcome_files": [],
+   "outcome_proof": "Re-drove http://localhost:3000/ at 834 on the healthy server (curl / -> 200 in 0.04s). After load Object.keys(document.body).filter(k=>k.startsWith('__react')).length === 2 (React attached) and document.querySelector('button[aria-label=\"Open navigation\"]') existed; a real DOM click on it set document.querySelectorAll('[data-slot=\"sheet\"]').length to 1 and the drawer rendered 'Home Inbox 8 Schedule Projects Experiments Protocols Templates Samples Materials Instruments Datasets 2 errors Analysis Pipelines'. React was likewise attached at 390, 834 and 1440 (bodyReact=2 at each); no request had status >= 400; tab.errors() was empty. The earlier 'no React' readings at 768/1024 coincided with harness tab.observe()/click timeouts under browser contention, not with a missing client runtime."
+  },
+  {
+   "id": "QA2-datasets-3",
+   "severity": "minor",
+   "area": "Datasets \u2014 Snapshots",
+   "route": "/datasets/$datasetId/snapshots",
+   "width": 1440,
+   "action": "In the 'Create snapshot' dialog, clicked 'Save snapshot' with the 'Label *' field left empty.",
+   "expected": "The required label is refused \u2014 either the action is disabled or the dialog reports 'Enter a label' and no snapshot is written.",
+   "observed": "The snapshot is written anyway, with a generated label 'Fixture Owner \u00b7 saved by hand'; the field is not marked invalid, no validation message appears, and the dialog shows no error (the label input is not `required`, the Save button is type=button, so no native prompt either). The screen's own copy says 'Label *  Shown in the snapshot list and the comparison picker.' and the source comment says 'A label is required so the snapshot list and comparison stay readable'.",
+   "repro": "1. Dataset \u2192 Snapshots \u2192 'Create snapshot'. 2. Leave Label empty and press 'Save snapshot'. 3. Check the snapshot list (or api.dataset_versions): a version labelled 'Fixture Owner \u00b7 saved by hand' now exists and nothing told the user the label was ignored.",
+   "evidence": "api.dataset_versions label = 'Fixture Owner \u00b7 saved by hand' with source_dataset_revision 1 for the dataset created seconds earlier; dialog rendered with 'Label *' and no error text; input.required === false.",
+   "verified": "verified-live",
+   "source": "result-datasets.json",
+   "also_reported_by": [],
+   "outcome": "not-a-defect",
+   "outcome_change": "The reported premise does not hold: the Label field is never empty when the dialog opens \u2014 it is prefilled with a valid label ('Fixture Owner \u00b7 saved by hand' in the QA run, from context.user.name). Clearing it does refuse the write, so the only change made is that the input now carries the required attribute its 'Label *' marker claims.",
+   "outcome_files": [
+    "src/routes/datasets/$datasetId/snapshots.tsx"
+   ],
+   "outcome_proof": "Live on the dialog: prefilled value 'Fixture Owner \u00b7 saved by hand' (input.value), so the four saves in the finding used a real label; with the field cleared, the Save button is disabled and the dialog renders 'Enter a label.' with input[aria-invalid=true] \u2014 {disabled:true, says:true, invalid:'true'}. api.dataset_versions for DS-0321 shows the fourth save as 'Fixture Owner \u00b7 saved by handQA2 probe snapshot', i.e. the QA probe text was appended to the prefill."
+  },
+  {
+   "id": "QA2-datasets-4",
+   "severity": "minor",
+   "area": "Datasets \u2014 Imports / Overview",
+   "route": "/datasets/$datasetId (Overview) and /datasets",
+   "width": 1440,
+   "action": "Created a dataset through Import data as the signed-in user (Fixture Owner, owner role), then read its Overview and the datasets list.",
+   "expected": "The dataset records who created it; Overview 'Owner' names the caller (as it does for the seeded DS-0298/DS-0320, which show 'Owner Fixture Owner').",
+   "observed": "Overview shows 'Owner \u2014' for the dataset just created, and api.datasets has created_by_user_id = NULL (created_by_credential_id = NULL too) for DS-0321 while DS-0298/DS-0320 carry 00000000-0000-4000-8000-000000000310. Since Import data is the only way to create a dataset, every dataset made through the product has no recorded creator.",
+   "repro": "1. /import \u2192 New dataset \u2192 upload a CSV (a dataset is created immediately, per the page's own note). 2. Open that dataset's Overview: 'Owner \u2014'. 3. Compare with a seeded dataset: 'Owner Fixture Owner'.",
+   "evidence": "Overview text 'Valid Model Bench ELISA reading v1 Owner \u2014'; SQL: select display_id,name,created_by_user_id,created_by_credential_id from api.datasets \u2192 DS-0321 has both NULL.",
+   "verified": "verified-live",
+   "source": "result-datasets.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The canonical dataset create (createDataset) now records the creating person, and the import flow passes the signed-in identity it already holds from the root route's server-derived auth context, so a dataset made through Import data has a recorded owner.",
+   "outcome_files": [
+    "src/lib/dataset-product.ts",
+    "src/lib/import/data.ts",
+    "src/components/import/import-flow.tsx",
+    "src/routes/import.index.tsx",
+    "src/components/import/import-flow.test.tsx"
+   ],
+   "outcome_proof": "Imported a CSV into a new dataset ('QA2 fx import probe'): select display_id, created_by_user_id from api.datasets where id='033af0d4-d145-42a0-9c18-ec6af71e9103' -> DS-0322 / 00000000-0000-4000-8000-000000000310 (previously NULL for DS-0321), and the Overview header and Summary both render 'Owner Gareth P.' instead of 'Owner \u2014'. Test 'imports a CSV into a new dataset' (src/components/import/import-flow.test.tsx:372-381) now asserts resolveImportTarget receives createdByUserId. Note: api.datasets has no database-side stamping trigger (checked pg_trigger on api.datasets: only workspace-consistency, change-event, display-id and intended-use), unlike the tables whose triggers copy c->>'sub'; a trigger would be the deployment-wide fix but it is a migration (0430 is still unapplied on this database), so it is left to the orchestrator."
+  },
+  {
+   "id": "QA2-experiments-6",
+   "severity": "minor",
+   "area": "experiments / list layout",
+   "route": "/experiments",
+   "width": 390,
+   "action": "Loaded /experiments at 390x844 and measured the document box and every element extending past the viewport.",
+   "expected": "The list page fits the phone viewport; only inner scrollers (the tab strip, the table) scroll horizontally.",
+   "observed": "documentElement.scrollWidth is 420 against a clientWidth of 390, so the whole page scrolls sideways by 30 px. The element past the edge is the toolbar's filter button \"Updated: Last 30 days\" (right edge 420) inside the non-scrolling toolbar row (`flex items-center gap-1 border-b`), i.e. the Sort/Group/Updated/Search row does not wrap or scroll at 390.",
+   "repro": "1. Open /experiments at 390 wide. 2. Scroll the page horizontally - it moves ~30 px; the Updated filter button is the element off the right edge.",
+   "evidence": "evaluate: {scrollW: 420, clientW: 390}; overflowing node BUTTON \"Updated: Last 30 days\" right=420 with parent class \"flex items-center gap-1 border-b border-border-sub\"",
+   "verified": "verified-live",
+   "source": "result-experiments.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The list toolbar wraps (flex-wrap) and the search field takes its own line below lg, so the Sort/Group/Updated controls can no longer push the page wider than the viewport.",
+   "outcome_files": [
+    "src/routes/experiments.tsx"
+   ],
+   "outcome_proof": "Live at 390x844: documentElement.scrollWidth 390 vs clientWidth 390 (was 422 with the Updated button at right=420); the only elements past the edge now sit inside the tab strip's own overflow-x-auto scroller."
+  },
+  {
+   "id": "QA2-Home-1",
+   "severity": "minor",
+   "area": "home metric chips",
+   "route": "/",
+   "width": 1440,
+   "action": "Clicked each Home metric chip at 1440 and read the destination: \"84 experiments in progress\", \"2 datasets with errors\", \"1 to review\", \"0 instrument runs today\".",
+   "expected": "A metric chip leads to the set it counts, so the number can be seen as rows (the destination opens filtered to that set).",
+   "observed": "Every chip links to a bare route with no filter. \"84 experiments in progress\" -> /experiments, which opens on the All filter: \"All 135 Mine 65 In progress 84 In review 18 Approved 29 Drafts 3\". \"2 datasets with errors\" -> /datasets, which opens on All: \"All 11 Mine 9 Has issues 2 Locked 3\". \"1 to review\" -> /inbox with no type filter (see QA2-Inbox-1: the reviews set was not shown at all). Only \"0 instrument runs today\" -> /schedule is consistent, because the destination shows instrument runs and nothing was due.",
+   "repro": "1. Open / at 1440. 2. Click \"84 experiments in progress\". 3. Note the URL is /experiments with no query, and the list header reads \"All 135\" (the filter chips offer \"In progress 84\", but it is not applied). 4. Repeat with \"2 datasets with errors\" -> /datasets, header \"All 11\", \"Has issues 2\" offered but not applied.",
+   "evidence": "Post-click URL \"http://localhost:3000/experiments\" (no search); destination text \"Experiments 135 New experiment All 135 Mine 65 In progress 84 In review 18 Approved 29 Drafts 3\". Post-click URL \"http://localhost:3000/datasets\" (no search); destination text \"Datasets 11 Connect instrument Import data All 11 Mine 9 Has issues 2 Locked 3\".",
+   "verified": "verified-live",
+   "source": "result-home-inbox.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "Each Home metric chip now links to the filtered set it counts (/experiments?tab=inprogress, /datasets?tab=issues, /inbox?type=reviews), and /inbox gained the matching search schema so the reviews set opens applied.",
+   "outcome_files": [
+    "src/routes/index.tsx",
+    "src/routes/inbox.tsx",
+    "src/routes/index.test.tsx"
+   ],
+   "outcome_proof": "Test 'renders the busy Home with its exact totals when several things are waiting' asserts the summary links resolve to /inbox?type=reviews, /datasets?tab=issues and /experiments?tab=inprogress; the Live probe of the pre-fix page showed bare /inbox, /datasets, /experiments hrefs."
+  },
+  {
+   "id": "QA2-Inbox-2",
+   "severity": "minor",
+   "area": "inbox loading / error state",
+   "route": "/inbox",
+   "width": 1440,
+   "action": "Loaded /inbox at 1440 and polled the DOM for 95 s; then, from the same page context, issued fetch('/api/db/my_work_items?select=kind&limit=3', { credentials: 'include' }) and waited for it.",
+   "expected": "If the inbox read does not answer, the page either times out with the \"Couldn't load your inbox\" alert (the route has that branch) or retries; it must not sit on \"Loading\u2026\" forever with counters reading 0.",
+   "observed": "The page stayed on \"Loading\u2026\" (role=status) for 95 s with the tab counters reading \"Needs action 0 / Following 0 / Done today 0\" and no error, alert or retry control. The page-context fetch to /api/db/my_work_items had not returned when the 30 s browser-evaluate cap fired (the same evaluate stalled on it). Server-side the identical select (api.my_work_items) answers in 20 ms, so the stall is in the request path, not the query.",
+   "repro": "1. Open /inbox at 1440. 2. Watch the counter row and the list: while the /api/db request is outstanding the counters read 0 and the list reads \"Loading\u2026\"; nothing times out and no retry is offered, however long you wait.",
+   "evidence": "Captured state after 95 s: {\"tabs\":[\"Needs action0\",\"Following0\",\"Done today0\"],\"filters\":[\"All types\",\"Reviews 0\",\"Data issues 0\",\"Runs 0\",\"Materials 0\"],\"groups\":[],\"emptyText\":\"Loading\u2026Nothing needs your action right now.\"} while the sidebar already showed \"Inbox8\". Fetch probe: ToolError \"Browser code execution timed out after 30000ms (stalled on tab.evaluate())\" with the fetch as the only statement. Read-only DB timing: api.my_work_items grouped query = 20 ms.",
+   "verified": "verified-live",
+   "source": "result-home-inbox.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The work-items read now fails after a 30s bound and reaches the route's 'Couldn't load your inbox' alert with Try again, and the tab/type counters state '\u2014' instead of 0 while the read is outstanding.",
+   "outcome_files": [
+    "src/lib/work-items/data.ts",
+    "src/routes/inbox.tsx",
+    "src/routes/inbox.test.tsx"
+   ],
+   "outcome_proof": "src/lib/work-items/data.ts fetchWithTimeout (DataClientError 'timeout', WORK_ITEMS_TIMEOUT_MS=30_000) wraps fetchWorkItems; inbox.tsx counts read `countsKnown = !query.isLoading`; test 'shows an unknown count, not zero, while the read is outstanding' (src/routes/inbox.test.tsx)."
+  },
+  {
+   "id": "QA2-Home-2",
+   "severity": "minor",
+   "area": "home recent activity",
+   "route": "/",
+   "width": 1440,
+   "action": "Read the right-hand \"Recent activity\" block on / at 1440 and enumerated the interactive elements it contains.",
+   "expected": "An activity entry names the thing it changed so it can be identified, and (like the other Home blocks) offers a way to open it.",
+   "observed": "Every entry names its subject with a truncated raw id, and no entry is interactive: \"20:17 You updated Workspace Settings 7172b684\", \"You updated Project Access ae3d3d47\", \"System updated Record 00000000\". Enumerating the page's controls returned no link or button inside the activity list, so the record/setting named by an entry cannot be opened or told apart from any other (\"Record 00000000\" is the first eight characters of the seeded fixture UUIDs, so every fixture record reads as 00000000).",
+   "repro": "1. Open / at 1440. 2. Look at the \"Recent activity\" inspector section. 3. Try to click an entry \u2014 nothing is clickable; the subject column shows ids like 7172b684 / ae3d3d47 / 00000000 with no record name and no link.",
+   "evidence": "Observed body text of the Recent activity block (two separate loads): \"13:03 System updated Record 00000000 Status: Available \u2192 Hold Exceeded\", \"20:17 You updated Workspace Settings 7172b684\", \"You updated Project Access ae3d3d47\". Accessibility enumeration of the loaded Home page listed 47 elements; the only ones inside the inspector were \"Full schedule\", \"Inbox\", \"DS-0311\", \"DS-0298\", \"MAT-0355\", \"MAT-0420\" \u2014 nothing from Recent activity.",
+   "verified": "verified-live",
+   "source": "result-home-inbox.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "A recent-activity subject with a canonical product route is now an anchor that opens it, and one without (workspace settings, template versions, ...) opens its authoritative history dialog, so no entry in Home's Recent activity is inert.",
+   "outcome_files": [
+    "src/routes/index.tsx",
+    "src/routes/index.test.tsx"
+   ],
+   "outcome_proof": "index.tsx ActivitySubject uses the existing auditLinkFor/ENTITY_LABELS and ObjectHistoryDialog; test 'offers a way to open each recent-activity entry (QA2-Home-2)' asserts the entry renders an openable History trigger."
+  },
+  {
+   "id": "QA2-Pipelines-1",
+   "severity": "minor",
+   "area": "Pipelines \u2014 list header / navigation badge",
+   "route": "/pipelines",
+   "width": 1440,
+   "action": "Loaded /pipelines at 1440 and read the navigation badge, the status-filter tabs and the table footer from one DOM snapshot, without touching any control.",
+   "expected": "A 'Pipelines 1 failed' badge and a 'Needs attention' filter should agree: either the failed pipeline/run appears in the list (or under Needs attention), or the badge is not shown.",
+   "observed": "In the same snapshot the navigation link reports 'Pipelines 1 failed' while the page it links to reports 'All 0 / Mine 0 / Needs attention 0 / Scheduled 0 / Drafts 0' and the table footer reads '0 of 0 all'. No pipeline or run is listed anywhere on the page, so the badge claims a failure that the Pipelines surface says does not exist.",
+   "repro": "1. Open /pipelines at 1440. 2. Read the left-nav 'Pipelines' item and the 'Needs attention' tab in the same page state.",
+   "evidence": "Same-state snapshot text: 'Pipelines 1 failed Models ... Pipelines 0 New pipeline Agent operations All 0 Mine 0 Needs attention 0 Scheduled 0 Drafts 0 Search pipelines Key Pipeline Version Runs Last run Status 0 of 0 all \u00b7 a pipeline keeps nothing unless its outputs say so'. Screenshot: /tmp/qa2/shots/FAIL-pipe-create-1440.png (empty list under the badge).",
+   "verified": "verified-live",
+   "source": "result-pipelines-models.json",
+   "also_reported_by": [],
+   "outcome": "not-a-defect",
+   "outcome_change": "No code change: the nav badge and the Pipelines surface use the same predicate (newest run across a definition's versions) and agree once the client list query settles; the QA snapshot captured the pre-load paint.",
+   "outcome_files": [],
+   "outcome_proof": "Healthy server, /pipelines @1440, DOM after the list settles (tabs 'p-repro0' and 'p-repro1'): nav badge read 'Pipelines\\n1 failed' while the surface read tabs All 5 / Mine 5 / Needs attention 1 (Scheduled 1, Drafts 1), footer '5 of 5 all', and the failed pipeline 'Full/empty ratio from AUC traces' (key full_empty_ratio_from_auc) is listed with status Failed \u2014 so the badge names exactly what the Needs attention tab / list shows. SQL cross-check of the two predicates returns the identical set {00000000-0000-4000-8000-000000000402} for widget workspace 00000000-0000-4000-8000-000000000300 (agree=true). The '0 of 0' snapshot in the finding is the interval before usePipelineRows resolves: the badge is rendered from the root loader immediately while the list is three REST round-trips (pipeline_definitions -> pipeline_definition_versions + pipeline_runs); the probe's tab then froze on that paint and never re-rendered. Also confirmed all three pipeline REST calls returned 200 (definitions content-range 0-4 = 5 rows) while a probe snapshot taken right after the 'New pipeline' title rendered still read 0."
+  },
+  {
+   "id": "QA2-projects-1",
+   "severity": "minor",
+   "area": "Projects list \u2014 stalled data layer",
+   "route": "/projects",
+   "width": 1440,
+   "action": "Loaded /projects while the app's own data layer was stalled (the page's six /api/db/* requests \u2014 rpc/project_list_summary, clients, rpc/my_project_permissions, workspace_memberships, rpc/workspace_members_list, user_preferences \u2014 stayed pending with no response). Watched the page for ~2 minutes across two hard navigations.",
+   "expected": "A stalled data layer should surface as an error/retry state (the page has an error branch and an onRetry callback), and the sidebar badge should not present a number as fact while the query is unresolved.",
+   "observed": "The list area renders 'Loading projects\u2026' indefinitely and the sidebar badge reads 'Projects 0' \u2014 a false count (the true count was 16 at that moment). No timeout, no error, no retry. 'New project' is disabled=true with no aria-disabled and no tooltip giving a reason.",
+   "repro": "1. Open /projects while the app backend is not answering (observed live: the six requests above stayed status=null for >120 s). 2. Read the sidebar badge ('Projects 0') and the table area ('Loading projects\u2026'). 3. Inspect 'New project' \u2014 disabled with no stated reason.",
+   "evidence": "pending requests on the page (status null): rpc/project_list_summary?order=updated_at.desc,id.asc&limit=200&offset=0; clients?select=id,code,name&order=code.asc; POST rpc/my_project_permissions; workspace_memberships?user_id=eq.00000000-0000-4000-8000-000000000310&select=role&\u2026; POST rpc/workspace_members_list; user_preferences?limit=1&select=appearance,nav_collapsed. Button probe returned {\"disabled\":true,\"ariaDisabled\":null}. Body text ended: 'Settings Projects 0 New project Loading projects\u2026'.",
+   "verified": "verified-live",
+   "source": "result-projects.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The project_list_summary read now runs under a 15 s deadline (one silent retry), so an unanswered data layer becomes a stated failure with 'Try again' instead of endless loading; the header states no count while the read is unresolved, and the disabled 'New project' carries its reason in title.",
+   "outcome_files": [
+    "src/routes/projects.tsx",
+    "src/components/v3/projects/projects-page.tsx",
+    "src/components/v3/projects/project-data.ts",
+    "src/routes/projects.test.tsx",
+    "src/components/v3/projects/projects-page.test.tsx",
+    "src/components/v3/projects/project-data.test.ts"
+   ],
+   "outcome_proof": "Confirmed live before the change (with /api/db/** stalled: 'Settings Projects 0 New project Loading projects\u2026', button {disabled:true,title:null}); after the change the same stall reads 'Settings Projects New project Loading projects\u2026' with title 'Waiting for the project list to load.'. Tests: src/routes/projects.test.tsx 'turns a stalled project read into a stated failure the page can retry' (never-answering read -> loading:false, error 'The project list did not answer within 15 s.', onRetry clears it), 'does not assert a project count while the read is unresolved' and 'states the read failure and offers a retry' in src/components/v3/projects/projects-page.test.tsx, 'withReadDeadline' in src/components/v3/projects/project-data.test.ts. Live re-drive of the timed-out/error state could not be completed: the shared Chromium stopped navigating (machine load ~476, Page.navigate timeouts) and the stalled interception gave way before 15 s."
+  },
+  {
+   "id": "QA2-SEARCH-3",
+   "severity": "minor",
+   "area": "Search / command palette",
+   "route": "/ (palette overlay)",
+   "width": 1440,
+   "action": "In the command palette at 1440 typed the name 'clarification' and read the rendered result rows (7 rows, grouped 'Sheet and data' then 'Record').",
+   "expected": "Each result row is labelled with something a person can recognise - an identifier like EXP-0142 / PRT-014 / FILE-0004 or a title.",
+   "observed": "The two top-ranked rows are sheet-derived results whose primary label is a raw internal UUID, and they outrank the record actually titled 'Harvest clarification': row 0 reads '67d5c8d3-129b-44e8-bcbc-a1018b0d8041 Clarification working sheet' and row 1 reads '00000000-0000-4000-8000-0000000003f0 Filtration pressure log / pressure_log ...'. The record rows below them (EXP-0142 'Harvest clarification: depth filter screening', PRT-014, PRT-021, FILE-0004) are labelled correctly.",
+   "repro": "1. Open http://localhost:3000/ at 1440. 2. Open the palette (Cmd+K). 3. Type 'clarification'. 4. Read the first two result rows: both lead with a 36-character UUID instead of a human identifier.",
+   "evidence": "Rendered [role=option] texts: '67d5c8d3-129b-44e8-bcbc-a1018b0d8041Clarification working sheet ...' and '00000000-0000-4000-8000-0000000003f0Filtration pressure log pressure_log Filtrat...'. Same UUID-leading label also appeared in the accessibility tree via discover()/find() names.",
+   "verified": "verified-live",
+   "source": "result-search.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "A result row now leads with a human label (the identifier only when the RPC's `identifier` is not the object's own id \u2014 sheets and datasets returned their own UUID) and the palette ranks rows with the existing `rankByTier` and orders its sections by their best row, so the closest match is first instead of the fixed 'Sheet and dataset rows' section.",
+   "outcome_files": [
+    "src/components/v3/search/result-text.ts",
+    "src/components/v3/search/search-palette.tsx",
+    "src/routes/search.tsx",
+    "src/components/v3/search/search-palette.test.tsx",
+    "src/routes/search.test.tsx"
+   ],
+   "outcome_proof": "Live palette for 'clarification' after the change: sections 'Records 6', 'Sheet and dataset rows 2', 'Files 1', 'Templates 1' with option 0 = 'EXP-0142 Harvest clarification: depth filter screening' and the sheet row leading with 'Clarification working sheet' (before: row 0 was '67d5c8d3-129b-44e8-bcbc-a1018b0d8041 Clarification working sheet'). Tests: search-palette.test.tsx 'leads a sheet row with its name, not with the id the RPC returns' and 'puts the closest match above the section that would otherwise lead'."
+  },
+  {
+   "id": "QA2-Settings-4",
+   "severity": "minor",
+   "area": "Settings / General",
+   "route": "/settings",
+   "width": 1440,
+   "action": "On /settings (General), typed 'QA2X' into the Experiment prefix box, cleared it back to empty, then clicked 'Save changes'.",
+   "expected": "With every field back at its stored value the Save button is disabled (or returns to disabled after a successful save).",
+   "observed": "Save stays enabled. The prefix map keeps the key with an empty string ({experiment: ''}), which never equals the stored {} (sameIdPrefixes compares key counts, settings-general.tsx:44-51), so `dirty` stays true forever; the button only becomes disabled again after a full page reload. Saving in this state reports nothing and leaves the DB at id_prefixes = {}.",
+   "repro": "Open /settings. Type one character into any Record IDs prefix, delete it, click Save changes. The Save button remains enabled although nothing differs from what was loaded; reload the page and it is disabled again.",
+   "evidence": "before: {name:'Process Development', site:'', save:true}; after typing 'QA2X': save:false; after clearing back to '': {val:'', saveDisabled:false}; after clicking Save: saveDisabled:false; after reload: saveDisabled:true. DB id_prefixes stayed {}. Screenshot /tmp/qa2/shots/prefix-dirty.png.",
+   "verified": "verified-live",
+   "source": "result-settings-review.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "Prefix equality ignores empty entries, so a prefix cleared back to \"\" compares equal to an absent key and Save returns to disabled instead of staying enabled forever.",
+   "outcome_files": [
+    "src/components/v3/settings/settings-general.tsx",
+    "src/components/v3/settings/settings-general.test.tsx"
+   ],
+   "outcome_proof": "Live: on /settings, typing into the experiment prefix enables Save, clearing it disables Save again; test 'treats a cleared record-ID prefix as unchanged' passes."
+  },
+  {
+   "id": "QA2-Settings-5",
+   "severity": "minor",
+   "area": "Settings / Members",
+   "route": "/settings/members",
+   "width": 1440,
+   "action": "Loaded /settings/members as the fixture session and read the member table.",
+   "expected": "The row for the signed-in member is marked '\u00b7 you' and carries that member's own name \u2014 'Fixture Owner', as shown in the account menu, the sidebar initials 'FO' and the Profile page.",
+   "observed": "The '\u00b7 you' marker and the 'Manage' suppression land on the row labelled 'Gareth P. \u00b7 you', while a separate row lower down is labelled 'Fixture Owner'. The same member is named two different ways on two screens. (The deployment runs auth-free with SHEETBASE_DEV_USER_ID=00000000-0000-4000-8000-000000000310 in .env.local, but src/lib/dev-identity.ts hardcodes name 'Fixture Owner' for whatever id is configured, so data-driven surfaces name that user from internal.user ('Gareth P.') while the chrome names it from the dev identity.)",
+   "repro": "Open /settings/members and compare the first row ('Gareth P. \u00b7 you', no Manage button) with the account menu ('Fixture Owner') and /settings/profile ('Full name: Fixture Owner').",
+   "evidence": "DOM rows: [['Gareth P. \u00b7 you','Workspace Admin'], \u2026, ['Fixture Owner','Workspace Admin']]; workspace_memberships ordered by created_at puts user \u2026310 first and user \u2026001 last; there is no 'Manage Gareth P.' button while 'Manage Fixture Owner' exists.",
+   "verified": "verified-live",
+   "source": "result-settings-review.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The auth-free development session takes the display name from the same internal.user row the data-driven surfaces read, keeping the 'Fixture Owner' placeholder only when the configured id has no row.",
+   "outcome_files": [
+    "src/lib/dev-auth.ts",
+    "src/lib/dev-auth.test.ts"
+   ],
+   "outcome_proof": "Live: the chrome now shows initials 'GP' and /settings/profile Full name is 'Gareth P.', matching the 'Gareth P. \u00b7 you' row on /settings/members; dev-auth tests 'names the configured identity from its internal.user row' and 'keeps the placeholder for an identity with no user row' pass."
+  },
+  {
+   "id": "QA2-Settings-6",
+   "severity": "minor",
+   "area": "Settings / Electronic signatures",
+   "route": "/settings/signatures",
+   "width": 1440,
+   "action": "Opened 'Set up or recover a local signing password', entered a password in the practice field and clicked 'Try a practice signature'; then clicked 'Request new verification for recovery'.",
+   "expected": "Either the practice signature runs (and reports a truthful password error if the password is wrong), or the control is not offered.",
+   "observed": "The practice password box and its 'Try a practice signature' button are enabled and accept input, but the action can never succeed in this deployment: POST /api/signatures/step-up returns 401 and the page shows 'Sign in again.' (inline notice + role=alert). The self-service recovery entry point likewise fails immediately without any confirm dialog: 'Request new verification for recovery' fires POST /api/db/rpc/request_signature_identity_verification \u2192 403 with the message 'valid workspace session required'. Both messages are truthful, but the whole signature-recovery surface on this page is unreachable for the fixture session.",
+   "repro": "Open /settings/signatures, expand 'Set up or recover a local signing password', type anything into the practice password box, click 'Try a practice signature' \u2192 401 step-up, 'Sign in again.'. Click 'Request new verification for recovery' \u2192 403, 'valid workspace session required'.",
+   "evidence": "bad requests: ['401 /api/signatures/step-up', '403 /api/db/rpc/request_signature_identity_verification']; page text after the click reads 'Try a practice signature \u2026 Sign in again.'",
+   "verified": "verified-live",
+   "source": "result-settings-review.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The signatures page reads whether a real sign-in exists; when the deployment runs auth-free it states that signing needs a signed-in account and disables the verification, certification, practice-signature and password-enrolment controls it cannot honour.",
+   "outcome_files": [
+    "src/routes/settings/signatures.tsx",
+    "src/routes/settings/signatures.test.tsx"
+   ],
+   "outcome_proof": "Live /settings/signatures: the notice 'Signing needs a signed-in account' is present and the self-service verification, enrolment and practice buttons plus the password inputs are disabled; signatures tests pass."
+  },
+  {
+   "id": "QA2-sheets-2",
+   "severity": "minor",
+   "area": "Sheet \u2014 Share",
+   "route": "/sheets/e12fc86e-b799-45ca-912a-fb63fb5b70fb",
+   "width": 1440,
+   "action": "With the sheet open I clicked the 'Share' button in the sheet header (resolved by role/name and clicked via the element handle) and waited.",
+   "expected": "The page URL is copied to the clipboard and a 'Link copied' toast confirms it, or the app says the copy failed.",
+   "observed": "Nothing visible happened: no toast ('Link copied' absent), no dialog, no navigation, no error. The button is an enabled, visible control with no state change on activation. Same caveat as QA2-sheets-1 \u2014 the run was under heavy browser contention, so click delivery cannot be fully ruled out.",
+   "repro": "Open the seeded sheet, click 'Share', watch for a toast or clipboard change.",
+   "evidence": "After the click, document.body.innerText did not contain 'Link copied' and no [role=dialog] appeared; the button handle resolved and click() returned without error.",
+   "verified": "verified-live",
+   "source": "result-sheets.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The Share control now awaits the clipboard write and reports the real outcome \u2014 'Link copied' only when the URL reached the clipboard, otherwise an error toast saying the copy failed \u2014 instead of claiming success unconditionally.",
+   "outcome_files": [
+    "src/routes/sheets/$sheetId.tsx",
+    "src/routes/sheets/$sheetId.test.tsx"
+   ],
+   "outcome_proof": "src/routes/sheets/$sheetId.test.tsx > 'sheet Share (QA2-sheets-2) > copies the deep link and confirms only after the clipboard write succeeds' and '... > says the copy failed instead of claiming success when the clipboard is blocked' (both pass: 15/15 in the file). Live on /sheets/e12fc86e-b799-45ca-912a-fb63fb5b70fb, clicking Share produced the 'Link copied' toast and tab.clipboardRead() returned the sheet URL \u2014 the invisibility the finding reported was the already-fixed missing <Toaster /> mount; the remaining defect was the unconditional success claim, which the clipboard-denied test now pins."
+  },
+  {
+   "id": "QA2-shell-2",
+   "severity": "minor",
+   "area": "navigation badges",
+   "route": "/ at 390 (bottom tab bar vs navigation drawer)",
+   "width": 390,
+   "action": "At 390 loaded `/`, clicked the bottom-tab `Menu` button to open the navigation drawer, and read the `Inbox` badge in both the bottom tab bar and the drawer in the same rendered page (also read the topbar bell's accessible name).",
+   "expected": "The badge on a link to `/inbox` counts what `/inbox` shows, and the bottom tab bar and the drawer agree with each other, since both point at the same destination.",
+   "observed": "In one page load the bottom tab read `Inbox 3` while the drawer entry read `Inbox 8`; the accessible name of the bell was `Notifications, 3 unread`, i.e. the phone bottom-tab badge is showing the unread-notification count, not the inbox count. Confirmed against the sidebar at 1440 px, which showed `Inbox 7` at the start of the run and `Inbox 8` later (peers writing), never 3. Source confirms the two navs use different inputs: `<BottomTabs ... unread={unreadIds.size} />` vs `SideNav ... counts={data.counts}` in `src/components/v3/shell/app-shell.tsx:274-296`.",
+   "repro": "1) Open http://localhost:3000/ at width 390. 2) Note the bottom tab bar shows `Inbox` with a badge of 3 while the bell in the topbar says `Notifications, 3 unread`. 3) Click `Menu` to open the drawer. 4) The drawer's `Inbox` row shows a different number (8) in the same render. 5) Tap the bottom-tab `Inbox`; the page shows the inbox needs-action list, not 3 items.",
+   "evidence": "screenshot /tmp/qa2/shots/390-after-menu.png (drawer `Inbox 8`) plus the same page's bottom bar reading `Inbox3`; topbar bell read `Notifications, 3 unread`",
+   "verified": "verified-live",
+   "source": "result-shell.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "BottomTabs now renders the same Inbox count the drawer and desktop rail show (ShellData.counts.inbox) instead of the bell's unread-notification count, so both navs point at /inbox with the same number.",
+   "outcome_files": [
+    "src/components/v3/shell/app-shell.tsx",
+    "src/components/v3/shell/app-shell.test.tsx"
+   ],
+   "outcome_proof": "New regression test 'agrees the Inbox badge between the bottom bar and the navigation drawer' passes (asserts the bottom-bar Inbox link text equals the drawer Inbox link text, both 'Inbox 5'); updated 'marks every unread notification read through the API, clearing the bell' passes (clearing notifications no longer moves the phone Inbox badge). vitest run src/components/v3/shell/app-shell.test.tsx: 24 passed."
+  },
+  {
+   "id": "QA2-shell-3",
+   "severity": "minor",
+   "area": "app shell / home route loading state",
+   "route": "/",
+   "width": 390,
+   "action": "Opened `/` at 390 (hydrated; verified interactive because `New` toggled `aria-expanded`), waited ~4.5 s, then read `main`'s innerText. Same read at 834 after 15-21 s and at 1440 ~0.7 s after clicking the `Home` nav link.",
+   "expected": "The home destination resolves its loader and replaces the Suspense placeholder with the dashboard.",
+   "observed": "`document.querySelector('main').innerText` was still exactly `Loading your home\u2026` (18 characters) \u2014 visible behind the open navigation drawer in the 390 screenshot ~4.5 s after load, and still there after 15-21 s at 834 and ~0.7 s at 1440 (short wait at 1440, so that one is inconclusive). The shell's own data had loaded in the same render (the drawer showed workspace name `Process Development` and nav counts), so the app was serving data while the home loader had not resolved. May be inflated by the 13 concurrent sweepers hammering one dev server, so treat as lower confidence than QA2-shell-1.",
+   "repro": "1) Open http://localhost:3000/ at width 390 and wait for the shell to be interactive. 2) Wait 5+ s. 3) `document.querySelector('main').innerText` -> `Loading your home\u2026`. 4) Click the `Home` nav link and wait: `main` still reads `Loading your home\u2026`.",
+   "evidence": "screenshot /tmp/qa2/shots/390-after-menu.png (drawer open, `Loading your home\u2026` still behind it); 394-route sweep at 1440 recorded route `/` with mainLen 18 and head `Loading your home\u2026` after clicking the Home link",
+   "verified": "verified-live",
+   "source": "result-shell.json",
+   "also_reported_by": [],
+   "outcome": "not-a-defect",
+   "outcome_change": "No change: the home loading state resolves on the healthy server; the stall is a dev-server/browser-contention artifact.",
+   "outcome_files": [],
+   "outcome_proof": "On the healthy server, repeated single-tab loads of / at 834 resolved main from 'Loading your home\u2026' to 'Home / New experiment' in 1.4s, 4.5s and 5s (document.querySelector('main').innerText, polled at 700ms). The runs that stalled (up to 26s) had tab.requests() with NO pending application request and NO 4xx/5xx (only a status-0 Vite module /node_modules/.pnpm/@tanstack+react-start@...), and tab.errors() empty; when the module graph was warm the same URL resolved in under 5s. The Home gate includes only queries whose `enabled` is true at the moment they are added (verified in src/routes/index.tsx:505-541), so no query is permanently pending. Consistent with the finding's own degraded-server caveat."
+  },
+  {
+   "id": "QA2-experiments-7",
+   "severity": "nit",
+   "area": "experiments / list empty state",
+   "route": "/experiments",
+   "width": 1440,
+   "action": "Read the list's empty state (rendered server-side on first paint before the client query resolves, and observed rendered in the browser while the list had no rows).",
+   "expected": "Readable copy, e.g. \"No experiments\" / \"No experiments in this view\".",
+   "observed": "The empty state interpolates the tab key into the sentence and renders \"No all experiments\" above \"Searched IDs, titles, projects and owners.\".",
+   "repro": "1. Open /experiments with a tab whose row set is empty (or before the first page of records resolves). 2. The empty state reads \"No all experiments\".",
+   "evidence": "rendered text \"No all experiments\" + \"0 of 0 - filtered to last 30 days\" (server-rendered HTML for /experiments and the same string in the browser DOM)",
+   "verified": "verified-live",
+   "source": "result-experiments.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The empty state uses a per-tab title map instead of interpolating the tab label, so All reads 'No experiments' and other tabs read 'No draft experiments', 'No experiments in progress', 'No experiments you own', etc.",
+   "outcome_files": [
+    "src/routes/experiments.tsx",
+    "src/routes/experiments.test.tsx"
+   ],
+   "outcome_proof": "Live server-rendered HTML: /experiments contains 'No experiments' (no 'No all experiments'); ?tab=drafts 'No draft experiments'; ?tab=mine 'No experiments you own'; ?tab=inprogress 'No experiments in progress'. Tests in src/routes/experiments.test.tsx."
+  },
+  {
+   "id": "QA2-Home-3",
+   "severity": "nit",
+   "area": "home awaiting-your-review rows",
+   "route": "/",
+   "width": 1440,
+   "action": "On / at 1440, clicked the row text \"EXP-0130 HEK293 WCB viability panel\" in the \"Awaiting your review\" table (the record cell of the row), then clicked the row's \"Review\" button.",
+   "expected": "A row that is listed as awaiting your review opens that review (either the row or its action button).",
+   "observed": "The row itself is inert: the row contains no link and no button, so clicking its text did nothing (URL stayed /, no dialog, no state change). Only the small \"Review\" button in the Action column navigates \u2014 it correctly opens /review/7004bc56-334d-4620-b76f-6a9e19f44154 showing \"HEK293 WCB viability panel EXP-0130\". This differs from the \"Continue working\" table directly below, where the row's name is a link.",
+   "repro": "1. Open / at 1440. 2. Click on \"EXP-0130 HEK293 WCB viability panel\" in the Awaiting your review table \u2014 nothing happens. 3. Click \"Review\" in that row \u2014 the review opens at /review/<revisionId>.",
+   "evidence": "Clicking the row text: no anchor/button matched in that table row (query for a, button, [role=button] within the row returned none) and the URL stayed \"/\". Clicking \"Review\": returned <a href=\"/review/7004bc56-334d-4620-b76f-6a9e19f44154\"> and the destination rendered \"EXPERIMENT HEK293 WCB viability panel EXP-0130 Open working Notebook View submitted evidence Under review\".",
+   "verified": "verified-live",
+   "source": "result-home-inbox.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The 'Awaiting your review' row's name is now a link to that review, matching the 'Continue working' rows.",
+   "outcome_files": [
+    "src/routes/index.tsx",
+    "src/routes/index.test.tsx"
+   ],
+   "outcome_proof": "index.tsx wraps the Record cell in <Link to=\"/review/$revisionId\">; test 'renders the busy Home ...' asserts the row name has a closest('a')."
+  },
+  {
+   "id": "QA2-projects-2",
+   "severity": "nit",
+   "area": "Projects list \u2014 create feedback",
+   "route": "/projects",
+   "width": 1440,
+   "action": "Clicked 'New project', filled Name with 'QA2 projects probe', clicked 'Create project', waited 6 s, then read the page for role=alert / role=status text.",
+   "expected": "A successful create should confirm itself; the page already toasts for the bulk Archive/Restore operations, so the pattern exists in the same component.",
+   "observed": "The dialog closed and the new row appeared (count 15 -> 16; 'PRJ-0008 QA2 projects probe' at the top, Internal, stage '\u2014', lead '\u2014', 0 experiments, Active), but there was no toast/alert/status text 6 s after submit.",
+   "repro": "1. Open /projects at 1440. 2. New project -> Name 'QA2 projects probe' -> Create project. 3. Read role=alert/role=status: none. The only feedback is the dialog closing and the row appearing.",
+   "evidence": "snapshot after submit: {url:'/projects', dialogText:null, alertText:null}; list then showed 'Projects 16' with 'PRJ-0008 QA2 projects probe' as the first row.",
+   "verified": "verified-live",
+   "source": "result-projects.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "A successful create now toasts 'Project \u201c<name>\u201d created' from the create mutation's onSuccess, the same feedback the bulk archive/restore already gives in the same screen.",
+   "outcome_files": [
+    "src/routes/projects.tsx",
+    "src/routes/projects.test.tsx"
+   ],
+   "outcome_proof": "src/routes/projects.test.tsx 'confirms a successful create and clears the dialog' asserts toast('Project \u201cQA2 probe\u201d created') plus the navigate that closes the dialog. Live re-drive was blocked by the same browser outage (open/navigate timeouts), so this one rests on the unit test rather than a driven toast."
+  },
+  {
+   "id": "QA2-Settings-7",
+   "severity": "nit",
+   "area": "Settings / Members",
+   "route": "/settings/members",
+   "width": 1440,
+   "action": "Opened 'Invite people' and typed 'not-an-email' into the Email address field.",
+   "expected": "The field explains why the address is rejected.",
+   "observed": "The input gets aria-invalid=\"true\" but no aria-describedby and no visible message \u2014 the only feedback is the placeholder 'Enter an email address.' disappearing and 'Send invitation' staying disabled, so a sighted user gets no reason at all.",
+   "repro": "Open /settings/members \u2192 Invite people \u2192 type 'not-an-email'. Send invitation is disabled and nothing on screen says why.",
+   "evidence": "{invalid: 'true', describedby: null, err: undefined} while the Send invitation button stays disabled. Cancelling the dialog leaves the invitation count at 0 and workspace_invitations empty.",
+   "verified": "verified-live",
+   "source": "result-settings-review.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "The invite dialog's rejected-address message is now linked to the email input via aria-describedby (it was already rendered visually), so the reason is exposed to assistive technology and the field describes itself.",
+   "outcome_files": [
+    "src/routes/settings/members.tsx",
+    "src/routes/settings/members.test.tsx"
+   ],
+   "outcome_proof": "Live: input has aria-invalid=\"true\" and aria-describedby resolving to an element reading 'Enter an email address.'; test 'explains a rejected invite address and links the reason to the field' passes."
+  },
+  {
+   "id": "QA2-Settings-8",
+   "severity": "nit",
+   "area": "Settings / routing",
+   "route": "/settings/general",
+   "width": 1440,
+   "action": "Navigated directly to /settings/general (the plausible sub-URL of the section the nav labels 'General').",
+   "expected": "Either the General settings page or a 'not found' explanation.",
+   "observed": "A near-empty page renders: the settings nav plus a single 'Back' button, no heading, no message. The nav's General entry actually points at /settings, so /settings/general is a dead address that fails silently.",
+   "repro": "Open http://localhost:3000/settings/general. Only a 'Back' button is rendered.",
+   "evidence": "sweep of the 12 settings routes: '/settings/general -> /settings/general rows=0 bad=[]  BTNS [{\"t\":\"Back\",\"d\":false}]'",
+   "verified": "verified-live",
+   "source": "result-settings-review.json",
+   "also_reported_by": [],
+   "outcome": "fixed",
+   "outcome_change": "/settings/general now redirects to /settings (the page the nav labels 'General') instead of rendering a not-found screen.",
+   "outcome_files": [
+    "src/routes/settings/general.tsx"
+   ],
+   "outcome_proof": "curl http://localhost:3000/settings/general returns HTTP 307 with location: /settings; live navigation lands on /settings."
+  },
+  {
+   "id": "QA2-SEARCH-4",
+   "outcome": "fixed",
+   "files": [
+    "src/components/v3/search/result-text.ts",
+    "src/components/v3/search/search-palette.tsx",
+    "src/routes/search.tsx",
+    "src/components/v3/search/search-palette.test.tsx"
+   ],
+   "change": "The palette renders a result's matched context through `searchResultContext` \u2014 the same `parseMatchedContext` the results page uses, plus dropping the object's own id from the snippet \u2014 so the row shows text and a `<mark>` emphasis instead of the raw ts_headline markup and a UUID.",
+   "proof": "Live after the change: every palette row reports markup=false and uuid=false with the matched term still emphasised (row for the sheet: text 'Clarification working sheet Clarification working sheet Working sheet', marks ['Clarification']); the results page snippet for the same row is 'Clarification working sheet Clarification working sheet Working sheet title ...' with no `<b>` and no UUID. Test: search-palette.test.tsx 'SearchPalette result labels and ranking (SRCH-02) > shows the matched snippet as text, without headline markup or its own id' asserts no '<b>'/'</b>', no UUID, and mark.textContent === 'Clarification'.",
+   "severity": "minor",
+   "area": "found during the fix pass",
+   "route": "",
+   "found_by": "fix pass",
+   "outcome_change": "The palette renders a result's matched context through `searchResultContext` \u2014 the same `parseMatchedContext` the results page uses, plus dropping the object's own id from the snippet \u2014 so the row shows text and a `<mark>` emphasis instead of the raw ts_headline markup and a UUID.",
+   "outcome_files": [
+    "src/components/v3/search/result-text.ts",
+    "src/components/v3/search/search-palette.tsx",
+    "src/routes/search.tsx",
+    "src/components/v3/search/search-palette.test.tsx"
+   ],
+   "outcome_proof": "Live after the change: every palette row reports markup=false and uuid=false with the matched term still emphasised (row for the sheet: text 'Clarification working sheet Clarification working sheet Working sheet', marks ['Clarification']); the results page snippet for the same row is 'Clarification working sheet Clarification working sheet Working sheet title ...' with no `<b>` and no UUID. Test: search-palette.test.tsx 'SearchPalette result labels and ranking (SRCH-02) > shows the matched snippet as text, without headline markup or its own id' asserts no '<b>'/'</b>', no UUID, and mark.textContent === 'Clarification'."
+  },
+  {
+   "id": "QA2-SEARCH-5",
+   "outcome": "fixed",
+   "files": [
+    "src/lib/search.ts",
+    "src/lib/search.test.ts"
+   ],
+   "change": "`searchQueryKeys.search` now derives the key from the whole filter object (every non-undefined filter, name-sorted) instead of a hand-written list, so `includeArchived` \u2014 and any future filter \u2014 changes the cache entry and therefore re-runs the read.",
+   "proof": "Live: on /search?q=clarification, toggling 'Include archived' now issues a second POST /api/db/rpc/search with {\"p_query\":\"clarification\",\"p_limit\":20,\"p_offset\":0,\"p_include_archived\":true} after the false one (url becomes /search?q=clarification&archived=true). Tests: src/lib/search.test.ts 'searchQueryKeys > produces distinct keys for the archived scope' and 'search cache behaviour (resultType in query key) > refetches instead of serving the previous cache when the archived scope changes' (two cached fetchQuery calls with staleTime 10_000 must produce two reads; it fails on the pre-fix key).",
+   "severity": "minor",
+   "area": "found during the fix pass",
+   "route": "",
+   "found_by": "fix pass",
+   "outcome_change": "`searchQueryKeys.search` now derives the key from the whole filter object (every non-undefined filter, name-sorted) instead of a hand-written list, so `includeArchived` \u2014 and any future filter \u2014 changes the cache entry and therefore re-runs the read.",
+   "outcome_files": [
+    "src/lib/search.ts",
+    "src/lib/search.test.ts"
+   ],
+   "outcome_proof": "Live: on /search?q=clarification, toggling 'Include archived' now issues a second POST /api/db/rpc/search with {\"p_query\":\"clarification\",\"p_limit\":20,\"p_offset\":0,\"p_include_archived\":true} after the false one (url becomes /search?q=clarification&archived=true). Tests: src/lib/search.test.ts 'searchQueryKeys > produces distinct keys for the archived scope' and 'search cache behaviour (resultType in query key) > refetches instead of serving the previous cache when the archived scope changes' (two cached fetchQuery calls with staleTime 10_000 must produce two reads; it fails on the pre-fix key)."
+  },
+  {
+   "id": "QA2-ProtocolsTemplates-ack",
+   "outcome": "fixed",
+   "files": [
+    "src/lib/controlled-protocols.ts",
+    "src/lib/controlled-protocols.test.ts"
+   ],
+   "change": "acknowledgeProtocolVersion now sends the RPC argument name the database function actually declares (p_version_id), so a frozen protocol version can be acknowledged instead of PostgREST answering 404 for the unknown argument.",
+   "proof": "Live pg_proc: select pg_get_function_arguments(oid) for api.acknowledge_protocol_version returns 'p_version_id uuid' (definition in drizzle/0328_misty_doctor_octopus.sql:182, CREATE OR REPLACE FUNCTION api.acknowledge_protocol_version(p_version_id uuid); only redefined by drizzle/0335_protocol_acknowledge_writer_gate.sql via replace, so the name is stable). src/lib/controlled-protocols.test.ts 'leaves acknowledgement attribution to the server' asserts the request body is {\"p_version_id\":\"<uuid>\"}; `pnpm exec vitest run src/lib/controlled-protocols.test.ts` \u2192 4 passed.",
+   "severity": "minor",
+   "area": "found during the fix pass",
+   "route": "",
+   "found_by": "fix pass",
+   "outcome_change": "acknowledgeProtocolVersion now sends the RPC argument name the database function actually declares (p_version_id), so a frozen protocol version can be acknowledged instead of PostgREST answering 404 for the unknown argument.",
+   "outcome_files": [
+    "src/lib/controlled-protocols.ts",
+    "src/lib/controlled-protocols.test.ts"
+   ],
+   "outcome_proof": "Live pg_proc: select pg_get_function_arguments(oid) for api.acknowledge_protocol_version returns 'p_version_id uuid' (definition in drizzle/0328_misty_doctor_octopus.sql:182, CREATE OR REPLACE FUNCTION api.acknowledge_protocol_version(p_version_id uuid); only redefined by drizzle/0335_protocol_acknowledge_writer_gate.sql via replace, so the name is stable). src/lib/controlled-protocols.test.ts 'leaves acknowledgement attribution to the server' asserts the request body is {\"p_version_id\":\"<uuid>\"}; `pnpm exec vitest run src/lib/controlled-protocols.test.ts` \u2192 4 passed."
+  },
+  {
+   "id": "QA2-experiments-8",
+   "outcome": "fixed",
+   "files": [
+    "src/routes/experiments/new.tsx",
+    "src/routes/experiments/new.test.tsx"
+   ],
+   "change": "Both reads that gate the picker (project list and project-permission check) now run behind a 10 s deadline (FORM_READ_TIMEOUT_MS, withDeadline, retry: false); while pending the form says what it is waiting for, and once the deadline passes it states the failure with a Retry and fails open \u2014 every project is listed, the create is enabled, and any refusal is reported inline \u2014 so the form can never sit inert on 'Checking which projects you can write to\u2026'.",
+   "proof": "Live, plain dev server 3001: (a) 4/4 consecutive loads resolved the picker (16 options, default 'AAV9 process transfer', create enabled; 0.77-6.96 s incl. cold compile); (b) with /api/db/rpc/my_project_permissions stalled indefinitely via request interception, at 3 s the form showed 'Checking which projects you can write to\u2026' with the create disabled, and at 12 s it had settled to 'Couldn't check which projects you can write to\u2026' + Retry with the select and Create draft enabled (checking:false, failed:true, retry:true); (c) a throwaway draft created on 3001: create_record_with_blocks 200, toast 'Draft EXP-0003 created', navigated to /records/b478ed70-716e-4b9a-b575-3e9352a329de/notebook. Regression tests: 'states the access failure instead of hanging when the permission read never settles' and 'states the project-list failure instead of hanging when that read never settles' (fake timers, never-resolving mock; both assert the loading copy is gone, the failure copy and Retry are present, and the form is usable/unavailable as stated).",
+   "notes": "I could not reproduce an indefinite hang without interception: 10 consecutive plain loads (6 + 4) all settled in under 7 s, and the underlying RPC answers in ~0.2-0.3 s by curl. The reported page state is exactly the pre-settlement state of this gate (SSR/first paint renders it too), so the intermittency was most likely slow client boot/hydration or a stalled request rather than a deterministic defect in the read itself; the bounded gate removes the failure mode whichever it was. Also fixed while in the file: the project-list read is bounded the same way and names 'Project list unavailable' + Retry instead of claiming 'No projects yet' while it is still loading or has failed.",
+   "severity": "minor",
+   "area": "found during the fix pass",
+   "route": "",
+   "found_by": "fix pass",
+   "outcome_change": "Both reads that gate the picker (project list and project-permission check) now run behind a 10 s deadline (FORM_READ_TIMEOUT_MS, withDeadline, retry: false); while pending the form says what it is waiting for, and once the deadline passes it states the failure with a Retry and fails open \u2014 every project is listed, the create is enabled, and any refusal is reported inline \u2014 so the form can never sit inert on 'Checking which projects you can write to\u2026'.",
+   "outcome_files": [
+    "src/routes/experiments/new.tsx",
+    "src/routes/experiments/new.test.tsx"
+   ],
+   "outcome_proof": "Live, plain dev server 3001: (a) 4/4 consecutive loads resolved the picker (16 options, default 'AAV9 process transfer', create enabled; 0.77-6.96 s incl. cold compile); (b) with /api/db/rpc/my_project_permissions stalled indefinitely via request interception, at 3 s the form showed 'Checking which projects you can write to\u2026' with the create disabled, and at 12 s it had settled to 'Couldn't check which projects you can write to\u2026' + Retry with the select and Create draft enabled (checking:false, failed:true, retry:true); (c) a throwaway draft created on 3001: create_record_with_blocks 200, toast 'Draft EXP-0003 created', navigated to /records/b478ed70-716e-4b9a-b575-3e9352a329de/notebook. Regression tests: 'states the access failure instead of hanging when the permission read never settles' and 'states the project-list failure instead of hanging when that read never settles' (fake timers, never-resolving mock; both assert the loading copy is gone, the failure copy and Retry are present, and the form is usable/unavailable as stated)."
+  }
+ ],
+ "coverage": [
+  {
+   "file": "result-analysis.json",
+   "driven": [
+    "/analysis \u2014 home rendered with the seeded views: \"3 saved analyses\" meta, tabs All 3 / Mine 3, table columns ID, Name, Kind, Source, Owner, Updated with rows AN-0003 Glucose vs lactate (scatter), AN-0002 Viability over time (line), AN-0001 VCD by day (line), each linking to /analysis/<id>.",
+    "/analysis \u2014 \"New analysis\" dropdown opens and lists the three modes with their descriptions (\"A figure from a dataset snapshot. Chart\", \"Statistics with assumption checks. Analyse\", \"Two snapshots side by side. Compare\"); choosing Chart navigated to /analysis/new?mode=chart with the correct ?mode=chart search param.",
+    "/analysis/new \u2014 the Chart builder rendered its full control surface: \"Select data source\" combobox with 11 datasets, Chart builder/Analyse/Compare mode tabs, Hide encodings toggle, 13 chart-type radios, X/Y/series/aggregation/normalisation/fit/error-bar/facet controls, X-axis/Y-axis/colour/size/facet encoding selects, Data preview toggle, and the right-hand Chart settings inspector with the Views 3 / Cited by / Calculations / Export tabs plus X-axis and Y-axis scale selects.",
+    "/analysis/new \u2014 clicked all 13 chart-type radios; 9 rendered a figure, 3 went blank, 1 crashed (see findings)."
+   ],
+   "notDriven": [
+    "/analysis/new \u2014 saving a view, loading it, deleting it and the delete confirm dialog: the studio became unreachable before I could reach the Views tab. NOT COVERED.",
+    "/analysis/new \u2014 export (JSON/CSV/SVG/PNG) and the download assertions: NOT COVERED.",
+    "/analysis/new \u2014 flag handling / excluded-flag rows: NOT COVERED.",
+    "/analysis/new \u2014 Compare mode (two sources, swap, differences table): NOT COVERED.",
+    "/analysis/new \u2014 the data-table alternative and the assumption/provenance panels: NOT COVERED.",
+    "/analysis/new and /analysis at 834 and 390: NOT COVERED.",
+    "/analysis \u2014 the empty state and \"open a recent view\": the table was read and its links captured, but the routes were not followed and no filtered empty state was driven; NOT COVERED.",
+    "Reason for all of the above: after the initial successful passes the shared browser degraded (tab kills, 30 s evaluate stalls, Page.navigate timeouts on both localhost and [::1]) and the /analysis/new route could no longer be loaded or driven at all. Per instruction I stopped driving rather than retrying in a loop. No finding is claimed for anything I could not drive.",
+    "Note (not a finding): on /analysis the Source column showed \"\u2014\" and the Owner column \"00000000\" for all three seeded analyses. Dataset 00000000-0000-4000-8000-000000000380 and the owner user id both exist in api.analysis_views/api.datasets, so this may be an unresolved/pending lookup in the degraded browser rather than a defect \u2014 I could not separate the two, so I am not reporting it."
+   ]
+  },
+  {
+   "file": "result-datasets.json",
+   "driven": [
+    "/datasets \u2014 tabs: All (11), Mine (9), Has issues (2), Locked (3) each show exactly that many rows and the URL carries ?tab=\u2026; the tab counts match the rows rendered",
+    "/datasets \u2014 sort menu (Sort: Updated / ID / Rows): Rows gives 96,84,64,48,30,27,18,16,9,8,4; ID gives DS-0287\u2026DS-0320 ascending",
+    "/datasets \u2014 search: typing 'ELISA' (one keystroke at a time) leaves 2 rows (DS-0311, DS-0320); an unmatched query clears the table and shows 'No datasets match \u201c\u2026\u201d / Search looks at ID, name and model.'; clearing restores 11",
+    "/datasets \u2014 'Table' view menu opens with Table / Board / Later; a dataset's name link opens /datasets/<uuid>/rows",
+    "/datasets/00000000-\u2026-380 (DS-0298) \u2014 Overview explains the errors: 'Issues 2  \u201cGlucose\u201d and \u201cOsmolality\u201d have no unit. Units are required before EXP-0140 can be submitted.' plus Summary/Model/Project/Owner/Experiment/Rows/Snapshots/State",
+    "/datasets/\u2026-380/rows \u2014 84 rows rendered, 'Showing 84 of 84 rows \u00b7 row 1 selected', snapshot label 'Import \u00b7 AMB-25-118_day7_am.csv \u00b7 read-only; values change only by import', 'Only flagged rows (1)', row 1 carries the flag dot",
+    "/datasets/9872c1b4-\u2026/rows \u2014 with no snapshot the grid says 'No snapshot to read rows from / Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot.' (self-explaining disabled state)",
+    "/datasets/\u2026-380/compare \u2014 two 'From snapshot'/'To snapshot' selects over the 7 versions; default day6\u2192day7 renders Rows added/changed/removed 0, Columns changed 0, Flag changes 0 and 'No differences between these snapshots.' The api.compare_dataset_versions RPC returns the same zero counts for that pair, and for every version pair of every dataset in the seeded database, so the empty table is truthful",
+    "/datasets/9872c1b4-\u2026/snapshots \u2014 'Create snapshot' saves a snapshotted version, the list gains a row with its Rows (0) and Source revision (1), the tab count updates and the row survives a reload; the dialog's Cancel leaves the list unchanged"
+   ],
+   "notDriven": [
+    "/datasets \u2014 archived toggle: there is no archived control anywhere in the UI (the toolbar offers Table/Board/Later, Sort, Search only) and no seeded dataset is archived, so an archived view could not be driven. Note the route parses ?archived=1 but nothing in src/routes/datasets.tsx reads it",
+    "/datasets/$datasetId/rows \u2014 add a row / edit a cell / delete a row: the grid is read-only by design ('read-only; values change only by import') and the toolbar offers no write affordance, so there is no row CRUD to drive",
+    "/datasets/$datasetId/rows \u2014 pagination: the largest snapshot in the seeded database is 96 rows against a 100-row page (ROWS_PAGE_SIZE), so 'Load more (\u2026) left' never appears and a next page cannot be exercised",
+    "/datasets/$datasetId/rows \u2014 per-value actions (mark out of range, clear flag, request repeat): reachable only from a row inside a snapshot; the only dataset with rows I could safely write to is my own probe dataset, which has no rows because the import flow is blocked, and acting on a seeded dataset's values is out of bounds for this sweep",
+    "/datasets/$datasetId/rows \u2014 'Only flagged rows' toggle and the row search: attempted on DS-0298 but both attempts landed on 'Loading dataset\u2026' for the full wait (45 s) in the shared browser and were abandoned under the browser-contention rule",
+    "/datasets/$datasetId/compare \u2014 the comparison mode switch: no mode control exists on the page (two version selects and the counts only)",
+    "/datasets/$datasetId/compare \u2014 a non-empty differences table: no version pair in the seeded database differs (verified with api.compare_dataset_versions across all datasets), so 'the differences match what changed' could only be checked as the empty case",
+    "/datasets/$datasetId \u2014 Imports, Used by and History tabs, and the dataset CSV export ('Download \u2026 as CSV' \u2192 /api/export/dataset/$id?format=csv): not driven (browser budget)",
+    "/datasets \u2014 widths 390/834/1024: not driven",
+    "/import \u2014 the deliberately invalid file (/tmp/qa2/qa2-invalid.csv, Dilution='abc' and an empty Capsid titre): not driven, because the flow cannot pass step 1 and every upload attempt creates another dataset that has no delete affordance",
+    "Cleanup: dataset DS-0321 'QA2 Datasets probe' (9872c1b4-ee40-43cc-91ba-3d4ae6eb025c) and its four 'Fixture Owner \u00b7 saved by hand' snapshots are my probes and are still present \u2014 the product offers no delete/archive action for a dataset or a snapshot, so they could not be removed"
+   ]
+  },
+  {
+   "file": "result-experiments.json",
+   "driven": [
+    "/experiments (1440/834/390) - list loads (136 rows), tab counts equal the live RLS-scoped counts for the same predicates (All 136, Mine 66, In progress 84, In review 18, Approved 29, Drafts 4), each tab renders only its own statuses, tab counts equal rendered row counts",
+    "/experiments - search: query 'QA2 experiments probe' narrowed to the one matching row (URL ?q=...); no-match search showed 'No experiments match \"zzz-no-such-experiment\"', '0 of 136' and a working 'Clear search'",
+    "/experiments - Sort Updated/ID switches order and the button label; Group None/Project groups rows under project headings with per-group counts; filter 'Updated: Last 30 days' <-> 'Any time' toggles URL (?older=true), button label and the removable chip",
+    "/experiments - Created and Updated columns show real dates (2026-10-13 for the probe, 2026-10-11 for seeded rows); row title link opens the record's detail overview",
+    "/experiments/new (1440/834/390) - empty submit is blocked with the honest message 'Use at least 5 characters so the title says what is being tested.'; all seven fields and both actions are present and reachable at every width with no horizontal overflow",
+    "/experiments/new -> create: with a writable project the draft was created (EXP-0001), appeared at the top of the list and opened from it; record deleted afterwards",
+    "/experiments/$expId (probe and seeded EXP-0142) - Overview, Notebook, Samples, Datasets, Results, Files, History each render their own content (no tab shows another tab's content); header status and per-tab counts match the data (EXP-0142: Datasets 2, Samples 0, Files 0, status In progress)",
+    "/experiments/$expId/history - lists real events (created Record, created Notebook block, updated Title 'QA2 experiments probe -> QA2 experiments probe edited') with actor and timestamp; the same events render at 834 and 390",
+    "Record edit - notebook title rename issued PATCH /api/db/records -> 200 and survived a full reload; History recorded the title change",
+    "Submit for review - dialog opens from the notebook header, readiness checklist renders, 'Check snapshot' runs preview_submission_digest (200) and turns the digest check green, Submit attempt returns 422 with a visible toast",
+    "Keyboard - Meta+K opens the global search palette on /experiments and Escape closes it"
+   ],
+   "notDriven": [
+    "List pagination - the page size is 300 and the workspace holds 136 experiments, so no paging/load-more control was reachable; the footer showed '136 of 136' only",
+    "Results tab flag exclusion / filter / export - the Results tab offers no filter, no export and no flag drill-down (only dataset rows with an issue count and a 'Record decision' button), so there was nothing to drive; dataset-level flag inspection belongs to the dataset explorer",
+    "Submit for review success path - the 422 in QA2-experiments-3 blocks it, so the In review state, reviewer assignment and the submit toast were never observed",
+    "The 'Any time' date filter with genuinely old records - every seeded experiment was updated within the last 30 days, so toggling it changed the label/chip but not the row set",
+    "Notebook block editing and the review screen - owned by the notebook/review sweepers; only the title rename and the submit dialog were driven here",
+    "Permission contrast (owner vs viewer) inside the experiment surface - only the fixture owner role was exercised; the viewer case was visible only through the project picker in QA2-experiments-2"
+   ],
+   "note": "An earlier observation in this sweep that /experiments rendered 0 rows and 0 tab counts was caused by the degraded shared headless browser (no /api/db requests were issued at all); after the browser restart the same route loads 136 rows and matches the database. It is not reported as a finding."
+  },
+  {
+   "file": "result-home-inbox.json",
+   "driven": [
+    "/ (1440) \u2014 Home rendered; read header, all four metric chips (\"1 to review\", \"2 datasets with errors\", \"84 experiments in progress\", \"0 instrument runs today\"), \"Open inbox \u00b7 7 items\", \"Awaiting your review\" (1 row, EXP-0130), \"Continue working\" (6 rows), the Today / Full schedule / Needs attention / Recent activity inspector blocks",
+    "/ (1440) \u2014 clicked every metric chip and read the destination: /inbox, /datasets, /experiments, /schedule; clicked \"Open inbox \u00b7 7 items\", \"All in inbox\" (-> /inbox) and \"All recent\" (-> /experiments)",
+    "/ (1440) \u2014 clicked the \"Review\" action on the Awaiting-your-review row (opens /review/<revisionId> correctly) and clicked the row text itself (no effect)",
+    "/inbox (1440) \u2014 three fresh loads; read the sidebar badge, the three tab counters, the five filter counters, the empty state (\"Nothing here / Nothing needs your action right now.\"), the page-context data fetch and the alert/error branch behaviour while the read was outstanding",
+    "Read-only DB checks (api.my_work_items, api.work_item_views, api.workspaces, api.workspace_memberships) to establish the ground truth behind the counters"
+   ],
+   "notDriven": [
+    "/inbox \u2014 switching the Needs action / Following / Done today tabs, and clicking the Reviews / Data issues / Runs / Materials filter chips: never reached a rendered list (the inbox read did not answer), so no tab or filter could be clicked",
+    "/inbox \u2014 opening a row and the inspector's \"Open\" action, and the \"Later \u00b7 N items\" expand/collapse: not reached for the same reason",
+    "/inbox \u2014 \"Mark all seen\": not driven. On every load that rendered, the Needs action set was empty (all items already marked seen by the fixture/another session), so the button was disabled; the button label and disabled state were observed, the click and its reload-persistence were not",
+    "/inbox \u2014 \"Notification settings\": not driven in the browser; the rendered HTML of /inbox carries href=\"/settings/notifications\" on that control (server HTML read only)",
+    "/inbox \u2014 /inbox?tab=\u2026 deep links: not driven; the route's tab state is component state with no URL parameter (source read only, not exercised)",
+    "/ \u2014 \"Full schedule\", the Needs attention links (DS-0311, DS-0298, MAT-0355, MAT-0420) and the inspector \"Inbox\" link: read and enumerated but not clicked",
+    "/ \u2014 \"Continue working\" row links: not clicked (the deeper route loads were failing by then)",
+    "Keyboard journeys (J/K, Enter, Tab/Escape, \u2318K) on Home and Inbox: not driven",
+    "Widths 834 / 1024 and 390: not driven \u2014 the shared browser stopped opening tabs (browser.open timed out) and driving was stopped on instruction",
+    "Note: the app itself answered every direct HTTP request in milliseconds; the failures above were browser/dev-server capacity during a 13-sweeper run, not app behaviour"
+   ]
+  },
+  {
+   "file": "result-lab.json",
+   "driven": [
+    "/samples (1440) \u2014 list rendered with 29 in-stock rows; tab counts read in the same render (In stock 29, Mine 33, Reserved 0, Quarantine 2, Consumed 4); columns ID/Name/Type/Quantity/Location/Status; per-row status labels read (Available, Quarantine). Checked the arithmetic: In stock (29) + Consumed (4) = the 33 the header states, and quarantined rows are deliberately counted in both In stock and Quarantine, so the overlapping counts are consistent and not a defect. Header controls read: Scan label, Import, Register sample, Table view, Search samples.",
+    "/samples (1440) \u2014 row click path: the seeded rows are selectable and expose an 'Open sample' button in the inspector; selecting a row did not navigate, and the subsequent click did not complete (see notDriven).",
+    "/samples/00000000-0000-4000-8000-0000000003d1 (SMP-2188 'R0.5 flask A', 1440) \u2014 detail page rendered: header actions Print label, Move, Withdraw volume\u2026, Quarantine\u2026; tabs Details, Lineage 0, Usage 0, Measurements 0, History; sections Properties, Storage and release, Label (SMP-2188 R0.5), Withdrawals 0, Derived samples 0, Hold time, Recent history. Status 'Available' with project 'AAV9 process transfer'.",
+    "/samples/00000000-0000-4000-8000-0000000003d1/usage (1440) \u2014 tab badge 'Usage 0' agreed with the body: 'Usage 0', 'Not used yet / Withdrawals and planned reservations appear here', Volume bar Used 0 / Reserved 0 / Free 0, controls Reserve volume\u2026 and Withdraw volume\u2026 present, and the page's own empty state shown instead of an empty table.",
+    "/materials (1440) \u2014 list shell rendered: tabs In stock / Expiring soon / Quarantine / Expired, header actions Scan label and Receive lot, Search materials and the sort control. Rows never arrived, so nothing behind the list could be driven."
+   ],
+   "notDriven": [
+    "materials: open a lot, receive a lot, quarantine/restore, register a replacement lot, disabled-state reasons, and whether the inspector's replacement-lot section shows the truth \u2014 /materials never got past its loading state. The client data fetch never resolved, so the page showed '0 of 0 in stock' with the loading state still active (the page's own 'No lots in in stock' empty state is suppressed while page.isLoading), for every attempt.",
+    "materials at 834 and 390 \u2014 the 1440 journey never completed.",
+    "instruments: list, opening an instrument, the qualification section (grant and revoke through the UI), calibration, data intake, and booking from the instrument page \u2014 /instruments, /schedule, /scan and /readings/new never returned a hydrated page. Every browser.open to them ended in 'Page.navigate timed out' (29-150 s) or returned only the server-rendered shell with the client entry script still pending, so no control on those routes was ever clicked.",
+    "instruments and materials at 834 / 390, and the whole width matrix \u2014 not attempted, because the primary 1440 journeys on those surfaces could not be completed.",
+    "/schedule: booking and cancelling a throwaway booking, and the timezone shown \u2014 route never loaded.",
+    "/scan: starting a scan, entering a value, submitting, and checking the value lands somewhere real \u2014 route never loaded.",
+    "/readings/new: entering and submitting a reading \u2014 route never loaded.",
+    "sample withdraw end-to-end on a throwaway sample (register, withdraw, confirm the state changed, remove the probe): the sample detail page did render, but the row-select click timed out after 8 s and the following observe()/evaluate calls timed out too, so no dialog was ever opened and no seeded record was touched.",
+    "usage rows vs the badge count on a sample that actually has live usage (SMP-2231 has 2 consume events and 1 active reservation in the database) \u2014 its /usage page never hydrated.",
+    "environment, stated once here because it is the single cause of all of the above: from the browser, navigation to http://localhost:3000 timed out at 29 s even for /api/health/live (Chrome connects to [::1]:3000 and gets no response), http://127.0.0.1:3000 was ERR_CONNECTION_REFUSED, while http://localhost:3101 (PostgREST) navigated fine; from the eval kernel http://localhost:3000 answered in 2-50 ms (200). Host load average reached 238 on 10 cores with 0.05-0.17 GB free memory during the failures. Nothing observed while the app was in that state was reported as a defect.",
+    "one source-only observation left here rather than as a finding because it was never driven: src/routes/materials.tsx renders two 'Register replacement lot' buttons side by side in the inspector header (one primary, one secondary, both opening the same dialog). It should be confirmed live on /materials by the fixing pass, since the materials list never rendered rows for this sweep."
+   ]
+  },
+  {
+   "file": "result-pipelines-models.json",
+   "driven": [
+    "/pipelines at 1440 \u2014 loaded the route, read the full control set by role/name (New pipeline, Agent operations, All/Mine/Needs attention/Scheduled/Drafts, Search pipelines, table headers), and read the empty state.",
+    "/pipelines \u2014 threw the entire create-pipeline dialog with 'New pipeline', and asserted it renders: the dialog opened and exposed Key (textbox), Name (textbox), Description (textbox), Cancel and Create pipeline, with the explanatory copy 'A pipeline is a versioned configuration\u2026'. This was reproduced across two separate tab sessions.",
+    "/pipelines \u2014 created probe record attempt: clicked 'New pipeline' and filled Key='qa2_pipelines_probe', Name='QA2 pipelines probe'. The dialog opened and accepted typing; the create was never submitted because the environment failed before the click on 'Create pipeline' could complete, so no probe record was ever written and there is nothing to clean up.",
+    "/pipelines \u2014 confirmed the list row/table shape and that /pipelines/agents is reachable from the 'Agent operations' control (href /pipelines/agents present in the DOM)."
+   ],
+   "notDriven": [
+    "/pipelines \u2014 create/verify/persist journey: environment failure. Repeated browser.open/click timeouts (shared headless Chromium degraded, then dev-server restart). The 'Create pipeline' click and the reload-persistence assertion were never reached, so no write was observed, landed or refuted. No probe record exists.",
+    "/pipelines/$pipelineId (triggers, steps, runs, inspector, Run now) \u2014 never reached: no pipeline existed and the create journey could not complete before the environment died.",
+    "/pipelines/$pipelineId/runs/$runId \u2014 not reached: no run existed to open, no waiting prompt to answer, no running run to cancel.",
+    "Triggers \u2014 not driven at all: could not create a pipeline, so no trigger of any kind was created, no next-run column read, no delete/cancel-dialog tested.",
+    "Steps \u2014 not driven at all: no pipeline detail page was reachable; SQL/description/dataset edits, draft save, publish and the version selector were never exercised.",
+    "/pipelines/agents \u2014 not driven: 'Agent operations' was located but never opened; execution policies, the workflows tab and pending proposals were never seen.",
+    "/models and /models/$modelId \u2014 not driven at all: model create, field edits, versions, rules and relations were never reached. Zero coverage for the whole Models surface.",
+    "Widths \u2014 only 1440 was exercised for Pipelines; 390/834/1024 were never run because the environment failed during the first route.",
+    "Roles \u2014 only the fixture owner role was ever observed; no viewer/permission-state comparison was possible.",
+    "Unresolved observation, deliberately not filed as a finding: in one session the 'New pipeline' click produced no dialog while the page text was already rendered. That session followed a hung navigation (document.readyState stayed 'interactive'), so the most likely explanation is a page that had not finished hydrating rather than an app defect; it was not reproduced under a clean load, where the dialog opened every time. Not counted as a defect."
+   ]
+  },
+  {
+   "file": "result-projects.json",
+   "driven": [
+    "/projects \u2014 list loads: 12-13 visible rows; tabs 'All 16', 'Mine 6', 'In progress 9', 'In review 2', 'Archived 3'; footer '12 projects' + '3 archived hidden by filter'; sidebar badge equals the 'All' count; visible rows = All \u2212 Archived (13 = 16 \u2212 3, statuses Active 1 / In progress 5 / On hold 2 / Complete 3 / In review 2). Counts were internally consistent.",
+    "/projects \u2014 create through the 'New project' dialog ('QA2 projects probe', PRJ-0008): URL gains ?new=true, dialog opens (lazily, seconds later), Name + 'Create project' closes the dialog and the row appears at the top of the list; the sidebar badge and 'All' count both increment; the row was still there in a later fresh page load (selected by its 'Select PRJ-0008' checkbox).",
+    "/projects \u2014 row selection: checking 'Select PRJ-0008' reveals the bulk-action bar (it contained the word 'selected'); pressing 'Clear' removes it.",
+    "/projects/PRJ-0008 (resolves to /projects/15e61ecb-db5e-4692-a5bf-ff891c8a47bf) \u2014 header: crumb 'Projects / PRJ-0008', title 'QA2 projects probe', status 'Active', 'Internal', 'New experiment' action; tabs Overview, Milestones, Experiments 0, Samples 0, Datasets 0, Folders, Files, Members 1, Settings.",
+    "/projects/<id> (Overview) \u2014 'Milestones 0 / No milestones yet'; 'Recent experiments 0 / No experiments yet'.",
+    "/projects/<id>/milestones \u2014 empty state 'No milestones yet' with 'Add a milestone' and 'Start from a template'.",
+    "/projects/<id>/files \u2014 empty state 'Files 0 / No files yet \u2014 Files uploaded to this project's records appear here.'"
+   ],
+   "notDriven": [
+    "Project-detail tab identity check (every tab rendering its own content, header counts matching tab contents) \u2014 only the empty states of Overview/Milestones/Files were read; the tab-to-tab walkthrough was interrupted by the environment.",
+    "Archive/delete of the throwaway project \u2014 the bulk-action bar's Archive/Restore items were never clicked, so the archive confirm/cancel, the restore path and the toast were not exercised. PRJ-0008 'QA2 projects probe' is therefore STILL IN THE DATABASE and needs removing.",
+    "Empty-state 'New project' affordance (the list was never empty).",
+    "Folders tab \u2014 navigate into a folder, create a folder, move a file, breadcrumb back: not driven at all.",
+    "Members tab \u2014 add a member, change role, suspend/reinstate, remove, and the cancel-a-destructive-confirm assertion: not driven at all.",
+    "Milestones tab \u2014 add (too-short-name validation), edit dates, mark done, hide from client (reason required? does cancelling send nothing?), timeline vs list views, and the ?state=denied affordance at 1440: not driven at all.",
+    "Files tab \u2014 upload, open a file, uploader-name column: not driven at all.",
+    "Settings tab \u2014 change a field, save, assert the value survives a reload: not driven at all.",
+    "Widths 390 / 834 / 1024: not driven at all (every observation above is 1440).",
+    "Header count vs tab content on a project with data: the only project inspected (the empty probe) has 0/0/0.",
+    "Keyboard on these surfaces (Escape to close the create dialog, \u2318K) and dialog cancellation."
+   ],
+   "environmentNote": "The shared headless browser repeatedly lost all connectivity to the dev server mid-run: module and /api/db requests were left pending forever and evaluations/navigations on app URLs timed out (puppeteer 'Navigation timeout', 'Failed to fetch', 'Browser tab worker recovery failed'). The dev server itself stayed healthy \u2014 the same URLs answered in milliseconds to a side-channel fetch while the browser hung on them (e.g. /api/db/projects?select=id,title returned rows immediately). Finding 1 was observed during that state; the trigger should not be treated as reproducible against a healthy backend."
+  },
+  {
+   "file": "result-protocols-templates.json",
+   "driven": [
+    "/protocols \u2014 list loads with data at 1440 (12 protocols; tabs Effective 10 / Mine 12 / In review 1 / Review due 0 / Archived 0; ID, title, status, owner and updated columns populated). Counts agree with the rows under them and with a workspace-scoped read-only SQL count (workspace 00000000-0000-4000-8000-000000000300 holds 12 live protocol_template records: 10 active, 1 draft, 1 under_review).",
+    "/templates \u2014 list loads with data at 1440 (3 templates; All 3 / Active 3 / Retired 0; footer \u201c3 of 3 all\u201d). ID, Key, Template, Kind, Version v1, Sections 0, In use 0, Status Active, Owner populate correctly.",
+    "/templates \u2014 the Retired tab shows the empty state \u201cNo templates in retired\u201d and footer \u201c0 of 0 retired\u201d; switching All \u2192 Active \u2192 Retired keeps the tab counts and rows consistent.",
+    "/templates \u2014 clicking a row populates the inspector: key, name, lifecycle, description, Details (Key, Published v1, Versions 1, Sections 0, In use 0), a Versions list (v1 Published 2026-09-25) and the \u201cReuse is deliberate\u201d copy.",
+    "/templates/$templateId \u2014 opened TPL-0001 (aav9_transfection_notebook): header \u201cActive\u201d, Notebook template, Latest v1, tabs Sections 0 / Versions 1 / In use. Sections view shows \u201cPublished v1\u201d, the copy \u201cNotebooks already made keep the version they started on.\u201d, \u201cNo sections in this version.\u201d, \u201cParameters 0 \u2014 No parameters declared.\u201d and an Edit button.",
+    "/templates \u2014 the \u201cNew template\u201d dialog opens with the copy \u201cA template holds the sections and parameters a notebook is made from. Saving later makes a new version; notebooks already made keep the one they started on.\u201d, Key*/Name*/Description fields and Cancel / Create template actions.",
+    "/templates \u2014 the create attempt itself (see finding QA2-ProtocolsTemplates-1)."
+   ],
+   "notDriven": [
+    "Protocol detail \u2192 Document/Template/Used by tabs: not driven. After the shared browser degraded, every browser.open timed out for >60 s (10+ consecutive attempts across /protocols/<id>, /templates, /sheets/new); stopped driving per instruction.",
+    "Protocol detail \u2192 Training tab (acknowledge a version): not drivable at all. api.protocol_versions is empty (0 rows) and there is no UI anywhere to freeze a protocol version, so the Training tab can only ever render the empty state \u201cNo frozen versions yet\u201d; the \u201cRead and acknowledge\u201d button never exists for any protocol. Static check while looking for a way in: src/lib/controlled-protocols.ts acknowledgeProtocolVersion sends `p_protocol_version_id`, but the database function is api.acknowledge_protocol_version(p_version_id uuid) \u2014 so acknowledgement would fail with a missing-argument error if a version did exist. Not exercised live.",
+    "Protocol detail \u2192 Versions tab: not drivable meaningfully. api.revisions holds no rows for any workspace-300 protocol record (the only protocol revision in the database belongs to a record outside this workspace), so the tab always renders \u201cNo frozen versions yet\u201d. The version-history list was therefore never populated in any driven state.",
+    "Templates \u2192 Versions tab (publish / retire) and \u201cSave new version\u201d: not driven. The browser was unavailable, and exercising publish/retire needs a probe template, which the create flow above could not produce (finding 1). Seeded templates were deliberately left untouched.",
+    "Templates \u2192 In use tab and the \u201cIn use\u201d column vs actual users: not verifiable with data. `select count(*) from api.records where source_notebook_template_version_id is not null` = 0 and api.notebook_template_instantiations = 0, so every template shows In use 0; there is no record to compare the count against and no instantiation UI was reachable.",
+    "Start from a template: not driven live. /sheets/new was never reachable in the browser. Code reading only: on /sheets/new the \u201cFrom a template\u201d card is a plain link to /templates (src/routes/sheets/new.tsx:62-65) and does not itself instantiate anything; /experiments/new has a protocol-version picker (src/routes/experiments/new.tsx:75-90, 282-286) but no template entry was confirmed.",
+    "Widths other than 1440: not driven.",
+    "Protocol list Archived tab: the empty result is consistent with the data (the only archived protocol_template lives in workspace 00000000-0000-4000-8000-000000000002, not the current one), so nothing is reported against it."
+   ]
+  },
+  {
+   "file": "result-search.json",
+   "driven": [
+    "/ (1440) - command palette opens from the topbar search button and via Cmd+K",
+    "/ (1440) - palette search by record id 'EXP-0091' returns exactly the one matching record ('Clarification run, screening'), aria-activedescendant set to the first row",
+    "/ (1440) - palette search by name 'clarification' returns 7 grouped rows ('Sheet and data', 'Record')",
+    "/ (1440) - palette search for nonsense 'zzzzz' shows 0 rows and no matches (empty state, honest)",
+    "/ (1440) - ArrowDown/ArrowUp move the highlight (aria-activedescendant 0->1->2->3->2); Enter opens the highlighted row (3x ArrowDown on 'clarification' -> /records/00000000-0000-4000-8000-000000000371/notebook)",
+    "/ (1440) - Enter with 0 results runs the fallback: palette closes and navigates to /search?q=zzzzz",
+    "/ (1440) - palette footer documents 'Esc close' / 'Cmd Enter open in new tab' (Esc behaviour itself not driven, see notDriven)",
+    "/search?q=EXP-0091 (1440) - hydrated search page renders 1 result row 'EXP-0091 Clarification run, screening', header 'Results for \"EXP-0091\" 1', facet counts Type All 1 / Records 1 / project 1; displayed count matches rendered rows",
+    "/search?q=zzzzzz (1440) - SSR shell renders 'Results for \"zzzzzz\" 0' (page never hydrated in the time available, so the client empty state was not read)"
+   ],
+   "notDriven": [
+    "Palette Escape closes + returns focus to the topbar button - not driven (ran out of stable browser time)",
+    "Palette 'In: <project>' scope menu change - not driven; only the control itself was read (native select aria-label 'Search scope', value 'all', 16 options incl. the archived-looking 'In: Lentiviral titration, old panel')",
+    "Palette 'Include archived' toggle - not driven",
+    "Search page Type / Project / Updated filters, sort control, pagination, 'Include archived', opening a result row, and the client-side empty state - not driven",
+    "834 and 390 widths - not driven at all (390 palette usability therefore unknown). Tabs on the shared browser were killed ('Browser tab worker recovery failed' / 'hung past grace') before any journey completed; every attempt ended with an unhydrated SSR shell ('Loading your home\u2026', 0 React fibers, all 132 modules loaded) that never progressed",
+    "Search count vs rendered rows for a query with more than one page of results - not driven",
+    "Viewer-role behaviour on either surface - only the owner fixture identity (Fixture Owner) was exercised"
+   ]
+  },
+  {
+   "file": "result-settings-review.json",
+   "driven": [
+    "/settings \u2014 change Site, Save changes (five RPCs 200), reload \u2192 value persisted, then revert (verified via /api/db)",
+    "/settings \u2014 Record IDs prefix: live Example column updates, clear + save round-trip, dirty-flag behaviour",
+    "/settings/members \u2014 9 members render; Groups dialog opens and Escape closes it; Invite people: invalid email blocks send, valid email enables send, Cancel leaves workspace_invitations empty; Manage \u2192 Suspend confirm dialog \u2192 Cancel \u2192 no membership changed",
+    "/settings/signatures \u2014 policy checkboxes render (Authored locked on); Save changes issues update_workspace_settings 200; practice signature attempted (401 step-up); Request new verification attempted (403); Withdraw certification confirm dialog \u2192 Cancel \u2192 certification shown unchanged",
+    "/settings/audit \u2014 200 rows, Operation filter + search present; 'Export CSV of shown rows' builds a 22,560-byte text/csv blob and fires an audit-log.csv download",
+    "/settings/diagnostics \u2014 Run checks re-runs the live checks (Database 1 ms\u21923 ms, REST 3 ms\u21925 ms); Copy request ID writes '00000000-0000-4000-8000-000000000404' to the clipboard",
+    "/settings/usage \u2014 meters and tables render (Seats 9, Storage 932 KB, API calls/Run minutes 'Not measured yet'); Export CSV clicked",
+    "/settings/api \u2014 created personal token 'QA2 settings probe token' (secret sb_ec6a3e64_\u2026 shown once in the reveal notice, 'I have stored it' dismisses it); Revoke \u2192 Cancel leaves the token Active; Revoke \u2192 confirm sets its Status to Revoked",
+    "/settings/profile \u2014 profile fields + appearance controls render; Sessions panel driven to its 401 failure",
+    "/settings/notifications \u2014 page renders, Save changes starts disabled",
+    "/settings/integrations, /settings/access, /settings/instruments \u2014 loaded and their controls listed, no edits driven",
+    "browser environment note: the shared harness Chromium was repeatedly wedged by the concurrent sweepers (Page.navigate timeouts, tabs killed mid-evaluate) and produced a false 'empty settings page' signature; all findings above were re-taken in a freshly spawned, isolated Chromium instance (app.path) to rule that out"
+   ],
+   "notDriven": [
+    "/review/$revisionId \u2014 never reached (no revision id resolved, run budget exhausted)",
+    "/evidence/$revisionId \u2014 never reached; no package export attempted",
+    "/client-portal \u2014 never reached",
+    "/help and /help/shortcuts \u2014 never reached; no shortcut was tested, so 'does each listed shortcut fire' is unanswered",
+    "/settings/integrations \u2014 connector pause/resume not driven (page only loaded; no connector rows inspected)",
+    "/settings/api \u2014 service-credential Rotate not driven (rows exist: 'Seed agent credential'), so the cancel-the-dialog-first check was not run on a credential",
+    "/settings/instruments, /settings/access, /settings/audit retention settings \u2014 loaded only; no create/edit driven",
+    "/settings/notifications \u2014 toggling a preference and saving not driven",
+    "Review decisions (approve/comment/sign/witness) and the returned/amendment path \u2014 not driven",
+    "Widths 390/834/1024 and keyboard-only (Tab/Enter/Escape/\u2318K) passes \u2014 not driven",
+    "Role variations (viewer/member) \u2014 not driven; every observation above is as the fixture owner"
+   ]
+  },
+  {
+   "file": "result-sheets.json",
+   "driven": [
+    "/sheets/e12fc86e-b799-45ca-912a-fb63fb5b70fb (seeded 'Untitled sheet') at 1440 \u2014 page renders: header 'Untitled sheet' / 'SHT-0020' / 'v1' / 'Ad-hoc sheet' / Share; toolbar New column, Add column, Add row, Formula + label, Add calculation; Working view \u2212 / 0 frozen / + , Save view, Restore view, Reset view; Comment on selection, History, Export; the display-only working-view disclaimer is present.",
+    "/sheets/e12fc86e-b799-45ca-912a-fb63fb5b70fb at 1440 \u2014 grid renders one local column 'Column 1' with a sort affordance, one empty local row and an append row ('New run \u2014 type a condition or paste rows'); canonical state agrees (1 local field fieldId 00000000-0000-4000-8000-000000000718, localValues {}).",
+    "/sheets/e12fc86e-b799-45ca-912a-fb63fb5b70fb at 1440 \u2014 cell edit gesture works: click cell A1, typing opens an editor <input class=\"cell-editor\" aria-label=\"Edit A1\">, Enter commits and closes it, the grid then shows the committed text. The follow-through to the database did not happen (QA2-sheets-1).",
+    "/sheets/e12fc86e-b799-45ca-912a-fb63fb5b70fb at 1440 \u2014 Share button activation observed (QA2-sheets-2).",
+    "/sheets/new at 1440 \u2014 page renders and hydrates: 'New sheet' header, three start cards (From a dataset snapshot \u2192 /datasets, From a template \u2192 /templates, Paste or import a file \u2192 /import), 'Blank sheet' card that focuses the form, Project <select> ('Choose a project\u2026' + projects), Name input defaulting to 'Untitled sheet', 'Create blank sheet' button. Create is correctly disabled with no project chosen, and becomes enabled after choosing project PRJ-0217 \u00b7 AAV9 process transfer."
+   ],
+   "notDriven": [
+    "Write-back reload check and restoration \u2014 I could not reload the sheet to confirm persistence because the client module graph stalled (see notes); the database read was used instead.",
+    "/sheets/new create (blank, and from a template) \u2014 after selecting a project, filling the Name field timed out repeatedly (tab.fill and a React native-setter write both stalled) under machine load; no sheet was created.",
+    "Add row / Add column / delete a row / clear contents / undo / redo \u2014 not reached: no usable session survived long enough after the browser degraded.",
+    "Manual recalculation \u2014 the /sheets/$sheetId toolbar exposes no 'Recalculate' control (only the notebook sheet block does), so this journey may not exist on this route; not driven.",
+    "Composed sheet (Clarification working sheet 67d5c8d3-129b-44e8-bcbc-a1018b0d8041) \u2014 read-only local fields, promote, record picker, link/create actions: not reached.",
+    "Sort / filter / freeze / hide-columns display-only verification against the underlying data: not reached.",
+    "Favourite toggle surviving reload, and cell comments: not reached.",
+    "390 / 834 / 1024 widths on the sheet, and editing a cell at 390: not reached.",
+    "Template-based sheet creation and subsequent deletion of throwaway sheets: not reached."
+   ],
+   "notes": [
+    "Environment: from roughly 19:55 onward the shared headless Chromium could not navigate to http://localhost:3000 at all (Page.navigate protocol timeouts, and tabs killed with 'Browser tab worker recovery failed') while curl to the same server answered in ~50 ms and the Vite dev server sat at ~0.1% CPU. Machine load average peaked above 500 and memory was near-exhausted (hundreds of Chrome helper processes, ~20 open tabs). Almost all of my drive time went to that.",
+    "Observed once before the failure: on /sheets/<id> the server-rendered body stayed on 'Loading Sheet\u2026' with React never mounting (no __reactFiber on <main>) and the client module graph frozen at 102 resources for 300 s, last-loaded modules being @tanstack/router-core ESM files \u2014 while /sheets/new hydrated fine minutes earlier. I could not tell whether this is a client-boot defect or the dev server starving under load, so it is recorded as a coverage gap, not a finding.",
+    "Residue on the seeded 'Untitled sheet' (e12fc86e-b799-45ca-912a-fb63fb5b70fb): the write-back probe could not be cleaned up through the UI, so the instance now carries one empty local row \u2014 revision 3, state.localValues = {\"68571684-bffa-4f30-a150-46c1603faa41\": {\"00000000-0000-4000-8000-000000000718\": null}} (originally localValues = {} at revision 1). This is my probe row, not a peer write. No seeded field, column or value was altered; the row is empty and can be removed with the row context menu \u2192 'Delete local row'.",
+    "A peer's probe project 'PRJ-0008 \u00b7 QA2 projects probe' appears in the /sheets/new project picker."
+   ]
+  },
+  {
+   "file": "result-shell.json",
+   "driven": [
+    "1440 \u2014 shell navigation sweep: clicked every sidebar destination and asserted URL + rendered content. All 15 sidebar destinations plus /scan landed on the stated URL with real content: / => / (Home, still in loading placeholder), /inbox => /inbox, /schedule => /schedule, /projects => /projects, /experiments => /experiments, /protocols => /protocols, /templates => /templates, /samples => /samples, /materials => /materials, /instruments => /instruments, /datasets => /datasets, /analysis => /analysis, /pipelines => /pipelines, /models => /models, /settings => /settings, /scan => /scan. No destination went to the wrong URL, none needed two attempts, no drawer was involved at this width.",
+    "1440 \u2014 client-side routing confirmed: `performance.getEntriesByType('navigation').length` stayed 1 across a nav-link click, so the shell's sidebar links are SPA links and did not force a document load.",
+    "390 \u2014 drawer open: clicking the bottom-tab `Menu` button opened the left drawer (`[data-slot=\"sheet\"]` present, 300x900, visible, containing Home/Inbox/Schedule/\u2026/Models, pinned projects and the workspace switcher) and the page behind stayed at /.",
+    "390 / 834 \u2014 topbar controls observed while diagnosing QA2-shell-1: at 390 `New` toggles `aria-expanded` false->true and renders `[role=\"menu\"]`; the bottom tab `Inbox` link navigates to /inbox. At 834 `Open navigation`, `Switch workspace` and `New` all stayed inert.",
+    "390/834/1024/1440 \u2014 page structure per width: 390 shows the bottom tab bar (Home, Scan, Inbox, Menu) and hides the sidebar/rail/'Open navigation' (max-md:hidden); 834 shows only the hamburger; 1024 shows the icon rail (`hidden lg:flex xl:hidden`); 1440 shows the full sidebar (`hidden xl:flex`)."
+   ],
+   "notDriven": [
+    "Navigation from inside the drawer (390/834) \u2014 I never got a click on a drawer link to land, because at 390 the drawer test ended before clicking a row and at 834 the drawer never opened (QA2-shell-1).",
+    "Drawer focus trap, Escape-to-close and backdrop-click-to-close at 390/834 \u2014 not driven; the only drawer I opened (390) was inspected for DOM state, not for focus behaviour or dismissal.",
+    "Nav destinations at 1024 (icon rail) \u2014 the first attempts to open a 1024 tab only produced link dumps, not driven clicks, before the browser and dev server degraded.",
+    "Nav destinations at 390 \u2014 the bottom tab bar's Home/Scan/Inbox links were only clicked for /inbox; the full drawer link list was never clicked at this width.",
+    "Topbar `New` menu items, notifications bell (open, item click, mark-all-read, unread dot after reload), account menu items, and workspace switch round-trip at every width \u2014 not driven; only the aria-expanded toggle of `New` (`New` menu opens) and the bell's accessible name were observed.",
+    "Nav badges vs destination contents: whether `Datasets 2 errors` matches the datasets page's error list, whether `Pipelines 1 failed` matches the pipelines page's `Needs\u2026` tab, and whether `Inbox 7/8` matches the inbox list count \u2014 not driven; only the bottom-tab-vs-drawer disagreement in QA2-shell-2 was measured.",
+    "Keyboard: \u2318K opening search, Escape closing it, and Tab order through the topbar \u2014 not driven at any width.",
+    "The 390 bottom tab bar's 'Today' entry named in the task \u2014 the bar I observed has Home/Scan/Inbox/Menu (Home links to `/`), so no separate 'Today' entry was driven.",
+    "Phone back button on a non-top-level route at 390 \u2014 not driven."
+   ]
+  }
+ ],
+ "counts": {
+  "blocker": 4,
+  "major": 14,
+  "minor": 19,
+  "nit": 5
+ }
+}

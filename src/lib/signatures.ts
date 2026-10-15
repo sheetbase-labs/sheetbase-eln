@@ -12,6 +12,7 @@
  */
 import type { DataClient } from './data-client'
 import { z } from 'zod'
+import type { ReviewCheckResultWire } from './review-checks'
 import type { ReviewSubmissionWire } from './reviews'
 
 // ---------------------------------------------------------------------------
@@ -171,38 +172,72 @@ export interface SignatureWitnessRequestWire {
   due_at: string | null
 }
 
-/** Effective project members, never the raw direct/group rule catalogue. */
+export interface SignatureWitnessCandidate {
+  user_id: string
+  name: string
+  workspace_role: string | null
+  /**
+   * REV-03: whether this person can read the record they would witness.
+   * Project View is not enough for a draft experiment, which stays private to
+   * its author and to workspace owners, so an administrator holding an explicit
+   * View rule is listed but cannot be asked.
+   */
+  can_read_record: boolean
+}
+
+/**
+ * Effective project members who may witness this record, minus the requester and
+ * the author. Computed server-side: read authority is a record-level RLS
+ * question (draft-experiment privacy), so `can_read_record` is the same
+ * predicate `request_signature_witness` enforces rather than a client mirror
+ * that could drift from it.
+ */
 export async function fetchSignatureWitnessCandidates(
   client: DataClient,
-  projectId: string,
-  currentUserId: string,
-  authorUserId: string,
-) {
-  const members = z
+  submissionId: string,
+): Promise<SignatureWitnessCandidate[]> {
+  return z
     .array(
       z.object({
         user_id: z.string(),
         name: z.string(),
         workspace_role: z.string().nullable(),
-        can_view: z.boolean().optional().default(false),
+        can_read_record: z.boolean(),
       }),
     )
-    .parse(await client.rpc('project_members', { p_project_id: projectId }))
-  return members.filter(
-    (member) =>
-      member.can_view === true &&
-      member.user_id !== currentUserId &&
-      member.user_id !== authorUserId &&
-      ['owner', 'admin', 'member', 'editor', 'reviewer', 'steward'].includes(
-        member.workspace_role ?? '',
-      ),
-  )
+    .parse(
+      await client.rpc('signature_witness_candidates', {
+        p_submission_id: submissionId,
+      }),
+    )
 }
 
 /** The server-mirrored gates that decide whether this person may sign. */
 export interface SignatureEligibility {
   writer: boolean
   requests: SignatureWitnessRequestWire[]
+}
+
+/**
+ * Mirrors `internal.assert_signature_target`'s SB008 check gate: the latest
+ * check result must exist for the signed digest and have no blocking failures.
+ * The panel states the requirement instead of letting the password attempt be
+ * refused opaquely.
+ */
+export function signatureChecksPassed(
+  results: ReviewCheckResultWire[],
+  integrityDigest: string | null,
+): boolean {
+  if (!integrityDigest) return false
+  if (results.length === 0) return false
+  const latest = [...results].sort(
+    (a, b) => Date.parse(b.run_at) - Date.parse(a.run_at),
+  )[0]
+  return (
+    latest.revision_integrity_digest === integrityDigest &&
+    latest.blocking_failure_count === 0 &&
+    latest.overall_status !== 'fail'
+  )
 }
 
 export async function fetchSignatureEligibility(
@@ -234,6 +269,8 @@ export function availableSignatureMeanings(input: {
   integrityDigest: string | null
   supersededByRevisionId: string | null
   certificationCurrent: boolean
+  /** The revision's latest check result passed for the signed digest (SB008). */
+  checksPassed: boolean
   eligibility: SignatureEligibility | undefined
   signatures: SignatureWire[]
 }): PostSubmissionSignatureMeaning[] {
@@ -241,6 +278,7 @@ export function availableSignatureMeanings(input: {
   if (
     !submission ||
     !input.certificationCurrent ||
+    !input.checksPassed ||
     !eligibility?.writer ||
     !integrityDigest ||
     input.supersededByRevisionId !== null ||
@@ -349,6 +387,47 @@ export async function requestSignatureCredential(
   await postSignatureAuthentication(input)
 }
 
+/**
+ * A refused signature step-up. `status` and `code` keep the surface able to
+ * tell an expired session (401 `session_expired`) from a refused password
+ * (401 without a code) or a lockout (423) without parsing prose.
+ */
+export class SignatureStepUpError extends Error {
+  readonly status: number
+  readonly code: string | undefined
+  constructor(status: number, message: string, code?: string) {
+    super(message)
+    this.name = 'SignatureStepUpError'
+    this.status = status
+    this.code = code
+  }
+}
+
+/**
+ * R5-SHELL-05 — true when a signing attempt lost its session. The step-up
+ * returns this only when the request carried no live session, so the surface
+ * can send the person back to sign-in rather than offer a retry that cannot
+ * succeed. `next` is the same-origin review path to return to afterwards.
+ */
+export function isExpiredSigningSession(
+  error: unknown,
+): error is SignatureStepUpError {
+  return (
+    error instanceof SignatureStepUpError && error.code === 'session_expired'
+  )
+}
+
+/** The search the sign-in route uses to say why it is showing and where to return. */
+export function expiredSigningSignInSearch(pathname: string): {
+  state: 'expired-signing'
+  next: string
+} {
+  return {
+    state: 'expired-signing',
+    next: pathname.startsWith('/') ? pathname : '/',
+  }
+}
+
 async function postSignatureAuthentication(input: object): Promise<unknown> {
   const response = await fetch('/api/signatures/step-up', {
     method: 'POST',
@@ -357,9 +436,13 @@ async function postSignatureAuthentication(input: object): Promise<unknown> {
   })
   const body: unknown = await response.json()
   if (!response.ok) {
-    const error = z.object({ message: z.string() }).safeParse(body)
-    throw new Error(
+    const error = z
+      .object({ message: z.string(), code: z.string().optional() })
+      .safeParse(body)
+    throw new SignatureStepUpError(
+      response.status,
       error.success ? error.data.message : 'Signing authentication failed.',
+      error.success ? error.data.code : undefined,
     )
   }
   return body

@@ -12,7 +12,6 @@ import {
   formatDate,
   formatRelativeTime,
   isOwnerRole,
-  toAuditEvent,
   toProjectAccess,
   toWorkspaceInvitation,
   toWorkspaceMember,
@@ -20,7 +19,6 @@ import {
   toWorkspaceSettings,
 } from './workspace-admin'
 import type {
-  AuditEventWire,
   ProjectAccessWire,
   WorkspaceInvitationWire,
   WorkspaceMemberWire,
@@ -142,33 +140,6 @@ describe('workspace-admin mappers', () => {
       userAgent: 'Test browser',
       createdAt: timestamp,
       expiresAt: '2026-08-01T00:00:00Z',
-    })
-  })
-
-  it('maps an audit event wire to domain', () => {
-    const wire: AuditEventWire = {
-      id: 'event-1',
-      workspace_id: 'workspace-1',
-      sequence: 42,
-      entity_type: 'workspace_member',
-      entity_uuid: 'member-1',
-      operation: 'update',
-      record_id: 'record-1',
-      project_id: 'project-1',
-      actor_user_id: 'owner-1',
-      client_id: 'client-1',
-      payload: { role: 'scientist' },
-      created_at: timestamp,
-    }
-    expect(toAuditEvent(wire)).toMatchObject({
-      workspaceId: 'workspace-1',
-      entityType: 'workspace_member',
-      entityUuid: 'member-1',
-      recordId: 'record-1',
-      projectId: 'project-1',
-      actorUserId: 'owner-1',
-      clientId: 'client-1',
-      createdAt: timestamp,
     })
   })
 })

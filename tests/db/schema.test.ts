@@ -48,7 +48,10 @@ describe('identity and workspace schema', () => {
     expect(rows[0]).toEqual({
       users: 1,
       workspaces: 1,
-      memberships: 1,
+      // The fixture seed owner plus the auth-free development identity it
+      // grants owner membership to (`auth-free development workspace
+      // membership`), which the auth-free dev surface signs in as.
+      memberships: 2,
       projects: 1,
     })
   })

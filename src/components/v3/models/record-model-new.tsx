@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Notice } from '#/components/v3/ui/alert'
 import { Input } from '#/components/v3/ui/input'
 import { Section } from '#/components/v3/ui/layout'
 import { NativeSelect } from '#/components/v3/projects/select'
@@ -47,6 +48,9 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  // Errors are held back until the person has interacted: a pristine form is
+  // not an error state, and the disabled Create button is not the message.
+  const [interacted, setInteracted] = useState(false)
 
   const selectedProject = projectId || projects[0]?.id || ''
 
@@ -72,6 +76,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const canSubmit =
     !submitting &&
     !titleError &&
+    validation.blocks.length === 0 &&
     Object.keys(fieldErrors).length === 0 &&
     Boolean(selectedProject)
 
@@ -163,11 +168,14 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
               <Input
                 className="mt-1 h-8 text-xs"
                 value={title}
-                onChange={(event) => setTitle(event.target.value)}
+                onChange={(event) => {
+                  setTitle(event.target.value)
+                  setInteracted(true)
+                }}
                 aria-label="Name"
                 required
               />
-              {titleError ? (
+              {interacted && titleError ? (
                 <span role="alert" className="mt-1 block text-danger-text">
                   {titleError}
                 </span>
@@ -190,7 +198,33 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                   ))}
                 </NativeSelect>
               </label>
-            ) : null}
+            ) : projects.length === 1 ? (
+              <div className="text-xs text-fg-muted">
+                Project *
+                <p className="mt-1 mb-0 text-body text-fg">
+                  {projects[0].title}
+                </p>
+              </div>
+            ) : (
+              <div className="md:col-span-2">
+                <Notice
+                  tone="warn"
+                  title="A project is required"
+                  action={
+                    <Button
+                      size="sm"
+                      nativeButton={false}
+                      render={<Link to="/projects" />}
+                    >
+                      Projects
+                    </Button>
+                  }
+                >
+                  Every record is filed under a project, and this workspace has
+                  none yet. Create one, then come back to this form.
+                </Notice>
+              </div>
+            )}
 
             {fields.map((field) => (
               <div key={field.id} className="flex flex-col gap-1">
@@ -200,14 +234,15 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                     values[field.fieldName] ??
                     (field.logicalType === 'boolean' ? false : '')
                   }
-                  onChange={(value) =>
+                  onChange={(value) => {
                     setValues((current) => ({
                       ...current,
                       [field.fieldName]: value,
                     }))
-                  }
+                    setInteracted(true)
+                  }}
                 />
-                {fieldErrors[field.fieldName] ? (
+                {interacted && fieldErrors[field.fieldName] ? (
                   <span
                     role="alert"
                     className="text-[0.65rem] text-danger-text"

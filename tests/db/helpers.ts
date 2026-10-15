@@ -177,26 +177,30 @@ export async function ensureTestTemplateDatabase(): Promise<void> {
     await admin.query(
       `CREATE DATABASE ${TEST_TEMPLATE_DATABASE} OWNER migrator`,
     )
+
+    // Migrate and write the marker while the lock is still held. Releasing it
+    // first let a second worker find no marker, drop this database underneath
+    // the migration and recreate it, which surfaced as "Cannot reach local
+    // PostgreSQL" in whichever worker lost the race.
+    const templateUrl = new URL(required('MIGRATION_DATABASE_URL'))
+    templateUrl.pathname = `/${TEST_TEMPLATE_DATABASE}`
+    const db = drizzle(templateUrl.toString())
+    try {
+      await migrate(db, { migrationsFolder: 'drizzle' })
+      await db.$client.query(
+        `create table if not exists public.test_template_meta(hash text not null)`,
+      )
+      await db.$client.query(`delete from public.test_template_meta`)
+      await db.$client.query(
+        `insert into public.test_template_meta(hash) values($1)`,
+        [wanted],
+      )
+    } finally {
+      await db.$client.end()
+    }
   } finally {
     await admin.query('select pg_advisory_unlock(918273645)').catch(() => {})
     await admin.end()
-  }
-
-  const template = new URL(required('MIGRATION_DATABASE_URL'))
-  template.pathname = `/${TEST_TEMPLATE_DATABASE}`
-  const db = drizzle(template.toString())
-  try {
-    await migrate(db, { migrationsFolder: 'drizzle' })
-    await db.$client.query(
-      `create table if not exists public.test_template_meta(hash text not null)`,
-    )
-    await db.$client.query(`delete from public.test_template_meta`)
-    await db.$client.query(
-      `insert into public.test_template_meta(hash) values($1)`,
-      [wanted],
-    )
-  } finally {
-    await db.$client.end()
   }
 }
 
@@ -263,6 +267,17 @@ export function migratorUrlForDatabase(databaseUrl: string): string {
   return mig.toString()
 }
 
+/**
+ * A scientific table built as the migrator, which is what the fixture path
+ * takes since H4 removed the product surface: drizzle/0109_remove_legacy_compatibility.sql
+ * revoked `api.create_scientific_table` from PUBLIC, authenticated, api_client
+ * *and* migrator (the ACL is empty, so the wrapper is unusable by anyone), and
+ * made `internal.require_migrator_legacy_sheet_write()` raise unconditionally.
+ * The implementation behind it stays granted to migrator for internal fixtures,
+ * which is the same call `tests/api/formula-column-order.test.ts` makes; the
+ * application never needs the wrapper, so this is a fixture concern and not a
+ * missing GRANT.
+ */
 export async function createScientificTableAsMigrator(
   client: Client,
   userId: string,
@@ -277,7 +292,7 @@ export async function createScientificTableAsMigrator(
 }> {
   await setActorJwt(client, userId, workspaceId)
   const { rows } = await client.query(
-    `SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
+    `SELECT internal.create_scientific_table_impl($1,$2,$3::jsonb) result`,
     [blockId, name, JSON.stringify(columns)],
   )
   return rows[0].result

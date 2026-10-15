@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { PageHeader } from '#/components/ui/page-header'
-import { Button } from '#/components/ui/button'
+import { Button } from '#/components/v3/ui/button'
 
 const args = {
   eyebrow: 'Experiments',
@@ -21,7 +21,7 @@ export const WithActions: Story = {
     children: (
       <div className="flex gap-2">
         <Button>+ New experiment</Button>
-        <Button variant="outline">Export</Button>
+        <Button variant="secondary">Export</Button>
       </div>
     ),
   },

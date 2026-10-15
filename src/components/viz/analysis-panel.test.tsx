@@ -15,9 +15,15 @@ import {
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { AnalysisPanel } from './analysis-panel'
+import { AnalysisPanel, AnalysisResultTable } from './analysis-panel'
+import { runAnalysis } from '#/lib/analysis-definition'
+import type { AnalysisDefinition } from '#/lib/analysis-definition'
+import type { ChartColumn } from '#/lib/chart-spec'
 import type * as definitionsData from '#/lib/analysis-definitions-data'
-import { fetchAnalysisDefinitions } from '#/lib/analysis-definitions-data'
+import {
+  deleteAnalysisDefinition,
+  fetchAnalysisDefinitions,
+} from '#/lib/analysis-definitions-data'
 import type * as chartData from '#/lib/chart-data'
 import { fetchCanonicalDataset, fetchDatasetRows } from '#/lib/chart-data'
 import type * as flagsModule from '#/lib/dataset-flags'
@@ -116,9 +122,7 @@ async function runDescriptive() {
   fireEvent.change(screen.getByLabelText('Analysis dataset'), {
     target: { value: DATASET.datasetId },
   })
-  fireEvent.click(
-    screen.getByRole('button', { name: /Descriptive statistics/i }),
-  )
+  fireEvent.click(screen.getByRole('button', { name: /Descriptive \/ ANOVA/i }))
   await waitFor(() =>
     expect(screen.getByLabelText('Measured value column')).toBeTruthy(),
   )
@@ -191,5 +195,97 @@ describe('AnalysisPanel', () => {
       expect(screen.getByLabelText('Measured value column')).toBeTruthy(),
     )
     expect(screen.getByDisplayValue('Recovery summary')).toBeTruthy()
+  })
+
+  it('deletes a saved analysis only after the confirmation', async () => {
+    mockFetchDefinitions.mockResolvedValue([
+      {
+        id: 'def-1',
+        workspace_id: 'ws-1',
+        owner_user_id: 'user-1',
+        name: 'Recovery summary',
+        version: 3,
+        definition: {
+          definitionVersion: 1,
+          kind: 'descriptive',
+          datasets: [{ datasetId: DATASET.datasetId }],
+          value: { fieldId: FIELD_RECOVERY },
+          group: { fieldId: FIELD_CONDITION },
+        },
+        source_revisions: [],
+        created_at: '',
+        updated_at: '',
+      },
+    ])
+    renderPanel()
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Delete Recovery summary' }),
+    )
+    // The row action asks first: nothing is deleted until the dialog's action.
+    expect(vi.mocked(deleteAnalysisDefinition)).not.toHaveBeenCalled()
+    expect(screen.getByText('Delete this saved analysis?')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    await waitFor(() =>
+      expect(vi.mocked(deleteAnalysisDefinition)).toHaveBeenCalledWith(
+        expect.anything(),
+        'def-1',
+      ),
+    )
+  })
+
+  it('states the method and its checks alongside the numbers', async () => {
+    await runDescriptive()
+    // R5-STUDIO-01: the result names the model it ran, its version and its
+    // runner before any number is read.
+    expect(screen.getByText('One-way ANOVA')).toBeTruthy()
+    expect(screen.getByText('method v1')).toBeTruthy()
+    expect(screen.getByText('sheetbase-analysis-kernel@1')).toBeTruthy()
+    expect(screen.getByText('Between groups')).toBeTruthy()
+    expect(screen.getByText('Assumption checks')).toBeTruthy()
+    // Four observations cannot support Jarque–Bera; the check says so rather
+    // than reporting a pass.
+    expect(
+      screen.getByText(/Jarque–Bera needs at least 8 residuals/),
+    ).toBeTruthy()
+  })
+})
+
+describe('AnalysisResultTable', () => {
+  it('renders the term table, the method and a failed check as it stands', () => {
+    // Deliberately heteroscedastic: the residual spread is far larger over
+    // the second half, so the constant-variance check must fail visibly.
+    const noise = [0.1, -0.1, 0.1, -0.1, 0.1, -0.1, 8, -8, 8, -8, 8, -8]
+    const definition: AnalysisDefinition = {
+      definitionVersion: 1,
+      kind: 'regression',
+      datasets: [{ datasetId: DATASET.datasetId }],
+      outcome: { fieldId: FIELD_RECOVERY },
+      predictor: { fieldId: FIELD_TIME },
+      degree: 1,
+    }
+    const columns: ChartColumn[] = [
+      { id: FIELD_TIME, label: 'Time (h)', logicalType: 'decimal' },
+      { id: FIELD_RECOVERY, label: 'Recovery (%)', logicalType: 'decimal' },
+    ]
+    const rows = noise.map((d, index) => ({
+      [FIELD_TIME]: index + 1,
+      [FIELD_RECOVERY]: index + 1 + d,
+    }))
+    const result = runAnalysis(definition, columns, rows)
+    if (!result.ok) throw new Error('expected a regression result')
+    render(<AnalysisResultTable result={result.result} />)
+
+    expect(
+      screen.getByText('Linear model (ordinary least squares)'),
+    ).toBeTruthy()
+    expect(screen.getByText('Term')).toBeTruthy()
+    expect(screen.getByText('95% CI')).toBeTruthy()
+    expect(screen.getByText('Intercept')).toBeTruthy()
+    expect(
+      screen.getByText(/Fails · Residual variance is constant/),
+    ).toBeTruthy()
+    expect(
+      screen.getByText(/transform(ing)? the outcome or weighting the fit/),
+    ).toBeTruthy()
   })
 })

@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Icon } from '#/components/icons'
+import { Button } from '#/components/v3/ui/button'
 import {
   Alert,
   AlertDescription,
   AlertTitle,
-  Button,
   Empty,
   EmptyActions,
   EmptyDescription,

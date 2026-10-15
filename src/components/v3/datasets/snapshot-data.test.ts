@@ -111,6 +111,24 @@ describe('describeSnapshotSource', () => {
     )
     expect(describeSnapshotSource(null)).toBe('—')
   })
+
+  it('names the import that made the snapshot', () => {
+    expect(
+      describeSnapshotSource({
+        kind: 'import',
+        runId: null,
+        definitionName: null,
+        triggerKind: null,
+        status: null,
+        label: 'qa3-append.csv',
+        startedAt: null,
+      }),
+    ).toBe('Imported from qa3-append.csv')
+    // A connector's import has no file behind it.
+    expect(
+      describeSnapshotSource({ kind: 'import', label: null } as never),
+    ).toBe('Imported')
+  })
 })
 
 describe('snapshot citations', () => {

@@ -1069,7 +1069,7 @@ function NotebookDocumentContent({
   }
 
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-2 pt-3', className)}>
       {/* COLLAB-01: broadcast which block I am editing. Awareness only —
           this never gates or locks editing for anyone. PresenceSync is
           null until the enclosing CollaborationRoom has mounted. */}
@@ -1370,18 +1370,38 @@ function NotebookDocumentContent({
             ) : null}
             {!isReadOnly && index < orderedIds.length - 1 ? (
               <div
-                className="group/insert relative flex h-4 items-center justify-center"
+                className={cn(
+                  'group/insert relative',
+                  // A seam inside a prose run must not push the paragraphs
+                  // apart: the run is one column, so the affordance floats over
+                  // the boundary on a zero-height element instead of occupying
+                  // a row of its own.
+                  proseRun && !proseRun.isLast
+                    ? 'h-0'
+                    : 'flex h-4 items-center justify-center',
+                )}
                 data-insertion-gap={`after-${block.id}`}
+                data-prose-run-seam={
+                  proseRun && !proseRun.isLast ? '' : undefined
+                }
                 data-print-hide
               >
-                <div className="absolute inset-x-0 h-px bg-border opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100" />
-                <AddBlockControl
-                  onInsert={(type) => void handleInsert(type, block.id)}
-                  variant="icon"
-                  after={blockLabel(block)}
-                  label={`Insert block after ${blockLabel(block)}`}
-                  className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
-                />
+                <div
+                  className={cn(
+                    proseRun && !proseRun.isLast
+                      ? 'absolute inset-x-0 -top-2 flex h-4 items-center justify-center'
+                      : 'contents',
+                  )}
+                >
+                  <div className="absolute inset-x-0 h-px bg-border opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100" />
+                  <AddBlockControl
+                    onInsert={(type) => void handleInsert(type, block.id)}
+                    variant="icon"
+                    after={blockLabel(block)}
+                    label={`Insert block after ${blockLabel(block)}`}
+                    className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
+                  />
+                </div>
               </div>
             ) : null}
             {collapsedHere && !isHiddenSection ? (

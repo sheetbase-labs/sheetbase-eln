@@ -7,12 +7,18 @@ last_reviewed: 2026-10-10
 # Sheetbase — Current Work
 
 **Every Roadmap 4 active task is complete; nothing is in progress.** The work is
-on `GWP/roadmap-4-shell`. Its [reconciliation](roadmap-4/RECONCILIATION.md) covers
+merged to `main` as `10a84a42` (PR #220, 11 October 2026); the branch was
+`GWP/roadmap-4-shell`. Its [reconciliation](roadmap-4/RECONCILIATION.md) covers
 all 86 original tasks and its evidence and limits still stand: task completion is
 not release acceptance, and the visual and browser layers are deferred to
 acceptance by the owner's instruction. The [Roadmap 4 handoff](roadmap-4/NEXT.md)
-and nod tracker own its queue. Roadmap 5 remains a
-[proposal](../../plans/roadmap-5/README.md).
+and nod tracker own its queue.
+
+[Roadmap 5](roadmap-5/README.md) is the proposed follow-on corpus — app-3
+interface closure, 21 tasks over six streams, audited at `10a84a42`. It is not
+activated and keeps no queue of its own. The separate, unnumbered
+[complete scientific workflows](../../plans/roadmap-5/README.md) proposal covers
+scientific depth and no longer owns the Roadmap 5 number.
 
 This is a local source and documentation assessment. It does not establish
 merge, current hosted CI, deployment or production acceptance. Earlier branch
@@ -27,7 +33,7 @@ not the current-checkout summary.
 | Roadmap 2 | Active scope recorded closed; GOV-02 remains deferred.                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Roadmap 3 | September reconciliation records 50 merged implementation tasks plus institutional proposals/deferrals; known limits and workflow acceptance remain. ADR-0045 was subsequently accepted through DEC-04; ADR-0044 remains proposed.                                                                                                                                                                                                                                                |
 | Roadmap 4 | All 85 active tasks done on `GWP/roadmap-4-shell` (SHELL-04 cancelled in favour of DEC-03). The 2 October audit baseline it grew from was 13 accepted decisions, four inherited completions with acceptance unverified, 52 partial, 16 not started and one superseded duplicate; each was reconciled against the current source rather than the audit text. Completion is task-level: it is not release acceptance, and the deferred visual and browser layers remain unverified. |
-| Roadmap 5 | Proposed follow-on work; unfinished Roadmap 4 requirements retain their original task owner.                                                                                                                                                                                                                                                                                                                                                                                      |
+| Roadmap 5 | Proposed follow-on corpus: app-3 interface closure (21 tasks, six streams), audited at `10a84a42` on 11 October 2026. Not activated; no queue of its own. Unfinished Roadmap 4 requirements retain their original task owner, and the unnumbered complete-scientific-workflows proposal is a separate programme.                                                                                                                                                                  |
 
 The [7 September reconciliation](history/2026-09-07-roadmap-reconciliation.md)
 remains historical evidence for Roadmaps 1–3. This update audits Roadmap 4;
@@ -44,8 +50,12 @@ implementation, independent acceptance and deployment are different claims.
 3. Complete COMP/SHEET/MDL dependencies and governed/operational workflows
    under their original IDs. Read the [task-by-task register](roadmap-4/RECONCILIATION.md#task-register)
    for exact implemented subsets, gaps and evidence.
-4. Use Roadmap 5 only for explicitly selected follow-on acceptance or extensions.
-   It does not supersede the remaining Roadmap 4 backlog or authorize implementation.
+4. Use the [Roadmap 5 corpus](roadmap-5/README.md) only for explicitly selected
+   follow-on work. It does not supersede the remaining Roadmap 4 acceptance
+   gaps, authorize implementation or certify release readiness, and it keeps no
+   queue of its own. The unnumbered
+   [complete scientific workflows](../../plans/roadmap-5/README.md) proposal is a
+   separate programme.
 
 ## Important boundaries
 
@@ -77,7 +87,10 @@ Then inspect current source and tests; old baseline descriptions are historical.
 ## Maintenance
 
 This file owns cross-roadmap priority. Roadmap 4's [NEXT](roadmap-4/NEXT.md)
-and nod tracker own its queue. Other programme folders retain scope and history;
+and nod tracker own its queue. [Roadmap 5](roadmap-5/README.md) is a proposal
+without a queue of its own: its [programme map](roadmap-5/PROGRAMME_MAP.md) is a
+status table and the root hand-off decides activation. Other programme folders
+retain scope and history;
 Roadmap 1's local NEXT is historical. Record the implementation revision,
 validation evidence, limits and explicit deferrals whenever status changes.
 Do not equate a merged PR or a rendered screen with full acceptance.

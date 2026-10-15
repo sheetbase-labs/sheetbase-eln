@@ -1,6 +1,16 @@
-# Roadmap 5: complete scientific workflows
+# Complete scientific workflows (unnumbered proposal)
 
 Status: **proposed**, 2 October 2026. Inspected branch: `roadmap-4/ui-app3`, commit `e5801327`. This proposal does not certify Roadmap 4 complete, activate implementation, or claim deployment acceptance.
+
+> **This is not the Roadmap 5 corpus.** As of 11 October 2026, Roadmap 5 is
+> [app-3 interface closure](../../docs/knowledge/roadmap-5/README.md), under
+> `docs/knowledge/roadmap-5/`. This proposal keeps its content and its `R5-*`
+> task identifiers (BASE, CAP, SCI, RUN, TEAM, OPS, AI — no prefix is shared
+> with the corpus's SURF, STUDIO, NOTE, HOME, CONFIG and SHELL streams), but it
+> no longer owns the number 5. It remains a separate programme: the corpus
+> finishes the adopted interface, this proposal is about scientific depth. If
+> both are activated, reconcile them instead of maintaining two programmes with
+> overlapping acceptance.
 
 Sheetbase now has much of the interface and many of the operations needed for scientific work. The next programme should make those operations work together: capture an observation, preserve its identity, analyse the full data, review the result, deliver the evidence, and recover it after a failure.
 

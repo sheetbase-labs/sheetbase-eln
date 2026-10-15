@@ -115,8 +115,10 @@ See `.env.example` for all variables and documentation.
 - **VPS:** Private, accessed via Tailscale only. No open inbound ports.
 - **Public traffic:** Cloudflare Tunnel routes `app.sheetbase.co.uk` →
   `http://localhost:3000` on the VPS.
-- **CI/CD:** GitHub Actions (`.github/workflows/deploy.yml`) on push to `main`:
-  build immutable Docker image → push to GHCR → SSH deploy via Tailscale.
+- **Deploy:** GitHub Actions (`.github/workflows/deploy.yml`) is **manual** — it runs on
+  `workflow_dispatch` only (Actions → *Deploy to production*, which asks you to type
+  `deploy` to confirm): build immutable Docker image → push to GHCR → SSH deploy via
+  Tailscale. Pushes to `main` run **CI** and **Security** only; they do not deploy.
 - **Deploy controller:** `scripts/deploy.ts` validates `@sha256` image
   references, runs migrations as a one-shot, starts the app, and polls the
   readiness endpoint. See `docs/operations/deployment.md` for the full contract.
@@ -125,7 +127,8 @@ See `.env.example` for all variables and documentation.
 
 ### Deploy workflow
 
-1. Push to `main` → GitHub Actions builds + pushes images to GHCR.
+1. Dispatch **Actions → Deploy to production** and type `deploy` to confirm. GitHub
+   Actions builds + pushes images to GHCR.
 2. Action joins Tailscale, SSHes to VPS at `/opt/sheetbase`.
 3. Loads `/opt/sheetbase/.env.production` (never committed).
 4. `pnpm deploy:plan` — validates image/migration compatibility.
@@ -150,7 +153,7 @@ The Hostinger VPS is the shared delivery target. It has two separate Docker surf
 
 | Surface     | Public URL                    | Purpose                                | How it deploys                                               |
 | ----------- | ----------------------------- | -------------------------------------- | ------------------------------------------------------------ |
-| Production  | `https://app.sheetbase.co.uk` | Real authenticated app                 | Automatically from `main` via `.github/workflows/deploy.yml` |
+| Production  | `https://app.sheetbase.co.uk` | Real authenticated app                 | Manual dispatch of `.github/workflows/deploy.yml` (Actions → *Deploy to production*) |
 | Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual dispatch of `.github/workflows/deploy-dev.yml`        |
 
 ### Development environment
@@ -164,7 +167,7 @@ The Hostinger VPS is the shared delivery target. It has two separate Docker surf
 
 1. Work in a normal branch and open or update a PR. AMP only needs GitHub access; it must not receive VPS, Tailscale, Cloudflare, OAuth, or secret values.
 2. Review the PR locally or in an orb. Use the shared development environment only when a deployed demo is wanted.
-3. Merge an approved PR to `main`; production deployment then runs automatically.
+3. Merge an approved PR to `main`; production deploy is then a separate, deliberate dispatch (merging does not deploy).
 4. Use the development workflow only for an intentional shared demo update.
 
 **Required rules:** keep image references digest-pinned; keep development and production data isolated; never put `.env` values in GitHub issues, PR comments, logs, code, or agent messages; validate `/api/health/ready` after deployment changes.

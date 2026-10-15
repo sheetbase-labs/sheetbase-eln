@@ -41,21 +41,22 @@ describe('block allow-list', () => {
 
 describe('editable types', () => {
   /**
-   * A4 owns closing this gap: `callout`, `table` and `metric` are stored,
-   * validated and rendered but the editor switch has no case for them, and
-   * `sheet` is rendered by the document through NotebookSheetBlock. Pinning the
-   * set here means an editor arriving for one of them, or a new type arriving
-   * without one, has to be acknowledged rather than passing silently.
+   * A4 closed the gap for `callout` and `metric`. The static `table` block is
+   * still read-only, and `sheet` is rendered by the document rather than the
+   * editor switch: pinning the set means an editor arriving for either has to
+   * be acknowledged rather than passing silently.
    */
   it('is exactly the types the editor switch handles', () => {
     expect(editableBlockTypes()).toEqual([
       'rich_text',
       'checklist',
       'linked_record',
+      'callout',
       'chart',
       'analysis',
       'plate_map',
       'file',
+      'metric',
       'procedure_step',
       'protocol_reference',
       'materials',
@@ -63,7 +64,7 @@ describe('editable types', () => {
       'signature_request',
       'corrective_actions',
     ])
-    for (const type of ['callout', 'table', 'metric', 'sheet'] as const) {
+    for (const type of ['table', 'sheet'] as const) {
       expect(isEditableBlockType(type)).toBe(false)
     }
     expect(isEditableBlockType('quantum_state')).toBe(false)

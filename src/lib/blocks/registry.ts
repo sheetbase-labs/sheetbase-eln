@@ -366,7 +366,13 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
         payload.targetIdentifier ?? ''
       }${payload.label ? ` — ${payload.label}` : ''}`,
   },
-  callout: { measure: 'prose', editable: false, defaultPayload: () => ({}) },
+  callout: {
+    measure: 'prose',
+    // A4: editable since the callout editor landed. The static `table` block
+    // is still read-only on purpose — see the note in `block-editor.tsx`.
+    editable: true,
+    defaultPayload: () => ({}),
+  },
   table: { measure: 'prose', editable: false, defaultPayload: () => ({}) },
   sheet: { measure: 'wide', editable: false, defaultPayload: () => ({}) },
   chart: {
@@ -402,7 +408,7 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
     },
   },
   file: { measure: 'prose', editable: true, defaultPayload: () => ({}) },
-  metric: { measure: 'prose', editable: false, defaultPayload: () => ({}) },
+  metric: { measure: 'prose', editable: true, defaultPayload: () => ({}) },
   procedure_step: {
     measure: 'prose',
     editable: true,

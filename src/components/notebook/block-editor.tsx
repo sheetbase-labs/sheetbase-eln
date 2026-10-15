@@ -197,6 +197,10 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <RichTextEditor {...props} />
     case 'checklist':
       return <ChecklistEditor {...props} />
+    case 'callout':
+      return <CalloutEditor {...props} />
+    case 'metric':
+      return <MetricEditor {...props} />
     case 'linked_record':
       return <LinkedRecordEditor {...props} />
     case 'protocol_reference':
@@ -691,6 +695,276 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
       <Button type="button" variant="quiet" size="sm" onClick={add}>
         Add action
       </Button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// A4: callout and metric. Both were stored, validated and rendered but had no
+// editor, so selecting one showed an unsupported-block placeholder: the content
+// was preserved and visible, but could not be changed. The static `table` block
+// is still in that state deliberately — whether it earns its keep now that the
+// Sheet is the tabular surface is a separate product decision.
+//
+// Both editors use the native control wrappers already in this file rather than
+// introducing a new primitive.
+// ---------------------------------------------------------------------------
+
+const CALLOUT_VARIANTS = ['info', 'warning', 'note', 'danger'] as const
+type CalloutVariant = (typeof CALLOUT_VARIANTS)[number]
+
+const CALLOUT_VARIANT_LABELS: Record<CalloutVariant, string> = {
+  info: 'Information',
+  warning: 'Warning',
+  note: 'Note',
+  danger: 'Danger',
+}
+
+interface CalloutDraft {
+  text: string
+  variant: CalloutVariant
+}
+
+function CalloutEditor({
+  block,
+  save,
+  offline,
+  onStatusChange,
+  className,
+  autoFocus,
+}: BlockEditorProps) {
+  const initialDraft = React.useMemo<CalloutDraft>(() => {
+    const payload = block.payload as { text?: unknown; variant?: unknown }
+    return {
+      text: typeof payload.text === 'string' ? payload.text : '',
+      variant:
+        CALLOUT_VARIANTS.find((variant) => variant === payload.variant) ??
+        'info',
+    }
+  }, [block.payload])
+  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
+
+  return (
+    <div className={cn('space-y-2', className)}>
+      <label className="sr-only" htmlFor={`callout-text-${block.id}`}>
+        Callout text
+      </label>
+      <Textarea
+        id={`callout-text-${block.id}`}
+        value={a.draft.text}
+        autoFocus={autoFocus}
+        rows={2}
+        placeholder="What the reader must not miss"
+        onChange={(event) => {
+          a.setTouched(true)
+          a.setDraft({ ...a.draft, text: event.target.value })
+        }}
+        onBlur={() => a.flush()}
+      />
+      <div className="flex items-center gap-2">
+        <label
+          className="text-xs text-fg-muted"
+          htmlFor={`callout-variant-${block.id}`}
+        >
+          Tone
+        </label>
+        <NativeSelect
+          id={`callout-variant-${block.id}`}
+          value={a.draft.variant}
+          onChange={(event) => {
+            const variant = CALLOUT_VARIANTS.find(
+              (candidate) => candidate === event.target.value,
+            )
+            a.setTouched(true)
+            if (variant) a.setDraft({ ...a.draft, variant })
+          }}
+          onBlur={() => a.flush()}
+          className="w-40"
+        >
+          {CALLOUT_VARIANTS.map((variant) => (
+            <option key={variant} value={variant}>
+              {CALLOUT_VARIANT_LABELS[variant]}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
+        serverPreview={summarizeBlockPayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+    </div>
+  )
+}
+
+interface MetricDraft {
+  label: string
+  /** Exactly what the user typed. Converting while typing would eat a decimal
+   * point or a space, because the converted value is written straight back
+   * into the controlled input. */
+  value: string
+  unit: string
+  provenance: string
+}
+
+/** A numeric reading is written back as a number so number formatting applies;
+ * anything else stays text. A blank reading stays blank. */
+function metricValueFromInput(raw: string): string | number {
+  const trimmed = raw.trim()
+  if (trimmed === '') return ''
+  const numeric = Number(trimmed)
+  return Number.isFinite(numeric) ? numeric : trimmed
+}
+
+/** The canonical payload for a metric draft: an optional field is omitted when
+ * blank rather than saved as an empty string. The draft arrives as the payload
+ * carrier the autosave hook passes around, so each field is narrowed. */
+function metricPayloadFromDraft(
+  draft: Record<string, unknown>,
+): Record<string, unknown> {
+  const label = typeof draft.label === 'string' ? draft.label : ''
+  const value = typeof draft.value === 'string' ? draft.value : ''
+  const unit = typeof draft.unit === 'string' ? draft.unit : ''
+  const provenance =
+    typeof draft.provenance === 'string' ? draft.provenance : ''
+  return {
+    label,
+    value: metricValueFromInput(value),
+    unit: unit.trim() === '' ? undefined : unit,
+    provenance: provenance.trim() === '' ? undefined : provenance,
+  }
+}
+
+function MetricEditor({
+  block,
+  save,
+  offline,
+  onStatusChange,
+  className,
+  autoFocus,
+}: BlockEditorProps) {
+  const initialDraft = React.useMemo<MetricDraft>(() => {
+    const payload = block.payload as {
+      label?: unknown
+      value?: unknown
+      unit?: unknown
+      provenance?: unknown
+    }
+    return {
+      label: typeof payload.label === 'string' ? payload.label : '',
+      // The stored reading may be a number or text; the field holds its text.
+      value:
+        typeof payload.value === 'number' || typeof payload.value === 'string'
+          ? String(payload.value)
+          : '',
+      unit: typeof payload.unit === 'string' ? payload.unit : '',
+      provenance:
+        typeof payload.provenance === 'string' ? payload.provenance : '',
+    }
+  }, [block.payload])
+  // The draft is the raw input; the payload is built from it at the boundary,
+  // so the autosave state machine and the conflict summary both see the
+  // canonical shape.
+  const saveDraft = React.useCallback(
+    async (payload: Record<string, unknown>) =>
+      save(metricPayloadFromDraft(payload)),
+    [save],
+  )
+  const a = useBlockAutosave(
+    block,
+    initialDraft,
+    saveDraft,
+    offline,
+    onStatusChange,
+  )
+
+  return (
+    <div className={cn('space-y-2', className)}>
+      <div className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem]">
+        <div>
+          <label className="sr-only" htmlFor={`metric-label-${block.id}`}>
+            Metric label
+          </label>
+          <Input
+            id={`metric-label-${block.id}`}
+            value={a.draft.label}
+            autoFocus={autoFocus}
+            placeholder="Yield"
+            onChange={(event) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, label: event.target.value })
+            }}
+            onBlur={() => a.flush()}
+          />
+        </div>
+        <div>
+          <label className="sr-only" htmlFor={`metric-value-${block.id}`}>
+            Metric value
+          </label>
+          <Input
+            id={`metric-value-${block.id}`}
+            value={a.draft.value}
+            inputMode="decimal"
+            placeholder="82.5"
+            onChange={(event) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, value: event.target.value })
+            }}
+            onBlur={() => a.flush()}
+          />
+        </div>
+        <div>
+          <label className="sr-only" htmlFor={`metric-unit-${block.id}`}>
+            Metric unit
+          </label>
+          <Input
+            id={`metric-unit-${block.id}`}
+            value={a.draft.unit}
+            placeholder="%"
+            onChange={(event) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, unit: event.target.value })
+            }}
+            onBlur={() => a.flush()}
+          />
+        </div>
+      </div>
+      <div>
+        <label className="sr-only" htmlFor={`metric-provenance-${block.id}`}>
+          Where the number comes from
+        </label>
+        <Input
+          id={`metric-provenance-${block.id}`}
+          value={a.draft.provenance}
+          placeholder="Provenance — where the number comes from"
+          onChange={(event) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, provenance: event.target.value })
+          }}
+          onBlur={() => a.flush()}
+        />
+      </div>
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
+        serverPreview={summarizeBlockPayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
     </div>
   )
 }

@@ -22,6 +22,12 @@ const workspace = randomUUID()
 const project = randomUUID()
 const record = randomUUID()
 const controlledRecord = randomUUID()
+// REV-03 refusals need their own submissions: one whose checks never ran, one
+// whose assigned reviewer is also its submitter, and one that is eligible but
+// is signed with no password step-up at all.
+const uncheckedRecord = randomUUID()
+const selfReviewRecord = randomUUID()
+const noPasswordRecord = randomUUID()
 const signer = `rev03-signer-${workspace}`
 const verifier = `rev03-verifier-${workspace}`
 const author = `rev03-author-${workspace}`
@@ -31,6 +37,9 @@ const password = 'rev03-browser-fixture-password'
 let admin: Client
 let database: ReturnType<typeof drizzle<typeof schema>>
 let submission: { id: string; revisionId: string; digest: string }
+let uncheckedSubmission: { id: string; revisionId: string; digest: string }
+let selfReviewSubmission: { id: string; revisionId: string; digest: string }
+let noPasswordSubmission: { id: string; revisionId: string; digest: string }
 
 test.use({
   viewport: { width: 1280, height: 900 },
@@ -84,6 +93,18 @@ test.beforeAll(async () => {
   await admin.query(
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment','EXP-REV02-AUTHOR','Atomic author submission acceptance','draft',$4)`,
     [controlledRecord, workspace, project, author],
+  )
+  await admin.query(
+    `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment','EXP-REV03-UNCHECKED','Checks-not-passed refusal','draft',$4)`,
+    [uncheckedRecord, workspace, project, author],
+  )
+  await admin.query(
+    `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment','EXP-REV03-SELF','Self-review refusal','draft',$4)`,
+    [selfReviewRecord, workspace, project, signer],
+  )
+  await admin.query(
+    `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment','EXP-REV03-NOPASS','Missing-password refusal','draft',$4)`,
+    [noPasswordRecord, workspace, project, author],
   )
   const secret = z.string().min(32).parse(process.env.BETTER_AUTH_SECRET)
   const { createAuth } = await import('#/lib/auth')
@@ -142,6 +163,72 @@ test.beforeAll(async () => {
       "select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)",
       [submission.revisionId, `rev03-checks-${record}`],
     )
+    // Checks-not-passed refusal: a submission with no check run at all.
+    await claims(author)
+    const uncheckedPreview = await actor.query(
+      "select api.preview_submission_digest($1)->>'sourceDigest' as digest",
+      [uncheckedRecord],
+    )
+    uncheckedSubmission = parseSubmission(
+      (
+        await actor.query(
+          `select api.submit_record_revision($1,$2,'default-scientific-review',1,$3::text[],true,$4,null) as result`,
+          [
+            uncheckedRecord,
+            uncheckedPreview.rows[0].digest,
+            [signer],
+            `rev03-unchecked-${uncheckedRecord}`,
+          ],
+        )
+      ).rows[0].result,
+    )
+    // Self-review refusal: the submitter is also the assigned reviewer.
+    await claims(signer)
+    const selfPreview = await actor.query(
+      "select api.preview_submission_digest($1)->>'sourceDigest' as digest",
+      [selfReviewRecord],
+    )
+    selfReviewSubmission = parseSubmission(
+      (
+        await actor.query(
+          `select api.submit_record_revision($1,$2,'default-scientific-review',1,$3::text[],true,$4,null) as result`,
+          [
+            selfReviewRecord,
+            selfPreview.rows[0].digest,
+            [signer],
+            `rev03-selfreview-${selfReviewRecord}`,
+          ],
+        )
+      ).rows[0].result,
+    )
+    // Missing-password refusal: eligible (checks pass, assigned reviewer) but
+    // signed with no step-up token.
+    await claims(author)
+    const noPasswordPreview = await actor.query(
+      "select api.preview_submission_digest($1)->>'sourceDigest' as digest",
+      [noPasswordRecord],
+    )
+    noPasswordSubmission = parseSubmission(
+      (
+        await actor.query(
+          `select api.submit_record_revision($1,$2,'default-scientific-review',1,$3::text[],true,$4,null) as result`,
+          [
+            noPasswordRecord,
+            noPasswordPreview.rows[0].digest,
+            [signer],
+            `rev03-nopassword-${noPasswordRecord}`,
+          ],
+        )
+      ).rows[0].result,
+    )
+    await claims(signer)
+    await actor.query(
+      "select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)",
+      [
+        noPasswordSubmission.revisionId,
+        `rev03-nopassword-checks-${noPasswordRecord}`,
+      ],
+    )
   } finally {
     await actor.end()
   }
@@ -175,10 +262,12 @@ test.afterAll(async () => {
     await admin.query('delete from api.revisions where workspace_id=$1', [
       workspace,
     ])
-    await admin.query('delete from api.workspaces where id=$1', [workspace])
-    await admin.query('delete from internal."user" where id=any($1::text[])', [
-      [signer, verifier, author],
-    ])
+    // The isolated provisioner owns this database and drops it after the run.
+    // The workspace and its users cannot be deleted from here: both cascade
+    // into `api.change_events`, whose append-only trigger refuses any mutation
+    // (SB121, `refuse_change_event_mutation`). That is the audit chain's
+    // design — a signature/submission suite cannot un-write its own evidence —
+    // so cleanup is the provisioner's DROP DATABASE, not a row delete.
     await admin.end()
   }
   await database?.$client.end()
@@ -199,6 +288,21 @@ function post(page: Page, path: string, data: object) {
     },
     { path, data },
   )
+}
+
+/** The revision/submission identities every `submit_record_revision` returns. */
+function parseSubmission(result: unknown) {
+  const parsed = z
+    .object({
+      revision: z.object({ id: z.uuid(), integrityDigest: z.string() }),
+      submission: z.object({ id: z.uuid() }),
+    })
+    .parse(result)
+  return {
+    id: parsed.submission.id,
+    revisionId: parsed.revision.id,
+    digest: parsed.revision.integrityDigest,
+  }
 }
 
 test('independent certification, practice, password focus and exact-digest signing use real HTTP', async ({
@@ -344,7 +448,7 @@ test('independent certification, practice, password focus and exact-digest signi
       )
     ).rows[0].state,
   ).toBe('submitted')
-  await page.keyboard.press('Control+Shift+Enter')
+  await page.keyboard.press('ControlOrMeta+Shift+Enter')
   await expect(page.getByRole('alertdialog')).toContainText(
     'Approve this review?',
   )
@@ -375,7 +479,7 @@ test('independent certification, practice, password focus and exact-digest signi
   await page
     .getByRole('button', { name: 'Sign revision', exact: true })
     .waitFor()
-  await page.keyboard.press('Control+Shift+Enter')
+  await page.keyboard.press('ControlOrMeta+Shift+Enter')
   await expect(page.getByLabel('Signing password')).toBeFocused()
   await expect(page.getByText(submission.digest, { exact: true })).toBeVisible()
   await expect(
@@ -394,15 +498,17 @@ test('independent certification, practice, password focus and exact-digest signi
         .locator('..')
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     ).toBe(true)
-    for (const selector of [
-      '#revision-signing-password',
-      '#signature-meaning',
-      '#signature-confirmation',
+    for (const control of [
+      page.getByLabel('Signing password'),
+      page.getByLabel('Signature meaning'),
+      page.getByLabel('Type your name to confirm'),
     ]) {
-      const inset = await page.locator(selector).evaluate((element) => {
-        const dialog = element.closest('[role="alertdialog"]')
+      const inset = await control.evaluate((element) => {
+        // The signing dialog is a `dialog`; the decision dialogs are
+        // `alertdialog` (ConfirmDialogContent sets that role).
+        const dialog = element.closest('[role="dialog"]')
         if (!dialog)
-          throw new Error('Signing control must be inside the alertdialog')
+          throw new Error('Signing control must be inside the dialog')
         const popup = dialog.getBoundingClientRect()
         const control = element.getBoundingClientRect()
         return Math.min(control.left - popup.left, popup.right - control.right)
@@ -456,6 +562,80 @@ test('independent certification, practice, password focus and exact-digest signi
   ).toEqual(['reviewed', 'reviewed-and-approved'])
   expect(grants.rows.every((r) => r.consumed_at !== null)).toBe(true)
   await page.screenshot({ path: '.amp/in/artifacts/rev03-http-signed.png' })
+
+  // REV-03 refusals, driven through the same same-origin RPC boundary the
+  // signing dialog posts to. Each must state its reason.
+  // 1. No password step-up at all: the token is required.
+  const noPassword = await post(page, '/api/db/rpc/sign_revision', {
+    p_submission_id: noPasswordSubmission.id,
+    p_signature_meaning: 'reviewed',
+    p_confirmation_phrase: signerName,
+    p_expected_revision_digest: noPasswordSubmission.digest,
+  })
+  expect(noPassword.status).toBe(422)
+  expect(noPassword.body).toMatchObject({
+    error: {
+      category: 'missing_link',
+      message: 'fresh password token required',
+    },
+  })
+  // 2. Checks have not passed for this digest (no check run exists).
+  const unchecked = await post(page, '/api/db/rpc/sign_revision', {
+    p_submission_id: uncheckedSubmission.id,
+    p_signature_meaning: 'reviewed',
+    p_confirmation_phrase: signerName,
+    p_expected_revision_digest: uncheckedSubmission.digest,
+  })
+  expect(unchecked.status).toBe(400)
+  expect(unchecked.body).toMatchObject({
+    error: {
+      category: 'validation_error',
+      message: 'required checks have not passed for this digest',
+    },
+  })
+  // 3. A second signature on a revision this signer already signed.
+  const duplicate = await post(page, '/api/db/rpc/sign_revision', {
+    p_submission_id: submission.id,
+    p_signature_meaning: 'reviewed-and-approved',
+    p_confirmation_phrase: signerName,
+    p_expected_revision_digest: submission.digest,
+  })
+  expect(duplicate.status).toBe(400)
+  expect(duplicate.body).toMatchObject({
+    error: {
+      category: 'validation_error',
+      message: 'signer has already recorded this meaning',
+    },
+  })
+  // 4. A reviewer signing their own submission.
+  const selfReview = await post(page, '/api/db/rpc/sign_revision', {
+    p_submission_id: selfReviewSubmission.id,
+    p_signature_meaning: 'reviewed',
+    p_confirmation_phrase: signerName,
+    p_expected_revision_digest: selfReviewSubmission.digest,
+  })
+  expect(selfReview.status).toBe(403)
+  expect(selfReview.body).toMatchObject({
+    error: {
+      category: 'permission_denied',
+      message: 'only an assigned nonauthor reviewer may sign',
+    },
+  })
+  // No refusal may have written a signature row.
+  expect(
+    (
+      await admin.query(
+        'select count(*)::int as n from api.signatures where submission_id = any($1::uuid[])',
+        [
+          [
+            noPasswordSubmission.id,
+            uncheckedSubmission.id,
+            selfReviewSubmission.id,
+          ],
+        ],
+      )
+    ).rows[0].n,
+  ).toBe(0)
   for (let failure = 0; failure < 3; failure++) {
     const response = await post(page, '/api/signatures/step-up', {
       workspaceId: workspace,
@@ -495,9 +675,15 @@ test('independent certification, practice, password focus and exact-digest signi
   await page.getByRole('button', { name: `Account: ${signerName}` }).click()
   await page.context().setOffline(true)
   await page.getByRole('menuitem', { name: 'Sign out', exact: true }).click()
-  await expect(
-    page.getByRole('alert').filter({ hasText: 'Save your pending edits' }),
-  ).toBeVisible()
+  // EXP-05.5: being offline is no longer a reason to refuse sign-out — only an
+  // editor holding unsaved work is. Offline, the sign-out cannot be confirmed,
+  // so the shell says that and the session is not ended; the unsaved-edits
+  // guard must not fire, because nothing here holds unsaved work.
+  const offlineAlert = page
+    .getByRole('menu', { name: `Account: ${signerName}` })
+    .getByRole('alert')
+  await expect(offlineAlert).toContainText('Sign out could not be confirmed')
+  await expect(offlineAlert).not.toContainText('Save your pending edits')
   expect(
     (
       await admin.query('select id from internal.session where id=$1', [
@@ -519,7 +705,7 @@ test('independent certification, practice, password focus and exact-digest signi
   ).toBeVisible()
   await expect(
     page.getByText(
-      'You signed out of this browser. Saved changes remain in your workspace.',
+      /You signed out of this browser\. Signing out ends your session on this browser only\./,
     ),
   ).toBeVisible()
   await expect(page.getByText(/30 minutes|inactivity/)).toHaveCount(0)

@@ -587,3 +587,24 @@ describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
     expect(needs.getAttribute('aria-selected')).toBe('true')
   })
 })
+
+describe('Inbox header fits the phone width (QA4-inbox-phone)', () => {
+  it('keeps both header actions on a row that wraps below `md`', () => {
+    const { getByRole, getByText } = renderInbox()
+    const row = getByText('Inbox', { selector: 'h1' }).parentElement
+    expect(row).not.toBeNull()
+    // On one non-wrapping row the title and the two actions could not share a
+    // 390px viewport (Mark all seen ended at 408), which clipped the action
+    // with no ancestor able to scroll to it. The row wraps instead, so both
+    // controls stay on the page rather than being dropped from the affordance
+    // set the reference's desktop header shows.
+    expect(row!.className).toContain('max-md:flex-wrap')
+    // Both actions stay in the wrapping row: "Mark all seen" is a real button,
+    // "Notification settings" is a Link-based button (its role comes from Base
+    // UI, so the shared Link mock leaves it roleless here).
+    expect(row!.contains(getByText('Notification settings'))).toBe(true)
+    expect(
+      row!.contains(getByRole('button', { name: 'Mark all seen' })),
+    ).toBe(true)
+  })
+})

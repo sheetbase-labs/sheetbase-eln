@@ -404,12 +404,20 @@ function Inbox() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-col gap-1 border-b border-border px-4 pt-4 md:px-6">
-          <div className="flex items-center gap-2">
+          {/* WCAG 1.4.10 — the phone reference header (PhoneInbox) is the
+              title alone; the two actions cannot share its line with it (at
+              390 they measured 408px and pushed Mark all seen outside the
+              viewport with no ancestor able to scroll to it). The row wraps,
+              exactly as the shell's own TopBar does below `md`, so both
+              controls reflow into view instead of being clipped or dropped.
+              There is nothing to fill here once they wrap, so the desktop
+              spacer goes with the row it spaced. */}
+          <div className="flex items-center gap-2 max-md:flex-wrap">
             <h1 className="text-title">Inbox</h1>
             <span className="ml-1 text-body text-fg-muted max-md:hidden">
               Everything waiting on you, across projects
             </span>
-            <span className="flex-1" />
+            <span className="flex-1 max-md:hidden" />
             <Button
               nativeButton={false}
               render={<Link to="/settings/notifications" />}

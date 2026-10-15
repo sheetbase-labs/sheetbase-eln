@@ -1025,7 +1025,7 @@ export function StickyRecordHeader({
   }, [record.title])
 
   return (
-    <div className="flex flex-col pb-3 pt-4">
+    <div className="flex flex-col pb-1.5 pt-2">
       {/* The title and the record's own actions share a line. Giving the
           actions a line of their own left a band of empty space above the
           properties and pushed the title down the page. */}
@@ -1065,6 +1065,22 @@ export function StickyRecordHeader({
               it is labelled. */}
           <span className="font-mono text-xs tabular-nums text-muted-foreground">
             {record.identifier}
+          </span>
+          {/* The notebook's evidence lifecycle, and only it: Working means you
+              are editing a live draft, Submitted or In review means the
+              evidence is frozen. The record's own status lives in the
+              inspector, where the row is named. */}
+          <span
+            className={
+              lifecycle === 'Submitted' || lifecycle === 'In review'
+                ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
+                : 'inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
+            }
+          >
+            {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
+              <Icon name="lock" className="size-3" aria-hidden />
+            ) : null}
+            {lifecycle}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2 pt-1" data-print-hide>
@@ -1283,7 +1299,7 @@ function RecordNotebookTabs({
   return (
     <nav
       aria-label="Notebook sections"
-      className="mt-3 flex gap-5 border-b border-border"
+      className="mt-2 flex gap-5 border-b border-border"
       data-print-hide
     >
       {NOTEBOOK_TABS.map((t) => (

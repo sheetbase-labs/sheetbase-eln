@@ -9,6 +9,11 @@
  */
 import { expect, test } from 'playwright/test'
 
+import { signInAsDesignUser } from '../visual/sign-in'
+
+/** The design's workspace owner; the review read below is mocked at /api/db. */
+const DESIGN_USER = '00000000-0000-4000-8000-000000000310'
+
 const WORKSPACE = '00000000-0000-4000-8000-0000000000aa'
 const USER = '00000000-0000-4000-8000-0000000000bb'
 const RECORD = '00000000-0000-4000-8000-0000000000cc'
@@ -148,6 +153,10 @@ const BLOCK_COMMENT = {
   created_at: '2026-10-01T10:00:00Z',
   updated_at: '2026-10-01T10:00:00Z',
 }
+
+test.beforeEach(async ({ page }) => {
+  await signInAsDesignUser(page, DESIGN_USER)
+})
 
 test('the annotated document fits the phone width and keeps its comment anchors usable', async ({
   page,

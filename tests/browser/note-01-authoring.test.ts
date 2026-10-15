@@ -8,6 +8,7 @@ import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
 
 import { FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID } from '#/db/seed/identities'
+import { signInAsDesignUser } from '../visual/sign-in'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -67,8 +68,8 @@ test.beforeAll(async () => {
   await clean()
 
   await admin.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title) VALUES ($1,$2,'NOTE01','Notebook Authoring')`,
-    [PROJECT, FIXTURE_WORKSPACE_ID],
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES ($1,$2,'NOTE01','Notebook Authoring',$3)`,
+    [PROJECT, FIXTURE_WORKSPACE_ID, FIXTURE_USER_ID],
   )
   await admin.query(
     `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) VALUES ($1,$2,$3,'experiment','EXP-2026-0101','Fluid authoring study','in_progress',$4),($5,$2,$3,'experiment','EXP-2026-0102','Concurrent observations','in_progress',$4)`,
@@ -97,6 +98,10 @@ test.afterAll(async () => {
 })
 
 test.describe('NOTE-01 Notebook authoring', () => {
+  test.beforeEach(async ({ page }) => {
+    await signInAsDesignUser(page, FIXTURE_USER_ID)
+  })
+
   test('builds, navigates, reorders, and deletes blocks from the keyboard without losing focus', async ({
     page,
   }) => {
@@ -194,7 +199,7 @@ test.describe('NOTE-01 Notebook authoring', () => {
       await route.continue()
     })
 
-    await editor.press('Control+A')
+    await editor.press('ControlOrMeta+A')
     await editor.pressSequentially('Local conclusion with assay context')
 
     const conflict = block.locator('[data-conflict-banner]')

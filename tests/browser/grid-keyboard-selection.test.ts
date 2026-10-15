@@ -27,9 +27,13 @@ import type { Locator, Page } from 'playwright/test'
 import { config } from 'dotenv'
 import { Client } from 'pg'
 
+import { signInAsDesignUser } from '../visual/sign-in'
+
 config({ path: ['.env.local', '.env'] })
 
 const SHEET_NAME = 'Clarification working sheet'
+// Gareth owns the design workspace (…0300) the sheet's project lives in.
+const USER = '00000000-0000-4000-8000-000000000310'
 
 let sheet: { id: string; projectId: string }
 
@@ -59,6 +63,7 @@ test.beforeAll(async () => {
 
 /** The design working sheet renders read-only unless the project is in search. */
 async function openBoundSheet(page: Page): Promise<Locator> {
+  await signInAsDesignUser(page, USER)
   await page.goto(`/sheets/${sheet.id}?projectId=${sheet.projectId}`)
   const grid = page.getByRole('grid')
   await expect(grid).toBeVisible()

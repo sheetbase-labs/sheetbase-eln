@@ -1,74 +1,128 @@
+/**
+ * Sheet-block browser acceptance: the notebook renders its Sheet blocks from
+ * the canonical CORE-03 Sheet Instances, and the same-origin DB proxy is
+ * fail-closed for an external credential that is not scoped for what it asks
+ * to write.
+ *
+ * The Phase 4 proof this file started as covered the scientific-table REST
+ * surface and the scientific workbook behind it. H4 removed that surface
+ * (drizzle/0106_core_h4_close_legacy_writes.sql,
+ * drizzle/0109_remove_legacy_compatibility.sql): `api.create_scientific_table`
+ * carries no EXECUTE for any login role, a `sheet` block names a Sheet Instance
+ * (src/lib/sheet-block.ts) and nothing renders a scientific table any more. So
+ * the notebook half is built the canonical way, through the ordinary RPCs, and
+ * the REST half keeps its subject against the surface that replaced it
+ * (src/lib/external-token.ts records the credential scope map).
+ *
+ * The fixture converges instead of deleting itself - see clean().
+ */
 import { expect, test } from 'playwright/test'
 import { config } from 'dotenv'
-import { createHmac } from 'node:crypto'
 import { Client } from 'pg'
 
 import { mintApiClientToken } from '#/lib/api-credentials'
-import { buildPersistedFormulaArtifact, parseFormula } from '#/lib/formula-ir'
-import {
-  createScientificTableAsMigrator,
-  openMigratorWriter,
-} from '../db/helpers'
+import { parseSheetInstanceState } from '#/lib/sheet-instance'
+import { createAdHocTextField } from '#/lib/sheet-local-data'
+import { grantFixtureProjectAccess } from '../api/project-fixtures'
+import { signInAsDesignUser } from '../visual/sign-in'
 
 config({ path: ['.env.local', '.env'] })
 
 const WS = '65000000-0000-4000-8000-000000000001'
 const PROJECT = '65000000-0000-4000-8000-000000000002'
 const RECORD = '65000000-0000-4000-8000-000000000003'
-const SOURCE_BLOCK = '65000000-0000-4000-8000-000000000004'
-const SUMMARY_BLOCK = '65000000-0000-4000-8000-000000000005'
 const CREDENTIAL = '65000000-0000-4000-8000-000000000006'
-const SESSION = 'phase4-browser-session-token'
+const SOURCE_FIELD = '65000000-0000-4000-8000-000000000007'
+const SOURCE_ROW = '65000000-0000-4000-8000-000000000008'
+const SUMMARY_FIELD = '65000000-0000-4000-8000-000000000009'
+const SUMMARY_ROW = '65000000-0000-4000-8000-00000000000a'
+const SOURCE_SHEET = 'Raw stability data'
+const SUMMARY_SHEET = 'Stability summary'
 const USER = 'phase4-browser-owner'
 
 let admin: Client
 let externalToken: string
-let source: any
-let sourceRow: any
+let sourceInstance: string
 
+/**
+ * The fixture converges instead of deleting itself, because two rows cannot be
+ * removed by anyone: api.change_events is append-only
+ * (internal.refuse_change_event_mutation refuses DELETE, and the workspace its
+ * entries name cascades into it), and Sheet Instances refuse DELETE for every
+ * role by design (internal.guard_sheet_instance: "Sheet Instances cannot be
+ * deleted" - archive is the retention path). The workspace, its owner, the API
+ * credential, the project and the two Sheet Instances are therefore upserted or
+ * reused, and only the Notebook Record this run owns - which nothing pins,
+ * because the Instances carry notebook_record_id = NULL - is rebuilt with its
+ * blocks.
+ */
 async function clean() {
   await admin.query('RESET ROLE')
-  const resources = await admin.query<{ resource_name: string }>(
-    `SELECT resource_name FROM api.scientific_tables WHERE workspace_id=$1`,
-    [WS],
-  )
-  for (const { resource_name: resource } of resources.rows)
-    if (/^sheet_[a-z2-7]{26}$/.test(resource))
-      await admin.query(`DROP TABLE IF EXISTS api.${resource}`)
-  await admin.query(
-    `DELETE FROM api.formula_definitions WHERE workspace_id=$1`,
-    [WS],
-  )
-  await admin.query(`DELETE FROM api.scientific_tables WHERE workspace_id=$1`, [
-    WS,
-  ])
-  await admin.query(
-    `DELETE FROM internal.api_credentials WHERE workspace_id=$1`,
-    [WS],
-  )
-  await admin.query(`DELETE FROM api.records WHERE workspace_id=$1`, [WS])
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id=$1`, [WS])
-  await admin.query(
-    `DELETE FROM api.workspace_change_seq WHERE workspace_id=$1`,
-    [WS],
-  )
-  await admin.query(`DELETE FROM api.workspaces WHERE id=$1`, [WS])
-  await admin.query(`DELETE FROM internal."user" WHERE id=$1`, [USER])
+  await admin.query(`DELETE FROM api.records WHERE id=$1`, [RECORD])
   await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
 }
 
-async function trustedFormula(payload: Record<string, unknown>) {
-  await admin.query('SET ROLE formula_writer')
-  try {
-    return (
-      await admin.query(
-        `SELECT internal.apply_trusted_formula_write($1,$2::jsonb) result`,
-        [USER, JSON.stringify(payload)],
-      )
-    ).rows[0].result
-  } finally {
-    await admin.query('RESET ROLE')
-  }
+/** The Sheet's own state: one entered reading per Sheet, no computed column. */
+function sheetState(
+  field: { fieldId: string; label: string },
+  rowKey: string,
+  value: string,
+) {
+  return parseSheetInstanceState({
+    bindings: [],
+    localFields: [
+      { ...createAdHocTextField(field.label), fieldId: field.fieldId },
+    ],
+    localValues: { [rowKey]: { [field.fieldId]: value } },
+    calculationOverrides: {},
+    presentation: {
+      columnOrder: [field.fieldId],
+      hiddenColumnIds: [],
+      columnWidths: {},
+      frozenColumnCount: 0,
+      density: 'standard',
+      filters: [],
+      sorts: [],
+    },
+    provenance: { createdFrom: 'ad_hoc' },
+  })
+}
+
+/** Sheet Instances cannot be deleted, so a rerun reuses the one it finds. */
+async function openSheet(
+  name: string,
+  field: { fieldId: string; label: string },
+  rowKey: string,
+  value: string,
+): Promise<string> {
+  const existing = await admin.query<{ id: string }>(
+    `SELECT id FROM api.sheet_instances WHERE workspace_id=$1 AND name=$2`,
+    [WS, name],
+  )
+  if (existing.rows[0]) return existing.rows[0].id
+  const created = await admin.query<{ id: string }>(
+    `SELECT (api.create_sheet_instance($1,$2,$3,$4,$5,$6,$7::jsonb)).id`,
+    [
+      WS,
+      name,
+      null,
+      null,
+      PROJECT,
+      null,
+      JSON.stringify(sheetState(field, rowKey, value)),
+    ],
+  )
+  return created.rows[0]!.id
+}
+
+/** Embed the Instance in the Notebook the ordinary way (CORE-06.2). */
+async function embedSheet(instanceId: string) {
+  await admin.query(`SELECT api.insert_sheet_instance_block($1,$2,$3,$4)`, [
+    RECORD,
+    null,
+    null,
+    instanceId,
+  ])
 }
 
 test.beforeAll(async () => {
@@ -76,152 +130,63 @@ test.beforeAll(async () => {
   await admin.connect()
   await clean()
   await admin.query(
-    `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES ($1,'Phase 4 browser owner','phase4-browser@test.invalid',true)`,
+    `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES ($1,'Phase 4 browser owner','phase4-browser@test.invalid',true)
+     ON CONFLICT (id) DO UPDATE SET name=excluded.name,email=excluded.email,"emailVerified"=excluded."emailVerified"`,
     [USER],
   )
   await admin.query(
-    `INSERT INTO internal.session(id,token,"userId","expiresAt") VALUES ('phase4-browser-session',$1,$2,now()+interval '1 hour')`,
-    [SESSION, USER],
-  )
-  await admin.query(
-    `INSERT INTO api.workspaces(id,slug,name) VALUES ($1,'phase4-browser','Phase 4 browser')`,
+    `INSERT INTO api.workspaces(id,slug,name) VALUES ($1,'phase4-browser','Phase 4 browser')
+     ON CONFLICT (id) DO UPDATE SET slug=excluded.slug,name=excluded.name`,
     [WS],
   )
   await admin.query(
-    `INSERT INTO api.workspace_memberships(workspace_id,user_id,role) VALUES ($1,$2,'owner')`,
+    `INSERT INTO api.workspace_memberships(workspace_id,user_id,role) VALUES ($1,$2,'owner')
+     ON CONFLICT (workspace_id,user_id) DO UPDATE SET role=excluded.role`,
     [WS, USER],
   )
   await admin.query(
-    `INSERT INTO api.projects(id,workspace_id,key,title) VALUES ($1,$2,'VSB','Virus Stability Browser')`,
-    [PROJECT, WS],
+    `INSERT INTO internal.api_credentials(id,workspace_id,display_prefix,secret_hash,name,scopes,created_by_user_id) VALUES ($1,$2,'phase4b01','unused','Browser external edit',ARRAY['projects:read','projects:write'],$3)
+     ON CONFLICT (id) DO UPDATE SET workspace_id=excluded.workspace_id,display_prefix=excluded.display_prefix,name=excluded.name,scopes=excluded.scopes,created_by_user_id=excluded.created_by_user_id`,
+    [CREDENTIAL, WS, USER],
   )
+  // SET-02 (ADR-0050): a project is private to its explicit access rows, and
+  // every Sheet and block write is checked through internal.can_edit_project.
+  await admin.query(
+    `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES ($1,$2,'VSB','Virus Stability Browser',$3)
+     ON CONFLICT (id) DO UPDATE SET key=excluded.key,title=excluded.title,lead_user_id=excluded.lead_user_id`,
+    [PROJECT, WS, USER],
+  )
+  await grantFixtureProjectAccess({
+    client: admin,
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: USER,
+    canEdit: true,
+    canManage: true,
+  })
   await admin.query(
     `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id) VALUES ($1,$2,$3,'experiment','VSB-001','Virus Stability at 4C',$4)`,
     [RECORD, WS, PROJECT, USER],
-  )
-  await admin.query(
-    `INSERT INTO api.blocks(id,record_id,type,payload,"order",created_by_user_id) VALUES ($1,$3,'sheet','{}',1,$4),($2,$3,'sheet','{}',2,$4)`,
-    [SOURCE_BLOCK, SUMMARY_BLOCK, RECORD, USER],
-  )
-  await admin.query(
-    `INSERT INTO internal.api_credentials(id,workspace_id,display_prefix,secret_hash,name,scopes,created_by_user_id) VALUES ($1,$2,'phase4b01','unused','Browser external edit',ARRAY['projects:read','projects:write'],$3)`,
-    [CREDENTIAL, WS, USER],
   )
   await admin.query('SET ROLE authenticated')
   await admin.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
   ])
-  const writer = await openMigratorWriter(
-    process.env.DATABASE_URL ?? '',
-    USER,
-    WS,
+  sourceInstance = await openSheet(
+    SOURCE_SHEET,
+    { fieldId: SOURCE_FIELD, label: 'Input titer' },
+    SOURCE_ROW,
+    '5',
   )
-  source = await createScientificTableAsMigrator(
-    writer,
-    USER,
-    WS,
-    SOURCE_BLOCK,
-    'Raw stability data',
-    [
-      {
-        label: 'Input titer',
-        logical_type: 'decimal',
-        nullable: false,
-        default: 1,
-        unit: { code: 'PFU/mL', symbol: 'PFU/mL' },
-        validation: { min: 0 },
-      },
-      {
-        label: 'Projected titer',
-        logical_type: 'decimal',
-        nullable: true,
-        unit: { code: 'PFU/mL', symbol: 'PFU/mL' },
-      },
-    ],
+  const summaryInstance = await openSheet(
+    SUMMARY_SHEET,
+    { fieldId: SUMMARY_FIELD, label: 'Combined titer' },
+    SUMMARY_ROW,
+    '15',
   )
-  const summary = await createScientificTableAsMigrator(
-    writer,
-    USER,
-    WS,
-    SUMMARY_BLOCK,
-    'Stability summary',
-    [
-      {
-        label: 'Combined titer',
-        logical_type: 'decimal',
-        nullable: true,
-        unit: { code: 'PFU/mL', symbol: 'PFU/mL' },
-      },
-    ],
-  )
-  await writer.end()
-  sourceRow = (
-    await admin.query(
-      `INSERT INTO api.${source.table.resource_name} (${source.columns[0].field_name}) VALUES (5) RETURNING *`,
-    )
-  ).rows[0]
-  const summaryRow = (
-    await admin.query(
-      `INSERT INTO api.${summary.table.resource_name} DEFAULT VALUES RETURNING *`,
-    )
-  ).rows[0]
-  await admin.query(
-    `UPDATE api.blocks SET payload=jsonb_build_object('tableId',$2::text) WHERE id=$1`,
-    [SOURCE_BLOCK, source.table.id],
-  )
-  await admin.query(
-    `UPDATE api.blocks SET payload=jsonb_build_object('tableId',$2::text) WHERE id=$1`,
-    [SUMMARY_BLOCK, summary.table.id],
-  )
+  await embedSheet(sourceInstance)
+  await embedSheet(summaryInstance)
   await admin.query('RESET ROLE')
-  const maps = [
-    {
-      tableId: source.table.id,
-      name: source.table.name,
-      rowIds: [sourceRow.id],
-      columnIds: source.columns.map((column: any) => column.id),
-    },
-    {
-      tableId: summary.table.id,
-      name: summary.table.name,
-      rowIds: [summaryRow.id],
-      columnIds: summary.columns.map((column: any) => column.id),
-    },
-  ]
-  const within = buildPersistedFormulaArtifact(
-    parseFormula('=A1*2', { ...maps[0], tables: maps }),
-    source.table.id,
-  )
-  const withinWrite = await trustedFormula({
-    operation: 'create',
-    target: {
-      tableId: source.table.id,
-      rowId: sourceRow.id,
-      columnId: source.columns[1].id,
-    },
-    expectedSchemaVersion: source.table.schema_version,
-    expectedRowVersion: sourceRow.version,
-    artifact: within,
-  })
-  sourceRow.version = withinWrite.rowVersion
-  const cross = buildPersistedFormulaArtifact(
-    parseFormula("='Raw stability data'!A1+'Raw stability data'!B1", {
-      ...maps[1],
-      tables: maps,
-    }),
-    summary.table.id,
-  )
-  await trustedFormula({
-    operation: 'create',
-    target: {
-      tableId: summary.table.id,
-      rowId: summaryRow.id,
-      columnId: summary.columns[0].id,
-    },
-    expectedSchemaVersion: summary.table.schema_version,
-    expectedRowVersion: summaryRow.version,
-    artifact: cross,
-  })
   externalToken = await mintApiClientToken(process.env.PGRST_JWT_SECRET!, {
     workspaceId: WS,
     credentialId: CREDENTIAL,
@@ -231,44 +196,57 @@ test.beforeAll(async () => {
 })
 
 test.afterAll(async () => {
-  await clean()
   await admin.end()
 })
 
-test('scientific-table REST is fail-closed for external credentials', async ({
+test('Sheet blocks render, and the DB proxy is fail-closed for an unscoped external credential', async ({
   page,
   request,
 }) => {
-  const signature = createHmac('sha256', process.env.BETTER_AUTH_SECRET!)
-    .update(SESSION, 'utf8')
-    .digest('base64')
-  await page.context().addCookies([
-    {
-      name: 'better-auth.session_token',
-      value: `${SESSION}.${signature}`,
-      url: 'http://127.0.0.1:3100',
-      httpOnly: true,
-      sameSite: 'Lax',
-    },
-  ])
+  await signInAsDesignUser(page, USER)
   await page.goto(`/records/${RECORD}`)
   await expect(
     page.getByText('Virus Stability at 4C', { exact: true }).first(),
   ).toBeVisible()
-  await expect(page.getByLabel('Data interchange')).toHaveCount(2)
-  await expect(page.getByText('10', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('15', { exact: true }).first()).toBeVisible()
+  // Both canonical Sheet blocks render their own live grid and their own data.
+  await expect(page.getByLabel('Sheet', { exact: true })).toHaveCount(2)
+  await expect(
+    page.getByRole('gridcell', { name: '5', exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('gridcell', { name: '15', exact: true }),
+  ).toBeVisible()
 
-  const response = await request.patch(
-    `/api/db/${source.table.resource_name}?id=eq.${sourceRow.id}&version=eq.${sourceRow.version}`,
+  // EXTERNAL_TABLE_ACCESS gives sheet_instances a read scope only, so the
+  // credential table path can never write a Sheet.
+  const instanceWrite = await request.patch(
+    `/api/db/sheet_instances?id=eq.${sourceInstance}`,
     {
       headers: {
         authorization: `Bearer ${externalToken}`,
         'content-type': 'application/json',
         prefer: 'return=representation',
       },
-      data: { [source.columns[0].field_name]: 7 },
+      data: { name: 'hijacked' },
     },
   )
-  expect(response.status()).toBe(403)
+  expect(instanceWrite.status()).toBe(403)
+  expect(await instanceWrite.json()).toMatchObject({
+    error: { category: 'permission_denied' },
+  })
+
+  // The Sheet write RPC is scoped `sheets:write`, which this credential - it
+  // holds projects:read/projects:write - does not have. The refusal names that
+  // scope, so the refusals are scope enforcement and not an unreachable route.
+  const rpcWrite = await request.post('/api/db/rpc/create_sheet_instance', {
+    headers: {
+      authorization: `Bearer ${externalToken}`,
+      'content-type': 'application/json',
+    },
+    data: { p_workspace_id: WS, p_name: 'Not allowed' },
+  })
+  expect(rpcWrite.status()).toBe(403)
+  const refusal = await rpcWrite.json()
+  expect(refusal).toMatchObject({ error: { category: 'permission_denied' } })
+  expect(refusal.error.message).toContain('sheets:write')
 })

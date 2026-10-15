@@ -1,11 +1,13 @@
 /**
  * SCI-04 browser: open Analysis Studio over a canonical Dataset in the
- * auth-free fixture workspace (cookies are ignored when
- * SHEETBASE_DEV_AUTH_FREE is enabled).
+ * fixture workspace, signed in as the Fixture Owner who owns that
+ * workspace and the dataset.
  */
 import { config } from 'dotenv'
 import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
+
+import { signInAsDesignUser } from '../visual/sign-in'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -119,7 +121,8 @@ test.afterAll(async () => {
 
 test.describe('SCI-04 visualisation builder', () => {
   test('opens the chart builder and chart-type controls', async ({ page }) => {
-    await page.goto(`/analysis?dataset=${datasetId}`)
+    await signInAsDesignUser(page, FIXTURE_USER_ID)
+    await page.goto(`/analysis/new?mode=chart&dataset=${datasetId}`)
     await expect(page.getByRole('tab', { name: 'Chart builder' })).toBeVisible({
       timeout: 15_000,
     })

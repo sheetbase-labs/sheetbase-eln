@@ -267,6 +267,17 @@ export function migratorUrlForDatabase(databaseUrl: string): string {
   return mig.toString()
 }
 
+/**
+ * A scientific table built as the migrator, which is what the fixture path
+ * takes since H4 removed the product surface: drizzle/0109_remove_legacy_compatibility.sql
+ * revoked `api.create_scientific_table` from PUBLIC, authenticated, api_client
+ * *and* migrator (the ACL is empty, so the wrapper is unusable by anyone), and
+ * made `internal.require_migrator_legacy_sheet_write()` raise unconditionally.
+ * The implementation behind it stays granted to migrator for internal fixtures,
+ * which is the same call `tests/api/formula-column-order.test.ts` makes; the
+ * application never needs the wrapper, so this is a fixture concern and not a
+ * missing GRANT.
+ */
 export async function createScientificTableAsMigrator(
   client: Client,
   userId: string,
@@ -281,7 +292,7 @@ export async function createScientificTableAsMigrator(
 }> {
   await setActorJwt(client, userId, workspaceId)
   const { rows } = await client.query(
-    `SELECT api.create_scientific_table($1,$2,$3::jsonb) result`,
+    `SELECT internal.create_scientific_table_impl($1,$2,$3::jsonb) result`,
     [blockId, name, JSON.stringify(columns)],
   )
   return rows[0].result

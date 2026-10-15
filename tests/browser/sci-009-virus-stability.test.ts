@@ -6,17 +6,15 @@
  * retrieval all work with real authenticated page loads.
  */
 import { config } from 'dotenv'
-import { createHmac } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
+import type { Page } from 'playwright/test'
 
-import { composeSections } from '#/lib/overview'
-import { toBlock } from '#/lib/notebook-data'
-import {
-  createScientificTableAsMigrator,
-  openMigratorWriter,
-} from '../db/helpers'
+import { parseSheetInstanceState } from '#/lib/sheet-instance'
+import { createAdHocTextField } from '#/lib/sheet-local-data'
+import { grantFixtureProjectAccess } from '../api/project-fixtures'
+import { signInAsDesignUser } from '../visual/sign-in'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -28,41 +26,217 @@ const REAGENT = '65000000-0000-4000-8000-000000000914'
 const PROTOCOL = '65000000-0000-4000-8000-000000000915'
 const FILE_REC = '65000000-0000-4000-8000-000000000916'
 const FILE_OBJ = '65000000-0000-4000-8000-000000000917'
-const SHEET_BLOCK = '65000000-0000-4000-8000-000000000918'
-const SESSION = 'sci-009-browser-session'
 const USER = 'sci-009-browser-owner'
+
+// CORE-03 Sheet Instance embedded in the notebook. Scientific tables and the
+// `api.create_scientific_table` RPC they were built with are removed from the
+// product, so the notebook's readings sheet is a canonical instance.
+const SHEET_TIME_FIELD = '65000000-0000-4000-8000-0000000009e1'
+const SHEET_TITER_FIELD = '65000000-0000-4000-8000-0000000009e2'
+const SHEET_CONDITION_FIELD = '65000000-0000-4000-8000-0000000009e3'
+const SHEET_ROWS = [
+  '65000000-0000-4000-8000-0000000009d5',
+  '65000000-0000-4000-8000-0000000009d6',
+  '65000000-0000-4000-8000-0000000009d7',
+  '65000000-0000-4000-8000-0000000009d8',
+] as const
+const SHEET_READINGS = [
+  ['0', '7.2'],
+  ['7', '7.0'],
+  ['14', '6.6'],
+  ['28', '5.9'],
+] as const
 
 const ARTIFACTS = '.amp/in/artifacts'
 
 let admin: Client
-let sheetTable: any
-let sheetCols: any
+
+/** The notebook Sheet's own state: four qPCR stability readings. */
+function sheetState() {
+  return parseSheetInstanceState({
+    bindings: [],
+    localFields: [
+      { ...createAdHocTextField('Time (days)'), fieldId: SHEET_TIME_FIELD },
+      { ...createAdHocTextField('Log titer'), fieldId: SHEET_TITER_FIELD },
+      { ...createAdHocTextField('Condition'), fieldId: SHEET_CONDITION_FIELD },
+    ],
+    localValues: Object.fromEntries(
+      SHEET_ROWS.map((row, index) => [
+        row,
+        {
+          [SHEET_TIME_FIELD]: SHEET_READINGS[index][0],
+          [SHEET_TITER_FIELD]: SHEET_READINGS[index][1],
+          [SHEET_CONDITION_FIELD]: '4 °C',
+        },
+      ]),
+    ),
+    calculationOverrides: {},
+    presentation: {
+      columnOrder: [
+        SHEET_TIME_FIELD,
+        SHEET_TITER_FIELD,
+        SHEET_CONDITION_FIELD,
+      ],
+      hiddenColumnIds: [],
+      columnWidths: {},
+      frozenColumnCount: 0,
+      density: 'standard',
+      filters: [],
+      sorts: [],
+    },
+    provenance: { createdFrom: 'ad_hoc' },
+  })
+}
+
+/**
+ * CORE-02 Dataset behind the notebook chart. A chart spec binds canonical
+ * Datasets by stable id and fields by fieldId, so the fixture creates a schema
+ * version with the three readings columns and returns their ids.
+ */
+async function createChartDataset(): Promise<{
+  datasetId: string
+  fields: Record<'day' | 'log_titer' | 'condition', string>
+}> {
+  const schema = await admin.query<{ id: string }>(
+    `INSERT INTO api.dataset_schema_definitions(workspace_id,key,name,lifecycle)
+     VALUES ($1,'sci009_browser_virus_stability','Virus stability readings','active')
+     RETURNING id`,
+    [WS],
+  )
+  const version = await admin.query<{ id: string }>(
+    `INSERT INTO api.dataset_schema_versions(schema_id,"version",lifecycle)
+     VALUES ($1,1,'draft') RETURNING id`,
+    [schema.rows[0]!.id],
+  )
+  const svId = version.rows[0]!.id
+  await admin.query(
+    `INSERT INTO api.dataset_schema_version_fields
+       (schema_version_id,field_id,key,label,logical_type,display_order)
+     VALUES
+       ($1,gen_random_uuid(),'day','Time (days)','decimal',1),
+       ($1,gen_random_uuid(),'log_titer','Log titer','decimal',2),
+       ($1,gen_random_uuid(),'condition','Condition','text',3)`,
+    [svId],
+  )
+  await admin.query(
+    `UPDATE api.dataset_schema_versions SET lifecycle='active' WHERE id=$1`,
+    [svId],
+  )
+  const dataset = await admin.query<{ id: string }>(
+    `INSERT INTO api.datasets(workspace_id,schema_version_id,name,created_by_user_id)
+     VALUES ($1,$2,'Virus stability qPCR readings',$3) RETURNING id`,
+    [WS, svId, USER],
+  )
+  const datasetId = dataset.rows[0]!.id
+  const fieldRows = await admin.query<{ field_id: string; key: string }>(
+    `SELECT field_id, key FROM api.dataset_schema_version_fields
+      WHERE schema_version_id=$1`,
+    [svId],
+  )
+  const fields = Object.fromEntries(
+    fieldRows.rows.map((row) => [row.key, row.field_id]),
+  ) as Record<'day' | 'log_titer' | 'condition', string>
+  for (const [day, logTiter] of SHEET_READINGS) {
+    const row = await admin.query<{ id: string }>(
+      `INSERT INTO api.dataset_rows(dataset_id,workspace_id) VALUES ($1,$2) RETURNING id`,
+      [datasetId, WS],
+    )
+    await admin.query(
+      `INSERT INTO api.dataset_row_values(row_id,field_id,numeric_value)
+       VALUES ($1,$2,$3),($1,$4,$5)`,
+      [row.rows[0]!.id, fields.day, day, fields.log_titer, logTiter],
+    )
+    await admin.query(
+      `INSERT INTO api.dataset_row_values(row_id,field_id,text_value)
+       VALUES ($1,$2,$3)`,
+      [row.rows[0]!.id, fields.condition, '4 °C'],
+    )
+  }
+  return { datasetId, fields }
+}
 
 async function clean() {
   await admin.query('RESET ROLE')
-  const resources = await admin.query<{ resource_name: string }>(
-    `SELECT resource_name FROM api.scientific_tables WHERE workspace_id=$1`,
-    [WS],
-  )
-  for (const { resource_name: resource } of resources.rows) {
-    if (/^sheet_[a-z2-7]{26}$/.test(resource)) {
-      await admin.query(`DROP TABLE IF EXISTS api.${resource}`)
-    }
-  }
-  await admin.query(`DELETE FROM api.scientific_tables WHERE workspace_id=$1`, [
-    WS,
-  ])
   await admin.query(
     `DELETE FROM api.record_links WHERE source_record_id IN (SELECT id FROM api.records WHERE workspace_id=$1) OR target_record_id IN (SELECT id FROM api.records WHERE workspace_id=$1)`,
     [WS],
   )
+  // Raw file objects are retention-protected by a trigger that refuses every
+  // delete, so the fixture removes its own disposable rows with triggers off,
+  // as the import fixture does. Without this a second run cannot clean up.
+  await admin.query('SET session_replication_role = replica')
   await admin.query(`DELETE FROM api.file_objects WHERE workspace_id=$1`, [WS])
+  await admin.query('RESET session_replication_role')
   await admin.query(
     `DELETE FROM api.blocks WHERE record_id IN (SELECT id FROM api.records WHERE workspace_id=$1)`,
     [WS],
   )
+  // Revision evidence is frozen for every role except the migration owner,
+  // which is the sanctioned fixture-cleanup path.
+  await admin.query('SET ROLE migrator')
   await admin.query(
     `DELETE FROM api.revisions WHERE record_id IN (SELECT id FROM api.records WHERE workspace_id=$1)`,
+    [WS],
+  )
+  await admin.query('RESET ROLE')
+  // Sheet Instances and Dataset versions are immutable canonical resources;
+  // they are removed only in fixture teardown, with the same guards the API
+  // fixture disables, inside one transaction so an error cannot leave a guard
+  // disabled.
+  await admin.query('BEGIN')
+  try {
+    const guarded = [
+      'sheet_instances',
+      'dataset_version_flags',
+      'dataset_version_values',
+      'dataset_version_rows',
+      'dataset_versions',
+      'dataset_schema_version_fields',
+      'dataset_schema_versions',
+    ]
+    for (const table of guarded)
+      await admin.query(`ALTER TABLE api.${table} DISABLE TRIGGER USER`)
+    await admin.query(`DELETE FROM api.sheet_instances WHERE workspace_id=$1`, [
+      WS,
+    ])
+    await admin.query(
+      `DELETE FROM api.dataset_version_flags WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id=$1)`,
+      [WS],
+    )
+    await admin.query(
+      `DELETE FROM api.dataset_version_values WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id=$1)`,
+      [WS],
+    )
+    await admin.query(
+      `DELETE FROM api.dataset_version_rows WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id=$1)`,
+      [WS],
+    )
+    await admin.query(`DELETE FROM api.dataset_versions WHERE workspace_id=$1`, [
+      WS,
+    ])
+    // Datasets reference their schema version (RESTRICT), so they go first.
+    await admin.query(`DELETE FROM api.datasets WHERE workspace_id=$1`, [WS])
+    await admin.query(
+      `DELETE FROM api.dataset_schema_version_fields WHERE schema_version_id IN
+         (SELECT sv.id FROM api.dataset_schema_versions sv
+            JOIN api.dataset_schema_definitions d ON d.id = sv.schema_id
+           WHERE d.workspace_id = $1)`,
+      [WS],
+    )
+    await admin.query(
+      `DELETE FROM api.dataset_schema_versions WHERE schema_id IN
+         (SELECT id FROM api.dataset_schema_definitions WHERE workspace_id = $1)`,
+      [WS],
+    )
+    for (const table of guarded)
+      await admin.query(`ALTER TABLE api.${table} ENABLE TRIGGER USER`)
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
+  await admin.query(
+    `DELETE FROM api.dataset_schema_definitions WHERE workspace_id=$1`,
     [WS],
   )
   await admin.query(`DELETE FROM api.records WHERE workspace_id=$1`, [WS])
@@ -75,7 +249,23 @@ async function clean() {
     `DELETE FROM api.workspace_memberships WHERE workspace_id=$1`,
     [WS],
   )
-  await admin.query(`DELETE FROM api.workspaces WHERE id=$1`, [WS])
+  // The audit chain is append-only and a workspace delete cascades its
+  // entries, so the guard is disabled for that delete alone and re-enabled
+  // inside the same transaction, the way the audit fixtures do.
+  await admin.query('BEGIN')
+  try {
+    await admin.query(
+      'ALTER TABLE api.change_events DISABLE TRIGGER refuse_change_event_mutation',
+    )
+    await admin.query(`DELETE FROM api.workspaces WHERE id=$1`, [WS])
+    await admin.query(
+      'ALTER TABLE api.change_events ENABLE TRIGGER refuse_change_event_mutation',
+    )
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
   await admin.query(`DELETE FROM internal.session WHERE "userId"=$1`, [USER])
   await admin.query(`DELETE FROM internal."user" WHERE id=$1`, [USER])
   await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
@@ -105,10 +295,6 @@ test.beforeAll(async () => {
     [USER],
   )
   await admin.query(
-    `INSERT INTO internal.session(id,token,"userId","expiresAt") VALUES ('sci-009-browser-session',$1,$2,now()+interval '1 hour')`,
-    [SESSION, USER],
-  )
-  await admin.query(
     `INSERT INTO api.workspaces(id,slug,name) VALUES ($1,'sci-009-browser','SCI 009 Browser')`,
     [WS],
   )
@@ -120,6 +306,18 @@ test.beforeAll(async () => {
     `INSERT INTO api.projects(id,workspace_id,key,title) VALUES ($1,$2,'vsb','Lentivector Stability Study')`,
     [PROJECT, WS],
   )
+  // Project rules are explicit grants, never inferred from the workspace role
+  // (see tests/api/project-fixtures.ts); the notebook writes are refused
+  // without one.
+  await grantFixtureProjectAccess({
+    client: admin,
+    workspaceId: WS,
+    projectId: PROJECT,
+    userId: USER,
+    canEdit: true,
+    canReview: true,
+    canManage: true,
+  })
 
   // Linked registry records
   await admin.query(
@@ -179,84 +377,49 @@ test.beforeAll(async () => {
     [RECORD, WS, PROJECT, USER],
   )
 
-  // Scientific sheet table via RPC (SET ROLE authenticated + jwt claims)
+  // The notebook's readings sheet: a canonical CORE-03 Sheet Instance created
+  // through the ordinary RPC (SET ROLE authenticated + jwt claims), the same
+  // path the app uses. Its block is embedded after the other blocks so it takes
+  // the next free order.
   await admin.query('SET ROLE authenticated')
   await admin.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
     JSON.stringify({ role: 'authenticated', sub: USER, workspace_id: WS }),
   ])
-  await insertBlock(SHEET_BLOCK, 'sheet', {}, 10)
-  const writer = await openMigratorWriter(
-    process.env.DATABASE_URL ?? '',
-    USER,
-    WS,
-  )
-  const built = await createScientificTableAsMigrator(
-    writer,
-    USER,
-    WS,
-    SHEET_BLOCK,
-    'Stability readings (qPCR)',
-    [
-      {
-        label: 'Time (days)',
-        logical_type: 'decimal',
-        unit: { code: 'd', symbol: 'd' },
-      },
-      {
-        label: 'Log titer',
-        logical_type: 'decimal',
-        unit: { code: 'log10', symbol: 'log₁₀' },
-      },
-      { label: 'Condition', logical_type: 'text' },
-    ],
-  )
-  await writer.end()
-  sheetTable = built.table
-  const byLabel = Object.fromEntries(
-    built.columns.map((c: any) => [c.label, c]),
-  )
-  sheetCols = {
-    x: byLabel['Time (days)'],
-    y: byLabel['Log titer'],
-    series: byLabel['Condition'],
-  }
-
-  // Insert rows
-  for (const [t, logTiter, condition] of [
-    [0, 7.2, '4 °C'],
-    [7, 7.0, '4 °C'],
-    [14, 6.6, '4 °C'],
-    [28, 5.9, '4 °C'],
-  ] as const) {
-    await admin.query(
-      `INSERT INTO api.${sheetTable.resource_name} (${sheetCols.x.field_name},${sheetCols.y.field_name},${sheetCols.series.field_name}) VALUES ($1,$2,$3)`,
-      [t, logTiter, condition],
+  const sheetInstance = (
+    await admin.query<{ id: string }>(
+      `SELECT (api.create_sheet_instance($1,$2,$3,$4,$5,$6,$7::jsonb)).id`,
+      [
+        WS,
+        'Stability readings (qPCR)',
+        null,
+        null,
+        PROJECT,
+        null,
+        JSON.stringify(sheetState()),
+      ],
     )
-  }
-  // Link the sheet block payload to the table id
-  await admin.query(
-    `UPDATE api.blocks SET payload=jsonb_build_object('tableId',$2::text) WHERE id=$1`,
-    [SHEET_BLOCK, sheetTable.id],
-  )
+  ).rows[0]!.id
   await admin.query('RESET ROLE')
+
+  // The chart reads a canonical Dataset, not a scientific table.
+  const chart = await createChartDataset()
 
   // Insert all block types via direct SQL (fixture setup, not the tested path)
   const chartSpec = {
     specVersion: 1,
     type: 'line',
-    datasets: [{ tableId: sheetTable.id }],
+    datasets: [{ datasetId: chart.datasetId }],
     fields: {
-      x: { columnId: sheetCols.x.id, fieldName: sheetCols.x.field_name },
-      y: { columnId: sheetCols.y.id, fieldName: sheetCols.y.field_name },
-      series: {
-        columnId: sheetCols.series.id,
-        fieldName: sheetCols.series.field_name,
-      },
+      x: { fieldId: chart.fields.day },
+      y: { fieldId: chart.fields.log_titer },
+      series: { fieldId: chart.fields.condition },
       color: null,
       size: null,
+      facet: null,
     },
     filters: [],
     transformations: [],
+    typeParams: {},
     display: {
       axes: {
         x: { label: 'Time (days)', scale: 'linear', unit: 'd' },
@@ -364,7 +527,7 @@ test.beforeAll(async () => {
   )
   // procedure_step blocks on the experiment are created by pin_protocol_reference
   // (the ordinary RPC), which snapshots the protocol revision and copies steps.
-  // SHEET_BLOCK already inserted at order 10 above
+  // The readings Sheet block was already inserted above at order 10.
   await insertBlock(
     '65000000-0000-4000-8000-000000000929',
     'chart',
@@ -456,6 +619,13 @@ test.beforeAll(async () => {
     verCheck.rows[0].bv,
     verCheck.rows[0].sv,
   ])
+  // Embed the readings Sheet; the block takes the next free order.
+  await admin.query(`SELECT api.insert_sheet_instance_block($1,$2,$3,$4)`, [
+    RECORD,
+    null,
+    null,
+    sheetInstance,
+  ])
   await admin.query('RESET ROLE')
 
   // record_links
@@ -479,19 +649,8 @@ test.afterAll(async () => {
   await admin.end()
 })
 
-async function injectAuth(page: import('playwright/test').Page) {
-  const signature = createHmac('sha256', process.env.BETTER_AUTH_SECRET!)
-    .update(SESSION, 'utf8')
-    .digest('base64')
-  await page.context().addCookies([
-    {
-      name: 'better-auth.session_token',
-      value: `${SESSION}.${signature}`,
-      url: 'http://127.0.0.1:3100',
-      httpOnly: true,
-      sameSite: 'Lax',
-    },
-  ])
+async function injectAuth(page: Page) {
+  await signInAsDesignUser(page, USER)
 }
 
 test.describe('SCI-009 Virus Stability browser acceptance', () => {
@@ -564,7 +723,7 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
 
   test('overview composes from the notebook blocks', async ({ page }) => {
     await injectAuth(page)
-    await page.goto(`/records/${RECORD}/overview`)
+    await page.goto(`/experiments/${RECORD}/overview`)
     await expect(
       page.getByText('Virus Stability at 4°C', { exact: true }).first(),
     ).toBeVisible({ timeout: 15_000 })

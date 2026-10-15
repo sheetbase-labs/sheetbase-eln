@@ -23,10 +23,15 @@ import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
 import type { Page } from 'playwright/test'
 
+import { signInAsDesignUser } from '../visual/sign-in'
+
 config({ path: ['.env.local', '.env'] })
 
 const WORKSPACE = '00000000-0000-4000-8000-000000000300'
 const DATASET = '00000000-0000-4000-8000-00000000038a' // DS-0320
+// Gareth owns the design workspace (…0300) that owns DS-0320.
+const DESIGN_USER = '00000000-0000-4000-8000-000000000310'
+const SESSION_COOKIE = '__Secure-better-auth.session_token'
 
 test.use({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 })
 
@@ -48,6 +53,14 @@ const FAILURE_CSV = `alpha,beta
 `
 
 let admin: Client
+
+/**
+ * The session the spec signs in with, as a literal `Cookie` header. Playwright's
+ * API request context (page.request / context.request) does not send the
+ * `__Secure-` session cookie over http, so the in-test API calls carry the same
+ * session explicitly instead of 401ing.
+ */
+let sessionCookie = ''
 
 /** Remove every artifact a run leaves on DS-0320 and its parser mapping. */
 async function clean() {
@@ -134,6 +147,14 @@ async function uploadFixture(page: Page, name: string, content: string) {
 }
 
 test.describe('DSET-05 import flow', () => {
+  test.beforeEach(async ({ page }) => {
+    await signInAsDesignUser(page, DESIGN_USER)
+    const session = (await page.context().cookies()).find(
+      (cookie) => cookie.name === SESSION_COOKIE,
+    )
+    sessionCookie = session ? `${session.name}=${session.value}` : ''
+  })
+
   test('uploads, recognises, maps, reviews and commits into DS-0320', async ({
     page,
   }) => {
@@ -155,7 +176,7 @@ test.describe('DSET-05 import flow', () => {
     const mapping = page.getByRole('table', { name: 'Column mapping' })
     await expect(mapping).toBeVisible()
     await expect(
-      page.getByText(/saved as the default for Plate reader CSV/),
+      page.getByText(/continue to save this as Plate reader CSV’s default/),
     ).toBeVisible()
     // 05.3 — units and examples show on the mapping step.
     await expect(mapping.getByText('×10¹⁰ vg/mL')).toBeVisible()
@@ -319,6 +340,7 @@ test.describe('DSET-05 import flow', () => {
     )
     const work = await page.request.get(
       `/api/db/my_work_items?source_id=eq.${failedFile}`,
+      { headers: { cookie: sessionCookie } },
     )
     expect(await work.json()).toMatchObject([
       { source_id: failedFile, source_type: 'dataset_import_file' },
@@ -365,7 +387,7 @@ test.describe('DSET-05 import flow', () => {
       ).toBeVisible()
       await page.getByRole('button', { name: 'Import 5 rows' }).click()
       await expect(
-        page.getByText(/Regulated datasets require an approved parser version/),
+        page.getByText(/regulated Dataset requires an approved parser version/),
       ).toBeVisible()
       expect(
         (
@@ -407,6 +429,7 @@ test.describe('DSET-05 import flow', () => {
         settings.getByRole('button', { name: 'Approve version', exact: true }),
       ).toBeDisabled()
       const forged = await settings.request.post('/api/parsers/validate', {
+        headers: { cookie: sessionCookie },
         data: {
           parserVersionId: original.id,
           fileId: raw.id,
@@ -416,11 +439,15 @@ test.describe('DSET-05 import flow', () => {
       expect(forged.status()).toBe(400)
       const deniedApproval = await settings.request.post(
         '/api/db/rpc/approve_parser_version',
-        { data: { p_parser_version_id: original.id } },
+        {
+          headers: { cookie: sessionCookie },
+          data: { p_parser_version_id: original.id },
+        },
       )
       expect(deniedApproval.ok()).toBe(false)
       const failures = await settings.request.get(
         `/api/db/my_work_items?source_id=eq.${raw.id}`,
+        { headers: { cookie: sessionCookie } },
       )
       expect(await failures.json()).toMatchObject([
         {

@@ -50,6 +50,23 @@ function state() {
   })
 }
 
+/**
+ * The PostgREST authenticator's own connection string, pointed at the database
+ * DATABASE_URL already names. `.env.local` gives PGRST_DB_URI the Compose-only
+ * host `postgres` (docs/development/testing.md), which the machine running the
+ * tests cannot resolve; the seeds combine the two the same way.
+ */
+function actorConnectionString(): string {
+  const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
+  if (!pgrst.username) {
+    throw new Error('PGRST_DB_URI is required for the comment actor')
+  }
+  const local = new URL(process.env.DATABASE_URL ?? '')
+  local.username = pgrst.username
+  local.password = pgrst.password
+  return local.toString()
+}
+
 test.beforeAll(async () => {
   const url = process.env.MIGRATION_DATABASE_URL
   if (!url || !['localhost', '127.0.0.1'].includes(new URL(url).hostname))
@@ -60,7 +77,7 @@ test.beforeAll(async () => {
     `insert into internal.session(id,token,"userId","expiresAt") values($1,$1,$2,now()+interval '12 hours') on conflict(id) do update set "expiresAt"=excluded."expiresAt"`,
     [`parity-${user}`, user],
   )
-  actor = new Client({ connectionString: process.env.PGRST_DB_URI })
+  actor = new Client({ connectionString: actorConnectionString() })
   await actor.connect()
   await actor.query('set role authenticated')
   await actor.query("select set_config('request.jwt.claims',$1,false)", [

@@ -1299,7 +1299,7 @@ function RecordNotebookTabs({
   return (
     <nav
       aria-label="Notebook sections"
-      className="mt-2 flex gap-5 border-b border-border"
+      className="mt-1.5 flex gap-5 border-b border-border"
       data-print-hide
     >
       {NOTEBOOK_TABS.map((t) => (

@@ -1031,7 +1031,7 @@ function NotebookDocumentContent({
   }
 
   return (
-    <div className={cn('pt-3', className)}>
+    <div className={cn('pt-2', className)}>
       {/* COLLAB-01: broadcast which block I am editing. Awareness only —
           this never gates or locks editing for anyone. PresenceSync is
           null until the enclosing CollaborationRoom has mounted. */}
@@ -1118,10 +1118,9 @@ function NotebookDocumentContent({
               id={`block-${block.id}`}
               className={cn(
                 'scroll-mt-28 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                // The container no longer spaces rows: spacing is per row, so a
-                // run continuation can sit flush against the row above it and
-                // the seam inside a run costs nothing at all.
-                index > 0 && !(proseRun && !proseRun.isFirst) && 'mt-2',
+                // Blocks are spaced by the insert seam between them, which the
+                // run itself collapses to nothing — so there is one rule for
+                // spacing and one exception, and the exception is the seam.
                 // The document reads the full width of the working surface.
                 // The designed screens (ui-system-v3/canvas/NbEditing.dc.html
                 // and the rest of the Nb* set) put prose in a 680px centred

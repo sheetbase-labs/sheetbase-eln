@@ -309,7 +309,7 @@ function Members() {
               <TableHead>E-signature</TableHead>
               <TableHead>Status</TableHead>
               <TableHead align="right">Last active</TableHead>
-              <TableHead align="right">{''}</TableHead>
+              <TableHead align="right" aria-label="Actions" />
             </TableRow>
           </TableHeader>
           <TableBody loading={members.isLoading} colSpan={8}>
@@ -496,7 +496,7 @@ function Members() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Expires</TableHead>
-                    <TableHead align="right">{''}</TableHead>
+                    <TableHead align="right" aria-label="Actions" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>

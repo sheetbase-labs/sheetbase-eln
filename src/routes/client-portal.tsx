@@ -192,7 +192,7 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
                     <TableHead>Title</TableHead>
                     <TableHead>Approved</TableHead>
                     <TableHead>Shared</TableHead>
-                    <TableHead align="right" />
+                    <TableHead align="right" aria-label="Actions" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -258,7 +258,7 @@ function PortalReports() {
                   <TableHead className="first:pl-2.5">Report</TableHead>
                   <TableHead>Covers</TableHead>
                   <TableHead>Shared</TableHead>
-                  <TableHead align="right" />
+                  <TableHead align="right" aria-label="Actions" />
                 </TableRow>
               </TableHeader>
               <TableBody>

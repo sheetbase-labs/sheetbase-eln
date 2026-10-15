@@ -277,7 +277,7 @@ function ProtocolPage() {
                         <TableHead>Reason</TableHead>
                         <TableHead>Author</TableHead>
                         <TableHead>Created</TableHead>
-                        <TableHead />
+                        <TableHead aria-label="Actions" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>

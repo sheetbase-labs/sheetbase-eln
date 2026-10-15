@@ -854,7 +854,7 @@ export function AgentPoliciesPanel({
                   <TableHead>Target</TableHead>
                   <TableHead>Limit</TableHead>
                   <TableHead>Enabled</TableHead>
-                  <TableHead />
+                  <TableHead aria-label="Actions" />
                 </TableRow>
               </TableHeader>
               <TableBody>

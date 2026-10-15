@@ -185,7 +185,7 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
                   <TableHead>Min</TableHead>
                   <TableHead>Max</TableHead>
                   <TableHead>Label</TableHead>
-                  <TableHead />
+                  <TableHead aria-label="Actions" />
                 </TableRow>
               </TableHeader>
               <TableBody>

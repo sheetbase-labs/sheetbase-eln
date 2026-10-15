@@ -212,7 +212,7 @@ function DatasetModelVersions() {
               <TableHead>Changes since previous</TableHead>
               <TableHead align="right">Records</TableHead>
               <TableHead>Record impact</TableHead>
-              <TableHead align="right">{''}</TableHead>
+              <TableHead align="right" aria-label="Actions" />
             </TableRow>
           </TableHeader>
           <TableBody>

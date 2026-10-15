@@ -621,7 +621,7 @@ function ModelEditor() {
                         <TableHead>Type</TableHead>
                         <TableHead>Required</TableHead>
                         <TableHead>Change</TableHead>
-                        <TableHead className="pr-3" align="right" />
+                        <TableHead className="pr-3" align="right" aria-label="Actions" />
                       </TableRow>
                     </TableHeader>
                     <TableBody>

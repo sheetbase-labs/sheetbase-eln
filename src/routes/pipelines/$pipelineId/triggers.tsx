@@ -207,7 +207,7 @@ function PipelineTriggers() {
                   <TableHead>Spec</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Next run</TableHead>
-                  <TableHead align="right">{''}</TableHead>
+                  <TableHead align="right" aria-label="Actions" />
                 </TableRow>
               </TableHeader>
               <TableBody>

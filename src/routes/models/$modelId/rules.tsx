@@ -206,7 +206,7 @@ function RecordModelRules({
                   <TableHead>When</TableHead>
                   <TableHead>Effect</TableHead>
                   <TableHead>Message</TableHead>
-                  <TableHead />
+                  <TableHead aria-label="Actions" />
                 </TableRow>
               </TableHeader>
               <TableBody>

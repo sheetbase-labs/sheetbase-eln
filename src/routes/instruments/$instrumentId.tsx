@@ -442,7 +442,7 @@ function InstrumentPage() {
                       <TableHead>Person</TableHead>
                       <TableHead>Valid until</TableHead>
                       <TableHead>State</TableHead>
-                      {canQualify ? <TableHead /> : null}
+                      {canQualify ? <TableHead aria-label="Actions" /> : null}
                     </TableRow>
                   </TableHeader>
                   <TableBody>

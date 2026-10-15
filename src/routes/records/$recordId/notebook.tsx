@@ -1024,32 +1024,38 @@ export function StickyRecordHeader({
 
   return (
     <div className="flex flex-col pb-3 pt-4">
-      <div className="order-2 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-        <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {recordKindLabel(record.kind)}
-        </span>
-        <StatusBadge domain="experiment" status={record.status} />
-        <span
-          className={
-            lifecycle === 'Submitted'
-              ? 'inline-flex items-center gap-1 rounded-full border border-success bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text'
-              : lifecycle === 'In review'
-                ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
-                : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
-          }
-        >
-          {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
-            <Icon name="lock" className="size-3" aria-hidden />
-          ) : null}
-          {lifecycle}
-        </span>
-        <span className="font-mono tabular-nums text-muted-foreground">
-          {record.identifier}
-        </span>
-        <div
-          className="ml-auto flex flex-wrap items-center gap-2"
-          data-print-hide
-        >
+      {/* The title and the record's own actions share a line. Giving the
+          actions a line of their own left a band of empty space above the
+          properties and pushed the title down the page. */}
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1">
+          {canEditTitle ? (
+            <>
+              {/* The title is editable, so the document heading is kept for
+              assistive tech and the page-level h1 contract. */}
+              <h1 className="sr-only">{record.title}</h1>
+              <Input
+                className="h-auto border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
+                value={titleDraft}
+                aria-label="Notebook title"
+                onChange={(event) => setTitleDraft(event.target.value)}
+                onBlur={() => {
+                  const next = titleDraft.trim()
+                  if (!next || next === record.title) {
+                    setTitleDraft(record.title)
+                    return
+                  }
+                  saveTitle.mutate(next)
+                }}
+              />
+            </>
+          ) : (
+            <h1 className="font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
+              {record.title}
+            </h1>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 pt-1" data-print-hide>
           {/* COLLAB-01: who else is in this record's room. Self-gates on
               room readiness, so SSR and pre-hydration output are stable. */}
           <PresenceStack />
@@ -1130,34 +1136,30 @@ export function StickyRecordHeader({
           ) : null}
         </div>
       </div>
-
-      {canEditTitle ? (
-        <>
-          {/* The title is editable, so the document heading is kept for
-              assistive tech and the page-level h1 contract. */}
-          <h1 className="sr-only">{record.title}</h1>
-          <Input
-            className="order-1 h-auto border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
-            value={titleDraft}
-            aria-label="Notebook title"
-            onChange={(event) => setTitleDraft(event.target.value)}
-            onBlur={() => {
-              const next = titleDraft.trim()
-              if (!next || next === record.title) {
-                setTitleDraft(record.title)
-                return
-              }
-              saveTitle.mutate(next)
-            }}
-          />
-        </>
-      ) : (
-        <h1 className="order-1 font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
-          {record.title}
-        </h1>
-      )}
-
-      <div className="order-3 mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+      {/* One quiet properties line: what this record is, and when it moved. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {recordKindLabel(record.kind)}
+        </span>
+        <StatusBadge domain="experiment" status={record.status} />
+        <span
+          className={
+            lifecycle === 'Submitted'
+              ? 'inline-flex items-center gap-1 rounded-full border border-success bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text'
+              : lifecycle === 'In review'
+                ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
+                : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
+          }
+        >
+          {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
+            <Icon name="lock" className="size-3" aria-hidden />
+          ) : null}
+          {lifecycle}
+        </span>
+        <span className="font-mono tabular-nums text-muted-foreground">
+          {record.identifier}
+        </span>
+        <span className="text-muted-foreground/50">·</span>
         <span>
           Created{' '}
           <span className="text-foreground">

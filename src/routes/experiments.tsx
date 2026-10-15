@@ -404,7 +404,16 @@ function Experiments() {
                 </TableRow>
               ) : null,
               ...list.map((e) => (
-                <TableRow key={e.uuid}>
+                <TableRow
+                  key={e.uuid}
+                  className="cursor-pointer"
+                  onClick={() =>
+                    void navigate({
+                      to: '/experiments/$expId',
+                      params: { expId: e.uuid },
+                    })
+                  }
+                >
                   <TableCell className="mono max-xl:hidden">{e.id}</TableCell>
                   <TableCell
                     className={`${stickyCol} max-xl:h-auto max-xl:py-1`}
@@ -426,6 +435,7 @@ function Experiments() {
                         to="/projects/$projectId"
                         params={{ projectId: e.projectId }}
                         className="text-fg hover:text-link"
+                        onClick={(event) => event.stopPropagation()}
                       >
                         {e.project}
                       </Link>
@@ -440,6 +450,7 @@ function Experiments() {
                         to="/protocols/$protocolId"
                         params={{ protocolId: e.protocolRecordId }}
                         className="text-fg hover:text-link"
+                        onClick={(event) => event.stopPropagation()}
                       >
                         {e.protocol}
                       </Link>

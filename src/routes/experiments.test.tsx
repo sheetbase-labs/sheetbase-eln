@@ -3,7 +3,14 @@
  * "No all experiments" (the tab label interpolated into the copy).
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -19,6 +26,7 @@ const dataClient = vi.hoisted(() => ({
   count: vi.fn(),
   rpc: vi.fn(),
 }))
+const navigateSpy = vi.hoisted(() => vi.fn())
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
@@ -31,7 +39,7 @@ vi.mock('@tanstack/react-router', () => ({
     }),
     options: config,
   }),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => navigateSpy,
   useRouterState: ({
     select,
   }: {
@@ -86,6 +94,40 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+})
+
+describe('experiments list rows', () => {
+  // The list's rows carried no click handler: only the title link went
+  // anywhere, so clicking a row did nothing (the Projects list had the same
+  // shape until it was fixed).
+  it('opens the experiment when its row is clicked', async () => {
+    dataClient.list.mockResolvedValue([
+      {
+        id: 'exp-uuid-1',
+        identifier: 'EXP-0001',
+        title: 'AAV9 titration',
+        project_id: '00000000-0000-4000-8000-000000000001',
+        created_by_user_id: 'user-gp',
+        status: 'draft',
+        created_at: '2026-10-13T00:00:00.000Z',
+        updated_at: '2026-10-14T00:00:00.000Z',
+      },
+    ])
+
+    renderList()
+    const title = await within(
+      screen.getByRole('table', { name: 'Experiments' }),
+    ).findByText('AAV9 titration')
+    const row = title.closest('tr')
+    expect(row).not.toBeNull()
+
+    fireEvent.click(row!)
+
+    expect(navigateSpy).toHaveBeenCalledWith({
+      to: '/experiments/$expId',
+      params: { expId: 'exp-uuid-1' },
+    })
+  })
 })
 
 describe('experiments list empty state', () => {

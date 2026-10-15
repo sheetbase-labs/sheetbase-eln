@@ -18,9 +18,11 @@ export async function getShellCounts(
 ): Promise<ShellCounts> {
   const client = db.$client
   // The badge labels the Inbox's "Needs action" tab, and Home's
-  // "Open inbox · N items" uses the same number. Both read the one Inbox
-  // predicate (`work-items/predicate.ts`), so the sidebar cannot state a set
-  // the list hides behind the seen state or the Done tab.
+  // "Open inbox · N items" uses the same number. Both read the same
+  // server-side count (`api.inbox_needs_action_counts`, the Inbox predicate of
+  // `work-items/predicate.ts` applied over every row the caller can see), so
+  // the sidebar cannot state a set the list hides behind the seen state or the
+  // Done tab, nor a smaller one than Home past the list's 200-row preview.
   const inboxCount = (await getInboxCounts(workspaceId, userId)).total
 
   const [flags, failed] = await Promise.all([

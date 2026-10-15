@@ -229,6 +229,10 @@ export async function fetchHomeCounts(
     ),
     // QA2-Inbox-1: the Inbox totals come from the one Inbox predicate, not a
     // second state-only count, so Home's chips and the list they open agree.
+    // QA4: they are the server's count over every row the caller can see
+    // (seen state included), not the length of `fetchWorkItems`' 200-row
+    // preview, so a large workspace cannot read smaller here than in the
+    // sidebar badge.
     fetchNeedsActionCounts(client),
     // R5-HOME-01: the same unread authority the notifications bell reads, so
     // the quiet condition cannot call a page calm while the bell shows unread.

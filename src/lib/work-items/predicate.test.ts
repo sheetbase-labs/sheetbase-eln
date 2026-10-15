@@ -3,13 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import {
-  countNeedsAction,
-  itemKey,
-  itemTab,
-  needsAction,
-  workItemType,
-} from './predicate'
+import { itemKey, itemTab, needsAction, workItemType } from './predicate'
 import type { WorkItemIdentity } from './predicate'
 
 function item(overrides: Partial<WorkItemIdentity>): WorkItemIdentity {
@@ -26,9 +20,7 @@ function item(overrides: Partial<WorkItemIdentity>): WorkItemIdentity {
 describe('itemKey', () => {
   it('prefers the exact source, then the record, identifier and title', () => {
     expect(itemKey(item({ sourceId: 'file-1' }))).toBe('data_issue:file-1')
-    expect(itemKey(item({ recordId: 'record-1' }))).toBe(
-      'data_issue:record-1',
-    )
+    expect(itemKey(item({ recordId: 'record-1' }))).toBe('data_issue:record-1')
     expect(itemKey(item({ identifier: 'DS-0001' }))).toBe('data_issue:DS-0001')
     expect(itemKey(item({ identifier: null }))).toBe('data_issue:A dataset')
   })
@@ -59,21 +51,5 @@ describe('workItemType', () => {
     expect(workItemType('cell_conflict')).toBe('data')
     expect(workItemType('run_waiting')).toBe('runs')
     expect(workItemType('material_expiring')).toBe('materials')
-  })
-})
-
-describe('countNeedsAction', () => {
-  it('counts unseen needs-action rows and their Reviews subset', () => {
-    const items = [
-      item({ kind: 'review_requested', recordId: 'r1', identifier: 'EXP-1' }),
-      item({ kind: 'data_issue', identifier: 'DS-1' }),
-      item({ kind: 'data_issue', identifier: 'DS-2' }),
-      item({ kind: 'data_issue', identifier: 'DS-3', state: 'done_today' }),
-      item({ kind: 'following', state: 'following' }),
-    ]
-    expect(countNeedsAction(items, new Set(['data_issue:DS-1']))).toEqual({
-      total: 2,
-      reviews: 1,
-    })
   })
 })

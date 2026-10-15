@@ -237,6 +237,11 @@ test.beforeEach(async ({ page }) => {
         },
       ])
     }
+    // The Inbox total is one server-side count now; an empty answer is a failed
+    // read that Home states, so the mock has to answer it.
+    if (path.startsWith('rpc/inbox_needs_action_counts')) {
+      return json([{ total: 0, reviews: 0 }])
+    }
     if (isCount) return json([{}], 0)
     return json([])
   })

@@ -176,37 +176,11 @@ const fake = vi.hoisted(() => {
             retired_at: at(-100),
           },
         ]
-      case 'my_work_items': {
-        // QA2-Inbox-1: Home counts through the Inbox predicate over the item
-        // rows, so the fake states the items, not a bare total.
-        if (query.includes('kind=eq.material_expiring')) return []
-        const rows = []
-        for (let i = 0; i < fixture.reviews; i += 1) {
-          rows.push({
-            kind: 'review_requested',
-            record_id: `rec-review-${i}`,
-            identifier: `EXP-013${i}`,
-            title: 'Review item',
-            state: 'needs_action',
-            reason: 'Review requested',
-            due_at: null,
-            created_at: null,
-          })
-        }
-        for (let i = fixture.reviews; i < fixture.inbox; i += 1) {
-          rows.push({
-            kind: 'data_issue',
-            record_id: null,
-            identifier: `DS-000${i}`,
-            title: 'Flagged dataset',
-            state: 'needs_action',
-            reason: 'Flagged',
-            due_at: null,
-            created_at: null,
-          })
-        }
-        return rows
-      }
+      case 'my_work_items':
+        // Only the materials preview reads the list now: the Inbox totals come
+        // from `inbox_needs_action_counts`, a server-side count over every row
+        // the caller can see, so the fake states the total there, not as rows.
+        return []
       case 'work_item_views':
         return []
       case 'review_submissions':
@@ -266,11 +240,6 @@ const fake = vi.hoisted(() => {
   }
 
   const count = async (resource: string, query = '') => {
-    if (resource === 'my_work_items') {
-      return query.includes('kind=eq.review_requested')
-        ? fixture.reviews
-        : fixture.inbox
-    }
     if (resource === 'rpc/dataset_list_summary')
       return fixture.datasetsWithErrors
     if (resource === 'my_notifications') return fixture.unread
@@ -284,6 +253,11 @@ const fake = vi.hoisted(() => {
   }
 
   const rpc = async (name: string) => {
+    if (name === 'inbox_needs_action_counts') {
+      // The server's count over every needs-action row the caller can see,
+      // seen state included — not the length of a `limit=200` preview.
+      return [{ total: fixture.inbox, reviews: fixture.reviews }]
+    }
     if (name === 'audit_events') {
       return {
         formatVersion: 1,

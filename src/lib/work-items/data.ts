@@ -12,7 +12,6 @@ import { useQuery } from '@tanstack/react-query'
 import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
 import { notebookDataClient } from '../notebook-data'
-import { countNeedsAction } from './predicate'
 import type { InboxCounts } from './predicate'
 
 export type WorkItemKind =
@@ -194,17 +193,32 @@ export async function fetchSeenItemKeys(
 }
 
 /**
- * Home's need-action totals, computed with the same predicate the Inbox list
- * and the sidebar badge use, so a chip and the list it opens cannot disagree.
+ * The server-side count the sidebar badge is built from, over the same two
+ * read models the list reads: `api.my_work_items` (the predicate's rows) and
+ * `api.work_item_views` (the caller's seen keys). `fetchWorkItems` is a
+ * `limit=200` preview, so its length understates a workspace with more than
+ * 200 waiting items; this counts every row the caller can see, so Home states
+ * the same number as the sidebar however large the workspace is.
+ *
+ * The predicate itself is restated in the function
+ * (`drizzle/0433_inbox_needs_action_counts.sql`), which is the only place both
+ * the seen state and the item identity are known without transferring rows.
  */
 export async function fetchNeedsActionCounts(
   client: DataClient = notebookDataClient,
 ): Promise<InboxCounts> {
-  const [items, seen] = await Promise.all([
-    fetchWorkItems(client),
-    fetchSeenItemKeys(client),
-  ])
-  return countNeedsAction(items, seen)
+  const rows = await client.rpc<InboxCounts[]>('inbox_needs_action_counts', {})
+  // An answer with no row is a failed count, not a zero: the same rule the
+  // `count=exact` reads follow, so a degraded read cannot read as calm.
+  if (rows.length === 0) {
+    throw new DataClientError(
+      'invalid_count',
+      'The server did not return an exact count.',
+      0,
+    )
+  }
+  const [counts] = rows
+  return { total: counts.total, reviews: counts.reviews }
 }
 
 /** The Inbox list, refetched when a change event invalidates its key. */

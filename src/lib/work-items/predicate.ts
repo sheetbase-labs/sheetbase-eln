@@ -5,12 +5,15 @@
  * the Inbox list itself cannot disagree: an item needs action when it is
  * neither something the person follows nor something they have marked seen
  * (`api.work_item_views`) nor something the model already reports as done
- * today. The server (`inbox-counts.server.ts`) and the Inbox/Hone components
- * all call these functions, so a change lands on every surface at once.
+ * today. The Inbox list filters its rows with these functions.
+ *
+ * The two *counts* — the sidebar badge and Home, which must state one number
+ * however large the workspace is — cannot be a length of a page of rows, so
+ * they are counted server-side by `api.inbox_needs_action_counts()`
+ * (`drizzle/0433_inbox_needs_action_counts.sql`), which applies these same
+ * rules in SQL over the same two read models and is covered against this file
+ * by `tests/db/inbox-needs-action-counts.test.ts`.
  */
-
-/** The states `api.my_work_items` marks as needing a person. */
-export const NEEDS_ACTION_STATES = ['needs_action', 'overdue'] as const
 
 /** The fields every Inbox identity is computed from. */
 export interface WorkItemIdentity {
@@ -25,11 +28,7 @@ export interface WorkItemIdentity {
 export type InboxTab = 'needs-action' | 'following' | 'done-today'
 
 export type WorkItemType =
-  | 'reviews'
-  | 'data'
-  | 'runs'
-  | 'materials'
-  | 'following'
+  'reviews' | 'data' | 'runs' | 'materials' | 'following'
 
 /**
  * Stable key for an Inbox item across reloads: the identity
@@ -54,7 +53,8 @@ export function itemTab(
   item: WorkItemIdentity,
   seen: ReadonlySet<string>,
 ): InboxTab {
-  if (item.state === 'following' || item.kind === 'following') return 'following'
+  if (item.state === 'following' || item.kind === 'following')
+    return 'following'
   if (seen.has(itemKey(item)) || item.state === 'done_today')
     return 'done-today'
   return 'needs-action'
@@ -73,19 +73,4 @@ export interface InboxCounts {
   total: number
   /** The subset the Inbox's Reviews filter (and Home's "to review" chip) shows. */
   reviews: number
-}
-
-/** Count needs-action items, and their Reviews subset, with the shared predicate. */
-export function countNeedsAction<T extends WorkItemIdentity>(
-  items: readonly T[],
-  seen: ReadonlySet<string>,
-): InboxCounts {
-  let total = 0
-  let reviews = 0
-  for (const item of items) {
-    if (!needsAction(item, seen)) continue
-    total += 1
-    if (workItemType(item.kind) === 'reviews') reviews += 1
-  }
-  return { total, reviews }
 }

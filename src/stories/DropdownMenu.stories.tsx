@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -32,15 +33,17 @@ export const Default: Story = {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuLabel>Record actions</DropdownMenuLabel>
-        <DropdownMenuItem>
-          <Icon name="edit" />
-          Edit<DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
-        </DropdownMenuItem>
-        <DropdownMenuItem>
-          <Icon name="copy" />
-          Duplicate
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Record actions</DropdownMenuLabel>
+          <DropdownMenuItem>
+            <Icon name="edit" />
+            Edit<DropdownMenuShortcut>⌘E</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Icon name="copy" />
+            Duplicate
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="text-destructive">
           <Trash2 />

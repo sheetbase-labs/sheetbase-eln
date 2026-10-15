@@ -14,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
@@ -56,10 +57,12 @@ export const DetailedMenu: Story = {
         <Button>View options</Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuLabel>Display</DropdownMenuLabel>
-        <DropdownMenuCheckboxItem checked>
-          Show archived
-        </DropdownMenuCheckboxItem>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Display</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem checked>
+            Show archived
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup value="compact">
           <DropdownMenuRadioItem value="compact">Compact</DropdownMenuRadioItem>

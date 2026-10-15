@@ -105,12 +105,12 @@
 <p class="sub">A proposal in two parts, with the evidence it is built on, the architecture it recommends, and the decisions it needs from you.</p>
 
 <dl class="meta">
-  <dt>Status</dt><dd><span class="chip ok">Adopted in part</span> — A1 and B0 are implemented and verified (§10); A2 onward is not authorised until its workstreams are registered as roadmap tasks</dd>
+  <dt>Status</dt><dd><span class="chip ok">Adopted in part</span> — A1, A2, A4 and B0 are implemented and verified; A3, A6 and Part B's adoptions are not started</dd>
   <dt>Audited revision</dt><dd><code>66e550f2</code> on <code>main</code>, clean working tree, 2026-10-15</dd>
   <dt>Scope</dt><dd>Part A: the experiment notebook authoring surface. Part B: which hand-rolled UI components ReUI should replace</dd>
   <dt>Not in scope</dt><dd>Sheet/formula engine, Datasets, Models, evidence semantics, permissions, Liveblocks collaboration</dd>
   <dt>Evidence base</dt><dd>Current source at the audited revision, canonical ADRs and product docs, plus the Tiptap and ReUI documentation as published on 2026-10-15</dd>
-  <dt>Revision</dt><dd><strong>3</strong> — 2026-10-15. All six decisions are now settled: <strong>1, 3, 4, 5 and 6</strong> as recommended, and <strong>2</strong> resolved into the run-scoped editor by the owner’s statement of the requirement. <strong>Notion is the named benchmark.</strong></dd>
+  <dt>Revision</dt><dd><strong>4</strong> — 2026-10-15. All six decisions settled and recorded; §10 now carries what has actually shipped (A1, A2, A4, B0) with its verification, and what remains</dd>
   <dt>Decisions</dt><dd>All six settled — <a href="#decisions">Decisions needed</a> now records each answer</dd>
 </dl>
 
@@ -810,18 +810,35 @@
   </tbody>
 </table>
 
+<h3>A2 — prose reads as one document <span class="chip ok">done</span></h3>
+
+<table>
+  <thead><tr><th>Change</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Consecutive prose rows form a <em>prose run</em> and render continuously: no state ring, no vertical padding, no title row</td><td>The frame was the seam. Inside a run there is nothing to frame, so the run reads as one column. The hover gutter handle and the overflow menu stay, because they are how a row is reordered and commented.</td></tr>
+    <tr><td>Backspace at the start of a paragraph joins the row into the row above</td><td>This is what Word and Notion do, and it was doing nothing here. The row boundary disappears and the text order is preserved. The join saves the row above <em>first</em>, so a rejected save leaves both rows untouched, and undo restores the row above as well as re-inserting the row. An empty row still deletes, as before.</td></tr>
+    <tr><td>An empty prose row shows a placeholder</td><td>An empty row was an invisible caret with no target — the most obvious difference between an empty block and an empty document. The placeholder is a widget decoration, so it can never enter a payload.</td></tr>
+  </tbody>
+</table>
+
+<p>Pulling a line of prose out of the row below and onto the row above is <strong>not</strong> done: that needs one editor spanning both rows. So it remains true that the caret belongs to whichever row is being edited, and selection across two rows and one undo stack across them are still impossible — those are A3.</p>
+
+<h3>A4 — callout and metric editors <span class="chip ok">done</span></h3>
+
+<p>Both kinds were stored, validated and rendered but had no editor, so selecting one showed an unsupported-block placeholder: visible, preserved, and frozen. Callout now edits its text and one of the four contract tones; metric edits its label, reading, unit and provenance. The metric draft holds exactly what was typed and the canonical payload is built at the save boundary — converting while typing silently ate a decimal point or a space, because the converted value is written straight back into the controlled field. The static <code>table</code> block stays read-only on purpose: whether it earns its keep now that the Sheet is the tabular surface is still a product decision, and the registry's editable set is pinned by test so it has to be made explicitly.</p>
+
 <h3>What is next</h3>
 
 <ul>
-  <li><strong>A2 (continuous surface)</strong> is the next unblocked item and the first with a visible result: prose runs as one column, one gutter, dnd-kit reorder, placeholders, structural undo. B2 (Sortable) lands inside it.</li>
-  <li><strong>A3 (run-scoped editor)</strong> starts with the split/merge spike, which is the only part of this plan likely to hide surprises. A2 ships value whether or not the spike succeeds.</li>
-  <li><strong>A4 (callout and metric editors)</strong> is decided, small, and independent of A2 and A3.</li>
-  <li><strong>B1 (A/B harness) and B3 (TanStack Table v9)</strong> can start independently of Part A. B3 is the prerequisite for the data grid and the largest single risk in Part B.</li>
-  <li><strong>Registration.</strong> If this programme is adopted, its workstreams become roadmap tasks with their own exits and <code>docs/knowledge/NEXT.md</code> is updated in the same change, per the repository workflow.</li>
+  <li><strong>A3 (run-scoped editor)</strong> is now the whole of the remaining document work: one editor spanning a run, so the caret, selection and undo stop at nothing inside prose. It starts with the split/merge spike, which is the only part of this plan likely to hide surprises.</li>
+  <li><strong>A6 (invariant harness)</strong> — the browser-level tests for anchors, freeze and print surviving a reorder. The unit suite covers the new helpers, but nothing yet exercises a reorder in a real browser.</li>
+  <li><strong>B1 (A/B harness)</strong> comes before any adoption, because the agreed bar is that a comparison is recorded before a component is swapped. <strong>B3 (TanStack Table v9)</strong> is the prerequisite for the data grid; both are independent of the notebook work, which is why they are not in the same change.</li>
+  <li><strong>B2 (Sortable)</strong> was planned to land inside A2. It did not, on purpose: it is an adoption, so it waits for the harness rather than arriving as a dependency change hidden inside a notebook refactor.</li>
+  <li><strong>Not done, and still proposed:</strong> nothing else in Part A. The prose payload contract stays closed and there is no work for it.</li>
 </ul>
 
 <hr>
-<p class="foot">Revision 3, 2026-10-15, against <code>66e550f2</code> on <code>main</code>. Revision 1 proposed; revision 2 recorded the owner’s answers; revision 3 settles all six decisions, names Notion as the benchmark, and records the A1 and B0 work already executed with its verification. A1 and B0 are implemented and green; A2 onward remains unauthorised until its workstreams are registered as tasks.</p>
+<p class="foot">Revision 4, 2026-10-15, against <code>66e550f2</code> on <code>main</code>. Revision 1 proposed; revision 2 recorded the owner’s answers; revision 3 settled all six decisions and named Notion as the benchmark; revision 4 records the work already shipped — the block registry (A1), prose reading as one document (A2), the callout and metric editors (A4) and the component-primitive decision (B0) — with its verification. A3, A6 and every Part B adoption remain.</p>
 
 </div>
 </body>

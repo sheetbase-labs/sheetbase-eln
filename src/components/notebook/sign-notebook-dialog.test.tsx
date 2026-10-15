@@ -154,7 +154,7 @@ describe('SignNotebookDialog', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Signature confirmation')).toBeTruthy()
+      expect(screen.getByLabelText('Type your name to confirm')).toBeTruthy()
     })
     expect(document.activeElement).toBe(
       screen.getByLabelText('Signing password'),
@@ -168,7 +168,7 @@ describe('SignNotebookDialog', () => {
       'reviewed',
     )
     await user.type(
-      screen.getByLabelText('Signature confirmation'),
+      screen.getByLabelText('Type your name to confirm'),
       'Ada Lovelace',
     )
     expect(
@@ -240,10 +240,10 @@ describe('SignNotebookDialog', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Signature confirmation')).toBeTruthy()
+      expect(screen.getByLabelText('Type your name to confirm')).toBeTruthy()
     })
     await user.type(
-      screen.getByLabelText('Signature confirmation'),
+      screen.getByLabelText('Type your name to confirm'),
       'Ada Lovelace',
     )
     await user.type(
@@ -333,7 +333,7 @@ describe('SignNotebookDialog', () => {
       'not-the-password',
     )
     await user.type(
-      screen.getByLabelText('Signature confirmation'),
+      screen.getByLabelText('Type your name to confirm'),
       'Ada Lovelace',
     )
     await user.click(screen.getByRole('button', { name: 'Sign' }))
@@ -416,7 +416,7 @@ describe('SignNotebookDialog', () => {
       'local-signing-password',
     )
     await user.type(
-      screen.getByLabelText('Signature confirmation'),
+      screen.getByLabelText('Type your name to confirm'),
       'Ada Lovelace',
     )
     await user.keyboard('{Enter}')

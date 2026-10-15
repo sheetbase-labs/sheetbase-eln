@@ -68,7 +68,7 @@ describe('ESignDialog (R5-NOTE-02)', () => {
     expect(isDisabled(screen.getByRole('button', { name: 'Sign' }))).toBe(true)
 
     await user.type(
-      screen.getByLabelText('Signature confirmation'),
+      screen.getByLabelText('Type your name to confirm'),
       'Ada Lovelace',
     )
     await user.click(screen.getByRole('button', { name: 'Sign' }))
@@ -89,7 +89,7 @@ describe('ESignDialog (R5-NOTE-02)', () => {
     setup({ subject: { revisionId: 'rev-1', digest: null } })
     await user.type(screen.getByLabelText('Signing password'), 'pw')
     await user.type(
-      screen.getByLabelText('Signature confirmation'),
+      screen.getByLabelText('Type your name to confirm'),
       'Ada Lovelace',
     )
     expect(isDisabled(screen.getByRole('button', { name: 'Sign' }))).toBe(true)
@@ -112,7 +112,7 @@ describe('ESignDialog (R5-NOTE-02)', () => {
   it('can require only the password when name confirmation is off', async () => {
     const user = userEvent.setup()
     const { onSubmit } = setup({ requireConfirmation: false })
-    expect(screen.queryByLabelText('Signature confirmation')).toBeNull()
+    expect(screen.queryByLabelText('Type your name to confirm')).toBeNull()
     await user.type(screen.getByLabelText('Signing password'), 'pw')
     await user.click(screen.getByRole('button', { name: 'Sign' }))
     expect(onSubmit).toHaveBeenCalledWith({

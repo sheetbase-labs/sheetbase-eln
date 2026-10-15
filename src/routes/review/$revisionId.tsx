@@ -25,7 +25,7 @@ import {
   useSearch,
 } from '@tanstack/react-router'
 import { z } from 'zod'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
@@ -1590,6 +1590,11 @@ function ReviewInspector({
 }) {
   const queryClient = useQueryClient()
   const [signingOpen, setSigningOpen] = useState(false)
+  // REV-03.4: Control+Shift+Enter approves and then opens the signing dialog.
+  // The handler is stable so `ReviewInspector`'s shortcut definitions keep one
+  // identity across renders; an unstable array re-registers every render and
+  // the shortcut registry's state update loops.
+  const openSigningAfterApproval = useCallback(() => setSigningOpen(true), [])
   // QA-180: an assigned reviewer is a person, not a UUID. Resolve them to names
   // the way the rest of the app does; initials come from the name.
   const reviewerNames = useUserNames(
@@ -1775,7 +1780,7 @@ function ReviewInspector({
             permission={permission}
             integrityDigest={integrityDigest}
             draftCommentCount={commentDrafts.count}
-            onApprovedForSigning={() => setSigningOpen(true)}
+            onApprovedForSigning={openSigningAfterApproval}
             onAfterDecision={async (kind, input) => {
               // REV-01.3: returning carries the reviewer's private drafts —
               // the decision is taken first (the drafts cannot leak if the

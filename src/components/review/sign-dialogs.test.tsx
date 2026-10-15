@@ -62,7 +62,7 @@ describe('review SignatureDialog on the shared e-sign dialog', () => {
     expect(isDisabled(screen.getByRole('button', { name: 'Sign' }))).toBe(true)
 
     await user.type(
-      screen.getByLabelText('Signature confirmation'),
+      screen.getByLabelText('Type your name to confirm'),
       'Ada Lovelace',
     )
     await user.click(screen.getByRole('button', { name: 'Sign' }))

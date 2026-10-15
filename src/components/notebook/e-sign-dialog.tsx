@@ -231,7 +231,7 @@ export function ESignDialog({
                 {requireConfirmation ? (
                   <Field label="Type your name to confirm">
                     <Input
-                      aria-label="Signature confirmation"
+                      aria-label="Type your name to confirm"
                       type="text"
                       placeholder={signingAs}
                       value={confirmation}

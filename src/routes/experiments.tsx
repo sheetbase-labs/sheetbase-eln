@@ -227,7 +227,11 @@ function Experiments() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <header className="flex flex-col gap-1 border-b border-border bg-surface px-4 pt-4 md:px-6">
-        <div className="flex items-center gap-2">
+        {/* The row wraps below `md`: on one line the title, count and the
+            "New experiment" action need more than a 400 %-zoom column has, so
+            the action ended up past the viewport with nothing able to scroll
+            to it (QA4-zoom-experiments). */}
+        <div className="flex max-md:flex-wrap items-center gap-2">
           <h1 className="text-title">Experiments</h1>
           {hasProjectAccess === false ? null : (
             <span className="num text-body text-fg-muted">{total}</span>

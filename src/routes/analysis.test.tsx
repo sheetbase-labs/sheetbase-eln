@@ -580,3 +580,31 @@ describe('EmptyAnalysisState', () => {
     expect(screen.getByText(/Create a dataset first/i)).toBeTruthy()
   })
 })
+
+describe('AnalysisStudioHeader reflows at 400 % zoom (QA4-zoom-studio)', () => {
+  // The header is a flex item of the studio tool row. With `shrink-0` it stayed
+  // at its max-content width (380 px in a 312 px column at 400 % zoom) and the
+  // data-source select was pushed past the pane, clipped by its `overflow-hid-
+  // den` ancestors with nothing able to scroll to it (WCAG 1.4.10). It shrinks
+  // and wraps instead.
+  it('shrinks and wraps rather than holding its max-content width', () => {
+    const t = source()
+    render(
+      <AnalysisStudioHeader
+        datasets={[
+          { id: t.datasetId, name: t.name, lifecycle: 'active' } as never,
+        ]}
+        loading={false}
+        error={null}
+        selectedDatasetId={t.datasetId}
+        onSelect={() => {}}
+      />,
+    )
+
+    const header = screen.getByText('Analysis Studio').closest('header')
+    expect(header).not.toBeNull()
+    expect(header!.className).toContain('flex-wrap')
+    expect(header!.className).not.toContain('shrink-0')
+    expect(screen.getByLabelText('Select data source')).toBeTruthy()
+  })
+})

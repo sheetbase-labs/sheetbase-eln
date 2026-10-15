@@ -550,3 +550,29 @@ describe('ProjectsPage', () => {
     )
   })
 })
+
+describe('projects header reflows at 400 % zoom (QA4-zoom-projects)', () => {
+  // A 1440 px window at 400 % zoom leaves the project column 312 px wide. The
+  // title row (title, count, "New project") and the phone tab row (three tabs
+  // plus "More") are both wider than that on one line: "More" ended 18 px past
+  // the viewport and the document scrolled sideways (WCAG 1.4.10). Both rows
+  // wrap instead.
+  it('wraps the title row and the phone tab row', () => {
+    renderPage([row()])
+
+    const titleRow = screen.getByText('Projects', { selector: 'h1' })
+      .parentElement
+    expect(titleRow).not.toBeNull()
+    expect(titleRow!.className).toContain('max-md:flex-wrap')
+
+    const tabRows = screen
+      .getAllByRole('navigation', { name: 'Project views' })
+      .map((nav) => nav.parentElement)
+    expect(tabRows).toHaveLength(2)
+    // The phone row (the one carrying the "More" menu) wraps; the desktop row
+    // scrolls inside its own strip.
+    const phoneRow = tabRows.find((el) => el!.className.includes('lg:hidden'))
+    expect(phoneRow).toBeDefined()
+    expect(phoneRow!.className).toContain('flex-wrap')
+  })
+})

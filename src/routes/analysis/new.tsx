@@ -747,7 +747,12 @@ export function AnalysisStudioHeader({
 }: AnalysisStudioHeaderProps) {
   return (
     <header
-      className="flex shrink-0 flex-wrap items-center justify-between gap-3"
+      // No `shrink-0`: the header is a flex item in the studio's toolbar, and
+      // refusing to shrink held it at its max-content width, so at 400 % zoom
+      // the data-source select was pushed past the column and clipped by the
+      // pane's `overflow-hidden` with nothing able to scroll to it. It shrinks
+      // and wraps instead (QA4-zoom-studio).
+      className="flex flex-wrap items-center justify-between gap-3"
       aria-labelledby="analysis-title"
     >
       <div className="flex min-w-0 items-center gap-2">

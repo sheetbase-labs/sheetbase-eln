@@ -168,3 +168,20 @@ describe('Analysis list — cited in records tab', () => {
     expect(await screen.findByText('No analyses yet')).toBeTruthy()
   })
 })
+
+describe('analysis list tab strip reflows at 400 % zoom (QA4-zoom-analysis)', () => {
+  // At 400 % zoom the column is 312 px wide and "All / Mine / Cited in
+  // records / Drafts" is wider than that. The strip had no scroll of its own,
+  // so the last tab sat 17 px past the viewport and the document scrolled
+  // sideways (WCAG 1.4.10). It scrolls inside its own strip instead, as the
+  // Experiments and Projects strips already do.
+  it('scrolls the tab strip instead of the page', () => {
+    renderHome([])
+
+    const strip = screen.getByRole('navigation', {
+      name: 'Analysis lists',
+    }).parentElement
+    expect(strip).not.toBeNull()
+    expect(strip!.className).toContain('overflow-x-auto')
+  })
+})

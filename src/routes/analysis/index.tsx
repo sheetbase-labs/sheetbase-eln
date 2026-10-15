@@ -229,37 +229,43 @@ function AnalysisHome() {
         ) : null}
 
         <div className="border-b border-border px-4 md:px-6">
-          <SearchTabs
-            label="Analysis lists"
-            current={tab ?? 'all'}
-            items={[
-              {
-                key: 'all',
-                label: 'All',
-                count: rows.length,
-                link: { to: '/analysis', search: {} },
-              },
-              {
-                key: 'mine',
-                label: 'Mine',
-                count: rows.filter((v) => v.owner_user_id === userId).length,
-                link: { to: '/analysis', search: { tab: 'mine' } },
-              },
-              {
-                key: 'cited',
-                label: 'Cited in records',
-                count: rows.filter((v) => citedIds.has(v.display_id ?? ''))
-                  .length,
-                link: { to: '/analysis', search: { tab: 'cited' } },
-              },
-              {
-                key: 'drafts',
-                label: 'Drafts',
-                count: rows.filter((v) => v.version <= 1).length,
-                link: { to: '/analysis', search: { tab: 'drafts' } },
-              },
-            ]}
-          />
+          {/* The strip scrolls instead of pushing the page sideways: "Cited in
+              records" + "Drafts" are wider than the column at 400 % zoom, and
+              the row had no scroll of its own, so it overflowed the document
+              (QA4-zoom-analysis). */}
+          <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
+            <SearchTabs
+              label="Analysis lists"
+              current={tab ?? 'all'}
+              items={[
+                {
+                  key: 'all',
+                  label: 'All',
+                  count: rows.length,
+                  link: { to: '/analysis', search: {} },
+                },
+                {
+                  key: 'mine',
+                  label: 'Mine',
+                  count: rows.filter((v) => v.owner_user_id === userId).length,
+                  link: { to: '/analysis', search: { tab: 'mine' } },
+                },
+                {
+                  key: 'cited',
+                  label: 'Cited in records',
+                  count: rows.filter((v) => citedIds.has(v.display_id ?? ''))
+                    .length,
+                  link: { to: '/analysis', search: { tab: 'cited' } },
+                },
+                {
+                  key: 'drafts',
+                  label: 'Drafts',
+                  count: rows.filter((v) => v.version <= 1).length,
+                  link: { to: '/analysis', search: { tab: 'drafts' } },
+                },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">

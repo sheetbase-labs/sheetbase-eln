@@ -370,7 +370,7 @@ export function ProjectsPage({
             !projects.length && 'pb-3',
           )}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex max-md:flex-wrap items-center gap-2">
             <h1 className="text-title">Projects</h1>
             {/* A number here would be asserted as fact. While the read is
                 unresolved — stalled or failed — the page does not know it. */}
@@ -408,7 +408,10 @@ export function ProjectsPage({
                   } as LinkProps,
                 }))}
               />
-              <div className="flex items-center gap-5 lg:hidden">
+              {/* Three tabs plus the "More" menu are wider than the column at
+                  400 % zoom, and the row had no way to scroll, so "More" sat
+                  past the viewport (QA4-zoom-projects). */}
+              <div className="flex flex-wrap items-center gap-5 lg:hidden">
                 <SearchTabs
                   label="Project views"
                   tabs={tabs.slice(0, 3).map((t) => ({

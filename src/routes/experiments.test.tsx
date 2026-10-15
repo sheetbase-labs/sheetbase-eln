@@ -151,3 +151,21 @@ describe('experiments list empty state', () => {
     expect(screen.queryByText(/No drafts experiments/)).toBeNull()
   })
 })
+
+describe('experiments header reflows at 400 % zoom (QA4-zoom-experiments)', () => {
+  // At a 1440 px window zoomed to 400 % the layout viewport is 360 px wide and
+  // the shell leaves the column 312 px. On one non-wrapping row the title, the
+  // count and "New experiment" need more than that: the action ended 18 px
+  // past the viewport with no ancestor able to scroll to it, and the document
+  // itself scrolled sideways (WCAG 1.4.10). The row wraps below `md` instead,
+  // as the Inbox header does.
+  it('wraps the title row rather than pushing the action off the column', async () => {
+    renderList()
+
+    const row = (await screen.findByText('Experiments', { selector: 'h1' }))
+      .parentElement
+    expect(row).not.toBeNull()
+    expect(row!.className).toContain('max-md:flex-wrap')
+    expect(row!.contains(screen.getByText('New experiment'))).toBe(true)
+  })
+})

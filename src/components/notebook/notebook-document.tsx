@@ -9,6 +9,9 @@ import type {
 } from '#/lib/notebook-data'
 import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
 import { blockMeasure, isEditableBlockType } from '#/lib/blocks/registry'
+import { richTextToPlainText } from '#/lib/blocks'
+import type { RichTextPayload } from '#/lib/blocks'
+import { joinProsePayloads, proseRunMembers } from '#/lib/notebook-prose-runs'
 import { Button } from '#/components/v3/ui/button'
 import {
   ConfirmDialog,
@@ -305,6 +308,11 @@ function NotebookDocumentContent({
     afterBlockId: string | null
     beforeBlockId: string | null
     label: string
+    /**
+     * Set when the undo has to restore the row above as well, because a join
+     * moved this row's content into it.
+     */
+    restorePayload?: { blockId: string; payload: Record<string, unknown> }
   } | null>(null)
 
   // --- Movement (ELN-006) -------------------------------------------------
@@ -496,6 +504,21 @@ function NotebookDocumentContent({
   async function handleUndo() {
     if (!undo || !onUndoDelete) return
     try {
+      // A join moved the row below into the row above, so undoing it has to
+      // put both rows back: the row's own content first, then the row itself.
+      if (undo.restorePayload) {
+        const target = blockById.get(undo.restorePayload.blockId)
+        if (target) {
+          const restored = await onSaveBlock(
+            target,
+            undo.restorePayload.payload,
+          )
+          if (!restored.ok) {
+            setUndo(null)
+            return
+          }
+        }
+      }
       const result = await onUndoDelete(undo.type, undo.payload, {
         afterBlockId: undo.afterBlockId,
         beforeBlockId: undo.beforeBlockId,
@@ -613,6 +636,23 @@ function NotebookDocumentContent({
   }, [blocks])
 
   const canMove = !isReadOnly && !!onMoveBlock && blocks.length > 1
+
+  /**
+   * Prose-run membership by block id. Rows inside a multi-row run render
+   * continuously, so the writing reads as one document rather than as a stack
+   * of framed boxes. Derived from the effective ordering so an in-flight move
+   * cannot momentarily split a run.
+   */
+  const proseRuns = React.useMemo(
+    () =>
+      proseRunMembers(
+        orderedIds.map((id) => ({
+          id,
+          type: blockById.get(id)?.type ?? '',
+        })),
+      ),
+    [orderedIds, blockById],
+  )
 
   /**
    * Compute the (afterBlockId, beforeBlockId) neighbours for moving
@@ -768,13 +808,67 @@ function NotebookDocumentContent({
     }
   }
 
-  /** Backspace at start of an empty block → delete and focus its neighbour,
-   *  or return focus to the empty Notebook start affordance. */
+  /**
+   * Backspace at the start of a block.
+   *
+   * Inside a prose run this is a join, not a delete: the rows are one document
+   * as far as the author is concerned, so Backspace at the start of a paragraph
+   * pulls it up into the row above and the row boundary disappears. Rows the
+   * server will not accept are never deleted — the join is saved first, and a
+   * failed save leaves the row exactly where it was.
+   *
+   * Outside a prose run, or when the row brings nothing with it (it is empty),
+   * the previous behaviour stands: delete the block and focus its neighbour.
+   */
   async function handleBackspaceAtStart(block: NotebookBlockData) {
     const idx = orderedIds.indexOf(block.id)
     const prevId = idx > 0 ? orderedIds[idx - 1] : null
     const nextId =
       idx >= 0 && idx < orderedIds.length - 1 ? orderedIds[idx + 1] : null
+    const previous = prevId ? blockById.get(prevId) : null
+    const currentIsEmpty =
+      block.type === 'rich_text' &&
+      richTextToPlainText(block.payload as RichTextPayload).trim() === ''
+    const joined =
+      previous && !currentIsEmpty
+        ? joinProsePayloads(previous.payload, block.payload)
+        : null
+
+    if (previous && joined) {
+      const previousPayload = previous.payload
+      try {
+        await onSaveBlock(previous, joined)
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : 'Could not join the paragraphs.'
+        setErrorById((prev) => ({ ...prev, [block.id]: message }))
+        return
+      }
+      try {
+        await onDeleteBlock(block)
+      } catch (err) {
+        // The text is already in the row above, so the row below must not be
+        // left behind: it would duplicate the paragraph.
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'The paragraphs were joined but the empty block could not be removed.'
+        setErrorById((prev) => ({ ...prev, [block.id]: message }))
+        selectAndFocus(previous.id)
+        return
+      }
+      setUndo({
+        type: block.type,
+        payload: block.payload,
+        afterBlockId: prevId,
+        beforeBlockId: nextId,
+        label: `${block.type} block`,
+        restorePayload: { blockId: previous.id, payload: previousPayload },
+      })
+      selectAndFocus(previous.id)
+      return
+    }
+
     const focusAfterDelete = prevId ?? nextId
     try {
       await onDeleteBlock(block)
@@ -1023,6 +1117,7 @@ function NotebookDocumentContent({
                 : 'default'
         const isHiddenSection = hiddenBlockIds.has(block.id)
         const collapsedHere = collapsedAnchorByBlockId.get(block.id)
+        const proseRun = proseRuns[block.id]
         return (
           <React.Fragment key={block.id}>
             {showAbove ? (
@@ -1046,6 +1141,15 @@ function NotebookDocumentContent({
                 isHiddenSection && 'hidden print:contents',
               )}
               data-block-measure={blockMeasure(block.type)}
+              data-prose-run={
+                proseRun
+                  ? proseRun.isFirst
+                    ? 'start'
+                    : proseRun.isLast
+                      ? 'end'
+                      : 'middle'
+                  : undefined
+              }
               tabIndex={isReadOnly ? undefined : 0}
               role={isReadOnly ? undefined : 'group'}
               aria-label={`${blockLabel(block)} block${canMove ? ' — Alt+Arrow keys move; Ctrl+Arrow keys navigate' : ''}`}
@@ -1072,6 +1176,7 @@ function NotebookDocumentContent({
             >
               <NotebookBlock
                 label={blockLabel(block)}
+                continuous={!!proseRun}
                 title={
                   // Display only: editable payload fields belong to the
                   // block's single autosave/conflict state machine below.

@@ -75,6 +75,13 @@ export interface NotebookBlockProps {
   className?: string
   /** Accessible label for the block region. */
   ariaLabel?: string
+  /**
+   * This block is a member of a multi-row prose run. The frame is removed so
+   * the run reads as one column: no state ring, no vertical padding and no
+   * title row. The hover gutter handle and the overflow menu stay, because
+   * they are how the row is reordered, duplicated and commented.
+   */
+  continuous?: boolean
 }
 
 const stateRing: Record<NotebookBlockState, string> = {
@@ -102,6 +109,7 @@ export function NotebookBlock({
   menuExtra,
   className,
   ariaLabel,
+  continuous = false,
 }: NotebookBlockProps) {
   const locked = state === 'locked'
   const readOnly = state === 'read-only' || locked
@@ -128,13 +136,18 @@ export function NotebookBlock({
   return (
     <div
       className={cn(
-        'group relative py-1 transition-[background-color,box-shadow]',
-        stateRing[state],
+        'group relative',
+        // A prose run member contributes no frame of its own: the run is one
+        // column, so a ring or a vertical gap here would re-create the seams
+        // the run exists to hide.
+        continuous ? 'py-0' : 'py-1 transition-[background-color,box-shadow]',
+        !continuous && stateRing[state],
         className,
       )}
       aria-label={ariaLabel}
       data-block-type={label}
       data-state={state}
+      data-continuous={continuous || undefined}
     >
       {/* Left-margin drag handle (visible on desktop).
           Clicking the handle opens the block actions menu; dragging it
@@ -214,7 +227,7 @@ export function NotebookBlock({
         </div>
       </div>
 
-      {isEditing ? (
+      {continuous ? null : isEditing ? (
         <input
           ref={titleInputRef}
           type="text"

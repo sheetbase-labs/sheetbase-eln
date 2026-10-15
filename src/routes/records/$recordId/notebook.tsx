@@ -1023,8 +1023,8 @@ export function StickyRecordHeader({
   }, [record.title])
 
   return (
-    <div className="pb-3 pt-4">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+    <div className="flex flex-col pb-3 pt-4">
+      <div className="order-2 mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {recordKindLabel(record.kind)}
         </span>
@@ -1058,12 +1058,20 @@ export function StickyRecordHeader({
           <PrintNotebookButton />
           <ExportEvidenceButton revisionId={evidenceRevisionId} />
           {!historicalRevisionId && !lockedAt ? (
-            <Button type="button" onClick={() => setLinkOpen(true)}>
+            <Button
+              type="button"
+              variant="quiet"
+              onClick={() => setLinkOpen(true)}
+            >
               Link records…
             </Button>
           ) : null}
           {projectId && !historicalRevisionId ? (
-            <Button type="button" onClick={() => setDuplicateOpen(true)}>
+            <Button
+              type="button"
+              variant="quiet"
+              onClick={() => setDuplicateOpen(true)}
+            >
               Duplicate
             </Button>
           ) : null}
@@ -1129,7 +1137,7 @@ export function StickyRecordHeader({
               assistive tech and the page-level h1 contract. */}
           <h1 className="sr-only">{record.title}</h1>
           <Input
-            className="mt-1.5 h-auto border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
+            className="order-1 h-auto border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
             value={titleDraft}
             aria-label="Notebook title"
             onChange={(event) => setTitleDraft(event.target.value)}
@@ -1144,12 +1152,12 @@ export function StickyRecordHeader({
           />
         </>
       ) : (
-        <h1 className="mt-1.5 font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
+        <h1 className="order-1 font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
           {record.title}
         </h1>
       )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+      <div className="order-3 mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
         <span>
           Created{' '}
           <span className="text-foreground">

@@ -4,7 +4,7 @@ export function PrintNotebookButton({ className }: { className?: string }) {
   return (
     <Button
       type="button"
-      variant="secondary"
+      variant="quiet"
       className={className}
       data-print-hide
       onClick={() => window.print()}
@@ -49,7 +49,7 @@ export function ExportEvidenceButton({
   if (!revisionId) return null
   return (
     <Button
-      variant="secondary"
+      variant="quiet"
       nativeButton={false}
       render={<a href={`/api/export/revision/${revisionId}/package`} />}
     >

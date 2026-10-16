@@ -31,7 +31,7 @@ table current: a design component with no implementation is a parity gap.
 | `Skeleton`       | `ui/skeleton.tsx`                                |
 | `Source`         | `scientific/source.tsx`                          |
 | `Status`         | `scientific/status-badge.tsx` (`StatusBadge`)    |
-| `Stepper`        | `ui/stepper.tsx`                                 |
+| `Stepper`        | `v3/ui/stepper.tsx`                              |
 | `Tag`            | `ui/tag.tsx`                                     |
 | `Toast`          | `ui/sonner.tsx` (`Toaster`)                      |
 | `Tooltip`        | `ui/tooltip.tsx`                                 |

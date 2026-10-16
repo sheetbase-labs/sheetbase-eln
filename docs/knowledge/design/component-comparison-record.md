@@ -27,9 +27,10 @@ a decision is not a record.
 
 ## Rows
 
-| #   | Component (generic UI job)                              | What we use now                                                                                                                                                                   | What ReUI offers                                                                           | Checklist result                                                                                                                                                                                                                                                                                                   | Decision                                                                                                         | Measured    |
-| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | Reorderable list — reorder rows by pointer and keyboard | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row) | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx` | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface | 16 Oct 2026 |
+| #   | Component (generic UI job)                                                 | What we use now                                                                                                                                                                                                                                                                                        | What ReUI offers                                                                                                                                                                                                                                                                                                                          | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                                                   | Decision                                                                                                                                                                                                                                                                                                                                                                                       | Measured    |
+| --- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard                    | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                      | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                                                                                                                                                                                | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                                                 | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                                                                                                                                                                                               | 16 Oct 2026 |
+| 2   | List row / row chrome — one row, its link form, and the list that holds it | ≈30 hand-rolled row renderers across 21 domain files; two competing entity rows (`RecordLink`, 92 lines, and `LinkedRecordList`, 47); six families (entity, property, file, comment, check, step), each spelling its own leading slot, truncation, meta line, trailing slot, hover and focus treatment | **Nothing to install.** `@reui/item` and `@reui/row` both return `404 {"error":"Registry item not found", "message":"item is part of shadcn/ui, not a ReUI item"}`. The nearest registry item is stock shadcn's compound `Item`, which is not ReUI-native and has no link form, no read-only state vocabulary, and pulls the `cn` package | Not run against a registry candidate — there is none for this job, so ADR-0055 decision 5's A/B comparison has no second column. The in-house pair's own contract is pinned instead: `src/components/v3/ui/row.test.tsx` (11 tests: the four forms, list semantics, empty, windowing, hover detail), the migrated sites' tests (176 pass), axe with **zero violations** (WCAG 2 A/AA) over the rendered inspector, and the rendered evidence below | **Consolidate in-house: `Row` + `RowList` in the v3 kit, with `DescriptionList` as the property row.** No registry adoption. Reason: every family's cost is the _number of implementations_, not a missing feature, and the rival implementations differ in exactly the ways one component should fix — which registry item to install is a different question, and for this job there is none | 16 Oct 2026 |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -188,6 +189,99 @@ reason disappears and this decision should be re-measured rather than inherited.
 - The 5,000-row fixture is measured for rendering and overflow, not by axe.
 - This row records one pair. It is not a verdict on `@dnd-kit`, on ReUI as a
   registry, or on any other ReUI item.
+
+## Row 2 — List row / row chrome (`row`)
+
+### What we use now
+
+≈30 row renderers across 21 files in the domain components, in six families
+(entity/linked record, property/metadata, file, comment, check/readiness, event
+and step) — the count and the paths are in
+[`reui-opportunity-scan-domain.md`](reui-opportunity-scan-domain.md) §JH-1. The
+two closest implementations were duplicates of each other: `RecordLink`
+(`scientific/record-link.tsx`, 92 lines) carried five honest read-only states
+that `LinkedRecordList` (`record/inspector-sections.tsx`, 47 lines) could not
+express; each spelled its own leading slot, truncation, meta line, trailing
+slot, hover, focus ring and link-vs-static branch.
+
+Migration detail, the settled API and every remaining site are in
+[`row-chrome-migration.md`](row-chrome-migration.md).
+
+### What ReUI offers
+
+**Nothing to install.** The pinned registry answers directly:
+
+```
+$ curl -sL https://reui.io/r/base-nova/item.json
+404 {"error":"Registry item not found","message":"item is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add item"}
+
+$ curl -sL https://reui.io/r/base-nova/row.json
+404 {"error":"Registry item not found","message":"This is not a ReUI registry item. …"}
+```
+
+The nearest item on the same index is stock shadcn's compound `Item`
+(`Item`, `ItemMedia`, `ItemContent`, `ItemTitle`, `ItemActions`, …). It is not a
+ReUI item, and it is a frame with slots only: no link form, no read-only state,
+no list semantics, and it imports `cn` from the `cn` package rather than
+`#/lib/utils`. The scan's §JH-1 sits in "in-house jobs to componentise (no ReUI
+item, or our twin already exists)" for this reason.
+
+### Checklist result
+
+There is no candidate column, so the harness's fixed checklist was not run —
+this is a recorded absence of a second column, not a skipped check. What was
+measured instead:
+
+| Evidence                                                                                                               | Result                                                                                                     | Command                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Primitive contract (four forms, list semantics, empty slot, windowing, hover detail)                                   | 11 tests, pass                                                                                             | `pnpm exec vitest run src/components/v3/ui/row.test.tsx`                                               |
+| Migrated sites' unit tests (inspector, relationships, lineage, related work, notifications, offline, foundations a11y) | 176 tests, pass                                                                                            | `pnpm exec vitest run src/components/{record,knowledge,related-work,collaboration,offline,scientific}` |
+| axe, WCAG 2 A/AA, on the rendered inspector (Related work, Relationships, Lineage, Files rows)                         | **zero violations**                                                                                        | Playwright + `axe-core` against the dev server, `/records/…/notebook`                                  |
+| Keyboard focus                                                                                                         | the row is a single tab stop with a 2px visible outline                                                    | same run: `outline: 2px solid …` on the focused row                                                    |
+| Pointer hover (desktop context, `(hover: hover)` true)                                                                 | the hover fill applies and the going-somewhere arrow appears at 0 → 1 opacity                              | same run: `getComputedStyle(arrow).opacity` 0 → 1, plus the clip                                       |
+| Appearance, light and dark, 1440×900                                                                                   | rows render as designed: compact rows in the inspector lists, cards where a card is warranted, no clipping | screenshots in the change's artifacts                                                                  |
+
+### Decision and reason
+
+**Consolidate in-house — `Row` + `RowList` in `src/components/v3/ui/row.tsx`,
+with `DescriptionList` as the property row. No registry adoption, and no harness
+pair, because there is no registry item for this job to compare against.**
+
+The reason is about what the duplication actually costs. Every one of the ≈30
+renderers exists and works; what is wrong is that there are ≈30 of them, and
+that the twin implementations differ in exactly the ways a single component
+should settle — one can express a read-only state and the other cannot, one
+truncates and the other wraps, one shows a hover affordance and the other does
+not. A registry install would add a thirty-first frame to a repository that
+needs one, and the family's own verdict (the entity row that already exists
+becoming the single implementation, plus a property row and a list wrapper) is
+cheaper than any of them.
+
+Two requirements from ADR-0055 decision 4 still bind the change that migrates a
+site: the old implementation is deleted in the same change (the twin
+`LinkedRecordList` was deleted with its call sites updated, not deprecated), and
+the substituted surface passes the colour check, axe and the adoption guard.
+
+The third primitive, the property row, stays with `DescriptionList` and needs
+`stacked`, an inline split alignment and a per-item `mono` option before
+`scientific/property-list.tsx`, `scientific-record-summary.tsx` and
+`notebook/notebook-inspector.tsx` can converge on it. That extension is §JH-2's
+work and is recorded, not built, in the migration map.
+
+### Limits of this row
+
+- No harness pair exists for row chrome, so the comparison checklist has no
+  second column and none of its items were answered by a run. This row is the
+  in-house consolidation's decision and its evidence, which is what a
+  no-registry-item job can carry.
+- axe, hover and focus were measured on one rendered inspector surface (a seeded
+  experiment's notebook inspector) in Chromium; the offline list and the
+  notification popover were verified by unit test and story, not on live data
+  (the seeded workspace has no unread notifications and no pending offline
+  edits).
+- The compact `list` density is borderless, so a migrated bordered row changes
+  appearance. Each migration records that, and no screen in the design parity
+  set was re-measured by this change.
 
 ## Adding a row
 

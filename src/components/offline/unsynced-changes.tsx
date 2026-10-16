@@ -9,6 +9,7 @@
  */
 
 import { cn } from '#/lib/utils'
+import { Row, RowList } from '#/components/v3/ui/row'
 import type { OfflineEdit } from '#/lib/offline/store'
 import {
   describeOfflineEdit,
@@ -81,28 +82,24 @@ export function UnsyncedChangesList({
           Nothing is waiting. Every edit is saved to the server.
         </p>
       ) : (
-        <ul className="space-y-1.5">
+        <RowList className="gap-1.5">
           {edits.map((edit) => {
             const description = describe(edit)
             return (
-              <li
+              <Row
                 key={edit.id}
                 data-unsynced-edit
-                className="flex gap-2 text-label"
-              >
-                <span className="tabular-nums text-fg-muted">
-                  {formatClockTime(description.at)}
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-fg">{description.title}</span>
-                  <span className="block text-fg-muted">
-                    {description.detail}
+                leading={
+                  <span className="tabular-nums text-fg-muted">
+                    {formatClockTime(description.at)}
                   </span>
-                </span>
-              </li>
+                }
+                title={description.title}
+                meta={description.detail}
+              />
             )
           })}
-        </ul>
+        </RowList>
       )}
     </section>
   )

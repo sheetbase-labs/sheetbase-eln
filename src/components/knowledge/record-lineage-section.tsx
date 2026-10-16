@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
 import { EmptyHint, InspectorSection } from '#/components/record'
+import { Row, RowList } from '#/components/v3/ui/row'
 import {
   buildTableData,
   fetchLineageGraph,
@@ -26,6 +27,7 @@ import {
   lineageQueryKeys,
 } from '#/lib/lineage-data'
 import type { LineageGraph, LineageNode } from '#/lib/lineage-data'
+import { cn } from '#/lib/utils'
 
 /** Pure miniature render of a seeded graph — the unit under the component test. */
 export function RecordLineageList({
@@ -51,46 +53,33 @@ export function RecordLineageList({
       )
   }, [graph, seedRecordId])
 
-  if (items.length === 0) {
-    return <EmptyHint>No lineage links yet</EmptyHint>
-  }
-
   return (
-    <div>
-      <ul className="space-y-1">
-        {items.map(({ row, node }) => {
-          const destination = lineageNodeDestination(node)
-          return (
-            <li
-              key={row.id}
-              className="flex items-center justify-between gap-2 rounded px-2 py-1 text-xs hover:bg-surface-muted"
-            >
-              <span className="min-w-0">
-                {destination ? (
-                  <a
-                    href={destination}
-                    className="font-mono font-medium underline-offset-4 hover:underline"
-                  >
-                    {row.identifier}
-                  </a>
-                ) : (
-                  <span className="font-mono font-medium text-fg-muted">
-                    {row.identifier}
-                    {!node.accessible
-                      ? ` (${node.status === 'missing' ? 'missing' : 'restricted'})`
-                      : null}
-                  </span>
-                )}{' '}
-                <span className="text-fg-muted">
-                  {row.relationshipLabel} · {row.entityTypeLabel}
-                </span>
+    <RowList empty={<EmptyHint>No lineage links yet</EmptyHint>}>
+      {items.map(({ row, node }) => {
+        const destination = lineageNodeDestination(node)
+        return (
+          <Row
+            key={row.id}
+            href={destination ?? undefined}
+            title={
+              <span
+                className={cn(
+                  'mono font-medium',
+                  !node.accessible && 'text-fg-muted',
+                )}
+              >
+                {row.identifier}
+                {!node.accessible
+                  ? ` (${node.status === 'missing' ? 'missing' : 'restricted'})`
+                  : null}
               </span>
-              <span className="shrink-0 text-fg-muted">{row.direction}</span>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
+            }
+            meta={`${row.relationshipLabel} · ${row.entityTypeLabel}`}
+            trailing={<span className="text-fg-muted">{row.direction}</span>}
+          />
+        )
+      })}
+    </RowList>
   )
 }
 /**

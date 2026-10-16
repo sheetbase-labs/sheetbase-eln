@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Icon } from '#/components/icons'
 import { RecordLink } from '#/components/scientific/record-link'
 import { Button } from '#/components/v3/ui/button'
+import { RowList } from '#/components/v3/ui/row'
 
 const meta = {
   title: 'Scientific/Record link',
@@ -38,6 +39,49 @@ export const States: Story = {
           }
         />
       ))}
+    </div>
+  ),
+}
+
+/**
+ * The compact list density — the entity rows an inspector list holds. Every
+ * list of records is a `RowList` of these, so the row's link and read-only
+ * spellings stay one chrome.
+ */
+export const List: Story = {
+  render: () => (
+    <div className="max-w-lg">
+      <RowList>
+        <RecordLink
+          density="list"
+          type="Sample"
+          title="Human plasma aliquot"
+          meta="SMP-2026-0142"
+          icon="flask"
+          detail="Linked 2026-08-03 by user-1"
+        />
+        <RecordLink
+          density="list"
+          type="Protocol"
+          title="Titration assay SOP"
+          meta="v3"
+          icon="protocol"
+        />
+        <RecordLink
+          density="list"
+          type="Sample"
+          title="Archived cell bank"
+          state="archived"
+          icon="tube"
+        />
+        <RecordLink
+          density="list"
+          type="Record"
+          title="Restricted record"
+          state="permission-restricted"
+          icon="lock"
+        />
+      </RowList>
     </div>
   ),
 }

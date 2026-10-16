@@ -11,6 +11,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Muted } from '#/components/v3/ui/layout'
 import { toast } from '#/components/v3/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
@@ -101,7 +102,7 @@ export function WorkspaceGroups({
             Create group
           </Button>
           <Field label="Group">
-            <select
+            <Select
               aria-label="Group to manage"
               value={groupId}
               onChange={(e) => {
@@ -115,7 +116,7 @@ export function WorkspaceGroups({
                   {g.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           {group ? (
             <>

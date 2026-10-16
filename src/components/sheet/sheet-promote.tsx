@@ -12,7 +12,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import { listCanonicalDatasetSchemaDefinitions } from '#/lib/dataset-schema-definition-rpc'
@@ -147,7 +147,7 @@ export function SheetPromote({
         />
         <DialogBody>
           <Field label="Where to" required>
-            <NativeSelect
+            <Select
               value={definitionId}
               onChange={(e) => setDefinitionId(e.target.value)}
             >
@@ -157,7 +157,7 @@ export function SheetPromote({
                   {definition.name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
           <table className="w-full border-collapse text-label">
             <thead>

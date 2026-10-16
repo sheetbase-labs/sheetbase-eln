@@ -11,7 +11,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { PageHeader } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
@@ -263,7 +263,7 @@ function NewReading() {
         }}
       >
         <Field label="Sample" required>
-          <NativeSelect
+          <Select
             value={effectiveSampleId}
             onChange={(e) => setSampleId(e.target.value)}
             disabled={samples.isLoading}
@@ -276,7 +276,7 @@ function NewReading() {
                 {s.identifier} · {s.title}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
 
         {noPlans ? (
@@ -287,7 +287,7 @@ function NewReading() {
         ) : (
           <>
             <Field label="Dataset" required>
-              <NativeSelect
+              <Select
                 value={effectiveDatasetId}
                 onChange={(e) => {
                   setDatasetId(e.target.value)
@@ -303,7 +303,7 @@ function NewReading() {
                     {d.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
 
             <Field
@@ -311,7 +311,7 @@ function NewReading() {
               required
               hint="The sample or well key this reading fills."
             >
-              <NativeSelect
+              <Select
                 value={effectivePlannedKey}
                 onChange={(e) => setPlannedKey(e.target.value)}
               >
@@ -320,7 +320,7 @@ function NewReading() {
                     {row.planned_key ?? 'Unkeyed row'}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
           </>
         )}
@@ -339,7 +339,7 @@ function NewReading() {
         ) : null}
 
         <Field label="Measurement" required>
-          <NativeSelect
+          <Select
             value={effectiveMeasurementFieldId}
             onChange={(e) => setMeasurementFieldId(e.target.value)}
             disabled={fieldsQuery.isLoading || measurementOptions.length === 0}
@@ -353,7 +353,7 @@ function NewReading() {
                 {readingFieldUnit(field) ? ` (${readingFieldUnit(field)})` : ''}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
 
         <div className="flex gap-2">

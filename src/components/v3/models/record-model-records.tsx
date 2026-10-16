@@ -5,6 +5,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Status } from '#/components/v3/ui/status'
 import { DataTable } from '#/components/scientific/data-table'
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
@@ -141,11 +142,12 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
           className="h-8 text-body"
         />
       </label>
-      <select
+      <Select
         aria-label="Filter by status"
+        size="sm"
+        className="h-8"
         value={status}
         onChange={(event) => setStatus(event.target.value)}
-        className="h-8 cursor-pointer rounded-md border border-border bg-surface px-2 text-label text-fg"
       >
         <option value="">All statuses</option>
         {statuses.map((option) => (
@@ -153,12 +155,13 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
             {option}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Filter by field"
+        size="sm"
+        className="h-8"
         value={fieldName}
         onChange={(event) => setFieldName(event.target.value)}
-        className="h-8 cursor-pointer rounded-md border border-border bg-surface px-2 text-label text-fg"
       >
         <option value="">Any field</option>
         {fields.map((field) => (
@@ -166,7 +169,7 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
             {field.label}
           </option>
         ))}
-      </select>
+      </Select>
       <Input
         value={fieldValue}
         disabled={!fieldName}

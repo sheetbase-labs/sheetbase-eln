@@ -35,7 +35,7 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { Textarea } from '#/components/v3/inventory/list'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { agentOperationLabel } from '#/lib/agent-operations'
 import type {
   AgentOperationEvent,
@@ -765,7 +765,7 @@ export function AgentPoliciesPanel({
               />
             </Field>
             <Field label="Credential" required>
-              <NativeSelect
+              <Select
                 value={credentialId}
                 onChange={(e) => setCredentialId(e.target.value)}
               >
@@ -777,10 +777,10 @@ export function AgentPoliciesPanel({
                     {c.name} ({c.displayPrefix})
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Field label="Target">
-              <NativeSelect
+              <Select
                 value={targetType}
                 onChange={(e) =>
                   setTargetType(
@@ -793,7 +793,7 @@ export function AgentPoliciesPanel({
                     {t.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Field label="Target id">
               <Input

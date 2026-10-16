@@ -89,6 +89,7 @@ import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Tabs, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
+import { Select } from '#/components/v3/ui/select'
 import { Textarea } from '#/components/v3/inventory/list'
 import { DataClientError } from '#/lib/data-client'
 import {
@@ -1328,9 +1329,9 @@ function DiffPanel({
           >
             Compare against
           </label>
-          <select
+          <Select
             id="review-comparison-select"
-            className="mt-1 block w-full max-w-xs rounded-md border bg-background px-2 py-1 text-sm"
+            className="mt-1 max-w-xs"
             value={effectiveComparisonId ?? ''}
             onChange={(event) => onComparisonChange(event.target.value || null)}
           >
@@ -1341,7 +1342,7 @@ function DiffPanel({
                 {option.superseded_by_revision_id ? ' (superseded)' : ''}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {comparisonLoading ? (
@@ -2620,13 +2621,12 @@ export function SignaturePanel({
           <label htmlFor="signature-witness" className="text-xs font-medium">
             Request a witness for this frozen revision
           </label>
-          <select
+          <Select
             id="signature-witness"
             value={witnessUserId}
             disabled={
               requestingWitness || members.isFetching || members.isError
             }
-            className="block w-full rounded-md border bg-background px-2 py-1.5 text-sm"
             onChange={(event) => setWitnessUserId(event.target.value)}
           >
             <option value="">Choose another permitted member</option>
@@ -2640,7 +2640,7 @@ export function SignaturePanel({
                 {member.can_read_record ? '' : ' — cannot read this record'}
               </option>
             ))}
-          </select>
+          </Select>
           {/* QA-183: a greyed picker states why it cannot be used. */}
           {members.isError ? (
             <p className="text-xs text-muted-foreground">

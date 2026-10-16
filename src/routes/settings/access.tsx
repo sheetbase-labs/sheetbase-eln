@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import {
   Dialog,
@@ -190,8 +191,9 @@ function Access() {
       <div className="flex gap-3 border-y border-border-subtle px-4 py-2 md:px-6">
         <label className="text-label">
           Project:{' '}
-          <select
+          <Select
             aria-label="Filter project"
+            className="inline-block text-label"
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
           >
@@ -201,12 +203,13 @@ function Access() {
                 {p.title}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="text-label">
           Group:{' '}
-          <select
+          <Select
             aria-label="Filter group"
+            className="inline-block text-label"
             value={groupFilter}
             onChange={(e) => setGroupFilter(e.target.value)}
           >
@@ -216,7 +219,7 @@ function Access() {
                 {g.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
@@ -455,7 +458,7 @@ function RuleDialog({
         />
         <DialogBody>
           <Field label="Project">
-            <select
+            <Select
               aria-label="Project"
               disabled={Boolean(rule)}
               value={projectId}
@@ -466,10 +469,10 @@ function RuleDialog({
                   {p.title}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Principal type">
-            <select
+            <Select
               aria-label="Principal type"
               disabled={Boolean(rule)}
               value={kind}
@@ -480,10 +483,10 @@ function RuleDialog({
             >
               <option value="group">Group</option>
               <option value="user">Person</option>
-            </select>
+            </Select>
           </Field>
           <Field label={kind === 'group' ? 'Group' : 'Person'}>
-            <select
+            <Select
               aria-label={kind === 'group' ? 'Group' : 'Person'}
               disabled={Boolean(rule)}
               value={principalId}
@@ -501,7 +504,7 @@ function RuleDialog({
                       {p.name}
                     </option>
                   ))}
-            </select>
+            </Select>
           </Field>
           {[
             ...columns,

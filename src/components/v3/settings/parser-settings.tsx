@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { useInstruments } from '#/components/v3/instruments/instruments-data'
 import { createDataClient } from '#/lib/data-client'
 import { hasCapability } from '#/lib/capability'
@@ -153,7 +153,7 @@ export function ParserSettings({
         >
           <div className="grid max-w-[720px] gap-3 md:grid-cols-2">
             <Field label="Retained test file">
-              <NativeSelect
+              <Select
                 value={testFileId}
                 onChange={(e) => setTestFileId(e.target.value)}
               >
@@ -163,7 +163,7 @@ export function ParserSettings({
                     {file.filename} · {file.id.slice(0, 8)}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             {canEdit ? (
               <Field label="Upload a new test file">
@@ -278,7 +278,7 @@ export function ParserSettings({
               />
             </Field>
             <Field label="Format">
-              <NativeSelect
+              <Select
                 value={format}
                 onChange={(e) => setFormat(e.target.value)}
               >
@@ -287,10 +287,10 @@ export function ParserSettings({
                     {value.toUpperCase()}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Field label="Instrument">
-              <NativeSelect
+              <Select
                 value={instrumentId}
                 onChange={(e) => setInstrumentId(e.target.value)}
               >
@@ -300,7 +300,7 @@ export function ParserSettings({
                     {i.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Field label="Structural signature (JSON)">
               <textarea

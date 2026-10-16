@@ -307,9 +307,54 @@ describe('the ReUI column offers the candidate’s own controls', () => {
 })
 
 describe('the registered pair set', () => {
-  it('holds the notebook sortable list, and nothing else yet', () => {
+  it('holds the notebook sortable list and the native select', () => {
     expect(COMPARISON_PAIRS.map((pair) => pair.id)).toEqual([
       'notebook-sortable',
+      'native-select',
     ])
+  })
+})
+
+describe('the select columns offer the same options and refuse editing alike', () => {
+  it('renders the fixture’s options in both columns, grouped and with the disabled option', () => {
+    renderHarness([COMPARISON_PAIRS[1]])
+    selectFixture('long-labels')
+
+    for (const side of ['ours', 'theirs'] as const) {
+      const column = columnElement(side)
+      const field = column.querySelector<HTMLSelectElement>(
+        '[data-comparison-select-control="field"]',
+      )
+      expect(field?.tagName).toBe('SELECT')
+      // Grouped by kind, plus the disabled "custom" option.
+      const labels = Array.from(field?.querySelectorAll('optgroup') ?? []).map(
+        (group) => group.getAttribute('label'),
+      )
+      expect(labels).toEqual(['Sample', 'Control', 'Standard'])
+      expect(
+        field
+          ?.querySelector('option[value="custom"]')
+          ?.hasAttribute('disabled'),
+      ).toBe(true)
+      expect(field?.querySelectorAll('option').length).toBeGreaterThan(3)
+    }
+  })
+
+  it('disables both columns’ controls in the restricted state', () => {
+    renderHarness([COMPARISON_PAIRS[1]])
+    fireEvent.change(screen.getByTestId('comparison-state'), {
+      target: { value: 'restricted' },
+    })
+
+    for (const side of ['ours', 'theirs'] as const) {
+      const column = columnElement(side)
+      const readout = column.querySelector('[data-comparison-select-disabled]')
+      expect(readout?.getAttribute('data-comparison-select-disabled')).toBe(
+        'true',
+      )
+      for (const control of column.querySelectorAll('select')) {
+        expect(control.disabled).toBe(true)
+      }
+    }
   })
 })

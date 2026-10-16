@@ -24,6 +24,7 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Choice } from '#/components/v3/ui/choice'
 import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Notice } from '#/components/v3/ui/alert'
+import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   Dialog,
@@ -40,7 +41,6 @@ import {
   ListToolbar,
   MobileList,
   SearchTabs,
-  Select,
   stickyCell,
   stickyHead,
 } from '#/components/v3/inventory/list'

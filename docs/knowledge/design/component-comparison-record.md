@@ -27,9 +27,10 @@ a decision is not a record.
 
 ## Rows
 
-| #   | Component (generic UI job)                              | What we use now                                                                                                                                                                   | What ReUI offers                                                                           | Checklist result                                                                                                                                                                                                                                                                                                   | Decision                                                                                                         | Measured    |
-| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | Reorderable list — reorder rows by pointer and keyboard | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row) | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx` | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface | 16 Oct 2026 |
+| #   | Component (generic UI job)                              | What we use now                                                                                                                                                                                                                                                                                   | What ReUI offers                                                                                                                                                                                                                              | Checklist result                                                                                                                                                                                                                                                                                                                                                         | Decision                                                                                                                                                                                                                                                                                                                                                                                                                           | Measured    |
+| --- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                 | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                                                                                    | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 10 items are not applicable — this pair has no sort, filter, row-select, resize, pagination or option-picker control                                   | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                                                                                                                                                                                                                                   | 16 Oct 2026 |
+| 2   | Option picker — choose one option from a grouped list   | v3 `Select` (`src/components/v3/ui/select.tsx`): the **native** `<select>`, styled like `Input`. This change hoists it out of `projects/select.tsx`, makes it the single definition (a second one in `inventory/list.tsx` is deleted), and migrates 22 route sites and 3 further v3 sites onto it | **Stock shadcn `native-select`**, placed by hand at `src/components/reui/native-select.tsx`. **Not a ReUI item**: the pinned ReUI registry serves neither `native-select` nor `select`, so there is no base-nova build of this job to install | Ours: 8 of the 10 applicable items pass, 1 is a measured gap (density at 390: the 44px clause) and 1 is not measurable in either engine (the platform popup's pointer path; see the detail table). Theirs: the same 8, the same gap, the same unmeasurable item. 10 items are not applicable — this pair has no reorder, sort, filter, row-select, resize or pagination control | **Keep ours; no adoption.** The two are the same platform control, so there is no measured decline to weigh: the candidate's own additions (option/optgroup wrappers, `has-[select:disabled]:opacity-50`, a lucide chevron, 36/32px sizes) change nothing behaviourally, and our contract is the better fit — two sizes that grow on mobile, `invalid`, `Field`-awareness, the kit's tokens, no new dependency, and one definition | 16 Oct 2026 |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -86,9 +87,9 @@ this pair has, and are recorded as not applicable rather than skipped.
 | Density and overflow at 1440x900                          | Pass — no horizontal overflow, no clipped row, handle visible                                       | Pass                                                                                                     | Browser, both columns                                                 |
 | Density and overflow at 390x844                           | **Pointer reordering is unavailable** — the handle is not rendered; keyboard reordering still works | Pass — the handle is rendered and usable                                                                 | Browser, both columns, asserted per column rather than averaged       |
 
-Sort, filter, select, resize and pagination: not applicable to this pair (8
-items). They are listed in the harness with that verdict and will be answered
-when a pair that has those controls is added.
+Sort, filter, row-select, resize, pagination and option-picker: not applicable to
+this pair (10 items). They are listed in the harness with that verdict and will
+be answered when a pair that has those controls is added.
 
 **Caveat on the empty, loading and error states.** These are picture states of a
 whole screen, and the harness owns them: both columns show the same harness
@@ -188,6 +189,150 @@ reason disappears and this decision should be re-measured rather than inherited.
 - The 5,000-row fixture is measured for rendering and overflow, not by axe.
 - This row records one pair. It is not a verdict on `@dnd-kit`, on ReUI as a
   registry, or on any other ReUI item.
+
+## Row 2 — Option picker (`native-select`)
+
+### What we use now
+
+`src/components/v3/ui/select.tsx` — `Select`: the **native** `<select>`, styled
+like `Input` and wrapped in a positioning `<span>` that carries a token-coloured
+chevron. It is a hoist, not a new build: the primitive existed as
+`NativeSelect` in `src/components/v3/projects/select.tsx` (imported by 39
+files, including the notebook block editor, the sheet block and the figure
+configurator), with a second, differently-shaped definition in
+`src/components/v3/inventory/list.tsx:387-404` and raw `<select>` copies in v3
+screens and route files. This change makes it one definition in the kit's own
+directory, re-points every importer, deletes the second definition, and migrates
+the 22 native `<select>` sites in the route surfaces plus three further v3
+component sites onto it.
+
+Two facts about it that the measurements turned on:
+
+- **Native is deliberate**, and it is the reason this row compares the native
+  item and not a listbox. Keyboard handling, typeahead, `<optgroup>` grouping,
+  disabled options, form participation and the platform picker (including the
+  OS list on mobile) are the element's; `inventory/list.tsx` recorded the same
+  reason before this change ("Native keeps keyboard and screen reader behaviour
+  for free"). A JS listbox — the stock shadcn `select`, or `@base-ui/react`'s
+  `Select`, whose exports were read for this row — would trade those for
+  styling, and would change behaviour on 22 migrated sites that were not
+  migrated to gain one.
+- **The two sizes are the kit's, not the registry's.** `md` is 30px with
+  `max-md:h-10` and `text-body`; `sm` is 26px with `max-md:h-8` and
+  `text-label`, mirroring `Button`'s `md`/`sm` mobile growth. `className` merges
+  on the wrapper, so a toolbar that is 32px tall (`record-model-records.tsx`)
+  passes `size="sm" className="h-8"` and the control follows — no third size.
+
+### What ReUI offers
+
+**Nothing under the ReUI name.** The pinned base-nova registry serves neither
+`native-select` nor `select`: both installs fail against
+`https://reui.io/r/base-nova/{name}.json` with "item not found" (measured
+16 Oct 2026, from a scratch directory with this repository's `components.json`).
+The job is served by a **stock shadcn** item, `native-select`, installed by bare
+name from the shadcn registry and placed by hand at
+`src/components/reui/native-select.tsx` (the runbook's placement rule for
+copy-and-own source; `cn` re-pointed to `#/lib/utils`, colours restyled to
+Sheetbase tokens because an adoption means restyling anyway).
+
+What that item is: `NativeSelect` plus `NativeSelectOption` and
+`NativeSelectOptGroup` wrappers that pin option colours to the OS
+`Canvas`/`CanvasText` system colours; a `div` wrapper with
+`has-[select:disabled]:opacity-50`; a lucide `ChevronDownIcon`;
+`size="default"|"sm"` heights of 36px and 32px with no mobile growth; and
+`data-slot`s. Its `select` is the same platform element as ours.
+
+### Checklist result
+
+Fixed checklist: `src/components/component-compare/checklist.ts`. This pair
+declares the `picker` control class, added with this row; the other 10 items are
+recorded as not applicable rather than skipped.
+
+| Check                                                               | Ours                                                                                                                            | Theirs                                                                                            | How it was measured                                                                             |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator           | Pass — both pickers, reached in DOM order, each drawing the kit's focus outline                                                 | Pass — both pickers, each drawing its ring                                                        | Browser, both columns (`keyboard: reaches every picker by Tab`)                                 |
+| Change the option without a pointer (arrow keys, typeahead, groups) | Pass — ArrowDown moves the selection; `R` typeahead crosses into the Standard group; a disabled option is never reached         | Pass — identical, being the same element                                                          | Browser, both columns, asserted per column (`changes the chosen option…`, `typeahead crosses…`) |
+| Change the option with the pointer alone                            | **Not measurable** — the popup is the platform's widget, not DOM, so neither engine can drive it                                | **Not measurable** — same platform popup                                                          | Manual; recorded as a limit (see below), not as a pass                                          |
+| Empty (0 rows), loading, error, permission-restricted               | Pass — one honest "No rows in this fixture" option, and the control disables in `restricted`                                    | Pass — same, and its own disabled rendering (`opacity-50`)                                        | jsdom (axe, all fixtures and states) and the harness contract test                              |
+| Dark theme                                                          | Pass — token-bound colours only; axe clean in dark                                                                              | Pass — axe clean in dark after the token restyle                                                  | axe in Chromium with colour contrast on, both columns, both themes                              |
+| Density and overflow at 1440x900                                    | Pass — no page overflow; pickers 30px and 26px, inside the column                                                               | Pass — no page overflow; pickers 36px and 32px                                                    | Browser, both columns, measured per column                                                      |
+| Density and overflow at 390x844                                     | **Partial** — no overflow, both pickers inside the column, but 40px and 32px tall: the checklist's 44px touch target is not met | **Partial** — 36px and 32px tall: the same clause unmet, and the item has no mobile growth at all | Browser, both columns, measured (document overflow 0)                                           |
+
+Sort, filter, row-select, resize and pagination: not applicable to this pair (5
+of the 10), and the reorder items are not either.
+
+**The 44px clause.** Neither side meets it, and ours is the larger of the two
+(40px vs 36px) because `md` grows on narrow screens and the item does not. The
+kit's own vocabulary is the constraint: `Button`'s `md` is `max-md:h-10` (40px)
+and `Input` does not grow at all (30px), so raising the select alone would make
+it taller than the buttons beside it. Recorded here as a kit-wide decision, not
+one this change should take alone.
+
+### Automated evidence
+
+| Evidence                                                                                                  | Result                                                                   | Command                                                                                                      |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides, for this pair and the notebook pair         | 18 cases for this pair, **zero violations** (colour contrast off: jsdom) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                      |
+| axe in Chromium, colour contrast **on**, both columns, both themes                                        | 4 cases, **zero violations**                                             | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep "native select"` |
+| Harness contracts (both columns render the same options; the restricted state disables both)              | 14 tests pass (2 of them this pair's)                                    | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                           |
+| Keyboard, density and screenshots in a real engine                                                        | 13 tests pass for this pair                                              | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep "native select"` |
+| The migration itself: every `<select>` on 10 migrated screens is the primitive and has an accessible name | 13 selects across 10 screens, 0 raw, 0 unnamed (measured 16 Oct 2026)    | walked with the gareth design user at 1440x900; the screens are listed in the change's report                |
+
+Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `native-select-ours-light.png`,
+`native-select-ours-dark.png`, `native-select-theirs-light.png`,
+`native-select-theirs-dark.png` — one per column per theme. Appearance is
+evidence; it is not the verdict.
+
+### What an adoption would cost
+
+- **There is nothing to pin.** The item is stock shadcn, so an adoption would
+  track the shadcn registry rather than this repository's `@reui` pin, and the
+  ADR-0055 decision-2 placement rule (`src/components/reui/**`) would be a
+  filing convention rather than a registry one.
+- **It would restore the duplication this change removes.** The item is a second
+  definition of the same control; adopting it means re-pointing 41 files again
+  and deleting the hoisted primitive, for no behavioural change.
+- **Its sizes and mobile behaviour would have to be re-decided** (36/32px, no
+  growth), and its lucide chevron and `div` wrapper would replace the kit's
+  `Icon` and `<span>`; the restyle to our tokens is the easy part.
+- **Its `NativeSelectOption`/`NativeSelectOptGroup` wrappers** are the one thing
+  it has that we do not: option colours pinned to the OS system colours. Nothing
+  in the product has needed them; if a dark-mode popup defect ever appears, that
+  is the piece to lift, not the whole item.
+- **Its focus treatment is a `ring-*`, and it ships `outline-none`.** Restyling
+  to our outline means deleting that `outline-none` as well: left in, it cancels
+  the outline the restyle adds, and the control then has no visible focus
+  indicator at all (measured — the harness's Tab check failed on it until the
+  class was removed). A restyle that only swaps colour tokens would ship that.
+
+### Decision and reason
+
+**Keep ours. No adoption.** The bar in ADR-0055 decision 4 is a _materially
+worse_ hand-rolled version — a named behaviour missing, or a maintenance burden
+that is demonstrably ours. Neither holds here: both sides are the same platform
+element, so the behaviour is the same by construction, and this change already
+removes the maintenance burden (one definition, 41 importers, 22 migrated sites)
+without the registry item. The candidate's own additions are cosmetic or
+unused. This is not a measured decline of the item; it is the row recording that
+the job was already owned, and that the comparison was made against the native
+item because native is the repository's deliberate choice for it.
+
+### Limits of this row
+
+- The pointer path could not be exercised in either engine: a native `<select>`'s
+  popup is the platform's own widget, absent from the DOM and from Playwright's
+  reach. `selectOption` is a DOM-API path, not a pointer path, so it is not
+  evidence for that checklist item. A person can run it on the harness page.
+- Desktop Chromium only (Playwright, one worker). The mobile capture is a 390px
+  viewport, not a device, and no iOS or Android picker was observed.
+- The 5,000-row fixture is rendered in both columns in the browser run (5,000
+  `<option>`s per select) but is not an axe target in either engine — the same
+  recorded exclusion as row 1.
+- The migration evidence (13 selects on 10 screens, all the primitive, all
+  named) was gathered by walking those screens, not by a committed test; the
+  committed guard is the adoption test plus the kit's own suites.
+- This row records one pair. It is not a verdict on the shadcn registry, on
+  `@base-ui/react`'s `Select`, or on any other item.
 
 ## Adding a row
 

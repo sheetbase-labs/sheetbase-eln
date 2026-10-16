@@ -6,6 +6,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
 import { Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Muted } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -246,9 +247,9 @@ function Audit() {
         role="toolbar"
         className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2 md:px-6"
       >
-        <select
+        <Select
           aria-label="Operation"
-          className="h-[26px] rounded-md border border-border bg-surface px-2 text-label text-fg"
+          size="sm"
           value={operation}
           onChange={(e) => setOperation(e.target.value)}
         >
@@ -258,7 +259,7 @@ function Audit() {
               {o}
             </option>
           ))}
-        </select>
+        </Select>
         <label className="block w-[240px]">
           <span className="sr-only">Search audit log</span>
           <Input

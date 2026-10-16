@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Select } from '#/components/v3/ui/select'
 import {
   DescriptionList,
   Inspector,
@@ -62,9 +63,8 @@ function ModelFields() {
             <label className="text-label text-fg-muted" htmlFor="version">
               Version
             </label>
-            <select
+            <Select
               id="version"
-              className="h-[30px] rounded-md border border-border bg-surface px-2 text-body text-fg max-md:h-10"
               value={version?.id ?? ''}
               onChange={(e) =>
                 void navigate({
@@ -80,7 +80,7 @@ function ModelFields() {
                   v{v.version} · {v.lifecycle}
                 </option>
               ))}
-            </select>
+            </Select>
             <Muted className="max-lg:hidden">
               {version?.published_at
                 ? `Published ${version.published_at.slice(0, 10)}`

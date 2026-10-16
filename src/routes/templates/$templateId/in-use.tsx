@@ -6,6 +6,7 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
+import { Select } from '#/components/v3/ui/select'
 import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -255,9 +256,9 @@ function TemplateInUse() {
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-1.5 text-label text-fg-muted">
             Version
-            <select
+            <Select
               aria-label="Filter by version"
-              className="h-[26px] rounded-md border border-border bg-surface px-1.5 text-label text-fg"
+              size="sm"
               value={versionFilter ?? ''}
               onChange={(e) =>
                 updateSearch({ version: e.target.value || undefined })
@@ -269,13 +270,13 @@ function TemplateInUse() {
                   v{v.version}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="flex items-center gap-1.5 text-label text-fg-muted">
             Project
-            <select
+            <Select
               aria-label="Filter by project"
-              className="h-[26px] rounded-md border border-border bg-surface px-1.5 text-label text-fg"
+              size="sm"
               value={projectFilter ?? ''}
               onChange={(e) =>
                 updateSearch({ project: e.target.value || undefined })
@@ -287,7 +288,7 @@ function TemplateInUse() {
                   {projects.data?.get(id) ?? id}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           {filtersActive ? (
             <Button size="sm" onClick={clearFilters}>

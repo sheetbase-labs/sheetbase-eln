@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { useExperimentRecords } from '#/components/v3/experiments/experiments-data'
 import {
   calibrationStatus,
@@ -392,7 +392,7 @@ export function ImportUploadFlow({
           {effectiveMode === 'append' ? (
             <label className="grid max-w-[420px] gap-1 text-label text-fg-muted">
               Dataset
-              <NativeSelect
+              <Select
                 aria-label="Import into dataset"
                 value={datasetId}
                 onChange={(event) => setDatasetId(event.target.value)}
@@ -403,13 +403,13 @@ export function ImportUploadFlow({
                     {item.display_id ?? item.name} · {item.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
           ) : (
             <div className="grid max-w-[520px] gap-3 sm:grid-cols-2">
               <label className="grid gap-1 text-label text-fg-muted">
                 Model
-                <NativeSelect
+                <Select
                   aria-label="Model for the new dataset"
                   value={schemaVersionId}
                   onChange={(event) => setSchemaVersionId(event.target.value)}
@@ -423,7 +423,7 @@ export function ImportUploadFlow({
                       {schema.name} v{schema.version}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </label>
               <label className="grid gap-1 text-label text-fg-muted">
                 Dataset name
@@ -459,7 +459,7 @@ export function ImportUploadFlow({
           <div className="grid max-w-[640px] gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-label text-fg-muted">
               Link to experiment
-              <NativeSelect
+              <Select
                 aria-label="Link to experiment"
                 value={experimentId}
                 onChange={(event) => setExperimentId(event.target.value)}
@@ -470,11 +470,11 @@ export function ImportUploadFlow({
                     {item.identifier || item.id.slice(0, 8)} · {item.title}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
             <label className="grid gap-1 text-label text-fg-muted">
               Instrument
-              <NativeSelect
+              <Select
                 aria-label="Instrument"
                 value={instrumentId}
                 onChange={(event) => setInstrumentId(event.target.value)}
@@ -485,7 +485,7 @@ export function ImportUploadFlow({
                     {item.displayId ?? item.name} · {item.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
               {instrumentId ? (
                 <Status tone={calibration.tone}>{calibration.label}</Status>
               ) : null}
@@ -1028,7 +1028,7 @@ export function ImportMapCheckFlow({
           <div className="grid gap-4">
             <div className="grid max-w-[420px] gap-1 text-label text-fg-muted">
               Parser
-              <NativeSelect
+              <Select
                 aria-label="Parser for this file"
                 value={activeParser?.key ?? ''}
                 onChange={(event) => {
@@ -1043,7 +1043,7 @@ export function ImportMapCheckFlow({
                     {option.label} v{option.version}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
               {suggestedParser ? (
                 <span className="text-label">
                   Suggested from the file name: {suggestedParser.label}. Change
@@ -1157,7 +1157,7 @@ function MapTable({
                 <TableRow key={header}>
                   <TableCell>{header}</TableCell>
                   <TableCell>
-                    <NativeSelect
+                    <Select
                       aria-label={`Map ${header}`}
                       value={fieldId}
                       onChange={(event) => onMap(header, event.target.value)}
@@ -1168,7 +1168,7 @@ function MapTable({
                           {item.label}
                         </option>
                       ))}
-                    </NativeSelect>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-fg-muted">
                     {field?.unit ?? '—'}

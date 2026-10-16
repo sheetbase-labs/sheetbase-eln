@@ -98,7 +98,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { Inspector as InspectorPanel, Muted } from '#/components/v3/ui/layout'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -2221,7 +2221,7 @@ function EditableNotebook({
             description="This Notebook will show the same live Sheet. Editing it here changes it everywhere it is used."
           />
           <Field label="Sheet">
-            <NativeSelect
+            <Select
               id="link-sheet-instance"
               value={embedInstanceId}
               onChange={(event) => setEmbedInstanceId(event.target.value)}
@@ -2237,7 +2237,7 @@ function EditableNotebook({
                       : ' (ad hoc Sheet)'}
                   </option>
                 ))}
-            </NativeSelect>
+            </Select>
           </Field>
           <DialogFooter>
             <Button

@@ -31,7 +31,8 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
-import { Select, Textarea } from '#/components/v3/inventory/list'
+import { Select } from '#/components/v3/ui/select'
+import { Textarea } from '#/components/v3/inventory/list'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   Table,

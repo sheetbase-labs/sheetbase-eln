@@ -14,7 +14,7 @@ import { Status } from '#/components/v3/ui/status'
 import { Notice } from '#/components/v3/ui/alert'
 import { Field, Input } from '#/components/v3/ui/input'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { Textarea } from '#/components/v3/inventory/list'
 import {
   Table,
@@ -663,7 +663,7 @@ function ModelEditor() {
                               />
                             </TableCell>
                             <TableCell>
-                              <NativeSelect
+                              <Select
                                 aria-label={`Field type ${field.key || 'new field'}`}
                                 disabled={locked}
                                 value={field.logicalType}
@@ -679,7 +679,7 @@ function ModelEditor() {
                                     {type}
                                   </option>
                                 ))}
-                              </NativeSelect>
+                              </Select>
                             </TableCell>
                             <TableCell>
                               <input
@@ -981,7 +981,7 @@ function FieldEditor({
             />
           </Field>
           <Field label="Type">
-            <NativeSelect
+            <Select
               aria-label="Field type"
               disabled={locked}
               value={field.logicalType}
@@ -992,7 +992,7 @@ function FieldEditor({
                   {type}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
           <Field
             label="Section"
@@ -1120,7 +1120,7 @@ function FieldEditor({
 
         {field.logicalType === 'boolean' ? (
           <Field label="Default for new datasets">
-            <NativeSelect
+            <Select
               aria-label="Default value"
               disabled={locked}
               value={
@@ -1140,7 +1140,7 @@ function FieldEditor({
               <option value="">No default</option>
               <option value="true">Yes</option>
               <option value="false">No</option>
-            </NativeSelect>
+            </Select>
           </Field>
         ) : null}
 
@@ -1149,7 +1149,7 @@ function FieldEditor({
             label="Cardinality"
             hint="The target model or schema is configured on the model’s Relationships tab."
           >
-            <NativeSelect
+            <Select
               aria-label="Cardinality"
               disabled={locked}
               value={field.cardinality ?? 'one'}
@@ -1161,7 +1161,7 @@ function FieldEditor({
             >
               <option value="one">Links to one record</option>
               <option value="many">Allows several records</option>
-            </NativeSelect>
+            </Select>
           </Field>
         ) : null}
 

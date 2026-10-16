@@ -51,7 +51,8 @@ values.
 
 Fixed in `checklist.ts`: keyboard, mouse, state and density, with each item
 naming the **control classes** it needs (`reorder`, `sort`, `filter`, `select`,
-`resize`, `pagination`). A pair declares which controls its components have; an
+`resize`, `pagination`, `picker`). A pair declares which controls its components
+have; an
 item whose control is absent is recorded as _not applicable_, which is a
 recorded result rather than a skipped check. A pair cannot narrow the
 questions to the ones its candidate happens to pass.
@@ -93,7 +94,9 @@ COMPONENT_COMPARE_SHOTS=/tmp/component-compare \
 
 That writes `ours-light.png`, `ours-dark.png`, `theirs-light.png`,
 `theirs-dark.png` — one per column per theme, which is the appearance evidence
-ADR-0055 decision 5 asks for. Appearance is evidence, not the verdict.
+ADR-0055 decision 5 asks for. Appearance is evidence, not the verdict. Those
+four names are the first pair's; a pair added later prefixes its own with the
+pair id (`native-select-ours-light.png`, …) so one directory stays readable.
 
 The 5,000-row fixture is not an axe target in either engine. One axe pass over
 ~25,000 nodes per column takes minutes — measured at 5 minutes plus in jsdom and
@@ -150,7 +153,10 @@ fixture back and accept the runtime.
    comparator. Our side renders the code that ships — for the notebook's list
    that means the same `notebook-block-reorder.tsx` hook the document uses —
    and the candidate's row chrome is restyled to Sheetbase tokens, because an
-   adoption means restyling anyway.
+   adoption means restyling anyway. If the job needs a control class the
+   checklist does not know yet, add it to `COMPARISON_CONTROLS` in `types.ts` and
+   add that job's items to `checklist.ts`: the questions are fixed for every
+   pair, so a new job extends them rather than narrowing them.
 
 5. **Run the checklist** (the commands above), then write the pair's row in the
    comparison record: what we use now, what the candidate offers, each side's

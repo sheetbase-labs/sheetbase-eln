@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { createDataClient } from '#/lib/data-client'
 import {
   discoverConnectorSource,
@@ -119,7 +119,7 @@ function TargetControls({
   return (
     <div className="flex flex-col gap-3">
       <Field label="Target Schema Version">
-        <NativeSelect
+        <Select
           value={state.schemaVersionId}
           onChange={(event) =>
             onChange({
@@ -135,12 +135,12 @@ function TargetControls({
               {option.name} v{option.version}
             </option>
           ))}
-        </NativeSelect>
+        </Select>
       </Field>
       {state.schemaVersionId && (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Existing Dataset">
-            <NativeSelect
+            <Select
               value={state.datasetId}
               onChange={(event) =>
                 onChange({ ...state, datasetId: event.target.value })
@@ -152,7 +152,7 @@ function TargetControls({
                   {dataset.name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
           {!state.datasetId && (
             <Field label="New Dataset name">
@@ -508,7 +508,7 @@ function S3SourcePanel({
               </div>
             )}
             <Field label="Retain raw object in project">
-              <NativeSelect
+              <Select
                 value={projectId}
                 onChange={(event) => setProjectId(event.target.value)}
               >
@@ -518,7 +518,7 @@ function S3SourcePanel({
                     {project.title}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <TargetControls state={target} onChange={setTarget} />
             <ImportButton
@@ -633,7 +633,7 @@ function PostgresSourcePanel({
         {discovery && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Schema">
-              <NativeSelect
+              <Select
                 value={schema}
                 onChange={(event) => {
                   setSchema(event.target.value)
@@ -647,11 +647,11 @@ function PostgresSourcePanel({
                     {name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             {schema && (
               <Field label="Table / view">
-                <NativeSelect
+                <Select
                   value={selectedTable}
                   onChange={(event) => setSelectedTable(event.target.value)}
                 >
@@ -661,7 +661,7 @@ function PostgresSourcePanel({
                       {table.name} ({table.kind})
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
             )}
           </div>

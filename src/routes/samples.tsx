@@ -35,7 +35,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   ListFooter,
   ListHeader,
@@ -425,7 +425,7 @@ function RegisterSampleDialog({
         <DialogHeader title="Register sample" />
         <DialogBody>
           <Field label="Project" required>
-            <NativeSelect
+            <Select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
             >
@@ -435,7 +435,7 @@ function RegisterSampleDialog({
                   {p.title}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
           <Field label="Name" required>
             <Input
@@ -459,7 +459,7 @@ function RegisterSampleDialog({
               />
             </Field>
             <Field label="Unit">
-              <NativeSelect
+              <Select
                 value={quantityUnit}
                 onChange={(e) => setQuantityUnit(e.target.value)}
               >
@@ -468,7 +468,7 @@ function RegisterSampleDialog({
                     {u}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
           </div>
           <Field label="Storage location">

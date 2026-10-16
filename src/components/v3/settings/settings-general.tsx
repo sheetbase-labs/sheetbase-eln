@@ -7,7 +7,7 @@ import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
 import { Section } from '#/components/v3/ui/layout'
 import { CheckRow } from './settings-page'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   Table,
   TableBody,
@@ -201,7 +201,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
           />
         </Field>
         <Field label="Date format">
-          <NativeSelect
+          <Select
             aria-label="Date format"
             value={form.dateFormat}
             onChange={(event) =>
@@ -216,10 +216,10 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
                 {option.label}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Field label="Number format">
-          <NativeSelect
+          <Select
             aria-label="Number format"
             value={form.numberFormat}
             onChange={(event) =>
@@ -235,7 +235,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
                 {option.label}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
       </div>
 

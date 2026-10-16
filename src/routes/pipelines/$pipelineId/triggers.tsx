@@ -10,7 +10,7 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Choice } from '#/components/v3/ui/choice'
 import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   Dialog,
   DialogBody,
@@ -463,7 +463,7 @@ function NewTrigger({
           {f.kind === 'event' ? (
             <>
               <Field label="Event" required>
-                <NativeSelect
+                <Select
                   value={f.eventType}
                   aria-invalid={tried && specErrorMessage ? true : undefined}
                   onChange={(e) => setF({ ...f, eventType: e.target.value })}
@@ -473,14 +473,14 @@ function NewTrigger({
                       {name}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               {f.eventType === 'dataset.versioned' ? (
                 <Field
                   label="Dataset filter"
                   hint="Only this Dataset's new versions start the run. Optional."
                 >
-                  <NativeSelect
+                  <Select
                     value={f.datasetId}
                     onChange={(e) => setF({ ...f, datasetId: e.target.value })}
                   >
@@ -490,7 +490,7 @@ function NewTrigger({
                         {name}
                       </option>
                     ))}
-                  </NativeSelect>
+                  </Select>
                 </Field>
               ) : null}
             </>

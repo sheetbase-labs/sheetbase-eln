@@ -41,7 +41,12 @@ test.use({ viewport: DESKTOP, deviceScaleFactor: 1, locale: 'en-GB' })
 /** Pin the theme the way the parity driver does: the server reads the cookie. */
 async function openHarness(
   page: Page,
-  options: { theme: 'light' | 'dark'; fixture?: string; state?: string } = {
+  options: {
+    theme: 'light' | 'dark'
+    fixture?: string
+    state?: string
+    pair?: string
+  } = {
     theme: 'light',
   },
 ) {
@@ -59,6 +64,15 @@ async function openHarness(
     new RegExp(options.theme === 'dark' ? 'dark' : '^(?!.*dark)'),
   )
   await waitForInteractive(page)
+  if (options.pair) {
+    await page.getByTestId('comparison-pair').selectOption(options.pair)
+    for (const id of COLUMNS) {
+      await expect(column(page, id)).toHaveAttribute(
+        'data-pair-id',
+        options.pair,
+      )
+    }
+  }
   if (options.fixture) {
     await page.getByTestId('comparison-fixture').selectOption(options.fixture)
     for (const id of COLUMNS) {
@@ -130,6 +144,41 @@ async function shot(
   return file
 }
 
+/**
+ * axe, injected into the page and run against one column in a real engine —
+ * where colour contrast is measurable, unlike jsdom. Both pairs use this, so
+ * the rule set and the reporting are identical for both.
+ */
+async function axeViolationsIn(page: Page, selector: string) {
+  await page.addScriptTag({ content: axe.source })
+  return page.evaluate(async (target: string) => {
+    const element = document.querySelector(target)
+    if (!element) throw new Error(`no ${target}`)
+    // The injected axe global is not part of the DOM lib types; the cast is the
+    // injection boundary, and it is checked before use.
+    const runner = (
+      globalThis as {
+        axe?: {
+          run: (context: Element) => Promise<{
+            violations: Array<{
+              id: string
+              impact: string | null
+              nodes: Array<{ html: string }>
+            }>
+          }>
+        }
+      }
+    ).axe
+    if (!runner) throw new Error('axe was not injected')
+    const results = await runner.run(element)
+    return results.violations.map((violation) => ({
+      id: violation.id,
+      impact: violation.impact,
+      nodes: violation.nodes.map((node) => node.html).slice(0, 3),
+    }))
+  }, selector)
+}
+
 test.describe('axe', () => {
   // `long-labels`, not `bulk`: one axe pass over the 5,000-row fixture walks
   // ~25,000 nodes per column and takes minutes in both engines, without
@@ -146,38 +195,218 @@ test.describe('axe', () => {
           await openHarness(page, { theme, fixture })
           // Real layout, real colours: colour contrast stays on, unlike the
           // jsdom check, which cannot measure it.
-          await page.addScriptTag({ content: axe.source })
-          const violations = await page.evaluate(async (selector: string) => {
-            const target = document.querySelector(selector)
-            if (!target) throw new Error(`no ${selector}`)
-            // The injected axe global is not part of the DOM lib types; the
-            // cast is the injection boundary, and it is checked before use.
-            const runner = (
-              globalThis as {
-                axe?: {
-                  run: (context: Element) => Promise<{
-                    violations: Array<{
-                      id: string
-                      impact: string | null
-                      nodes: Array<{ html: string }>
-                    }>
-                  }>
-                }
-              }
-            ).axe
-            if (!runner) throw new Error('axe was not injected')
-            const results = await runner.run(target)
-            return results.violations.map((violation) => ({
-              id: violation.id,
-              impact: violation.impact,
-              nodes: violation.nodes.map((node) => node.html).slice(0, 3),
-            }))
-          }, `[data-comparison-column="${id}"]`)
+          const violations = await axeViolationsIn(
+            page,
+            `[data-comparison-column="${id}"]`,
+          )
 
           expect(violations).toEqual([])
         })
       }
     }
+  }
+})
+
+test.describe('native select', () => {
+  const pair = 'native-select'
+
+  // The pair's own axe pass, in a real engine and both themes: the candidate
+  // wraps its select in a `div`, which stays inside the harness's `<label>`.
+  for (const theme of ['light', 'dark'] as const) {
+    for (const id of COLUMNS) {
+      test(`${id} select column has no axe violations — ${theme}`, async ({
+        page,
+      }) => {
+        await openHarness(page, { theme, fixture: 'long-labels', pair })
+        const violations = await axeViolationsIn(
+          page,
+          `[data-comparison-column="${id}"]`,
+        )
+        expect(violations).toEqual([])
+      })
+    }
+  }
+
+  test('reaches every picker by Tab, with a visible focus indicator', async ({
+    page,
+  }) => {
+    await openHarness(page, { theme: 'light', fixture: 'long-labels', pair })
+
+    // The same walk the notebook pair's check makes: Tab through the page,
+    // keep what lands inside a column, and record whether it draws focus.
+    const reached: Array<{
+      key: string
+      control: string | null
+      visible: boolean
+    }> = []
+    for (let press = 0; press < 40; press += 1) {
+      await page.keyboard.press('Tab')
+      const step = await page.evaluate(() => {
+        const element = document.activeElement as HTMLElement | null
+        if (!element || element === document.body) return null
+        const style = getComputedStyle(element)
+        const outlined =
+          style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0
+        const ringed = style.boxShadow !== 'none'
+        const column = element.closest('[data-comparison-column]')
+        if (!column) return null
+        return {
+          key: `${column.getAttribute('data-comparison-column')}|${element.tagName}`,
+          control: element.dataset.comparisonSelectControl ?? null,
+          visible: outlined || ringed,
+        }
+      })
+      if (step) reached.push(step)
+    }
+
+    for (const id of COLUMNS) {
+      for (const control of ['field', 'compact'] as const) {
+        const step = reached.find(
+          (entry) =>
+            entry.key.startsWith(`${id}|`) && entry.control === control,
+        )
+        expect(
+          step,
+          `Tab reaches the ${control} picker in the ${id} column`,
+        ).toBeTruthy()
+        expect(step?.visible, `focus indicator for ${id} ${control}`).toBe(true)
+      }
+    }
+  })
+
+  test('changes the chosen option without a pointer, in both columns', async ({
+    page,
+  }) => {
+    await openHarness(page, { theme: 'light', fixture: 'long-labels', pair })
+
+    for (const id of COLUMNS) {
+      const columnLocator = column(page, id)
+      const field = columnLocator.locator(
+        '[data-comparison-select-control="field"]',
+      )
+      // The accessible name is the harness `<label>` in both columns: ours
+      // renders a `<span>` wrapper, the candidate a `<div>`, and either way the
+      // label is what names the control.
+      await expect(field).toHaveAccessibleName('Sample')
+      const selection = columnLocator.locator(
+        `[data-comparison-selection="${id}"]`,
+      )
+      // The fixture's first row is selected to start with, in group order.
+      await expect(selection).toHaveText('row-0001')
+
+      await field.focus()
+      // Closed-select arrow keys move the selection and report it — the
+      // platform's own path, through React's change handler.
+      await page.keyboard.press('ArrowDown')
+      await expect(selection).toHaveText('row-0004')
+    }
+  })
+
+  test('typeahead crosses an option group and the disabled option stays unselectable', async ({
+    page,
+  }) => {
+    await openHarness(page, { theme: 'light', fixture: 'long-labels', pair })
+
+    for (const id of COLUMNS) {
+      const columnLocator = column(page, id)
+      const field = columnLocator.locator(
+        '[data-comparison-select-control="field"]',
+      )
+      const selection = columnLocator.locator(
+        `[data-comparison-selection="${id}"]`,
+      )
+
+      await field.focus()
+      // 'R' matches only "Recombinant human insulin-like growth factor 1…",
+      // which sits in the Standard group, not the selected Sample one.
+      await page.keyboard.press('R')
+      await expect(selection).toHaveText('row-0003')
+
+      // Arrow to the end of the enabled options: the trailing disabled
+      // "Custom (set by the assay)" option is never reached.
+      for (let press = 0; press < 8; press += 1) {
+        await page.keyboard.press('ArrowDown')
+      }
+      await expect(selection).toHaveText('row-0006')
+      await expect(field.locator('option[value="custom"]')).toHaveJSProperty(
+        'disabled',
+        true,
+      )
+    }
+  })
+
+  // Appearance evidence for this pair, one file per column per theme. The
+  // notebook pair's four keep their un-prefixed names; these carry the pair id
+  // so a directory of shots stays readable.
+  for (const theme of ['light', 'dark'] as const) {
+    for (const id of COLUMNS) {
+      test(`screenshot of the ${id} select column — ${theme}`, async ({
+        page,
+      }, testInfo) => {
+        await openHarness(page, { theme, fixture: 'long-labels', pair })
+        const file = await shot(
+          column(page, id),
+          testInfo,
+          `${pair}-${id}-${theme}`,
+        )
+        expect(file.endsWith(`${pair}-${id}-${theme}.png`)).toBe(true)
+        await expect(column(page, id)).toBeVisible()
+      })
+    }
+  }
+
+  for (const [label, size] of [
+    ['desktop 1440x900', DESKTOP],
+    ['phone 390x844', PHONE],
+  ] as const) {
+    test(`holds at ${label}, with a usable control in both columns`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(size)
+      await openHarness(page, { theme: 'light', fixture: 'long-labels', pair })
+
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(1)
+
+      for (const id of COLUMNS) {
+        const columnBox = await column(page, id).boundingBox()
+        expect(columnBox).not.toBeNull()
+        expect(columnBox!.x).toBeGreaterThanOrEqual(0)
+        expect(columnBox!.x + columnBox!.width).toBeLessThanOrEqual(
+          size.width + 1,
+        )
+
+        // Every picker in the column is inside it and at least the compact
+        // size tall: the record carries the measured heights (ours grow to
+        // 40px at 390, the candidate stays at 36px) and notes that neither
+        // reaches the checklist's 44px touch target at that width.
+        const controls = await column(page, id)
+          .locator('select')
+          .evaluateAll((elements) =>
+            elements.map((element) => {
+              const rect = element.getBoundingClientRect()
+              return {
+                height: rect.height,
+                inside:
+                  rect.left >= -1 &&
+                  rect.right <= window.innerWidth + 1 &&
+                  rect.width >= 1,
+              }
+            }),
+          )
+        expect(controls.length).toBe(2)
+        for (const control of controls) {
+          expect(control.inside).toBe(true)
+          // The compact size is the floor: 26px on our side, 32px on the
+          // candidate's. The record carries the full measurements.
+          expect(control.height).toBeGreaterThanOrEqual(26)
+        }
+      }
+    })
   }
 })
 

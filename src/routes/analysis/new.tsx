@@ -61,7 +61,7 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   Table,
   TableBody,
@@ -778,7 +778,7 @@ export function AnalysisStudioHeader({
             <label className="sr-only" htmlFor="analysis-data-source">
               Data source
             </label>
-            <NativeSelect
+            <Select
               id="analysis-data-source"
               aria-label="Select data source"
               value={selectedDatasetId ?? ''}
@@ -791,7 +791,7 @@ export function AnalysisStudioHeader({
                   {d.dataset_schema ? ` · ${d.dataset_schema.slug}` : ''}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
         )}
       </div>
@@ -988,7 +988,7 @@ function AnalysisInspector({
               >
                 {axis.toUpperCase()}-axis scale
               </label>
-              <NativeSelect
+              <Select
                 id={`inspector-${axis}-scale`}
                 value={spec.display.axes[axis].scale}
                 onChange={(event) =>
@@ -1000,7 +1000,7 @@ function AnalysisInspector({
                     {scale === 'log' ? 'Logarithmic' : 'Linear'}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </div>
           ))}
         </div>
@@ -1420,7 +1420,7 @@ export function ExportPanel({
           >
             Format
           </label>
-          <NativeSelect
+          <Select
             id="analysis-export-format"
             aria-label="Export format"
             value={settings.format}
@@ -1433,7 +1433,7 @@ export function ExportPanel({
             <option value="csv">CSV (data table)</option>
             <option value="svg">SVG (chart image)</option>
             <option value="png">PNG (publication raster)</option>
-          </NativeSelect>
+          </Select>
         </div>
         <div>
           <label
@@ -1442,7 +1442,7 @@ export function ExportPanel({
           >
             Theme
           </label>
-          <NativeSelect
+          <Select
             id="analysis-export-theme"
             aria-label="Export theme"
             value={settings.theme}
@@ -1453,7 +1453,7 @@ export function ExportPanel({
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
-          </NativeSelect>
+          </Select>
         </div>
         <div>
           <label

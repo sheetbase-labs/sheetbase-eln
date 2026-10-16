@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/v3/ui/dialog'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { describeCalendarError } from '#/lib/calendar'
 import { fetchWorkspaceGeneral } from '#/lib/workspace-general'
 import { bookInstrument } from './schedule-data'
@@ -223,7 +223,7 @@ export function BookDialog({
         <DialogHeader title="Book an instrument" />
         <DialogBody>
           <Field label="Instrument" required>
-            <NativeSelect
+            <Select
               value={resourceId}
               onChange={(e) => setResourceId(e.target.value)}
             >
@@ -233,7 +233,7 @@ export function BookDialog({
                   {i.displayId ? `${i.displayId} · ${i.name}` : i.name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
             {instruments.length === 0 ? (
               // A picker with nothing in it is a dead end; say what is missing
               // rather than leaving "Choose…" as the only option.

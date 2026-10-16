@@ -28,7 +28,7 @@ import {
 } from '#/components/v3/ui/table'
 import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   createProjectFolder,
   fetchProjectFolders,
@@ -294,7 +294,7 @@ function ProjectFolders() {
           />
           <DialogBody>
             <Field label="Move to">
-              <NativeSelect
+              <Select
                 id="move-dest"
                 aria-label="Destination folder"
                 defaultValue={current}
@@ -305,7 +305,7 @@ function ProjectFolders() {
                     {f.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Notice icon="info">
               IDs, links, history and access stay the same.
@@ -416,7 +416,7 @@ function NewFolder({
             />
           </Field>
           <Field label="Inside">
-            <NativeSelect
+            <Select
               value={parentId}
               onChange={(e) => setParentId(e.target.value)}
             >
@@ -426,7 +426,7 @@ function NewFolder({
                   {f.name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
         </DialogBody>
         <DialogFooter>

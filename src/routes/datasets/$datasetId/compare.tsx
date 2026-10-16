@@ -7,6 +7,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Diff } from '#/components/v3/ui/source'
 import { Muted } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
+import { Select } from '#/components/v3/ui/select'
 import { Icon } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -232,8 +233,6 @@ function Compare() {
     )
   }
 
-  const sel =
-    'h-[30px] min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-body text-fg max-md:h-10 md:w-[240px] md:flex-none'
   const pick = (key: 'from' | 'to', value: string) =>
     void navigate({
       to: '/datasets/$datasetId/compare',
@@ -248,9 +247,9 @@ function Compare() {
         <label className="sr-only" htmlFor="from">
           From snapshot
         </label>
-        <select
+        <Select
           id="from"
-          className={sel}
+          className="min-w-0 flex-1 md:w-[240px] md:flex-none"
           value={from}
           onChange={(e) => pick('from', e.target.value)}
         >
@@ -261,14 +260,14 @@ function Compare() {
                 {v.label} · {v.createdAt.slice(0, 10)}
               </option>
             ))}
-        </select>
+        </Select>
         <Icon name="chevronRight" size={14} />
         <label className="sr-only" htmlFor="to">
           To snapshot
         </label>
-        <select
+        <Select
           id="to"
-          className={sel}
+          className="min-w-0 flex-1 md:w-[240px] md:flex-none"
           value={to}
           onChange={(e) => pick('to', e.target.value)}
         >
@@ -279,7 +278,7 @@ function Compare() {
                 {v.label} · {v.createdAt.slice(0, 10)}
               </option>
             ))}
-        </select>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:flex md:gap-4">

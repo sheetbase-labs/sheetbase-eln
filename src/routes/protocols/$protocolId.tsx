@@ -12,7 +12,7 @@ import { ProtocolVersionTraining } from '#/components/v3/protocols/protocol-vers
 import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   Table,
@@ -409,7 +409,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       {rows.length > 1 ? (
         <label className="flex items-center gap-2 text-label text-fg-muted">
           Version
-          <NativeSelect
+          <Select
             aria-label="Protocol version"
             value={version.id}
             onChange={(e) => setSelectedId(e.target.value)}
@@ -419,7 +419,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
                 v{v.version} · {v.status.replace(/_/g, ' ')}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </label>
       ) : null}
       <ProtocolVersionTraining

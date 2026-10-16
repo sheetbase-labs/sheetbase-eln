@@ -43,7 +43,7 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { toast } from '#/components/v3/ui/sonner'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   fetchProjectMembers,
   fetchWorkspaceMemberIdentities,
@@ -368,7 +368,7 @@ function AddPeople({
         />
         <DialogBody>
           <Field label="Person" required error={error ?? undefined}>
-            <NativeSelect
+            <Select
               value={person}
               onChange={(e) => {
                 setPerson(e.target.value)
@@ -381,19 +381,16 @@ function AddPeople({
                   {p.name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
           <Field label="Project access">
-            <NativeSelect
-              value={access}
-              onChange={(e) => setAccess(e.target.value)}
-            >
+            <Select value={access} onChange={(e) => setAccess(e.target.value)}>
               {accessLevels.map((level) => (
                 <option key={level.value} value={level.value}>
                   {level.label}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
         </DialogBody>
         <DialogFooter>

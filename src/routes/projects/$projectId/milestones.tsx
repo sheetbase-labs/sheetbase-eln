@@ -13,6 +13,7 @@ import type { Tone } from '#/components/v3/ui/status'
 import { Banner, Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Muted } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -978,9 +979,8 @@ function StartFromTemplateDialog({
         />
         <DialogBody>
           <Field label="Template" required>
-            <select
+            <Select
               aria-label="Template"
-              className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
               value={sourceProjectId}
               onChange={(e) => setSourceProjectId(e.target.value)}
             >
@@ -989,7 +989,7 @@ function StartFromTemplateDialog({
                   {candidate.title} · {candidate.milestones.length} milestones
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Start date" required>
             <Input
@@ -1093,9 +1093,8 @@ function AddMilestoneDialog({
           </Field>
           {phases.length ? (
             <Field label="Phase">
-              <select
+              <Select
                 aria-label="Phase"
-                className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
                 value={workstreamId}
                 onChange={(e) => setWorkstreamId(e.target.value)}
               >
@@ -1105,7 +1104,7 @@ function AddMilestoneDialog({
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
           ) : null}
         </DialogBody>

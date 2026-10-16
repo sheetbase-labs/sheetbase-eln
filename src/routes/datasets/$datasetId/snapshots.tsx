@@ -30,6 +30,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { stickyCell, stickyHead } from '#/components/v3/inventory/list'
 import {
@@ -63,9 +64,6 @@ import { datasetVersionsQueryKey, useDatasetVersions } from '../$datasetId'
 export const Route = createFileRoute('/datasets/$datasetId/snapshots')({
   component: Snapshots,
 })
-
-const selectClass =
-  'h-[30px] min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-body text-fg max-md:h-10'
 
 function Snapshots() {
   const { datasetId } = Route.useParams()
@@ -414,9 +412,9 @@ function Snapshots() {
                 <label className="sr-only" htmlFor="compare-with">
                   Compare with
                 </label>
-                <select
+                <Select
                   id="compare-with"
-                  className={selectClass}
+                  className="min-w-0"
                   value={compareTarget}
                   onChange={(e) => setCompareWith(e.target.value)}
                 >
@@ -425,7 +423,7 @@ function Snapshots() {
                       {v.label} · {v.createdAt.slice(0, 10)}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <Link
                   to="/datasets/$datasetId/compare"
                   params={{ datasetId }}

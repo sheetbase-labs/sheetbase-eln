@@ -6,6 +6,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import {
   DropdownMenu,
@@ -749,8 +750,7 @@ function InviteDialog({
             />
           </Field>
           <Field label="Role">
-            <select
-              className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
+            <Select
               value={role}
               onChange={(e) => setRole(e.target.value as WorkspaceRole)}
             >
@@ -759,12 +759,11 @@ function InviteDialog({
                   {WORKSPACE_ROLE_LABELS[r]}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           {role === 'client_viewer' ? (
             <Field label="Client" required error={clientError}>
-              <select
-                className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
+              <Select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
               >
@@ -774,7 +773,7 @@ function InviteDialog({
                     {c.code} · {c.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
           ) : null}
           <Muted>{WORKSPACE_ROLE_DESCRIPTIONS[role]}</Muted>
@@ -832,8 +831,7 @@ function RoleDialog({
         />
         <DialogBody>
           <Field label="Role">
-            <select
-              className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
+            <Select
               value={role}
               onChange={(e) => setRole(e.target.value as WorkspaceRole)}
             >
@@ -842,12 +840,11 @@ function RoleDialog({
                   {WORKSPACE_ROLE_LABELS[r]}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           {role === 'client_viewer' ? (
             <Field label="Client" required error={clientError}>
-              <select
-                className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
+              <Select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
               >
@@ -857,7 +854,7 @@ function RoleDialog({
                     {c.code} · {c.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
           ) : null}
           <Muted>{WORKSPACE_ROLE_DESCRIPTIONS[role]}</Muted>

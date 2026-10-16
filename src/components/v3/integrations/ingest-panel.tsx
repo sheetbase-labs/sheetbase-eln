@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { createDataClient } from '#/lib/data-client'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
@@ -260,7 +260,7 @@ export function IngestPanel({
           label="Retain raw file in project"
           hint="The original bytes are retained as a file record; the run provenance carries its canonical fileRecordId and sha256 checksum."
         >
-          <NativeSelect
+          <Select
             value={projectId}
             onChange={(event) => setProjectId(event.target.value)}
           >
@@ -270,11 +270,11 @@ export function IngestPanel({
                 {project.title}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
 
         <Field label="Target Schema Version">
-          <NativeSelect
+          <Select
             value={schemaVersionId}
             onChange={(event) => {
               setSchemaVersionId(event.target.value)
@@ -290,7 +290,7 @@ export function IngestPanel({
                 {option.name} v{option.version}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
 
         {targetFields.length > 0 && file && parser && (
@@ -305,7 +305,7 @@ export function IngestPanel({
         {schemaVersionId && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Existing Dataset">
-              <NativeSelect
+              <Select
                 value={datasetId}
                 onChange={(event) => setDatasetId(event.target.value)}
               >
@@ -315,7 +315,7 @@ export function IngestPanel({
                     {dataset.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             {!datasetId && (
               <Field label="New Dataset name">

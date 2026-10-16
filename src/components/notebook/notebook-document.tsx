@@ -32,12 +32,6 @@ import {
   PopoverTrigger,
 } from '#/components/v3/ui/popover'
 import { NotebookBlock } from './notebook-block'
-import {
-  DropIndicatorLine,
-  dropIndicatorFor,
-  neighboursForTarget,
-  useNotebookBlockReorder,
-} from './notebook-block-reorder'
 import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
 import type { AutosaveStatus, SaveResult } from './block-editor'
@@ -289,13 +283,17 @@ function NotebookDocumentContent({
   // `optimisticOrder` holds a temporary id ordering applied immediately on
   // a move so the UI feels instant; it is cleared on success (the canonical
   // blocks from the route's query cache then render) or restored to the
-  // pre-move snapshot on rejection. `movingId` marks the block whose RPC is in
-  // flight so its row can show a subtle pending state. The drag mechanics
-  // themselves live in `useNotebookBlockReorder` so the component-comparison
-  // harness drives the same code this document ships.
+  // pre-move snapshot on rejection. `draggingId` / `dropTarget` drive the
+  // native drag insertion indicator; `movingId` marks the block whose RPC
+  // is in flight so its row can show a subtle pending state.
   const [optimisticOrder, setOptimisticOrder] = React.useState<string[] | null>(
     null,
   )
+  const [draggingId, setDraggingId] = React.useState<string | null>(null)
+  const [dropTarget, setDropTarget] = React.useState<{
+    afterBlockId: string | null
+    beforeBlockId: string | null
+  } | null>(null)
   const [movingId, setMovingId] = React.useState<string | null>(null)
   const [moveError, setMoveError] = React.useState<{
     blockId: string
@@ -603,15 +601,6 @@ function NotebookDocumentContent({
 
   const canMove = !isReadOnly && !!onMoveBlock && blocks.length > 1
 
-  const reorder = useNotebookBlockReorder({
-    ids: orderedIds,
-    enabled: canMove,
-    onMove: (blockId, targetIndex) => {
-      const block = blockById.get(blockId)
-      if (block) void performMove(block, targetIndex)
-    },
-  })
-
   /**
    * Prose-run membership by block id. Rows inside a multi-row run render
    * continuously, so the writing reads as one document rather than as a stack
@@ -628,6 +617,26 @@ function NotebookDocumentContent({
       ),
     [orderedIds, blockById],
   )
+
+  /**
+   * Compute the (afterBlockId, beforeBlockId) neighbours for moving
+   * `blockId` to `targetIndex` within the effective ordering. Dropping at
+   * index 0 → (null, firstId); at the end → (lastId, null); otherwise
+   * (ids[targetIndex-1], ids[targetIndex]). The moved block is excluded
+   * from the neighbour candidates so a no-op move resolves cleanly.
+   */
+  function neighboursForTarget(
+    ids: string[],
+    blockId: string,
+    targetIndex: number,
+  ): { afterBlockId: string | null; beforeBlockId: string | null } {
+    const others = ids.filter((id) => id !== blockId)
+    const clamped = Math.max(0, Math.min(targetIndex, others.length))
+    const afterBlockId = clamped > 0 ? (others[clamped - 1] ?? null) : null
+    const beforeBlockId =
+      clamped < others.length ? (others[clamped] ?? null) : null
+    return { afterBlockId, beforeBlockId }
+  }
 
   function focusBlockAnchor(blockId: string) {
     // Defer so the reordered DOM has committed before we focus.
@@ -707,6 +716,14 @@ function NotebookDocumentContent({
       setSelectedId(block.id)
       focusBlockAnchor(block.id)
     }
+  }
+
+  function moveByOne(block: NotebookBlockData, dir: 'up' | 'down') {
+    const idx = orderedIds.indexOf(block.id)
+    if (idx < 0) return
+    const target = dir === 'up' ? idx - 1 : idx + 1
+    if (target < 0 || target >= orderedIds.length) return
+    void performMove(block, target)
   }
 
   // --- Notion-like keyboard & slash command handlers ----------------------
@@ -917,11 +934,100 @@ function NotebookDocumentContent({
     // prefer a discoverable affordance.
     if (e.altKey && e.key === 'ArrowUp') {
       e.preventDefault()
-      reorder.moveByOne(block.id, 'up')
+      moveByOne(block, 'up')
     } else if (e.altKey && e.key === 'ArrowDown') {
       e.preventDefault()
-      reorder.moveByOne(block.id, 'down')
+      moveByOne(block, 'down')
     }
+  }
+
+  function handleDragStart(
+    e: React.DragEvent<HTMLButtonElement>,
+    block: NotebookBlockData,
+  ) {
+    if (!canMove) return
+    setDraggingId(block.id)
+    setMoveError(null)
+    try {
+      e.dataTransfer.effectAllowed = 'move'
+      // Firefox requires data to be set or no drag fires at all.
+      e.dataTransfer.setData('text/plain', block.id)
+    } catch {
+      /* jsdom: dataTransfer may be a stub */
+    }
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null)
+    setDropTarget(null)
+  }
+
+  /**
+   * As the pointer moves over a row, decide whether the drop would land
+   * above or below that row based on the pointer's Y relative to the row's
+   * midpoint. Sets `dropTarget` to the corresponding neighbours and nudges
+   * the window to auto-scroll when the pointer is near the viewport edge.
+   */
+  function handleDragOver(
+    e: React.DragEvent<HTMLDivElement>,
+    block: NotebookBlockData,
+  ) {
+    if (!draggingId || draggingId === block.id) return
+    e.preventDefault()
+    try {
+      e.dataTransfer.dropEffect = 'move'
+    } catch {
+      /* jsdom */
+    }
+    const rect = e.currentTarget.getBoundingClientRect()
+    const before = e.clientY < rect.top + rect.height / 2
+    // Compute the drop target as an index within the `others` list (the
+    // ordering with the dragged block removed). The hovered row's index in
+    // `others` differs from its index in `orderedIds` when the dragged block
+    // sat above it, so we must re-derive it from `others` rather than
+    // reusing the full-order index.
+    const others = orderedIds.filter((id) => id !== draggingId)
+    const hoverIdxInOthers = others.indexOf(block.id)
+    const target = before ? hoverIdxInOthers : hoverIdxInOthers + 1
+    setDropTarget(neighboursForTarget(orderedIds, draggingId, target))
+    // Auto-scroll near the viewport edges so long notebooks stay reachable.
+    const margin = 64
+    if (e.clientY < margin && typeof window.scrollBy === 'function') {
+      window.scrollBy(0, -10)
+    } else if (
+      e.clientY > window.innerHeight - margin &&
+      typeof window.scrollBy === 'function'
+    ) {
+      window.scrollBy(0, 10)
+    }
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    if (!draggingId) return
+    e.preventDefault()
+    // Use the drop target computed during the preceding dragOver. The OS
+    // fires `drop` at the same pointer position as the last `dragover`, so
+    // recomputing from the drop event's clientY would be redundant and is
+    // unreliable in jsdom (which zeros bounding rects). If no drag-over
+    // target was established (e.g. the pointer never entered a row), skip.
+    if (!dropTarget) return
+    const moved = blockById.get(draggingId)
+    setDropTarget(null)
+    setDraggingId(null)
+    if (!moved) return
+    // Re-derive the target index within the `others` list (excluding the
+    // dragged block) from the stored neighbours so the move matches the
+    // indicator the user saw.
+    const others = orderedIds.filter((id) => id !== draggingId)
+    let targetIdx: number
+    if (dropTarget.beforeBlockId !== null) {
+      targetIdx = others.indexOf(dropTarget.beforeBlockId)
+    } else if (dropTarget.afterBlockId !== null) {
+      targetIdx = others.indexOf(dropTarget.afterBlockId) + 1
+    } else {
+      targetIdx = others.length
+    }
+    void performMove(moved, targetIdx)
   }
 
   return (
@@ -975,15 +1081,18 @@ function NotebookDocumentContent({
         const editable = isEditableBlockType(block.type) && !isReadOnly
         const isSelected = selectedId === block.id
         const isActive = activeId === block.id
-        const isDragging = reorder.draggingId === block.id
+        const isDragging = draggingId === block.id
         const isMoving = movingId === block.id
         const hasUnsavedDraft = unsavedBlockIds.has(block.id)
-        const drag = reorder.handleProps(block.id)
-        // Show exactly one insertion indicator per gap; see dropIndicatorFor.
-        const showAbove =
-          dropIndicatorFor(reorder.dropTarget, block.id) === 'above'
+        // Show exactly one insertion indicator per gap: "above" when this
+        // block is the following neighbour, and "below" only for the
+        // end-of-list position (after=block, before=null) where no
+        // following block exists to carry the "above" indicator.
+        const showAbove = !!dropTarget && dropTarget.beforeBlockId === block.id
         const showBelow =
-          dropIndicatorFor(reorder.dropTarget, block.id) === 'below'
+          !!dropTarget &&
+          dropTarget.afterBlockId === block.id &&
+          dropTarget.beforeBlockId === null
         const blockState = isReadOnly
           ? 'read-only'
           : isDragging
@@ -998,7 +1107,13 @@ function NotebookDocumentContent({
         const proseRun = proseRuns[block.id]
         return (
           <React.Fragment key={block.id}>
-            {showAbove ? <DropIndicatorLine position="above" /> : null}
+            {showAbove ? (
+              <div
+                aria-hidden="true"
+                className="h-0.5 rounded-full bg-primary/70"
+                data-drop-indicator="above"
+              />
+            ) : null}
             <div
               id={`block-${block.id}`}
               className={cn(
@@ -1051,7 +1166,11 @@ function NotebookDocumentContent({
                 selectBlock(block)
               }}
               onKeyDown={(e) => handleRowKeyDown(e, block)}
-              {...reorder.rowProps(block.id)}
+              onDragOver={(e) => handleDragOver(e, block)}
+              onDragEnter={(e) => {
+                if (draggingId && draggingId !== block.id) e.preventDefault()
+              }}
+              onDrop={(e) => handleDrop(e)}
             >
               <NotebookBlock
                 label={blockLabel(block)}
@@ -1089,13 +1208,9 @@ function NotebookDocumentContent({
                     ) : undefined}
                   </>
                 }
-                draggable={drag.draggable}
-                onDragStart={(e) => {
-                  // A new drag supersedes any move error still on screen.
-                  setMoveError(null)
-                  drag.onDragStart(e)
-                }}
-                onDragEnd={drag.onDragEnd}
+                draggable={canMove}
+                onDragStart={(e) => handleDragStart(e, block)}
+                onDragEnd={handleDragEnd}
                 menuItems={
                   isReadOnly
                     ? undefined
@@ -1112,15 +1227,13 @@ function NotebookDocumentContent({
                               {
                                 id: 'move-up',
                                 label: 'Move up',
-                                onSelect: () =>
-                                  reorder.moveByOne(block.id, 'up'),
+                                onSelect: () => moveByOne(block, 'up'),
                                 disabled: index === 0,
                               },
                               {
                                 id: 'move-down',
                                 label: 'Move down',
-                                onSelect: () =>
-                                  reorder.moveByOne(block.id, 'down'),
+                                onSelect: () => moveByOne(block, 'down'),
                                 disabled: index === orderedIds.length - 1,
                                 separatorAfter: true,
                               },
@@ -1230,7 +1343,13 @@ function NotebookDocumentContent({
                 </p>
               ) : null}
             </div>
-            {showBelow ? <DropIndicatorLine position="below" /> : null}
+            {showBelow ? (
+              <div
+                aria-hidden="true"
+                className="h-0.5 rounded-full bg-primary/70"
+                data-drop-indicator="below"
+              />
+            ) : null}
             {/* Every block carries the insert affordance, including the
                 last: hovering below the end of the document is how a block is
                 appended, with no button parked under the work. */}

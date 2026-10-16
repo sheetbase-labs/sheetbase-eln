@@ -78,7 +78,6 @@ When merged reality changes what is active or next, update the root `NEXT.md`.
 - [`product/non-goals.md`](product/non-goals.md)
 - [`design/ui-system-v2.md`](design/ui-system-v2.md) — durable historical design ideas extracted from the original UI-system work.
 - [`design/ui-system-v3/`](design/ui-system-v3/README.md) — verbatim snapshot of the current design (126 screens and the design system); adoption proposed by Roadmap 4 and ADR-0047.
-- [`design/component-comparison-record.md`](design/component-comparison-record.md) — one row per registry component compared against ours (ADR-0055), with the checklist result for each side and the decision; produced by the `/component-compare` harness.
 
 ## Architecture and decisions
 

@@ -13,7 +13,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as ClientPortalRouteImport } from './routes/client-portal'
-import { Route as ComponentCompareRouteImport } from './routes/component-compare'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as ExperimentsRouteImport } from './routes/experiments'
 import { Route as FoundationsRouteImport } from './routes/foundations'
@@ -179,11 +178,6 @@ const AnalysisRoute = AnalysisRouteImport.update({
 const ClientPortalRoute = ClientPortalRouteImport.update({
   id: '/client-portal',
   path: '/client-portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ComponentCompareRoute = ComponentCompareRouteImport.update({
-  id: '/component-compare',
-  path: '/component-compare',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DatasetsRoute = DatasetsRouteImport.update({
@@ -956,7 +950,6 @@ export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
-  '/component-compare': typeof ComponentCompareRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1108,7 +1101,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
   '/client-portal': typeof ClientPortalRoute
-  '/component-compare': typeof ComponentCompareRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1250,7 +1242,6 @@ export interface FileRoutesById {
   '/$': typeof SplatRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
-  '/component-compare': typeof ComponentCompareRoute
   '/datasets': typeof DatasetsRouteWithChildren
   '/experiments': typeof ExperimentsRouteWithChildren
   '/foundations': typeof FoundationsRoute
@@ -1405,7 +1396,6 @@ export interface FileRouteTypes {
     | '/$'
     | '/analysis'
     | '/client-portal'
-    | '/component-compare'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -1557,7 +1547,6 @@ export interface FileRouteTypes {
     | '/'
     | '/$'
     | '/client-portal'
-    | '/component-compare'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -1698,7 +1687,6 @@ export interface FileRouteTypes {
     | '/$'
     | '/analysis'
     | '/client-portal'
-    | '/component-compare'
     | '/datasets'
     | '/experiments'
     | '/foundations'
@@ -1852,7 +1840,6 @@ export interface RootRouteChildren {
   SplatRoute: typeof SplatRoute
   AnalysisRoute: typeof AnalysisRouteWithChildren
   ClientPortalRoute: typeof ClientPortalRoute
-  ComponentCompareRoute: typeof ComponentCompareRoute
   DatasetsRoute: typeof DatasetsRouteWithChildren
   ExperimentsRoute: typeof ExperimentsRouteWithChildren
   FoundationsRoute: typeof FoundationsRoute
@@ -1944,13 +1931,6 @@ declare module '@tanstack/react-router' {
       path: '/client-portal'
       fullPath: '/client-portal'
       preLoaderRoute: typeof ClientPortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/component-compare': {
-      id: '/component-compare'
-      path: '/component-compare'
-      fullPath: '/component-compare'
-      preLoaderRoute: typeof ComponentCompareRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/datasets': {
@@ -3381,7 +3361,6 @@ const rootRouteChildren: RootRouteChildren = {
   SplatRoute: SplatRoute,
   AnalysisRoute: AnalysisRouteWithChildren,
   ClientPortalRoute: ClientPortalRoute,
-  ComponentCompareRoute: ComponentCompareRoute,
   DatasetsRoute: DatasetsRouteWithChildren,
   ExperimentsRoute: ExperimentsRouteWithChildren,
   FoundationsRoute: FoundationsRoute,

@@ -25,6 +25,9 @@ export default [
     files: ['src/components/reui/**'],
     rules: {
       'import/consistent-type-specifier-style': 'off',
+      // Registry sources import a module twice, once for values and once for
+      // types, which our own sources never do.
+      'import/no-duplicates': 'off',
       '@typescript-eslint/no-unnecessary-condition': 'off',
       '@typescript-eslint/no-unnecessary-type-assertion': 'off',
       '@typescript-eslint/method-signature-style': 'off',

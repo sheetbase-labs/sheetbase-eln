@@ -1,5 +1,6 @@
 import type { ComparisonPair } from '#/components/component-compare/types'
 import { notebookSortablePair } from '#/components/component-compare/pairs/notebook-sortable'
+import { quantityFieldPair } from '#/components/component-compare/pairs/quantity-field'
 
 /**
  * The registered comparison pairs, in the order the harness lists them.
@@ -11,4 +12,5 @@ import { notebookSortablePair } from '#/components/component-compare/pairs/noteb
  */
 export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   notebookSortablePair,
+  quantityFieldPair,
 ])

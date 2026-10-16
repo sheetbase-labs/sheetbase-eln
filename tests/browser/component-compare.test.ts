@@ -36,12 +36,31 @@ const PHONE = { width: 390, height: 844 }
 const COLUMNS = ['ours', 'theirs'] as const
 type ColumnId = (typeof COLUMNS)[number]
 
+/**
+ * The pairs the generic checks below run against — axe, appearance, Tab order,
+ * the three screen states and density. A pair is added here when it is
+ * registered; the reorder, pointer and 5,000-row tests stay on the pair they
+ * were written for. `every registered pair is covered` fails the spec when the
+ * page offers a pair id this list does not know, so a new pair cannot ship
+ * unchecked.
+ */
+const PAIRS = ['notebook-sortable', 'quantity-field'] as const
+type PairId = (typeof PAIRS)[number]
+
+/** A pair whose components reorder rows: the drag and drop tests are its own. */
+const REORDERABLE_PAIR: PairId = 'notebook-sortable'
+
 test.use({ viewport: DESKTOP, deviceScaleFactor: 1, locale: 'en-GB' })
 
 /** Pin the theme the way the parity driver does: the server reads the cookie. */
 async function openHarness(
   page: Page,
-  options: { theme: 'light' | 'dark'; fixture?: string; state?: string } = {
+  options: {
+    theme: 'light' | 'dark'
+    fixture?: string
+    state?: string
+    pair?: PairId
+  } = {
     theme: 'light',
   },
 ) {
@@ -59,6 +78,9 @@ async function openHarness(
     new RegExp(options.theme === 'dark' ? 'dark' : '^(?!.*dark)'),
   )
   await waitForInteractive(page)
+  if (options.pair) {
+    await page.getByTestId('comparison-pair').selectOption(options.pair)
+  }
   if (options.fixture) {
     await page.getByTestId('comparison-fixture').selectOption(options.fixture)
     for (const id of COLUMNS) {
@@ -137,113 +159,162 @@ test.describe('axe', () => {
   // already exercise. That fixture is measured for rendering and overflow
   // instead (see `density and overflow`), and the exclusion is stated in
   // docs/development/component-compare.md and in the comparison record.
-  for (const theme of ['light', 'dark'] as const) {
-    for (const fixture of ['long-labels'] as const) {
-      for (const id of COLUMNS) {
-        test(`${id} column has no axe violations — ${fixture}, ${theme}`, async ({
-          page,
-        }) => {
-          await openHarness(page, { theme, fixture })
-          // Real layout, real colours: colour contrast stays on, unlike the
-          // jsdom check, which cannot measure it.
-          await page.addScriptTag({ content: axe.source })
-          const violations = await page.evaluate(async (selector: string) => {
-            const target = document.querySelector(selector)
-            if (!target) throw new Error(`no ${selector}`)
-            // The injected axe global is not part of the DOM lib types; the
-            // cast is the injection boundary, and it is checked before use.
-            const runner = (
-              globalThis as {
-                axe?: {
-                  run: (context: Element) => Promise<{
-                    violations: Array<{
-                      id: string
-                      impact: string | null
-                      nodes: Array<{ html: string }>
+  for (const pair of PAIRS) {
+    for (const theme of ['light', 'dark'] as const) {
+      for (const fixture of ['long-labels'] as const) {
+        for (const id of COLUMNS) {
+          test(`${pair} — ${id} column has no axe violations — ${fixture}, ${theme}`, async ({
+            page,
+          }) => {
+            await openHarness(page, { theme, fixture, pair })
+            // Real layout, real colours: colour contrast stays on, unlike the
+            // jsdom check, which cannot measure it.
+            await page.addScriptTag({ content: axe.source })
+            const violations = await page.evaluate(async (selector: string) => {
+              const target = document.querySelector(selector)
+              if (!target) throw new Error(`no ${selector}`)
+              // The injected axe global is not part of the DOM lib types; the
+              // cast is the injection boundary, and it is checked before use.
+              const runner = (
+                globalThis as {
+                  axe?: {
+                    run: (context: Element) => Promise<{
+                      violations: Array<{
+                        id: string
+                        impact: string | null
+                        nodes: Array<{ html: string }>
+                      }>
                     }>
-                  }>
+                  }
                 }
-              }
-            ).axe
-            if (!runner) throw new Error('axe was not injected')
-            const results = await runner.run(target)
-            return results.violations.map((violation) => ({
-              id: violation.id,
-              impact: violation.impact,
-              nodes: violation.nodes.map((node) => node.html).slice(0, 3),
-            }))
-          }, `[data-comparison-column="${id}"]`)
+              ).axe
+              if (!runner) throw new Error('axe was not injected')
+              const results = await runner.run(target)
+              return results.violations.map((violation) => ({
+                id: violation.id,
+                impact: violation.impact,
+                nodes: violation.nodes.map((node) => node.html).slice(0, 3),
+              }))
+            }, `[data-comparison-column="${id}"]`)
 
-          expect(violations).toEqual([])
-        })
+            expect(violations).toEqual([])
+          })
+        }
       }
     }
   }
 })
 
 test.describe('appearance evidence', () => {
-  for (const theme of ['light', 'dark'] as const) {
-    for (const id of COLUMNS) {
-      test(`screenshot of the ${id} column — ${theme}`, async ({
-        page,
-      }, testInfo) => {
-        await openHarness(page, { theme, fixture: 'long-labels' })
-        const file = await shot(column(page, id), testInfo, `${id}-${theme}`)
-        expect(file.endsWith(`${id}-${theme}.png`)).toBe(true)
-        await expect(column(page, id)).toBeVisible()
-      })
+  for (const pair of PAIRS) {
+    for (const theme of ['light', 'dark'] as const) {
+      for (const id of COLUMNS) {
+        test(`screenshot of the ${pair} ${id} column — ${theme}`, async ({
+          page,
+        }, testInfo) => {
+          await openHarness(page, { theme, fixture: 'long-labels', pair })
+          const name = `${pair}-${id}-${theme}`
+          const file = await shot(column(page, id), testInfo, name)
+          expect(file.endsWith(`${name}.png`)).toBe(true)
+          await expect(column(page, id)).toBeVisible()
+        })
+      }
     }
   }
 })
 
+test.describe('the harness lists only pairs this spec covers', () => {
+  test('every registered pair is covered', async ({ page }) => {
+    await openHarness(page, { theme: 'light' })
+    const registered = await page
+      .getByTestId('comparison-pair')
+      .locator('option')
+      .evaluateAll((options) =>
+        options.map((option) => (option as HTMLOptionElement).value),
+      )
+    expect([...registered].sort()).toEqual([...PAIRS].sort())
+  })
+})
+
 test.describe('keyboard', () => {
-  test('reaches every control by Tab, with a visible focus indicator', async ({
+  /**
+   * What each pair's columns put on the keyboard path, as `[column, tag, slot,
+   * accessible name]` prefixes. The Tab walk below asserts these are reached.
+   */
+  const CONTROL_PATH: Record<PairId, readonly string[]> = {
+    'notebook-sortable': [
+      'ours|BUTTON||Drag block',
+      'theirs|BUTTON|sortable-item-handle|Reorder',
+    ],
+    'quantity-field': [
+      'ours|INPUT|input|',
+      // The item's accessible name comes from its own scrub-area `<label>`, so
+      // the input carries no `aria-label` for this probe to read.
+      'theirs|INPUT|number-field-input|',
+    ],
+  }
+
+  for (const pair of PAIRS) {
+    test(`${pair} — reaches every control by Tab, with a visible focus indicator`, async ({
+      page,
+    }) => {
+      await openHarness(page, { theme: 'light', fixture: 'long-labels', pair })
+
+      const reached: string[] = []
+      for (let press = 0; press < 40; press += 1) {
+        await page.keyboard.press('Tab')
+        const step = await page.evaluate(() => {
+          const element = document.activeElement as HTMLElement | null
+          if (!element || element === document.body) return null
+          const style = getComputedStyle(element)
+          const outlined =
+            style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0
+          const ringed = style.boxShadow !== 'none'
+          const column = element.closest('[data-comparison-column]')
+          return {
+            key: [
+              column?.getAttribute('data-comparison-column'),
+              element.tagName,
+              element.dataset.slot ?? '',
+              element.getAttribute('aria-label') ?? element.textContent?.trim(),
+            ].join('|'),
+            visible: outlined || ringed,
+            inColumn: column !== null,
+          }
+        })
+        if (!step) continue
+        if (!step.inColumn) continue
+        reached.push(step.key)
+        expect(step.visible, `focus indicator for ${step.key}`).toBe(true)
+      }
+
+      // The controls each column offers, reached from the page's own order: the
+      // notebook's grip handle (which also opens the block menu) and its
+      // keyboard-reachable rows in ours, the ReUI handle in theirs; and for the
+      // numeric pair, one input per column per row.
+      const focused = reached.join('\n')
+      for (const expected of CONTROL_PATH[pair]) {
+        expect(focused).toContain(expected)
+      }
+      // The notebook's rows are keyboard-reachable in their own right; the
+      // numeric pair's rows are not widgets, so it has no equivalent.
+      if (pair === REORDERABLE_PAIR) {
+        const oursRows = reached.filter((key) =>
+          key.startsWith('ours|DIV||'),
+        ).length
+        expect(oursRows).toBeGreaterThan(2)
+      }
+    })
+  }
+
+  test(`${REORDERABLE_PAIR} — reorders by keyboard in both columns`, async ({
     page,
   }) => {
-    await openHarness(page, { theme: 'light', fixture: 'long-labels' })
-
-    const reached: string[] = []
-    for (let press = 0; press < 40; press += 1) {
-      await page.keyboard.press('Tab')
-      const step = await page.evaluate(() => {
-        const element = document.activeElement as HTMLElement | null
-        if (!element || element === document.body) return null
-        const style = getComputedStyle(element)
-        const outlined =
-          style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0
-        const ringed = style.boxShadow !== 'none'
-        const column = element.closest('[data-comparison-column]')
-        return {
-          key: [
-            column?.getAttribute('data-comparison-column'),
-            element.tagName,
-            element.dataset.slot ?? '',
-            element.getAttribute('aria-label') ?? element.textContent?.trim(),
-          ].join('|'),
-          visible: outlined || ringed,
-          inColumn: column !== null,
-        }
-      })
-      if (!step) continue
-      if (!step.inColumn) continue
-      reached.push(step.key)
-      expect(step.visible, `focus indicator for ${step.key}`).toBe(true)
-    }
-
-    // The controls each column offers, reached from the page's own order: the
-    // notebook's grip handle (which also opens the block menu) and its
-    // keyboard-reachable rows in ours, and the ReUI handle in theirs.
-    const focused = reached.join('\n')
-    expect(focused).toContain('ours|BUTTON||Drag block')
-    expect(focused).toContain('theirs|BUTTON|sortable-item-handle|Reorder')
-    const oursRows = reached.filter((key) =>
-      key.startsWith('ours|DIV||'),
-    ).length
-    expect(oursRows).toBeGreaterThan(2)
-  })
-
-  test('reorders by keyboard in both columns', async ({ page }) => {
-    await openHarness(page, { theme: 'light', fixture: 'long-labels' })
+    await openHarness(page, {
+      theme: 'light',
+      fixture: 'long-labels',
+      pair: REORDERABLE_PAIR,
+    })
 
     const oursBefore = await rowIds(page, 'ours')
     const oursRow = column(page, 'ours').locator(
@@ -251,6 +322,7 @@ test.describe('keyboard', () => {
     )
     await oursRow.focus()
     await page.keyboard.press('Alt+ArrowDown')
+
     await expect
       .poll(async () => (await rowIds(page, 'ours'))[0])
       .toBe(oursBefore[1])
@@ -282,8 +354,14 @@ test.describe('keyboard', () => {
 })
 
 test.describe('mouse', () => {
-  test('reorders by pointer drag in both columns', async ({ page }) => {
-    await openHarness(page, { theme: 'light', fixture: 'long-labels' })
+  test(`${REORDERABLE_PAIR} — reorders by pointer drag in both columns`, async ({
+    page,
+  }) => {
+    await openHarness(page, {
+      theme: 'light',
+      fixture: 'long-labels',
+      pair: REORDERABLE_PAIR,
+    })
 
     // Ours: native HTML5 drag from the notebook's grip handle onto a row. The
     // handle sits in the row's left gutter, so it is grabbed from its own box.
@@ -341,52 +419,61 @@ test.describe('mouse', () => {
 })
 
 test.describe('states', () => {
-  test('says "no rows" and keeps its controls for the empty fixture', async ({
+  // The empty, loading and error states are the harness's own and apply to
+  // every pair; `restricted` is component-specific and is checked on the pair
+  // whose components reorder.
+  for (const pair of PAIRS) {
+    test(`${pair} — says "no rows" and keeps its controls for the empty fixture`, async ({
+      page,
+    }) => {
+      await openHarness(page, { theme: 'light', fixture: 'empty', pair })
+      for (const id of COLUMNS) {
+        await expect(
+          column(page, id).getByRole('heading', { name: 'No rows' }),
+        ).toBeVisible()
+        await expect(column(page, id).locator('[data-row-id]')).toHaveCount(0)
+      }
+    })
+
+    test(`${pair} — announces loading`, async ({ page }) => {
+      await openHarness(page, { theme: 'light', fixture: 'long-labels', pair })
+      await page.getByTestId('comparison-state').selectOption('loading')
+      for (const id of COLUMNS) {
+        await expect(
+          column(page, id).locator('[data-comparison-state="loading"]'),
+        ).toHaveAttribute('aria-busy', 'true')
+        await expect(column(page, id).locator('[data-row-id]')).toHaveCount(0)
+      }
+    })
+
+    test(`${pair} — reports an error and returns to ready through the retry`, async ({
+      page,
+    }) => {
+      await openHarness(page, { theme: 'light', fixture: 'long-labels', pair })
+      await page.getByTestId('comparison-state').selectOption('error')
+      const alerts = page.locator('[data-comparison-column] [role="alert"]')
+      await expect(alerts).toHaveCount(2)
+
+      const retry = page.getByRole('button', { name: 'Retry' }).first()
+      await retry.focus()
+      await page.keyboard.press('Enter')
+      for (const id of COLUMNS) {
+        await expect(column(page, id)).toHaveAttribute(
+          'data-scenario-state',
+          'ready',
+        )
+      }
+    })
+  }
+
+  test(`${REORDERABLE_PAIR} — refuses reordering and states why when permission is restricted`, async ({
     page,
   }) => {
-    await openHarness(page, { theme: 'light', fixture: 'empty' })
-    for (const id of COLUMNS) {
-      await expect(
-        column(page, id).getByRole('heading', { name: 'No rows' }),
-      ).toBeVisible()
-      await expect(column(page, id).locator('[data-row-id]')).toHaveCount(0)
-    }
-  })
-
-  test('announces loading', async ({ page }) => {
-    await openHarness(page, { theme: 'light', fixture: 'long-labels' })
-    await page.getByTestId('comparison-state').selectOption('loading')
-    for (const id of COLUMNS) {
-      await expect(
-        column(page, id).locator('[data-comparison-state="loading"]'),
-      ).toHaveAttribute('aria-busy', 'true')
-      await expect(column(page, id).locator('[data-row-id]')).toHaveCount(0)
-    }
-  })
-
-  test('reports an error and returns to ready through the retry', async ({
-    page,
-  }) => {
-    await openHarness(page, { theme: 'light', fixture: 'long-labels' })
-    await page.getByTestId('comparison-state').selectOption('error')
-    const alerts = page.locator('[data-comparison-column] [role="alert"]')
-    await expect(alerts).toHaveCount(2)
-
-    const retry = page.getByRole('button', { name: 'Retry' }).first()
-    await retry.focus()
-    await page.keyboard.press('Enter')
-    for (const id of COLUMNS) {
-      await expect(column(page, id)).toHaveAttribute(
-        'data-scenario-state',
-        'ready',
-      )
-    }
-  })
-
-  test('refuses reordering and states why when permission is restricted', async ({
-    page,
-  }) => {
-    await openHarness(page, { theme: 'light', fixture: 'long-labels' })
+    await openHarness(page, {
+      theme: 'light',
+      fixture: 'long-labels',
+      pair: REORDERABLE_PAIR,
+    })
     await page.getByTestId('comparison-state').selectOption('restricted')
 
     for (const id of COLUMNS) {
@@ -411,82 +498,94 @@ test.describe('states', () => {
 })
 
 test.describe('density and overflow', () => {
-  for (const [label, size] of [
-    ['desktop 1440x900', DESKTOP],
-    ['phone 390x844', PHONE],
-  ] as const) {
-    test(`holds at ${label}`, async ({ page }) => {
-      await page.setViewportSize(size)
-      await openHarness(page, { theme: 'light', fixture: 'long-labels' })
+  for (const pair of PAIRS) {
+    for (const [label, size] of [
+      ['desktop 1440x900', DESKTOP],
+      ['phone 390x844', PHONE],
+    ] as const) {
+      test(`${pair} — holds at ${label}`, async ({ page }) => {
+        await page.setViewportSize(size)
+        await openHarness(page, {
+          theme: 'light',
+          fixture: 'long-labels',
+          pair,
+        })
 
-      const overflow = await page.evaluate(() => ({
-        document:
-          document.documentElement.scrollWidth -
-          document.documentElement.clientWidth,
-      }))
-      expect(overflow.document).toBeLessThanOrEqual(1)
+        const overflow = await page.evaluate(() => ({
+          document:
+            document.documentElement.scrollWidth -
+            document.documentElement.clientWidth,
+        }))
+        expect(overflow.document).toBeLessThanOrEqual(1)
 
-      for (const id of COLUMNS) {
-        const box = await column(page, id).boundingBox()
-        expect(box).not.toBeNull()
-        expect(box!.x).toBeGreaterThanOrEqual(0)
-        expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1)
-        // No control is pushed off the side of the column.
-        const clipped = await column(page, id)
-          .locator('[data-row-id]')
-          .evaluateAll(
-            (elements) =>
-              elements
-                .map((element) => element.getBoundingClientRect())
-                .filter(
-                  (rect) =>
-                    rect.width < 1 || rect.right > window.innerWidth + 1,
-                ).length,
-          )
-        expect(clipped).toBe(0)
-      }
+        for (const id of COLUMNS) {
+          const box = await column(page, id).boundingBox()
+          expect(box).not.toBeNull()
+          expect(box!.x).toBeGreaterThanOrEqual(0)
+          expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1)
+          // No control is pushed off the side of the column.
+          const clipped = await column(page, id)
+            .locator('[data-row-id]')
+            .evaluateAll(
+              (elements) =>
+                elements
+                  .map((element) => element.getBoundingClientRect())
+                  .filter(
+                    (rect) =>
+                      rect.width < 1 || rect.right > window.innerWidth + 1,
+                  ).length,
+            )
+          expect(clipped).toBe(0)
+        }
 
-      // The notebook's grip handle is desktop-only (`hidden lg:flex`); the
-      // ReUI handle is not. That difference is the point of this check, so it
-      // is asserted per column rather than averaged away.
-      const oursHandles = column(page, 'ours').locator(
-        'button[aria-label="Drag block"]',
-      )
-      const theirsHandles = column(page, 'theirs').locator(
-        '[data-slot="sortable-item-handle"]',
-      )
-      if (size.width >= 1024) {
-        await expect(oursHandles.first()).toBeVisible()
-        await expect(theirsHandles.first()).toBeVisible()
-      } else {
-        await expect(oursHandles.first()).toBeHidden()
-        await expect(theirsHandles.first()).toBeVisible()
+        if (pair !== REORDERABLE_PAIR) return
 
-        // Below 1024px our grip handle is not rendered at all, so pointer
-        // reordering is unavailable on our side; the keyboard path still works
-        // and the candidate keeps both. This is the density finding the record
-        // cites, so it is asserted rather than described.
-        const before = await rowIds(page, 'ours')
-        await column(page, 'ours')
-          .locator(`[data-row-id="${before[0]}"]`)
-          .focus()
-        await page.keyboard.press('Alt+ArrowDown')
-        await expect
-          .poll(async () => (await rowIds(page, 'ours'))[0])
-          .toBe(before[1])
+        // The notebook's grip handle is desktop-only (`hidden lg:flex`); the
+        // ReUI handle is not. That difference is the point of this check, so it
+        // is asserted per column rather than averaged away.
+        const oursHandles = column(page, 'ours').locator(
+          'button[aria-label="Drag block"]',
+        )
+        const theirsHandles = column(page, 'theirs').locator(
+          '[data-slot="sortable-item-handle"]',
+        )
+        if (size.width >= 1024) {
+          await expect(oursHandles.first()).toBeVisible()
+          await expect(theirsHandles.first()).toBeVisible()
+        } else {
+          await expect(oursHandles.first()).toBeHidden()
+          await expect(theirsHandles.first()).toBeVisible()
 
-        const theirsBefore = await rowIds(page, 'theirs')
-        const handleBox = await theirsHandles.first().boundingBox()
-        expect(handleBox).not.toBeNull()
-        expect(handleBox!.width).toBeGreaterThanOrEqual(16)
-      }
-    })
+          // Below 1024px our grip handle is not rendered at all, so pointer
+          // reordering is unavailable on our side; the keyboard path still works
+          // and the candidate keeps both. This is the density finding the record
+          // cites, so it is asserted rather than described.
+          const before = await rowIds(page, 'ours')
+          await column(page, 'ours')
+            .locator(`[data-row-id="${before[0]}"]`)
+            .focus()
+          await page.keyboard.press('Alt+ArrowDown')
+          await expect
+            .poll(async () => (await rowIds(page, 'ours'))[0])
+            .toBe(before[1])
+
+          const theirsBefore = await rowIds(page, 'theirs')
+          const handleBox = await theirsHandles.first().boundingBox()
+          expect(handleBox).not.toBeNull()
+          expect(handleBox!.width).toBeGreaterThanOrEqual(16)
+        }
+      })
+    }
   }
 
-  test('renders the 5,000-row fixture without horizontal growth', async ({
+  test(`${REORDERABLE_PAIR} — renders the 5,000-row fixture without horizontal growth`, async ({
     page,
   }) => {
-    await openHarness(page, { theme: 'light', fixture: 'bulk' })
+    await openHarness(page, {
+      theme: 'light',
+      fixture: 'bulk',
+      pair: REORDERABLE_PAIR,
+    })
     for (const id of COLUMNS) {
       await expect(column(page, id).locator('[data-row-id]')).toHaveCount(5000)
     }

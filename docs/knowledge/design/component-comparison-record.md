@@ -27,9 +27,10 @@ a decision is not a record.
 
 ## Rows
 
-| #   | Component (generic UI job)                              | What we use now                                                                                                                                                                   | What ReUI offers                                                                           | Checklist result                                                                                                                                                                                                                                                                                                   | Decision                                                                                                         | Measured    |
-| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | Reorderable list — reorder rows by pointer and keyboard | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row) | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx` | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface | 16 Oct 2026 |
+| #   | Component (generic UI job)                                  | What we use now                                                                                                                                                                                                          | What ReUI offers                                                                                                                                               | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                              | Decision                                                                                                                                                                                      | Measured    |
+| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard     | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                        | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                     | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                            | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                              | 16 Oct 2026 |
+| 2   | Numeric quantity field — enter a number that carries a unit | No shared numeric component: the kit's `Input` with `type="number"`/`inputMode="decimal"`, labelled by `Field`, with a per-screen check (`materials.tsx:783-790` is the pattern the other ~20 numeric call sites repeat) | `@reui/number-field` (base-nova pin), a Base UI `NumberField` wrapper — group, decrement, input, increment, scrub area: `src/components/reui/number-field.tsx` | Ours: the 8 applicable items pass, including density at 390x844 (see the detail table). Theirs: 7 of 8 pass — axe is clean and the states hold, but the field **displays a formatter's value rather than the value**: `1e-21`, `1.602176634e-19` and `Number.EPSILON` all read `0`, and typing `1e-21` yields `1`. 10 items are not applicable — this pair has no sort, filter, select, resize, pagination or reorder control | **Decline.** Our implementation is not materially worse: it keeps the digits the scientist entered, and the candidate at its defaults loses them on screen and on entry. See the detail below | 16 Oct 2026 |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -118,8 +119,8 @@ cases in Chromium alone) without exercising a rule that the same component's
 smaller fixture does not already exercise. That exclusion is a deliberate,
 recorded limit, not an omission.
 
-Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `ours-light.png`,
-`ours-dark.png`, `theirs-light.png`, `theirs-dark.png` — one per column per
+Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`):
+`notebook-sortable-{ours,theirs}-{light,dark}.png` — one per pair per column per
 theme, on the long-labels fixture. Appearance is evidence; it is not the verdict.
 
 ### What an adoption would cost — conditions
@@ -188,6 +189,141 @@ reason disappears and this decision should be re-measured rather than inherited.
 - The 5,000-row fixture is measured for rendering and overflow, not by axe.
 - This row records one pair. It is not a verdict on `@dnd-kit`, on ReUI as a
   registry, or on any other ReUI item.
+
+## Row 2 — Numeric quantity field (`quantity-field`)
+
+### What we use now
+
+There is **no shared numeric component**. A quantity, a volume or a parameter
+value is the kit's `Input` (`src/components/v3/ui/input.tsx`, 15 lines) carrying
+`type="number"` or `inputMode="decimal"`, labelled by `Field` (which renders the
+label, the hint and the error), with a check written inline on the screen:
+
+| Surface                                                    | Field                                                                                                       | Numeric behaviour                                                               |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `materials.tsx`                                            | replacement and received quantity, `:661-805`                                                               | `Number()`, finite-and-positive test on submit, `Field` error                   |
+| `samples.tsx`                                              | sample quantity, `:406-497`                                                                                 | `type="number"`, no client check                                                |
+| `withdraw-dialog.tsx`                                      | withdraw and reserve volume, `:359-417`, `:579-642`                                                         | `parseQuantityInput` + `validateQuantity`, `inputMode="decimal"`, mobile keypad |
+| `block-editor.tsx`                                         | metric value, material quantities, plate well volume, plate min/max, `:934-964`, `:1650-1808`, `:2878-3062` | `parseFloat \|\| 0`, `parseInt`, no visual validation                           |
+| `model-field-input.tsx`, `record-model-version-editor.tsx` | parameter values and their min/max/default, `:175-230`                                                      | `Number()`, browser `required` only                                             |
+| `chart-configurator.tsx`, `agent-surface.tsx`              | chart bounds and agent limits                                                                               | `Number()` with clamping, no errors                                             |
+
+The job is one job — type a number — and the repository does it eight times with
+four parsers and three error presentations, which is why the plan named it. What
+this row measures is the _function_ of that job on a hostile value, because that
+is where the two sides differ.
+
+### What ReUI offers
+
+`src/components/reui/number-field.tsx` (258 lines), installed from
+`@reui/number-field` at the pinned base-nova registry with the shadcn CLI into a
+scratch directory and placed by hand. Edits to the copy: the `cn` import
+re-pointed at `#/lib/utils`; the legacy-kit `Label` import dropped (the app's
+`Field` labels the field, and `src/components/ui/label.tsx` is the deprecated
+kit); classes restyled to the v3 vocabulary (`border-input` → `border-border`,
+`bg-accent` → `bg-surface-hover`, `text-muted-foreground` → `text-fg-muted`,
+`ring-ring`/`ring-3` → `outline-focus`, `rounded-lg` → `rounded-md`, the size
+ladder onto the kit's `h-[30px]`/`text-body` rung); the cursor's
+`drop-shadow-[…_#0008]` literal removed, which the colour check bans; and the
+input's `outline-none` dropped in favour of `focus-visible:outline-2
+outline-offset-1 outline-focus`, so the focused control draws the kit's ring
+rather than only the group around it.
+
+It wraps Base UI's `NumberField`: a group holding a decrement button, the input
+and an increment button, plus a scrub area whose label the pointer can drag. It
+renders **two inputs per field** — a visible `type="text"` one
+(`inputmode="numeric"`) and a `tabindex="-1"` `type="number"` carrier that holds
+the parsed value.
+
+### Checklist result
+
+Fixed checklist: `src/components/component-compare/checklist.ts`. The 8
+applicable items are the ones requiring no control class and the 3 states the
+harness owns; the other 10 need reorder, sort, filter, select, resize or
+pagination controls that neither side of this pair has, and are recorded as not
+applicable rather than skipped.
+
+| Check                                                     | Ours                                                                             | Theirs                                                                        | How it was measured                                                                                 |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator | Pass — one tab stop per row, the input                                           | Pass — one tab stop per row (the two step buttons are `tabindex="-1"`)        | Browser, both columns; `quantity-field.test.tsx` pins the count                                     |
+| Empty (0 rows), loading, error, permission-restricted     | Pass                                                                             | Pass                                                                          | Browser (both columns) and jsdom; the `Field` error and `aria-invalid` were compared as well        |
+| Dark theme                                                | Pass — token-bound colours only; axe clean in dark                               | Pass                                                                          | axe in Chromium with colour contrast on, both columns and both themes                               |
+| Density and overflow at 1440x900                          | Pass                                                                             | Pass                                                                          | Browser, both columns                                                                               |
+| Density and overflow at 390x844                           | Pass                                                                             | Pass                                                                          | Browser, both columns                                                                               |
+| **A quantity the formatter cannot round**                 | Pass — `1e-21`, `1.602176634e-19` and `Number.EPSILON` are displayed as entered  | **Fails** — the same values display as `0`, and `1/3` as `0.333`              | Chromium, both columns, `high-precision` fixture; `quantity-field.test.tsx` pins the rounded result |
+| **Entering a small quantity**                             | Pass — typing `2.5e-8` yields `2.5e-8`                                           | **Fails** — typing `1e-21` yields `1`: the `e` is refused and the rest parses | Chromium, both columns, real keystrokes                                                             |
+| A value that is not a number                              | Refused at the DOM — the field goes empty, and the screen's own check states why | Refused at the typed boundary — the value is `null` and the field goes empty  | jsdom and Chromium, `mixed-types` fixture                                                           |
+
+Sort, filter, select, resize, pagination and reorder: not applicable to this pair
+(10 items).
+
+### Automated evidence
+
+| Evidence                                                                                                       | Result                                                                            | Command                                                                                 |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                                   | 16 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
+| axe in Chromium, colour contrast **on**                                                                        | 4 cases (2 columns × 2 themes), **zero violations**                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`   |
+| The browser checklist, for this pair: Tab order, appearance, the three states, density at 1440x900 and 390x844 | 13 tests, pass — 33 pass in the file, both pairs                                  | same command; the generic checks run for every pair in the spec's `PAIRS` list          |
+| The pair's load-bearing measurements, pinned                                                                   | 6 tests, pass                                                                     | `pnpm exec vitest run src/components/component-compare/pairs/quantity-field.test.tsx`   |
+| Harness contracts (one scenario object to both columns, frozen fixtures, states)                               | 12 tests, pass                                                                    | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`      |
+
+Appearance evidence: `quantity-field-{ours,theirs}-{light,dark}.png` from the
+browser run (`COMPONENT_COMPARE_SHOTS=<dir>`), on the `long-labels` fixture, and
+the story `src/stories/NumberField.stories.tsx`.
+
+### Decision and reason
+
+**Decline.** The bar has two halves, and the candidate fails the first: our
+implementation is _not_ materially worse — on the one axis this product cares
+about it is materially better.
+
+- **The named behaviour is missing on the candidate's side, not ours.** At its
+  published defaults the field shows the value through the browser's number
+  formatter: `1.602176634e-19`, `1e-21` and `Number.EPSILON` all read **`0`**,
+  `1/3` reads `0.333`, `1234567.8901234567` reads `1,234,567.89`. The exact
+  value survives in a second, non-tabbable input, so nothing is corrupted — but
+  what the scientist reads and types is wrong by up to 21 orders of magnitude.
+  A quantities field that displays a real measurement as `0` is worse than a
+  field with no stepper.
+- **Entry is worse for the same reason.** Typing `1e-21` into the candidate
+  produces `1`. Our `type="number"` holds `2.5e-8` verbatim. Scientific notation
+  is how these values are written down.
+- **The plan's stated gains are thinner than they look.** The steppers are
+  `tabindex="-1"`: a pointer affordance, not a keyboard one, and the keyboard
+  path is the input's own arrow keys, which `type="number"` already gives.
+  "Consistent validation display" is not something the component supplies — the
+  `Field` error plus `aria-invalid` already does that, and the inconsistency the
+  plan names is the per-screen checks, which survive an adoption of the field
+  either way.
+- **The cost is real.** An adoption replaces roughly twenty call sites across
+  materials, plate maps, parameters and charts, plus one vendored file to
+  maintain, to gain a scrub area.
+
+**What would change the answer.** Two conditions, either of which makes this a
+re-measurement rather than an inheritance of the row:
+
+- **N1 — set `format` (and `locale`) on every field.** The rounding is the
+  item's default presentation, not Base UI's only option; an adoption that
+  configures the format and the number of digits, and that can hold `1e-21` in
+  the visible input, removes the reason for this decline.
+- **N2 — the scrub area becomes a product requirement.** Drag-to-change is the
+  one behaviour here that we have no equivalent of. If a design asks for it, the
+  trade inverts and the row must be re-measured against a configured candidate.
+
+### Limits of this row
+
+- Desktop Chromium only (the harness browser check); no Firefox, WebKit, real
+  device or real stylus was run.
+- The exact strings the formatter produces are the engine's and its ICU data, so
+  the pinned test asserts the semantic loss (`Number(visible.value) !== the
+value`) rather than `"0.333"`.
+- The mixed-type and high-precision rows are fixtures, not a screen: this row
+  measures one field per fixture row, which is the shape a materials table or a
+  plate map has, not the whole screen's form.
+- The 5,000-row fixture is measured for rendering and overflow, not by axe.
+- This row records one pair. It is not a verdict on `@base-ui/react`, on ReUI as
+  a registry, or on any other ReUI item — and it does not authorise, or forbid,
+  changing the eight screens' numeric call sites.
 
 ## Adding a row
 

@@ -307,9 +307,22 @@ describe('the ReUI column offers the candidate’s own controls', () => {
 })
 
 describe('the registered pair set', () => {
-  it('holds the notebook sortable list, and nothing else yet', () => {
+  it('holds the pairs that have been compared, in the order they were added', () => {
     expect(COMPARISON_PAIRS.map((pair) => pair.id)).toEqual([
       'notebook-sortable',
+      'quantity-field',
     ])
+  })
+
+  it('gives every pair two sides, a job and its control classes', () => {
+    for (const pair of COMPARISON_PAIRS) {
+      expect(pair.job.length).toBeGreaterThan(0)
+      expect(pair.ours.id).toBe('ours')
+      expect(pair.theirs.id).toBe('theirs')
+      for (const side of [pair.ours, pair.theirs]) {
+        expect(side.label.length).toBeGreaterThan(0)
+        expect(side.source.length).toBeGreaterThan(0)
+      }
+    }
   })
 })

@@ -315,6 +315,20 @@ describe('the registered pair set', () => {
       'notebook-sortable',
       'empty-state',
       'history-rows',
+      'quantity-field',
+      'shortcut-keys',
     ])
+  })
+
+  it('gives every pair two sides, a job and its control classes', () => {
+    for (const pair of COMPARISON_PAIRS) {
+      expect(pair.job.length).toBeGreaterThan(0)
+      expect(pair.ours.id).toBe('ours')
+      expect(pair.theirs.id).toBe('theirs')
+      for (const side of [pair.ours, pair.theirs]) {
+        expect(side.label.length).toBeGreaterThan(0)
+        expect(side.source.length).toBeGreaterThan(0)
+      }
+    }
   })
 })

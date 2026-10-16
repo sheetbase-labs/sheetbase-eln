@@ -2,6 +2,8 @@ import type { ComparisonPair } from '#/components/component-compare/types'
 import { historyRowsPair } from '#/components/component-compare/pairs/history-rows'
 import { notebookSortablePair } from '#/components/component-compare/pairs/notebook-sortable'
 import { emptyStatePair } from '#/components/component-compare/pairs/empty-state'
+import { quantityFieldPair } from '#/components/component-compare/pairs/quantity-field'
+import { shortcutKeysPair } from '#/components/component-compare/pairs/shortcut-keys'
 
 /**
  * The registered comparison pairs, in the order the harness lists them.
@@ -15,4 +17,6 @@ export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   notebookSortablePair,
   emptyStatePair,
   historyRowsPair,
+  quantityFieldPair,
+  shortcutKeysPair,
 ])

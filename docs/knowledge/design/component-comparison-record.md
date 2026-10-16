@@ -35,6 +35,9 @@ a decision is not a record.
 | 4   | List row / row chrome — one row, its link form, and the list that holds it                   | ≈30 hand-rolled row renderers across 21 domain files; two competing entity rows (`RecordLink`, 92 lines, and `LinkedRecordList`, 47); six families (entity, property, file, comment, check, step), each spelling its own leading slot, truncation, meta line, trailing slot, hover and focus treatment                                                                                                                                                                                      | **Nothing to install.** `@reui/item` and `@reui/row` both return `404 {"error":"Registry item not found", "message":"item is part of shadcn/ui, not a ReUI item"}`. The nearest registry item is stock shadcn's compound `Item`, which is not ReUI-native and has no link form, no read-only state vocabulary, and pulls the `cn` package                                                                           | Not run against a registry candidate — there is none for this job, so ADR-0055 decision 5's A/B comparison has no second column. The in-house pair's own contract is pinned instead: `src/components/v3/ui/row.test.tsx` (11 tests: the four forms, list semantics, empty, windowing, hover detail), the migrated sites' tests (176 pass), axe with **zero violations** (WCAG 2 A/AA) over the rendered inspector, and the rendered evidence below                                                                                                                                                         | **Consolidate in-house: `Row` + `RowList` in the v3 kit, with `DescriptionList` as the property row.** No registry adoption. Reason: every family's cost is the _number of implementations_, not a missing feature, and the rival implementations differ in exactly the ways one component should fix — which registry item to install is a different question, and for this job there is none                                                                                                                                                                                                                                                                                                                                               | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
 | 5   | Empty state — explain what is absent and offer one next action                               | The forward kit's 37-line `EmptyState` (`src/components/v3/ui/empty-state.tsx` at `35423ec2`): `icon`, `title`, `body`, and a `children` slot nothing documents as the action slot. 92 product sites use it; 70 are self-closing, and the plan's §11.2 count puts 73 that cannot satisfy `DESIGN.md:383`. The legacy kit's `ui/empty.tsx` (a compound `Empty`/`EmptyIcon`/`EmptyTitle`/`EmptyDescription`/`EmptyActions` family with **zero** product call sites) is the second predecessor | The catalogue lists Empty, but the ReUI registry serves no such item: `https://reui.io/r/base-nova/empty.json` answers **404** — "empty is part of shadcn/ui, not a ReUI item. Install it with: `npx shadcn@latest add empty`". The candidate is therefore the **stock shadcn `empty` item, by bare name** (`ui.shadcn.com/r/styles/new-york-v4/empty.json`): `Empty`, `EmptyHeader`, `EmptyMedia` (`variant="icon" | "default"`), `EmptyTitle`, `EmptyDescription`, `EmptyContent`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Ours: the two applicable behavioural items pass — the action is reachable and works from `children`, and the states hold — but the _product_ fails the rule the item exists to satisfy: 70 of 92 sites close the component with nothing in `children`, and the plan's §11.2 count puts 73 of 92 that cannot satisfy `DESIGN.md:383` (see the detail table). Theirs: all applicable items pass, with three measured costs — the title and description are `<div>`s (no heading, no paragraph), the dashed border draws nothing on its own, and the presentation is centred, which the design system's EmptyState rule contradicts. 10 items are not applicable — this pair has no reorder, sort, filter, select, resize or pagination control | **Adopt in part, in this change**: the item's documented action slot and its title/description/media vocabulary are taken; the compound exports, the `div` semantics and the centred borderless-empty presentation are declined. The single component that results is `src/components/v3/ui/empty-state.tsx`, and both predecessors are deleted in the same change | 16 Oct 2026 |
 | 6   | History rows — render a chronological list of audit events as rows                           | Three panels with their own rows: `src/components/audit/audit-trail.tsx` (175 lines), `object-history-timeline.tsx` (308), `record-history-timeline.tsx` (264) — a triplicated loading skeleton, two byte-identical dashed empty states, a local relative-time formatter, four icon maps, two row layouts and two continuation controls between them                                                                                                                                        | `@reui/timeline` (base-nova pin), one file: `src/components/reui/timeline.tsx` — `Timeline`, `TimelineItem`, `TimelineIndicator`, `TimelineSeparator`, `TimelineHeader`, `TimelineDate`, `TimelineTitle`, `TimelineContent`. No states, no controls, no chips, no disclosure                                                                                                                                        | Ours: all 8 applicable items pass — the rows render the fixture with both time labels, the before→after chip, the deep link and the disclosure; axe clean in both themes; no overflow at either width. Theirs: the composition renders, but the item ships no states, no controls and no `<time>` value, so its empty, loading and error cells are the harness's own. 10 items are not applicable — this pair has no reorder, sort, filter, select, resize or pagination control                                                                                                                           | **Adopt, in this change**: the shared surface `src/components/audit/history-timeline.tsx` is built on the item, the three panels map onto it, and the duplicated skeleton, empty state, formatter, icon maps, row layout and continuation control are deleted with it. No parallel implementation is left behind                                                                                                                                                                                                                                                                                                                                                                                                                             | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
+| 7   | Numeric quantity field — enter a number that carries a unit                                  | No shared numeric component: the kit's `Input` with `type="number"`/`inputMode="decimal"`, labelled by `Field`, with a per-screen check (`materials.tsx:783-790` is the pattern the other ~20 numeric call sites repeat)                                                                                                                                                                                                                                                                    | `@reui/number-field` (base-nova pin), a Base UI `NumberField` wrapper — group, decrement, input, increment, scrub area: `src/components/reui/number-field.tsx`                                                                                                                                                                                                                                                      | Ours: the 8 applicable items pass, including density at 390x844 (see the detail table). Theirs: 7 of 8 pass — axe is clean and the states hold, but the field **displays a formatter's value rather than the value**: `1e-21`, `1.602176634e-19` and `Number.EPSILON` all read `0`, and typing `1e-21` yields `1`. 10 items are not applicable — this pair has no sort, filter, select, resize, pagination or reorder control                                                                                                                                                                              | **Decline.** Our implementation is not materially worse: it keeps the digits the scientist entered, and the candidate at its defaults loses them on screen and on entry. See the detail below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
+| 8   | Signature pad — capture a signature as ink                                                   | **Nothing draws.** The surface the plan names, `src/components/notebook/e-sign-dialog.tsx` (261 lines), is the credential attestation form: signing-as, meaning, revision, content hash, server-time statement, re-authentication password, type-your-name confirmation. No canvas, no pointer capture, no export exists anywhere in `src` for a signature                                                                                                                                  | `@reui/signature-pad` (base-nova pin), 1,382 lines, `cn` only: pressure- and speed-sized ink, touch and stylus input, undo/redo, PNG/JPEG/SVG/JSON export                                                                                                                                                                                                                                                           | Not applicable: the harness compares two implementations of one job, and only one of these does the job. There is no side to put in the second column                                                                                                                                                                                                                                                                                                                                                                                                                                                      | **Decline — a different job.** An ink pad answers "what did the mark look like"; electronic signature here is an attestation under an audit chain (REV-03), which ReUI neither carries nor may replace. See the detail below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
+| 9   | Keyboard shortcut cap — show the keys that trigger a command                                 | One shared `Kbd` already exists: `src/components/v3/ui/kbd.tsx` (10 lines), a `<kbd>` bound to the v3 tokens; a chord is three of them in the `flex gap-1` span the call sites write. One component, used by the shortcuts dialog, the help page and the search palette                                                                                                                                                                                                                     | Stock shadcn `kbd` (a bare name on the same index; §11.3.4), 28 lines: `Kbd`, `KbdGroup` to wrap a chord, and an inversion inside tooltip content — `src/components/reui/kbd.tsx`                                                                                                                                                                                                                                   | Ours: the 8 applicable items pass. Theirs: all 8 pass. 10 items are not applicable — no sort, filter, select, resize, pagination or reorder control, and neither side puts a cap on the keyboard path                                                                                                                                                                                                                                                                                                                                                                                                      | **Decline.** Our implementation is not materially worse: it is the one shared, token-bound cap, and the candidate's only additions are a chord wrapper the call sites already write and a tooltip treatment that is inert here. See the detail below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -888,6 +891,361 @@ the continuation control now exist once.
   change to consider.
 - This row records one pair. It is not a verdict on ReUI as a registry, or on
   any other ReUI item.
+
+## Row 7 — Numeric quantity field (`quantity-field`)
+
+### What we use now
+
+There is **no shared numeric component**. A quantity, a volume or a parameter
+value is the kit's `Input` (`src/components/v3/ui/input.tsx`, 15 lines) carrying
+`type="number"` or `inputMode="decimal"`, labelled by `Field` (which renders the
+label, the hint and the error), with a check written inline on the screen:
+
+| Surface                                                    | Field                                                                                                       | Numeric behaviour                                                               |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `materials.tsx`                                            | replacement and received quantity, `:661-805`                                                               | `Number()`, finite-and-positive test on submit, `Field` error                   |
+| `samples.tsx`                                              | sample quantity, `:406-497`                                                                                 | `type="number"`, no client check                                                |
+| `withdraw-dialog.tsx`                                      | withdraw and reserve volume, `:359-417`, `:579-642`                                                         | `parseQuantityInput` + `validateQuantity`, `inputMode="decimal"`, mobile keypad |
+| `block-editor.tsx`                                         | metric value, material quantities, plate well volume, plate min/max, `:934-964`, `:1650-1808`, `:2878-3062` | `parseFloat \|\| 0`, `parseInt`, no visual validation                           |
+| `model-field-input.tsx`, `record-model-version-editor.tsx` | parameter values and their min/max/default, `:175-230`                                                      | `Number()`, browser `required` only                                             |
+| `chart-configurator.tsx`, `agent-surface.tsx`              | chart bounds and agent limits                                                                               | `Number()` with clamping, no errors                                             |
+
+The job is one job — type a number — and the repository does it eight times with
+four parsers and three error presentations, which is why the plan named it. What
+this row measures is the _function_ of that job on a hostile value, because that
+is where the two sides differ.
+
+### What ReUI offers
+
+`src/components/reui/number-field.tsx` (258 lines), installed from
+`@reui/number-field` at the pinned base-nova registry with the shadcn CLI into a
+scratch directory and placed by hand. Edits to the copy: the `cn` import
+re-pointed at `#/lib/utils`; the legacy-kit `Label` import dropped (the app's
+`Field` labels the field, and `src/components/ui/label.tsx` is the deprecated
+kit); classes restyled to the v3 vocabulary (`border-input` → `border-border`,
+`bg-accent` → `bg-surface-hover`, `text-muted-foreground` → `text-fg-muted`,
+`ring-ring`/`ring-3` → `outline-focus`, `rounded-lg` → `rounded-md`, the size
+ladder onto the kit's `h-[30px]`/`text-body` rung); the cursor's
+`drop-shadow-[…_#0008]` literal removed, which the colour check bans; and the
+input's `outline-none` dropped in favour of `focus-visible:outline-2
+outline-offset-1 outline-focus`, so the focused control draws the kit's ring
+rather than only the group around it.
+
+It wraps Base UI's `NumberField`: a group holding a decrement button, the input
+and an increment button, plus a scrub area whose label the pointer can drag. It
+renders **two inputs per field** — a visible `type="text"` one
+(`inputmode="numeric"`) and a `tabindex="-1"` `type="number"` carrier that holds
+the parsed value.
+
+### Checklist result
+
+Fixed checklist: `src/components/component-compare/checklist.ts`. The 8
+applicable items are the ones requiring no control class and the 3 states the
+harness owns; the other 10 need reorder, sort, filter, select, resize or
+pagination controls that neither side of this pair has, and are recorded as not
+applicable rather than skipped.
+
+| Check                                                     | Ours                                                                             | Theirs                                                                        | How it was measured                                                                                 |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator | Pass — one tab stop per row, the input                                           | Pass — one tab stop per row (the two step buttons are `tabindex="-1"`)        | Browser, both columns; `quantity-field.test.tsx` pins the count                                     |
+| Empty (0 rows), loading, error, permission-restricted     | Pass                                                                             | Pass                                                                          | Browser (both columns) and jsdom; the `Field` error and `aria-invalid` were compared as well        |
+| Dark theme                                                | Pass — token-bound colours only; axe clean in dark                               | Pass                                                                          | axe in Chromium with colour contrast on, both columns and both themes                               |
+| Density and overflow at 1440x900                          | Pass                                                                             | Pass                                                                          | Browser, both columns                                                                               |
+| Density and overflow at 390x844                           | Pass                                                                             | Pass                                                                          | Browser, both columns                                                                               |
+| **A quantity the formatter cannot round**                 | Pass — `1e-21`, `1.602176634e-19` and `Number.EPSILON` are displayed as entered  | **Fails** — the same values display as `0`, and `1/3` as `0.333`              | Chromium, both columns, `high-precision` fixture; `quantity-field.test.tsx` pins the rounded result |
+| **Entering a small quantity**                             | Pass — typing `2.5e-8` yields `2.5e-8`                                           | **Fails** — typing `1e-21` yields `1`: the `e` is refused and the rest parses | Chromium, both columns, real keystrokes                                                             |
+| A value that is not a number                              | Refused at the DOM — the field goes empty, and the screen's own check states why | Refused at the typed boundary — the value is `null` and the field goes empty  | jsdom and Chromium, `mixed-types` fixture                                                           |
+
+Sort, filter, select, resize, pagination and reorder: not applicable to this pair
+(10 items).
+
+### Automated evidence
+
+| Evidence                                                                                                       | Result                                                                            | Command                                                                                 |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                                   | 16 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
+| axe in Chromium, colour contrast **on**                                                                        | 4 cases (2 columns × 2 themes), **zero violations**                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`   |
+| The browser checklist, for this pair: Tab order, appearance, the three states, density at 1440x900 and 390x844 | 14 tests, pass — 47 pass in the file, all three pairs                             | same command; the generic checks run for every pair in the spec's `PAIRS` list          |
+| The pair's load-bearing measurements, pinned                                                                   | 6 tests, pass                                                                     | `pnpm exec vitest run src/components/component-compare/pairs/quantity-field.test.tsx`   |
+| Harness contracts (one scenario object to both columns, frozen fixtures, states)                               | 12 tests, pass                                                                    | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`      |
+
+Appearance evidence: `quantity-field-{ours,theirs}-{light,dark}.png` from the
+browser run (`COMPONENT_COMPARE_SHOTS=<dir>`), on the `long-labels` fixture, and
+the story `src/stories/NumberField.stories.tsx`.
+
+### Decision and reason
+
+**Decline.** The bar has two halves, and the candidate fails the first: our
+implementation is _not_ materially worse — on the one axis this product cares
+about it is materially better.
+
+- **The named behaviour is missing on the candidate's side, not ours.** At its
+  published defaults the field shows the value through the browser's number
+  formatter: `1.602176634e-19`, `1e-21` and `Number.EPSILON` all read **`0`**,
+  `1/3` reads `0.333`, `1234567.8901234567` reads `1,234,567.89`. The exact
+  value survives in a second, non-tabbable input, so nothing is corrupted — but
+  what the scientist reads and types is wrong by up to 21 orders of magnitude.
+  A quantities field that displays a real measurement as `0` is worse than a
+  field with no stepper.
+- **Entry is worse for the same reason.** Typing `1e-21` into the candidate
+  produces `1`. Our `type="number"` holds `2.5e-8` verbatim. Scientific notation
+  is how these values are written down.
+- **The plan's stated gains are thinner than they look.** The steppers are
+  `tabindex="-1"`: a pointer affordance, not a keyboard one, and the keyboard
+  path is the input's own arrow keys, which `type="number"` already gives.
+  "Consistent validation display" is not something the component supplies — the
+  `Field` error plus `aria-invalid` already does that, and the inconsistency the
+  plan names is the per-screen checks, which survive an adoption of the field
+  either way.
+- **The cost is real.** An adoption replaces roughly twenty call sites across
+  materials, plate maps, parameters and charts, plus one vendored file to
+  maintain, to gain a scrub area.
+
+**What would change the answer.** Two conditions, either of which makes this a
+re-measurement rather than an inheritance of the row:
+
+- **N1 — set `format` (and `locale`) on every field.** The rounding is the
+  item's default presentation, not Base UI's only option; an adoption that
+  configures the format and the number of digits, and that can hold `1e-21` in
+  the visible input, removes the reason for this decline.
+- **N2 — the scrub area becomes a product requirement.** Drag-to-change is the
+  one behaviour here that we have no equivalent of. If a design asks for it, the
+  trade inverts and the row must be re-measured against a configured candidate.
+
+### Limits of this row
+
+- Desktop Chromium only (the harness browser check); no Firefox, WebKit, real
+  device or real stylus was run.
+- The exact strings the formatter produces are the engine's and its ICU data, so
+  the pinned test asserts the semantic loss (`Number(visible.value) !== the
+value`) rather than `"0.333"`.
+- The mixed-type and high-precision rows are fixtures, not a screen: this row
+  measures one field per fixture row, which is the shape a materials table or a
+  plate map has, not the whole screen's form.
+- The 5,000-row fixture is measured for rendering and overflow, not by axe.
+- This row records one pair. It is not a verdict on `@base-ui/react`, on ReUI as
+  a registry, or on any other ReUI item — and it does not authorise, or forbid,
+  changing the eight screens' numeric call sites.
+
+## Row 8 — Signature pad (`signature-pad`)
+
+### What we use now
+
+**Nothing draws.** The plan's §4.5 row reads "Signature Pad — Drawing surface in
+`e-sign-dialog.tsx` (261)". The file that is 261 lines —
+`src/components/notebook/e-sign-dialog.tsx` — contains no drawing surface, and
+neither does any other file. This row exists because the premise needed checking
+before the registry item did.
+
+What that dialog is: the single electronic-signature dialog over the REV-03
+contract. It shows signing-as, the meaning, the revision id, the content digest
+and a statement that the time is server time; it collects the signer's
+re-authentication password, the meaning when more than one is offered, and a
+typed-name confirmation. Its own header records the decisions behind that: the
+password field is exactly the re-authentication the server performs and the
+dialog never verifies a credential itself; `signedAt` is always the database's
+`clock_timestamp()`; and the step-up request and the write stay with each flow
+because their `SignatureStepUpInput` payloads differ.
+
+Checked, rather than assumed:
+
+| Search                                                  | Result                                                                                                                                                                                                     |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getContext(`, `toDataURL`, `toBlob`, `Path2D` in `src` | three files, none a signature: `scan/jsqr-code-decoder.ts` (QR decode), `lib/visualisation-export.ts` (chart export), `scientific/data-table.tsx` (TanStack `getContext`)                                  |
+| `pointerdown`, `setPointerCapture` in `src`             | one file, `sheet/formula-reference-editor.tsx` — not a signature                                                                                                                                           |
+| files named `*sign*`                                    | `e-sign-dialog.tsx`, `sign-notebook-dialog.tsx`, `review/sign-dialogs.tsx`, `review/signatures-table.tsx`, `lib/signatures.ts`, `lib/signature-certification.ts` — attestations, chains and tables, no ink |
+| `SignaturePad` as a component, ours or vendored         | not present                                                                                                                                                                                                |
+
+So the plan's row is stale in the way §11.1's corrections table describes for
+nine other claims: it sizes a file correctly and describes what is not in it.
+Revision 5 re-verified Part B against the tree; this one claim was not among the
+nine it corrected.
+
+### What ReUI offers
+
+`@reui/signature-pad` at the pinned base-nova registry: one file, 1,382 lines,
+`cn` as its only dependency and a `button` registry dependency.
+`SignaturePad`, `SignaturePadArea`, `SignaturePadGuide`, `SignaturePadPlaceholder`,
+`SignaturePadControls`, `SignaturePadClear` — a canvas pad with pressure- and
+speed-sized ink, touch and stylus input, undo and redo, native form fields, and
+PNG, JPEG, SVG or JSON export.
+
+It is read from its own published registry item, not vendored: see the decision
+below for why no copy was placed.
+
+### Why there is no harness pair
+
+The harness compares **two implementations of one job** on one fixture, and this
+item has one implementation. A pair here would need a second column that does the
+same job, and the honest second column is empty — a column that draws nothing is
+not a comparison, it is a demonstration. Registering one would put a row in this
+record whose columns answer different questions, which is the failure mode the
+fixed checklist exists to prevent.
+
+That is a deliberate departure from "a pair per row", recorded here so it is a
+decision rather than an omission, and it is the finding: the item is declined
+because it is a different job, not because it lost a comparison.
+
+### Decision and reason
+
+**Decline — the item is a different job.** ADR-0055 decision 4's first test is
+"it serves a generic UI job"; an ink pad serves a job this product does not have.
+
+- **Electronic signature here is an attestation, not a drawing.** What makes a
+  signature meaningful in this product is the meaning selected, the revision id
+  and content digest it was taken against, the server-recorded time, the
+  re-authentication that proves who acted, and the audit chain and certification
+  that follow. None of that is in an ink pad, and the mark itself would sit
+  beside the attestation as decoration — a picture a reviewer must trust rather
+  than a record the server can verify.
+- **Nothing would be replaced.** ADR-0055 decision 4 requires the old component
+  to be deleted in the same change. There is no old component; the dialog that
+  would host a pad stays exactly as it is either way, so an adoption would add
+  1,382 lines to maintain and remove none.
+- **The plan already fences the job.** Its own row reads "**UI only** — signing
+  authority, step-up and the audit chain stay exactly where they are". With
+  those three fenced off, what remains is a drawing surface that nothing in the
+  signature path asks for.
+
+**What would change the answer.** Two conditions:
+
+- **S1 — a wet-ink requirement appears.** A regulated flow that must retain the
+  appearance of a handwritten mark — a client-facing or witnessed signature, or
+  a partner that requires a rasterised signature image in a submission packet —
+  makes the pad's export formats the point rather than the ink. Then the job
+  exists and the item is measured against what that flow uses instead.
+- **S2 — a drawing job appears somewhere else.** If a scientist needs to sketch
+  a plate map, annotate a gel or mark a figure, that is a generic drawing job and
+  this item is a candidate for it — evaluated on the screen that needs it, not
+  retro-fitted to the signature dialog.
+
+### Limits of this row
+
+- The finding is a source read of the current tree, not a run: no pad was
+  rendered, because rendering the candidate alone would demonstrate the item, not
+  compare it.
+- The candidate's own behaviour (ink, pressure, undo, export) is taken from its
+  published registry item and its documentation; it was not exercised.
+- This row is not a verdict on `@reui/signature-pad` as a component, on
+  canvas-based signing in general, or on signature pads in products that do
+  collect a mark. It says this repository has no drawing surface and no job for
+  one.
+
+## Row 9 — Keyboard shortcut cap (`shortcut-keys`)
+
+### What we use now
+
+`src/components/v3/ui/kbd.tsx`, ten lines: a `<kbd>` with
+`rounded-[3px] border border-border bg-surface px-1 font-mono text-[10px]
+text-fg-muted`. It is not a bespoke piece — it is the one shared cap the v3 kit
+ships, consumed by the shortcuts dialog, the search palette, the app shell, the
+slash-command menu, the v3 command menu, the help page, the shortcuts page and
+the inbox; the legacy `Kbd` has one consumer left, its own story. A chord is
+three of them in the `flex items-center gap-1` span the call sites write, as
+`src/stories/Kbd.stories.tsx` shows.
+
+The plan's §4.5 groups kbd with "small bespoke presentation pieces across
+pipelines, agents, help". On the current tree the piece is neither bespoke nor
+repeated: it is one token-bound component with five consumers, so the "cheap
+consistency win" the plan expected is already banked.
+
+### What ReUI offers
+
+The stock shadcn `kbd` item — a bare name on the same index as the ReUI items
+(§11.3.4), read from its own registry item, installed with the shadcn CLI into a
+scratch directory and placed at `src/components/reui/kbd.tsx`. Its published
+target is `ui/kbd.tsx`, which in this repository is the deprecated kit and
+already holds a different `Kbd`; placing it there is exactly the trap §11.3.1
+describes, so it is hand-placed under `reui/` instead.
+
+Edits to the copy: the `cn` import re-pointed at `#/lib/utils`, and `bg-muted` →
+`bg-surface-muted`, `text-muted-foreground` → `text-fg-muted`. The
+`[[data-slot=tooltip-content]_&]` classes are kept as published and are inert:
+no v3 tooltip content carries that attribute.
+
+It adds `KbdGroup` — a wrapping `<kbd data-slot="kbd-group">` for a chord — and
+the tooltip inversion. Measured in Chromium, on the long-labels fixture, both on
+the same 20px height:
+
+|               | Cap width | Radius | Type                 | Fill                   | Border |
+| ------------- | --------- | ------ | -------------------- | ---------------------- | ------ |
+| Ours          | 16px      | 3px    | 10px JetBrains Mono  | `bg-surface`           | 1px    |
+| Theirs        | 20px      | 4px    | 12px Inter           | `bg-surface-muted`     | none   |
+| Theirs' group | 44px      | —      | (inherits 13px mono) | transparent, no chrome | none   |
+
+### Checklist result
+
+Fixed checklist: `src/components/component-compare/checklist.ts`. The 8
+applicable items are the ones requiring no control class plus the states the
+harness owns; the other 10 need reorder, sort, filter, select, resize or
+pagination controls neither side has, and are recorded as not applicable.
+
+| Check                                                     | Ours                                                           | Theirs                                             | How it was measured                                                   |
+| --------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator | Pass — and there is nothing to reach: a cap is not interactive | Pass — same, and the group does not add a tab stop | `shortcut-keys.test.tsx`, and the browser Tab walk                    |
+| Empty (0 rows), loading, error, permission-restricted     | Pass                                                           | Pass                                               | Browser (both columns) and jsdom                                      |
+| Dark theme                                                | Pass — token-bound colours only; axe clean in dark             | Pass                                               | axe in Chromium with colour contrast on, both columns and both themes |
+| Density and overflow at 1440x900                          | Pass                                                           | Pass                                               | Browser, both columns                                                 |
+| Density and overflow at 390x844                           | Pass                                                           | Pass                                               | Browser, both columns                                                 |
+| A very long command name beside a chord                   | Pass — the name truncates, the chord keeps its width           | Pass — the same, at a wider cap                    | Browser, long-labels fixture                                          |
+
+Sort, filter, select, resize, pagination and reorder: not applicable to this pair
+(10 items), and neither column has an interactive control of any kind.
+
+### Automated evidence
+
+| Evidence                                                                                             | Result                                                                            | Command                                                                                 |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                         | 16 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
+| axe in Chromium, colour contrast **on**                                                              | 4 cases (2 columns × 2 themes), **zero violations**                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`   |
+| The browser checklist for this pair: Tab order, appearance, the three states, density at both widths | 14 tests, pass — 47 pass in the file, all three pairs                             | same command                                                                            |
+| The pair's structural facts, pinned                                                                  | 3 tests, pass                                                                     | `pnpm exec vitest run src/components/component-compare/pairs/shortcut-keys.test.tsx`    |
+
+Appearance evidence: `shortcut-keys-{ours,theirs}-{light,dark}.png` from the
+browser run (`COMPONENT_COMPARE_SHOTS=<dir>`), and the story
+`src/stories/RegistryKbd.stories.tsx`.
+
+### Decision and reason
+
+**Decline.** ADR-0055 decision 4's first test is whether our version is
+materially worse — "a named behaviour is missing, or the maintenance burden is
+demonstrably ours". Neither holds:
+
+- **No behaviour is missing.** Both sides render `<kbd>` elements with the keys
+  in them, both are non-interactive, and both are axe-clean in both themes. The
+  candidate's `KbdGroup` is a `<kbd>` wrapped around `<kbd>`s, which is the same
+  reading as our span-wrapped chord and no better semantics — `kbd` is a
+  phrasing element and nesting it states nothing extra.
+- **The tooltip treatment is inert here.** It keys on
+  `[data-slot="tooltip-content"]`, and no v3 tooltip content carries that
+  attribute. Adopting it would mean either leaving dead CSS in the copy or
+  editing the v3 tooltip to suit a candidate that is not being adopted.
+- **The burden is ours either way, and ours is smaller.** Ours is ten lines in
+  the kit we already maintain and it is what the adoption guard points at; the
+  candidate is twenty-eight lines vendored beside it. The only measurable
+  difference is presentation — a 20px cap against our 16px, sans against mono,
+  filled against bordered — and a design choice is not a missing behaviour.
+
+**What would change the answer.** Two conditions:
+
+- **K1 — a design wants caps inverted inside tooltips.** Then the v3 tooltip
+  gains a `data-slot`, our `Kbd` gains the treatment (three lines), and the
+  candidate's remaining advantage is `KbdGroup` alone — still not enough to
+  vendor a file.
+- **K2 — a chord needs to be one accessible unit.** If a screen reader must
+  announce "⌘K" as one shortcut rather than two keys, the fix is an
+  `aria-label` on the wrapper, which our call sites can add without a registry
+  item.
+
+### Limits of this row
+
+- Desktop Chromium only; no other engine was run.
+- The comparison is of two presentation components on fixture rows, which is
+  where a cap is used and not a whole screen: it measures how the caps render
+  beside a long command name, not the shortcuts dialog's layout.
+- The 5,000-row fixture is rendered and measured for overflow, not by axe.
+- This row is not a verdict on the stock shadcn `kbd` item in general, and it
+  does not authorise changing the five kbd call sites.
 
 ## Adding a row
 

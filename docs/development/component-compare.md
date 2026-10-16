@@ -91,9 +91,10 @@ COMPONENT_COMPARE_SHOTS=/tmp/component-compare \
   pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser
 ```
 
-That writes `ours-light.png`, `ours-dark.png`, `theirs-light.png`,
-`theirs-dark.png` — one per column per theme, which is the appearance evidence
-ADR-0055 decision 5 asks for. Appearance is evidence, not the verdict.
+That writes `<pair>-<column>-<theme>.png` — for example
+`notebook-sortable-ours-light.png` and `quantity-field-theirs-dark.png` — one per
+pair per column per theme, which is the appearance evidence ADR-0055 decision 5
+asks for. Appearance is evidence, not the verdict.
 
 The 5,000-row fixture is not an axe target in either engine. One axe pass over
 ~25,000 nodes per column takes minutes — measured at 5 minutes plus in jsdom and
@@ -151,9 +152,6 @@ fixture back and accept the runtime.
    that means the same `notebook-block-reorder.tsx` modules the document uses
    (`NotebookBlockList`, `NotebookBlockRow`, `NotebookBlockHandle`) — and the
    candidate's row chrome is restyled to Sheetbase tokens, because an
-   adoption means restyling anyway.
-   that means the same `notebook-block-reorder.tsx` hook the document uses —
-   and the candidate's row chrome is restyled to Sheetbase tokens, because an
    adoption means restyling anyway. **One exception:** where the adoption lands
    in the same change as the comparison, the `ours` column renders the
    implementation that change replaces — vendored into the pair, because the
@@ -165,6 +163,14 @@ fixture back and accept the runtime.
    comparison record: what we use now, what the candidate offers, each side's
    checklist result, the decision and the reason. A row with no decision is not
    a record, and an adoption without a row may not ship.
+
+   The browser spec runs its generic checks — axe, appearance, Tab order, the
+   three screen states and density — against every pair in its `PAIRS` list, and
+   fails while the page offers a pair that list does not name. Add the pair's id
+   there, and keep the reorder, pointer-drag and 5,000-row tests on the pair that
+   reorders rows. Pin whatever the row's decision rests on in a test beside the
+   pair (`pairs/<pair>.test.tsx`), so the measurement can be re-run from the
+   repository rather than believed.
 
 ## Adopting the candidate a pair measures
 

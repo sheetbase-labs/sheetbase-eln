@@ -281,7 +281,11 @@ work and is recorded, not built, in the migration map.
   edits).
 - The compact `list` density is borderless, so a migrated bordered row changes
   appearance. Each migration records that, and no screen in the design parity
-  set was re-measured by this change.
+  set was re-measured by this change. The parity rows that cover the inspector
+  (`RecordDetail-light`/`-dark`, mapped and already at cause 3; `Notebook-light`/`-dark`,
+  pending) are named with the evidence and the debt in
+  [`row-chrome-migration.md`](row-chrome-migration.md) §Design-set impact; none
+  were re-rendered, because the board is red by construction.
 
 ## Adding a row
 

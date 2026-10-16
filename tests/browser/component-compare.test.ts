@@ -41,7 +41,12 @@ test.use({ viewport: DESKTOP, deviceScaleFactor: 1, locale: 'en-GB' })
 /** Pin the theme the way the parity driver does: the server reads the cookie. */
 async function openHarness(
   page: Page,
-  options: { theme: 'light' | 'dark'; fixture?: string; state?: string } = {
+  options: {
+    theme: 'light' | 'dark'
+    fixture?: string
+    state?: string
+    pair?: string
+  } = {
     theme: 'light',
   },
 ) {
@@ -59,6 +64,15 @@ async function openHarness(
     new RegExp(options.theme === 'dark' ? 'dark' : '^(?!.*dark)'),
   )
   await waitForInteractive(page)
+  if (options.pair) {
+    await page.getByTestId('comparison-pair').selectOption(options.pair)
+    for (const id of COLUMNS) {
+      await expect(column(page, id)).toHaveAttribute(
+        'data-pair-id',
+        options.pair,
+      )
+    }
+  }
   if (options.fixture) {
     await page.getByTestId('comparison-fixture').selectOption(options.fixture)
     for (const id of COLUMNS) {
@@ -489,6 +503,233 @@ test.describe('density and overflow', () => {
     await openHarness(page, { theme: 'light', fixture: 'bulk' })
     for (const id of COLUMNS) {
       await expect(column(page, id).locator('[data-row-id]')).toHaveCount(5000)
+    }
+    const overflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    )
+    expect(overflow).toBeLessThanOrEqual(1)
+  })
+})
+
+/**
+ * The history-rows pair, on the same fixed checklist. The two columns differ in
+ * where their states come from — the shared surface ships its own loading,
+ * empty and error rendering and this pair drives them, while the ReUI item
+ * ships none and its column falls back to the harness's notices — so the state
+ * checks are asserted per column rather than averaged, and the comparison
+ * record states the difference.
+ */
+test.describe('history rows pair', () => {
+  const PAIR = 'history-rows'
+  const items = (page: Page, id: ColumnId) =>
+    column(page, id).locator('[data-slot="timeline-item"]')
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const id of COLUMNS) {
+      test(`${id} column has no axe violations — long-labels, ${theme}`, async ({
+        page,
+      }) => {
+        await openHarness(page, {
+          theme,
+          pair: PAIR,
+          fixture: 'long-labels',
+        })
+        await page.addScriptTag({ content: axe.source })
+        const violations = await page.evaluate(async (selector: string) => {
+          const target = document.querySelector(selector)
+          if (!target) throw new Error(`no ${selector}`)
+          const runner = (
+            globalThis as {
+              axe?: {
+                run: (context: Element) => Promise<{
+                  violations: Array<{
+                    id: string
+                    impact: string | null
+                    nodes: Array<{ html: string }>
+                  }>
+                }>
+              }
+            }
+          ).axe
+          if (!runner) throw new Error('axe was not injected')
+          const results = await runner.run(target)
+          return results.violations.map((violation) => ({
+            id: violation.id,
+            impact: violation.impact,
+            nodes: violation.nodes.map((node) => node.html).slice(0, 3),
+          }))
+        }, `[data-comparison-column="${id}"]`)
+        expect(violations).toEqual([])
+      })
+
+      test(`screenshot of the ${id} column — ${theme}`, async ({
+        page,
+      }, testInfo) => {
+        await openHarness(page, {
+          theme,
+          pair: PAIR,
+          fixture: 'long-labels',
+        })
+        await shot(column(page, id), testInfo, `history-${id}-${theme}`)
+        await expect(items(page, id).first()).toBeVisible()
+      })
+    }
+  }
+
+  test('renders a row per event, with the captured change', async ({
+    page,
+  }) => {
+    await openHarness(page, {
+      theme: 'light',
+      pair: PAIR,
+      fixture: 'long-labels',
+    })
+
+    for (const id of COLUMNS) {
+      await expect(items(page, id)).toHaveCount(8)
+      // Both sides render the fixture's captured change as before → after.
+      await expect(
+        column(page, id).getByText('→', { exact: true }).first(),
+      ).toBeVisible()
+    }
+
+    // Ours adds what the panels need around it: the actor and subject line, the
+    // relative and absolute time, the deep link and the raw disclosure.
+    const ours = column(page, 'ours')
+    await expect(ours.locator('time[datetime]').first()).toBeVisible()
+    await expect(ours.getByRole('link').first()).toBeVisible()
+    await expect(ours.getByText('Raw event').first()).toBeVisible()
+  })
+
+  test('reaches every control it has by Tab, with a visible focus indicator', async ({
+    page,
+  }) => {
+    await openHarness(page, {
+      theme: 'light',
+      pair: PAIR,
+      fixture: 'long-labels',
+    })
+
+    const reached: string[] = []
+    for (let press = 0; press < 40; press += 1) {
+      await page.keyboard.press('Tab')
+      const step = await page.evaluate(() => {
+        const element = document.activeElement as HTMLElement | null
+        if (!element || element === document.body) return null
+        const style = getComputedStyle(element)
+        const outlined =
+          style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0
+        const ringed = style.boxShadow !== 'none'
+        return {
+          column:
+            element
+              .closest('[data-comparison-column]')
+              ?.getAttribute('data-comparison-column') ?? null,
+          key: `${element.tagName}|${(element.textContent ?? '').trim().slice(0, 24)}`,
+          visible: outlined || ringed,
+        }
+      })
+      if (!step || step.column !== 'ours') continue
+      reached.push(step.key)
+      expect(step.visible, `focus indicator for ${step.key}`).toBe(true)
+    }
+
+    // The shared surface's controls: the deep link and the raw disclosure. The
+    // candidate's rows carry no controls of their own, so its column has none.
+    expect(reached.some((key) => key.startsWith('A|Open dataset'))).toBe(true)
+    expect(reached.some((key) => key.startsWith('SUMMARY|Raw event'))).toBe(
+      true,
+    )
+    await expect(
+      column(page, 'theirs').locator('a, button, summary, [tabindex]'),
+    ).toHaveCount(0)
+
+    // The disclosure is a real summary, so the keyboard route opens it.
+    await column(page, 'ours').getByText('Raw event').first().focus()
+    await page.keyboard.press('Enter')
+    await expect(column(page, 'ours').locator('details[open]')).toHaveCount(1)
+  })
+
+  test('states: empty, loading, error and permission-restricted, per column', async ({
+    page,
+  }) => {
+    await openHarness(page, { theme: 'light', pair: PAIR, fixture: 'empty' })
+    // Ours ships an honest empty state; theirs has none, so the harness's
+    // notice stands in and the record says which one was measured.
+    await expect(
+      column(page, 'ours').getByText(
+        'No recorded activity for this object yet.',
+      ),
+    ).toBeVisible()
+    await expect(
+      column(page, 'theirs').getByRole('heading', { name: 'No rows' }),
+    ).toBeVisible()
+
+    await page.getByTestId('comparison-fixture').selectOption('long-labels')
+    await page.getByTestId('comparison-state').selectOption('loading')
+    await expect(
+      column(page, 'ours').locator('[data-slot="history-timeline"]'),
+    ).toHaveAttribute('aria-busy', 'true')
+    await expect(
+      column(page, 'theirs').locator('[data-comparison-state="loading"]'),
+    ).toHaveAttribute('aria-busy', 'true')
+
+    await page.getByTestId('comparison-state').selectOption('error')
+    await expect(column(page, 'ours').getByRole('alert')).toContainText(
+      'History could not be loaded.',
+    )
+    await expect(column(page, 'theirs').getByRole('alert')).toBeVisible()
+
+    await page.getByTestId('comparison-state').selectOption('restricted')
+    for (const id of COLUMNS) {
+      await expect(column(page, id).getByText('View only')).toBeVisible()
+    }
+  })
+
+  for (const [label, size] of [
+    ['desktop 1440x900', DESKTOP],
+    ['phone 390x844', PHONE],
+  ] as const) {
+    test(`density and overflow: holds at ${label}`, async ({ page }) => {
+      await page.setViewportSize(size)
+      await openHarness(page, {
+        theme: 'light',
+        pair: PAIR,
+        fixture: 'long-labels',
+      })
+
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(1)
+
+      for (const id of COLUMNS) {
+        const clipped = await items(page, id).evaluateAll(
+          (elements) =>
+            elements
+              .map((element) => element.getBoundingClientRect())
+              .filter(
+                (rect) => rect.width < 1 || rect.right > window.innerWidth + 1,
+              ).length,
+        )
+        expect(clipped).toBe(0)
+      }
+    })
+  }
+
+  test('renders the 5,000-row fixture in both columns', async ({ page }) => {
+    // The fixture is the layout and cost one: the shared surface renders every
+    // row (it does not virtualise), so this case is the expensive one and gets
+    // its own timeout. It is not an axe target in either column; see the
+    // runbook's note on the 5,000-row fixture.
+    test.setTimeout(240_000)
+    await openHarness(page, { theme: 'light', pair: PAIR, fixture: 'bulk' })
+    for (const id of COLUMNS) {
+      await expect(items(page, id)).toHaveCount(5000)
     }
     const overflow = await page.evaluate(
       () =>

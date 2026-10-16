@@ -129,14 +129,20 @@ fixture back and accept the runtime.
    regenerate `pnpm-lock.yaml`. Keep `@base-ui/react` on the repository's own
    range.
 
-   Then read the item's own semantics before you trust them. The first pair's
-   candidate put `@dnd-kit`'s widget role and tab stop on the row container while
-   its drag listeners sat on the handle inside it, which axe reports as
-   `nested-interactive` (serious). The harness column passes because it hands the
-   container the list's own semantics and keeps the handle as the single control
-   — an integration fix-up, recorded as a cost of adoption rather than hidden in
-   the column. If you have to do this, say so in the pair's comment, in the
-   runbook entry for that pair and in the comparison record.
+   Then read the item's own semantics before you trust them, and check them in
+   axe rather than by eye. The first pair's candidate put `@dnd-kit`'s widget
+   role and tab stop (`role="button"`, `tabindex="0"`) on the row container while
+   its drag listeners sat on the handle inside it, and rendered that handle as a
+   non-focusable `<div>`: axe-clean as published, and keyboard-unreachable for
+   the same reason. Rendering the handle as a real `<button>` — the thing an
+   integration has to do — turns every row into a widget containing a control,
+   which axe reports as `nested-interactive` (serious). The harness column
+   resolves it by handing the container the list's own semantics and keeping the
+   handle as the single control: an integration fix-up, recorded as a cost of
+   adoption rather than hidden in the column. Both halves of that measurement are
+   pinned in `component-compare.a11y.test.tsx`. If you have to do this, say so in
+   the pair's comment, in the runbook entry for that pair and in the comparison
+   record.
 
 4. **Write the two column adapters** in `pairs/<job>.tsx` behind the
    `ComparisonColumnProps` contract, and register the pair in `pairs/index.ts`
@@ -155,12 +161,13 @@ fixture back and accept the runtime.
 
 - It does not decide anything, and it does not gate adoption by itself: axe,
   screenshots and the checklist are evidence for the record.
-- `empty`, `loading` and `error` are screen states rather than component states
-  — neither the notebook's list nor ReUI's `Sortable` renders them — so that
-  chrome is owned by the harness and is identical on both sides. Those
-  checklist items therefore measure containment and keyboard order, not the
-  component's own empty state. `restricted` is component-specific and each
-  column renders its own disabled affordances.
+- `empty`, `loading` and `error` are states of a whole screen, and the harness
+  owns them: both columns show the same harness notice, so those checklist items
+  measure containment and keyboard order rather than any shipped empty state.
+  The notebook does have one — `notebook-document.tsx` renders its own
+  "Start this Notebook" panel for a record with no blocks — but a column renders
+  the component under comparison, not the whole document. `restricted` is
+  component-specific: each column renders its own disabled affordances.
 - Pairs are added as screens are touched, not on spec. The catalogue is the
   starting list, never a shortlist.
 - The results and the decisions live in

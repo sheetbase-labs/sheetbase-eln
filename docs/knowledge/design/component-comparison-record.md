@@ -27,9 +27,9 @@ a decision is not a record.
 
 ## Rows
 
-| #   | Component (generic UI job)                              | What we use now                                                                                                                                                                   | What ReUI offers                                                                           | Checklist result                                                                                                                                                                                                   | Decision                                                                                                         | Measured    |
-| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | Reorderable list — reorder rows by pointer and keyboard | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row) | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx` | Ours: all 10 applicable items pass. Theirs: all 10 applicable items pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface | 16 Oct 2026 |
+| #   | Component (generic UI job)                              | What we use now                                                                                                                                                                   | What ReUI offers                                                                           | Checklist result                                                                                                                                                                                                                                                                                                   | Decision                                                                                                         | Measured    |
+| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row) | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx` | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface | 16 Oct 2026 |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -41,6 +41,11 @@ pointer by comparing the pointer's Y with that row's midpoint; one insertion lin
 above or below the gap the drop would land in; keyboard reordering with
 alt+arrow from the focused row. The row frame is the notebook's own
 `NotebookBlock`.
+
+In the notebook that grip handle is also the click target for the block menu.
+This column passes no `menuItems`, so the handle here only drags and the column
+has no "Block actions" trigger: the menu is document chrome, not part of the
+reorder mechanism being compared.
 
 Two facts about it that the measurements above turned on:
 
@@ -85,21 +90,26 @@ Sort, filter, select, resize and pagination: not applicable to this pair (8
 items). They are listed in the harness with that verdict and will be answered
 when a pair that has those controls is added.
 
-**Caveat on the empty, loading and error states.** Those are screen states, not
-component states: neither the notebook's list nor ReUI's `Sortable` renders them,
-so the harness owns that chrome and shows the same thing to both columns. Those
-three items therefore measure the column's containment and keyboard order, not
-the component's own empty or error rendering. `restricted` is different: each
-column renders its own disabled affordances, and those were compared.
+**Caveat on the empty, loading and error states.** These are picture states of a
+whole screen, and the harness owns them: both columns show the same harness
+notice for a 0-row fixture, for loading, and for a load failure. The notebook
+does ship its own empty state — `notebook-document.tsx` renders the
+"Start this Notebook" panel with its own controls when a record has no blocks —
+but this column renders the reorder mechanism, not the whole document, so it
+does not reproduce that panel; ReUI's `Sortable` ships no empty state at all.
+Those three items therefore measure the column's containment and keyboard order,
+not the shipped empty rendering. `restricted` is different: each column renders
+its own disabled affordances, and those were compared.
 
 ### Automated evidence
 
-| Evidence                                                                                           | Result                                                                            | Command                                                                                          |
-| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                       | 18 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`          |
-| axe in Chromium, colour contrast **on**                                                            | 4 cases (2 columns × 2 themes), **zero violations**                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep axe` |
-| Harness contracts (one scenario object to both columns, frozen fixtures, keyboard reorder, states) | 12 tests, pass                                                                    | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`               |
-| Full browser checklist (keyboard, pointer, states, density, 4 screenshots)                         | 18 tests, pass                                                                    | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`            |
+| Evidence                                                                                           | Result                                                                                      | Command                                                                                          |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                       | 18 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it)           | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`          |
+| axe in Chromium, colour contrast **on**                                                            | 4 cases (2 columns × 2 themes), **zero violations**                                         | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep axe` |
+| axe, the candidate item unchanged, two handle renderings (C1)                                      | as published: clean; handle as a real `button`: `nested-interactive` (serious) on every row | same file, "the candidate rules or not on how its handle is rendered (C1)"                       |
+| Harness contracts (one scenario object to both columns, frozen fixtures, keyboard reorder, states) | 12 tests, pass                                                                              | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`               |
+| Full browser checklist (keyboard, pointer, states, density, 4 screenshots)                         | 18 tests, pass                                                                              | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`            |
 
 The 5,000-row fixture is rendered and measured for overflow in both columns in
 the browser run, but it is not an axe target in either engine: one axe pass over
@@ -114,15 +124,23 @@ theme, on the long-labels fixture. Appearance is evidence; it is not the verdict
 
 ### What an adoption would cost — conditions
 
-- **C1 — keep the accessibility fix-up.** As installed, `SortableItem` spreads
-  `@dnd-kit`'s attributes onto the row container (`role="button"`, `tabindex=0`)
-  while the drag listeners sit on the handle inside it. axe reports
-  `nested-interactive` (serious) for that arrangement — a widget containing its
-  own control. The harness column passes only because it hands the container the
-  list's own semantics (`<ul>`/`<li>`, `role="listitem"`, `tabindex="-1"`) and
-  leaves the handle as the single control. An adoption must either keep that
-  override or move the attributes onto the handle in the copy, and must not
-  silently drop the keyboard path while doing so.
+- **C1 — resolve where the drag's semantics live, and keep the fix-up.** The
+  item puts `@dnd-kit`'s attributes on the row container (`role="button"`,
+  `tabindex="0"`) while the drag listeners sit on the handle inside it, and the
+  handle it renders by default is a non-focusable `<div>`. So:
+  **as published the item is axe-clean** — nothing inside the widget it declares
+  can take focus — and for that same reason its keyboard sensor is unreachable.
+  Make the handle a real `<button>`, which an integration has to do for the
+  keyboard path, and every row becomes a widget containing a control: axe
+  reports `nested-interactive` (serious). Both halves are measured against the
+  vendored item unchanged by
+  `src/components/component-compare/component-compare.a11y.test.tsx`, "the
+  candidate rules or not on how its handle is rendered (C1)". This column
+  resolves it by handing the container the list's own semantics
+  (`<ul>`/`<li>`, `role="listitem"`, `tabindex="-1"`) so the handle is the
+  single control, and that resolution is what the per-column axe suite covers.
+  An adoption must keep that override or move the attributes onto the handle in
+  the copy, and must not drop the keyboard path while doing so.
 - **C2 — verify touch on a device.** The harness measures the mouse path in
   desktop Chromium; `@dnd-kit`'s touch sensor (250ms hold, 5px tolerance) was not
   exercised. The touch path is the main reason the candidate clears the bar, so
@@ -153,8 +171,10 @@ our version does not have, and removes 240 lines of drag mechanics we currently
 own. That is ADR-0055 decision 4's second test, "a named behaviour is missing, or
 the maintenance burden is demonstrably ours", met twice over.
 
-The reason it is conditional is C1: the candidate does not clear axe as shipped,
-and the fix-up is the adoption's work. If a future change decides the notebook
+The reason it is conditional is C1: the item's keyboard path is unreachable as
+published, and making it reachable is what exposes its container semantics to
+axe, so resolving where the drag's semantics live — and keeping that resolution
+— is the adoption's work. If a future change decides the notebook
 needs keyboard-only reordering below 1024px, the missing-behaviour half of the
 reason disappears and this decision should be re-measured rather than inherited.
 

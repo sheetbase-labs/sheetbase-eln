@@ -31,9 +31,11 @@ import type {
  * inline in `src/components/notebook/notebook-document.tsx` and now lives in
  * `notebook-block-reorder.tsx`, consumed here through the same hook the
  * document uses. The row frame is the notebook's own `NotebookBlock`, so the
- * column shows the affordance scientists actually meet: a grip handle in the
- * left margin that also opens the block menu, an insertion line above the gap
- * the drop would land in, and alt+arrow from the focused row.
+ * column shows the affordance scientists meet: a grip handle in the row's left
+ * margin, an insertion line above the gap the drop would land in, and alt+arrow
+ * from the focused row. In the notebook the same handle also opens the block
+ * menu; this column passes no `menuItems`, so here it only drags (and there is
+ * no "Block actions" trigger to compare).
  *
  * Theirs: ReUI's `Sortable`/`SortableItem`/`SortableItemHandle` from the pinned
  * base-nova registry (`@reui/sortable`), installed with the shadcn CLI and
@@ -42,6 +44,9 @@ import type {
  * of an insertion line. The row chrome around it is ours — an adoption means
  * restyling to Sheetbase tokens anyway — so what the column adds is the item,
  * the handle, the overlay and whatever `@dnd-kit` does with them.
+ *
+ * The column is also the integration: see the container-semantics override
+ * below, and condition C1 in the comparison record.
  */
 
 /** Move `id` to `targetIndex` in a fresh array; the caller clamps. */
@@ -224,6 +229,16 @@ function ReuiSortableColumn({ scenario }: ComparisonColumnProps) {
             key={row.id}
             value={row.id}
             disabled={!canReorder}
+            // `SortableItem` puts `@dnd-kit`'s `role="button"` and
+            // `tabindex="0"` on the row container while the drag listeners sit
+            // on the handle inside it. With the handle a real button — which it
+            // has to be for the keyboard sensor to be reachable at all — that
+            // is a widget containing a control, and axe reports
+            // `nested-interactive` (serious) for every row. Handing the
+            // container the list's own semantics and leaving the handle as the
+            // single control is the integration fix-up; it is measured in
+            // component-compare.a11y.test.tsx and recorded as condition C1 in
+            // docs/knowledge/design/component-comparison-record.md.
             render={<li />}
             role="listitem"
             tabIndex={-1}

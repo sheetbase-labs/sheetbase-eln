@@ -4,6 +4,11 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { COMPARISON_PAIRS } from './pairs'
 import { COMPARISON_FIXTURES } from './fixtures'
+import {
+  Sortable,
+  SortableItem,
+  SortableItemHandle,
+} from '#/components/reui/sortable'
 import type {
   ComparisonColumnProps,
   ComparisonFixture,
@@ -55,10 +60,12 @@ function renderColumn(
   return container
 }
 
+async function axeViolations(container: HTMLElement) {
+  return axe.run(container, { rules: { 'color-contrast': { enabled: false } } })
+}
+
 async function expectNoAxeViolations(container: HTMLElement) {
-  const results = await axe.run(container, {
-    rules: { 'color-contrast': { enabled: false } },
-  })
+  const results = await axeViolations(container)
   if (results.violations.length > 0) {
     throw new Error(
       `axe violations:\n${JSON.stringify(
@@ -111,3 +118,71 @@ for (const pair of COMPARISON_PAIRS) {
     })
   }
 }
+
+/**
+ * C1, pinned.
+ *
+ * The comparison's candidate puts `@dnd-kit`'s widget role and tab stop
+ * (`role="button"`, `tabindex="0"`) on the row container while the drag
+ * listeners sit on the handle inside it. Two facts decide what that costs, and
+ * both are asserted here against the vendored item *unchanged* — no fixture,
+ * no column, just `src/components/reui/sortable.tsx`:
+ *
+ * 1. as published, the item is axe-clean, because its default handle is a
+ *    non-focusable `div`, so nothing inside the widget can take focus — and for
+ *    that same reason its keyboard sensor is unreachable;
+ * 2. make the handle a real `button`, which an integration has to do for the
+ *    keyboard path, and every row becomes a widget containing a control: axe
+ *    reports `nested-interactive` (serious).
+ *
+ * The column resolves it by handing the container the list's own semantics; the
+ * per-column suite above is what shows the resolved form is clean. Recorded as
+ * condition C1 in docs/knowledge/design/component-comparison-record.md.
+ */
+function renderSortableVariant(handle: 'published' | 'button') {
+  const items = ['row-1', 'row-2', 'row-3']
+  return render(
+    <Sortable
+      value={items}
+      onValueChange={() => {}}
+      getItemValue={(id) => id}
+      strategy="vertical"
+    >
+      {items.map((id) => (
+        <SortableItem key={id} value={id}>
+          <SortableItemHandle
+            render={handle === 'button' ? <button type="button" /> : undefined}
+            aria-label={`Reorder ${id}`}
+          >
+            handle
+          </SortableItemHandle>
+          {id}
+        </SortableItem>
+      ))}
+    </Sortable>,
+  )
+}
+
+describe('the candidate rules or not on how its handle is rendered (C1)', () => {
+  it('is axe-clean as published, with the item’s own non-focusable handle', async () => {
+    const { container } = renderSortableVariant('published')
+    const handle = container.querySelector('[data-slot="sortable-item-handle"]')
+    expect(handle?.tagName).toBe('DIV')
+    expect(handle?.getAttribute('tabindex')).toBeNull()
+    await expectNoAxeViolations(container)
+  })
+
+  it('reports nested-interactive once the handle is a real button', async () => {
+    const { container } = renderSortableVariant('button')
+    const handle = container.querySelector('[data-slot="sortable-item-handle"]')
+    expect(handle?.tagName).toBe('BUTTON')
+
+    const results = await axeViolations(container)
+    expect(
+      results.violations.map((violation) => ({
+        id: violation.id,
+        impact: violation.impact,
+      })),
+    ).toEqual([{ id: 'nested-interactive', impact: 'serious' }])
+  })
+})

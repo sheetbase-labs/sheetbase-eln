@@ -137,14 +137,15 @@ describe('the comparison harness is generic over a pair', () => {
     }
   })
 
+  // Two 5,000-row jsdom renders take seconds, so this one gets its own timeout;
+  // the browser run measures the same fixture in a real engine.
   it('renders the 5,000-row fixture in both columns', () => {
     renderHarness()
     selectFixture('bulk')
     for (const side of ['ours', 'theirs'] as const) {
       expect(columnRowIds(side)).toHaveLength(5000)
     }
-  }, // in a real engine. // Two 5,000-row jsdom renders; the browser run measures the same fixture
-  30_000)
+  }, 30_000)
 
   it('shows one column or both, from the view toggle', async () => {
     const user = userEvent.setup()

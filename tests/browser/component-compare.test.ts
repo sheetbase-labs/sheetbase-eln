@@ -21,7 +21,7 @@ import { signInAsDesignUser } from '../visual/sign-in'
  * - the density checks at 1440x900 and 390x844;
  * - the screenshots of each column in both themes, as the appearance evidence.
  *
- * The fixed checklist lives in `src/components/component-comparison/checklist.ts`;
+ * The fixed checklist lives in `src/components/component-compare/checklist.ts`;
  * what it means for a pair is written up in
  * `docs/knowledge/design/component-comparison-record.md`, and this file is the
  * automated half of it. Appearance is evidence, not the verdict.

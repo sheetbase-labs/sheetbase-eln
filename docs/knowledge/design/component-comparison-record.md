@@ -27,10 +27,11 @@ a decision is not a record.
 
 ## Rows
 
-| #   | Component (generic UI job)                                  | What we use now                                                                                                                                                                                                          | What ReUI offers                                                                                                                                               | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                              | Decision                                                                                                                                                                                      | Measured    |
-| --- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | Reorderable list — reorder rows by pointer and keyboard     | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                        | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                     | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                            | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                              | 16 Oct 2026 |
-| 2   | Numeric quantity field — enter a number that carries a unit | No shared numeric component: the kit's `Input` with `type="number"`/`inputMode="decimal"`, labelled by `Field`, with a per-screen check (`materials.tsx:783-790` is the pattern the other ~20 numeric call sites repeat) | `@reui/number-field` (base-nova pin), a Base UI `NumberField` wrapper — group, decrement, input, increment, scrub area: `src/components/reui/number-field.tsx` | Ours: the 8 applicable items pass, including density at 390x844 (see the detail table). Theirs: 7 of 8 pass — axe is clean and the states hold, but the field **displays a formatter's value rather than the value**: `1e-21`, `1.602176634e-19` and `Number.EPSILON` all read `0`, and typing `1e-21` yields `1`. 10 items are not applicable — this pair has no sort, filter, select, resize, pagination or reorder control | **Decline.** Our implementation is not materially worse: it keeps the digits the scientist entered, and the candidate at its defaults loses them on screen and on entry. See the detail below | 16 Oct 2026 |
+| #   | Component (generic UI job)                                  | What we use now                                                                                                                                                                                                                                                                                                                                            | What ReUI offers                                                                                                                                               | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                              | Decision                                                                                                                                                                                                                     | Measured    |
+| --- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard     | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                                                                          | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                     | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                            | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                             | 16 Oct 2026 |
+| 2   | Numeric quantity field — enter a number that carries a unit | No shared numeric component: the kit's `Input` with `type="number"`/`inputMode="decimal"`, labelled by `Field`, with a per-screen check (`materials.tsx:783-790` is the pattern the other ~20 numeric call sites repeat)                                                                                                                                   | `@reui/number-field` (base-nova pin), a Base UI `NumberField` wrapper — group, decrement, input, increment, scrub area: `src/components/reui/number-field.tsx` | Ours: the 8 applicable items pass, including density at 390x844 (see the detail table). Theirs: 7 of 8 pass — axe is clean and the states hold, but the field **displays a formatter's value rather than the value**: `1e-21`, `1.602176634e-19` and `Number.EPSILON` all read `0`, and typing `1e-21` yields `1`. 10 items are not applicable — this pair has no sort, filter, select, resize, pagination or reorder control | **Decline.** Our implementation is not materially worse: it keeps the digits the scientist entered, and the candidate at its defaults loses them on screen and on entry. See the detail below                                | 16 Oct 2026 |
+| 3   | Signature pad — capture a signature as ink                  | **Nothing draws.** The surface the plan names, `src/components/notebook/e-sign-dialog.tsx` (261 lines), is the credential attestation form: signing-as, meaning, revision, content hash, server-time statement, re-authentication password, type-your-name confirmation. No canvas, no pointer capture, no export exists anywhere in `src` for a signature | `@reui/signature-pad` (base-nova pin), 1,382 lines, `cn` only: pressure- and speed-sized ink, touch and stylus input, undo/redo, PNG/JPEG/SVG/JSON export      | Not applicable: the harness compares two implementations of one job, and only one of these does the job. There is no side to put in the second column                                                                                                                                                                                                                                                                         | **Decline — a different job.** An ink pad answers "what did the mark look like"; electronic signature here is an attestation under an audit chain (REV-03), which ReUI neither carries nor may replace. See the detail below | 16 Oct 2026 |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -324,6 +325,110 @@ value`) rather than `"0.333"`.
 - This row records one pair. It is not a verdict on `@base-ui/react`, on ReUI as
   a registry, or on any other ReUI item — and it does not authorise, or forbid,
   changing the eight screens' numeric call sites.
+
+## Row 3 — Signature pad (`signature-pad`)
+
+### What we use now
+
+**Nothing draws.** The plan's §4.5 row reads "Signature Pad — Drawing surface in
+`e-sign-dialog.tsx` (261)". The file that is 261 lines —
+`src/components/notebook/e-sign-dialog.tsx` — contains no drawing surface, and
+neither does any other file. This row exists because the premise needed checking
+before the registry item did.
+
+What that dialog is: the single electronic-signature dialog over the REV-03
+contract. It shows signing-as, the meaning, the revision id, the content digest
+and a statement that the time is server time; it collects the signer's
+re-authentication password, the meaning when more than one is offered, and a
+typed-name confirmation. Its own header records the decisions behind that: the
+password field is exactly the re-authentication the server performs and the
+dialog never verifies a credential itself; `signedAt` is always the database's
+`clock_timestamp()`; and the step-up request and the write stay with each flow
+because their `SignatureStepUpInput` payloads differ.
+
+Checked, rather than assumed:
+
+| Search                                                  | Result                                                                                                                                                                                                     |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getContext(`, `toDataURL`, `toBlob`, `Path2D` in `src` | three files, none a signature: `scan/jsqr-code-decoder.ts` (QR decode), `lib/visualisation-export.ts` (chart export), `scientific/data-table.tsx` (TanStack `getContext`)                                  |
+| `pointerdown`, `setPointerCapture` in `src`             | one file, `sheet/formula-reference-editor.tsx` — not a signature                                                                                                                                           |
+| files named `*sign*`                                    | `e-sign-dialog.tsx`, `sign-notebook-dialog.tsx`, `review/sign-dialogs.tsx`, `review/signatures-table.tsx`, `lib/signatures.ts`, `lib/signature-certification.ts` — attestations, chains and tables, no ink |
+| `SignaturePad` as a component, ours or vendored         | not present                                                                                                                                                                                                |
+
+So the plan's row is stale in the way §11.1's corrections table describes for
+nine other claims: it sizes a file correctly and describes what is not in it.
+Revision 5 re-verified Part B against the tree; this one claim was not among the
+nine it corrected.
+
+### What ReUI offers
+
+`@reui/signature-pad` at the pinned base-nova registry: one file, 1,382 lines,
+`cn` as its only dependency and a `button` registry dependency.
+`SignaturePad`, `SignaturePadArea`, `SignaturePadGuide`, `SignaturePadPlaceholder`,
+`SignaturePadControls`, `SignaturePadClear` — a canvas pad with pressure- and
+speed-sized ink, touch and stylus input, undo and redo, native form fields, and
+PNG, JPEG, SVG or JSON export.
+
+It is read from its own published registry item, not vendored: see the decision
+below for why no copy was placed.
+
+### Why there is no harness pair
+
+The harness compares **two implementations of one job** on one fixture, and this
+item has one implementation. A pair here would need a second column that does the
+same job, and the honest second column is empty — a column that draws nothing is
+not a comparison, it is a demonstration. Registering one would put a row in this
+record whose columns answer different questions, which is the failure mode the
+fixed checklist exists to prevent.
+
+That is a deliberate departure from "a pair per row", recorded here so it is a
+decision rather than an omission, and it is the finding: the item is declined
+because it is a different job, not because it lost a comparison.
+
+### Decision and reason
+
+**Decline — the item is a different job.** ADR-0055 decision 4's first test is
+"it serves a generic UI job"; an ink pad serves a job this product does not have.
+
+- **Electronic signature here is an attestation, not a drawing.** What makes a
+  signature meaningful in this product is the meaning selected, the revision id
+  and content digest it was taken against, the server-recorded time, the
+  re-authentication that proves who acted, and the audit chain and certification
+  that follow. None of that is in an ink pad, and the mark itself would sit
+  beside the attestation as decoration — a picture a reviewer must trust rather
+  than a record the server can verify.
+- **Nothing would be replaced.** ADR-0055 decision 4 requires the old component
+  to be deleted in the same change. There is no old component; the dialog that
+  would host a pad stays exactly as it is either way, so an adoption would add
+  1,382 lines to maintain and remove none.
+- **The plan already fences the job.** Its own row reads "**UI only** — signing
+  authority, step-up and the audit chain stay exactly where they are". With
+  those three fenced off, what remains is a drawing surface that nothing in the
+  signature path asks for.
+
+**What would change the answer.** Two conditions:
+
+- **S1 — a wet-ink requirement appears.** A regulated flow that must retain the
+  appearance of a handwritten mark — a client-facing or witnessed signature, or
+  a partner that requires a rasterised signature image in a submission packet —
+  makes the pad's export formats the point rather than the ink. Then the job
+  exists and the item is measured against what that flow uses instead.
+- **S2 — a drawing job appears somewhere else.** If a scientist needs to sketch
+  a plate map, annotate a gel or mark a figure, that is a generic drawing job and
+  this item is a candidate for it — evaluated on the screen that needs it, not
+  retro-fitted to the signature dialog.
+
+### Limits of this row
+
+- The finding is a source read of the current tree, not a run: no pad was
+  rendered, because rendering the candidate alone would demonstrate the item, not
+  compare it.
+- The candidate's own behaviour (ink, pressure, undo, export) is taken from its
+  published registry item and its documentation; it was not exercised.
+- This row is not a verdict on `@reui/signature-pad` as a component, on
+  canvas-based signing in general, or on signature pads in products that do
+  collect a mark. It says this repository has no drawing surface and no job for
+  one.
 
 ## Adding a row
 

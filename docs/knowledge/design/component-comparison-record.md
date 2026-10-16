@@ -304,24 +304,34 @@ repository at this revision:
   the single control and axe is clean in both engines (20 jsdom cases, 4
   Chromium cases). Both halves of the original measurement still run against the
   vendored item unchanged.
-- **C2 — verify touch on a device. Still open.** The grip is rendered at every
-  width and is visible where no hover exists, the pointer path is measured at
-  390x844, and the touch sensor activates under synthetic touch. None of that is
-  a real touchscreen, so a device pass remains oustanding — but it is no longer
-  blocking the deletion of the hand-rolled implementation, which row 1's
-  condition is about, because nothing of that implementation is left.
+- **C2 — verify touch on a device. OPEN, and named as such.** No real
+  touchscreen has run this. What stands in for it: the grip is rendered at every
+  width and is visible wherever no hover exists (`pointer-fine` gates the
+  reveal), the pointer path reorders at 390x844 in a browser case, and the touch
+  sensor activates under synthetic touch in Chromium. None of that is a device,
+  so this condition is not closed — closing it needs one. It no longer blocks,
+  as row 1 assumed it would, because there is nothing of the hand-rolled
+  implementation left to delete.
 - **C3 — accept the dependencies. Discharged.** `@dnd-kit/core`,
   `@dnd-kit/sortable` and `@dnd-kit/utilities` are the versions the shadcn CLI
   chose when the item was installed (`6.3.1`, `10.0.0`, `3.2.2`) and they were
   already in the lockfile from row 1's change. What replaces the 240 lines is
   one copy-and-own file plus the three notebook components that bind it.
-- **C4 — the drop preview. Partly discharged, on the record.** The insertion
-  line is gone: the drop is shown by the dragged row's own dimming and by the
-  rows around it shifting, not by a floating clone. That is a smaller change than
-  row 1 anticipated, and it is deliberate — the item's overlay clones the row it
-  is dragging, which here would mount a second editor. The notebook's
-  design-set row and parity expectation still need the visual change recorded
-  against them, which this change does not do.
+- **C4 — the drop preview. Discharged where the design set expects it.** The
+  insertion line is gone: the dragged row dims and the rows around it shift,
+  rather than a floating clone following the pointer. That is a smaller change
+  than row 1 anticipated and it is deliberate — the item's overlay clones the
+  row it is dragging, which here would mount a second block editor, and for a
+  sheet block a second canonical sheet grid. The notebook's canvases draw no
+  authoring affordance at all (no grip, no insertion line, no drop preview), so
+  the difference is recorded in the two places the design set owns it rather
+  than left in a component: the parity registry's expectation
+  (`tests/visual/design-states.ts`, which keeps `Nb*` and `Notebook` pending
+  until it is settled) and the adoption strategy's verification rule
+  (`docs/knowledge/roadmap-4/DESIGN_ADOPTION.md`, "one difference is known and
+  is not yet an exception"). Settling it means re-vendoring the canvases with
+  the affordances drawn, or an owner decision recorded against those screens —
+  not a silent pass.
 - Standing requirements from ADR-0055 decision 4: the old implementation is
   deleted in this change with no parallel mechanism left behind, tokens are
   respected (`pnpm check`'s colour check is clean), and the vendored file's only

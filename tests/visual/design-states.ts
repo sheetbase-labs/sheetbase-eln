@@ -9,6 +9,18 @@
  * Unmapped screens are documented in `DESIGN_PENDING`, not silently skipped.
  * Pending screens fail coverage. Every board must compare in both themes
  * before DSYS-06 can pass.
+ *
+ * **The notebook's authoring affordances have no counterpart in the canvas.**
+ * The `Nb*` and `Notebook` screens draw the document's content, not how it is
+ * authored: no grip, no insertion line, no drop preview. The app draws them —
+ * the grip on every row at every width, hover-revealed only where a pointer can
+ * hover, and, since the ReUI sortable adoption (B2 of
+ * `plans/notebook-editor-and-reui.html`), a drop preview in which the dragged
+ * row dims while the rows around it shift, in place of the insertion line the
+ * hand-rolled drag drew. Those screens stay in `DESIGN_PENDING` until that
+ * difference is settled, by re-vendoring the canvases with the affordances
+ * drawn or by an owner decision recorded against them: a comparison that
+ * ignored it would pass on a screen the design does not describe.
  */
 export interface DesignState {
   /** Design screen name, e.g. "Main" (matches the rendered PNG stem). */

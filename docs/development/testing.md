@@ -27,6 +27,21 @@ references are rendered from the vendored canvases only when those change
 (`tsx scripts/design-reference.mts --if-stale`), and the comparisons run
 parallel across workers.
 
+The browser layer reads the role URLs from the process environment, not from
+`.env.local` — Playwright loads the file for the servers it starts, not for the
+test process. Export them first, or the database-backed specs fail with
+"Local disposable database required":
+
+```bash
+set -a; . ./.env.local; set +a
+export PGRST_DB_URI="postgresql://authenticator:${POSTGREST_AUTHENTICATOR_PASSWORD}@localhost:5432/${POSTGRES_DB}"
+pnpm test:browser
+```
+
+`PGRST_DB_URI` is the one that trips people up: `tests/browser/home-ui.test.ts`
+refuses to run without a loopback `PGRST_DB_URI` because its totals assertions
+read the database directly.
+
 `tests/db/design-scenarios.test.ts` covers three design screens and provisions
 its own `sheetbase_parity_*` database for each. It refuses to run unless
 `SHEETBASE_ENV=test`, `SHEETBASE_DEV_AUTH_FREE=false`, and all four role

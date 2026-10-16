@@ -183,6 +183,24 @@ its measurements are the ones it was measured with. Reproducibility does not
 require an obsolete production mechanism to stay executable at HEAD — ADR-0055
 decision 4 requires the opposite.
 
+## When a candidate cannot be registered
+
+A pair may only be registered if both columns pass the axe suite: the runbook's
+rule is that a violation fails there with no allow-list. A candidate that cannot
+pass it in any composition a consumer could ship is **not adoptable**, and its
+measurements belong in the comparison record rather than in `pairs/index.ts` —
+registering it would either leave `pnpm test` red or ask the suite to tolerate a
+violation it exists to catch.
+
+ReUI's `stepper` is the worked example (`component-comparison-record.md`, row 2).
+It was installed from the pinned registry, restyled and placed like any other
+candidate, then measured three ways without being registered: its structure and
+axe result pinned in `component-compare.a11y.test.tsx` (a numbered pin — S1 — in
+the same style as C1), the shipped contract run end to end with the candidate
+composed in the import flow, and its appearance captured in Storybook. The pin
+renders both sides on the same input, so the comparison is reproducible from the
+repository alone even though the harness route has no page for it.
+
 ## What this harness does not do
 
 - It does not decide anything, and it does not gate adoption by itself: axe,

@@ -152,6 +152,14 @@ fixture back and accept the runtime.
    (`NotebookBlockList`, `NotebookBlockRow`, `NotebookBlockHandle`) — and the
    candidate's row chrome is restyled to Sheetbase tokens, because an
    adoption means restyling anyway.
+   that means the same `notebook-block-reorder.tsx` hook the document uses —
+   and the candidate's row chrome is restyled to Sheetbase tokens, because an
+   adoption means restyling anyway. **One exception:** where the adoption lands
+   in the same change as the comparison, the `ours` column renders the
+   implementation that change replaces — vendored into the pair, because the
+   file is deleted — and both the pair's comment and the row's limits say so.
+   The empty-state pair (`empty-state`) is the case; a pair whose "before" no
+   longer exists should not be added otherwise.
 
 5. **Run the checklist** (the commands above), then write the pair's row in the
    comparison record: what we use now, what the candidate offers, each side's

@@ -67,33 +67,40 @@ export function NotFound() {
         )
       }
       className="pt-3"
-      body={
+      description={
         nested
           ? 'There’s nothing at this part of the record, or it was removed.'
           : 'There’s nothing at this address, or the record isn’t in this workspace.'
       }
-    >
-      {section ? (
-        <Button
-          variant="primary"
-          nativeButton={false}
-          render={<Link {...section.link} />}
-        >
-          Back to {section.label}
-        </Button>
-      ) : (
-        <Button variant="primary" nativeButton={false} render={<Link to="/" />}>
-          Go to Home
-        </Button>
-      )}
-      <Button
-        variant="secondary"
-        nativeButton={false}
-        render={<Link to="/search" search={{}} />}
-      >
-        Search
-      </Button>
-    </EmptyState>
+      action={
+        <>
+          {section ? (
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<Link {...section.link} />}
+            >
+              Back to {section.label}
+            </Button>
+          ) : (
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<Link to="/" />}
+            >
+              Go to Home
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            nativeButton={false}
+            render={<Link to="/search" search={{}} />}
+          >
+            Search
+          </Button>
+        </>
+      }
+    />
   )
   if (nested)
     return <div className="flex-1 overflow-auto px-8 py-2">{body}</div>

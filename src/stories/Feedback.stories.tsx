@@ -5,15 +5,11 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
-  Empty,
-  EmptyActions,
-  EmptyDescription,
-  EmptyIcon,
-  EmptyTitle,
   Progress,
   Skeleton,
   Spinner,
 } from '#/components/ui'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 
 const meta = { title: 'UI/Feedback', tags: ['autodocs'] } satisfies Meta
 export default meta
@@ -45,19 +41,13 @@ export const Loading: Story = {
     </div>
   ),
 }
-export const EmptyState: Story = {
+export const Empty: Story = {
   render: () => (
-    <Empty>
-      <EmptyIcon>
-        <Icon name="flask" />
-      </EmptyIcon>
-      <EmptyTitle>No experiments yet</EmptyTitle>
-      <EmptyDescription>
-        Create an experiment or import an existing protocol.
-      </EmptyDescription>
-      <EmptyActions>
-        <Button>Create experiment</Button>
-      </EmptyActions>
-    </Empty>
+    <EmptyState
+      icon="flask"
+      title="No experiments yet"
+      description="Create an experiment or import an existing protocol."
+      action={<Button>Create experiment</Button>}
+    />
   ),
 }

@@ -275,7 +275,25 @@ function TemplatesList() {
                     ? `No templates match “${search.q}”`
                     : `No templates in ${tabLabel[tab].toLowerCase()}`
                 }
-                body="Search looks at template keys and names."
+                description={
+                  q
+                    ? 'Search looks at template keys and names.'
+                    : 'A template holds the sections and parameters a notebook is made from.'
+                }
+                action={
+                  q ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/templates" search={{ tab: search.tab }} />
+                      }
+                    >
+                      Clear search
+                    </Button>
+                  ) : (
+                    <NewTemplateDialog />
+                  )
+                }
               />
             </div>
           ) : null}

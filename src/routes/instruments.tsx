@@ -275,12 +275,13 @@ function InstrumentsList() {
           <EmptyState
             icon="lock"
             title="You don’t have access to the instrument registry"
-            body="The registry is open to members of this workspace. Ask a workspace admin to add you."
-          >
-            <Button nativeButton={false} render={<Link to="/schedule" />}>
-              Book an instrument instead
-            </Button>
-          </EmptyState>
+            description="The registry is open to members of this workspace. Ask a workspace admin to add you."
+            action={
+              <Button nativeButton={false} render={<Link to="/schedule" />}>
+                Book an instrument instead
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -551,14 +552,15 @@ function InstrumentsList() {
               <EmptyState
                 icon="plug"
                 title="No instruments registered yet"
-                body="Register an instrument to book it, cite it in records and bring its data in by webhook or file drop. Readings from unregistered instruments can only be typed in by hand."
-              >
-                <RegisterInstrument
-                  types={types}
-                  workspaceId={workspaceId}
-                  ownerId={context.user.id}
-                />
-              </EmptyState>
+                description="Register an instrument to book it, cite it in records and bring its data in by webhook or file drop. Readings from unregistered instruments can only be typed in by hand."
+                action={
+                  <RegisterInstrument
+                    types={types}
+                    workspaceId={workspaceId}
+                    ownerId={context.user.id}
+                  />
+                }
+              />
             </div>
           ) : (
             <div role="status" className="px-4 md:px-6">
@@ -569,25 +571,26 @@ function InstrumentsList() {
                     ? `No instruments match “${search.q}”`
                     : `No instruments in ${tabLabels[tab].toLowerCase()}`
                 }
-                body={
+                description={
                   filtered
                     ? 'Search looks at ID, name, type, make, model, serial, location and owner.'
                     : tab === 'retired'
                       ? 'Retired instruments stay here with their history so old records still resolve.'
                       : 'Nothing is in this list right now.'
                 }
-              >
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link to="/instruments" search={{ tab: search.tab }} />
-                  }
-                >
-                  {filtered
-                    ? 'Clear search and filters'
-                    : 'Show all instruments'}
-                </Button>
-              </EmptyState>
+                action={
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link to="/instruments" search={{ tab: search.tab }} />
+                    }
+                  >
+                    {filtered
+                      ? 'Clear search and filters'
+                      : 'Show all instruments'}
+                  </Button>
+                }
+              />
             </div>
           )}
         </div>

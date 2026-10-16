@@ -9,8 +9,9 @@ import {
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Status } from '#/components/v3/ui/status'
 import {
   DescriptionList,
   Inspector,
@@ -304,7 +305,19 @@ function ProtocolsList() {
                     ? `No protocols match “${search.q}”`
                     : `No protocols in ${tabLabel[tab].toLowerCase()}`
                 }
-                body="Search looks at protocol identifiers and titles."
+                description="Search looks at protocol identifiers and titles."
+                action={
+                  q ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/protocols" search={{ tab: search.tab }} />
+                      }
+                    >
+                      Clear search
+                    </Button>
+                  ) : undefined
+                }
               />
             </div>
           ) : null}

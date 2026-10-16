@@ -41,7 +41,12 @@ test.use({ viewport: DESKTOP, deviceScaleFactor: 1, locale: 'en-GB' })
 /** Pin the theme the way the parity driver does: the server reads the cookie. */
 async function openHarness(
   page: Page,
-  options: { theme: 'light' | 'dark'; fixture?: string; state?: string } = {
+  options: {
+    theme: 'light' | 'dark'
+    fixture?: string
+    state?: string
+    pair?: string
+  } = {
     theme: 'light',
   },
 ) {
@@ -59,6 +64,15 @@ async function openHarness(
     new RegExp(options.theme === 'dark' ? 'dark' : '^(?!.*dark)'),
   )
   await waitForInteractive(page)
+  if (options.pair) {
+    await page.getByTestId('comparison-pair').selectOption(options.pair)
+    for (const id of COLUMNS) {
+      await expect(column(page, id)).toHaveAttribute(
+        'data-pair-id',
+        options.pair,
+      )
+    }
+  }
   if (options.fixture) {
     await page.getByTestId('comparison-fixture').selectOption(options.fixture)
     for (const id of COLUMNS) {
@@ -130,6 +144,41 @@ async function shot(
   return file
 }
 
+/**
+ * Run axe inside one column, in the real engine with colour contrast on.
+ * Shared by every pair's axe cases so one pair's evidence is measured the same
+ * way as another's.
+ */
+async function columnAxeViolations(page: Page, id: ColumnId) {
+  await page.addScriptTag({ content: axe.source })
+  return page.evaluate(async (selector: string) => {
+    const target = document.querySelector(selector)
+    if (!target) throw new Error(`no ${selector}`)
+    // The injected axe global is not part of the DOM lib types; the cast is
+    // the injection boundary, and it is checked before use.
+    const runner = (
+      globalThis as {
+        axe?: {
+          run: (context: Element) => Promise<{
+            violations: Array<{
+              id: string
+              impact: string | null
+              nodes: Array<{ html: string }>
+            }>
+          }>
+        }
+      }
+    ).axe
+    if (!runner) throw new Error('axe was not injected')
+    const results = await runner.run(target)
+    return results.violations.map((violation) => ({
+      id: violation.id,
+      impact: violation.impact,
+      nodes: violation.nodes.map((node) => node.html).slice(0, 3),
+    }))
+  }, `[data-comparison-column="${id}"]`)
+}
+
 test.describe('axe', () => {
   // `long-labels`, not `bulk`: one axe pass over the 5,000-row fixture walks
   // ~25,000 nodes per column and takes minutes in both engines, without
@@ -144,36 +193,7 @@ test.describe('axe', () => {
           page,
         }) => {
           await openHarness(page, { theme, fixture })
-          // Real layout, real colours: colour contrast stays on, unlike the
-          // jsdom check, which cannot measure it.
-          await page.addScriptTag({ content: axe.source })
-          const violations = await page.evaluate(async (selector: string) => {
-            const target = document.querySelector(selector)
-            if (!target) throw new Error(`no ${selector}`)
-            // The injected axe global is not part of the DOM lib types; the
-            // cast is the injection boundary, and it is checked before use.
-            const runner = (
-              globalThis as {
-                axe?: {
-                  run: (context: Element) => Promise<{
-                    violations: Array<{
-                      id: string
-                      impact: string | null
-                      nodes: Array<{ html: string }>
-                    }>
-                  }>
-                }
-              }
-            ).axe
-            if (!runner) throw new Error('axe was not injected')
-            const results = await runner.run(target)
-            return results.violations.map((violation) => ({
-              id: violation.id,
-              impact: violation.impact,
-              nodes: violation.nodes.map((node) => node.html).slice(0, 3),
-            }))
-          }, `[data-comparison-column="${id}"]`)
-
+          const violations = await columnAxeViolations(page, id)
           expect(violations).toEqual([])
         })
       }
@@ -497,4 +517,135 @@ test.describe('density and overflow', () => {
     )
     expect(overflow).toBeLessThanOrEqual(1)
   })
+})
+
+/**
+ * The empty-state pair (comparison record, row 2).
+ *
+ * Ours is the 37-line `EmptyState` this change replaces; theirs is the stock
+ * shadcn `empty` item, restyled to the app-3 tokens. The pair has no sort,
+ * filter, select, resize, pagination or reorder control, so the notebook's
+ * keyboard and pointer checks do not apply: what it does have is one action,
+ * so the keyboard check is that the action is reachable, that it draws a focus
+ * indicator, and that pressing it does what it says.
+ */
+test.describe('empty state', () => {
+  const PAIR = 'empty-state'
+  // The long-labels fixture puts a 200-character scientific name in the title
+  // and its unit in the description: the hostile case for an empty state is
+  // wrapping, not row count.
+  const FIXTURE = 'long-labels'
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const id of COLUMNS) {
+      test(`${id} empty has no axe violations in ${theme}`, async ({
+        page,
+      }) => {
+        await openHarness(page, { theme, fixture: FIXTURE, pair: PAIR })
+        expect(await columnAxeViolations(page, id)).toEqual([])
+      })
+    }
+  }
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const id of COLUMNS) {
+      test(`screenshot of the ${id} empty state — ${theme}`, async ({
+        page,
+      }, testInfo) => {
+        await openHarness(page, { theme, fixture: FIXTURE, pair: PAIR })
+        const file = await shot(
+          column(page, id),
+          testInfo,
+          `empty-${id}-${theme}`,
+        )
+        expect(file.endsWith(`empty-${id}-${theme}.png`)).toBe(true)
+        await expect(column(page, id)).toBeVisible()
+      })
+    }
+  }
+
+  test('the next action is reachable by keyboard and clears the filter', async ({
+    page,
+  }) => {
+    await openHarness(page, { theme: 'light', fixture: FIXTURE, pair: PAIR })
+
+    for (const id of COLUMNS) {
+      const action = column(page, id).getByRole('button', {
+        name: 'Clear search',
+      })
+      // Reached by Tab, not by `.focus()`: the kit's ring is `focus-visible`,
+      // and a programmatic focus does not draw it.
+      let focused = false
+      for (let press = 0; press < 40 && !focused; press += 1) {
+        await page.keyboard.press('Tab')
+        focused = await action.evaluate(
+          (element) => element === document.activeElement,
+        )
+      }
+      expect(focused, `Tab reaches the action in the ${id} column`).toBe(true)
+
+      const ringed = await action.evaluate((element) => {
+        const style = getComputedStyle(element)
+        return (
+          (style.outlineStyle !== 'none' &&
+            parseFloat(style.outlineWidth) > 0) ||
+          style.boxShadow !== 'none'
+        )
+      })
+      expect(ringed, `focus indicator in the ${id} column`).toBe(true)
+
+      await page.keyboard.press('Enter')
+      await expect(
+        column(page, id).getByText('Nothing here yet', { exact: true }),
+      ).toBeVisible()
+      await expect(
+        column(page, id).getByRole('button', { name: 'Add the first row' }),
+      ).toBeVisible()
+    }
+
+    // C1, measured: ours announces the new copy as a heading, the item's
+    // `EmptyTitle` is a `div`, so its empty state is not in the heading
+    // outline. That difference is why the item was not adopted verbatim.
+    await expect(
+      column(page, 'ours').getByRole('heading', { name: 'Nothing here yet' }),
+    ).toBeVisible()
+    await expect(
+      column(page, 'theirs').getByRole('heading', { name: 'Nothing here yet' }),
+    ).toHaveCount(0)
+  })
+
+  for (const [label, size] of [
+    ['desktop 1440x900', DESKTOP],
+    ['phone 390x844', PHONE],
+  ] as const) {
+    test(`holds the long scientific name at ${label}`, async ({ page }) => {
+      await page.setViewportSize(size)
+      await openHarness(page, { theme: 'light', fixture: FIXTURE, pair: PAIR })
+
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(1)
+
+      for (const id of COLUMNS) {
+        const box = await column(page, id).boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.x).toBeGreaterThanOrEqual(0)
+        expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1)
+        // The action is on screen and big enough to press, not clipped.
+        const action = column(page, id).getByRole('button', {
+          name: 'Clear search',
+        })
+        await expect(action).toBeVisible()
+        const actionBox = await action.boundingBox()
+        expect(actionBox).not.toBeNull()
+        expect(actionBox!.x + actionBox!.width).toBeLessThanOrEqual(
+          size.width + 1,
+        )
+        expect(actionBox!.height).toBeGreaterThanOrEqual(20)
+      }
+    })
+  }
 })

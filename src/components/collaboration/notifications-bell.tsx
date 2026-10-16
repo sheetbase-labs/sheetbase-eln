@@ -5,6 +5,7 @@ import { Link } from '@tanstack/react-router'
 
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
+import { Row, RowList } from '#/components/v3/ui/row'
 import {
   Popover,
   PopoverContent,
@@ -86,45 +87,26 @@ export function NotificationsBell() {
             Nothing new right now.
           </p>
         ) : (
-          <ul className="max-h-80 divide-y divide-border overflow-y-auto">
+          <RowList divided className="max-h-80 overflow-y-auto">
             {notifications.map((item) => (
-              <li key={item.id}>
-                {item.recordId ? (
-                  <Link
-                    to={recordPath(item.recordId)}
-                    className="flex items-start gap-2 px-3 py-2 no-underline hover:bg-accent/40"
-                  >
-                    <span
-                      className="mt-1.5 size-1.5 shrink-0 rounded-full"
-                      style={{
-                        background:
-                          item.readAt === null
-                            ? 'var(--accent)'
-                            : 'transparent',
-                      }}
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-body text-foreground">
-                        {item.title}
-                      </span>
-                      {item.body ? (
-                        <span className="block truncate text-caption text-muted-foreground">
-                          {item.body}
-                        </span>
-                      ) : null}
-                    </span>
-                  </Link>
-                ) : (
-                  <div className="flex items-start gap-2 px-3 py-2">
-                    <span className="min-w-0 flex-1 text-body text-foreground">
-                      {item.title}
-                    </span>
-                  </div>
-                )}
-              </li>
+              <Row
+                key={item.id}
+                to={item.recordId ? recordPath(item.recordId) : undefined}
+                leading={
+                  <span
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{
+                      background:
+                        item.readAt === null ? 'var(--accent)' : 'transparent',
+                    }}
+                    aria-hidden="true"
+                  />
+                }
+                title={<span className="text-body">{item.title}</span>}
+                meta={item.body ?? undefined}
+              />
             ))}
-          </ul>
+          </RowList>
         )}
         <div className="flex items-center gap-3 border-t border-border bg-surface-muted px-3 py-2 text-caption">
           <Link

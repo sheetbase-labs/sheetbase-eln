@@ -111,12 +111,12 @@ describe('RecordLineageList', () => {
   it('renders neighbours with live destinations and excludes the seed row', () => {
     render(<RecordLineageList graph={makeGraph()} seedRecordId={SEED_ID} />)
 
-    expect(screen.getByText('SMP-UP-1').getAttribute('href')).toBe(
-      '/samples?selected=up-id',
-    )
-    expect(screen.getByText('EXP-DOWN-1').getAttribute('href')).toBe(
-      '/records/down-id',
-    )
+    expect(
+      screen.getByRole('link', { name: /SMP-UP-1/ }).getAttribute('href'),
+    ).toBe('/samples?selected=up-id')
+    expect(
+      screen.getByRole('link', { name: /EXP-DOWN-1/ }).getAttribute('href'),
+    ).toBe('/records/down-id')
     // The seed's own row describes the viewed object, not its lineage.
     expect(screen.queryByText('EXP-SEED-1')).toBeNull()
   })
@@ -124,9 +124,9 @@ describe('RecordLineageList', () => {
   it('links submitted evidence nodes to the frozen evidence workspace', () => {
     render(<RecordLineageList graph={makeGraph()} seedRecordId={SEED_ID} />)
 
-    expect(screen.getByText('REV-sub-9').getAttribute('href')).toBe(
-      '/review/rev-9',
-    )
+    expect(
+      screen.getByRole('link', { name: /REV-sub-9/ }).getAttribute('href'),
+    ).toBe('/review/rev-9')
   })
 
   it('renders missing nodes as honest text, never links', () => {
@@ -166,8 +166,8 @@ describe('RecordLineageSection', () => {
     render(<RecordLineageSection recordId={SEED_ID} />)
 
     expect(screen.getByText('Lineage')).toBeTruthy()
-    expect(screen.getByText('SMP-UP-1').getAttribute('href')).toBe(
-      '/samples?selected=up-id',
-    )
+    expect(
+      screen.getByRole('link', { name: /SMP-UP-1/ }).getAttribute('href'),
+    ).toBe('/samples?selected=up-id')
   })
 })

@@ -11,7 +11,6 @@ import {
   FileList,
   InspectorSection,
   InspectorSectionStack,
-  LinkedRecordList,
 } from './inspector-sections'
 import { Property, PropertyList } from '#/components/scientific/property-list'
 import type {
@@ -19,7 +18,6 @@ import type {
   CheckItem,
   CommentItem,
   FileItem,
-  LinkedRecordItem,
 } from './inspector-sections'
 
 afterEach(() => cleanup())
@@ -160,22 +158,6 @@ describe('Inspector sections', () => {
       'text-[0.6875rem]',
     )
     expect(container.querySelectorAll('wbr').length).toBeGreaterThan(0)
-  })
-
-  it('LinkedRecordList renders links and shows empty hint when empty', () => {
-    const items: LinkedRecordItem[] = [
-      {
-        id: '1',
-        type: 'Sample',
-        title: 'Sample 28',
-        meta: 'Cell line',
-        href: '/samples/28',
-      },
-    ]
-    const { rerender } = render(<LinkedRecordList items={items} />)
-    expect(screen.getByRole('link', { name: /Sample 28/ })).toBeTruthy()
-    rerender(<LinkedRecordList items={[]} />)
-    expect(screen.getByText('No linked records')).toBeTruthy()
   })
 
   it('FileList renders rows and empty hint', () => {

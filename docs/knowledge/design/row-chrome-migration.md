@@ -98,6 +98,64 @@ windowed, empty) and `Scientific/Record link` gained the compact list.
 (previously only the identifier was a link); `RowList limit` renders the same
 "Show all N" control with a focus ring.
 
+### Design-set impact, and the row that owes the update
+
+The compact `list` density is deliberately borderless, and that is a real
+appearance change to the inspector lists (`Related work`, `Lineage`, `Files`,
+`CheckList`): a bordered row became a compact row with a hover fill. The
+relationship panel's `RecordLink` rows keep their card density, so the
+inspector's cards are unchanged.
+
+It is also the design's own anatomy, which is why it is kept rather than
+reconciled away:
+
+- the design's referenced-record rows are compact table rows, not cards —
+  `docs/knowledge/design/ui-system-v3/canvas/Notebook.dc.html`, `<table
+class="ref">`: mono identifier link, title, muted kind, right-aligned
+  quantity, status, one row per record;
+- the design system's list row is a hairline, not a bordered box —
+  `design-system/components/bundle.css:367` `.row-l { border-bottom: 1px solid
+var(--border-subtle) }`;
+- the carded spelling was ours, and two of the six families each invented it
+  separately.
+
+**The rows that owe the update**, both because the inspector's lists render
+inside the notebook surface:
+
+| Parity row                                | State       | Why it owes the update                                                                                                                                                                                |
+| ----------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RecordDetail-light`, `RecordDetail-dark` | mapped      | `/records/CB-0012` renders the notebook surface, inspector included. Measured `0.03 (33055 px)` / `0.03 (32310 px)` against the 0.001 gate, cause 3 (seeded content) — already red before this change |
+| `Notebook-light`, `Notebook-dark`         | **pending** | listed in `DESIGN_PENDING` — "Needs design-seed data the seed does not create yet (list rows, models, templates, …)" — so these comparisons do not run at all                                         |
+
+**They cannot be updated today, and no expected image was re-rendered.** The
+parity board is red by construction: the coverage test requires zero pending
+screens — `tests/visual/parity.spec.ts:126-131`, `expect([...pending.keys()],
+'DSYS-06 is incomplete while any design screen is pending').toEqual([])` and
+`expect(mappedCount, …).toBe(total)` — while 45 of the 126 boards are mapped
+and 81 (162 comparisons) are still pending. The expected images are the DSYS-01
+renders produced from the design canvas by `scripts/design-reference.mts`, not
+our app's output; re-baselining them from our render would invert the gate. So
+the record of the change lives here instead, with the evidence below.
+
+**What the update is, when the rows can be compared:** keep the compact rows.
+The design's inspector (the `Notebook` board's `aside.insp`) renders the cell
+inspector, not our seeded `Related work` / `Lineage` / `Files` panels, so the
+inspector will still differ from the reference for seeded-content reasons after
+this change; the density is not the difference to reconcile. Whoever clears
+cause 3 for `RecordDetail` (or maps the `Notebook` board) owns re-measuring
+these rows and saying whether the difference moved.
+
+Evidence, captured 16 Oct 2026 at 1440×900, actor the auth-free demo owner,
+route `/records/00000000-0000-4000-8000-000000000101/notebook`, Chromium
+headless 149, both themes, the devtools launcher cropped out:
+
+| Light                                                                        | Dark                                                                       |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [`row-chrome/inspector-rows-light.png`](row-chrome/inspector-rows-light.png) | [`row-chrome/inspector-rows-dark.png`](row-chrome/inspector-rows-dark.png) |
+
+What the pair is not: it is not a parity comparison. It records what the app
+renders, not what the design expects.
+
 ## Remaining sites
 
 ### Entity, file, check and plain rows

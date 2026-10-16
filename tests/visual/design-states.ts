@@ -489,6 +489,15 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
     route: '/datasets/DS-0311/compare',
     state: rec('DS-0311'),
   },
+  // `RecordDetail` renders the notebook surface (`/records/CB-0012` redirects
+  // into it), inspector included. Deliberate divergence recorded 2026-10-16:
+  // the inspector's list rows are compact and borderless (JH-1 row chrome),
+  // which the design's own referenced-record rows (`table.ref` in
+  // `Notebook.dc.html`) and `.row-l` hairline also are. The comparison sits at
+  // cause 3 already; the `Notebook-light/dark` rows that would compare these
+  // lists are pending. See
+  // `docs/knowledge/design/row-chrome-migration.md` §Design-set impact before
+  // re-measuring or re-rendering this row.
   { screen: 'RecordDetail', route: '/records/CB-0012', state: rec('CB-0012') },
   {
     screen: 'RecordInstrument',

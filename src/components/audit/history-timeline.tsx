@@ -33,16 +33,15 @@ import { cn } from '#/lib/utils'
 
 /**
  * HistoryTimeline — the one history surface behind every audit and history
- * panel (ADR-0055, B5). It replaces the triplicated loading skeleton, the three
- * relative-time formatters, the two operation-icon maps, the seven row layouts
- * and the two history tables that `audit-trail.tsx`,
- * `object-history-timeline.tsx` and `record-history-timeline.tsx` carried
- * between them, and it is built on the ReUI `timeline` item
+ * panel (ADR-0055, B5). It removes the duplication the three panels carried
+ * between them — three loading skeletons, two byte-identical dashed empty
+ * states, four icon maps, two row layouts, a second relative-time formatter and
+ * two continuation controls — and it is built on the ReUI `timeline` item
  * (`src/components/reui/timeline.tsx`, registry `@reui/timeline`).
  *
  * The three panels keep their own data mapping — typed audit events, wire
  * change events with correlation grouping, and the record-timeline RPC — and
- * hand this component a list of `HistoryEntry`. Everything the panels used to
+ * hand this component a list of `HistoryEntry`. Everything they used to
  * duplicate lives here once: the row layout, the before→after `ChangeChip`, the
  * `Raw event` disclosure, the loading, empty and error states, the
  * continuation control and the "showing N of M" summary.

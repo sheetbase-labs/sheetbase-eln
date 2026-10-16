@@ -244,7 +244,8 @@ export function ProjectsPage({
       projects.filter(
         (p) =>
           inTab(p, t) &&
-          ((search.archived ?? archivedModeFor(t)) === 'include' || !p.archived),
+          ((search.archived ?? archivedModeFor(t)) === 'include' ||
+            !p.archived),
       ).length,
     ]),
   ) as Record<ProjectsTab, number>
@@ -886,9 +887,7 @@ export function ProjectsPage({
               ) : null}
               {checked.size ? (
                 <span className="ml-auto flex items-center gap-2 text-fg">
-                  <span className="max-xl:hidden">
-                    {checked.size} selected
-                  </span>
+                  <span className="max-xl:hidden">{checked.size} selected</span>
                   {archivable.length ? (
                     <Button
                       size="sm"
@@ -943,8 +942,8 @@ export function ProjectsPage({
           <DialogBody>
             <p className="m-0 text-body leading-5">
               The projects leave the Projects list and the navigation. Signed
-              records, datasets and audit trails stay available, and an
-              archived project can be restored from the Archived tab.
+              records, datasets and audit trails stay available, and an archived
+              project can be restored from the Archived tab.
             </p>
           </DialogBody>
           <ConfirmDialogFooter>

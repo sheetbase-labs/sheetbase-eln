@@ -32,13 +32,9 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       useSearch: () => mocks.search,
       useNavigate: () => mocks.navigate,
     }),
-    Link: ({
-      to,
-      children,
-    }: {
-      to?: unknown
-      children?: React.ReactNode
-    }) => <a href={typeof to === 'string' ? to : '#'}>{children}</a>,
+    Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
+      <a href={typeof to === 'string' ? to : '#'}>{children}</a>
+    ),
     redirect: (options: unknown) => options,
   }
 })
@@ -143,7 +139,10 @@ describe('Search results page (SRCH-02)', () => {
     const { setUrl } = mountSearch({ q: 'clarification' })
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Results for “clarification”' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Results for “clarification”',
+      }),
     ).toBeTruthy()
     expect(mocks.rpc).toHaveBeenCalledWith(
       'search',
@@ -155,7 +154,10 @@ describe('Search results page (SRCH-02)', () => {
     setUrl({ q: 'EXP-0091' })
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Results for “EXP-0091”' }),
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Results for “EXP-0091”',
+      }),
     ).toBeTruthy()
     expect(mocks.rpc).toHaveBeenCalledWith(
       'search',
@@ -183,9 +185,7 @@ describe('Search count and no-results state (QA3-search-1, QA3-search-2)', () =>
     expect(
       await screen.findByRole('button', { name: 'Search active work only' }),
     ).toBeTruthy()
-    expect(
-      screen.queryByText('Nothing matches with these filters.'),
-    ).toBeNull()
+    expect(screen.queryByText('Nothing matches with these filters.')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull()
   })
 

@@ -21,7 +21,8 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
 /** Line numbers of labels rendered outside a `<DropdownMenuGroup>` in the file. */
 function ungroupedLabels(source: string): number[] {
   const offenders: number[] = []
-  const token = /<DropdownMenuGroup\b|<\/DropdownMenuGroup>|<DropdownMenuLabel\b/g
+  const token =
+    /<DropdownMenuGroup\b|<\/DropdownMenuGroup>|<DropdownMenuLabel\b/g
   let depth = 0
   for (const match of source.matchAll(token)) {
     const text = match[0]

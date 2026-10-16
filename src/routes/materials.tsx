@@ -5,10 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import {
-  DescriptionList,
-  Inspector,
-} from '#/components/v3/ui/layout'
+import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import {
   Table,
   TableBody,
@@ -542,7 +539,9 @@ function MaterialsList() {
             </section>
             <section>
               <h2 className="mb-1.5 font-sans text-label font-semibold">
-                {replacementLink.data ? 'Replacement lot' : 'No replacement lot'}
+                {replacementLink.data
+                  ? 'Replacement lot'
+                  : 'No replacement lot'}
               </h2>
               <p className="text-label text-fg-muted">
                 {replacementLink.data

@@ -75,9 +75,7 @@ describe('model rules', () => {
     await screen.findByText('Range check')
     await user.click(screen.getByRole('button', { name: 'Remove' }))
     expect(mocks.removeModelRule).not.toHaveBeenCalled()
-    await user.click(
-      await screen.findByRole('button', { name: 'Remove rule' }),
-    )
+    await user.click(await screen.findByRole('button', { name: 'Remove rule' }))
     await waitFor(() =>
       expect(mocks.removeModelRule).toHaveBeenCalledWith({}, 'rule-1'),
     )
@@ -89,9 +87,7 @@ describe('model rules', () => {
     renderScreen()
     await screen.findByText('Range check')
     await user.click(screen.getByRole('button', { name: 'Remove' }))
-    await user.click(
-      await screen.findByRole('button', { name: 'Remove rule' }),
-    )
+    await user.click(await screen.findByRole('button', { name: 'Remove rule' }))
     expect((await screen.findByRole('alert')).textContent).toContain(
       'Rule is in use.',
     )

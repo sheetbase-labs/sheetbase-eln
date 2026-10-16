@@ -166,10 +166,7 @@ describe('chart encoding authoring paths', () => {
     expect(alert.textContent).toMatch(/measured number/i)
     expect(alert.textContent).toContain('Buffer')
     expect(emitted).toHaveLength(0)
-    expect(view.getByLabelText('Y-axis field')).toHaveProperty(
-      'value',
-      PH_ID,
-    )
+    expect(view.getByLabelText('Y-axis field')).toHaveProperty('value', PH_ID)
   })
 
   it('keeps the spec unchanged when the role has no such encoding', () => {
@@ -187,20 +184,14 @@ describe('chart encoding authoring paths', () => {
   it('reaches every role through the keyboard-only controls', async () => {
     const { emitted, view } = renderConfigurator()
 
-    await userEvent.selectOptions(
-      view.getByLabelText('X-axis field'),
-      TIME_ID,
-    )
+    await userEvent.selectOptions(view.getByLabelText('X-axis field'), TIME_ID)
     await userEvent.selectOptions(view.getByLabelText('Y-axis field'), PH_ID)
     await userEvent.selectOptions(
       view.getByLabelText('Colour field'),
       BUFFER_ID,
     )
     await userEvent.selectOptions(view.getByLabelText('Size field'), TIME_ID)
-    await userEvent.selectOptions(
-      view.getByLabelText('Facet field'),
-      BUFFER_ID,
-    )
+    await userEvent.selectOptions(view.getByLabelText('Facet field'), BUFFER_ID)
 
     const spec = emitted.at(-1)
     expect(spec?.fields.x?.fieldId).toBe(TIME_ID)

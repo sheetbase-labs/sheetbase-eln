@@ -215,7 +215,9 @@ function Inbox() {
   const laterHoldsEveryRow =
     visible.length > 0 && visible.every((i) => groups.later.includes(i))
   const laterExpanded = later ?? laterHoldsEveryRow
-  const shown = visible.filter((i) => laterExpanded || !groups.later.includes(i))
+  const shown = visible.filter(
+    (i) => laterExpanded || !groups.later.includes(i),
+  )
   const hiddenLater = groups.later.filter(
     (i) => itemTab(i, seen) === tab && (!type || workItemType(i.kind) === type),
   ).length
@@ -267,9 +269,7 @@ function Inbox() {
   // so marking the rest reported success for work the person could not see.
   const markableKeys = useMemo(
     () =>
-      visible
-        .filter((i) => itemTab(i, seen) === 'needs-action')
-        .map(itemKey),
+      visible.filter((i) => itemTab(i, seen) === 'needs-action').map(itemKey),
     [visible, seen],
   )
 

@@ -25,7 +25,8 @@ vi.mock('#/components/v3/projects/project-data', () => ({
     project: { id: 'project-1', leadUserId: 'gareth', leadName: 'Gareth P.' },
     query: { isLoading: false },
   }),
-  fetchProjectMembers: (...args: unknown[]) => mocks.fetchProjectMembers(...args),
+  fetchProjectMembers: (...args: unknown[]) =>
+    mocks.fetchProjectMembers(...args),
   fetchWorkspaceMemberIdentities: (...args: unknown[]) =>
     mocks.fetchWorkspaceMemberIdentities(...args),
   removeProjectMember: (...args: unknown[]) =>

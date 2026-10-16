@@ -111,9 +111,7 @@ describe('ChartFrame', () => {
         <svg />
       </ChartFrame>,
     )
-    expect(
-      screen.getByRole('button', { name: 'Open in studio' }),
-    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Open in studio' })).toBeTruthy()
     expect(screen.queryByLabelText('Download chart')).toBeNull()
     expect(screen.queryByLabelText('Chart actions')).toBeNull()
   })

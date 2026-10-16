@@ -114,7 +114,11 @@ describe('scheduleSpecLabel', () => {
 
   it('reads an event spec as its event, naming the filtered dataset', () => {
     expect(
-      scheduleSpecLabel('event', { eventType: 'dataset.versioned' }, noDatasets),
+      scheduleSpecLabel(
+        'event',
+        { eventType: 'dataset.versioned' },
+        noDatasets,
+      ),
     ).toBe('dataset.versioned')
     expect(
       scheduleSpecLabel(

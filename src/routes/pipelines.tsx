@@ -47,7 +47,10 @@ import {
   stickyHead,
 } from '#/components/v3/inventory/list'
 import { toast } from '#/components/v3/ui/sonner'
-import { createPipelineDefinition, startPipelineRun } from '#/lib/pipelines/data'
+import {
+  createPipelineDefinition,
+  startPipelineRun,
+} from '#/lib/pipelines/data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   pipelineDataQueryKeys,

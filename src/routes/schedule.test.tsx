@@ -241,9 +241,9 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
     await screen.findByRole('link', { name: /INS-0008/ })
 
     const shownDay = () =>
-      screen.getByRole('region', { name: /^Bookings,/ }).getAttribute(
-        'aria-label',
-      )
+      screen
+        .getByRole('region', { name: /^Bookings,/ })
+        .getAttribute('aria-label')
     const before = shownDay()
     await user.click(screen.getByRole('button', { name: 'Next week' }))
     expect(shownDay()).not.toBe(before)

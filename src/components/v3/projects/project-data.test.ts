@@ -260,7 +260,10 @@ describe('withReadDeadline', () => {
     vi.useFakeTimers()
     try {
       // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
-      const stalled = withReadDeadline(new Promise(() => {}), 'The project list')
+      const stalled = withReadDeadline(
+        new Promise(() => {}),
+        'The project list',
+      )
       const failed = expect(stalled).rejects.toMatchObject({
         code: 'read_timeout',
         status: 504,

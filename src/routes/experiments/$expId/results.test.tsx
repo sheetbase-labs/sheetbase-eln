@@ -101,22 +101,21 @@ function renderResults() {
 }
 
 beforeEach(() => {
-  dataClient.list.mockImplementation(
-    async (resource: string, query = '') => {
-      if (resource === 'record_links') return LINKS
-      if (resource === 'records') return [{ decision: null, decision_notes: null }]
-      if (resource === 'analysis_views') {
-        return [{ id: 'an-7', display_id: 'AN-0007', name: 'VCD by day' }]
-      }
-      if (resource === 'rpc/dataset_list_summary') {
-        const wanted = DATASET_ROWS.filter((row) =>
-          query.includes(row.display_id),
-        )
-        return wanted
-      }
-      return []
-    },
-  )
+  dataClient.list.mockImplementation(async (resource: string, query = '') => {
+    if (resource === 'record_links') return LINKS
+    if (resource === 'records')
+      return [{ decision: null, decision_notes: null }]
+    if (resource === 'analysis_views') {
+      return [{ id: 'an-7', display_id: 'AN-0007', name: 'VCD by day' }]
+    }
+    if (resource === 'rpc/dataset_list_summary') {
+      const wanted = DATASET_ROWS.filter((row) =>
+        query.includes(row.display_id),
+      )
+      return wanted
+    }
+    return []
+  })
 })
 
 afterEach(() => {
@@ -146,9 +145,7 @@ describe('experiment results', () => {
 
     const analyses = (await screen.findByText('Analyses')).closest('section')!
     const datasets = screen.getByText('Datasets').closest('section')!
-    expect(
-      await within(analyses).findByText('VCD by day'),
-    ).toBeTruthy()
+    expect(await within(analyses).findByText('VCD by day')).toBeTruthy()
     expect(await within(datasets).findByText('Ambr 250 harvest')).toBeTruthy()
   })
 })

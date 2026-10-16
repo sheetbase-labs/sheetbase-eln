@@ -475,7 +475,11 @@ describe('ExportPanel', () => {
 describe('DataTableAlternative', () => {
   it('renders a loading skeleton while data loads', () => {
     const { container } = render(
-      <DataTableAlternative materialised={null as never} loading datasetId="d-1" />,
+      <DataTableAlternative
+        materialised={null as never}
+        loading
+        datasetId="d-1"
+      />,
     )
     // The v3 Skeleton renders as a div with the skeleton surface token.
     expect(container.querySelector('.bg-skeleton')).toBeTruthy()

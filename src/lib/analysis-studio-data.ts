@@ -579,13 +579,19 @@ function csvField(value: string): string {
  * document must inline them; the probe carries the v3 scope and the requested
  * theme class so Light and Dark resolve to the values the app would render.
  */
-function resolveThemeDeclarations(svg: string, theme: 'light' | 'dark'): string {
+function resolveThemeDeclarations(
+  svg: string,
+  theme: 'light' | 'dark',
+): string {
   if (typeof document === 'undefined') return ''
   const names = new Set<string>(['--surface'])
-  for (const match of svg.matchAll(/var\(\s*(--[a-z0-9-]+)/gi)) names.add(match[1])
+  for (const match of svg.matchAll(/var\(\s*(--[a-z0-9-]+)/gi))
+    names.add(match[1])
   const probe = document.createElement('div')
-  probe.className = theme === 'dark' ? 'sheetbase-scope dark' : 'sheetbase-scope'
-  probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none'
+  probe.className =
+    theme === 'dark' ? 'sheetbase-scope dark' : 'sheetbase-scope'
+  probe.style.cssText =
+    'position:absolute;visibility:hidden;pointer-events:none'
   document.body.appendChild(probe)
   const computed = getComputedStyle(probe)
   const rootComputed = getComputedStyle(document.documentElement)

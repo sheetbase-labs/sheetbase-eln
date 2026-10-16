@@ -551,7 +551,10 @@ describe('fetchReplacementLot', () => {
     const list = vi.fn().mockResolvedValueOnce([])
 
     expect(
-      await fetchReplacementLot({ list } as unknown as DataClient, 'RGT-2026-9999'),
+      await fetchReplacementLot(
+        { list } as unknown as DataClient,
+        'RGT-2026-9999',
+      ),
     ).toBeNull()
     expect(list).toHaveBeenCalledTimes(1)
   })
@@ -570,7 +573,10 @@ describe('fetchReplacementLot', () => {
       ])
 
     expect(
-      await fetchReplacementLot({ list } as unknown as DataClient, 'RGT-2026-0002'),
+      await fetchReplacementLot(
+        { list } as unknown as DataClient,
+        'RGT-2026-0002',
+      ),
     ).toBeNull()
   })
 })

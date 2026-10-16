@@ -117,9 +117,7 @@ describe('SettingsGeneral', () => {
   it('refuses a time zone that is not a real IANA zone', async () => {
     const user = userEvent.setup()
     renderSection()
-    const timezone = await screen.findByLabelText<HTMLInputElement>(
-      'Time zone',
-    )
+    const timezone = await screen.findByLabelText<HTMLInputElement>('Time zone')
     const save = screen.getByRole<HTMLButtonElement>('button', {
       name: 'Save changes',
     })
@@ -146,9 +144,8 @@ describe('SettingsGeneral', () => {
     const save = screen.getByRole<HTMLButtonElement>('button', {
       name: 'Save changes',
     })
-    const name = await screen.findByLabelText<HTMLInputElement>(
-      'Workspace name',
-    )
+    const name =
+      await screen.findByLabelText<HTMLInputElement>('Workspace name')
 
     // Empty the field through its input, as the audit did, with another
     // change pending so Save is otherwise available.

@@ -204,8 +204,7 @@ function NewExperiment() {
   // so every project counts as usable: the create states its own refusal
   // inline, which beats an inert form.
   const canCreateIn = (project: ProjectOption) =>
-    !accessKnown ||
-    (writableProjectIds.has(project.id) && !isArchived(project))
+    !accessKnown || (writableProjectIds.has(project.id) && !isArchived(project))
   const projectNote = (project: ProjectOption) =>
     !accessKnown
       ? ''
@@ -289,12 +288,7 @@ function NewExperiment() {
 
   const submit = () => {
     setTouched(true)
-    if (
-      accessPending ||
-      title.trim().length < 5 ||
-      !effectiveProjectId
-    )
-      return
+    if (accessPending || title.trim().length < 5 || !effectiveProjectId) return
     create.mutate()
   }
 
@@ -331,9 +325,7 @@ function NewExperiment() {
           <NativeSelect
             value={effectiveProjectId}
             onChange={(e) => setProjectId(e.target.value)}
-            disabled={
-              projects.isLoading || accessPending || rows.length === 0
-            }
+            disabled={projects.isLoading || accessPending || rows.length === 0}
           >
             {projects.isLoading ? (
               <option value="">Loading projects…</option>
@@ -490,8 +482,8 @@ function NewExperiment() {
           <span className="flex items-center gap-2">
             <Muted>
               Couldn’t check which projects you can write to, so every project
-              is listed. A create in a project you can only view is refused,
-              and the refusal is shown here.
+              is listed. A create in a project you can only view is refused, and
+              the refusal is shown here.
             </Muted>
             <Button
               size="sm"

@@ -83,10 +83,7 @@ export function buildUsageCsv(input: {
     ['Connectors', d.connectors],
   ]
   for (const point of d.trend) {
-    rows.push([
-      `Runs ${point.month}`,
-      point.pipelineRuns + point.connectorRuns,
-    ])
+    rows.push([`Runs ${point.month}`, point.pipelineRuns + point.connectorRuns])
   }
   return [
     ['metric', 'value'].map(csvCell).join(','),

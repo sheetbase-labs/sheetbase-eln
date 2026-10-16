@@ -252,7 +252,9 @@ describe('R5-CONFIG-02 register instrument', () => {
     ).toBeTruthy()
     // The serial number is valid, so it is not blamed for a workspace refusal.
     expect(
-      within(dialog).getByLabelText(/Serial number/).getAttribute('aria-invalid'),
+      within(dialog)
+        .getByLabelText(/Serial number/)
+        .getAttribute('aria-invalid'),
     ).toBeNull()
   })
 
@@ -284,9 +286,11 @@ describe('R5-CONFIG-02 register instrument', () => {
         'An instrument with this serial number is already registered.',
       ),
     ).toBeTruthy()
-    expect(within(dialog).getByLabelText(/Serial number/).getAttribute('aria-invalid')).toBe(
-      'true',
-    )
+    expect(
+      within(dialog)
+        .getByLabelText(/Serial number/)
+        .getAttribute('aria-invalid'),
+    ).toBe('true')
   })
 })
 

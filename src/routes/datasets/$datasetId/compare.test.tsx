@@ -185,8 +185,7 @@ describe('dataset compare route paging', () => {
     expect([...toSelect.options].map((option) => option.value)).not.toContain(
       'v-1',
     )
-    const fromSelect =
-      screen.getByLabelText<HTMLSelectElement>('From snapshot')
+    const fromSelect = screen.getByLabelText<HTMLSelectElement>('From snapshot')
     expect([...fromSelect.options].map((option) => option.value)).not.toContain(
       'v-2',
     )

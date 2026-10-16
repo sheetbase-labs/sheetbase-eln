@@ -132,9 +132,7 @@ function HelpCentre() {
                 className="h-9 w-full rounded-md border border-border bg-surface pl-8 pr-2 text-body text-fg placeholder:text-fg-faint focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus max-md:h-11"
               />
             </label>
-            <Button type="submit">
-              Search
-            </Button>
+            <Button type="submit">Search</Button>
           </form>
         </div>
       </header>

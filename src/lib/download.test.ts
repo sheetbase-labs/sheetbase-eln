@@ -72,11 +72,7 @@ describe('downloadTextFile', () => {
       )
     } finally {
       if (download) {
-        Object.defineProperty(
-          HTMLAnchorElement.prototype,
-          'download',
-          download,
-        )
+        Object.defineProperty(HTMLAnchorElement.prototype, 'download', download)
       }
     }
   })

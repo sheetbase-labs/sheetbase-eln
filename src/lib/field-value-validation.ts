@@ -157,7 +157,8 @@ export function fieldScalarError(
         (option.id === value || option.key === value) &&
         option.lifecycle === 'active',
     )
-    if (!match) return isUuid(value) ? 'invalid_category_option' : 'invalid_value'
+    if (!match)
+      return isUuid(value) ? 'invalid_category_option' : 'invalid_value'
     return null
   }
   const valid =

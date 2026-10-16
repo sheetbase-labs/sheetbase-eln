@@ -140,7 +140,9 @@ describe('ProjectsPage', () => {
     renderPage([row()])
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Quick view of AAV9 process transfer' }),
+      screen.getByRole('button', {
+        name: 'Quick view of AAV9 process transfer',
+      }),
     )
     expect(screen.getByText('Open project')).toBeTruthy()
   })
@@ -410,14 +412,15 @@ describe('ProjectsPage', () => {
   })
 
   it('spans a group band across exactly the table columns', () => {
-    renderPage(
-      [row(), row({ id: 'PRJ-0100', name: 'Second project' })],
-      { group: 'stage' },
-    )
+    renderPage([row(), row({ id: 'PRJ-0100', name: 'Second project' })], {
+      group: 'stage',
+    })
     const table = screen.getByRole('table', { name: 'Projects' })
     const columnCount = within(table).getAllByRole('columnheader').length
     const band = screen.getByText((_, element) => {
-      return element?.tagName === 'TD' && element.textContent === 'Tech transfer 2'
+      return (
+        element?.tagName === 'TD' && element.textContent === 'Tech transfer 2'
+      )
     })
     expect(Number(band.getAttribute('colspan'))).toBe(columnCount)
   })
@@ -484,7 +487,9 @@ describe('ProjectsPage', () => {
         .hasAttribute('disabled'),
     ).toBe(true)
     expect(
-      within(emptyState as HTMLElement).getByText(/role cannot create projects/),
+      within(emptyState as HTMLElement).getByText(
+        /role cannot create projects/,
+      ),
     ).toBeTruthy()
   })
 
@@ -535,14 +540,18 @@ describe('ProjectsPage', () => {
       {},
       'me',
     )
-    const boxes = await screen.findAllByRole('checkbox', { name: /^Select PRJ-/ })
+    const boxes = await screen.findAllByRole('checkbox', {
+      name: /^Select PRJ-/,
+    })
     fireEvent.click(boxes[0])
 
     fireEvent.click(screen.getByRole('button', { name: 'Archive 1' }))
     // Destructive, so the RPC waits for the confirmation.
     expect(dataClient.rpc).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Archive this project' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Archive this project' }),
+    )
     await waitFor(() =>
       expect(dataClient.rpc).toHaveBeenCalledWith('archive_project', {
         p_project_id: '00000000-0000-4000-8000-000000000320',
@@ -560,8 +569,9 @@ describe('projects header reflows at 400 % zoom (QA4-zoom-projects)', () => {
   it('wraps the title row and the phone tab row', () => {
     renderPage([row()])
 
-    const titleRow = screen.getByText('Projects', { selector: 'h1' })
-      .parentElement
+    const titleRow = screen.getByText('Projects', {
+      selector: 'h1',
+    }).parentElement
     expect(titleRow).not.toBeNull()
     expect(titleRow!.className).toContain('max-md:flex-wrap')
 

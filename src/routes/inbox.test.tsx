@@ -148,9 +148,9 @@ describe('Inbox needs-action predicate (QA2-Inbox-1)', () => {
     const { getByRole, queryByRole } = renderInbox()
     // The seen read is async, so the counts settle after it answers.
     await waitFor(() =>
-      expect(
-        getByRole('tab', { name: /^Needs action/ }).textContent,
-      ).toMatch(/1$/),
+      expect(getByRole('tab', { name: /^Needs action/ }).textContent).toMatch(
+        /1$/,
+      ),
     )
     expect(getByRole('tab', { name: /^Done today/ }).textContent).toMatch(/1$/)
     expect(queryByRole('button', { name: /First review/ })).toBeNull()
@@ -442,20 +442,17 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
   it('keeps Later behind its button while a due-dated group is on the tab', () => {
     const base = items.slice(0, 2)
     items.length = 0
-    items.push(
-      ...base,
-      {
-        kind: 'data_issue',
-        recordId: null,
-        identifier: 'DS-0323',
-        title: 'Undated flag',
-        projectId: 'project-1',
-        reason: 'Flagged value',
-        dueAt: null,
-        state: 'needs_action',
-        createdAt: null,
-      },
-    )
+    items.push(...base, {
+      kind: 'data_issue',
+      recordId: null,
+      identifier: 'DS-0323',
+      title: 'Undated flag',
+      projectId: 'project-1',
+      reason: 'Flagged value',
+      dueAt: null,
+      state: 'needs_action',
+      createdAt: null,
+    })
     try {
       const { getByRole } = renderInbox()
       // Today holds the due-dated pair; the undated flag stays behind the
@@ -496,9 +493,7 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
         document.querySelector('[role="list"] [role="presentation"]')
           ?.textContent,
       ).toBe('Done today7')
-      expect(
-        getByRole('button', { name: /^Later · 5 items$/ }),
-      ).toBeTruthy()
+      expect(getByRole('button', { name: /^Later · 5 items$/ })).toBeTruthy()
     } finally {
       items.length = 0
       items.push(...base)
@@ -603,8 +598,8 @@ describe('Inbox header fits the phone width (QA4-inbox-phone)', () => {
     // "Notification settings" is a Link-based button (its role comes from Base
     // UI, so the shared Link mock leaves it roleless here).
     expect(row!.contains(getByText('Notification settings'))).toBe(true)
-    expect(
-      row!.contains(getByRole('button', { name: 'Mark all seen' })),
-    ).toBe(true)
+    expect(row!.contains(getByRole('button', { name: 'Mark all seen' }))).toBe(
+      true,
+    )
   })
 })

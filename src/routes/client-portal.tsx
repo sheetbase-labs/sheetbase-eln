@@ -52,9 +52,7 @@ type PortalTab = (typeof tabs)[number]
  * Each section is a URL: `?tab=` selects it, so a portal section can be
  * linked, reloaded and reached with the browser's Back button. */
 export const Route = createFileRoute('/client-portal')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { tab?: PortalTab } => ({
+  validateSearch: (search: Record<string, unknown>): { tab?: PortalTab } => ({
     tab:
       typeof search.tab === 'string' &&
       (tabs as readonly string[]).includes(search.tab)
@@ -585,7 +583,10 @@ function ClientPortal() {
               <DescriptionList
                 items={[
                   ['Role', 'Client viewer'],
-                  ['Can', 'Read and download approved records, message the team'],
+                  [
+                    'Can',
+                    'Read and download approved records, message the team',
+                  ],
                   ["Can't", 'See drafts, raw data or other clients'],
                 ]}
               />

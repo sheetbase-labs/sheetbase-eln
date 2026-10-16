@@ -224,7 +224,8 @@ describe('R5-CONFIG-01 usage evidence', () => {
     const originalRevoke = URL.revokeObjectURL
     URL.createObjectURL = vi.fn(() => 'blob:usage-export')
     URL.revokeObjectURL = vi.fn()
-    const downloads: Array<{ href: string; download: string; type: string }> = []
+    const downloads: Array<{ href: string; download: string; type: string }> =
+      []
     const anchorClick = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(function (this: HTMLAnchorElement) {
@@ -246,7 +247,11 @@ describe('R5-CONFIG-01 usage evidence', () => {
       const blob = vi.mocked(URL.createObjectURL).mock.calls[0][0] as Blob
       expect(blob.type).toBe('text/csv')
       expect(downloads).toEqual([
-        { href: 'blob:usage-export', download: 'sheetbase-usage.csv', type: '' },
+        {
+          href: 'blob:usage-export',
+          download: 'sheetbase-usage.csv',
+          type: '',
+        },
       ])
       // The blob URL is held open past the click so the browser can read it.
       expect(URL.revokeObjectURL).not.toHaveBeenCalled()

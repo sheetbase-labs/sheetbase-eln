@@ -131,7 +131,13 @@ import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 export const Route = createFileRoute('/analysis/new')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { dataset?: string; x?: string; y?: string; mode?: string; view?: string } => {
+  ): {
+    dataset?: string
+    x?: string
+    y?: string
+    mode?: string
+    view?: string
+  } => {
     const next: {
       dataset?: string
       x?: string

@@ -16,10 +16,7 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import {
-  DescriptionList,
-  Inspector,
-} from '#/components/v3/ui/layout'
+import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import {
   Table,
   TableBody,

@@ -10,11 +10,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Dot } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import {
-  DescriptionList,
-  Inspector,
-  Muted,
-} from '#/components/v3/ui/layout'
+import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
 import {
   Table,
   TableBody,
@@ -735,9 +731,7 @@ export function InstrumentInspector({
               // The Schedule opens its book dialog with this instrument already
               // chosen, so the registry does not send the person back to a list
               // to find the instrument they were just looking at.
-              render={
-                <Link to="/schedule" search={{ book: instrument.id }} />
-              }
+              render={<Link to="/schedule" search={{ book: instrument.id }} />}
             >
               Book
             </Button>

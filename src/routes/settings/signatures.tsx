@@ -710,7 +710,11 @@ function CredentialEnrollment({
           </Field>
           <Button
             disabled={
-              !available || !verified || !secret || !password || enroll.isPending
+              !available ||
+              !verified ||
+              !secret ||
+              !password ||
+              enroll.isPending
             }
             onClick={() => enroll.mutate()}
           >

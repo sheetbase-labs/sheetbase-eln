@@ -175,8 +175,7 @@ export function Schedule() {
       dir === 0 ? today : addDays(weekStart, dir * (view === 'day' ? 1 : 7)),
     )
   }
-  const selectedBooking =
-    bookings.find((b) => b.id === openBookingId) ?? null
+  const selectedBooking = bookings.find((b) => b.id === openBookingId) ?? null
   const selectedInstrument = selectedBooking
     ? instruments.find((i) => i.id === selectedBooking.resourceId)
     : undefined
@@ -523,8 +522,8 @@ function DayGrid({
                 No bookings on {fmt(day, { weekday: 'long' })}
               </div>
               <div className="mt-0.5 text-label text-fg-muted">
-                Bookings are created as tentative and weekends are bookable
-                like any other day.
+                Bookings are created as tentative and weekends are bookable like
+                any other day.
               </div>
             </div>
           </div>

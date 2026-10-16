@@ -385,9 +385,9 @@ function Compare() {
 
       <Muted>
         Comparing {describeVersion(from)} with {describeVersion(to)}. Rows are
-        numbered by their position in this comparison — a snapshot stores no
-        row number. Flag changes list the flag kind, source and the reason
-        before and after.
+        numbered by their position in this comparison — a snapshot stores no row
+        number. Flag changes list the flag kind, source and the reason before
+        and after.
       </Muted>
     </div>
   )

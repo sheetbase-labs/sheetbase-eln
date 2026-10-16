@@ -351,10 +351,7 @@ export function ImportUploadFlow({
               <Banner tone="bad" title="Your Datasets could not be read.">
                 The list did not load, so appending to a Dataset cannot be
                 offered yet.
-                <Button
-                  variant="quiet"
-                  onClick={() => void datasets.refetch()}
-                >
+                <Button variant="quiet" onClick={() => void datasets.refetch()}>
                   Retry
                 </Button>
               </Banner>

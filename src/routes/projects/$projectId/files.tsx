@@ -258,8 +258,8 @@ function ProjectFilesTab() {
         title: file.name,
         meta: (
           <>
-            <span className="mono">{file.id}</span> · {file.kind} · {file.size} ·{' '}
-            {file.uploaded}
+            <span className="mono">{file.id}</span> · {file.kind} · {file.size}{' '}
+            · {file.uploaded}
           </>
         ),
         link: { to: '/records/$recordId', params: { recordId: file.key } },

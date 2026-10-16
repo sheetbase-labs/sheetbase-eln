@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WorkspaceCertification } from '#/lib/signature-certification'
@@ -38,7 +44,8 @@ vi.mock('#/lib/signature-certification', async (importOriginal) => ({
   practiceSignature: (...args: unknown[]) => mocks.practice(...args),
   verifySignatureIdentity: (...args: unknown[]) => mocks.verify(...args),
   requestIdentityVerification: () => mocks.request(),
-  withdrawSignatureCertification: (...args: unknown[]) => mocks.withdraw(...args),
+  withdrawSignatureCertification: (...args: unknown[]) =>
+    mocks.withdraw(...args),
 }))
 vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
   ...(await importOriginal()),

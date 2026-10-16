@@ -30,7 +30,11 @@ import {
   materialiseChart,
   formatScientific,
 } from '#/lib/chart-spec'
-import type { ChartColumn, ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
+import type {
+  ChartColumn,
+  ChartSpec,
+  MaterialisedChart,
+} from '#/lib/chart-spec'
 import { createRepresentationHandle } from '#/lib/representations'
 import {
   COMPARATIVE_MATCH_MODES,

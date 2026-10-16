@@ -540,7 +540,10 @@ export function SearchPalette({
               </div>
             ) : null}
             {searching ? (
-              <div role="status" className="px-3.5 py-3 text-body text-fg-muted">
+              <div
+                role="status"
+                className="px-3.5 py-3 text-body text-fg-muted"
+              >
                 Searching…
               </div>
             ) : null}

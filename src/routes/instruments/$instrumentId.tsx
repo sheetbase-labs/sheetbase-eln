@@ -118,7 +118,9 @@ function InstrumentPage() {
   const [grantUser, setGrantUser] = useState('')
   const [grantUntil, setGrantUntil] = useState(isoDay(365))
   const [grantScope, setGrantScope] = useState('')
-  const [revokeTarget, setRevokeTarget] = useState<QualificationRow | null>(null)
+  const [revokeTarget, setRevokeTarget] = useState<QualificationRow | null>(
+    null,
+  )
   const i = instrument.data
   const rows = runs.data ?? []
   const calibrationRows = calibrations.data ?? []
@@ -419,7 +421,9 @@ function InstrumentPage() {
 
         <Section
           title="Qualification"
-          count={qualifications.isSuccess ? qualificationRows.length : undefined}
+          count={
+            qualifications.isSuccess ? qualificationRows.length : undefined
+          }
         >
           {qualifications.isPending ? (
             <Muted>Loading qualifications…</Muted>

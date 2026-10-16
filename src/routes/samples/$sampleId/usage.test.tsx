@@ -121,7 +121,9 @@ describe('QA-121 — the Usage list counts live usage', () => {
     ])
     render(
       <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
       >
         <SampleUsage />
       </QueryClientProvider>,

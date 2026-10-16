@@ -78,7 +78,10 @@ describe('SettingsNotifications', () => {
     await user.click(save)
     await waitFor(() =>
       expect(savePreference).toHaveBeenCalledWith(
-        expect.objectContaining({ eventType: 'review_requested', email: false }),
+        expect.objectContaining({
+          eventType: 'review_requested',
+          email: false,
+        }),
       ),
     )
     expect(saveTiming).toHaveBeenCalledWith(SAVED_TIMING)
@@ -90,7 +93,9 @@ describe('SettingsNotifications', () => {
   })
 
   it('does not confirm a save that failed', async () => {
-    saveTiming.mockRejectedValueOnce(new Error('Could not save the digest time.'))
+    saveTiming.mockRejectedValueOnce(
+      new Error('Could not save the digest time.'),
+    )
     const user = userEvent.setup()
     renderPanel()
 

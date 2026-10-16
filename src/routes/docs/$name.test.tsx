@@ -56,9 +56,7 @@ describe('docs/$name', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(
       'Document not found',
     )
-    expect(
-      screen.getByText(/There is no document named “nope”/),
-    ).toBeTruthy()
+    expect(screen.getByText(/There is no document named “nope”/)).toBeTruthy()
   })
 
   it('keeps the deployment message for a known name with no file', () => {

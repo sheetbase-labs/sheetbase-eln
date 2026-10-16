@@ -621,7 +621,11 @@ function ModelEditor() {
                         <TableHead>Type</TableHead>
                         <TableHead>Required</TableHead>
                         <TableHead>Change</TableHead>
-                        <TableHead className="pr-3" align="right" aria-label="Actions" />
+                        <TableHead
+                          className="pr-3"
+                          align="right"
+                          aria-label="Actions"
+                        />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1260,9 +1264,7 @@ function patternCompiles(pattern: string): boolean {
  * and bounds only, so the rest is named inline rather than after a round-trip.
  * Values here are only stops: the server stays authoritative.
  */
-function fieldContractIssues(
-  rows: readonly DraftField[],
-): Map<string, string> {
+function fieldContractIssues(rows: readonly DraftField[]): Map<string, string> {
   const issues = new Map<string, string>()
   for (const row of rows) {
     const key = row.key.trim()

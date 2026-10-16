@@ -298,7 +298,10 @@ function PipelineSteps() {
             icon="plus"
             disabled={inputs.length >= MAX_INPUTS}
             onClick={() =>
-              setInputs((current) => [...current, { name: '', required: false }])
+              setInputs((current) => [
+                ...current,
+                { name: '', required: false },
+              ])
             }
           >
             Add input

@@ -250,8 +250,8 @@ function ProjectMembers() {
               Remove {pendingRemove?.name} from this project?
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              They lose access to every record in this project. You can add
-              them again later.
+              They lose access to every record in this project. You can add them
+              again later.
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>

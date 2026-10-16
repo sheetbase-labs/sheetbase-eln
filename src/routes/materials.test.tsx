@@ -164,8 +164,16 @@ describe('materials toolbar', () => {
   it('reorders the lots the route fetched when a sort key is chosen', async () => {
     const user = userEvent.setup()
     fixtures.reagents = [
-      makeReagent({ id: 'mat-1', identifier: 'MAT-0001', expiry: '2027-05-01' }),
-      makeReagent({ id: 'mat-2', identifier: 'MAT-0002', expiry: '2026-11-01' }),
+      makeReagent({
+        id: 'mat-1',
+        identifier: 'MAT-0001',
+        expiry: '2027-05-01',
+      }),
+      makeReagent({
+        id: 'mat-2',
+        identifier: 'MAT-0002',
+        expiry: '2026-11-01',
+      }),
     ]
     renderRoute()
 
@@ -199,9 +207,9 @@ describe('receive lot dialog', () => {
     expect(
       screen.getByText('Enter the quantity received, greater than zero.'),
     ).toBeTruthy()
-    expect(
-      screen.getByLabelText(/Quantity/).getAttribute('aria-invalid'),
-    ).toBe('true')
+    expect(screen.getByLabelText(/Quantity/).getAttribute('aria-invalid')).toBe(
+      'true',
+    )
   })
 
   it('explains a refused receive of zero', async () => {

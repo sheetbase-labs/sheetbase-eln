@@ -82,7 +82,9 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
             ],
             [
               'Owner',
-              dataset.createdByUserId ? userLabel(dataset.createdByUserId) : '—',
+              dataset.createdByUserId
+                ? userLabel(dataset.createdByUserId)
+                : '—',
             ],
             [
               'Experiment',

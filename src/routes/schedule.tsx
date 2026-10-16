@@ -268,16 +268,17 @@ export function Schedule() {
         <EmptyState
           icon="flask"
           title="No instruments configured"
-          body="The Schedule draws the workspace's instrument registry. Add an instrument and it appears here as a bookable row."
-        >
-          <Button
-            size="sm"
-            nativeButton={false}
-            render={<Link to="/instruments" />}
-          >
-            Open the instrument registry
-          </Button>
-        </EmptyState>
+          description="The Schedule draws the workspace's instrument registry. Add an instrument and it appears here as a bookable row."
+          action={
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<Link to="/instruments" />}
+            >
+              Open the instrument registry
+            </Button>
+          }
+        />
       ) : (
         <>
           <PhoneDay

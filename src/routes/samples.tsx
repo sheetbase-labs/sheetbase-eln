@@ -295,26 +295,27 @@ function SamplesList() {
                       ? `No samples match “${search.q}”`
                       : `No samples in ${tabLabel[tab].toLowerCase()}`
                 }
-                body={
+                description={
                   hasProjectAccess === false
                     ? NO_PROJECT_ACCESS_BODY
                     : q
                       ? 'Search looks at ID, name, type and location.'
                       : 'Register a sample or import a plate map to start the registry.'
                 }
-              >
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/samples"
-                      search={{ tab: tab === 'instock' ? undefined : tab }}
-                    />
-                  }
-                >
-                  {q ? 'Clear search' : 'Back to in stock'}
-                </Button>
-              </EmptyState>
+                action={
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/samples"
+                        search={{ tab: tab === 'instock' ? undefined : tab }}
+                      />
+                    }
+                  >
+                    {q ? 'Clear search' : 'Back to in stock'}
+                  </Button>
+                }
+              />
             </div>
           ) : null}
         </div>

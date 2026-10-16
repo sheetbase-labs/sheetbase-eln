@@ -7,9 +7,15 @@
  * nothing says so instead of silently redirecting somewhere plausible.
  */
 import { useEffect } from 'react'
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { resolveRecordByIdentifier } from '#/lib/record-resolver'
@@ -45,7 +51,10 @@ function ResolveIdentifierRoute() {
     return (
       <EmptyState
         title="Could not look up this code"
-        body={`The identifier ${identifier} could not be resolved. Check the code and try again.`}
+        description={`The identifier ${identifier} could not be resolved. Check the code and try again.`}
+        action={
+          <Button onClick={() => void lookup.refetch()}>Try again</Button>
+        }
       />
     )
   }
@@ -59,7 +68,12 @@ function ResolveIdentifierRoute() {
   return (
     <EmptyState
       title="Nothing matches this code"
-      body={`No record in this workspace has the identifier ${identifier}.`}
+      description={`No record in this workspace has the identifier ${identifier}. Check the label, or search for the record by name.`}
+      action={
+        <Button nativeButton={false} render={<Link to="/search" search={{}} />}>
+          Search for the record
+        </Button>
+      }
     />
   )
 }

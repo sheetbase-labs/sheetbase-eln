@@ -429,24 +429,25 @@ function MaterialsList() {
                     ? `No material lots match “${search.q}”`
                     : `No lots in ${tabLabel[tab].toLowerCase()}`
                 }
-                body={
+                description={
                   q
                     ? 'Search looks at ID, material, supplier, lot and location.'
                     : 'Lots appear here when their status or expiry puts them in this list.'
                 }
-              >
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/materials"
-                      search={{ tab: tab === 'instock' ? undefined : tab }}
-                    />
-                  }
-                >
-                  {q ? 'Clear search' : 'Back to in stock'}
-                </Button>
-              </EmptyState>
+                action={
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/materials"
+                        search={{ tab: tab === 'instock' ? undefined : tab }}
+                      />
+                    }
+                  >
+                    {q ? 'Clear search' : 'Back to in stock'}
+                  </Button>
+                }
+              />
             </div>
           ) : null}
         </div>

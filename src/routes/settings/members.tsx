@@ -99,12 +99,16 @@ function Members() {
           <EmptyState
             icon="lock"
             title="Only workspace members can see the roster"
-            body="This is a client account. It shows the records your CDMO team shares with your client, not the workspace's own members and invitations."
-          >
-            <Button nativeButton={false} render={<Link to="/client-portal" />}>
-              Open the client portal
-            </Button>
-          </EmptyState>
+            description="This is a client account. It shows the records your CDMO team shares with your client, not the workspace's own members and invitations."
+            action={
+              <Button
+                nativeButton={false}
+                render={<Link to="/client-portal" />}
+              >
+                Open the client portal
+              </Button>
+            }
+          />
         </div>
       </>
     )

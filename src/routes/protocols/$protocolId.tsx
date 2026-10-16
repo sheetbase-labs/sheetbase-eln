@@ -1,14 +1,10 @@
 import { useState } from 'react'
-import {
-  createFileRoute,
-  Link,
-  redirect,
-  useNavigate,
-} from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ProtocolDocument } from '#/components/v3/protocols/protocol-document'
 import { ProtocolVersionTraining } from '#/components/v3/protocols/protocol-version-training'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -74,7 +70,6 @@ export const Route = createFileRoute('/protocols/$protocolId')({
 function ProtocolPage() {
   const { protocolId } = Route.useParams()
   const search = Route.useSearch()
-  const navigate = useNavigate({ from: Route.fullPath })
   const tab = search.section ?? 'document'
   const record = useQuery({
     queryKey: notebookQueryKeys.record(protocolId),
@@ -141,8 +136,11 @@ function ProtocolPage() {
           </>
         }
         tabs={
-          <nav aria-label="Protocol sections" className="flex gap-5">
-            {(
+          <Tabs
+            mode="url"
+            label="Protocol sections"
+            value={tab}
+            items={(
               [
                 ['document', 'Document', undefined],
                 ['template', 'Template', blocks.data?.length],
@@ -150,31 +148,15 @@ function ProtocolPage() {
                 ['versions', 'Versions', revisions.data?.length],
                 ['training', 'Training', undefined],
               ] as [ProtocolTab, string, number | undefined][]
-            ).map(([key, label, count]) => (
-              <button
-                key={key}
-                type="button"
-                aria-current={tab === key ? 'page' : undefined}
-                onClick={() =>
-                  void navigate({
-                    search: { section: key === 'document' ? undefined : key },
-                  })
-                }
-                className={
-                  tab === key
-                    ? 'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-link bg-transparent px-0.5 text-body font-medium text-fg'
-                    : 'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted hover:text-fg'
-                }
-              >
-                {label}
-                {count != null ? (
-                  <span className="text-label font-normal text-fg-muted">
-                    {count}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </nav>
+            ).map(([key, label, count]) => ({
+              key,
+              label,
+              count,
+              link: {
+                search: { section: key === 'document' ? undefined : key },
+              },
+            }))}
+          />
         }
       />
       <div className="min-h-0 flex-1 overflow-auto">

@@ -9,7 +9,7 @@ import {
   Inspector,
   InspectorSection,
 } from '#/components/v3/ui/layout'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
   Dialog,
@@ -431,8 +431,10 @@ function SampleLayout() {
             </span>
           }
           tabs={
-            <LinkTabs
-              tabs={[
+            <Tabs
+              mode="url"
+              label="Sample sections"
+              items={[
                 {
                   label: 'Details',
                   link: {

@@ -53,7 +53,7 @@ import {
 } from '#/components/v3/ui/table'
 import { Icon } from '#/components/v3/icons'
 import { toast } from '#/components/v3/ui/sonner'
-import { SearchTabs } from './search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { MobileList, stickyCol } from './mobile-list'
 import { FilterChip } from './chip'
 import { NativeSelect } from './select'
@@ -392,14 +392,15 @@ export function ProjectsPage({
           </div>
           {projects.length ? (
             <>
-              <SearchTabs
+              <Tabs
+                mode="url"
+                value={tab}
                 className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0 max-lg:hidden"
                 label="Project views"
-                tabs={tabs.map((t) => ({
+                items={tabs.map((t) => ({
                   key: t,
                   label: tabLabel[t],
                   count: counts[t],
-                  active: t === tab,
                   link: {
                     to: '/projects',
                     search: {
@@ -413,13 +414,14 @@ export function ProjectsPage({
                   400 % zoom, and the row had no way to scroll, so "More" sat
                   past the viewport (QA4-zoom-projects). */}
               <div className="flex flex-wrap items-center gap-5 lg:hidden">
-                <SearchTabs
+                <Tabs
+                  mode="url"
+                  value={tab}
                   label="Project views"
-                  tabs={tabs.slice(0, 3).map((t) => ({
+                  items={tabs.slice(0, 3).map((t) => ({
                     key: t,
                     label: tabLabel[t],
                     count: counts[t],
-                    active: tab === t,
                     link: {
                       to: '/projects',
                       search: { ...search, tab: t === 'all' ? undefined : t },

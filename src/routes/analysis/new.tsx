@@ -58,6 +58,7 @@ import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
@@ -172,7 +173,8 @@ export const Route = createFileRoute('/analysis/new')({
 
 /** The studio modes, in tab order: the strip announces these as tabs. */
 const STUDIO_MODES = ['chart', 'analyse', 'compare'] as const
-const STUDIO_MODE_LABEL: Record<(typeof STUDIO_MODES)[number], string> = {
+type StudioMode = (typeof STUDIO_MODES)[number]
+const STUDIO_MODE_LABEL: Record<StudioMode, string> = {
   chart: 'Chart builder',
   analyse: 'Analyse',
   compare: 'Compare',
@@ -209,43 +211,11 @@ function AnalysisStudio() {
   // definitions; the mode is session state, never persisted server-side.
   // VIEW-03 adds the compare mode: grouped time-series / distribution
   // inspection over the same live rows, promoting into the chart builder.
-  const [mode, setMode] = useState<'chart' | 'analyse' | 'compare'>(
+  const [mode, setMode] = useState<StudioMode>(
     search.mode === 'analyse' || search.mode === 'compare'
       ? search.mode
       : 'chart',
   )
-  // WCAG 2.1.1 (Keyboard) — the strip announces `role="tab"` inside a
-  // `role="tablist"`, so it owes the tablist's keyboard contract: one tab stop,
-  // arrow keys between the tabs, Home/End at the ends. The Inbox has carried
-  // the same handler since QA3-inbox-3. Without it the strip told a screen
-  // reader these were tabs, and the keyboard could reach none but the selected
-  // one.
-  const studioTabRefs = useRef<(HTMLButtonElement | null)[]>([])
-  const onStudioTabKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const index = STUDIO_MODES.indexOf(mode)
-    let next: number
-    switch (event.key) {
-      case 'ArrowRight':
-      case 'ArrowDown':
-        next = (index + 1) % STUDIO_MODES.length
-        break
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        next = (index - 1 + STUDIO_MODES.length) % STUDIO_MODES.length
-        break
-      case 'Home':
-        next = 0
-        break
-      case 'End':
-        next = STUDIO_MODES.length - 1
-        break
-      default:
-        return
-    }
-    event.preventDefault()
-    setMode(STUDIO_MODES[next])
-    studioTabRefs.current[next]?.focus()
-  }
   const [compareConfig, setCompareConfig] =
     useState<ComparativeViewConfig | null>(null)
   // ASSIST-03: whether the live compare config was promoted through the
@@ -587,30 +557,17 @@ function AnalysisStudio() {
             selectedDatasetId={selectedDatasetId}
             onSelect={setSelectedDatasetId}
           />
-          <div
-            role="tablist"
-            aria-label="Studio mode"
-            onKeyDown={onStudioTabKeys}
-            className="flex items-center gap-1"
-          >
-            {STUDIO_MODES.map((value, index) => (
-              <Button
-                key={value}
-                ref={(element) => {
-                  studioTabRefs.current[index] = element
-                }}
-                type="button"
-                size="sm"
-                variant={mode === value ? 'primary' : 'secondary'}
-                role="tab"
-                aria-selected={mode === value}
-                tabIndex={mode === value ? 0 : -1}
-                onClick={() => setMode(value)}
-              >
-                {STUDIO_MODE_LABEL[value]}
-              </Button>
-            ))}
-          </div>
+          <Tabs
+            mode="state"
+            variant="segment"
+            label="Studio mode"
+            value={mode}
+            onValueChange={(next) => setMode(next as StudioMode)}
+            items={STUDIO_MODES.map((value) => ({
+              key: value,
+              label: STUDIO_MODE_LABEL[value],
+            }))}
+          />
           {mode === 'chart' && selectedSource && spec ? (
             <Button
               type="button"

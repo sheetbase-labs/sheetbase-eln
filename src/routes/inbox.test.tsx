@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -564,21 +565,22 @@ describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
     expect(typeCall.search({ type: undefined })).toEqual({ type: 'reviews' })
   })
 
-  it('moves between tabs with the arrow keys and roves the tab stop', () => {
+  it('moves between tabs with the arrow keys and roves the tab stop', async () => {
+    const user = userEvent.setup()
     const { getByRole } = renderInbox()
     const needs = getByRole('tab', { name: /^Needs action/ })
     needs.focus()
-    fireEvent.keyDown(needs, { key: 'ArrowRight' })
+    await user.keyboard('{ArrowRight}')
     const following = getByRole('tab', { name: /^Following/ })
     expect(following.getAttribute('aria-selected')).toBe('true')
     expect(document.activeElement).toBe(following)
     expect(needs.getAttribute('tabindex')).toBe('-1')
     expect(following.getAttribute('tabindex')).toBe('0')
 
-    fireEvent.keyDown(following, { key: 'End' })
+    await user.keyboard('{End}')
     const done = getByRole('tab', { name: /^Done today/ })
     expect(done.getAttribute('aria-selected')).toBe('true')
-    fireEvent.keyDown(done, { key: 'ArrowRight' })
+    await user.keyboard('{ArrowRight}')
     expect(needs.getAttribute('aria-selected')).toBe('true')
   })
 })

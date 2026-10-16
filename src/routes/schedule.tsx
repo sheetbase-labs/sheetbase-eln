@@ -12,6 +12,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Dot } from '#/components/v3/ui/status'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
 import { Icon } from '#/components/v3/icons'
@@ -233,24 +234,18 @@ export function Schedule() {
         >
           <Icon name="chevronRight" size={12} />
         </Button>
-        <div role="group" aria-label="View" className="ml-2 flex gap-1">
-          <Button
-            size="sm"
-            variant={view === 'day' ? 'secondary' : 'quiet'}
-            aria-pressed={view === 'day'}
-            onClick={() => setView('day')}
-          >
-            Day
-          </Button>
-          <Button
-            size="sm"
-            variant={view === 'week' ? 'secondary' : 'quiet'}
-            aria-pressed={view === 'week'}
-            onClick={() => setView('week')}
-          >
-            Week
-          </Button>
-        </div>
+        <Tabs
+          mode="state"
+          variant="segment"
+          label="View"
+          value={view}
+          onValueChange={(next) => setView(next as 'week' | 'day')}
+          className="ml-2"
+          items={[
+            { key: 'day', label: 'Day' },
+            { key: 'week', label: 'Week' },
+          ]}
+        />
         <BookDialog
           instruments={instruments}
           workspaceId={workspaceId}

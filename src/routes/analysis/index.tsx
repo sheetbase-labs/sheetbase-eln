@@ -6,7 +6,7 @@ import { PageHeader, Muted } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { SearchTabs } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -234,9 +234,10 @@ function AnalysisHome() {
               the row had no scroll of its own, so it overflowed the document
               (QA4-zoom-analysis). */}
           <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Analysis lists"
-              current={tab ?? 'all'}
+              value={tab ?? 'all'}
               items={[
                 {
                   key: 'all',

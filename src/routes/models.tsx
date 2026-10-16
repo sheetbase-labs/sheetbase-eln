@@ -31,10 +31,10 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
   stickyCell,
   stickyHead,
 } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   modelStatus,
   modelsQueryKeys,
@@ -213,9 +213,10 @@ function ModelsList() {
             )
           }
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Model lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],

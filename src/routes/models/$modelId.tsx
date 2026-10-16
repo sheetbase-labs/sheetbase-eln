@@ -8,7 +8,7 @@ import {
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -139,8 +139,10 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
           </Button>
         }
         tabs={
-          <LinkTabs
-            tabs={[
+          <Tabs
+            mode="url"
+            label="Model sections"
+            items={[
               {
                 label: 'Fields',
                 count: fields.data?.length,
@@ -211,8 +213,10 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
             </>
           }
           tabs={
-            <LinkTabs
-              tabs={[
+            <Tabs
+              mode="url"
+              label="Model record sections"
+              items={[
                 {
                   label: 'Records',
                   link: {

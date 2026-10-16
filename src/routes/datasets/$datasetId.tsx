@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
-import { SearchTabs } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
   datasetValidation,
@@ -169,9 +169,10 @@ function DatasetLayout() {
           ) : undefined
         }
         tabs={
-          <SearchTabs
+          <Tabs
+            mode="url"
             label="Dataset sections"
-            current={current}
+            value={current}
             items={[
               {
                 key: 'overview',

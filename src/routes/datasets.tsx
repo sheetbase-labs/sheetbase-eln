@@ -33,10 +33,10 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
   stickyCell,
   stickyHead,
 } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   datasetIssueSummary,
   datasetValidation,
@@ -181,9 +181,10 @@ function DatasetsList() {
             </>
           }
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Dataset lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],

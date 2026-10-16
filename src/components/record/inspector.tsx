@@ -3,7 +3,7 @@ import * as React from 'react'
 import { cn } from '#/lib/utils'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
-import { Tabs, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
+import { TabsRoot, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
 import { Icon } from '#/components/v3/icons'
 
 /**
@@ -143,7 +143,7 @@ export function Inspector({
             hint="You do not have access to view this record."
           />
         ) : showTabs ? (
-          <Tabs defaultValue={initial} className="flex flex-col gap-0">
+          <TabsRoot defaultValue={initial} className="flex flex-col gap-0">
             <div className="sticky top-0 z-10 flex items-center border-b border-border bg-surface px-5">
               <TabsList className="h-auto w-full justify-start">
                 {tabs.map((tab) => (
@@ -174,7 +174,7 @@ export function Inspector({
                 {tab.content}
               </TabsPanel>
             ))}
-          </Tabs>
+          </TabsRoot>
         ) : null}
       </div>
     </div>

@@ -7,7 +7,7 @@ import {
   InspectorSectionStack,
 } from '#/components/record'
 import { Notice } from '#/components/v3/ui/alert'
-import { Tabs, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
+import { TabsRoot, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
 import { cn } from '#/lib/utils'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import type { FieldDefinition } from '#/lib/field-definition'
@@ -460,7 +460,7 @@ export function NotebookInspector({
 }: NotebookInspectorProps) {
   return (
     <div aria-label="Inspector" className={cn('flex flex-col', className)}>
-      <Tabs defaultValue={defaultTab} className="flex flex-col gap-0">
+      <TabsRoot defaultValue={defaultTab} className="flex flex-col gap-0">
         <div className="border-b border-border px-4">
           <TabsList className="h-auto w-full justify-start">
             <TabsTab value="properties">Properties</TabsTab>
@@ -495,7 +495,7 @@ export function NotebookInspector({
             <EmptyHint>History is not available in this view.</EmptyHint>
           )}
         </TabsPanel>
-      </Tabs>
+      </TabsRoot>
     </div>
   )
 }

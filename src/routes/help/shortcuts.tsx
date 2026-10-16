@@ -4,7 +4,7 @@ import { useShortcuts } from '#/components/shortcuts/shortcut-provider'
 import { ShortcutGroups } from '#/components/shortcuts/shortcuts-dialog'
 import { Button } from '#/components/v3/ui/button'
 import { Kbd } from '#/components/v3/ui/kbd'
-import { SegmentLinks } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { requestShortcutsDialog } from '#/lib/shortcuts-dialog'
 
 import { ReleaseCard } from '../help'
@@ -33,12 +33,14 @@ function Shortcuts() {
             <h1 className="flex-1 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6">
               Keyboard shortcuts
             </h1>
-            <SegmentLinks
+            <Tabs
+              mode="url"
+              variant="segment"
+              value={os}
               label="Keyboard"
               items={(['mac', 'windows'] as const).map((o) => ({
                 key: o,
                 label: o === 'mac' ? 'Mac' : 'Windows',
-                active: os === o,
                 link: {
                   to: '/help/shortcuts',
                   search: { os: o === 'mac' ? undefined : o },

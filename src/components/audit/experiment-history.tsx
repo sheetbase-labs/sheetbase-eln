@@ -21,11 +21,11 @@ import {
 } from '#/lib/audit-history'
 import type { AuditEventWire, AuditHistoryCategory } from '#/lib/audit-history'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   fetchWorkspaceGeneral,
   workspaceGeneralQueryKey,
 } from '#/lib/workspace-general'
-import { cn } from '#/lib/utils'
 
 function actor(event: AuditEventWire) {
   return (
@@ -134,34 +134,23 @@ export function ExperimentHistoryView({
       data-history-ready="true"
     >
       <div className="flex flex-wrap items-center gap-1 border-b border-border px-6 py-2">
-        <div
-          className="flex flex-wrap gap-0.5"
-          role="group"
-          aria-label="History category"
-        >
-          {auditHistoryCategories.map((kind) => (
-            <Button
-              key={kind}
-              size="sm"
-              variant="quiet"
-              aria-pressed={kind === category}
-              className={cn(kind === category && 'bg-selection')}
-              onClick={() => {
-                setCategory(kind)
-                setSelectedId(null)
-              }}
-            >
-              <span className="capitalize">{kind}</span>{' '}
-              <span className="num text-fg-muted">
-                {
-                  byActor.filter((event) =>
-                    auditEventMatchesCategory(event, kind),
-                  ).length
-                }
-              </span>
-            </Button>
-          ))}
-        </div>
+        <Tabs
+          mode="state"
+          variant="segment"
+          label="History category"
+          value={category}
+          onValueChange={(next) => {
+            setCategory(next as (typeof auditHistoryCategories)[number])
+            setSelectedId(null)
+          }}
+          items={auditHistoryCategories.map((kind) => ({
+            key: kind,
+            label: <span className="capitalize">{kind}</span>,
+            count: byActor.filter((event) =>
+              auditEventMatchesCategory(event, kind),
+            ).length,
+          }))}
+        />
         <label className="ml-auto flex items-center gap-1 text-label">
           Actor:
           <select

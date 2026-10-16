@@ -43,11 +43,11 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
   Textarea,
   stickyCell,
   stickyHead,
 } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   templateDataQueryKeys,
   templateLifecycle,
@@ -151,9 +151,10 @@ function TemplatesList() {
           total={rows.length}
           actions={<NewTemplateDialog />}
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Template lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],

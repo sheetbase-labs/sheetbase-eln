@@ -33,6 +33,7 @@ import { datasetPath, recordDestination } from '#/lib/navigation'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
+import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Textarea } from '#/components/v3/inventory/list'
@@ -84,11 +85,7 @@ import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
 import { OpenLink } from './block-preview'
 import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
-import {
-  AttachFileError,
-  formatBytes,
-  validateFileForUpload,
-} from '#/lib/file-attach'
+import { formatBytes, validateFileForUpload } from '#/lib/file-attach'
 import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
 import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type { AnalysisBlockPayload } from '#/lib/analysis-block'
@@ -1852,19 +1849,19 @@ function UnsupportedEditor({
 }
 
 // ---------------------------------------------------------------------------
-// SCI-003 file block editor. Upload flow: a keyboard-accessible file input
-// validates type/size client-side (the server re-validates), then calls
-// `onAttachFile`, which authorizes + streams the bytes through the bounded
+// SCI-003 file block editor. The pick surface is the shared `FileDrop` field
+// (ADR-0055): a real drop target with a keyboard route to the same dialog, and
+// one row per pick carrying the attach call's progress and its retry. The type
+// and size policy is `validateFileForUpload`, which the field refuses a pick on
+// before anything leaves the browser, and the server re-validates again.
+// `onAttachFile` authorizes + streams the bytes through the bounded
 // `/api/files` routes and persists the file reference in the block payload.
-// Once attached, the block renders the file (read-only here; the preview
-// shows live status). Replacing a file is a later concern.
+// Once attached, the block renders the file (read-only here; the preview shows
+// live status). Replacing a file is a later concern.
 // ---------------------------------------------------------------------------
 
 function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
   const attached = Object.keys(block.payload).length > 0
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  const [pending, setPending] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
 
   if (attached) {
     // The preview renders the live file state; the editor just confirms it.
@@ -1904,69 +1901,28 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
     )
   }
 
-  async function handleFile(file: File) {
-    setError(null)
-    const checked = validateFileForUpload(file)
-    if (!checked.ok) {
-      setError(checked.message)
-      return
-    }
-    if (!onAttachFile) {
-      setError('File upload is not available in this context.')
-      return
-    }
-    setPending(true)
-    try {
-      await onAttachFile(file)
-    } catch (cause) {
-      setError(
-        cause instanceof AttachFileError
-          ? cause.message
-          : cause instanceof Error
-            ? cause.message
-            : 'Could not attach the file.',
-      )
-    } finally {
-      setPending(false)
-    }
-  }
-
   return (
-    <div className="space-y-3 rounded-md border border-dashed border-border bg-surface-muted/20 p-6 text-center">
-      <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-surface text-fg-muted shadow-xs">
-        <Icon name="protocol" className="size-5" />
-      </div>
-      <div className="space-y-1">
-        <p className="text-sm font-medium">Attach a file</p>
-        <p className="text-xs text-fg-muted">
+    <FileDrop
+      label="Attach a file"
+      inputLabel="Attach a file"
+      hint={
+        <>
           CSV, text, JSON, PDF, images &amp; Office formats · up to{' '}
           {formatBytes(FILE_MAX_BYTES)}
-        </p>
-      </div>
-      <Input
-        ref={inputRef}
-        type="file"
-        aria-label="Attach a file"
-        disabled={pending || readOnly}
-        onChange={(event) => {
-          const file = event.target.files?.[0]
-          if (file) void handleFile(file)
-          // Reset so selecting the same file again re-triggers.
-          event.target.value = ''
-        }}
-        className="mx-auto h-auto w-full max-w-xs rounded-none border-0 bg-transparent p-0 text-xs shadow-none file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-accent"
-      />
-      {pending ? (
-        <p role="status" className="text-xs text-fg-muted">
-          Uploading…
-        </p>
-      ) : null}
-      {error ? (
-        <Notice tone="bad" className="mx-auto max-w-md text-left">
-          {error}
-        </Notice>
-      ) : null}
-    </div>
+        </>
+      }
+      validate={validateFileForUpload}
+      disabled={!onAttachFile || readOnly}
+      disabledReason={
+        onAttachFile
+          ? 'This block is read-only.'
+          : 'File upload is not available in this context.'
+      }
+      onFile={(file) => {
+        if (file && onAttachFile) return onAttachFile(file)
+        return undefined
+      }}
+    />
   )
 }
 

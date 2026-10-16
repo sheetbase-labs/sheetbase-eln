@@ -317,6 +317,7 @@ describe('the registered pair set', () => {
       'history-rows',
       'quantity-field',
       'shortcut-keys',
+      'import-file-upload',
     ])
   })
 

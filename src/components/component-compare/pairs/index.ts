@@ -4,6 +4,7 @@ import { notebookSortablePair } from '#/components/component-compare/pairs/noteb
 import { emptyStatePair } from '#/components/component-compare/pairs/empty-state'
 import { quantityFieldPair } from '#/components/component-compare/pairs/quantity-field'
 import { shortcutKeysPair } from '#/components/component-compare/pairs/shortcut-keys'
+import { fileUploadPair } from '#/components/component-compare/pairs/file-upload'
 
 /**
  * The registered comparison pairs, in the order the harness lists them.
@@ -19,4 +20,5 @@ export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   historyRowsPair,
   quantityFieldPair,
   shortcutKeysPair,
+  fileUploadPair,
 ])

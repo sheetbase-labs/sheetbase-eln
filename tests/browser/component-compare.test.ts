@@ -37,6 +37,7 @@ const COLUMNS = ['ours', 'theirs'] as const
 type ColumnId = (typeof COLUMNS)[number]
 
 /**
+<<<<<<< HEAD
  * The pairs the generic checks below run against — axe, appearance, Tab order,
  * the three screen states and density. A pair is added here when it is
  * registered; the reorder, pointer and 5,000-row tests stay on the pair they
@@ -50,11 +51,19 @@ const PAIRS = [
   'history-rows',
   'quantity-field',
   'shortcut-keys',
+  'import-file-upload',
 ] as const
 type PairId = (typeof PAIRS)[number]
 
 /** A pair whose components reorder rows: the drag and drop tests are its own. */
 const REORDERABLE_PAIR: PairId = 'notebook-sortable'
+=======
+ * The second registered pair (ADR-0055 workstream B5). The notebook pair is
+ * the harness's default and the tests above it are its own; the file pair is
+ * driven explicitly, because selecting a pair is how a reader reaches it.
+ */
+const FILE_PAIR = 'import-file-upload'
+>>>>>>> 95e25830
 
 test.use({ viewport: DESKTOP, deviceScaleFactor: 1, locale: 'en-GB' })
 
@@ -65,7 +74,11 @@ async function openHarness(
     theme: 'light' | 'dark'
     fixture?: string
     state?: string
+<<<<<<< HEAD
     pair?: PairId
+=======
+    pair?: string
+>>>>>>> 95e25830
   } = {
     theme: 'light',
   },
@@ -86,6 +99,15 @@ async function openHarness(
   await waitForInteractive(page)
   if (options.pair) {
     await page.getByTestId('comparison-pair').selectOption(options.pair)
+<<<<<<< HEAD
+=======
+    for (const id of COLUMNS) {
+      await expect(column(page, id)).toHaveAttribute(
+        'data-pair-id',
+        options.pair,
+      )
+    }
+>>>>>>> 95e25830
   }
   if (options.fixture) {
     await page.getByTestId('comparison-fixture').selectOption(options.fixture)
@@ -258,6 +280,7 @@ test.describe('keyboard', () => {
     // rather than by this walk's expectations.
     'empty-state': [],
     'history-rows': [],
+    'import-file-upload': [],
     'quantity-field': [
       'ours|INPUT|input|',
       // The item's accessible name comes from its own scrub-area `<label>`, so
@@ -509,6 +532,255 @@ test.describe('states', () => {
       column(page, 'theirs').locator('[data-slot="sortable-item"]').first(),
     ).toHaveAttribute('aria-disabled', 'true')
     expect(await rowIds(page, 'theirs')).toEqual(theirsBefore)
+  })
+})
+
+test.describe('file pair — pick, drop, progress and retry', () => {
+  const PAIR: PairId = 'import-file-upload'
+
+  test('appearance evidence: one screenshot per column per theme', async ({
+    page,
+  }, testInfo) => {
+    const paths: string[] = []
+    for (const theme of ['light', 'dark'] as const) {
+      for (const id of COLUMNS) {
+        await openHarness(page, {
+          theme,
+          pair: PAIR,
+          fixture: 'long-labels',
+        })
+        paths.push(
+          await shot(column(page, id), testInfo, `file-upload-${id}-${theme}`),
+        )
+      }
+    }
+    for (const file of paths) {
+      expect(file.endsWith('.png')).toBe(true)
+    }
+  })
+
+  test('the candidate takes a dropped file, refuses it once, and uploads it on retry', async ({
+    page,
+  }, testInfo) => {
+    await openHarness(page, {
+      theme: 'light',
+      pair: PAIR,
+      fixture: 'single',
+    })
+
+    const target = column(page, 'theirs').locator('[data-slot="file-drop"]')
+    const dataTransfer = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer()
+      transfer.items.add(
+        new File(['sample,value\nA,1.2\n'], 'dropped-plate.csv', {
+          type: 'text/csv',
+        }),
+      )
+      return transfer
+    })
+    await target.dispatchEvent('dragenter', { dataTransfer })
+    await target.dispatchEvent('dragover', { dataTransfer })
+    await target.dispatchEvent('drop', { dataTransfer })
+
+    const row = column(page, 'theirs').locator(
+      '[data-file-id^="picked-dropped-plate.csv"]',
+    )
+    await expect(row).toBeVisible()
+    // The harness's stand-in transport refuses the first attempt, so the retry
+    // the row offers is what resolves it.
+    await expect(row).toHaveAttribute('data-file-status', 'failed')
+    await row.getByRole('button', { name: 'Retry dropped-plate.csv' }).click()
+    await expect(row).toHaveAttribute('data-file-status', 'uploaded')
+    await expect(row.getByText('Uploaded')).toBeVisible()
+
+    await shot(column(page, 'theirs'), testInfo, 'file-upload-dropped')
+  })
+
+  test('ours offers no drop, no file row and no retry', async ({ page }) => {
+    await openHarness(page, {
+      theme: 'light',
+      pair: PAIR,
+      fixture: 'single',
+    })
+
+    const ours = column(page, 'ours')
+    const target = ours.locator('div[data-picker="hand-rolled"] > div').first()
+    const dataTransfer = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer()
+      transfer.items.add(
+        new File(['sample,value\nA,1.2\n'], 'dropped-plate.csv', {
+          type: 'text/csv',
+        }),
+      )
+      return transfer
+    })
+    await target.dispatchEvent('drop', { dataTransfer })
+    // No drop handler: the fixture's queue is not even listed, and nothing was
+    // added by the drop. This is the missing behaviour the record cites.
+    await expect(ours.locator('[data-file-id]')).toHaveCount(0)
+    await expect(
+      ours.locator('[data-comparison-note="no-queue"]'),
+    ).toBeVisible()
+
+    // Its one path is the input, and its progress is one boolean line whose
+    // failure has no retry beside it.
+    await ours.locator('input[type="file"]').setInputFiles({
+      name: 'picked-plate.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('sample,value\nA,1.2\n'),
+    })
+    await expect(ours.getByText('Storing and reading the file…')).toBeVisible()
+    await expect(
+      ours.getByText('The file store refused this file.'),
+    ).toBeVisible()
+    await expect(ours.getByRole('button', { name: /^Retry/ })).toHaveCount(0)
+  })
+
+  test('shows the harness states, and refuses a pick when permission is restricted', async ({
+    page,
+  }) => {
+    await openHarness(page, {
+      theme: 'light',
+      pair: PAIR,
+      fixture: 'empty',
+    })
+    for (const id of COLUMNS) {
+      await expect(
+        column(page, id).getByRole('heading', { name: 'No rows' }),
+      ).toBeVisible()
+    }
+    // The pick stays reachable beside the shared empty notice.
+    await expect(
+      column(page, 'theirs').getByRole('button', { name: 'Choose file' }),
+    ).toBeVisible()
+
+    await openHarness(page, {
+      theme: 'light',
+      pair: PAIR,
+      state: 'loading',
+    })
+    for (const id of COLUMNS) {
+      await expect(
+        column(page, id).locator('[data-comparison-state="loading"]'),
+      ).toHaveAttribute('aria-busy', 'true')
+    }
+
+    await openHarness(page, {
+      theme: 'light',
+      pair: PAIR,
+      fixture: 'single',
+      state: 'restricted',
+    })
+    for (const id of COLUMNS) {
+      await expect(column(page, id).getByText('View only')).toBeVisible()
+    }
+    // The reason is text, and each column's own pick is refused rather than
+    // silently ignored.
+    await expect(
+      column(page, 'theirs').getByRole('button', { name: 'Choose file' }),
+    ).toBeDisabled()
+    await expect(
+      column(page, 'ours').locator('input[type="file"]'),
+    ).toBeDisabled()
+
+    await openHarness(page, { theme: 'light', pair: PAIR, state: 'error' })
+    await expect(
+      page.locator('[data-comparison-column] [role="alert"]'),
+    ).toHaveCount(2)
+    await page.getByRole('button', { name: 'Retry' }).first().click()
+    for (const id of COLUMNS) {
+      await expect(column(page, id)).toHaveAttribute(
+        'data-scenario-state',
+        'ready',
+      )
+    }
+  })
+
+  test('holds its width, and keeps every control inside the column', async ({
+    page,
+  }) => {
+    for (const [label, size] of [
+      ['desktop 1440x900', DESKTOP],
+      ['phone 390x844', PHONE],
+    ] as const) {
+      await page.setViewportSize(size)
+      await openHarness(page, {
+        theme: 'light',
+        pair: PAIR,
+        fixture: 'long-labels',
+      })
+
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      )
+      expect(overflow, `page overflow at ${label}`).toBeLessThanOrEqual(1)
+
+      for (const id of COLUMNS) {
+        const box = await column(page, id).boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.x).toBeGreaterThanOrEqual(0)
+        expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1)
+        // Every row, and every control in it, sits inside its own column: a
+        // long file name must not push the row's retry or remove past the
+        // column's edge. (It did, before `min-w-0` went on the row; the
+        // appearance screenshots are what showed it, and this is the check
+        // that keeps it fixed.)
+        const outside = await column(page, id)
+          .locator('[data-file-id], [data-file-id] button')
+          .evaluateAll(
+            (elements, bound) =>
+              elements
+                .map((element) => element.getBoundingClientRect())
+                .filter(
+                  (rect) => rect.width < 1 || rect.right > bound.right + 1,
+                ).length,
+            { right: box!.x + box!.width },
+          )
+        expect(outside, `${id} column at ${label}`).toBe(0)
+      }
+    }
+  })
+
+  test('reaches the pick control by keyboard in both columns', async ({
+    page,
+  }) => {
+    await openHarness(page, {
+      theme: 'light',
+      pair: PAIR,
+      fixture: 'single',
+    })
+
+    const reached: string[] = []
+    for (let press = 0; press < 60; press += 1) {
+      await page.keyboard.press('Tab')
+      const step = await page.evaluate(() => {
+        const element = document.activeElement as HTMLElement | null
+        if (!element || element === document.body) return null
+        const style = getComputedStyle(element)
+        const outlined =
+          style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0
+        const ringed = style.boxShadow !== 'none'
+        const column = element.closest('[data-comparison-column]')
+        return {
+          key: [
+            column?.getAttribute('data-comparison-column'),
+            element.tagName,
+            element.getAttribute('aria-label') ?? element.textContent?.trim(),
+          ].join('|'),
+          visible: outlined || ringed,
+          inColumn: column !== null,
+        }
+      })
+      if (!step || !step.inColumn) continue
+      reached.push(step.key)
+      expect(step.visible, `focus indicator for ${step.key}`).toBe(true)
+    }
+
+    const focused = reached.join('\n')
+    expect(focused).toContain('ours|INPUT|Laboratory file')
+    expect(focused).toContain('theirs|BUTTON|Choose file')
   })
 })
 

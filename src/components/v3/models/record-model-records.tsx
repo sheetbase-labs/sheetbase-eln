@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import type { ColumnDef } from '@tanstack/react-table'
-
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
 import { Status } from '#/components/v3/ui/status'
 import { DataTable } from '#/components/scientific/data-table'
+import type { DataTableColumnDef } from '#/components/scientific/data-table'
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import { downloadTextFile } from '#/lib/download'
@@ -54,8 +53,8 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
     [records, fields, q, status, fieldName, fieldValue],
   )
 
-  const columns = useMemo<ColumnDef<RecordModelRecord, unknown>[]>(() => {
-    const base: ColumnDef<RecordModelRecord, unknown>[] = [
+  const columns = useMemo<DataTableColumnDef<RecordModelRecord>[]>(() => {
+    const base: DataTableColumnDef<RecordModelRecord>[] = [
       {
         id: 'identifier',
         header: 'ID',
@@ -92,7 +91,7 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
     ]
     return [
       ...base,
-      ...fields.map<ColumnDef<RecordModelRecord, unknown>>((field) => ({
+      ...fields.map<DataTableColumnDef<RecordModelRecord>>((field) => ({
         id: `field:${field.fieldName}`,
         header: field.label,
         accessorFn: (record) =>

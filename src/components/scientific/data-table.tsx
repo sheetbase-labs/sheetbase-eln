@@ -1,15 +1,29 @@
 import * as React from 'react'
 import {
+  columnVisibilityFeature,
+  createPaginatedRowModel,
+  createSortedRowModel,
   flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  useReactTable,
+  metaHelper,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  sortFn_alphanumeric,
+  sortFn_alphanumericCaseSensitive,
+  sortFn_basic,
+  sortFn_datetime,
+  sortFn_text,
+  sortFn_textCaseSensitive,
+  tableFeatures,
+  useTable,
 } from '@tanstack/react-table'
 import type {
+  CellData,
   ColumnDef,
+  ColumnVisibilityState,
+  RowData,
+  RowSelectionState,
   SortingState,
-  VisibilityState,
 } from '@tanstack/react-table'
 // Sort-direction arrows; the v3 set has no equivalents.
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
@@ -34,14 +48,49 @@ import { cn } from '#/lib/utils'
 
 // Column width/alignment hints consumed by the TableHead/TableCell renderers
 // so the dense grid stays aligned without per-cell className repetition.
-declare module '@tanstack/react-table' {
-  interface ColumnMeta<TData, TValue> {
-    className?: string
-  }
+export interface DataTableColumnMeta {
+  className?: string
 }
 
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
+// v9 registers features per table instead of exposing the whole v8 surface to
+// every table. The built-in sort functions are registered so a sortable
+// column without an explicit `sortFn` resolves exactly as it did on v8.
+const dataTableFeatures = tableFeatures({
+  columnVisibilityFeature,
+  rowSortingFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: {
+    alphanumeric: sortFn_alphanumeric,
+    alphanumericCaseSensitive: sortFn_alphanumericCaseSensitive,
+    basic: sortFn_basic,
+    datetime: sortFn_datetime,
+    text: sortFn_text,
+    textCaseSensitive: sortFn_textCaseSensitive,
+  },
+  columnMeta: metaHelper<DataTableColumnMeta>(),
+})
+
+// `enablePagination` decides only whether rows are sliced, so the pagination
+// feature is registered in both bundles (the pager's state and methods exist
+// either way) and only the row model that slices is conditional. v9's core row
+// model already resets the page index when `data` changes, and on filtering,
+// sorting and grouping, so this table owns no reset effect of its own.
+const paginatedDataTableFeatures = tableFeatures({
+  ...dataTableFeatures,
+  paginatedRowModel: createPaginatedRowModel(),
+})
+
+/** The column-definition shape this table's features accept. */
+export type DataTableColumnDef<TData extends RowData> = ColumnDef<
+  typeof dataTableFeatures,
+  TData,
+  CellData
+>
+
+interface DataTableProps<TData extends RowData> {
+  columns: DataTableColumnDef<TData>[]
   data: TData[]
   enableSorting?: boolean
   enableRowSelection?: boolean
@@ -52,13 +101,13 @@ interface DataTableProps<TData, TValue> {
   label?: string
   enablePagination?: boolean
   enableColumnVisibility?: boolean
-  initialColumnVisibility?: VisibilityState
+  initialColumnVisibility?: ColumnVisibilityState
   variant?: 'default' | 'quiet'
   emptyMessage?: React.ReactNode
   getRowId?: (row: TData) => string
 }
 
-function DataTable<TData, TValue>({
+function DataTable<TData extends RowData>({
   columns,
   data,
   enableSorting = true,
@@ -74,33 +123,24 @@ function DataTable<TData, TValue>({
   variant = 'default',
   emptyMessage = 'No results.',
   getRowId,
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [rowSelection, setRowSelection] = React.useState({})
-  const [columnVisibility, setColumnVisibility] = React.useState(
-    initialColumnVisibility,
-  )
-  const table = useReactTable({
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<ColumnVisibilityState>(initialColumnVisibility)
+  const table = useTable({
+    features: enablePagination ? paginatedDataTableFeatures : dataTableFeatures,
     data,
     columns,
     state: { sorting, rowSelection, columnVisibility },
     onColumnVisibilityChange: setColumnVisibility,
     getRowId,
-    initialState: { pagination: { pageSize: 20 } },
-    getPaginationRowModel: enablePagination
-      ? getPaginationRowModel()
-      : undefined,
+    initialState: { pagination: { pageIndex: 0, pageSize: 20 } },
     enableSorting,
     enableRowSelection,
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   })
-
-  React.useEffect(() => {
-    if (enablePagination) table.setPageIndex(0)
-  }, [data, enablePagination, table])
 
   return (
     <div className={cn('min-w-0 space-y-2', className)}>
@@ -265,7 +305,7 @@ function DataTable<TData, TValue>({
             Rows per page
             <select
               className="rounded-md border border-input bg-surface p-1 text-fg"
-              value={table.getState().pagination.pageSize}
+              value={table.state.pagination.pageSize}
               onChange={(event) =>
                 table.setPageSize(Number(event.target.value))
               }
@@ -279,7 +319,7 @@ function DataTable<TData, TValue>({
           </label>
           <div className="flex items-center gap-2">
             <span role="status">
-              Page {table.getState().pagination.pageIndex + 1} of{' '}
+              Page {table.state.pagination.pageIndex + 1} of{' '}
               {Math.max(1, table.getPageCount())}
             </span>
             <Button

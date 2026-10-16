@@ -1,19 +1,10 @@
-import {
-  CheckCircle2,
-  ClipboardList,
-  GitCommit,
-  History,
-  ListChecks,
-  Undo2,
-  XCircle,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { ClipboardList, GitCommit, History, ListChecks } from 'lucide-react'
 
 import { AuditTrail } from './audit-trail'
 import type { AuditEvent } from './audit-trail'
-import type { IconName } from '#/components/icons'
+import { AUDIT_DECISION_ICONS, AUDIT_OPERATION_ICONS } from './history-timeline'
 import { Button } from '#/components/v3/ui/button'
-import { Skeleton } from '#/components/v3/ui/skeleton'
+import { formatRelativeTime } from '#/lib/notebook-data'
 import type { TimelineEventWire } from '#/lib/sign-002'
 
 /**
@@ -42,29 +33,6 @@ export interface RecordHistoryTimelineProps {
   refreshing?: boolean
 }
 
-const DECISION_ICONS: Partial<Record<string, IconName | LucideIcon>> = {
-  approve: CheckCircle2,
-  reject: XCircle,
-  request_changes: Undo2,
-  withdraw: Undo2,
-}
-
-const OPERATION_ICONS: Partial<Record<string, IconName | LucideIcon>> = {
-  create: 'upload',
-  update: History,
-  move: History,
-  delete: History,
-  archive: History,
-  restore: History,
-  link: History,
-  unlink: History,
-  quarantine: History,
-  resolve: History,
-  reopen: History,
-  lock: 'lock',
-  amend: GitCommit,
-}
-
 function actorLabel(
   actorUserId: string | null | undefined,
   currentUserId?: string,
@@ -77,22 +45,7 @@ function actorLabel(
   return actorUserId.slice(0, 8)
 }
 
-function relativeTime(ts: string): string {
-  const then = Date.parse(ts)
-  if (!Number.isFinite(then)) return ts
-  const seconds = Math.round((Date.now() - then) / 1000)
-  if (seconds < 45) return 'just now'
-  const minutes = Math.round(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.round(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.round(hours / 24)
-  if (days < 30) return `${days}d ago`
-  // Older than a month — show the calendar date for traceability.
-  return new Date(then).toLocaleDateString()
-}
-
-function pickIcon(event: TimelineEventWire): IconName | LucideIcon {
+function pickIcon(event: TimelineEventWire) {
   switch (event.type) {
     case 'signature':
       return 'edit'
@@ -103,11 +56,11 @@ function pickIcon(event: TimelineEventWire): IconName | LucideIcon {
     case 'submission':
       return ClipboardList
     case 'decision':
-      return DECISION_ICONS[String(event.decision)] ?? CheckCircle2
+      return AUDIT_DECISION_ICONS[String(event.decision)] ?? History
     case 'revision':
       return GitCommit
     case 'change_event':
-      return OPERATION_ICONS[String(event.operation)] ?? History
+      return AUDIT_OPERATION_ICONS[String(event.operation)] ?? History
     default:
       return History
   }
@@ -174,7 +127,7 @@ export function mapTimelineEvents(
     actor: {
       name: actorLabel(event.actorUserId, currentUserId, currentUserName),
     },
-    timestamp: relativeTime(event.ts),
+    timestamp: formatRelativeTime(event.ts),
     icon: pickIcon(event),
     target: detailPhrase(event) || undefined,
   }))
@@ -191,42 +144,6 @@ export function RecordHistoryTimeline({
   onRefresh,
   refreshing = false,
 }: RecordHistoryTimelineProps) {
-  if (loading) {
-    return (
-      <div className="space-y-3" aria-busy="true">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex gap-3">
-            <Skeleton className="size-8 shrink-0 rounded-full" />
-            <div className="flex-1 space-y-1.5 pt-1">
-              <Skeleton className="h-3 w-2/3" />
-              <Skeleton className="h-3 w-1/3" />
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-        <p role="alert" className="text-sm text-danger-text">
-          Could not load the record history.
-        </p>
-        {onRefresh ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onRefresh}
-            disabled={refreshing}
-          >
-            {refreshing ? 'Retrying…' : 'Try again'}
-          </Button>
-        ) : null}
-      </div>
-    )
-  }
-
   const mapped = mapTimelineEvents(events, currentUserId, currentUserName)
 
   return (
@@ -250,9 +167,15 @@ export function RecordHistoryTimeline({
           </Button>
         ) : null}
       </div>
-      <AuditTrail events={mapped} totalCount={mapped.length} />
+      <AuditTrail
+        events={mapped}
+        totalCount={mapped.length}
+        loading={loading}
+        error={error ? 'Could not load the record history.' : null}
+        retry={onRefresh ? { onClick: onRefresh, busy: refreshing } : undefined}
+      />
       {revisionId ? (
-        <p className="font-mono text-xs text-fg-muted/70">
+        <p className="font-mono text-xs text-fg-muted">
           Revision {revisionId.slice(0, 12)}…
           {integrityDigest
             ? ` · integrity ${integrityDigest.slice(0, 16)}…`

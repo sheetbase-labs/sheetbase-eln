@@ -27,11 +27,12 @@ a decision is not a record.
 
 ## Rows
 
-| #   | Component (generic UI job)                                  | What we use now                                                                                                                                                                                                                                                                                                                                            | What ReUI offers                                                                                                                                               | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                              | Decision                                                                                                                                                                                                                     | Measured    |
-| --- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | Reorderable list — reorder rows by pointer and keyboard     | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                                                                          | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                     | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                            | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                             | 16 Oct 2026 |
-| 2   | Numeric quantity field — enter a number that carries a unit | No shared numeric component: the kit's `Input` with `type="number"`/`inputMode="decimal"`, labelled by `Field`, with a per-screen check (`materials.tsx:783-790` is the pattern the other ~20 numeric call sites repeat)                                                                                                                                   | `@reui/number-field` (base-nova pin), a Base UI `NumberField` wrapper — group, decrement, input, increment, scrub area: `src/components/reui/number-field.tsx` | Ours: the 8 applicable items pass, including density at 390x844 (see the detail table). Theirs: 7 of 8 pass — axe is clean and the states hold, but the field **displays a formatter's value rather than the value**: `1e-21`, `1.602176634e-19` and `Number.EPSILON` all read `0`, and typing `1e-21` yields `1`. 10 items are not applicable — this pair has no sort, filter, select, resize, pagination or reorder control | **Decline.** Our implementation is not materially worse: it keeps the digits the scientist entered, and the candidate at its defaults loses them on screen and on entry. See the detail below                                | 16 Oct 2026 |
-| 3   | Signature pad — capture a signature as ink                  | **Nothing draws.** The surface the plan names, `src/components/notebook/e-sign-dialog.tsx` (261 lines), is the credential attestation form: signing-as, meaning, revision, content hash, server-time statement, re-authentication password, type-your-name confirmation. No canvas, no pointer capture, no export exists anywhere in `src` for a signature | `@reui/signature-pad` (base-nova pin), 1,382 lines, `cn` only: pressure- and speed-sized ink, touch and stylus input, undo/redo, PNG/JPEG/SVG/JSON export      | Not applicable: the harness compares two implementations of one job, and only one of these does the job. There is no side to put in the second column                                                                                                                                                                                                                                                                         | **Decline — a different job.** An ink pad answers "what did the mark look like"; electronic signature here is an attestation under an audit chain (REV-03), which ReUI neither carries nor may replace. See the detail below | 16 Oct 2026 |
+| #   | Component (generic UI job)                                   | What we use now                                                                                                                                                                                                                                                                                                                                            | What ReUI offers                                                                                                                                                                  | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                              | Decision                                                                                                                                                                                                                                             | Measured    |
+| --- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard      | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                                                                          | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                        | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                            | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                                                     | 16 Oct 2026 |
+| 2   | Numeric quantity field — enter a number that carries a unit  | No shared numeric component: the kit's `Input` with `type="number"`/`inputMode="decimal"`, labelled by `Field`, with a per-screen check (`materials.tsx:783-790` is the pattern the other ~20 numeric call sites repeat)                                                                                                                                   | `@reui/number-field` (base-nova pin), a Base UI `NumberField` wrapper — group, decrement, input, increment, scrub area: `src/components/reui/number-field.tsx`                    | Ours: the 8 applicable items pass, including density at 390x844 (see the detail table). Theirs: 7 of 8 pass — axe is clean and the states hold, but the field **displays a formatter's value rather than the value**: `1e-21`, `1.602176634e-19` and `Number.EPSILON` all read `0`, and typing `1e-21` yields `1`. 10 items are not applicable — this pair has no sort, filter, select, resize, pagination or reorder control | **Decline.** Our implementation is not materially worse: it keeps the digits the scientist entered, and the candidate at its defaults loses them on screen and on entry. See the detail below                                                        | 16 Oct 2026 |
+| 3   | Signature pad — capture a signature as ink                   | **Nothing draws.** The surface the plan names, `src/components/notebook/e-sign-dialog.tsx` (261 lines), is the credential attestation form: signing-as, meaning, revision, content hash, server-time statement, re-authentication password, type-your-name confirmation. No canvas, no pointer capture, no export exists anywhere in `src` for a signature | `@reui/signature-pad` (base-nova pin), 1,382 lines, `cn` only: pressure- and speed-sized ink, touch and stylus input, undo/redo, PNG/JPEG/SVG/JSON export                         | Not applicable: the harness compares two implementations of one job, and only one of these does the job. There is no side to put in the second column                                                                                                                                                                                                                                                                         | **Decline — a different job.** An ink pad answers "what did the mark look like"; electronic signature here is an attestation under an audit chain (REV-03), which ReUI neither carries nor may replace. See the detail below                         | 16 Oct 2026 |
+| 4   | Keyboard shortcut cap — show the keys that trigger a command | One shared `Kbd` already exists: `src/components/v3/ui/kbd.tsx` (10 lines), a `<kbd>` bound to the v3 tokens; a chord is three of them in the `flex gap-1` span the call sites write. One component, used by the shortcuts dialog, the help page and the search palette                                                                                    | Stock shadcn `kbd` (a bare name on the same index; §11.3.4), 28 lines: `Kbd`, `KbdGroup` to wrap a chord, and an inversion inside tooltip content — `src/components/reui/kbd.tsx` | Ours: the 8 applicable items pass. Theirs: all 8 pass. 10 items are not applicable — no sort, filter, select, resize, pagination or reorder control, and neither side puts a cap on the keyboard path                                                                                                                                                                                                                         | **Decline.** Our implementation is not materially worse: it is the one shared, token-bound cap, and the candidate's only additions are a chord wrapper the call sites already write and a tooltip treatment that is inert here. See the detail below | 16 Oct 2026 |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -264,7 +265,7 @@ Sort, filter, select, resize, pagination and reorder: not applicable to this pai
 | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                                   | 16 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
 | axe in Chromium, colour contrast **on**                                                                        | 4 cases (2 columns × 2 themes), **zero violations**                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`   |
-| The browser checklist, for this pair: Tab order, appearance, the three states, density at 1440x900 and 390x844 | 13 tests, pass — 33 pass in the file, both pairs                                  | same command; the generic checks run for every pair in the spec's `PAIRS` list          |
+| The browser checklist, for this pair: Tab order, appearance, the three states, density at 1440x900 and 390x844 | 14 tests, pass — 47 pass in the file, all three pairs                             | same command; the generic checks run for every pair in the spec's `PAIRS` list          |
 | The pair's load-bearing measurements, pinned                                                                   | 6 tests, pass                                                                     | `pnpm exec vitest run src/components/component-compare/pairs/quantity-field.test.tsx`   |
 | Harness contracts (one scenario object to both columns, frozen fixtures, states)                               | 12 tests, pass                                                                    | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`      |
 
@@ -429,6 +430,122 @@ because it is a different job, not because it lost a comparison.
   canvas-based signing in general, or on signature pads in products that do
   collect a mark. It says this repository has no drawing surface and no job for
   one.
+
+## Row 4 — Keyboard shortcut cap (`shortcut-keys`)
+
+### What we use now
+
+`src/components/v3/ui/kbd.tsx`, ten lines: a `<kbd>` with
+`rounded-[3px] border border-border bg-surface px-1 font-mono text-[10px]
+text-fg-muted`. It is not a bespoke piece — it is the one shared cap the v3 kit
+ships, consumed by the shortcuts dialog, the search palette, the app shell, the
+slash-command menu, the v3 command menu, the help page, the shortcuts page and
+the inbox; the legacy `Kbd` has one consumer left, its own story. A chord is
+three of them in the `flex items-center gap-1` span the call sites write, as
+`src/stories/Kbd.stories.tsx` shows.
+
+The plan's §4.5 groups kbd with "small bespoke presentation pieces across
+pipelines, agents, help". On the current tree the piece is neither bespoke nor
+repeated: it is one token-bound component with five consumers, so the "cheap
+consistency win" the plan expected is already banked.
+
+### What ReUI offers
+
+The stock shadcn `kbd` item — a bare name on the same index as the ReUI items
+(§11.3.4), read from its own registry item, installed with the shadcn CLI into a
+scratch directory and placed at `src/components/reui/kbd.tsx`. Its published
+target is `ui/kbd.tsx`, which in this repository is the deprecated kit and
+already holds a different `Kbd`; placing it there is exactly the trap §11.3.1
+describes, so it is hand-placed under `reui/` instead.
+
+Edits to the copy: the `cn` import re-pointed at `#/lib/utils`, and `bg-muted` →
+`bg-surface-muted`, `text-muted-foreground` → `text-fg-muted`. The
+`[[data-slot=tooltip-content]_&]` classes are kept as published and are inert:
+no v3 tooltip content carries that attribute.
+
+It adds `KbdGroup` — a wrapping `<kbd data-slot="kbd-group">` for a chord — and
+the tooltip inversion. Measured in Chromium, on the long-labels fixture, both on
+the same 20px height:
+
+|               | Cap width | Radius | Type                 | Fill                   | Border |
+| ------------- | --------- | ------ | -------------------- | ---------------------- | ------ |
+| Ours          | 16px      | 3px    | 10px JetBrains Mono  | `bg-surface`           | 1px    |
+| Theirs        | 20px      | 4px    | 12px Inter           | `bg-surface-muted`     | none   |
+| Theirs' group | 44px      | —      | (inherits 13px mono) | transparent, no chrome | none   |
+
+### Checklist result
+
+Fixed checklist: `src/components/component-compare/checklist.ts`. The 8
+applicable items are the ones requiring no control class plus the states the
+harness owns; the other 10 need reorder, sort, filter, select, resize or
+pagination controls neither side has, and are recorded as not applicable.
+
+| Check                                                     | Ours                                                           | Theirs                                             | How it was measured                                                   |
+| --------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator | Pass — and there is nothing to reach: a cap is not interactive | Pass — same, and the group does not add a tab stop | `shortcut-keys.test.tsx`, and the browser Tab walk                    |
+| Empty (0 rows), loading, error, permission-restricted     | Pass                                                           | Pass                                               | Browser (both columns) and jsdom                                      |
+| Dark theme                                                | Pass — token-bound colours only; axe clean in dark             | Pass                                               | axe in Chromium with colour contrast on, both columns and both themes |
+| Density and overflow at 1440x900                          | Pass                                                           | Pass                                               | Browser, both columns                                                 |
+| Density and overflow at 390x844                           | Pass                                                           | Pass                                               | Browser, both columns                                                 |
+| A very long command name beside a chord                   | Pass — the name truncates, the chord keeps its width           | Pass — the same, at a wider cap                    | Browser, long-labels fixture                                          |
+
+Sort, filter, select, resize, pagination and reorder: not applicable to this pair
+(10 items), and neither column has an interactive control of any kind.
+
+### Automated evidence
+
+| Evidence                                                                                             | Result                                                                            | Command                                                                                 |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                         | 16 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
+| axe in Chromium, colour contrast **on**                                                              | 4 cases (2 columns × 2 themes), **zero violations**                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`   |
+| The browser checklist for this pair: Tab order, appearance, the three states, density at both widths | 14 tests, pass — 47 pass in the file, all three pairs                             | same command                                                                            |
+| The pair's structural facts, pinned                                                                  | 3 tests, pass                                                                     | `pnpm exec vitest run src/components/component-compare/pairs/shortcut-keys.test.tsx`    |
+
+Appearance evidence: `shortcut-keys-{ours,theirs}-{light,dark}.png` from the
+browser run (`COMPONENT_COMPARE_SHOTS=<dir>`), and the story
+`src/stories/RegistryKbd.stories.tsx`.
+
+### Decision and reason
+
+**Decline.** ADR-0055 decision 4's first test is whether our version is
+materially worse — "a named behaviour is missing, or the maintenance burden is
+demonstrably ours". Neither holds:
+
+- **No behaviour is missing.** Both sides render `<kbd>` elements with the keys
+  in them, both are non-interactive, and both are axe-clean in both themes. The
+  candidate's `KbdGroup` is a `<kbd>` wrapped around `<kbd>`s, which is the same
+  reading as our span-wrapped chord and no better semantics — `kbd` is a
+  phrasing element and nesting it states nothing extra.
+- **The tooltip treatment is inert here.** It keys on
+  `[data-slot="tooltip-content"]`, and no v3 tooltip content carries that
+  attribute. Adopting it would mean either leaving dead CSS in the copy or
+  editing the v3 tooltip to suit a candidate that is not being adopted.
+- **The burden is ours either way, and ours is smaller.** Ours is ten lines in
+  the kit we already maintain and it is what the adoption guard points at; the
+  candidate is twenty-eight lines vendored beside it. The only measurable
+  difference is presentation — a 20px cap against our 16px, sans against mono,
+  filled against bordered — and a design choice is not a missing behaviour.
+
+**What would change the answer.** Two conditions:
+
+- **K1 — a design wants caps inverted inside tooltips.** Then the v3 tooltip
+  gains a `data-slot`, our `Kbd` gains the treatment (three lines), and the
+  candidate's remaining advantage is `KbdGroup` alone — still not enough to
+  vendor a file.
+- **K2 — a chord needs to be one accessible unit.** If a screen reader must
+  announce "⌘K" as one shortcut rather than two keys, the fix is an
+  `aria-label` on the wrapper, which our call sites can add without a registry
+  item.
+
+### Limits of this row
+
+- Desktop Chromium only; no other engine was run.
+- The comparison is of two presentation components on fixture rows, which is
+  where a cap is used and not a whole screen: it measures how the caps render
+  beside a long command name, not the shortcuts dialog's layout.
+- The 5,000-row fixture is rendered and measured for overflow, not by axe.
+- This row is not a verdict on the stock shadcn `kbd` item in general, and it
+  does not authorise changing the five kbd call sites.
 
 ## Adding a row
 

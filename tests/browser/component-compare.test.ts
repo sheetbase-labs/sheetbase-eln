@@ -44,7 +44,7 @@ type ColumnId = (typeof COLUMNS)[number]
  * page offers a pair id this list does not know, so a new pair cannot ship
  * unchecked.
  */
-const PAIRS = ['notebook-sortable', 'quantity-field'] as const
+const PAIRS = ['notebook-sortable', 'quantity-field', 'shortcut-keys'] as const
 type PairId = (typeof PAIRS)[number]
 
 /** A pair whose components reorder rows: the drag and drop tests are its own. */
@@ -252,6 +252,9 @@ test.describe('keyboard', () => {
       // the input carries no `aria-label` for this probe to read.
       'theirs|INPUT|number-field-input|',
     ],
+    // Neither side puts anything on the keyboard path: a key cap is not an
+    // interactive control, and the chord is read as text.
+    'shortcut-keys': [],
   }
 
   for (const pair of PAIRS) {

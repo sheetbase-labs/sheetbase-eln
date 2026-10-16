@@ -311,6 +311,7 @@ describe('the registered pair set', () => {
     expect(COMPARISON_PAIRS.map((pair) => pair.id)).toEqual([
       'notebook-sortable',
       'quantity-field',
+      'shortcut-keys',
     ])
   })
 

@@ -270,13 +270,13 @@ one this change should take alone.
 
 ### Automated evidence
 
-| Evidence                                                                                                  | Result                                                                   | Command                                                                                                      |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides, for this pair and the notebook pair         | 18 cases for this pair, **zero violations** (colour contrast off: jsdom) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                      |
-| axe in Chromium, colour contrast **on**, both columns, both themes                                        | 4 cases, **zero violations**                                             | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep "native select"` |
-| Harness contracts (both columns render the same options; the restricted state disables both)              | 14 tests pass (2 of them this pair's)                                    | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                           |
-| Keyboard, density and screenshots in a real engine                                                        | 13 tests pass for this pair                                              | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep "native select"` |
-| The migration itself: every `<select>` on 10 migrated screens is the primitive and has an accessible name | 13 selects across 10 screens, 0 raw, 0 unnamed (measured 16 Oct 2026)    | walked with the gareth design user at 1440x900; the screens are listed in the change's report                |
+| Evidence                                                                                                 | Result                                                                            | Command                                                                                                      |
+| -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides, for this pair and the notebook pair        | 18 cases for this pair, **zero violations** (colour contrast off: jsdom)          | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                      |
+| axe in Chromium, colour contrast **on**, both columns, both themes                                       | 4 cases, **zero violations**                                                      | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep "native select"` |
+| Harness contracts (both columns render the same options; the restricted state disables both)             | 14 tests pass (2 of them this pair's)                                             | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                           |
+| Keyboard, density and screenshots in a real engine                                                       | 13 tests pass for this pair                                                       | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep "native select"` |
+| The migration itself: every `<select>` on the screens walked is the primitive and has an accessible name | 13 selects on 7 of the 14 screens walked, 0 raw, 0 unnamed (measured 16 Oct 2026) | walked with the gareth design user at 1440x900; the screens are listed in the change's report                |
 
 Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `native-select-ours-light.png`,
 `native-select-ours-dark.png`, `native-select-theirs-light.png`,
@@ -328,9 +328,10 @@ item because native is the repository's deliberate choice for it.
 - The 5,000-row fixture is rendered in both columns in the browser run (5,000
   `<option>`s per select) but is not an axe target in either engine — the same
   recorded exclusion as row 1.
-- The migration evidence (13 selects on 10 screens, all the primitive, all
-  named) was gathered by walking those screens, not by a committed test; the
-  committed guard is the adoption test plus the kit's own suites.
+- The migration evidence (13 selects on 7 of the 14 screens walked, all the
+  primitive, all named) was gathered by walking those screens, not by a
+  committed test; the committed guard is the adoption test plus the kit's own
+  suites.
 - This row records one pair. It is not a verdict on the shadcn registry, on
   `@base-ui/react`'s `Select`, or on any other item.
 

@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 
 import {
-  CodeBlock,
   PipelineSteps,
   TemporaryArtefact,
   TemporaryResultNote,
 } from '#/components/v3/pipelines/pipeline-code'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted, Section } from '#/components/v3/ui/layout'

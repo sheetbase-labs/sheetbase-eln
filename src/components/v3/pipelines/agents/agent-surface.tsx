@@ -13,6 +13,7 @@ import {
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -118,9 +119,13 @@ function JsonValue({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="min-w-0">
       <div className="text-label font-medium text-fg-muted">{label}</div>
-      <pre className="m-0 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-surface-muted p-2 text-[11px] leading-4">
-        {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
-      </pre>
+      <CodeBlock
+        code={
+          typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+        }
+        label={label}
+        maxHeight="sm"
+      />
     </div>
   )
 }

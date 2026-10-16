@@ -8,6 +8,7 @@
  */
 import * as React from 'react'
 import { Icon } from '#/components/v3/icons'
+import { Spinner } from '#/components/v3/ui/spinner'
 
 import { cn } from '#/lib/utils'
 import type { AutosaveStatus } from './use-autosave'
@@ -36,22 +37,13 @@ const META: Record<
   },
   saving: {
     label: 'Saving…',
-    icon: (
-      <Icon
-        name="clock"
-        size={12}
-        className="animate-spin"
-        aria-hidden="true"
-      />
-    ),
+    icon: <Spinner size={12} />,
     className: 'text-fg-muted',
     testId: 'saving',
   },
   retrying: {
     label: 'Retrying…',
-    icon: (
-      <Icon name="move" size={12} className="animate-spin" aria-hidden="true" />
-    ),
+    icon: <Spinner size={12} />,
     className: 'text-warning-text',
     testId: 'retrying',
   },

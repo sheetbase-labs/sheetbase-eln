@@ -307,9 +307,23 @@ describe('the ReUI column offers the candidate’s own controls', () => {
 })
 
 describe('the registered pair set', () => {
-  it('holds the notebook sortable list, and nothing else yet', () => {
+  it('holds the notebook sortable list first, then the small-primitives batch', () => {
     expect(COMPARISON_PAIRS.map((pair) => pair.id)).toEqual([
       'notebook-sortable',
+      'spinner',
+      'progress',
+      'collapsible',
+      'payload-block',
     ])
+  })
+
+  it('gives every pair two sides with a source the record can cite', () => {
+    for (const pair of COMPARISON_PAIRS) {
+      expect(pair.job.length).toBeGreaterThan(0)
+      expect(pair.ours.source.length).toBeGreaterThan(0)
+      expect(pair.theirs.source.length).toBeGreaterThan(0)
+      expect(pair.ours.id).toBe('ours')
+      expect(pair.theirs.id).toBe('theirs')
+    }
   })
 })

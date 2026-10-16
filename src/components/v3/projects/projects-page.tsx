@@ -3,6 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
+import { copyText } from '#/components/v3/ui/copy-button'
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '#/components/v3/ui/collapsible'
 import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
@@ -656,10 +662,13 @@ export function ProjectsPage({
                 <DropdownMenuContent align="end" className="w-[220px]">
                   <DropdownMenuItem
                     icon="copy"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(window.location.href)
-                      toast('Link to this view copied')
-                    }}
+                    onClick={() =>
+                      void copyText(window.location.href, {
+                        copiedMessage: 'Link to this view copied',
+                        failedMessage:
+                          'Could not copy the link. Copy it from the address bar.',
+                      })
+                    }
                   >
                     Copy link to this view
                   </DropdownMenuItem>
@@ -1382,11 +1391,9 @@ function NewProjectDialog({
                 ))}
               </NativeSelect>
             </Field>
-            <details>
-              <summary className="cursor-pointer text-label">
-                Agreement and start date
-              </summary>
-              <div className="mt-3 grid grid-cols-2 gap-3">
+            <Collapsible>
+              <CollapsibleTrigger>Agreement and start date</CollapsibleTrigger>
+              <CollapsiblePanel className="mt-3 grid grid-cols-2 gap-3">
                 <Field label="Agreement reference">
                   <Input
                     value={agreement}
@@ -1400,8 +1407,8 @@ function NewProjectDialog({
                     onChange={(e) => setStartedOn(e.target.value)}
                   />
                 </Field>
-              </div>
-            </details>
+              </CollapsiblePanel>
+            </Collapsible>
             {error ? (
               <p role="alert" className="m-0 text-label text-danger-text">
                 {error}

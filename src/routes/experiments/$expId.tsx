@@ -6,7 +6,7 @@ import { LinkTabs } from '#/components/v3/projects/search-tabs'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
-import { toast } from '#/components/v3/ui/sonner'
+import { CopyButton } from '#/components/v3/ui/copy-button'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
@@ -144,21 +144,14 @@ function ExperimentLayout() {
         }
         actions={
           <>
-            <Button
+            <CopyButton
+              value={window.location.href}
               className="max-lg:hidden"
-              onClick={() => {
-                const url = window.location.href
-                navigator.clipboard.writeText(url).then(
-                  () => toast('Link copied'),
-                  () =>
-                    toast('Copy this link', {
-                      description: url,
-                    }),
-                )
-              }}
+              copiedMessage="Link copied"
+              failedMessage="Could not copy the link. Copy it from the address bar."
             >
               Share
-            </Button>
+            </CopyButton>
             <Button
               variant="primary"
               nativeButton={false}

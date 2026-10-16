@@ -13,6 +13,7 @@ import { RefreshCw, WifiOff } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
 import { Button } from '#/components/v3/ui/button'
+import { Spinner } from '#/components/v3/ui/spinner'
 import { formatClockTime } from '#/components/offline/offline-edits'
 
 export interface OfflineBannerProps {
@@ -72,10 +73,11 @@ export function OfflineBanner({
             disabled={retrying}
             data-offline-retry
           >
-            <RefreshCw
-              className={cn('size-3', retrying && 'animate-spin')}
-              aria-hidden="true"
-            />
+            {retrying ? (
+              <Spinner size={12} />
+            ) : (
+              <RefreshCw className="size-3" aria-hidden="true" />
+            )}
             {retrying ? 'Retrying…' : 'Retry now'}
           </Button>
         ) : null}

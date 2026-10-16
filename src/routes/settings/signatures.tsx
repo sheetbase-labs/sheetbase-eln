@@ -4,6 +4,11 @@ import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '#/components/v3/ui/collapsible'
 import { Status } from '#/components/v3/ui/status'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import {
@@ -575,11 +580,9 @@ function IdentityVerification({
     onSuccess: onVerified,
   })
   return (
-    <details className="w-full">
-      <summary className="cursor-pointer text-label">
-        Verify {name} independently
-      </summary>
-      <div className="mt-2 flex max-w-[480px] flex-col gap-2">
+    <Collapsible className="w-full">
+      <CollapsibleTrigger>Verify {name} independently</CollapsibleTrigger>
+      <CollapsiblePanel className="mt-2 flex max-w-[480px] flex-col gap-2">
         <Field label="Independently verified email">
           <Input
             type="email"
@@ -603,8 +606,8 @@ function IdentityVerification({
         {verify.error ? (
           <Notice tone="bad">{verify.error.message}</Notice>
         ) : null}
-      </div>
-    </details>
+      </CollapsiblePanel>
+    </Collapsible>
   )
 }
 
@@ -657,11 +660,11 @@ function CredentialEnrollment({
   })
   return (
     <Section title="Your signing password">
-      <details>
-        <summary className="cursor-pointer text-body">
+      <Collapsible>
+        <CollapsibleTrigger className="text-body">
           Set up or recover a local signing password
-        </summary>
-        <div className="mt-2 flex max-w-[480px] flex-col gap-2">
+        </CollapsibleTrigger>
+        <CollapsiblePanel className="mt-2 flex max-w-[480px] flex-col gap-2">
           <Muted>
             Fresh independent verification must authorize this current session.
             Email is sent immediately over certificate-validated TLS; there is
@@ -726,8 +729,8 @@ function CredentialEnrollment({
           {send.error || enroll.error ? (
             <Notice tone="bad">{(send.error ?? enroll.error)?.message}</Notice>
           ) : null}
-        </div>
-      </details>
+        </CollapsiblePanel>
+      </Collapsible>
     </Section>
   )
 }

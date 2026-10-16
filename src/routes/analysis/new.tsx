@@ -26,6 +26,7 @@ import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { freezeAnalysisBlock } from '#/lib/analysis-definitions-data'
 import { toast } from '#/components/v3/ui/sonner'
+import { Spinner } from '#/components/v3/ui/spinner'
 import {
   Dialog,
   DialogBody,
@@ -1187,11 +1188,7 @@ export function SavedViewsPanel({
           disabled={!canSave || saving}
           aria-label="Save analysis view"
         >
-          {saving ? (
-            <Icon name="clock" size={16} className="animate-spin" />
-          ) : (
-            <Save />
-          )}
+          {saving ? <Spinner size={16} /> : <Save />}
           {selectedViewId ? 'Update' : 'Save'}
         </Button>
       </div>

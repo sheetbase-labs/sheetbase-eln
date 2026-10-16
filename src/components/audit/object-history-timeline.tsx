@@ -13,6 +13,12 @@ import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '#/components/v3/ui/collapsible'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import {
   auditLinkFor,
@@ -129,24 +135,28 @@ function ChangeChip({ change }: { change: FieldChange }) {
 
 function RawPayload({ event }: { event: AuditEventWire }) {
   return (
-    <details className="pt-1">
-      <summary className="cursor-pointer select-none text-xs text-fg-muted hover:text-fg">
+    <Collapsible className="pt-1">
+      <CollapsibleTrigger className="text-xs text-fg-muted hover:text-fg">
         Raw event
-      </summary>
-      <pre className="mt-1 overflow-x-auto rounded-md border bg-surface-muted/40 p-2 font-mono text-[11px] leading-snug text-fg-muted">
-        {JSON.stringify(
-          {
-            sequence: event.sequence,
-            entityType: event.entityType,
-            operation: event.operation,
-            actorUserId: event.actorUserId,
-            payload: event.payload,
-          },
-          null,
-          2,
-        )}
-      </pre>
-    </details>
+      </CollapsibleTrigger>
+      <CollapsiblePanel className="mt-1">
+        <CodeBlock
+          code={JSON.stringify(
+            {
+              sequence: event.sequence,
+              entityType: event.entityType,
+              operation: event.operation,
+              actorUserId: event.actorUserId,
+              payload: event.payload,
+            },
+            null,
+            2,
+          )}
+          language="json"
+          label="Raw event payload"
+        />
+      </CollapsiblePanel>
+    </Collapsible>
   )
 }
 

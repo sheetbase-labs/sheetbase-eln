@@ -9,6 +9,7 @@ import {
   SortableItem,
   SortableItemHandle,
 } from '#/components/reui/sortable'
+import { Progress } from '#/components/v3/ui/progress'
 import type {
   ComparisonColumnProps,
   ComparisonFixture,
@@ -118,6 +119,57 @@ for (const pair of COMPARISON_PAIRS) {
     })
   }
 }
+
+/**
+ * The high-precision fixture, pinned.
+ *
+ * The harness's hostile `value` column holds figures such as `1.6e-19` and
+ * `2.220446049250313e-16`. ARIA's number grammar has no exponential notation,
+ * so a `progressbar` that forwards one writes an `aria-valuenow` axe rejects as
+ * `aria-valid-attr-value` (critical) — the violation this suite caught on the
+ * progress pair, in the candidate column, before the pair was recorded.
+ *
+ * The shipped bars never met a figure like that because each caller computed
+ * its own percentage first (the hold meter from its day arithmetic, the approval
+ * bar behind a `total ? … : 0` guard, the settings bar behind
+ * `Math.min(100, Math.max(0, percent))`). The component takes the caller's raw
+ * figure, so it has to survive one. Both halves are asserted here: the raw form
+ * fails, and the component's own normalisation passes.
+ */
+describe('the progress candidate normalises a figure ARIA cannot express', () => {
+  const PRECISE = 1.602176634e-19
+
+  it('fails aria-valid-attr-value when the raw figure is forwarded', async () => {
+    const { container } = render(
+      <div
+        role="progressbar"
+        aria-label="Hold time used"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={PRECISE}
+      />,
+    )
+
+    const results = await axeViolations(container)
+    expect(
+      results.violations.map((violation) => ({
+        id: violation.id,
+        impact: violation.impact,
+      })),
+    ).toEqual([{ id: 'aria-valid-attr-value', impact: 'critical' }])
+  })
+
+  it('is axe-clean once Progress reports what the bar can draw', async () => {
+    const { container } = render(
+      <Progress label="Hold time used" value={PRECISE} valueText="1.6e-19" />,
+    )
+
+    const bar = container.querySelector('[data-slot="progress"]')
+    expect(bar?.getAttribute('aria-valuenow')).toBe('0')
+    expect(bar?.getAttribute('aria-valuetext')).toBe('1.6e-19')
+    await expectNoAxeViolations(container)
+  })
+})
 
 /**
  * C1, pinned.

@@ -79,6 +79,14 @@ pnpm exec vitest run src/components/component-compare/component-compare.test.tsx
 pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser
 ```
 
+**jsdom answers only the questions that do not need layout.** A rule such as
+`scrollable-region-focusable` never fires there, because nothing is laid out to
+overflow: the payload pair's shipped column passes the jsdom sweep and fails in
+Chromium, which is
+[the finding that decides row 5](../knowledge/design/component-comparison-record.md).
+Run the browser half — or an axe pass in a real engine, if the pair is not the
+one the spec is written against — before recording a row.
+
 The browser run needs the local service stack (`pnpm services:up`) and the
 seeded design users (`pnpm db:fresh`); it signs in as the `gareth` design user
 the way every other browser spec does.

@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { Button } from '#/components/v3/ui/button'
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '#/components/v3/ui/collapsible'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { NativeSelect } from '#/components/v3/projects/select'
@@ -235,14 +241,19 @@ export function ParserSettings({
                   : 'unknown'}{' '}
                 rows · {selected.validated_at}
               </p>
-              <details>
-                <summary className="cursor-pointer text-label">
+              <Collapsible>
+                <CollapsibleTrigger>
                   Full validation evidence
-                </summary>
-                <pre className="max-h-[240px] overflow-auto whitespace-pre-wrap break-words text-label">
-                  {JSON.stringify(selected.test_result, null, 2)}
-                </pre>
-              </details>
+                </CollapsibleTrigger>
+                <CollapsiblePanel className="mt-1">
+                  <CodeBlock
+                    code={JSON.stringify(selected.test_result, null, 2)}
+                    language="json"
+                    label="Full validation evidence"
+                    maxHeight="lg"
+                  />
+                </CollapsiblePanel>
+              </Collapsible>
             </div>
           ) : (
             <Muted>No retained-file validation result yet.</Muted>

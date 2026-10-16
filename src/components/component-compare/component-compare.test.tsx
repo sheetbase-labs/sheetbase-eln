@@ -310,10 +310,11 @@ describe('the ReUI column offers the candidate’s own controls', () => {
 })
 
 describe('the registered pair set', () => {
-  it('holds the notebook sortable list and the empty state', () => {
+  it('holds every registered pair, in the order the harness lists them', () => {
     expect(COMPARISON_PAIRS.map((pair) => pair.id)).toEqual([
       'notebook-sortable',
       'empty-state',
+      'history-rows',
     ])
   })
 })

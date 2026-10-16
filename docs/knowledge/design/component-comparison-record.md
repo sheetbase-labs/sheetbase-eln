@@ -34,6 +34,7 @@ a decision is not a record.
 | 2   | Step progress row — an ordered flow's current stage                                          | `src/components/v3/ui/stepper.tsx` (67 lines), the forward kit's row and the import flow's only step chrome (`import-flow.tsx:334`, `:854`). After this change it is the only stepper in `src`; the legacy duplicate `src/components/ui/stepper.tsx` was deleted here                                                                                                                                                                                                                       | `@reui/stepper` (base-nova pin), a wizard-navigation primitive: `src/components/reui/stepper.tsx` (494 lines) — a `<nav>` of `<div>` items holding a `role="tablist"` of tabs                                                                                                                                                                                                                                       | Ours: all 8 applicable items pass — display-only, `aria-current="step"`, axe clean, fits 390x844 by wrapping. Theirs: **could not be measured as an adoptable column and was not registered as a pair.** It cannot render the shipped contract (no list named "Steps", no listitem, no `aria-current`), and it fails the harness's own axe gate: 3 critical violations as published, 2 of them still there with the consumer's container fixes. It also fails 390x844 (the row overflows and labels truncate). 8 items are not applicable — no reorder, sort, filter, select, resize or pagination control | **Decline — do not adopt.** The item is a different job (wizard navigation, not a progress row) and clearing the bar means rewriting the tags, roles and attributes it declares, which ADR-0055 decision 2 does not permit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
 | 4   | List row / row chrome — one row, its link form, and the list that holds it                   | ≈30 hand-rolled row renderers across 21 domain files; two competing entity rows (`RecordLink`, 92 lines, and `LinkedRecordList`, 47); six families (entity, property, file, comment, check, step), each spelling its own leading slot, truncation, meta line, trailing slot, hover and focus treatment                                                                                                                                                                                      | **Nothing to install.** `@reui/item` and `@reui/row` both return `404 {"error":"Registry item not found", "message":"item is part of shadcn/ui, not a ReUI item"}`. The nearest registry item is stock shadcn's compound `Item`, which is not ReUI-native and has no link form, no read-only state vocabulary, and pulls the `cn` package                                                                           | Not run against a registry candidate — there is none for this job, so ADR-0055 decision 5's A/B comparison has no second column. The in-house pair's own contract is pinned instead: `src/components/v3/ui/row.test.tsx` (11 tests: the four forms, list semantics, empty, windowing, hover detail), the migrated sites' tests (176 pass), axe with **zero violations** (WCAG 2 A/AA) over the rendered inspector, and the rendered evidence below                                                                                                                                                         | **Consolidate in-house: `Row` + `RowList` in the v3 kit, with `DescriptionList` as the property row.** No registry adoption. Reason: every family's cost is the _number of implementations_, not a missing feature, and the rival implementations differ in exactly the ways one component should fix — which registry item to install is a different question, and for this job there is none                                                                                                                                                                                                                                                                                                                                               | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
 | 5   | Empty state — explain what is absent and offer one next action                               | The forward kit's 37-line `EmptyState` (`src/components/v3/ui/empty-state.tsx` at `35423ec2`): `icon`, `title`, `body`, and a `children` slot nothing documents as the action slot. 92 product sites use it; 70 are self-closing, and the plan's §11.2 count puts 73 that cannot satisfy `DESIGN.md:383`. The legacy kit's `ui/empty.tsx` (a compound `Empty`/`EmptyIcon`/`EmptyTitle`/`EmptyDescription`/`EmptyActions` family with **zero** product call sites) is the second predecessor | The catalogue lists Empty, but the ReUI registry serves no such item: `https://reui.io/r/base-nova/empty.json` answers **404** — "empty is part of shadcn/ui, not a ReUI item. Install it with: `npx shadcn@latest add empty`". The candidate is therefore the **stock shadcn `empty` item, by bare name** (`ui.shadcn.com/r/styles/new-york-v4/empty.json`): `Empty`, `EmptyHeader`, `EmptyMedia` (`variant="icon" | "default"`), `EmptyTitle`, `EmptyDescription`, `EmptyContent`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Ours: the two applicable behavioural items pass — the action is reachable and works from `children`, and the states hold — but the _product_ fails the rule the item exists to satisfy: 70 of 92 sites close the component with nothing in `children`, and the plan's §11.2 count puts 73 of 92 that cannot satisfy `DESIGN.md:383` (see the detail table). Theirs: all applicable items pass, with three measured costs — the title and description are `<div>`s (no heading, no paragraph), the dashed border draws nothing on its own, and the presentation is centred, which the design system's EmptyState rule contradicts. 10 items are not applicable — this pair has no reorder, sort, filter, select, resize or pagination control | **Adopt in part, in this change**: the item's documented action slot and its title/description/media vocabulary are taken; the compound exports, the `div` semantics and the centred borderless-empty presentation are declined. The single component that results is `src/components/v3/ui/empty-state.tsx`, and both predecessors are deleted in the same change | 16 Oct 2026 |
+| 6   | History rows — render a chronological list of audit events as rows                           | Three panels with their own rows: `src/components/audit/audit-trail.tsx` (175 lines), `object-history-timeline.tsx` (308), `record-history-timeline.tsx` (264) — a triplicated loading skeleton, two byte-identical dashed empty states, a local relative-time formatter, four icon maps, two row layouts and two continuation controls between them                                                                                                                                        | `@reui/timeline` (base-nova pin), one file: `src/components/reui/timeline.tsx` — `Timeline`, `TimelineItem`, `TimelineIndicator`, `TimelineSeparator`, `TimelineHeader`, `TimelineDate`, `TimelineTitle`, `TimelineContent`. No states, no controls, no chips, no disclosure                                                                                                                                        | Ours: all 8 applicable items pass — the rows render the fixture with both time labels, the before→after chip, the deep link and the disclosure; axe clean in both themes; no overflow at either width. Theirs: the composition renders, but the item ships no states, no controls and no `<time>` value, so its empty, loading and error cells are the harness's own. 10 items are not applicable — this pair has no reorder, sort, filter, select, resize or pagination control                                                                                                                           | **Adopt, in this change**: the shared surface `src/components/audit/history-timeline.tsx` is built on the item, the three panels map onto it, and the duplicated skeleton, empty state, formatter, icon maps, row layout and continuation control are deleted with it. No parallel implementation is left behind                                                                                                                                                                                                                                                                                                                                                                                                                             | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -696,6 +697,187 @@ stays registered so the same measurement can be repeated if the item changes.
 - This row records one pair. It is not a verdict on shadcn as a registry, nor
   on the 88 sites that roll their own empty markup (listed in
   `docs/knowledge/design/empty-state-migration.md`).
+
+## Row 6 — History rows (`history-rows`)
+
+### What we use now
+
+Three panels, each with its own rows:
+
+- `src/components/audit/audit-trail.tsx` (175 lines) — typed `AuditEvent`s. A row
+  was an icon dot, the title, an `actor · timestamp · target` line and an sr-only
+  sentence; the file also held its own four-row loading skeleton, its own dashed
+  empty state, a `typeIcons` map, the `Load more (N left)` button (with a
+  chevron) and the `Showing N of M events` line.
+- `src/components/audit/object-history-timeline.tsx` (308 lines) — authoritative
+  wire change events, correlated by `groupAuditEvents`. A row was an
+  actor/action/subject line, the relative and absolute time, before→after
+  `ChangeChip`s, `↳` correlated rows, the canonical deep link and the `Raw event`
+  disclosure; the file also held its own skeleton (a 3.5px bar where the other
+  two used 3px), a dashed empty state byte-identical to the audit trail's,
+  `OPERATION_ICONS` and `ENTITY_ICONS`, a load-more button without a count, and a
+  dead `showRawOnly` state.
+- `src/components/audit/record-history-timeline.tsx` (264 lines) — the
+  `api.record_timeline` RPC mapped to `AuditEvent[]` by `mapTimelineEvents` and
+  rendered through `AuditTrail`. The file held its own skeleton, its own error
+  box with a `Try again` button, its own `relativeTime` formatter, its own
+  `OPERATION_ICONS` and `DECISION_ICONS`, and the section heading, Refresh and
+  the revision/integrity footer.
+
+Between them: three loading skeletons, two byte-identical dashed empty states
+(the third panel rendered none of its own), two relative-time formatters in play
+(`formatRelativeTime` from `#/lib/notebook-data` and the local `relativeTime`),
+four icon maps, two row layouts and two continuation controls. The behaviour
+ADR-0055's bar asks about — the sr-only sentence per event, the relative and
+absolute time, the chips, the disclosure, the continuation control, the
+permission state and the real `<button>`/`<summary>`/dialog routes — is
+unchanged by the consolidation and pinned by the panels' own tests.
+
+### What ReUI offers
+
+`src/components/reui/timeline.tsx` (273 lines, installed from `@reui/timeline`
+at the pinned base-nova registry and placed by hand): `Timeline`,
+`TimelineItem`, `TimelineIndicator`, `TimelineSeparator`, `TimelineHeader`,
+`TimelineDate`, `TimelineTitle`, `TimelineContent`, a context, `useRender` on
+every part, `step`/`value`/`defaultValue` semantics and two orientations.
+
+It ships no states, no controls, no chips, no disclosure, no icon well and no
+list semantics: by default the parts render `div`s, `TimelineTitle` renders an
+`h3`, and `defaultValue = 1` marks the first item completed.
+
+### Checklist result
+
+Fixed checklist: `src/components/component-compare/checklist.ts`. Applicable
+items are the 8 this pair has — it declares no controls, so the 10 items needing
+reorder, sort, filter, select, resize or pagination are recorded as not
+applicable rather than skipped.
+
+| Check                                                     | Ours                                                                                                                            | Theirs                                                                                        | How it was measured                                                   |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator | Pass — the deep link and the `Raw event` summary, in DOM order, plus the scroll region (C2), each drawing a visible indicator   | Nothing to reach: the item renders no controls of its own; only the harness's state cells are | Browser, both columns                                                 |
+| Empty (0 rows)                                            | Pass — the panel's own dashed `No recorded activity for this object yet.`                                                       | The item ships none; the harness's `No rows` notice stands in                                 | Browser and jsdom, both columns                                       |
+| Loading                                                   | Pass — the four-row skeleton, `aria-busy` and `aria-live="polite"`                                                              | The item ships none; the harness's loading rows stand in                                      | Browser and jsdom, both columns                                       |
+| Error and permission-restricted                           | Pass — the failure is its own state (`role="alert"`); this column offers **no retry**, because the dataset tab passes none (C1) | The item ships none; the harness's notice and its working retry stand in                      | Browser and jsdom, both columns                                       |
+| Dark theme                                                | Pass — token-bound colours only; axe clean in dark                                                                              | Pass                                                                                          | axe in Chromium with colour contrast on, both columns and both themes |
+| Density and overflow at 1440x900                          | Pass — no horizontal overflow, no row clipped                                                                                   | Pass                                                                                          | Browser, both columns                                                 |
+| Density and overflow at 390x844                           | Pass — same, asserted per column                                                                                                | Pass                                                                                          | Browser, both columns, asserted per column rather than averaged       |
+
+Sort, filter, select, resize, reorder and pagination: not applicable to this pair
+(10 items). They are listed in the harness with that verdict.
+
+**The states are not symmetric, and the record says so.** The shared surface
+ships its own loading skeleton, empty message and error notice, so this pair's
+`ours` column drives the shipped ones; the item ships none, so the empty,
+loading and error cells of the `theirs` column are the harness's own notices.
+That is a difference between the two columns in what those three items measure,
+not a skipped check. `restricted` is different again: neither component has
+editing controls, so both render the harness's "View only" notice and the item
+measures containment and keyboard order.
+
+### Automated evidence
+
+| Evidence                                                                                                                               | Result                                                                                                                                  | Command                                                                                                                                                                      |
+| -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| axe, both columns of every pair: 6 fixtures × 2 sides + 3 states × 2 sides                                                             | 38 tests, **zero violations** (colour contrast disabled: jsdom cannot measure it)                                                       | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                                                                                      |
+| axe in Chromium, colour contrast **on**, the history pair's two columns in both themes                                                 | 4 cases, zero violations                                                                                                                | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep "history rows pair"`                                                             |
+| The pair's full checklist in Chromium: rows and chips, keyboard, the four states, both densities, the 5,000-row fixture, 4 screenshots | 14 tests, pass                                                                                                                          | same command                                                                                                                                                                 |
+| The shipped panels' behaviour (sr-only sentence, chips, disclosure, load-more, error states)                                           | 21 tests, pass (`audit-trail` 7, `object-history-timeline` 4, `record-history-timeline` 10)                                             | `pnpm exec vitest run src/components/audit/audit-trail.test.tsx src/components/audit/object-history-timeline.test.tsx src/components/audit/record-history-timeline.test.tsx` |
+| The panels on real screens: the dataset History tab and the review screen's History tab                                                | 7 tests, pass (rows, both time labels, chips, link, disclosure, Load more, axe light and dark, the sr-only sentence and the count line) | `pnpm exec playwright test tests/browser/history-timeline.test.ts --project=browser`                                                                                         |
+| Harness contracts (one scenario object to both columns, frozen fixtures, the state transitions)                                        | 12 tests, pass                                                                                                                          | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                                                                                           |
+| Whole suite, and the repository's gates                                                                                                | 4,847 tests pass; `pnpm check`, `pnpm lint`, `pnpm typecheck`, `pnpm build` clean                                                       | `pnpm test`, `pnpm check`, `pnpm lint`, `pnpm typecheck`, `pnpm build`                                                                                                       |
+
+Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `history-ours-light.png`,
+`history-ours-dark.png`, `history-theirs-light.png`, `history-theirs-dark.png`,
+plus `dataset-history-light.png`, `dataset-history-dark.png` and
+`review-record-history-light.png` from `HISTORY_SHOTS=<dir>` on the product
+screens. Appearance is evidence; it is not the verdict.
+
+### What the adoption cost — conditions
+
+- **C1 — the item ships no states, controls, chips or disclosure.** The shared
+  surface owns all of them: the skeleton, the dashed empty state, the `Notice`
+  error state and its optional retry, the before→after `ChangeChip`, the
+  `Raw event` disclosure, the deep link, the continuation control and the
+  "showing N of M" line. An adoption that dropped any of them would lose
+  behaviour ADR-0055's bar requires to survive, so they are part of the surface
+  rather than of the item. One consequence is visible in this pair: the dataset
+  History tab passes no retry, so that column's error state reports the failure
+  without offering one; the record-history panel passes the retry the same
+  surface supports.
+- **C2 — a capped list is a scrollable region, and axe says so.** In Chromium,
+  `scrollable-region-focusable` (serious) fires on the list when its rows hold
+  no controls of their own — the record-history panel's rows are text only.
+  Found by the new product browser test; fixed by making the list a tab stop
+  with a focus ring. This adds a tab stop to all three panels, which is a
+  deliberate behaviour change rather than a restyle.
+- **C3 — contrast on the record-history footer.** The same test found
+  `color-contrast` (serious) on the revision/integrity line's
+  `text-fg-muted/70`; it is now `text-fg-muted`. Pre-existing, found by the new
+  coverage, fixed in the same change.
+- **C4 — list and step semantics are the integration's job.** The parts render
+  `div`s and `defaultValue = 1` marks the first item completed. The integration
+  hands the timeline `<ol>` and each item `<li>` through `render`, and passes
+  `value={0}` so no row claims completion. Keeping that is what makes the rows a
+  list to a screen reader instead of a stack of divs.
+- **C5 — geometry and tokens are restyled, not extended.** The published 1rem
+  hollow ring, `border-primary/20`, `bg-primary/10` and the connector's offsets
+  are restyled to the app's 2rem indicator well, `border-border`, `bg-border`
+  and `accent-strong`. That is all ADR-0055 decision 2 permits in this
+  directory, and it is why the `theirs` column shows the app's indicator rather
+  than the published one.
+- **C6 — the title is not a heading.** `TimelineTitle` defaults to `h3`; the
+  rows render it as `<p>`, because the previous rows were not headings and a
+  history of 5,000 events should not add 5,000 of them.
+- **C7 — the surface renders every row.** There is no virtualisation: the
+  5,000-row fixture takes about 1.3 minutes through the dev server, which is why
+  that case carries its own 240-second timeout in the browser spec. The panels
+  page at 50 rows and continue with "Load more", so a real screen never renders
+  the bulk fixture; the cost is recorded because it is the reason the
+  continuation control must stay.
+- **C8 — dependencies.** `@base-ui/react` is already a dependency and the item's
+  `cn` import is re-pointed to `#/lib/utils`, so no package is added
+  (ADR-0055's consequences section).
+
+### Decision and reason
+
+**Adopt, in this change.** The three panels now map their own data onto one
+shared surface (`src/components/audit/history-timeline.tsx`) built on the item,
+and the duplication goes with it: one row layout, one skeleton, one empty state,
+one relative-time formatter, one icon vocabulary, one continuation control. The
+panels keep their domain mapping — typed audit events, wire change events with
+correlation grouping, and the record-timeline RPC — because that is domain work,
+not row work.
+
+The reason is ADR-0055 decision 4's second test, the maintenance burden. Three
+files carried the same skeleton, the same empty markup and their own row
+layouts; two of them carried their own operation-icon map; two of them carried
+a relative-time formatter; two carried a continuation control. The item supplies
+the composition — indicator, separator, header, date, title, content — and the
+step semantics that the hand-rolled rows re-implemented by hand, and it is one
+copy-and-own file rather than three.
+
+The three files fall from 747 lines to 440, and the 426-line shared surface
+replaces what they duplicated: the row layout, the skeleton, the empty state,
+the formatter, the icon vocabulary, the chips, the disclosure, the states and
+the continuation control now exist once.
+
+### Limits of this row
+
+- Desktop Chromium only (Playwright, one worker); no Firefox, WebKit or real
+  device was run.
+- The two columns differ in where their states come from (above), so the empty,
+  loading and error rows are not a like-for-like comparison; the shipped states
+  are exercised on the product screens instead.
+- The 5,000-row fixture is rendered and measured for overflow in both columns,
+  not by axe, for the reason the runbook records.
+- `src/components/audit/experiment-history.tsx` — the day-grouped table on
+  `/experiments/:id/history` — is **not** part of this row. It is not one of the
+  three panels, it renders a table with its own inspector rather than timeline
+  rows, and its screen is in the design-parity set (`ExpHistory`). The plan's
+  inventory counted it among the history surfaces; it remains for a future
+  change to consider.
+- This row records one pair. It is not a verdict on ReUI as a registry, or on
+  any other ReUI item.
 
 ## Adding a row
 

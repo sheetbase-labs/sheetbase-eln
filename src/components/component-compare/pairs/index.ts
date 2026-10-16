@@ -1,4 +1,5 @@
 import type { ComparisonPair } from '#/components/component-compare/types'
+import { historyRowsPair } from '#/components/component-compare/pairs/history-rows'
 import { notebookSortablePair } from '#/components/component-compare/pairs/notebook-sortable'
 import { emptyStatePair } from '#/components/component-compare/pairs/empty-state'
 
@@ -13,4 +14,5 @@ import { emptyStatePair } from '#/components/component-compare/pairs/empty-state
 export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   notebookSortablePair,
   emptyStatePair,
+  historyRowsPair,
 ])

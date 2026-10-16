@@ -33,7 +33,7 @@ import {
 } from '#/components/v3/ui/table'
 import { FilterMenu } from '#/components/v3/ui/filter-menu'
 import { SearchTabs } from '#/components/v3/projects/search-tabs'
-import { FilterChip } from '#/components/v3/projects/chip'
+import { Chip } from '#/components/v3/ui/chip'
 import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
 import {
   EXPERIMENT_LIST_PAGE_SIZE,
@@ -355,12 +355,13 @@ function Experiments() {
 
       {!search.older ? (
         <div className="flex items-center gap-2 px-4 py-2 md:px-6">
-          <FilterChip
+          <Chip
+            variant="remove"
             removeLabel="Remove filter: updated in last 30 days"
             onRemove={() => setSearch({ older: true })}
           >
             Updated in last 30 days
-          </FilterChip>
+          </Chip>
         </div>
       ) : null}
 

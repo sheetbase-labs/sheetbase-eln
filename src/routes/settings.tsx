@@ -6,6 +6,7 @@ import {
   useLocation,
 } from '@tanstack/react-router'
 
+import { Chip } from '#/components/v3/ui/chip'
 import { cn } from '#/lib/utils'
 import { settingsNavForRole } from '#/components/v3/settings/settings-nav'
 import type { SettingsNavItem } from '#/components/v3/settings/settings-nav'
@@ -69,18 +70,14 @@ function SettingsLayout() {
         {[...workspace, ...account].map((i) => {
           const on = i.match(pathname)
           return (
-            <Link
+            <Chip
               key={i.label}
-              {...i.link}
-              aria-current={on ? 'page' : undefined}
-              className={cn(
-                'inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-border px-3 text-label text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-md:h-9',
-                on &&
-                  'border-selection-border bg-selection font-medium hover:bg-selection',
-              )}
+              variant="nav"
+              current={on}
+              render={<Link {...i.link} />}
             >
               {i.label}
-            </Link>
+            </Chip>
           )
         })}
       </nav>

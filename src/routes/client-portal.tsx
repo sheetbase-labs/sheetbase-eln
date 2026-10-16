@@ -21,6 +21,7 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
+import { Chip } from '#/components/v3/ui/chip'
 import { Icon } from '#/components/v3/icons'
 import { Textarea } from '#/components/v3/inventory/list'
 import { cn } from '#/lib/utils'
@@ -502,19 +503,15 @@ function ClientPortal() {
           className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border px-4 py-2 [scrollbar-width:none] lg:hidden"
         >
           {tabs.map((t) => (
-            <button
+            <Chip
               key={t}
-              type="button"
-              aria-current={tab === t ? 'page' : undefined}
+              variant="nav"
+              size="md"
+              current={tab === t}
               onClick={() => setTab(t)}
-              className={
-                tab === t
-                  ? 'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-selection-border bg-selection px-3.5 text-body font-medium text-fg'
-                  : 'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-transparent px-3.5 text-body text-fg'
-              }
             >
               {tabLabel[t]}
-            </button>
+            </Chip>
           ))}
         </nav>
 

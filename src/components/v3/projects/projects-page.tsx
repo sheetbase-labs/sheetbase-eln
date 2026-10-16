@@ -55,7 +55,7 @@ import { Icon } from '#/components/v3/icons'
 import { toast } from '#/components/v3/ui/sonner'
 import { SearchTabs } from './search-tabs'
 import { MobileList, stickyCol } from './mobile-list'
-import { FilterChip } from './chip'
+import { Chip } from '#/components/v3/ui/chip'
 import { NativeSelect } from './select'
 import { modalities, stages } from './options'
 import type { ProjectDetailsInput } from './project-data'
@@ -670,31 +670,34 @@ export function ProjectsPage({
             {filterCount ? (
               <div className="flex flex-wrap items-center gap-2 px-4 py-2 md:px-6">
                 {archived === 'exclude' ? (
-                  <FilterChip
+                  <Chip
+                    variant="remove"
                     removeLabel="Remove filter: status is not Archived"
                     onRemove={() => setSearch({ archived: 'include' })}
                   >
                     Status is not <b className="font-medium">Archived</b>
-                  </FilterChip>
+                  </Chip>
                 ) : null}
                 {search.stage ? (
-                  <FilterChip
+                  <Chip
+                    variant="remove"
                     removeLabel={`Remove filter: stage is ${search.stage}`}
                     onRemove={() => setSearch({ stage: undefined })}
                   >
                     Stage is <b className="font-medium">{search.stage}</b>
-                  </FilterChip>
+                  </Chip>
                 ) : null}
                 {(['client', 'modality'] as const).map((field) =>
                   search[field] ? (
-                    <FilterChip
+                    <Chip
+                      variant="remove"
                       key={field}
                       removeLabel={`Remove filter: ${field} is ${search[field]}`}
                       onRemove={() => setSearch({ [field]: undefined })}
                     >
                       {field === 'client' ? 'Client' : 'Modality'} is{' '}
                       <b className="font-medium">{search[field]}</b>
-                    </FilterChip>
+                    </Chip>
                   ) : null,
                 )}
               </div>

@@ -31,28 +31,10 @@ const ALLOWED: ReadonlyArray<{
   readonly reason: string
 }> = [
   {
-    file: 'src/components/ui/command.tsx',
-    modules: ['dialog'],
-    reason:
-      'Legacy ⌘K palette wrapping the old dialog; its only app importer is the out-of-scope searchable-select.',
-  },
-  {
     file: 'src/components/ui/input-group.tsx',
     modules: ['input'],
     reason:
       'No v3 input-group twin; the legacy group is adopted by its own task.',
-  },
-  {
-    file: 'src/components/ui/searchable-select.tsx',
-    modules: ['command', 'popover'],
-    reason:
-      'No v3 searchable-select twin; the legacy picker still composes the old command and popover.',
-  },
-  {
-    file: 'src/components/extensions/extension-slots.tsx',
-    modules: ['command'],
-    reason:
-      'Mounts inside the legacy cmdk palette; v3 CommandItem needs the v3 Command context.',
   },
   {
     file: 'src/routes/foundations.tsx',

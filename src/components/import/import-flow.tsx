@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Input } from '#/components/v3/ui/input'
 import { PageHeader, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -262,8 +263,6 @@ export function ImportUploadFlow({
   const [newName, setNewName] = useState('')
   const [experimentId, setExperimentId] = useState('')
   const [instrumentId, setInstrumentId] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
 
   const datasetRows = datasets.data ?? []
   // With nothing to append to, the new-Dataset branch is the only path — it is
@@ -279,48 +278,42 @@ export function ImportUploadFlow({
     : undefined
   const calibration = calibrationStatus(latestCalibration?.dueAt ?? null)
 
+  /**
+   * Step 1 hands the picked file straight to the shared transport. The pick's
+   * own progress and failure belong to the file field, which is why this
+   * function no longer tracks them: it resolves when the file is stored and
+   * parsed, and a rejection becomes the row's message with its retry.
+   */
   async function start(file: File) {
-    setBusy(true)
-    setError('')
-    try {
-      const target = await resolveImportTarget(
-        client,
-        effectiveMode === 'new'
-          ? {
-              mode: 'new',
-              workspaceId,
-              schemaVersionId,
-              name: newName,
-              createdByUserId,
-            }
-          : { mode: 'append', datasetId },
-      )
-      const upload = await uploadImportFile({
-        file,
-        datasetId: target.datasetId,
-      })
-      if (target.created) {
-        void queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY })
-      }
-      await navigate({
-        to: '/import/$importId',
-        params: { importId: upload.fileId },
-        search: {
-          step: 'map',
-          dataset: target.datasetId,
-          experiment: experimentId || undefined,
-          instrument: instrumentId || undefined,
-        },
-      })
-    } catch (startError) {
-      setError(
-        startError instanceof Error
-          ? startError.message
-          : 'Could not start the import.',
-      )
-    } finally {
-      setBusy(false)
+    const target = await resolveImportTarget(
+      client,
+      effectiveMode === 'new'
+        ? {
+            mode: 'new',
+            workspaceId,
+            schemaVersionId,
+            name: newName,
+            createdByUserId,
+          }
+        : { mode: 'append', datasetId },
+    )
+    const upload = await uploadImportFile({
+      file,
+      datasetId: target.datasetId,
+    })
+    if (target.created) {
+      void queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY })
     }
+    await navigate({
+      to: '/import/$importId',
+      params: { importId: upload.fileId },
+      search: {
+        step: 'map',
+        dataset: target.datasetId,
+        experiment: experimentId || undefined,
+        instrument: instrumentId || undefined,
+      },
+    })
   }
 
   return (
@@ -332,12 +325,6 @@ export function ImportUploadFlow({
       />
       <div className="px-4 py-4 md:px-6">
         <Stepper steps={STEPS} current={1} className="mb-4" />
-
-        {error ? (
-          <Banner tone="bad" title="Import error" className="mb-4">
-            {error}
-          </Banner>
-        ) : null}
 
         <div className="grid max-w-[900px] gap-4">
           <div className="grid max-w-[520px] gap-1 text-label text-fg-muted">
@@ -437,24 +424,15 @@ export function ImportUploadFlow({
             </div>
           )}
 
-          <label className="grid max-w-[420px] gap-1 text-label text-fg-muted">
-            Laboratory file
-            <Input
-              type="file"
-              disabled={!targetReady || busy}
-              accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) void start(file)
-                event.target.value = ''
-              }}
-            />
-            {busy ? (
-              <span role="status" className="text-label">
-                Storing and reading the file…
-              </span>
-            ) : null}
-          </label>
+          <FileDrop
+            className="max-w-[420px]"
+            label="Laboratory file"
+            inputLabel="Laboratory file"
+            accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            disabled={!targetReady}
+            disabledReason="Choose where the file goes first."
+            onFile={(file) => (file ? start(file) : undefined)}
+          />
 
           <div className="grid max-w-[640px] gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-label text-fg-muted">

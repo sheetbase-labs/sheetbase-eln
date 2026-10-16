@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
+import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { NativeSelect } from '#/components/v3/projects/select'
 import { useInstruments } from '#/components/v3/instruments/instruments-data'
@@ -119,7 +120,9 @@ export function ParserSettings({
       await refresh()
     },
   })
-  const error = action.error ?? upload.error ?? parsers.error ?? files.error
+  // A refused test-file upload is reported by the file field, on the file's own
+  // row, with the retry beside it — so this line carries the other four sources.
+  const error = action.error ?? parsers.error ?? files.error
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <Section title="Canonical parser versions">
@@ -166,17 +169,11 @@ export function ParserSettings({
               </NativeSelect>
             </Field>
             {canEdit ? (
-              <Field label="Upload a new test file">
-                <input
-                  type="file"
-                  aria-label="Upload a new test file"
-                  disabled={upload.isPending}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) upload.mutate(file)
-                  }}
-                />
-              </Field>
+              <FileDrop
+                label="Upload a new test file"
+                inputLabel="Upload a new test file"
+                onFile={(file) => (file ? upload.mutateAsync(file) : undefined)}
+              />
             ) : null}
           </div>
           {testFile ? (

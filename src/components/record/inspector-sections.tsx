@@ -1,4 +1,6 @@
 import * as React from 'react'
+import { FileType, getFileType } from '#/components/reui/file-type'
+import { Avatar, AvatarStack } from '#/components/v3/ui/avatar'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
@@ -122,40 +124,15 @@ export interface FileItem {
   href?: string
 }
 
-/** Pick a file-type icon + accent colour from the media type. */
-function fileTypeIcon(mediaType?: string): {
-  icon: IconName
-  className: string
-} {
-  const mt = (mediaType ?? '').toLowerCase()
-  if (
-    mt.includes('spreadsheet') ||
-    mt.includes('excel') ||
-    mt.includes('csv') ||
-    mt.endsWith('.xlsx') ||
-    mt.endsWith('.csv') ||
-    mt.endsWith('.tsv')
-  ) {
-    return { icon: 'table', className: 'text-success-text' }
-  }
-  if (mt.includes('pdf') || mt.endsWith('.pdf')) {
-    return { icon: 'download', className: 'text-danger-text' }
-  }
-  if (
-    mt.includes('image') ||
-    mt.endsWith('.png') ||
-    mt.endsWith('.jpg') ||
-    mt.endsWith('.jpeg') ||
-    mt.endsWith('.gif') ||
-    mt.endsWith('.webp') ||
-    mt.endsWith('.svg')
-  ) {
-    return { icon: 'box', className: 'text-link' }
-  }
-  if (mt.includes('text') || mt.endsWith('.txt') || mt.endsWith('.md')) {
-    return { icon: 'download', className: 'text-fg-muted' }
-  }
-  return { icon: 'download', className: 'text-fg-muted' }
+/**
+ * Resolve a row's icon: the file name first, because a stored MIME type of
+ * `application/octet-stream` says nothing about a name that ends `.xlsx`; the
+ * media type only decides for names with no type in them.
+ */
+function fileTypeFor(file: FileItem): string {
+  const fromName = getFileType(file.name)
+  if (fromName !== 'empty') return fromName
+  return getFileType(file.mediaType ?? file.meta ?? '')
 }
 
 export function FileList({ items }: { items: FileItem[] }) {
@@ -163,17 +140,9 @@ export function FileList({ items }: { items: FileItem[] }) {
   return (
     <ul className="space-y-0.5">
       {items.map((f) => {
-        const { icon: iconName, className: iconCls } = fileTypeIcon(
-          f.mediaType ?? f.meta,
-        )
         const body = (
           <>
-            <Icon
-              name={iconName}
-              size={14}
-              className={cn('shrink-0', iconCls)}
-              aria-hidden="true"
-            />
+            <FileType type={fileTypeFor(f)} size="mini" className="shrink-0" />
             <span className="min-w-0 flex-1 truncate text-xs font-medium text-fg">
               {f.name}
             </span>
@@ -273,13 +242,12 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
     <ol className="space-y-3">
       {items.map((a) => (
         <li key={a.id} className="flex gap-2.5">
-          <span
-            title={a.actor.name}
-            aria-label={a.actor.name}
-            className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary-text"
-          >
-            {(a.actor.initials ?? a.actor.name.slice(0, 2)).toUpperCase()}
-          </span>
+          <Avatar
+            name={a.actor.name}
+            initials={a.actor.initials}
+            size="sm"
+            className="mt-0.5"
+          />
           <div className="min-w-0 flex-1">
             <p className="text-xs leading-5 text-fg">
               <span className="font-medium">{a.actor.name}</span>{' '}
@@ -315,13 +283,11 @@ export function CommentList({ items }: { items: CommentItem[] }) {
         <li key={c.id} className="space-y-1">
           <div className="flex items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5">
-              <span
-                title={c.author.name}
-                aria-label={c.author.name}
-                className="flex size-5 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary-text"
-              >
-                {(c.author.initials ?? c.author.name.slice(0, 2)).toUpperCase()}
-              </span>
+              <Avatar
+                name={c.author.name}
+                initials={c.author.initials}
+                size="sm"
+              />
               <span className="text-xs font-medium">{c.author.name}</span>
             </span>
             <span className="text-xs text-fg-muted">{c.at}</span>
@@ -354,39 +320,10 @@ export function ContributorAvatars({
   max?: number
   size?: 'sm' | 'md'
 }) {
-  const visible = contributors.slice(0, max)
-  const overflow = contributors.length - visible.length
-  const dim = size === 'sm' ? 'size-5 text-[0.6rem]' : 'size-6 text-xs'
-
   if (contributors.length === 0) return null
-
   return (
     <div className="flex items-center">
-      <div className="flex -space-x-1.5">
-        {visible.map((c) => (
-          <span
-            key={c.id}
-            title={c.name}
-            aria-label={c.name}
-            className={cn(
-              'flex shrink-0 items-center justify-center rounded-full border border-background bg-primary/15 font-semibold text-primary-text',
-              dim,
-            )}
-          >
-            {(c.initials ?? c.name.slice(0, 2)).toUpperCase()}
-          </span>
-        ))}
-      </div>
-      {overflow > 0 ? (
-        <span
-          className={cn(
-            'ml-1.5 flex shrink-0 items-center justify-center rounded-full bg-surface-muted font-medium text-fg-muted',
-            dim,
-          )}
-        >
-          +{overflow}
-        </span>
-      ) : null}
+      <AvatarStack people={contributors} max={max} size={size} />
     </div>
   )
 }

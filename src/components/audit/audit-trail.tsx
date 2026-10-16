@@ -21,7 +21,6 @@ import { cn } from '#/lib/utils'
 
 export interface AuditActor {
   name: string
-  initials?: string
   /** When the actor is unknown/anonymised, e.g. a deleted user. */
   unknown?: boolean
 }

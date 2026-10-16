@@ -9,9 +9,10 @@
  * Nothing renders while online, so the surface stays quiet when healthy.
  */
 
-import { RefreshCw, WifiOff } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
+import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { formatClockTime } from '#/components/offline/offline-edits'
 
@@ -45,42 +46,38 @@ export function OfflineBanner({
       ? `${unsyncedCount} unsynced change${unsyncedCount === 1 ? '' : 's'}`
       : null
   return (
-    <div
-      role="status"
+    <Banner
+      tone="warn"
       data-offline-banner
-      className={cn(
-        'flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-warning-border bg-warning-wash px-4 py-2 text-label text-warning-text md:px-6',
-        className,
-      )}
+      className={className}
+      title="You're offline."
+      action={
+        <>
+          {pending ? <span data-offline-pending>{pending}</span> : null}
+          <span data-offline-last-sync className="text-fg-muted">
+            {syncNote}
+          </span>
+          {onRetry ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={onRetry}
+              disabled={retrying}
+              data-offline-retry
+            >
+              <RefreshCw
+                className={cn('size-3', retrying && 'animate-spin')}
+                aria-hidden="true"
+              />
+              {retrying ? 'Retrying…' : 'Retry now'}
+            </Button>
+          ) : null}
+        </>
+      }
     >
-      <WifiOff className="size-3.5 shrink-0" aria-hidden="true" />
-      <span className="text-fg">
-        <b className="font-semibold">You&apos;re offline.</b> Keep working:
-        edits are saved on this device and sync when you reconnect.
-      </span>
-      <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
-        {pending ? <span data-offline-pending>{pending}</span> : null}
-        <span data-offline-last-sync className="text-fg-muted">
-          {syncNote}
-        </span>
-        {onRetry ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            onClick={onRetry}
-            disabled={retrying}
-            data-offline-retry
-          >
-            <RefreshCw
-              className={cn('size-3', retrying && 'animate-spin')}
-              aria-hidden="true"
-            />
-            {retrying ? 'Retrying…' : 'Retry now'}
-          </Button>
-        ) : null}
-      </span>
-    </div>
+      Keep working: edits are saved on this device and sync when you reconnect.
+    </Banner>
   )
 }
 

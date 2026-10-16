@@ -174,3 +174,28 @@ fixture back and accept the runtime.
   [`docs/knowledge/design/component-comparison-record.md`](../knowledge/design/component-comparison-record.md),
   one row per component. Read the row before proposing an adoption, and update it
   in the change that adopts.
+
+## Registered pairs, and the two conventions they introduce
+
+| Pair id             | Job                                                        | Controls |
+| ------------------- | ---------------------------------------------------------- | -------- |
+| `notebook-sortable` | Reorder a list of rows by pointer and by keyboard          | reorder  |
+| `avatar-initials`   | Draw a person's initials the same way wherever they appear | —        |
+| `notice-banner`     | Show an inline notice or a page-wide state strip           | —        |
+| `file-type`         | Resolve a file name or media type to a type icon, in a row | —        |
+
+The three pairs after the notebook's date from one change that componentised
+three domain jobs onto the forward kit, and they add two conventions worth
+keeping:
+
+- **A pair whose adoption completes in the same change uses its before-column
+  for the deleted implementation.** `file-type`'s "ours" column is the
+  inspector's deleted resolver, kept in the pair file alone, with its origin
+  commit named in that file and its removal recorded in the comparison record.
+  Product code must not import it; the pair is the evidence, not a fallback.
+- **A declined candidate is reproduced in the pair, not vendored.**
+  `avatar-initials` and `notice-banner` render what the registry would serve —
+  stock shadcn's avatar, and `@reui/alert` — as a restyled reproduction with its
+  registry item and the anatomy taken from it named in the file. Only an adopted
+  item lands under `src/components/reui/**` (ADR-0055 decision 2), so a declined
+  candidate leaves no second design language in the repository.

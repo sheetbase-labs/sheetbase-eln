@@ -1,4 +1,7 @@
 import type { ComparisonPair } from '#/components/component-compare/types'
+import { avatarInitialsPair } from '#/components/component-compare/pairs/avatar-initials'
+import { fileTypePair } from '#/components/component-compare/pairs/file-type'
+import { noticeBannerPair } from '#/components/component-compare/pairs/notice-banner'
 import { notebookSortablePair } from '#/components/component-compare/pairs/notebook-sortable'
 
 /**
@@ -11,4 +14,7 @@ import { notebookSortablePair } from '#/components/component-compare/pairs/noteb
  */
 export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   notebookSortablePair,
+  avatarInitialsPair,
+  noticeBannerPair,
+  fileTypePair,
 ])

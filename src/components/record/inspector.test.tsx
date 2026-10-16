@@ -188,6 +188,24 @@ describe('Inspector sections', () => {
     expect(screen.getByText('No attached files')).toBeTruthy()
   })
 
+  it('FileList names the file type, and trusts the name over a generic MIME', () => {
+    const items: FileItem[] = [
+      { id: '1', name: 'protocol.pdf', mediaType: 'application/pdf' },
+      // A stored octet-stream says nothing; the extension does.
+      {
+        id: '2',
+        name: 'stability-run07.xlsx',
+        mediaType: 'application/octet-stream',
+      },
+      // With no type in the name, the media type decides.
+      { id: '3', name: 'raw-payload', mediaType: 'image/x-unknown' },
+    ]
+    render(<FileList items={items} />)
+    expect(screen.getByRole('img', { name: 'PDF file' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'XLSX file' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'Image' })).toBeTruthy()
+  })
+
   it('CheckList communicates state by text, not just colour', () => {
     const items: CheckItem[] = [
       { id: '1', label: 'Data integrity', state: 'pass' },

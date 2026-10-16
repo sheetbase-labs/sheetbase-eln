@@ -2,9 +2,9 @@ import * as React from 'react'
 import { CheckCircle2, RotateCcw } from 'lucide-react'
 
 import { Icon } from '#/components/icons'
+import { Avatar } from '#/components/v3/ui/avatar'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
-import { cn } from '#/lib/utils'
 import type { CommentTargetKind, CommentWire } from '#/lib/comments-data'
 
 /**
@@ -48,11 +48,6 @@ function authorLabel(
     return currentUserName
   }
   return 'Reviewer'
-}
-
-function authorInitials(label: string): string {
-  if (label === 'Deleted user') return '??'
-  return label.slice(0, 2)
 }
 
 function describeTarget(
@@ -110,18 +105,12 @@ function CommentRow({
     >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-2">
-          <span
-            title={label}
-            aria-label={label}
-            className={cn(
-              'flex size-6 items-center justify-center rounded-full text-xs font-semibold',
-              deleted
-                ? 'bg-surface-muted text-fg-muted'
-                : 'bg-primary/15 text-primary-text',
-            )}
-          >
-            {authorInitials(label).toUpperCase()}
-          </span>
+          <Avatar
+            name={label}
+            initials={deleted ? '?' : undefined}
+            size="sm"
+            className={deleted ? 'bg-surface-muted text-fg-muted' : undefined}
+          />
           <span className="text-xs font-medium">{label}</span>
         </span>
         <span className="text-xs text-fg-muted">

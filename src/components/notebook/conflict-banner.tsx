@@ -17,6 +17,7 @@
  */
 
 import { cn } from '#/lib/utils'
+import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 
 export interface ConflictBannerProps {
@@ -44,15 +45,34 @@ export function ConflictBanner({
   className,
 }: ConflictBannerProps) {
   return (
-    <div
-      role="alert"
+    <Notice
+      tone="bad"
       data-conflict-banner
-      className={cn(
-        'mt-2 rounded-md border border-danger/40 bg-danger-wash p-3 text-label',
-        className,
-      )}
+      title={message}
+      className={cn('mt-2', className)}
+      action={
+        <>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={onUseServer}
+            data-conflict-use-server
+          >
+            Use server version
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onKeepLocal}
+            disabled={retrying}
+            data-conflict-keep-local
+          >
+            {retrying ? 'Retrying…' : 'Keep my edit'}
+          </Button>
+        </>
+      }
     >
-      <p className="font-medium text-danger-text">{message}</p>
       <p className="mt-1 text-fg-muted">
         Your edits are preserved below. The latest server version is:
       </p>
@@ -62,26 +82,6 @@ export function ConflictBanner({
       >
         {serverPreview}
       </pre>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={onUseServer}
-          data-conflict-use-server
-        >
-          Use server version
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          onClick={onKeepLocal}
-          disabled={retrying}
-          data-conflict-keep-local
-        >
-          {retrying ? 'Retrying…' : 'Keep my edit'}
-        </Button>
-      </div>
-    </div>
+    </Notice>
   )
 }

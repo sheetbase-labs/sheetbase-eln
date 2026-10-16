@@ -12,6 +12,7 @@ import type { LucideIcon } from 'lucide-react'
 import { AuditTrail } from './audit-trail'
 import type { AuditEvent } from './audit-trail'
 import type { IconName } from '#/components/icons'
+import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import type { TimelineEventWire } from '#/lib/sign-002'
@@ -209,21 +210,22 @@ export function RecordHistoryTimeline({
 
   if (error) {
     return (
-      <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
-        <p role="alert" className="text-sm text-danger-text">
-          Could not load the record history.
-        </p>
-        {onRefresh ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onRefresh}
-            disabled={refreshing}
-          >
-            {refreshing ? 'Retrying…' : 'Try again'}
-          </Button>
-        ) : null}
-      </div>
+      <Notice
+        tone="bad"
+        title="Could not load the record history."
+        action={
+          onRefresh ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? 'Retrying…' : 'Try again'}
+            </Button>
+          ) : null
+        }
+      />
     )
   }
 

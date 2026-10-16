@@ -498,3 +498,135 @@ test.describe('density and overflow', () => {
     expect(overflow).toBeLessThanOrEqual(1)
   })
 })
+
+/**
+ * The three domain jobs converted onto the forward kit (avatar initials,
+ * notice/banner chrome, file type). They share one shape: no reorder, sort,
+ * filter, select, resize or pagination control, so their checklist result turns
+ * on the universal items — axe with colour contrast on in both themes, the
+ * 0-row fixture, the loading, error and restricted states, and the density
+ * measurement at both widths. The before/after columns of the file-type pair
+ * are the deleted resolver and the adopted item; the other two compare a v3
+ * component with a reproduced registry candidate that was declined, so no
+ * registry code for them is vendored in the repository.
+ */
+const CONVERTED_PAIRS = [
+  'avatar-initials',
+  'notice-banner',
+  'file-type',
+] as const
+
+/** Select a registered pair and wait for both columns to re-mount on it. */
+async function selectPair(page: Page, pairId: string) {
+  await page.getByTestId('comparison-pair').selectOption(pairId)
+  for (const id of COLUMNS) {
+    await expect(column(page, id)).toHaveAttribute('data-pair-id', pairId)
+  }
+}
+
+test.describe('converted domain jobs', () => {
+  for (const pairId of CONVERTED_PAIRS) {
+    for (const theme of ['light', 'dark'] as const) {
+      test(`${pairId}: no axe violations and a column screenshot — ${theme}`, async ({
+        page,
+      }, testInfo) => {
+        await openHarness(page, { theme, fixture: 'long-labels' })
+        await selectPair(page, pairId)
+        await page.addScriptTag({ content: axe.source })
+        for (const id of COLUMNS) {
+          const violations = await page.evaluate(async (selector: string) => {
+            const target = document.querySelector(selector)
+            if (!target) throw new Error(`no ${selector}`)
+            const runner = (
+              globalThis as {
+                axe?: {
+                  run: (context: Element) => Promise<{
+                    violations: Array<{ id: string; nodes: unknown[] }>
+                  }>
+                }
+              }
+            ).axe
+            if (!runner) throw new Error('axe was not injected')
+            const results = await runner.run(target)
+            return results.violations.map((violation) => violation.id)
+          }, `[data-comparison-column="${id}"]`)
+          expect(violations, `${pairId} ${id} in ${theme}`).toEqual([])
+          await shot(column(page, id), testInfo, `${pairId}-${id}-${theme}`)
+        }
+      })
+    }
+  }
+
+  test('every converted pair says "no rows" for the empty fixture and keeps its column', async ({
+    page,
+  }) => {
+    await openHarness(page, { theme: 'light', fixture: 'empty' })
+    for (const pairId of CONVERTED_PAIRS) {
+      await selectPair(page, pairId)
+      for (const id of COLUMNS) {
+        await expect(
+          column(page, id).getByRole('heading', { name: 'No rows' }),
+        ).toBeVisible()
+      }
+    }
+  })
+
+  test('every converted pair holds at phone width, with no clipped control', async ({
+    page,
+  }) => {
+    await page.setViewportSize(PHONE)
+    await openHarness(page, { theme: 'light', fixture: 'long-labels' })
+    for (const pairId of CONVERTED_PAIRS) {
+      await selectPair(page, pairId)
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      )
+      expect(overflow, `${pairId} overflows`).toBeLessThanOrEqual(1)
+      for (const id of COLUMNS) {
+        const box = await column(page, id).boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.x).toBeGreaterThanOrEqual(0)
+        expect(box!.x + box!.width).toBeLessThanOrEqual(PHONE.width + 1)
+      }
+    }
+  })
+
+  test('Tab reaches the controls each converted pair offers, with a visible focus indicator', async ({
+    page,
+  }) => {
+    await openHarness(page, { theme: 'light', fixture: 'long-labels' })
+    for (const pairId of CONVERTED_PAIRS) {
+      await selectPair(page, pairId)
+      const reached: string[] = []
+      for (let press = 0; press < 30; press += 1) {
+        await page.keyboard.press('Tab')
+        const step = await page.evaluate(() => {
+          const element = document.activeElement as HTMLElement | null
+          if (!element || element === document.body) return null
+          const style = getComputedStyle(element)
+          const outlined =
+            style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0
+          const ringed = style.boxShadow !== 'none'
+          const columnId = element
+            .closest('[data-comparison-column]')
+            ?.getAttribute('data-comparison-column')
+          return columnId ? { columnId, visible: outlined || ringed } : null
+        })
+        if (!step) continue
+        reached.push(step.columnId)
+        expect(
+          step.visible,
+          `${pairId}: focused control has no indicator`,
+        ).toBe(true)
+      }
+      // The notice/banner pair is the only one of the three with a control
+      // (its retry), and it is reached with a visible indicator; the other two
+      // are display-only, so reaching anything is not expected of them.
+      if (pairId === 'notice-banner') {
+        expect(reached.length).toBeGreaterThan(0)
+      }
+    }
+  })
+})

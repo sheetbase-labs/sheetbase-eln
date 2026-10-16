@@ -11,6 +11,7 @@ import { useState } from 'react'
 
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
+import { Notice } from '#/components/v3/ui/alert'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
@@ -260,14 +261,7 @@ export function ObjectHistoryTimeline({
   }
 
   if (error) {
-    return (
-      <p
-        role="alert"
-        className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-danger-text"
-      >
-        {error}
-      </p>
-    )
+    return <Notice tone="bad">{error}</Notice>
   }
 
   const groups = groupAuditEvents(events)

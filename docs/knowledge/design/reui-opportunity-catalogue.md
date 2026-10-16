@@ -29,6 +29,12 @@ Each ranks by worth-doing rather than by the old tiers, carries file:line
 evidence, records the jobs it checked and found nothing for, names the in-house
 jobs worth one component, and says which candidates already have a story.
 
+## Landed
+
+| Workstream     | Head       | Decision and evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `work/stepper` | `5204d087` | **Declined** `@reui/stepper`. It is a wizard navigation primitive — a `<nav>` of `<div>` items holding a `role="tablist"` of tabs, with no `aria-current` and no failed state — so it cannot carry the shipped contract (`<ol aria-label="Steps">`, one `<li>` per step, `aria-current="step"`), and measured on the flow's own steps it reports three critical axe violations, two of which survive the consumer's fixes. The legacy Radix stepper is deleted instead, and the forward row at `src/components/v3/ui/stepper.tsx` is the single implementation. Record row 2; the comparison is pinned in `component-compare.a11y.test.tsx` rather than registered as a route pair, because an axe-failing column must not turn the harness suite red. |
+
 ## Workstreams in flight
 
 | Workstream                  | Covers                                                                                                        |
@@ -37,7 +43,6 @@ jobs worth one component, and says which candidates already have a story.
 | `work/b3-b4-grid`           | TanStack Table v9 on `scientific/data-table.tsx`, then Frame + Data Grid on the inventory list                |
 | `work/b5-file-upload`       | ReUI file upload in the import flow; transport stays ours                                                     |
 | `work/b5-timeline`          | ReUI Timeline consolidates the audit/history rows                                                             |
-| `work/stepper`              | The stepper: adopt if the shipped `ol/li/aria-current` contract survives, otherwise consolidate               |
 | `work/empty-states`         | One Empty component; empty states are back in scope; remaining sites inventoried                              |
 | `work/convert-a`            | Spinner, progress, collapsible, code/payload block and the hand-rolled copy controls                          |
 | `work/convert-b`            | Avatar/initials unification, notice/banner onto the v3 pair, `@reui/file-type`                                |

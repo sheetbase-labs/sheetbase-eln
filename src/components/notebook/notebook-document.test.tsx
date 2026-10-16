@@ -1078,47 +1078,95 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
   })
 })
 
+/**
+ * The drag itself is measured in a real engine, where `@dnd-kit` can measure
+ * rects: `tests/browser/component-compare.test.ts` drags both columns and
+ * asserts they resolve a drop to the same index, and
+ * `tests/browser/note-01-authoring.test.ts` reorders a real notebook. jsdom
+ * zeroes every bounding rect, so a drop here would resolve to no target at all
+ * and prove nothing. What is pinned here is the wiring the swap introduced: the
+ * grip is the item's single control, the row keeps the notebook's own
+ * semantics, and the keyboard sensor really lifts and drops the row.
+ */
 describe('NotebookDocument — drag and drop', () => {
-  /** Minimal DataTransfer stub jsdom does not provide. */
-  function makeDataTransfer() {
-    const store = new Map<string, string>()
-    return {
-      effectAllowed: 'uninitialized',
-      dropEffect: 'none',
-      setData: (t: string, v: string) => store.set(t, v),
-      getData: (t: string) => store.get(t) ?? '',
-      types: Array.from(store.keys()),
+  it('renders the grip on each movable block and registers the row as a sortable item', () => {
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+
+    const handles = screen.getAllByRole('button', { name: 'Drag block' })
+    expect(handles).toHaveLength(3)
+    for (const handle of handles) {
+      expect(handle.getAttribute('data-slot')).toBe('sortable-item-handle')
+      // Native drag is not wanted on the grip: the browser's own drag would
+      // start alongside the pointer sensor and fight it for the same gesture.
+      expect(handle.getAttribute('draggable')).toBeNull()
+      // The grip joins the print-hide set with the rest of the row's chrome,
+      // so the printed document carries no authoring affordances.
+      expect(handle.closest('[data-print-hide]')).not.toBeNull()
     }
-  }
 
-  /** Build a drag-event MouseEvent with a clientY and dataTransfer. jsdom
-   * lacks a DragEvent constructor and fireEvent.dragOver does not propagate
-   * clientY, so we create a MouseEvent and pass it through fireEvent. */
-  function dragEvent(type: 'dragover' | 'drop' | 'dragenter', clientY: number) {
-    const evt = new MouseEvent(type, {
-      bubbles: true,
-      cancelable: true,
-      clientY,
-    })
-    Object.defineProperty(evt, 'dataTransfer', { value: makeDataTransfer() })
-    return evt
-  }
+    const rows = Array.from(
+      container.querySelectorAll('[data-slot="sortable-item"]'),
+    )
+    expect(rows.map((row) => row.getAttribute('data-value'))).toEqual([
+      'b1',
+      'b2',
+      'b3',
+    ])
+    // The row keeps the notebook's own semantics rather than taking the
+    // item's widget role: a labelled group whose focusable control is inside
+    // it, which is what keeps axe clean (see condition C1 in the comparison
+    // record).
+    expect(rows[0].getAttribute('role')).toBe('group')
+    expect(rows[0].getAttribute('tabindex')).toBe('0')
+    expect(rows[0].getAttribute('aria-pressed')).toBeNull()
+  })
 
-  function mockRect(el: HTMLElement, top: number, height: number) {
-    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
-      top,
-      height,
-      bottom: top + height,
-      left: 0,
-      right: 0,
-      width: 0,
-      x: 0,
-      y: top,
-      toJSON: () => '',
-    })
-  }
+  it('lifts and cancels the row with the keyboard sensor on the grip', async () => {
+    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <NotebookDocument
+        record={record}
+        blocks={threeBlocks()}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+        onMoveBlock={onMoveBlock}
+      />,
+    )
+    const handle = screen.getAllByRole('button', { name: 'Drag block' })[0]
+    const row = container.querySelector('#block-b1') as HTMLElement
+    expect(row.getAttribute('data-dragging')).toBe('false')
 
-  it('renders a drag handle on each editable block', () => {
+    // Enter or Space on the grip is the sensor's lift, and the notebook shows
+    // it in the row's own state as well.
+    fireEvent.keyDown(handle, { code: 'Space', key: ' ' })
+    expect(row.getAttribute('data-dragging')).toBe('true')
+    expect(
+      container.querySelector('#block-b1 [data-state="dragging"]'),
+    ).toBeTruthy()
+
+    // Escape cancels: the row is put back down and nothing is persisted. The
+    // sensor attaches its document listener on a timer after the lift, so the
+    // key has to wait for it.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    fireEvent.keyDown(document, { code: 'Escape', key: 'Escape' })
+    expect(row.getAttribute('data-dragging')).toBe('false')
+    expect(onMoveBlock).not.toHaveBeenCalled()
+  })
+
+  it('opens the block actions menu from the grip', async () => {
+    const user = userEvent.setup()
     render(
       <NotebookDocument
         record={record}
@@ -1130,111 +1178,10 @@ describe('NotebookDocument — drag and drop', () => {
         onMoveBlock={vi.fn().mockResolvedValue(undefined)}
       />,
     )
-    const handles = screen.getAllByRole('button', { name: 'Drag block' })
-    expect(handles).toHaveLength(3)
-    expect(handles[0].getAttribute('draggable')).toBe('true')
-  })
-
-  it('shows an insertion indicator above the target on drag-over and moves on drop', () => {
-    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
-    const { container } = render(
-      <NotebookDocument
-        record={record}
-        blocks={threeBlocks()}
-        onSaveBlock={vi.fn()}
-        onInsertBlock={vi.fn()}
-        onDuplicateBlock={vi.fn()}
-        onDeleteBlock={vi.fn()}
-        onMoveBlock={onMoveBlock}
-      />,
-    )
-    const handleB1 = screen.getAllByRole('button', { name: 'Drag block' })[0]
-    const rowB3 = container.querySelector('#block-b3') as HTMLElement
-    mockRect(rowB3, 100, 50) // midpoint at y=125
-    const dt1 = makeDataTransfer()
-    fireEvent.dragStart(handleB1, { dataTransfer: dt1 })
-    // Pointer at y=110 (top half of b3) → drop above b3 → after=b2, before=b3.
-    fireEvent(rowB3, dragEvent('dragenter', 110))
-    fireEvent(rowB3, dragEvent('dragover', 110))
-    const indicator = container.querySelector('[data-drop-indicator="above"]')
-    expect(indicator).toBeTruthy()
-    fireEvent(rowB3, dragEvent('drop', 110))
-    expect(onMoveBlock).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'b1' }),
-      expect.objectContaining({ afterBlockId: 'b2', beforeBlockId: 'b3' }),
-    )
-  })
-
-  it('drops below the target when the pointer is in the bottom half', () => {
-    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
-    const { container } = render(
-      <NotebookDocument
-        record={record}
-        blocks={threeBlocks()}
-        onSaveBlock={vi.fn()}
-        onInsertBlock={vi.fn()}
-        onDuplicateBlock={vi.fn()}
-        onDeleteBlock={vi.fn()}
-        onMoveBlock={onMoveBlock}
-      />,
-    )
-    const handleB1 = screen.getAllByRole('button', { name: 'Drag block' })[0]
-    const rowB2 = container.querySelector('#block-b2') as HTMLElement
-    mockRect(rowB2, 100, 50) // midpoint at y=125
-    fireEvent.dragStart(handleB1, { dataTransfer: makeDataTransfer() })
-    // Pointer at y=140 (bottom half of b2) → drop below b2 → after=b2, before=b3.
-    fireEvent(rowB2, dragEvent('dragover', 140))
-    fireEvent(rowB2, dragEvent('drop', 140))
-    expect(onMoveBlock).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'b1' }),
-      expect.objectContaining({ afterBlockId: 'b2', beforeBlockId: 'b3' }),
-    )
-  })
-
-  it('shows a below indicator when dropping at the end of the list', () => {
-    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
-    const { container } = render(
-      <NotebookDocument
-        record={record}
-        blocks={threeBlocks()}
-        onSaveBlock={vi.fn()}
-        onInsertBlock={vi.fn()}
-        onDuplicateBlock={vi.fn()}
-        onDeleteBlock={vi.fn()}
-        onMoveBlock={onMoveBlock}
-      />,
-    )
-    const handleB1 = screen.getAllByRole('button', { name: 'Drag block' })[0]
-    const rowB3 = container.querySelector('#block-b3') as HTMLElement
-    mockRect(rowB3, 100, 50)
-    fireEvent.dragStart(handleB1, { dataTransfer: makeDataTransfer() })
-    // Pointer at y=140 (bottom half of b3, the last block) → after=b3, before=null → end.
-    fireEvent(rowB3, dragEvent('dragover', 140))
-    const below = container.querySelector('[data-drop-indicator="below"]')
-    expect(below).toBeTruthy()
-    fireEvent(rowB3, dragEvent('drop', 140))
-    expect(onMoveBlock).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'b1' }),
-      expect.objectContaining({ afterBlockId: 'b3', beforeBlockId: null }),
-    )
-  })
-
-  it('ignores drops when no drag is in flight', () => {
-    const onMoveBlock = vi.fn().mockResolvedValue(undefined)
-    const { container } = render(
-      <NotebookDocument
-        record={record}
-        blocks={threeBlocks()}
-        onSaveBlock={vi.fn()}
-        onInsertBlock={vi.fn()}
-        onDuplicateBlock={vi.fn()}
-        onDeleteBlock={vi.fn()}
-        onMoveBlock={onMoveBlock}
-      />,
-    )
-    const rowB2 = container.querySelector('#block-b2') as HTMLElement
-    fireEvent(rowB2, dragEvent('drop', 0))
-    expect(onMoveBlock).not.toHaveBeenCalled()
+    await user.click(screen.getAllByRole('button', { name: 'Drag block' })[0])
+    expect(
+      await screen.findByRole('menuitem', { name: 'Duplicate' }),
+    ).toBeTruthy()
   })
 })
 

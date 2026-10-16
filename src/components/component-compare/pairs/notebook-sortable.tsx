@@ -1,11 +1,11 @@
 import * as React from 'react'
 
 import { Icon } from '#/components/v3/icons'
-import { NotebookBlock } from '#/components/notebook/notebook-block'
 import {
-  DropIndicatorLine,
-  dropIndicatorFor,
-  useNotebookBlockReorder,
+  NotebookBlockHandle,
+  NotebookBlockList,
+  NotebookBlockRow,
+  moveTargetIndex,
 } from '#/components/notebook/notebook-block-reorder'
 import {
   Sortable,
@@ -27,26 +27,36 @@ import type {
 /**
  * Pair 1 — the reorderable list.
  *
- * Ours: the notebook's hand-rolled HTML5 drag-and-drop, which until now lived
- * inline in `src/components/notebook/notebook-document.tsx` and now lives in
- * `notebook-block-reorder.tsx`, consumed here through the same hook the
- * document uses. The row frame is the notebook's own `NotebookBlock`, so the
- * column shows the affordance scientists meet: a grip handle in the row's left
- * margin, an insertion line above the gap the drop would land in, and alt+arrow
- * from the focused row. In the notebook the same handle also opens the block
- * menu; this column passes no `menuItems`, so here it only drags (and there is
- * no "Block actions" trigger to compare).
+ * The comparison that decided this adoption ran the notebook's hand-rolled
+ * HTML5 drag-and-drop against ReUI's sortable item and is recorded, with its
+ * measurements and its conditions C1–C4, in
+ * `docs/knowledge/design/component-comparison-record.md` row 1. The notebook
+ * then adopted the item (workstream B2 of
+ * `plans/notebook-editor-and-reui.html`), so the two columns no longer differ in
+ * *mechanism*; what they differ in is *integration*.
  *
- * Theirs: ReUI's `Sortable`/`SortableItem`/`SortableItemHandle` from the pinned
- * base-nova registry (`@reui/sortable`), installed with the shadcn CLI and
- * placed under `src/components/reui/`. It is a `@dnd-kit` wrapper: pointer,
- * touch and keyboard sensors, a drag overlay, and a movement transform instead
- * of an insertion line. The row chrome around it is ours — an adoption means
- * restyling to Sheetbase tokens anyway — so what the column adds is the item,
- * the handle, the overlay and whatever `@dnd-kit` does with them.
+ * Ours: the notebook's list as it now ships —
+ * `NotebookBlockList`/`NotebookBlockRow`/`NotebookBlockHandle`, the same
+ * modules `notebook-document.tsx` renders, in the notebook's own row frame.
+ * The row is a labelled group whose single drag control is the grip handle, and
+ * the handle is rendered at every width so that a touchscreen has a route to a
+ * reorder. This column is what keeps the adoption honest: it measures the
+ * shipped integration against the item as published.
  *
- * The column is also the integration: see the container-semantics override
- * below, and condition C1 in the comparison record.
+ * Theirs: the registry item as published, with the one integration fix-up the
+ * adoption's condition C1 requires — the item puts `@dnd-kit`'s widget role and
+ * tab stop on the row container while the drag listeners sit on the handle
+ * inside it, and rendering the handle as a real button (which the keyboard
+ * sensor needs) turns every row into a widget containing a control, which axe
+ * reports as `nested-interactive` (serious). The reference column hands the
+ * container the list's own semantics and keeps the handle as the single
+ * control. Both halves of that measurement are pinned against the vendored item
+ * unchanged by `component-compare.a11y.test.tsx`, "the candidate rules or not on
+ * how its handle is rendered (C1)".
+ *
+ * Neither column reproduces the original HTML5 implementation: that revision is
+ * `35423ec2` of this branch, and its reproduction is its own pair and its own
+ * row in the record.
  */
 
 /** Move `id` to `targetIndex` in a fresh array; the caller clamps. */
@@ -98,7 +108,9 @@ function RowContent({ row }: { row: ComparisonRow }) {
 
 /**
  * Ours. Order is local state: the harness has no persistence, and the notebook's
- * own optimistic-then-persist path belongs to the route.
+ * own optimistic-then-persist path belongs to the route. Everything else — the
+ * list, the row's semantics, the handle and the keyboard path — is the shipped
+ * module.
  */
 function NotebookReorderColumn({ scenario }: ComparisonColumnProps) {
   const rows = scenario.fixture.rows
@@ -112,13 +124,6 @@ function NotebookReorderColumn({ scenario }: ComparisonColumnProps) {
   // Reordering is refused for a single row, in a read-only state, and while the
   // fixture is not ready — the same conditions the notebook applies.
   const canReorder = scenario.state === 'ready' && rows.length > 1
-  const reorder = useNotebookBlockReorder({
-    ids: order,
-    enabled: canReorder,
-    onMove: (id, targetIndex) => {
-      setOrder((current) => moveTo(current, id, targetIndex))
-    },
-  })
 
   if (scenario.state === 'loading') return <ComparisonLoadingRows />
   if (scenario.state === 'error') {
@@ -129,73 +134,73 @@ function NotebookReorderColumn({ scenario }: ComparisonColumnProps) {
     <div
       // The notebook's grip handle lives in the row's negative left margin
       // (`-left-8`), so the list carries the gutter the document page would
-      // give it; without it the handle is clipped and cannot be grabbed.
-      className="flex flex-col pl-9"
+      // give it on a wide viewport; without it the handle is clipped and cannot
+      // be grabbed. Below `lg` the row supplies that space itself.
+      className="flex flex-col lg:pl-9"
       data-comparison-list="ours"
-      data-reorder-mechanism="html5-drag-and-drop"
+      data-reorder-mechanism="dnd-kit"
     >
       {scenario.state === 'restricted' ? <ComparisonRestrictedNotice /> : null}
       {rows.length === 0 ? <ComparisonEmptyState /> : null}
-      {order.map((id) => {
-        const row = rowById.get(id)
-        if (!row) return null
-        const drag = reorder.handleProps(id)
-        const indicator = dropIndicatorFor(reorder.dropTarget, id)
-        return (
-          <React.Fragment key={id}>
-            {indicator === 'above' ? (
-              <DropIndicatorLine position="above" />
-            ) : null}
-            <div
-              role="group"
-              tabIndex={canReorder ? 0 : undefined}
-              aria-label={
-                canReorder
+      <NotebookBlockList
+        ids={order}
+        onMove={(id, targetIndex) => {
+          setOrder((current) => moveTo(current, id, targetIndex))
+        }}
+      >
+        {order.map((id) => {
+          const row = rowById.get(id)
+          if (!row) return null
+          return (
+            <NotebookBlockRow
+              key={id}
+              itemId={id}
+              enabled={canReorder}
+              handle={canReorder ? <NotebookBlockHandle /> : undefined}
+              row={{
+                'data-row-id': id,
+                role: canReorder ? 'group' : undefined,
+                tabIndex: canReorder ? 0 : undefined,
+                'aria-label': canReorder
                   ? `${row.name} — Alt+Arrow keys move this row`
-                  : row.name
-              }
-              className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              data-row-id={row.id}
-              data-state={reorder.draggingId === id ? 'dragging' : undefined}
-              onKeyDown={(event) => {
-                if (!event.altKey || !canReorder) return
-                if (event.key === 'ArrowUp') {
+                  : row.name,
+                onKeyDown: (event) => {
+                  if (!event.altKey || !canReorder) return
+                  const direction =
+                    event.key === 'ArrowUp'
+                      ? 'up'
+                      : event.key === 'ArrowDown'
+                        ? 'down'
+                        : null
+                  if (!direction) return
                   event.preventDefault()
-                  reorder.moveByOne(id, 'up')
-                } else if (event.key === 'ArrowDown') {
-                  event.preventDefault()
-                  reorder.moveByOne(id, 'down')
-                }
+                  const target = moveTargetIndex(order, id, direction)
+                  if (target !== null) {
+                    setOrder((current) => moveTo(current, id, target))
+                  }
+                },
               }}
-              {...reorder.rowProps(id)}
+              frame={{
+                label: row.kind ?? 'Row',
+                state: canReorder ? 'default' : 'read-only',
+                ariaLabel: `${row.name} row`,
+              }}
             >
-              <NotebookBlock
-                label={row.kind ?? 'Row'}
-                state={canReorder ? 'default' : 'read-only'}
-                ariaLabel={`${row.name} row`}
-                draggable={drag.draggable}
-                onDragStart={drag.onDragStart}
-                onDragEnd={drag.onDragEnd}
-                className={reorder.draggingId === id ? 'opacity-60' : undefined}
-              >
-                <div className="flex items-center gap-3 px-1 py-1.5">
-                  <RowContent row={row} />
-                </div>
-              </NotebookBlock>
-            </div>
-            {indicator === 'below' ? (
-              <DropIndicatorLine position="below" />
-            ) : null}
-          </React.Fragment>
-        )
-      })}
+              <div className="flex items-center gap-3 px-1 py-1.5">
+                <RowContent row={row} />
+              </div>
+            </NotebookBlockRow>
+          )
+        })}
+      </NotebookBlockList>
     </div>
   )
 }
 
 /**
- * Theirs. `Sortable` owns the order through `onValueChange` — the candidate's
- * own reordering contract — and `SortableItemHandle` carries the `@dnd-kit`
+ * Theirs. The item as published, with the C1 semantics fix-up described above:
+ * `Sortable` owns the order through `onValueChange` — the candidate's own
+ * reordering contract — and `SortableItemHandle` carries the `@dnd-kit`
  * listeners that start a pointer, touch or keyboard drag.
  */
 function ReuiSortableColumn({ scenario }: ComparisonColumnProps) {
@@ -265,17 +270,17 @@ function ReuiSortableColumn({ scenario }: ComparisonColumnProps) {
 export const notebookSortablePair: ComparisonPair = {
   id: 'notebook-sortable',
   title: 'Reorderable block list',
-  job: 'Reorder a list of rows by pointer and by keyboard',
+  job: 'Reorder a list of rows by pointer, touch and keyboard — the notebook’s shipped integration of the registry item against the item as published',
   controls: ['reorder'],
   ours: {
     id: 'ours',
-    label: 'Ours — notebook HTML5 drag-and-drop',
+    label: 'Ours — notebook list (ReUI sortable adopted)',
     source: 'src/components/notebook/notebook-block-reorder.tsx',
     Column: NotebookReorderColumn,
   },
   theirs: {
     id: 'theirs',
-    label: 'Theirs — ReUI sortable (base-nova)',
+    label: 'Reference — ReUI sortable with the C1 semantics fix-up',
     source: 'src/components/reui/sortable.tsx (registry: @reui/sortable)',
     Column: ReuiSortableColumn,
   },

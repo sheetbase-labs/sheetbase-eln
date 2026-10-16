@@ -31,12 +31,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '#/components/v3/ui/popover'
-import { NotebookBlock } from './notebook-block'
 import {
-  DropIndicatorLine,
-  dropIndicatorFor,
+  NotebookBlockHandle,
+  NotebookBlockList,
+  NotebookBlockRow,
+  moveTargetIndex,
   neighboursForTarget,
-  useNotebookBlockReorder,
 } from './notebook-block-reorder'
 import { BlockPreview } from './block-preview'
 import { BlockEditor } from './block-editor'
@@ -290,13 +290,15 @@ function NotebookDocumentContent({
   // a move so the UI feels instant; it is cleared on success (the canonical
   // blocks from the route's query cache then render) or restored to the
   // pre-move snapshot on rejection. `movingId` marks the block whose RPC is in
-  // flight so its row can show a subtle pending state. The drag mechanics
-  // themselves live in `useNotebookBlockReorder` so the component-comparison
-  // harness drives the same code this document ships.
+  // flight so its row can show a subtle pending state, and `draggingId` marks
+  // the block a pointer, touch or keyboard drag is currently holding. The
+  // list itself lives in `notebook-block-reorder.tsx` so the
+  // component-comparison harness drives the same code this document ships.
   const [optimisticOrder, setOptimisticOrder] = React.useState<string[] | null>(
     null,
   )
   const [movingId, setMovingId] = React.useState<string | null>(null)
+  const [draggingId, setDraggingId] = React.useState<string | null>(null)
   const [moveError, setMoveError] = React.useState<{
     blockId: string
     message: string
@@ -603,14 +605,16 @@ function NotebookDocumentContent({
 
   const canMove = !isReadOnly && !!onMoveBlock && blocks.length > 1
 
-  const reorder = useNotebookBlockReorder({
-    ids: orderedIds,
-    enabled: canMove,
-    onMove: (blockId, targetIndex) => {
-      const block = blockById.get(blockId)
-      if (block) void performMove(block, targetIndex)
-    },
-  })
+  /**
+   * The Alt+arrow path and the block menu's Move up/down, which are the same
+   * call: one position, through the same optimistic writer a drop uses.
+   */
+  function moveByOne(block: NotebookBlockData, direction: 'up' | 'down') {
+    if (!canMove) return
+    const target = moveTargetIndex(orderedIds, block.id, direction)
+    if (target === null) return
+    void performMove(block, target)
+  }
 
   /**
    * Prose-run membership by block id. Rows inside a multi-row run render
@@ -914,13 +918,14 @@ function NotebookDocumentContent({
     // Alt+Arrow moves the focused block up/down by one position. The row is
     // focusable (tabIndex 0 below) so keyboard users can reorder without a
     // pointer. The menu items below provide the same moves for users who
-    // prefer a discoverable affordance.
+    // prefer a discoverable affordance, and the grip handle carries the
+    // sortable item's own lift-and-move keyboard sensor.
     if (e.altKey && e.key === 'ArrowUp') {
       e.preventDefault()
-      reorder.moveByOne(block.id, 'up')
+      moveByOne(block, 'up')
     } else if (e.altKey && e.key === 'ArrowDown') {
       e.preventDefault()
-      reorder.moveByOne(block.id, 'down')
+      moveByOne(block, 'down')
     }
   }
 
@@ -969,135 +974,133 @@ function NotebookDocumentContent({
           </div>
         </div>
       ) : null}
-      {orderedIds.map((id, index) => {
-        const block = blockById.get(id)
-        if (!block) return null
-        const editable = isEditableBlockType(block.type) && !isReadOnly
-        const isSelected = selectedId === block.id
-        const isActive = activeId === block.id
-        const isDragging = reorder.draggingId === block.id
-        const isMoving = movingId === block.id
-        const hasUnsavedDraft = unsavedBlockIds.has(block.id)
-        const drag = reorder.handleProps(block.id)
-        // Show exactly one insertion indicator per gap; see dropIndicatorFor.
-        const showAbove =
-          dropIndicatorFor(reorder.dropTarget, block.id) === 'above'
-        const showBelow =
-          dropIndicatorFor(reorder.dropTarget, block.id) === 'below'
-        const blockState = isReadOnly
-          ? 'read-only'
-          : isDragging
-            ? 'dragging'
-            : isSelected && isActive && editable
-              ? 'editing'
-              : isSelected
-                ? 'selected'
-                : 'default'
-        const isHiddenSection = hiddenBlockIds.has(block.id)
-        const collapsedHere = collapsedAnchorByBlockId.get(block.id)
-        const proseRun = proseRuns[block.id]
-        return (
-          <React.Fragment key={block.id}>
-            {showAbove ? <DropIndicatorLine position="above" /> : null}
-            <div
-              id={`block-${block.id}`}
-              className={cn(
-                'scroll-mt-28 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                // Blocks are spaced by the insert seam between them, which the
-                // run itself collapses to nothing — so there is one rule for
-                // spacing and one exception, and the exception is the seam.
-                // The document reads the full width of the working surface.
-                // The designed screens (ui-system-v3/canvas/NbEditing.dc.html
-                // and the rest of the Nb* set) put prose in a 680px centred
-                // measure, so this is a deliberate deviation from the design
-                // reference, taken by the owner on 2026-10-15: the notebook is
-                // not to be width-constrained or centred. Do not "fix" it back
-                // without re-reading that decision.
-                'w-full',
-                isMoving && 'opacity-60',
-                // NOTE-02: collapsed sections are removed from view but
-                // restored in print, so printed structure stays complete.
-                isHiddenSection && 'hidden print:contents',
-              )}
-              data-prose-run={
-                proseRun
-                  ? proseRun.isFirst
-                    ? 'start'
-                    : proseRun.isLast
-                      ? 'end'
-                      : 'middle'
-                  : undefined
-              }
-              tabIndex={isReadOnly ? undefined : 0}
-              role={isReadOnly ? undefined : 'group'}
-              aria-label={`${blockLabel(block)} block${canMove ? ' — Alt+Arrow keys move; Ctrl+Arrow keys navigate' : ''}`}
-              data-active={isActive || undefined}
-              data-selected={isSelected || undefined}
-              onFocus={() => {
-                setActiveId(block.id)
-                selectBlock(block)
-              }}
-              onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) {
-                  setActiveId((current) =>
-                    current === block.id ? null : current,
-                  )
-                }
-              }}
-              onClick={() => {
-                // A pointer puts the caret where it was clicked, so any
-                // keyboard hint from an arrow key no longer applies.
-                setCaretHint(null)
-                selectBlock(block)
-              }}
-              onKeyDown={(e) => handleRowKeyDown(e, block)}
-              {...reorder.rowProps(block.id)}
-            >
-              <NotebookBlock
-                label={blockLabel(block)}
-                continuous={!!proseRun}
-                title={
-                  // Display only: editable payload fields belong to the
-                  // block's single autosave/conflict state machine below.
-                  // Chart and plate_map render their own payload.title
-                  // internally (ChartFrame header, plate map caption).
-                  // Suppress the wrapper title to avoid duplication.
-                  block.type !== 'chart' &&
-                  block.type !== 'plate_map' &&
-                  typeof block.payload.title === 'string' &&
-                  block.payload.title.trim()
-                    ? block.payload.title
-                    : undefined
-                }
-                state={blockState}
-                ariaLabel={`${block.type} block`}
-                actions={
-                  <>
-                    {/* COLLAB-01 co-editing awareness: only while this
-                        block is the one I am editing. */}
-                    <BlockCoEditBadge
-                      blockId={block.id}
-                      active={editable && isSelected}
-                    />
-                    {collabComments ? (
-                      <BlockComments
-                        workspaceId={collaborationWorkspaceId}
-                        recordId={record.id}
-                        blockId={block.id}
-                        role={collaborationRole}
-                      />
-                    ) : undefined}
-                  </>
-                }
-                draggable={drag.draggable}
-                onDragStart={(e) => {
-                  // A new drag supersedes any move error still on screen.
-                  setMoveError(null)
-                  drag.onDragStart(e)
+      <NotebookBlockList
+        ids={orderedIds}
+        onMove={(blockId, targetIndex) => {
+          const block = blockById.get(blockId)
+          if (block) void performMove(block, targetIndex)
+        }}
+        onDraggingChange={(draggedId) => {
+          setDraggingId(draggedId)
+          // A new drag supersedes any move error still on screen.
+          if (draggedId) setMoveError(null)
+        }}
+      >
+        {orderedIds.map((id, index) => {
+          const block = blockById.get(id)
+          if (!block) return null
+          const editable = isEditableBlockType(block.type) && !isReadOnly
+          const isSelected = selectedId === block.id
+          const isActive = activeId === block.id
+          const isDragging = draggingId === block.id
+          const isMoving = movingId === block.id
+          const hasUnsavedDraft = unsavedBlockIds.has(block.id)
+          const blockState = isReadOnly
+            ? 'read-only'
+            : isDragging
+              ? 'dragging'
+              : isSelected && isActive && editable
+                ? 'editing'
+                : isSelected
+                  ? 'selected'
+                  : 'default'
+          const isHiddenSection = hiddenBlockIds.has(block.id)
+          const collapsedHere = collapsedAnchorByBlockId.get(block.id)
+          const proseRun = proseRuns[block.id]
+          return (
+            <React.Fragment key={block.id}>
+              <NotebookBlockRow
+                itemId={block.id}
+                enabled={canMove}
+                handle={canMove ? <NotebookBlockHandle /> : undefined}
+                row={{
+                  id: `block-${block.id}`,
+                  className: cn(
+                    // Blocks are spaced by the insert seam between them, which
+                    // the run itself collapses to nothing — so there is one
+                    // rule for spacing and one exception, and the exception is
+                    // the seam.
+                    // The document reads the full width of the working
+                    // surface. The designed screens
+                    // (ui-system-v3/canvas/NbEditing.dc.html and the rest of the
+                    // Nb* set) put prose in a 680px centred measure, so this is
+                    // a deliberate deviation from the design reference, taken
+                    // by the owner on 2026-10-15: the notebook is not to be
+                    // width-constrained or centred. Do not "fix" it back
+                    // without re-reading that decision.
+                    'w-full',
+                    isMoving && 'opacity-60',
+                    // NOTE-02: collapsed sections are removed from view but
+                    // restored in print, so printed structure stays complete.
+                    isHiddenSection && 'hidden print:contents',
+                  ),
+                  'data-prose-run': proseRun
+                    ? proseRun.isFirst
+                      ? 'start'
+                      : proseRun.isLast
+                        ? 'end'
+                        : 'middle'
+                    : undefined,
+                  tabIndex: isReadOnly ? undefined : 0,
+                  role: isReadOnly ? undefined : 'group',
+                  'aria-label': `${blockLabel(block)} block${canMove ? ' — Alt+Arrow keys move; Ctrl+Arrow keys navigate' : ''}`,
+                  'data-active': isActive || undefined,
+                  'data-selected': isSelected || undefined,
+                  onFocus: () => {
+                    setActiveId(block.id)
+                    selectBlock(block)
+                  },
+                  onBlur: (event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget)) {
+                      setActiveId((current) =>
+                        current === block.id ? null : current,
+                      )
+                    }
+                  },
+                  onClick: () => {
+                    // A pointer puts the caret where it was clicked, so any
+                    // keyboard hint from an arrow key no longer applies.
+                    setCaretHint(null)
+                    selectBlock(block)
+                  },
+                  onKeyDown: (e) => handleRowKeyDown(e, block),
                 }}
-                onDragEnd={drag.onDragEnd}
-                menuItems={
-                  isReadOnly
+                frame={{
+                  label: blockLabel(block),
+                  continuous: !!proseRun,
+                  title:
+                    // Display only: editable payload fields belong to the
+                    // block's single autosave/conflict state machine below.
+                    // Chart and plate_map render their own payload.title
+                    // internally (ChartFrame header, plate map caption).
+                    // Suppress the wrapper title to avoid duplication.
+                    block.type !== 'chart' &&
+                    block.type !== 'plate_map' &&
+                    typeof block.payload.title === 'string' &&
+                    block.payload.title.trim()
+                      ? block.payload.title
+                      : undefined,
+                  state: blockState,
+                  ariaLabel: `${block.type} block`,
+                  actions: (
+                    <>
+                      {/* COLLAB-01 co-editing awareness: only while this
+                          block is the one I am editing. */}
+                      <BlockCoEditBadge
+                        blockId={block.id}
+                        active={editable && isSelected}
+                      />
+                      {collabComments ? (
+                        <BlockComments
+                          workspaceId={collaborationWorkspaceId}
+                          recordId={record.id}
+                          blockId={block.id}
+                          role={collaborationRole}
+                        />
+                      ) : undefined}
+                    </>
+                  ),
+                  menuItems: isReadOnly
                     ? undefined
                     : [
                         {
@@ -1112,15 +1115,13 @@ function NotebookDocumentContent({
                               {
                                 id: 'move-up',
                                 label: 'Move up',
-                                onSelect: () =>
-                                  reorder.moveByOne(block.id, 'up'),
+                                onSelect: () => moveByOne(block, 'up'),
                                 disabled: index === 0,
                               },
                               {
                                 id: 'move-down',
                                 label: 'Move down',
-                                onSelect: () =>
-                                  reorder.moveByOne(block.id, 'down'),
+                                onSelect: () => moveByOne(block, 'down'),
                                 disabled: index === orderedIds.length - 1,
                                 separatorAfter: true,
                               },
@@ -1137,8 +1138,8 @@ function NotebookDocumentContent({
                           onSelect: () => setConfirmDelete(block),
                           separatorAfter: true,
                         },
-                      ]
-                }
+                      ],
+                }}
               >
                 {block.type === 'sheet' ? (
                   <NotebookSheetBlock
@@ -1219,7 +1220,7 @@ function NotebookDocumentContent({
                     actionContext={actionBlockContext}
                   />
                 )}
-              </NotebookBlock>
+              </NotebookBlockRow>
               {moveError && moveError.blockId === block.id ? (
                 <p
                   role="alert"
@@ -1229,75 +1230,74 @@ function NotebookDocumentContent({
                   {moveError.message}
                 </p>
               ) : null}
-            </div>
-            {showBelow ? <DropIndicatorLine position="below" /> : null}
-            {/* Every block carries the insert affordance, including the
+              {/* Every block carries the insert affordance, including the
                 last: hovering below the end of the document is how a block is
                 appended, with no button parked under the work. */}
-            {!isReadOnly ? (
-              <div
-                className={cn(
-                  'group/insert relative',
-                  // A seam inside a prose run must not push the paragraphs
-                  // apart: the run is one column, so the affordance floats over
-                  // the boundary on a zero-height element instead of occupying
-                  // a row of its own.
-                  proseRun && !proseRun.isLast
-                    ? 'h-0'
-                    : 'flex h-4 items-center justify-center',
-                )}
-                data-insertion-gap={`after-${block.id}`}
-                data-prose-run-seam={
-                  proseRun && !proseRun.isLast ? '' : undefined
-                }
-                data-print-hide
-              >
+              {!isReadOnly ? (
                 <div
                   className={cn(
+                    'group/insert relative',
+                    // A seam inside a prose run must not push the paragraphs
+                    // apart: the run is one column, so the affordance floats over
+                    // the boundary on a zero-height element instead of occupying
+                    // a row of its own.
                     proseRun && !proseRun.isLast
-                      ? 'absolute inset-x-0 -top-2 flex h-4 items-center justify-center'
-                      : 'contents',
+                      ? 'h-0'
+                      : 'flex h-4 items-center justify-center',
                   )}
+                  data-insertion-gap={`after-${block.id}`}
+                  data-prose-run-seam={
+                    proseRun && !proseRun.isLast ? '' : undefined
+                  }
+                  data-print-hide
                 >
-                  <div className="absolute inset-x-0 h-px bg-border opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100" />
-                  <AddBlockControl
-                    onInsert={(type) => void handleInsert(type, block.id)}
-                    variant="icon"
-                    after={blockLabel(block)}
-                    label={`Insert block after ${blockLabel(block)}`}
-                    className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
-                  />
+                  <div
+                    className={cn(
+                      proseRun && !proseRun.isLast
+                        ? 'absolute inset-x-0 -top-2 flex h-4 items-center justify-center'
+                        : 'contents',
+                    )}
+                  >
+                    <div className="absolute inset-x-0 h-px bg-border opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100" />
+                    <AddBlockControl
+                      onInsert={(type) => void handleInsert(type, block.id)}
+                      variant="icon"
+                      after={blockLabel(block)}
+                      label={`Insert block after ${blockLabel(block)}`}
+                      className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
+                    />
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            {collapsedHere && !isHiddenSection ? (
-              <div
-                className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-fg-muted"
-                data-testid={`section-collapsed-${collapsedHere}`}
-                data-print-hide
-              >
-                <span>
-                  Section collapsed —{' '}
-                  {(() => {
-                    const blocksHidden = hiddenCounts.get(collapsedHere) ?? 0
-                    if (blocksHidden > 0) {
-                      return `${blocksHidden} block${blocksHidden === 1 ? '' : 's'} hidden.`
-                    }
-                    return 'content in this block is hidden.'
-                  })()}
-                </span>
-                <button
-                  type="button"
-                  className="underline underline-offset-2 hover:text-fg"
-                  onClick={() => onToggleSection?.(collapsedHere)}
+              ) : null}
+              {collapsedHere && !isHiddenSection ? (
+                <div
+                  className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-fg-muted"
+                  data-testid={`section-collapsed-${collapsedHere}`}
+                  data-print-hide
                 >
-                  Show
-                </button>
-              </div>
-            ) : null}
-          </React.Fragment>
-        )
-      })}
+                  <span>
+                    Section collapsed —{' '}
+                    {(() => {
+                      const blocksHidden = hiddenCounts.get(collapsedHere) ?? 0
+                      if (blocksHidden > 0) {
+                        return `${blocksHidden} block${blocksHidden === 1 ? '' : 's'} hidden.`
+                      }
+                      return 'content in this block is hidden.'
+                    })()}
+                  </span>
+                  <button
+                    type="button"
+                    className="underline underline-offset-2 hover:text-fg"
+                    onClick={() => onToggleSection?.(collapsedHere)}
+                  >
+                    Show
+                  </button>
+                </div>
+              ) : null}
+            </React.Fragment>
+          )
+        })}
+      </NotebookBlockList>
 
       {errorById.__insert ? (
         <p role="alert" className="text-xs text-danger-text">

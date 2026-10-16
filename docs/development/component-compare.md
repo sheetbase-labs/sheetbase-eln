@@ -148,14 +148,40 @@ fixture back and accept the runtime.
    `ComparisonColumnProps` contract, and register the pair in `pairs/index.ts`
    with its `job` and its `controls`. A pair is data; do not add a bespoke
    comparator. Our side renders the code that ships — for the notebook's list
-   that means the same `notebook-block-reorder.tsx` hook the document uses —
-   and the candidate's row chrome is restyled to Sheetbase tokens, because an
+   that means the same `notebook-block-reorder.tsx` modules the document uses
+   (`NotebookBlockList`, `NotebookBlockRow`, `NotebookBlockHandle`) — and the
+   candidate's row chrome is restyled to Sheetbase tokens, because an
    adoption means restyling anyway.
 
 5. **Run the checklist** (the commands above), then write the pair's row in the
    comparison record: what we use now, what the candidate offers, each side's
    checklist result, the decision and the reason. A row with no decision is not
    a record, and an adoption without a row may not ship.
+
+## Adopting the candidate a pair measures
+
+A candidate that is adopted becomes what the repository uses, so the pair can no
+longer compare two mechanisms. Do not retire it silently, and do not leave it
+claiming a mechanism the repository no longer ships. The move that keeps both
+the evidence and the honesty is:
+
+- re-point our side at the **shipped integration** of the adopted component, so
+  the column keeps measuring the code the product renders;
+- re-label the other side as the **reference** — the registry item as published,
+  with the integration fix-up it was adopted with — and say so in the pair's
+  header and its `job` line;
+- keep the pair registered. What it measures then is the integration against the
+  reference: container semantics, handle placement, restyling, the accessibility
+  fix-up. That is where an adoption's regressions actually appear;
+- keep the **original** comparison as history in the record row — its revision,
+  its measurements and its conditions — rather than overwriting it with the
+  adopted state. Row 1 is that case.
+
+The original comparison stays reproducible from the repository alone, at the
+revision the row records: check that revision out and its pair, its fixtures and
+its measurements are the ones it was measured with. Reproducibility does not
+require an obsolete production mechanism to stay executable at HEAD — ADR-0055
+decision 4 requires the opposite.
 
 ## When a candidate cannot be registered
 

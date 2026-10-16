@@ -1,37 +1,54 @@
 import * as React from 'react'
 
+import { Icon } from '#/components/v3/icons'
+import {
+  Sortable,
+  SortableItem,
+  SortableItemHandle,
+} from '#/components/reui/sortable'
+import { cn } from '#/lib/utils'
+import { NotebookBlock } from './notebook-block'
+import type { NotebookBlockProps } from './notebook-block'
+
 /**
  * Notebook list reordering (ELN-006).
  *
- * These mechanics lived inline in `notebook-document.tsx`. They are extracted
- * here because a second surface now drives them: the component-comparison
- * harness (`src/routes/component-compare.tsx`) renders this list beside the
- * candidate that would replace it. An A/B argument has to be measured against
- * the code that ships, not a copy of it, so both surfaces share this module.
+ * The notebook reorders its blocks with the vendored ReUI `Sortable`
+ * (`src/components/reui/sortable.tsx`, a `@dnd-kit` wrapper, installed from the
+ * base-nova registry — see ADR-0055 and
+ * `docs/knowledge/design/component-comparison-record.md` row 1). This module is
+ * the notebook's end of it: the row and its handle, the list that binds a drop
+ * to the notebook's own move contract, and the move maths the caller's
+ * optimistic writer needs.
  *
- * Two input paths land in the same `onMove(itemId, targetIndex)` callback:
+ * It is a module rather than inline code because a second surface drives it:
+ * the component-comparison harness
+ * (`src/components/component-compare/pairs/notebook-sortable.tsx`) renders the
+ * notebook's list beside the registry item it was measured against. An A/B
+ * argument has to be measured against the code that ships, not a copy of it, so
+ * both surfaces render these.
  *
- * - pointer: native HTML5 drag-and-drop, started at a row's handle
- *   (`handleProps`) and resolved on another row (`rowProps`) by comparing the
- *   pointer's Y with that row's midpoint;
- * - keyboard: alt+arrow, which moves the focused item by one position
- *   (`moveByOne`).
+ * Three input paths land in the same `onMove(itemId, targetIndex)` callback:
  *
- * The hook owns only what both paths share: what is being dragged, which gap
- * carries the insertion indicator, and the index a drop resolves to. It never
- * touches persistence or ordering — the caller decides what a move means, and
- * clamps the index it receives.
+ * - pointer and touch: `@dnd-kit`'s sensors on the row's handle — the only
+ *   route a touchscreen has, and the reason the handle is rendered at every
+ *   width rather than from `lg` up;
+ * - keyboard: the same handle. Enter or Space lifts the row, the arrow keys
+ *   move it, Enter or Space drops it, and `@dnd-kit` announces the row it is
+ *   over;
+ * - Alt+arrow from the focused row, and the block menu's Move up/down, which
+ *   are the same call: `moveTargetIndex` then `onMove`.
+ *
+ * The list owns no ordering and no persistence. It reports the index a drop
+ * resolved to; the caller decides what a move means and clamps what it receives.
  */
 
 /** The neighbours a move would land between, used for both the no-op check
- * and the insertion indicator. `beforeBlockId` null means end of list. */
+ * and the RPC destination. `beforeBlockId` null means end of list. */
 export interface DropNeighbours {
   afterBlockId: string | null
   beforeBlockId: string | null
 }
-
-/** Which side of one row the insertion indicator belongs on, if any. */
-export type DropIndicator = 'above' | 'below' | null
 
 /**
  * Compute the (afterBlockId, beforeBlockId) neighbours for moving `itemId` to
@@ -54,187 +71,203 @@ export function neighboursForTarget(
 }
 
 /**
- * Resolve the index a drop lands at, from the neighbours recorded during the
- * preceding `dragover`. The index is not clamped: `-1` means the recorded
- * neighbour is no longer in the ordering, and callers clamp as they do for any
- * other target. Recomputing from the drop event's `clientY` would be redundant
- * — the OS fires `drop` at the same position as the last `dragover` — and
- * unreliable in jsdom, which zeroes bounding rects.
+ * The index one position up or down lands at, in the same convention
+ * `neighboursForTarget` takes: an index into the ordering with the moved item
+ * removed. Null at the top and bottom edges, where there is nowhere to go.
+ * The Alt+arrow path and the menu's Move up/down are the same call.
  */
-export function targetIndexForDrop(
+export function moveTargetIndex(
   ids: readonly string[],
   itemId: string,
-  dropTarget: DropNeighbours,
-): number {
-  const others = ids.filter((id) => id !== itemId)
-  if (dropTarget.beforeBlockId !== null) {
-    return others.indexOf(dropTarget.beforeBlockId)
-  }
-  if (dropTarget.afterBlockId !== null) {
-    return others.indexOf(dropTarget.afterBlockId) + 1
-  }
-  return others.length
+  direction: 'up' | 'down',
+): number | null {
+  const index = ids.indexOf(itemId)
+  if (index < 0) return null
+  const target = direction === 'up' ? index - 1 : index + 1
+  if (target < 0 || target >= ids.length) return null
+  return target
 }
 
 /**
- * Show exactly one insertion indicator per gap: "above" when this row is the
- * following neighbour, and "below" only for the end-of-list position
- * (after=row, before=null) where no following row exists to carry the "above"
- * indicator.
+ * `Sortable` requires `onValueChange`, but the notebook never uses it: the
+ * order is the route's canonical `blocks` plus an optimistic override the
+ * caller holds, so it is never the list's local state. `onMove` is the whole
+ * contract. Module-scoped so its identity is stable.
  */
-export function dropIndicatorFor(
-  dropTarget: DropNeighbours | null,
-  itemId: string,
-): DropIndicator {
-  if (!dropTarget) return null
-  if (dropTarget.beforeBlockId === itemId) return 'above'
-  if (dropTarget.afterBlockId === itemId && dropTarget.beforeBlockId === null) {
-    return 'below'
-  }
-  return null
-}
+const ignoreValueChange = () => {}
 
-/** The insertion indicator itself: one shape in both consumers. */
-export function DropIndicatorLine({
-  position,
-}: {
-  position: 'above' | 'below'
-}) {
-  return (
-    <div
-      aria-hidden="true"
-      className="h-0.5 rounded-full bg-primary/70"
-      data-drop-indicator={position}
-    />
-  )
-}
-
-/** Handle props: spread onto the element a user picks up to drag a row. */
-export interface ReorderHandleProps {
-  draggable: boolean
-  onDragStart: (event: React.DragEvent<HTMLElement>) => void
-  onDragEnd: () => void
-}
-
-/** Row props: spread onto the element a drop lands on. */
-export interface ReorderRowProps {
-  onDragOver: (event: React.DragEvent<HTMLElement>) => void
-  onDragEnter: (event: React.DragEvent<HTMLElement>) => void
-  onDrop: (event: React.DragEvent<HTMLElement>) => void
-}
-
-export interface UseNotebookBlockReorderOptions {
+export interface NotebookBlockListProps {
   /** The effective ordering, excluding optimistic overrides the caller owns. */
   ids: readonly string[]
-  /** Reordering is offered (not read-only, more than one row, a move handler). */
-  enabled: boolean
   /** Called with the item to move and the index it lands at, unclamped. */
   onMove: (itemId: string, targetIndex: number) => void
+  /**
+   * The item being dragged, or null when nothing is. A drag that is cancelled
+   * reports null too, so a caller can never be left holding a stale row.
+   */
+  onDraggingChange?: (itemId: string | null) => void
+  className?: string
+  children: React.ReactNode
 }
 
-export interface NotebookBlockReorder {
-  /** The row currently being dragged, or null. */
-  draggingId: string | null
-  /** The gap the in-flight drag would land in, or null. */
-  dropTarget: DropNeighbours | null
-  /** Handle and row props for one row, bound to that row's id. */
-  handleProps: (itemId: string) => ReorderHandleProps
-  rowProps: (itemId: string) => ReorderRowProps
-  /** Alt+arrow path: move the focused row one position. */
-  moveByOne: (itemId: string, direction: 'up' | 'down') => void
-}
-
-export function useNotebookBlockReorder({
+/**
+ * The notebook's block list: the vendored `Sortable` bound to the notebook's
+ * move contract.
+ *
+ * The rows are our own components rather than bare `SortableItem`s, and that is
+ * deliberate. The item clones the dragged child into its overlay portal when
+ * the child *is* a `SortableItem`; a notebook row holds a live editor, and for
+ * a sheet block a canonical sheet grid, so the clone would mount a second one.
+ * The drag is shown instead by the item's own dimming and by the movement
+ * transforms on the rows around it.
+ */
+export function NotebookBlockList({
   ids,
-  enabled,
   onMove,
-}: UseNotebookBlockReorderOptions): NotebookBlockReorder {
-  const [draggingId, setDraggingId] = React.useState<string | null>(null)
-  const [dropTarget, setDropTarget] = React.useState<DropNeighbours | null>(
-    null,
+  onDraggingChange,
+  className,
+  children,
+}: NotebookBlockListProps) {
+  const value = React.useMemo(() => Array.from(ids), [ids])
+  return (
+    <Sortable
+      value={value}
+      onValueChange={ignoreValueChange}
+      getItemValue={(itemId: string) => itemId}
+      strategy="vertical"
+      onMove={({ activeIndex, overIndex }) => {
+        // `overIndex` indexes the ordering *including* the dragged row, and
+        // `neighboursForTarget` inserts at an index in the ordering *without*
+        // it. For a move within one list the two conventions agree, so the
+        // index passes through as-is.
+        const movedId = ids.at(activeIndex)
+        if (movedId === undefined) return
+        onMove(movedId, overIndex)
+      }}
+      onDragStart={(event) => onDraggingChange?.(String(event.active.id))}
+      onDragEnd={() => onDraggingChange?.(null)}
+      onDragCancel={() => onDraggingChange?.(null)}
+      className={className}
+    >
+      {children}
+    </Sortable>
   )
+}
 
-  function handleProps(itemId: string): ReorderHandleProps {
-    return {
-      draggable: enabled,
-      onDragStart: (event) => {
-        if (!enabled) return
-        setDraggingId(itemId)
-        try {
-          event.dataTransfer.effectAllowed = 'move'
-          // Firefox requires data to be set or no drag fires at all.
-          event.dataTransfer.setData('text/plain', itemId)
-        } catch {
-          /* jsdom: dataTransfer may be a stub */
-        }
-      },
-      onDragEnd: () => {
-        setDraggingId(null)
-        setDropTarget(null)
-      },
-    }
+export interface NotebookBlockHandleProps {
+  /** The handle's accessible name. */
+  label?: string
+  className?: string
+}
+
+/**
+ * The row's grip: the vendored `SortableItemHandle` rendered as a real button,
+ * wearing the notebook's hover reveal.
+ *
+ * A real button is what makes `@dnd-kit`'s keyboard sensor reachable at all —
+ * the item's default handle is a non-focusable `div` — and `NotebookBlockRow`
+ * takes the item's widget role and tab stop off the row container, so this
+ * handle is the row's single drag control. Enter and Space lift the row here,
+ * which is why the block menu is opened from the row's own "Block actions"
+ * button or from a pointer click on the grip; `@dnd-kit` prevents the default
+ * that would have activated the button, and stops the click that a pointer drag
+ * would otherwise leave behind.
+ */
+export function NotebookBlockHandle({
+  label = 'Drag block',
+  className,
+}: NotebookBlockHandleProps) {
+  return (
+    <SortableItemHandle
+      render={<button type="button" />}
+      aria-label={label}
+      className={cn(
+        'rounded p-0.5 text-fg-muted transition-opacity focus-visible:ring-2 focus-visible:ring-ring',
+        // Hover-revealed only where a hover exists. A touchscreen cannot
+        // hover, and the grip is its only route to a reorder, so there it is
+        // simply visible — which is why the reveal is gated on the pointer
+        // rather than on a width. Note that Tailwind's own `hover:` variant is
+        // already hover-capability-scoped; `group-hover:` is not.
+        'pointer-fine:opacity-0 pointer-fine:focus-visible:opacity-100 pointer-fine:group-hover:opacity-100',
+        className,
+      )}
+    >
+      <Icon name="move" size={14} />
+    </SortableItemHandle>
+  )
+}
+
+export interface NotebookBlockRowProps {
+  /** Row identity: the block id (a fixture row id in the harness). */
+  itemId: string
+  /** This row can be picked up, moved and dropped. */
+  enabled: boolean
+  /**
+   * The row element's own props: its anchor id, its accessible name and
+   * shortcut hint, its `data-*`, and the document's focus, click and keyboard
+   * handlers. They are applied *over* the item's defaults — the vendored item
+   * puts `@dnd-kit`'s widget role and tab stop on the row container while the
+   * drag listeners sit on the handle inside it, and a notebook row is a
+   * labelled group, not a button. That override is condition C1 of the
+   * adoption, recorded in `docs/knowledge/design/component-comparison-record.md`.
+   */
+  row?: React.ComponentProps<'div'> & {
+    /** The notebook's row markers: `data-prose-run`, `data-active`, … */
+    [key: `data-${string}`]: unknown
   }
+  /** The row's frame, minus the handle and the children. */
+  frame: Omit<
+    NotebookBlockProps,
+    'children' | 'handle' | 'draggable' | 'onDragStart' | 'onDragEnd'
+  >
+  /**
+   * The gutter handle. Omit it for a row with no reorder affordance — the
+   * underlying item is disabled then, so nothing can pick the row up.
+   */
+  handle?: React.ReactNode
+  children: React.ReactNode
+}
 
-  function rowProps(itemId: string): ReorderRowProps {
-    return {
-      /**
-       * As the pointer moves over a row, decide whether the drop would land
-       * above or below it based on the pointer's Y relative to the row's
-       * midpoint, and nudge the window to auto-scroll near the viewport edge.
-       */
-      onDragOver: (event) => {
-        if (!enabled || !draggingId || draggingId === itemId) return
-        event.preventDefault()
-        try {
-          event.dataTransfer.dropEffect = 'move'
-        } catch {
-          /* jsdom */
-        }
-        const rect = event.currentTarget.getBoundingClientRect()
-        const before = event.clientY < rect.top + rect.height / 2
-        // The hovered row's index in `others` differs from its index in `ids`
-        // when the dragged row sat above it, so derive it from `others`.
-        const others = ids.filter((id) => id !== draggingId)
-        const hoverIdxInOthers = others.indexOf(itemId)
-        const target = before ? hoverIdxInOthers : hoverIdxInOthers + 1
-        setDropTarget(neighboursForTarget(ids, draggingId, target))
-        // Auto-scroll near the viewport edges so long lists stay reachable.
-        const margin = 64
-        if (typeof window.scrollBy === 'function') {
-          if (event.clientY < margin) {
-            window.scrollBy(0, -10)
-          } else if (event.clientY > window.innerHeight - margin) {
-            window.scrollBy(0, 10)
-          }
-        }
-      },
-      onDragEnter: (event) => {
-        if (draggingId && draggingId !== itemId) event.preventDefault()
-      },
-      onDrop: (event) => {
-        if (!draggingId) return
-        event.preventDefault()
-        // Use the target computed during the preceding dragOver: if the
-        // pointer never entered a row, there is no drop target and the drop
-        // is ignored.
-        if (!dropTarget) return
-        const movedId = draggingId
-        setDropTarget(null)
-        setDraggingId(null)
-        if (!ids.includes(movedId)) return
-        onMove(movedId, targetIndexForDrop(ids, movedId, dropTarget))
-      },
-    }
-  }
-
-  function moveByOne(itemId: string, direction: 'up' | 'down') {
-    if (!enabled) return
-    const idx = ids.indexOf(itemId)
-    if (idx < 0) return
-    const target = direction === 'up' ? idx - 1 : idx + 1
-    if (target < 0 || target >= ids.length) return
-    onMove(itemId, target)
-  }
-
-  return { draggingId, dropTarget, handleProps, rowProps, moveByOne }
+/**
+ * One row: the vendored sortable item wearing the notebook's row semantics,
+ * with the notebook's own frame inside it.
+ *
+ * `aria-disabled` and `aria-pressed` are cleared from the item's defaults: both
+ * describe a widget, and this row is a labelled group. A row that cannot move
+ * renders no handle, so there is no disabled state to announce here, and the
+ * drag is announced by `@dnd-kit`'s own live region.
+ */
+export function NotebookBlockRow({
+  itemId,
+  enabled,
+  row,
+  frame,
+  handle,
+  children,
+}: NotebookBlockRowProps) {
+  const { className, ...rowProps } = row ?? {}
+  return (
+    <SortableItem
+      value={itemId}
+      disabled={!enabled}
+      render={<div />}
+      aria-disabled={undefined}
+      aria-pressed={undefined}
+      {...rowProps}
+      className={cn(
+        'scroll-mt-28 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        // The grip lives in the row's negative left margin, as Notion's does.
+        // Below `lg` there is no page margin to put it in — the shell's rail
+        // is 24px from the row's edge — so the row carries that space itself
+        // and the grip sits inside it. Printing has one column and no handle,
+        // so it keeps none of it.
+        handle && 'pl-7 print:pl-0 lg:pl-0',
+        className,
+      )}
+    >
+      <NotebookBlock {...frame} handle={handle}>
+        {children}
+      </NotebookBlock>
+    </SortableItem>
+  )
 }

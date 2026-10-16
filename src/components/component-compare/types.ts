@@ -4,10 +4,18 @@ import type { ComponentType } from 'react'
  * The contracts an A/B component comparison is built from (ADR-0055).
  *
  * A *pair* names a generic UI job and the two components that do it: the one
- * the repository uses now, and the candidate. A *fixture* is the data both
- * columns render — the same object, not a copy per side. A *scenario* is one
- * fixture plus the state the column is in, and it is handed to both sides
- * unchanged.
+ * the repository uses now, and the candidate. When the candidate is adopted it
+ * becomes what the repository uses, and the pair's comparison of two mechanisms
+ * is spent — but the pair is not automatically retired: its job then changes to
+ * holding the adopted *integration* against the registry item as published,
+ * which is where an adoption's regressions actually appear (container
+ * semantics, handle placement, restyling). Row 1 of
+ * `docs/knowledge/design/component-comparison-record.md` is that case, and the
+ * original comparison stays in the record as history.
+ *
+ * A *fixture* is the data both columns render — the same object, not a copy per
+ * side. A *scenario* is one fixture plus the state the column is in, and it is
+ * handed to both sides unchanged.
  *
  * Nothing here knows about any particular component: a new pair is data, and a
  * new job is a new entry in `checklist.ts`, not a new comparator.
@@ -90,7 +98,11 @@ export interface ComparisonColumnProps {
 /** One side of a pair. */
 export interface ComparisonSide {
   readonly id: ComparisonSideId
-  /** Column heading, e.g. "Ours — notebook HTML5 drag and drop". */
+  /**
+   * Column heading, e.g. "Ours — notebook list (ReUI sortable adopted)", or
+   * "Reference — ReUI sortable with the C1 semantics fix-up" for the item a
+   * pair's ours side was adopted from.
+   */
   readonly label: string
   /**
    * Where the implementation lives: a repository path, or the registry item

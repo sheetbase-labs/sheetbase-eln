@@ -231,13 +231,14 @@ test.describe('keyboard', () => {
     }
 
     // The controls each column offers, reached from the page's own order: the
-    // notebook's grip handle (which also opens the block menu) and its
-    // keyboard-reachable rows in ours, and the ReUI handle in theirs.
+    // notebook's grip handle and its keyboard-reachable rows in ours, and the
+    // reference item's handle in theirs. Both handles are the sortable item's
+    // own handle element, because ours *is* the item.
     const focused = reached.join('\n')
-    expect(focused).toContain('ours|BUTTON||Drag block')
+    expect(focused).toContain('ours|BUTTON|sortable-item-handle|Drag block')
     expect(focused).toContain('theirs|BUTTON|sortable-item-handle|Reorder')
     const oursRows = reached.filter((key) =>
-      key.startsWith('ours|DIV||'),
+      key.startsWith('ours|DIV|sortable-item|'),
     ).length
     expect(oursRows).toBeGreaterThan(2)
   })
@@ -281,61 +282,70 @@ test.describe('keyboard', () => {
   })
 })
 
+/**
+ * Drag one row's grip onto another row, with the pointer sensor.
+ *
+ * The gesture is written out rather than taken from `locator.dragTo()`.
+ * `@dnd-kit`'s pointer sensor is distance-constrained, and the move that
+ * satisfies the constraint only *starts* the drag — the sensor reports a
+ * position on the moves after it. A single-step `dragTo` therefore activates
+ * the drag and never says where the pointer went, so the drop resolves to no
+ * target and the order is unchanged. The moves here are the same ones a hand
+ * makes: a short one past the activation distance, then a long one onto the
+ * target. Both columns run the identical gesture, because both are now the same
+ * item.
+ */
+async function dragRowOntoRow(
+  page: Page,
+  columnId: ColumnId,
+  fromRowId: string,
+  toRowId: string,
+) {
+  const list = column(page, columnId)
+  const source = list.locator(
+    `[data-row-id="${fromRowId}"] [data-slot="sortable-item-handle"]`,
+  )
+  await source.scrollIntoViewIfNeeded()
+  const from = await source.boundingBox()
+  const to = await list.locator(`[data-row-id="${toRowId}"]`).boundingBox()
+  if (!from || !to) throw new Error(`no bounding box for the ${columnId} drag`)
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(
+    from.x + from.width / 2,
+    from.y + from.height / 2 + 20,
+    { steps: 5 },
+  )
+  await expect(
+    list.locator('[data-slot="sortable-item"][data-dragging="true"]'),
+  ).toHaveCount(1)
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
+    steps: 12,
+  })
+  // The candidate announces the row it is over, which is the evidence that the
+  // pointer move was registered rather than a sleep.
+  await expect(list.getByRole('status')).toContainText(toRowId)
+  await page.mouse.up()
+}
+
 test.describe('mouse', () => {
   test('reorders by pointer drag in both columns', async ({ page }) => {
     await openHarness(page, { theme: 'light', fixture: 'long-labels' })
 
-    // Ours: native HTML5 drag from the notebook's grip handle onto a row. The
-    // handle sits in the row's left gutter, so it is grabbed from its own box.
     const oursBefore = await rowIds(page, 'ours')
-    await column(page, 'ours')
-      .locator(
-        `[data-row-id="${oursBefore[0]}"] button[aria-label="Drag block"]`,
-      )
-      .dragTo(column(page, 'ours').locator(`[data-row-id="${oursBefore[2]}"]`))
+    await dragRowOntoRow(page, 'ours', oursBefore[0]!, oursBefore[2]!)
     await expect
       .poll(async () => (await rowIds(page, 'ours')).slice(0, 3))
       .toEqual([oursBefore[1], oursBefore[2], oursBefore[0]])
 
-    // Theirs: @dnd-kit's pointer sensor, which activates after 10px of
-    // movement and resolves the drop by hit-testing the rows. Each step is
-    // waited for — the candidate announces the row it is over, which is the
-    // evidence that the pointer move was registered — rather than slept on.
     const theirsBefore = await rowIds(page, 'theirs')
-    const from = await column(page, 'theirs')
-      .locator(
-        `[data-row-id="${theirsBefore[0]}"] [data-slot="sortable-item-handle"]`,
-      )
-      .boundingBox()
-    const to = await column(page, 'theirs')
-      .locator(`[data-row-id="${theirsBefore[2]}"]`)
-      .boundingBox()
-    if (!from || !to) throw new Error('no bounding box for the drag')
-
-    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
-    await page.mouse.down()
-    await page.mouse.move(
-      from.x + from.width / 2,
-      from.y + from.height / 2 + 20,
-      { steps: 5 },
-    )
-    await expect(
-      column(page, 'theirs').locator(
-        '[data-slot="sortable-item"][data-dragging="true"]',
-      ),
-    ).toHaveCount(1)
-    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
-      steps: 12,
-    })
-    await expect(column(page, 'theirs').getByRole('status')).toContainText(
-      theirsBefore[2]!,
-    )
-    await page.mouse.up()
-
-    // Both mechanisms must agree on where a drop between rows lands.
+    await dragRowOntoRow(page, 'theirs', theirsBefore[0]!, theirsBefore[2]!)
     await expect
       .poll(async () => (await rowIds(page, 'theirs')).slice(0, 3))
       .toEqual([theirsBefore[1], theirsBefore[2], theirsBefore[0]])
+
+    // Both resolve a drop between rows to the same index.
     expect(await rowIds(page, 'ours')).toEqual(await rowIds(page, 'theirs'))
   })
 })
@@ -446,39 +456,31 @@ test.describe('density and overflow', () => {
         expect(clipped).toBe(0)
       }
 
-      // The notebook's grip handle is desktop-only (`hidden lg:flex`); the
-      // ReUI handle is not. That difference is the point of this check, so it
-      // is asserted per column rather than averaged away.
+      // The notebook's grip used to be desktop-only (`hidden lg:flex`), which is
+      // the missing behaviour this adoption was decided on: below 1024px the
+      // list had no pointer or touch route to a reorder at all. It is rendered
+      // at every width now, and below `lg` the row carries the gutter itself.
+      // So the assertion is not merely that it is visible but that it
+      // reorders.
       const oursHandles = column(page, 'ours').locator(
         'button[aria-label="Drag block"]',
       )
       const theirsHandles = column(page, 'theirs').locator(
         '[data-slot="sortable-item-handle"]',
       )
-      if (size.width >= 1024) {
-        await expect(oursHandles.first()).toBeVisible()
-        await expect(theirsHandles.first()).toBeVisible()
-      } else {
-        await expect(oursHandles.first()).toBeHidden()
-        await expect(theirsHandles.first()).toBeVisible()
+      for (const handles of [oursHandles, theirsHandles]) {
+        await expect(handles.first()).toBeVisible()
+        const box = await handles.first().boundingBox()
+        expect(box).not.toBeNull()
+        expect(box!.width).toBeGreaterThanOrEqual(16)
+      }
 
-        // Below 1024px our grip handle is not rendered at all, so pointer
-        // reordering is unavailable on our side; the keyboard path still works
-        // and the candidate keeps both. This is the density finding the record
-        // cites, so it is asserted rather than described.
+      if (size.width < 1024) {
         const before = await rowIds(page, 'ours')
-        await column(page, 'ours')
-          .locator(`[data-row-id="${before[0]}"]`)
-          .focus()
-        await page.keyboard.press('Alt+ArrowDown')
+        await dragRowOntoRow(page, 'ours', before[0]!, before[2]!)
         await expect
-          .poll(async () => (await rowIds(page, 'ours'))[0])
-          .toBe(before[1])
-
-        const theirsBefore = await rowIds(page, 'theirs')
-        const handleBox = await theirsHandles.first().boundingBox()
-        expect(handleBox).not.toBeNull()
-        expect(handleBox!.width).toBeGreaterThanOrEqual(16)
+          .poll(async () => (await rowIds(page, 'ours')).slice(0, 3))
+          .toEqual([before[1], before[2], before[0]])
       }
     })
   }

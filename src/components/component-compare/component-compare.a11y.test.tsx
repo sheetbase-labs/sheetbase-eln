@@ -1,14 +1,24 @@
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import axe from 'axe-core'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { COMPARISON_PAIRS } from './pairs'
 import { COMPARISON_FIXTURES } from './fixtures'
+import { Stepper } from '#/components/v3/ui/stepper'
 import {
   Sortable,
   SortableItem,
   SortableItemHandle,
 } from '#/components/reui/sortable'
+import {
+  Stepper as ReuiStepper,
+  StepperIndicator,
+  StepperItem,
+  StepperNav,
+  StepperSeparator,
+  StepperTitle,
+  StepperTrigger,
+} from '#/components/reui/stepper'
 import type {
   ComparisonColumnProps,
   ComparisonFixture,
@@ -184,5 +194,143 @@ describe('the candidate rules or not on how its handle is rendered (C1)', () => 
         impact: violation.impact,
       })),
     ).toEqual([{ id: 'nested-interactive', impact: 'serious' }])
+  })
+})
+
+/**
+ * S1, pinned — the stepper candidate, composed as its own API intends.
+ *
+ * The stepper comparison is a decline, and these are the two measurements it
+ * turned on. Both are asserted here against `src/components/reui/stepper.tsx`
+ * unchanged, on the flow's own three steps with the second one current —
+ * `['Upload', 'Map columns', 'Review and import']`, the composition the import
+ * flow uses (`src/components/import/import-flow.tsx:334`, `:854`):
+ *
+ * 1. the product's contract cannot be met. `tests/browser/import-flow.test.ts:188-193`
+ *    requires a list named "Steps" of three listitems with `aria-current="step"`
+ *    on the current one; the item renders a `<nav>` of `<div>`s holding a
+ *    `role="tablist"` of `role="tab"` buttons, with no `aria-current` anywhere.
+ *    Composing it in the import flow and running that spec fails at its first
+ *    assertion: `getByRole('list', { name: 'Steps' }).getByRole('listitem')`
+ *    resolves to 0 elements (expected 3).
+ * 2. it is not axe-clean as published, while ours is. Three critical
+ *    violations: the tablist owns no tabs because the item `<div>`s sit between
+ *    them, the tabs have no tablist parent for the same reason, and the
+ *    `aria-controls` every trigger renders points at `stepper-panel-N`, an id
+ *    the item never renders.
+ *
+ * Consumer-side overrides do not rescue it. Declaring the item wrappers as
+ * layout (`role="none"`, so the tabs are promoted) and supplying the panel
+ * targets the item's own `aria-controls` expects clears `aria-valid-attr-value`
+ * and leaves both structural violations — measured in the third case. Making
+ * the item render the product's semantics would mean rewriting the tags, roles
+ * and attributes the copied item declares, which ADR-0055 decision 2 does not
+ * permit, and it would still be a different component: the item is a wizard you
+ * navigate (tabs that change the active step, a roving tab stop) where the flow
+ * needs a display-only progress row, and its state union —
+ * active / completed / inactive / loading — has no failed step for the marker
+ * the flow reserves. See the row in
+ * `docs/knowledge/design/component-comparison-record.md`.
+ */
+const IMPORT_STEPS = ['Upload', 'Map columns', 'Review and import'] as const
+const IMPORT_CURRENT = 2
+
+/** Ours: the shipped row, on the flow's own steps and current index. */
+function renderInHouseStepper() {
+  return render(<Stepper steps={[...IMPORT_STEPS]} current={IMPORT_CURRENT} />)
+}
+
+/**
+ * Theirs: the candidate composed the way an integration has to compose it.
+ * `containerFixes` is the consumer-side override set of the third case.
+ */
+function renderReuiStepper(containerFixes = false) {
+  return render(
+    <ReuiStepper value={IMPORT_CURRENT}>
+      <StepperNav>
+        {IMPORT_STEPS.map((label, index) => {
+          const step = index + 1
+          return (
+            <StepperItem
+              key={label}
+              step={step}
+              completed={step < IMPORT_CURRENT}
+              {...(containerFixes ? { role: 'none' } : {})}
+            >
+              <StepperTrigger>
+                <StepperIndicator>{step}</StepperIndicator>
+                <StepperTitle>{label}</StepperTitle>
+              </StepperTrigger>
+              {containerFixes ? (
+                <span id={`stepper-panel-${step}`} hidden />
+              ) : null}
+              {index < IMPORT_STEPS.length - 1 ? <StepperSeparator /> : null}
+            </StepperItem>
+          )
+        })}
+      </StepperNav>
+    </ReuiStepper>,
+  )
+}
+
+function violationIds(results: Awaited<ReturnType<typeof axeViolations>>) {
+  return results.violations.map((violation) => ({
+    id: violation.id,
+    impact: violation.impact,
+  }))
+}
+
+describe('the stepper candidate cannot render the shipped contract (S1)', () => {
+  it('renders no list named "Steps", no listitem and no aria-current', () => {
+    const { container } = renderReuiStepper()
+
+    expect(screen.queryByRole('list', { name: 'Steps' })).toBeNull()
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
+    expect(container.querySelector('[aria-current="step"]')).toBeNull()
+
+    // What it renders instead: a nav holding a tablist of tabs, one tab stop.
+    expect(
+      container.querySelector('nav[data-slot="stepper-nav"]'),
+    ).not.toBeNull()
+    expect(container.querySelector('[role="tablist"]')).not.toBeNull()
+    const triggers = container.querySelectorAll('[role="tab"]')
+    expect(triggers).toHaveLength(IMPORT_STEPS.length)
+    expect(
+      Array.from(triggers).map((trigger) =>
+        trigger.getAttribute('aria-selected'),
+      ),
+    ).toEqual(['false', 'true', 'false'])
+    expect(
+      Array.from(triggers).map((trigger) => trigger.getAttribute('tabindex')),
+    ).toEqual(['-1', '0', '-1'])
+
+    // The `failed` marker the flow reserves has nothing to map onto: the item's
+    // own states are completed / active / inactive (and loading).
+    expect(
+      Array.from(container.querySelectorAll('[data-slot="stepper-item"]')).map(
+        (item) => item.getAttribute('data-state'),
+      ),
+    ).toEqual(['completed', 'active', 'inactive'])
+  })
+
+  it('is not axe-clean as published, while ours is', async () => {
+    const ours = renderInHouseStepper()
+    await expectNoAxeViolations(ours.container)
+    cleanup()
+
+    const theirs = renderReuiStepper()
+    expect(violationIds(await axeViolations(theirs.container))).toEqual([
+      { id: 'aria-required-children', impact: 'critical' },
+      { id: 'aria-required-parent', impact: 'critical' },
+      { id: 'aria-valid-attr-value', impact: 'critical' },
+    ])
+  })
+
+  it('still does not pass with the consumer’s own container fixes', async () => {
+    const theirs = renderReuiStepper(true)
+    expect(violationIds(await axeViolations(theirs.container))).toEqual([
+      { id: 'aria-required-children', impact: 'critical' },
+      { id: 'aria-required-parent', impact: 'critical' },
+    ])
   })
 })

@@ -2,7 +2,10 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { Choice } from '#/components/ui/choice'
 import { Secret } from '#/components/ui/secret'
-import { Stepper } from '#/components/ui/stepper'
+// The Stepper was consolidated onto the forward kit: this story keeps a step
+// row in the legacy Choice/Secret set, and the row itself is now the one that
+// ships (`src/components/v3/ui/stepper.tsx`).
+import { Stepper } from '#/components/v3/ui/stepper'
 
 const meta = {
   title: 'UI/ChoiceStepperSecret',

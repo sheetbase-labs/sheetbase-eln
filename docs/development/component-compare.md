@@ -175,6 +175,50 @@ composed in the import flow, and its appearance captured in Storybook. The pin
 renders both sides on the same input, so the comparison is reproducible from the
 repository alone even though the harness route has no page for it.
 
+## Pair three — the file pick (`import-file-upload`)
+
+Added by workstream B5, which adopts the item in the screens that take a file
+(the import flow's upload step, the parser-settings test-file upload, the
+instrument ingestion panel and the notebook's file block).
+
+- **Item:** `@reui/use-file-upload`, from the pinned base-nova registry. It is a
+  _hook_, not a component — `registry:hook`, whose registry `target` is
+  `hooks/use-file-upload.ts` — and it landed at
+  `src/components/reui/use-file-upload.ts`, so every registry item stays in the
+  one directory ADR-0055 decision 2 names and inside the scoped lint relaxation.
+  Install command, read from the item's own page: `npx shadcn@latest add
+@reui/use-file-upload`. The item declares no dependencies, and it imports no
+  `cn`, so there was no import path to re-point.
+- **Shipping integration:** `src/components/v3/ui/file-drop.tsx`. The field holds
+  one file at a time, which is what the four call sites need, and takes the
+  caller's transport as `onFile`, its validation policy as `validate`, and its
+  reason for being disabled as `disabledReason`.
+- **The integration fix-up this pair needs.** The hook's `accept` option defaults
+  to `"*"` and it writes `accept="*"` onto the input. A wildcard that no file
+  type matches is how the attribute reads to a browser dialog and to
+  `user-event`'s `upload`, which filters a pick by the input's `accept`: every
+  file is dropped before the hook sees it, and the screen looks broken with no
+  error anywhere. The field passes its own `accept` _after_ the spread, so the
+  attribute is omitted when the caller has none. If you compose the hook
+  yourself, do the same.
+- **What the pair is.** The fixture's rows are the queued files, built as real
+  `File` objects; every fourth starts failed, so a failure and its retry are on
+  screen. The first attempt at any file fails once, so the retry a reader clicks
+  resolves it. Both columns use that one stand-in transport. The candidate
+  column composes the registry item, because the shipping field takes one file
+  and a queue is what this pair measures; the pre-adoption column is the shipped
+  hand-rolled picker, frozen because the change that adopted the item deleted the
+  product's copy.
+- **Keyboard route:** in the shipping field the route is the "Choose file"
+  button, and the hidden input is `sr-only` with `tabIndex={-1}` — the vendor's
+  own examples render it that way, so nothing had to be resolved for axe here.
+- **Appearance evidence:** `file-upload-ours-light.png`,
+  `file-upload-ours-dark.png`, `file-upload-theirs-light.png`,
+  `file-upload-theirs-dark.png`, plus `file-upload-dropped.png` for the
+  candidate after a real drop.
+- **What to run:** the two vitest suites and the browser spec, as above. The pair
+  is selected in the page's own Pair control (`import-file-upload`).
+
 ## What this harness does not do
 
 - It does not decide anything, and it does not gate adoption by itself: axe,

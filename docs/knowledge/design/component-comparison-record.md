@@ -27,10 +27,11 @@ a decision is not a record.
 
 ## Rows
 
-| #   | Component (generic UI job)                              | What we use now                                                                                                                                                                                                                                                       | What ReUI offers                                                                                                                                                              | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Decision                                                                                                                                                                                                                   | Measured    |
-| --- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | Reorderable list — reorder rows by pointer and keyboard | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                     | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                    | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                                                                                                                                                                                                         | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                           | 16 Oct 2026 |
-| 2   | Step progress row — an ordered flow's current stage     | `src/components/v3/ui/stepper.tsx` (67 lines), the forward kit's row and the import flow's only step chrome (`import-flow.tsx:334`, `:854`). After this change it is the only stepper in `src`; the legacy duplicate `src/components/ui/stepper.tsx` was deleted here | `@reui/stepper` (base-nova pin), a wizard-navigation primitive: `src/components/reui/stepper.tsx` (494 lines) — a `<nav>` of `<div>` items holding a `role="tablist"` of tabs | Ours: all 8 applicable items pass — display-only, `aria-current="step"`, axe clean, fits 390x844 by wrapping. Theirs: **could not be measured as an adoptable column and was not registered as a pair.** It cannot render the shipped contract (no list named "Steps", no listitem, no `aria-current`), and it fails the harness's own axe gate: 3 critical violations as published, 2 of them still there with the consumer's container fixes. It also fails 390x844 (the row overflows and labels truncate). 8 items are not applicable — no reorder, sort, filter, select, resize or pagination control | **Decline — do not adopt.** The item is a different job (wizard navigation, not a progress row) and clearing the bar means rewriting the tags, roles and attributes it declares, which ADR-0055 decision 2 does not permit | 16 Oct 2026 |
+| #   | Component (generic UI job)                                                      | What we use now                                                                                                                                                                                                                                                       | What ReUI offers                                                                                                                                                                       | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Decision                                                                                                                                                                                                                   | Measured    |
+| --- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard                         | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                     | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                             | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                                                                                                                                                                                                         | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                           | 16 Oct 2026 |
+| 2   | Step progress row — an ordered flow's current stage                             | `src/components/v3/ui/stepper.tsx` (67 lines), the forward kit's row and the import flow's only step chrome (`import-flow.tsx:327`, `:831`). After this change it is the only stepper in `src`; the legacy duplicate `src/components/ui/stepper.tsx` was deleted here | `@reui/stepper` (base-nova pin), a wizard-navigation primitive: `src/components/reui/stepper.tsx` (494 lines) — a `<nav>` of `<div>` items holding a `role="tablist"` of tabs          | Ours: all 8 applicable items pass — display-only, `aria-current="step"`, axe clean, fits 390x844 by wrapping. Theirs: **could not be measured as an adoptable column and was not registered as a pair.** It cannot render the shipped contract (no list named "Steps", no listitem, no `aria-current`), and it fails the harness's own axe gate: 3 critical violations as published, 2 of them still there with the consumer's container fixes. It also fails 390x844 (the row overflows and labels truncate). 8 items are not applicable — no reorder, sort, filter, select, resize or pagination control | **Decline — do not adopt.** The item is a different job (wizard navigation, not a progress row) and clearing the bar means rewriting the tags, roles and attributes it declares, which ADR-0055 decision 2 does not permit | 16 Oct 2026 |
+| 3   | File pick and drop — pick or drop a file, watch its upload, and retry a failure | Hand-rolled `<input type="file">` in four screens: import flow, parser settings, instrument ingestion panel and the notebook's file block. Progress was one boolean line per screen, one error string, and no retry; drag-and-drop was absent app-wide                | `@reui/use-file-upload` (base-nova pin), a hook plus the vendor's example compositions: `src/components/reui/use-file-upload.ts`, shipped through `src/components/v3/ui/file-drop.tsx` | Ours: all 8 applicable items pass **as containment** (the shared harness states), but the pair's own job has no drop handler, no file row, no per-file progress and no retry. Theirs: all 8 pass, and the drop, the progress and the retry do (see the detail table). 10 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                                                                                                                                                    | **Adopt — done in this change**, with four conditions carried forward (C1–C4 below). The old implementation is deleted in the same change; its frozen copy is the baseline column this row cites                           | 16 Oct 2026 |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -110,7 +111,7 @@ its own disabled affordances, and those were compared.
 | axe in Chromium, colour contrast **on**                                                            | 4 cases (2 columns × 2 themes), **zero violations**                                         | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep axe` |
 | axe, the candidate item unchanged, two handle renderings (C1)                                      | as published: clean; handle as a real `button`: `nested-interactive` (serious) on every row | same file, "the candidate rules or not on how its handle is rendered (C1)"                       |
 | Harness contracts (one scenario object to both columns, frozen fixtures, keyboard reorder, states) | 12 tests, pass                                                                              | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`               |
-| Full browser checklist (keyboard, pointer, states, density, 4 screenshots)                         | 18 tests, pass                                                                              | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`            |
+| Full browser checklist (keyboard, pointer, states, density, 4 screenshots)                         | 18 tests for this pair, pass (Row 3 added 7 more to the same file)                          | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`            |
 
 The 5,000-row fixture is rendered and measured for overflow in both columns in
 the browser run, but it is not an axe target in either engine: one axe pass over
@@ -198,7 +199,7 @@ The proposal counted eight distinct step-chrome renderers (`plans/notebook-edito
 
 | #   | Renderer                | Where                                                                                                                            | What marks the stage                                                                                    | Same job as the row?                             |
 | --- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 1   | `Stepper` (forward kit) | `src/components/v3/ui/stepper.tsx`; import flow `:334`, `:854`                                                                   | `aria-current="step"`, tick on done steps, reserved `failed` marker                                     | **Yes — the survivor**                           |
+| 1   | `Stepper` (forward kit) | `src/components/v3/ui/stepper.tsx`; import flow `:327`, `:831`                                                                   | `aria-current="step"`, tick on done steps, reserved `failed` marker                                     | **Yes — the survivor**                           |
 | 2   | `Stepper` (legacy kit)  | `src/components/ui/stepper.tsx`; a story only                                                                                    | `data-state` (`done`/`now`/`todo`/`bad`); no `aria-current`                                             | **Yes — deleted by this change**                 |
 | 3   | `ApprovalStepper`       | `src/components/audit/approval-stepper.tsx`; review workspace, `/foundations`                                                    | per-step review state (pending, active, completed, rejected, returned, unavailable) with actor and time | No — an approval workflow, not a flow's progress |
 | 4   | `GuidePanel`            | `src/components/assist/guide-panel.tsx`; analysis-to-figure and submission-readiness guides                                      | per-step Done / Current / Blocked, with blocked reasons and next-action buttons                         | No — a guidance panel                            |
@@ -273,6 +274,171 @@ If a future surface genuinely needs a navigable wizard (steps as controls, panel
 - The 5,000-step case was not measured. The item registers every trigger through a state-setting effect and scans its node list per trigger, so its cost grows faster than the step count — a code read, not a measurement; the fixtures' bulk case applies to registered pairs and this one is not.
 - Desktop Chromium (Storybook and Playwright) only; no Firefox, WebKit or real device.
 - The candidate's restyle was verified visually in Storybook in light theme only; our row was captured in the app in dark and light.
+
+## Row 3 — File pick and drop (`import-file-upload`)
+
+### What we use now
+
+Four screens picked a file, each with a bare `<input type="file">` and each
+carrying its own copy of the surrounding state:
+
+- `src/components/import/import-flow.tsx` step 1 ("Laboratory file"): the v3
+  `Input`, disabled until a target was chosen; upload progress was one boolean —
+  `busy` — rendered as one `role="status"` line, "Storing and reading the
+  file…", and a failure was a page-level `Banner` ("Import error"). The retry
+  was the person picking the file again.
+- `src/components/v3/settings/parser-settings.tsx` ("Upload a new test file"):
+  progress was `upload.isPending` on the input's `disabled`.
+- `src/components/v3/integrations/ingest-panel.tsx` ("Instrument file", inside a
+  `Field`): the pick was only a selection — the bytes were retained later, when
+  the run started.
+- `src/components/notebook/block-editor.tsx` (the file block): a dashed, centred
+  box with an icon well and a file input inside it. This is the box that looked
+  like a drop target and had no drop handler; progress was a `pending` line and
+  the failure a `Notice`.
+
+None of the four could say which file failed, none offered a retry, and none
+accepted a dropped file. Drag-and-drop was absent app-wide. ReUI's own note on
+the item — "no example sends a picked `File` to a server; picks stay in React
+state until you add the upload request" — describes the shape the adoption
+keeps: transport, validation and storage policy stay with the screens.
+
+### What ReUI offers
+
+`@reui/use-file-upload` (base-nova pin): one file, `registry:hook`, no
+dependencies, and no `cn` import to re-point. It is a hook, not a component:
+the pick-and-drop machinery (a hidden input, the four drag handlers,
+`isDragging`, `multiple`, `maxFiles`, `maxSize`, `accept`, and its own
+validation), plus the vendor's example compositions — a dashed drop zone, a
+queue of file rows with a per-file progress bar, a retry and a remove, and a
+drag state. `src/components/reui/use-file-upload.ts` is the item;
+`src/components/v3/ui/file-drop.tsx` is the shipping integration, which takes
+the caller's transport as `onFile`, its validation policy as `validate`, and the
+text of its disabled reason as `disabledReason`.
+
+### Checklist result
+
+Fixed checklist: `src/components/component-compare/checklist.ts`. Applicable
+items are the 8 whose control class or state this pair has; the other 10 need
+sort, filter, select, resize or pagination controls that neither side has, and
+are recorded as not applicable rather than skipped.
+
+| Check                                                     | Ours                                                          | Theirs                                                                                                                                     | How it was measured                                         |
+| --------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator | Pass — the native input is the tab stop, with a UA focus ring | Pass — the "Choose file" button is the tab stop; the hidden input is `sr-only` and `tabIndex={-1}`, as the vendor's own examples render it | Browser, both columns                                       |
+| Empty (0 rows), loading, error, permission-restricted     | Pass (see the caveat below)                                   | Pass — and with permission restricted the pick button, the retry and the remove are all disabled, with the reason in text                  | Browser, both columns; jsdom across 6 fixtures              |
+| Dark theme                                                | Pass — token-bound colours only                               | Pass                                                                                                                                       | axe in Chromium with colour contrast on, both themes; jsdom |
+| Density and overflow at 1440x900                          | Pass — the input is bounded, and the surface shows no queue   | Pass, **after one layout fix-up** (C2)                                                                                                     | Browser, both columns, asserted per row and per control     |
+| Density and overflow at 390x844                           | Pass                                                          | Pass — the pick button meets the phone control size                                                                                        | Browser, both columns                                       |
+
+The pair-specific behaviour the fixed checklist does not name — the drop, the
+per-file progress and the retry — is measured in the browser run:
+
+| Pair-specific check                           | Ours                                                                  | Theirs                                                                                                  | How it was measured                     |
+| --------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| A dropped file reaches the caller's transport | **No drop handler**: a drop adds nothing and the surface shows no row | Pass — the drop adds a row, which then carries its own progress and status                              | Browser, both columns, real drop events |
+| Per-file progress while the transport runs    | **One boolean line** for the surface, not per file, and no file row   | Pass — a row per file with its own progress bar and status                                              | Browser and jsdom                       |
+| Retry after a failure                         | **None** — the only retry is picking the file again                   | Pass — a rejected transport puts the message on the row with a Retry that runs it again and resolves    | Browser, both columns; jsdom            |
+| The caller's validation refuses a pick        | Client-side check, message on the page, no file row                   | Pass — the refusal is the row's own message, and a refusal offers removal rather than a pointless retry | jsdom and the Storybook `Refused` story |
+
+**Caveat on the empty, loading and error states.** These are picture states of a
+whole screen and the harness owns them: both columns show the same harness
+notice for a 0-row fixture, for loading and for a load failure, so those rows
+measure containment and keyboard order rather than either side's own empty
+rendering. `restricted` is different — each column renders its own disabled
+affordances and those were compared — and the file pair's own empty state (a
+pick surface with nothing picked) is what both columns render beside the shared
+notice.
+
+### Automated evidence
+
+| Evidence                                                                                                                 | Result                                                                                           | Command                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                                             | 18 cases, **zero violations** (colour contrast off: jsdom)                                       | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                       |
+| axe in Chromium with colour contrast **on**, both columns in both themes                                                 | 4 cases, **zero violations**                                                                     | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep 'file pair'`      |
+| Harness contracts (every pair × fixture × state, the registration, frozen fixtures)                                      | pass                                                                                             | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                            |
+| The field's own contract: drop → transport, failure → retry, refusal → nothing handed on, remove → cleared selection     | 4 tests, pass                                                                                    | `pnpm exec vitest run src/components/v3/ui/file-drop.test.tsx`                                                |
+| The pair's browser checks: drop and retry, ours' limits, keyboard, the four states, density at two widths, 5 screenshots | 7 tests, pass                                                                                    | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep 'file pair'`      |
+| The four screens' own tests, which address the input by its label                                                        | pass                                                                                             | `pnpm exec vitest run src/components/import/import-flow.test.tsx src/components/notebook/file-block.test.tsx` |
+| The import flow end to end, in the browser, against the seeded design Dataset                                            | 3 tests, pass                                                                                    | `pnpm exec playwright test tests/browser/import-flow.test.ts --project=browser`                               |
+| Storybook, `UI/FileDrop`: at rest, uploading, uploaded, refused, failed                                                  | renders; the four non-default stories pick or drop a real file through the component's own input | `pnpm storybook`, then `/?path=/story/ui-filedrop--default`                                                   |
+
+Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `file-upload-ours-light.png`,
+`file-upload-ours-dark.png`, `file-upload-theirs-light.png`,
+`file-upload-theirs-dark.png`, and `file-upload-dropped.png` for the candidate
+after a real drop, all on the long-labels fixture. Appearance is evidence; it is
+not the verdict.
+
+### What the adoption cost — conditions
+
+- **C1 — re-point the item's `accept`.** The hook's `accept` option defaults to
+  `"*"`, and it writes `accept="*"` onto the input. A wildcard that matches no
+  file type is how both a browser dialog and `user-event`'s `upload` read the
+  attribute, so every pick is dropped before the hook sees it and the screen
+  fails silently. The field passes its own `accept` after the spread, omitting
+  the attribute when the caller has none. Any re-composition of the item has to
+  repeat that.
+- **C2 — `min-w-0` on the file row.** The vendor's example rows sit in a block
+  container; the field and the pair's column list them in a grid, where a row's
+  automatic minimum size is its content's — so a long file name kept the row at
+  the name's full width and pushed the row's own Retry and Remove past the
+  column edge. It is fixed with one `min-w-0`, and the appearance screenshots
+  are what showed it.
+- **C3 — the queue is not adopted, only the pick.** The shipping field holds one
+  file at a time, because every transport on these screens takes one
+  (`uploadImportFile`, `attachFileToBlock`). Multi-file, `maxFiles` and the
+  queue's own summary counts were therefore measured on the candidate and not
+  taken; a screen that needs a queue is a new change against the hook.
+- **C4 — the progress is indeterminate, and that is the transport's limit.**
+  Every one of these transports is a single `fetch` POST with no byte events, so
+  the row reports the state it can (uploading, uploaded, refused, failed) with a
+  live bar rather than a percentage. A determinate bar would mean rewriting the
+  shared import transport on `XMLHttpRequest`, which this adoption deliberately
+  did not do.
+- Plus the standing requirements from ADR-0055 decision 4: restyle to Sheetbase
+  tokens, pass the colour check and the adoption guard, and replace the old
+  implementation in the same change with no parallel implementation left behind.
+  The frozen pre-adoption column in the harness is not a parallel
+  implementation: it is this row's baseline, it ships on a development-only
+  route, and the product's copy is gone.
+
+### Decision and reason
+
+**Adopt — done in this change.** Decision 4's second test is met twice over, and
+both halves are named behaviours rather than preferences: the repository had no
+drop target anywhere in the application, and a failure had no retry anywhere —
+the person's only recourse was to pick the file again, and on the notebook's
+file block not even the file's name was on screen. The candidate adds the drop
+path, a row per file with its own progress and status, and a retry that re-runs
+the caller's transport.
+
+The change deletes the four hand-rolled copies in the same commit (decision 4's
+fourth clause), and it lies inside the programme's non-goals: the transport, the
+validation policy and the storage policy are untouched, and no scientific
+surface is involved. The four screens that pick a file now compose one field,
+and the field's keyboard route — a real button that opens the dialog the hidden
+input would — is the route all four keep.
+
+### Limits of this row
+
+- Desktop Chromium only (Playwright, one worker); no Firefox, WebKit or real
+  device was run. The drop path is desktop-only in any case: a touch device has
+  no drag-and-drop for files, so the pick button is its route.
+- The harness's transport is a stand-in with a fixed 600 ms delay and a
+  first-attempt failure. It measures the field's own progress, status and retry
+  states, not the real transports' latency or error vocabulary.
+- The fixture's "files" are built from its rows (the row's name becomes the
+  file's name), so the hostile names are the fixture's, not a file system's.
+- The candidate column composes the registry item rather than the shipping field
+  (`file-drop.tsx`), because the field takes one file at a time and this pair
+  measures the queue. The shipping field's own behaviour is what the four
+  screens' tests and the Storybook stories cover.
+- The pre-adoption column is a frozen copy: it is no longer the code that ships,
+  and it exists to make the record readable.
+- The 5,000-row fixture is capped at 12 listed files per column, with the count
+  stated on screen; the queue's cost at length is not measured.
+- This row records one pair. It is not a verdict on ReUI as a registry, on the
+  hook's other options, or on any other ReUI item.
 
 ## Adding a row
 

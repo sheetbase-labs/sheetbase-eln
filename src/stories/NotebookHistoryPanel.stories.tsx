@@ -4,6 +4,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-panel'
 import { sign002QueryKeys } from '#/lib/sign-002'
 import type { TimelineEventWire } from '#/lib/sign-002'
+import type { RevisionWire } from '#/lib/notebook-data'
 
 /**
  * The notebook's History tab: the record timeline plus its revisions. Both
@@ -45,7 +46,23 @@ const events: TimelineEventWire[] = [
   },
 ]
 
-function client(state: 'ready' | 'loading' | 'error') {
+/** One submitted revision: the list links it to the record and its package. */
+const revisions: RevisionWire[] = [
+  {
+    id: 'rev-2f4c9a10',
+    record_id: RECORD_ID,
+    structure_version: 3,
+    metadata_version: 2,
+    metadata_snapshot: { title: 'Virus stability at 4 °C' },
+    block_snapshot: [],
+    reason: 'Submitted for scientific review',
+    superseded_by_revision_id: null,
+    created_at: '2026-08-27T09:10:00.000000Z',
+    created_by_user_id: 'user-1',
+  },
+]
+
+function client(state: 'ready' | 'submitted' | 'loading' | 'error') {
   if (state === 'error') {
     return new QueryClient({
       defaultOptions: {
@@ -59,14 +76,14 @@ function client(state: 'ready' | 'loading' | 'error') {
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
-  if (state === 'ready') {
+  if (state !== 'loading') {
     instance.setQueryData(sign002QueryKeys.timeline(RECORD_ID), events)
-    instance.setQueryData(REVISIONS_KEY, [])
+    instance.setQueryData(REVISIONS_KEY, state === 'submitted' ? revisions : [])
   }
   return instance
 }
 
-function withClient(state: 'ready' | 'loading' | 'error') {
+function withClient(state: 'ready' | 'submitted' | 'loading' | 'error') {
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client(state)}>
       <div className="w-[560px] max-w-full">
@@ -90,8 +107,17 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** The timeline with the viewer's own events attributed by name. */
+/**
+ * The timeline with the viewer's own events attributed by name, and the
+ * revisions list stating that nothing has been submitted yet — the panel's own
+ * empty state rather than a blank list.
+ */
 export const Default: Story = {}
+
+/** A submitted revision, with the record link and the evidence package. */
+export const SubmittedRevision: Story = {
+  decorators: [withClient('submitted')],
+}
 
 /** While the timeline read is in flight the panel says so. */
 export const Loading: Story = {

@@ -329,10 +329,6 @@ describe('EXP-02.4 ExperimentOverview', () => {
     // Protocol step progress is not modelled, and the page says so.
     expect(screen.getByText(/No step progress is recorded yet/)).toBeDefined()
     // No signatures: the honest empty state, not an empty table.
-    expect(
-      screen.getByText(
-        'No signatures have been recorded against this record yet.',
-      ),
-    ).toBeDefined()
+    expect(screen.getByText('No signatures yet')).toBeDefined()
   })
 })

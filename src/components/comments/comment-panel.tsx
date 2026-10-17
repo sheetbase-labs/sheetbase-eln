@@ -5,6 +5,7 @@ import { Icon } from '#/components/icons'
 import { Notice } from '#/components/v3/ui/alert'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   commentsQueryKeys,
   createComment,
@@ -247,10 +248,14 @@ export function CommentPanel({
       {loading ? (
         <p className="text-xs text-fg-muted">Loading comments…</p>
       ) : threads.length === 0 && !loadError ? (
-        <p className="rounded-md border border-dashed bg-surface-muted/30 px-3 py-2 text-xs text-fg-muted">
-          No comments yet on this{' '}
-          {sheet ? 'Sheet' : recordId ? 'Record' : 'revision'}.
-        </p>
+        <EmptyState
+          icon="comment"
+          className="py-2"
+          title={`No comments yet on this ${
+            sheet ? 'Sheet' : recordId ? 'Record' : 'revision'
+          }.`}
+          description="Comments anchored to a block or cell appear here as threads, with replies and their open or resolved state."
+        />
       ) : (
         <ol className="space-y-4">
           {threads.map((thread) => (

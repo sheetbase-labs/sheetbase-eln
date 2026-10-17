@@ -121,6 +121,7 @@ export function ObjectHistoryTimeline({
       entries={entries}
       ariaLabel="Object history"
       emptyMessage="No recorded activity for this object yet."
+      emptyDescription="Changes to this object appear here as they happen, with who made them and what changed."
       loading={loading}
       error={error}
       maxHeight={maxHeight}

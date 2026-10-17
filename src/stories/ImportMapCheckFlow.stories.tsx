@@ -5,7 +5,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ImportMapCheckFlow } from '#/components/import/import-flow'
 import type { ImportSearch } from '#/components/import/import-flow'
 import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
-import { importQueryKeys } from '#/lib/import/data'
+import { ImportRequestError, importQueryKeys } from '#/lib/import/data'
 import type {
   ImportFileUploadResponse,
   ImportReviewResponse,
@@ -168,6 +168,48 @@ function client() {
   return instance
 }
 
+/**
+ * A client whose stored-file read has already failed with the server's own
+ * not-found code, the way `fetchImportFile` reports an unknown or foreign id.
+ * `retryOnMount` is off so the primed error is the state the flow renders
+ * rather than one the component immediately refetches past.
+ */
+function notFoundClient() {
+  const instance = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        retryOnMount: false,
+        queryFn: () => new Promise(() => {}),
+      },
+    },
+  })
+  void instance.fetchQuery({
+    queryKey: importQueryKeys.file(IMPORT_ID),
+    queryFn: () =>
+      Promise.reject(
+        new ImportRequestError(404, 'not_found', 'No such import.'),
+      ),
+  })
+  instance.setQueryData(DATASETS_QUERY_KEY, [dataset])
+  return instance
+}
+
+/** The stored file exists but was never pinned to a Dataset. */
+function untargetedClient() {
+  const instance = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, queryFn: () => new Promise(() => {}) },
+    },
+  })
+  instance.setQueryData(importQueryKeys.file(IMPORT_ID), {
+    ...file,
+    datasetId: null,
+  })
+  instance.setQueryData(DATASETS_QUERY_KEY, [dataset])
+  return instance
+}
+
 function Caller({ initialSearch }: { initialSearch: ImportSearch }) {
   const [search, setSearch] = useState(initialSearch)
   return (
@@ -250,4 +292,38 @@ export const UnparsedFile: Story = {
     ),
   ],
   render: () => <Caller initialSearch={{ step: 'map', dataset: DATASET_ID }} />,
+}
+
+/**
+ * The id names no retained import: the flow states that and offers the upload
+ * step, rather than an empty map step.
+ */
+export const ImportNotFound: Story = {
+  decorators: [
+    (Story) => (
+      <QueryClientProvider client={notFoundClient()}>
+        <div className="w-[1000px] max-w-full">
+          <Story />
+        </div>
+      </QueryClientProvider>
+    ),
+  ],
+  render: () => <Caller initialSearch={{ step: 'map' }} />,
+}
+
+/**
+ * The stored file was never pinned to a Dataset: the flow says so and offers
+ * the restart, rather than reading columns against nothing.
+ */
+export const NoTarget: Story = {
+  decorators: [
+    (Story) => (
+      <QueryClientProvider client={untargetedClient()}>
+        <div className="w-[1000px] max-w-full">
+          <Story />
+        </div>
+      </QueryClientProvider>
+    ),
+  ],
+  render: () => <Caller initialSearch={{ step: 'map' }} />,
 }

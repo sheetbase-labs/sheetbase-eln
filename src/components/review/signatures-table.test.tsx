@@ -93,11 +93,7 @@ describe('SignaturesTable', () => {
   it('states an empty record honestly instead of rendering a blank table', () => {
     render(<SignaturesTable signatures={[]} />)
 
-    expect(
-      screen.getByText(
-        'No signatures have been recorded against this record yet.',
-      ),
-    ).toBeTruthy()
+    expect(screen.getByText('No signatures yet')).toBeTruthy()
     expect(screen.queryByRole('table')).toBeNull()
     expect(screen.queryByText('Signatures could not be loaded.')).toBeNull()
   })
@@ -108,11 +104,7 @@ describe('SignaturesTable', () => {
     const alert = screen.getByRole('alert')
     expect(alert.textContent).toContain('Signatures could not be loaded.')
     expect(screen.queryByRole('table')).toBeNull()
-    expect(
-      screen.queryByText(
-        'No signatures have been recorded against this record yet.',
-      ),
-    ).toBeNull()
+    expect(screen.queryByText('No signatures yet')).toBeNull()
   })
 
   it('does not present a pending load as a result', () => {
@@ -120,11 +112,7 @@ describe('SignaturesTable', () => {
 
     expect(screen.getByText('Loading signatures…')).toBeTruthy()
     expect(screen.queryByRole('table')).toBeNull()
-    expect(
-      screen.queryByText(
-        'No signatures have been recorded against this record yet.',
-      ),
-    ).toBeNull()
+    expect(screen.queryByText('No signatures yet')).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()
   })
 })

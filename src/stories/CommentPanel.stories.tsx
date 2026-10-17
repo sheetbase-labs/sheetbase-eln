@@ -177,6 +177,7 @@ export const NoFreshRoot: Story = {
   decorators: loaded(threads, commentsQueryKeys.forRevision(REVISION_ID)),
 }
 
+/** No threads on this revision: the panel's own empty state, not a blank list. */
 export const Empty: Story = {
   decorators: loaded([], commentsQueryKeys.forRevision(REVISION_ID)),
 }

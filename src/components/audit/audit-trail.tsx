@@ -95,6 +95,7 @@ export function AuditTrail({
       entries={events.map(toEntry)}
       ariaLabel="Audit trail"
       emptyMessage="No activity yet"
+      emptyDescription="Events appear here as this object changes, newest first."
       loading={loading}
       error={error}
       retry={retry}

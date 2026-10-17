@@ -61,6 +61,8 @@ const meta = {
     entries,
     ariaLabel: 'Audit trail',
     emptyMessage: 'No activity yet',
+    emptyDescription:
+      'Events appear here as this object changes, newest first.',
   },
 } satisfies Meta<typeof HistoryTimeline>
 export default meta

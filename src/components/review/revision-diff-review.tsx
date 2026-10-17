@@ -4,6 +4,7 @@ import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-b
 import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { diffRevisionEnvelopes } from '#/lib/revision-diff'
@@ -411,6 +412,12 @@ export function RevisionDiffReview({
     })
   }
 
+  function clearFilters() {
+    setEnabledKinds(new Set(KINDS))
+    setEnabledAreas(new Set(AREA_ORDER))
+    setActiveIndex(0)
+  }
+
   function navigate(index: number) {
     if (visibleChanges.length === 0) return
     const next = Math.min(Math.max(index, 0), visibleChanges.length - 1)
@@ -570,19 +577,24 @@ export function RevisionDiffReview({
       ) : null}
 
       {diff.unchanged ? (
-        <div className="rounded-lg border border-dashed bg-surface-muted p-8 text-center">
-          <h2 className="text-sm font-semibold">No meaningful changes</h2>
-          <p className="mt-1 text-xs text-fg-muted">
-            The submitted scientific content is unchanged between these
-            revisions.
-          </p>
-        </div>
+        <EmptyState
+          icon="check"
+          title="No meaningful changes"
+          description="The submitted scientific content is unchanged between these revisions."
+        />
       ) : items.length === 0 &&
         diff.unavailableSheetComparisons.length > 0 ? null : items.length ===
         0 ? (
-        <div className="rounded-lg border border-dashed p-6 text-center text-sm text-fg-muted">
-          No changes match the selected change types.
-        </div>
+        <EmptyState
+          icon="filter"
+          title="No changes match the selected change types."
+          description="Turn a change type or area back on to read its changes."
+          action={
+            <Button variant="secondary" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          }
+        />
       ) : (
         <ol className="space-y-3" aria-label="Revision changes">
           {items.map((item) => (

@@ -17,6 +17,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   Collapsible,
   CollapsiblePanel,
@@ -173,6 +174,8 @@ export interface HistoryTimelineProps {
   ariaLabel: string
   /** Shown in place of the list when there are no entries. */
   emptyMessage: string
+  /** Why the list is empty, shown under the message. */
+  emptyDescription?: ReactNode
   loading?: boolean
   /**
    * A load or permission failure. It is its own state — the surface never
@@ -350,6 +353,7 @@ export function HistoryTimeline({
   entries,
   ariaLabel,
   emptyMessage,
+  emptyDescription,
   loading = false,
   error = null,
   retry,
@@ -387,15 +391,14 @@ export function HistoryTimeline({
 
   if (entries.length === 0) {
     return (
-      <p
-        className={cn(
-          'rounded-md border border-dashed bg-surface-muted/30 px-3 py-2 text-xs text-fg-muted',
-          className,
-        )}
-        data-slot="history-timeline"
-      >
-        {emptyMessage}
-      </p>
+      <div className={className} data-slot="history-timeline">
+        <EmptyState
+          icon="clock"
+          className="py-2"
+          title={emptyMessage}
+          description={emptyDescription}
+        />
+      </div>
     )
   }
 

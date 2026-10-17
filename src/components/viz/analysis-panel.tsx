@@ -17,7 +17,7 @@ import {
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
 import { Input } from '#/components/v3/ui/input'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   Table,
   TableBody,
@@ -314,7 +314,7 @@ export function AnalysisPanel({
             >
               Dataset
             </label>
-            <NativeSelect
+            <Select
               id="analysis-definition-dataset"
               aria-label="Analysis dataset"
               value={selectedDatasetId}
@@ -329,7 +329,7 @@ export function AnalysisPanel({
                   {d.name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
           <div className="min-w-40 flex-1">
             <label className="text-label text-fg-muted" htmlFor="analysis-kind">
@@ -567,7 +567,7 @@ function AnalysisDefinitionControls({
             >
               Measured value
             </label>
-            <NativeSelect
+            <Select
               id="analysis-value"
               aria-label="Measured value column"
               value={bindingValue(definition.value)}
@@ -575,7 +575,7 @@ function AnalysisDefinitionControls({
               className="h-8 bg-surface"
             >
               {columnOptions(numeric)}
-            </NativeSelect>
+            </Select>
           </div>
           <div className="min-w-36 flex-1">
             <label
@@ -584,7 +584,7 @@ function AnalysisDefinitionControls({
             >
               Group by (optional)
             </label>
-            <NativeSelect
+            <Select
               id="analysis-group"
               aria-label="Group by column"
               value={bindingValue(definition.group)}
@@ -593,7 +593,7 @@ function AnalysisDefinitionControls({
             >
               <option value="">(one group)</option>
               {columnOptions(category)}
-            </NativeSelect>
+            </Select>
           </div>
         </>
       ) : (
@@ -605,7 +605,7 @@ function AnalysisDefinitionControls({
             >
               Outcome (y)
             </label>
-            <NativeSelect
+            <Select
               id="analysis-outcome"
               aria-label="Outcome column"
               value={bindingValue(definition.outcome)}
@@ -613,7 +613,7 @@ function AnalysisDefinitionControls({
               className="h-8 bg-surface"
             >
               {columnOptions(numeric)}
-            </NativeSelect>
+            </Select>
           </div>
           <div className="min-w-36 flex-1">
             <label
@@ -622,7 +622,7 @@ function AnalysisDefinitionControls({
             >
               Predictor (x)
             </label>
-            <NativeSelect
+            <Select
               id="analysis-predictor"
               aria-label="Predictor column"
               value={bindingValue(definition.predictor)}
@@ -630,7 +630,7 @@ function AnalysisDefinitionControls({
               className="h-8 bg-surface"
             >
               {columnOptions(numeric)}
-            </NativeSelect>
+            </Select>
           </div>
           <div className="min-w-24">
             <label
@@ -639,7 +639,7 @@ function AnalysisDefinitionControls({
             >
               Degree
             </label>
-            <NativeSelect
+            <Select
               id="analysis-degree"
               aria-label="Polynomial degree"
               value={String(definition.degree ?? 1)}
@@ -655,7 +655,7 @@ function AnalysisDefinitionControls({
                   {d}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
           <div className="min-w-32">
             <label
@@ -664,7 +664,7 @@ function AnalysisDefinitionControls({
             >
               y transform
             </label>
-            <NativeSelect
+            <Select
               id="analysis-y-transform"
               aria-label="Outcome transform"
               value={definition.outcomeTransform ?? ''}
@@ -674,7 +674,7 @@ function AnalysisDefinitionControls({
               <option value="">None</option>
               <option value="log10">log₁₀</option>
               <option value="ln">ln</option>
-            </NativeSelect>
+            </Select>
           </div>
           <div className="min-w-32">
             <label
@@ -683,7 +683,7 @@ function AnalysisDefinitionControls({
             >
               x transform
             </label>
-            <NativeSelect
+            <Select
               id="analysis-x-transform"
               aria-label="Predictor transform"
               value={definition.predictorTransform ?? ''}
@@ -695,7 +695,7 @@ function AnalysisDefinitionControls({
               <option value="">None</option>
               <option value="log10">log₁₀</option>
               <option value="ln">ln</option>
-            </NativeSelect>
+            </Select>
           </div>
           <div className="min-w-36 flex-1">
             <label
@@ -704,7 +704,7 @@ function AnalysisDefinitionControls({
             >
               Group fits by (optional)
             </label>
-            <NativeSelect
+            <Select
               id="analysis-regression-group"
               aria-label="Regression grouping column"
               value={bindingValue(definition.group)}
@@ -713,7 +713,7 @@ function AnalysisDefinitionControls({
             >
               <option value="">(one fit)</option>
               {columnOptions(category)}
-            </NativeSelect>
+            </Select>
           </div>
         </>
       )}

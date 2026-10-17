@@ -15,7 +15,7 @@ import type { DragEvent } from 'react'
 
 import { Icon } from '#/components/v3/icons'
 import { Button } from '#/components/v3/ui/button'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -278,7 +278,7 @@ export function ChartEncodingEditor({
                 >
                   {ROLE_LABEL[role]}
                 </label>
-                <NativeSelect
+                <Select
                   id={`${idPrefix}-${role}`}
                   aria-label={`${ROLE_LABEL[role]} field`}
                   value={value}
@@ -293,7 +293,7 @@ export function ChartEncodingEditor({
                       {column.label}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </div>
             )
           })}

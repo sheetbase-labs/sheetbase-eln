@@ -5,7 +5,7 @@ import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 import { Dialog, DialogContent } from '#/components/v3/ui/dialog'
 import { Button } from '#/components/v3/ui/button'
 import { Kbd } from '#/components/v3/ui/kbd'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
@@ -397,7 +397,7 @@ export function SearchPalette({
           </label>
           <label className="shrink-0">
             <span className="sr-only">Scope</span>
-            <NativeSelect
+            <Select
               value={scope}
               onChange={(e) => setScope(e.target.value)}
               aria-label="Search scope"
@@ -409,7 +409,7 @@ export function SearchPalette({
                   In: {name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </label>
           <button
             type="button"

@@ -2,7 +2,7 @@ import * as React from 'react'
 
 import { Icon } from '#/components/v3/icons'
 import { Button } from '#/components/v3/ui/button'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { useTheme } from '#/components/theme-provider'
 import { COMPARISON_CHECKLIST } from '#/components/component-compare/checklist'
 import {
@@ -206,7 +206,7 @@ export function ComponentCompare({
       <div className="mt-4 flex flex-wrap items-end gap-4">
         <label className="flex min-w-56 flex-col gap-1 text-label text-fg-muted">
           Pair
-          <NativeSelect
+          <Select
             value={pair.id}
             onChange={(event) => setPairId(event.target.value)}
             data-testid="comparison-pair"
@@ -216,11 +216,11 @@ export function ComponentCompare({
                 {entry.title}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </label>
         <label className="flex min-w-72 flex-col gap-1 text-label text-fg-muted">
           Fixture
-          <NativeSelect
+          <Select
             value={fixture.id}
             onChange={(event) => setFixtureId(event.target.value)}
             data-testid="comparison-fixture"
@@ -230,11 +230,11 @@ export function ComponentCompare({
                 {entry.hostility} — {entry.id}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </label>
         <label className="flex min-w-56 flex-col gap-1 text-label text-fg-muted">
           State
-          <NativeSelect
+          <Select
             value={state}
             onChange={(event) =>
               setState(event.target.value as ComparisonState)
@@ -246,7 +246,7 @@ export function ComponentCompare({
                 {STATE_LABEL[entry]}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </label>
         <div
           role="group"

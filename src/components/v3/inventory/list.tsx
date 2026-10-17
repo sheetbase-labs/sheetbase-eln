@@ -384,24 +384,6 @@ export function ListSkeleton({
   )
 }
 
-/** A native select in the input's style. Native keeps keyboard and screen reader behaviour for free. */
-export function Select({
-  className,
-  invalid,
-  ...props
-}: React.ComponentProps<'select'> & { invalid?: boolean }) {
-  return (
-    <select
-      aria-invalid={invalid || undefined}
-      className={cn(
-        'h-[30px] max-md:h-10 w-full cursor-pointer rounded-md border border-border bg-surface px-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus aria-invalid:border-danger aria-invalid:shadow-[0_0_0_1px_var(--danger)]',
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
 /** Textarea in the input's style. */
 export function Textarea({
   className,

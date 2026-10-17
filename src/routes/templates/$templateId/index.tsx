@@ -19,7 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { Select } from '#/components/v3/inventory/list'
+import { Select } from '#/components/v3/ui/select'
 import {
   publishedTemplateVersion,
   templateDataQueryKeys,

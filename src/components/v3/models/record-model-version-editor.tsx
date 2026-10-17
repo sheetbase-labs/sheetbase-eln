@@ -4,7 +4,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Muted } from '#/components/v3/ui/layout'
 import { Textarea } from '#/components/v3/inventory/list'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
 import type { FieldLogicalType } from '#/lib/field-definition'
 import type {
@@ -151,7 +151,7 @@ export function RecordModelVersionEditor({
             </Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Type">
-                <NativeSelect
+                <Select
                   aria-label="Field type"
                   value={field.logical_type}
                   onChange={(event) =>
@@ -168,7 +168,7 @@ export function RecordModelVersionEditor({
                       {type}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               <Field label="Unit">
                 <Input
@@ -259,7 +259,7 @@ export function RecordModelVersionEditor({
           />
         </Field>
         <Field label="Type">
-          <NativeSelect
+          <Select
             value={logicalType}
             onChange={(event) =>
               setLogicalType(
@@ -274,7 +274,7 @@ export function RecordModelVersionEditor({
                 {type}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Button
           type="button"

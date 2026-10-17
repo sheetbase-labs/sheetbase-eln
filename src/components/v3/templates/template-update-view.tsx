@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { buildNotebookTemplateUpgradeDecisions } from '#/lib/notebook-template-upgrade'
 import type {
   NotebookUpgradeDecision,
@@ -394,7 +394,7 @@ export function NotebookTemplateUpdateView({
                               ))}
                             </RadioGroup>
                             {nestedSelected === 'map' ? (
-                              <NativeSelect
+                              <Select
                                 aria-label={`Target column for ${nested.id}`}
                                 value={
                                   nestedDraft?.targetId ??
@@ -414,7 +414,7 @@ export function NotebookTemplateUpdateView({
                                     {candidate.slice(0, 8)}
                                   </option>
                                 ))}
-                              </NativeSelect>
+                              </Select>
                             ) : null}
                           </div>
                         )

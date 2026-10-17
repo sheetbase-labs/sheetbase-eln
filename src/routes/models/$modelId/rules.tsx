@@ -16,7 +16,7 @@ import {
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   Table,
   TableBody,
@@ -263,7 +263,7 @@ function RecordModelRules({
             </label>
             <label className="text-xs text-fg-muted">
               Effect
-              <NativeSelect
+              <Select
                 className="mt-1 h-8 text-xs"
                 value={effect}
                 onChange={(event) =>
@@ -276,11 +276,11 @@ function RecordModelRules({
                     {entry.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
             <label className="text-xs text-fg-muted">
               Field
-              <NativeSelect
+              <Select
                 className="mt-1 h-8 text-xs"
                 value={conditionFieldName}
                 onChange={(event) => setConditionField(event.target.value)}
@@ -291,12 +291,12 @@ function RecordModelRules({
                     {field.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
             <label className="text-xs text-fg-muted">
               Condition
               <div className="mt-1 flex gap-2">
-                <NativeSelect
+                <Select
                   className="h-8 text-xs"
                   value={op}
                   onChange={(event) => setOp(event.target.value as Op)}
@@ -307,7 +307,7 @@ function RecordModelRules({
                       {entry}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
                 <Input
                   className="h-8 text-xs"
                   value={value}

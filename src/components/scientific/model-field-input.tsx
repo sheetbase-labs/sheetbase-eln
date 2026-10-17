@@ -5,7 +5,7 @@ import { definitionOfModelField } from '#/lib/model-fields'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   fieldEditorPresentation,
   selectableFieldOptions,
@@ -83,7 +83,7 @@ export function ModelFieldInput({
       <label className="text-xs text-fg-muted">
         {showLabel ? definition.label : null}
         {showLabel && !definition.nullable ? ' *' : ''}
-        <NativeSelect
+        <Select
           className={`${showLabel ? 'mt-1' : ''} h-8 text-xs`}
           value={String(value)}
           onChange={(event) => onChange(event.target.value)}
@@ -95,7 +95,7 @@ export function ModelFieldInput({
               {option.label}
             </option>
           ))}
-        </NativeSelect>
+        </Select>
       </label>
     )
   }

@@ -37,7 +37,7 @@ import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Textarea } from '#/components/v3/inventory/list'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -544,7 +544,7 @@ function SignatureRequestEditor(props: BlockEditorProps) {
         </label>
         <label className="flex flex-col gap-1 text-label">
           <span className="text-fg-muted">Meaning</span>
-          <NativeSelect
+          <Select
             aria-label="Requested signature meaning"
             value={a.draft.meaning}
             onChange={(event) => {
@@ -561,7 +561,7 @@ function SignatureRequestEditor(props: BlockEditorProps) {
                 {SIGNATURE_MEANING_LABEL[value]}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </label>
       </div>
       <label className="flex flex-col gap-1 text-label">
@@ -681,7 +681,7 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
               onBlur={() => a.flush()}
             />
             <div className="flex items-center gap-1">
-              <NativeSelect
+              <Select
                 aria-label={`Status ${i + 1}`}
                 value={item.status}
                 onChange={(event) =>
@@ -696,7 +696,7 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
                     {CORRECTIVE_ACTION_STATUS_LABEL[status]}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
               <Button
                 type="button"
                 variant="quiet"
@@ -1324,7 +1324,7 @@ function LinkedRecordEditor({
     <div className={cn('space-y-3', className)}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Field label="Target kind" htmlFor={`lr-kind-${block.id}`}>
-          <NativeSelect
+          <Select
             id={`lr-kind-${block.id}`}
             value={a.draft.targetKind}
             onChange={(e) => {
@@ -1345,7 +1345,7 @@ function LinkedRecordEditor({
                 {TARGET_KIND_LABELS[k]}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Field label="Identifier" htmlFor={`lr-id-${block.id}`}>
           <Input
@@ -1370,7 +1370,7 @@ function LinkedRecordEditor({
           />
         </Field>
         <Field label="Link type" htmlFor={`lr-link-${block.id}`}>
-          <NativeSelect
+          <Select
             id={`lr-link-${block.id}`}
             value={a.draft.linkType}
             onChange={(e) => {
@@ -1383,7 +1383,7 @@ function LinkedRecordEditor({
                 {t}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Field label="Label" htmlFor={`lr-label-${block.id}`}>
           <Input
@@ -2143,7 +2143,7 @@ function ChartBlockEditor({
           </ChartField>
 
           <ChartField label="Dataset">
-            <NativeSelect
+            <Select
               aria-label="Dataset"
               value={selectedDatasetId}
               onChange={(e) => chooseDataset(e.target.value)}
@@ -2160,7 +2160,7 @@ function ChartBlockEditor({
                   {d.name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
             <p className="text-xs text-fg-muted">
               Charts plot canonical Dataset data (decision 0037).
             </p>
@@ -2168,7 +2168,7 @@ function ChartBlockEditor({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <ChartField label="Chart type">
-              <NativeSelect
+              <Select
                 aria-label="Chart type"
                 value={spec?.type ?? 'line'}
                 onChange={(e) => setChartType(e.target.value as ChartType)}
@@ -2180,7 +2180,7 @@ function ChartBlockEditor({
                     {t.charAt(0).toUpperCase() + t.slice(1)}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </ChartField>
             <ChartField label="Series field (optional)">
               {spec?.type === 'heatmap' ? (
@@ -2188,7 +2188,7 @@ function ChartBlockEditor({
                   Not used for heatmap charts.
                 </p>
               ) : (
-                <NativeSelect
+                <Select
                   aria-label="Series field"
                   value={bindingValue(spec?.fields.series)}
                   onChange={(e) =>
@@ -2199,7 +2199,7 @@ function ChartBlockEditor({
                 >
                   <option value="">(none)</option>
                   {fieldOptions}
-                </NativeSelect>
+                </Select>
               )}
             </ChartField>
             <ChartField label="X field">
@@ -2209,7 +2209,7 @@ function ChartBlockEditor({
                   field.
                 </p>
               ) : (
-                <NativeSelect
+                <Select
                   aria-label="X field"
                   value={bindingValue(spec?.fields.x)}
                   onChange={(e) =>
@@ -2220,11 +2220,11 @@ function ChartBlockEditor({
                 >
                   <option value="">(none)</option>
                   {fieldOptions}
-                </NativeSelect>
+                </Select>
               )}
             </ChartField>
             <ChartField label="Y field">
-              <NativeSelect
+              <Select
                 aria-label="Y field"
                 value={bindingValue(spec?.fields.y)}
                 onChange={(e) =>
@@ -2237,10 +2237,10 @@ function ChartBlockEditor({
               >
                 <option value="">(none)</option>
                 {fieldOptions}
-              </NativeSelect>
+              </Select>
             </ChartField>
             <ChartField label="X axis scale">
-              <NativeSelect
+              <Select
                 aria-label="X axis scale"
                 value={spec?.display.axes.x.scale ?? 'linear'}
                 onChange={(e) =>
@@ -2262,10 +2262,10 @@ function ChartBlockEditor({
                     {s}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </ChartField>
             <ChartField label="Y axis scale">
-              <NativeSelect
+              <Select
                 aria-label="Y axis scale"
                 value={spec?.display.axes.y.scale ?? 'linear'}
                 onChange={(e) =>
@@ -2287,7 +2287,7 @@ function ChartBlockEditor({
                     {s}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </ChartField>
           </div>
 
@@ -2315,7 +2315,7 @@ function ChartBlockEditor({
           ) : null}
           {spec?.type === 'heatmap' ? (
             <ChartField label="Cell value">
-              <NativeSelect
+              <Select
                 aria-label="Heatmap cell aggregation"
                 value={spec.typeParams.heatmap?.aggregate ?? 'count'}
                 onChange={(e) => {
@@ -2344,7 +2344,7 @@ function ChartBlockEditor({
                 <option value="median">Median of Y</option>
                 <option value="min">Min of Y</option>
                 <option value="max">Max of Y</option>
-              </NativeSelect>
+              </Select>
             </ChartField>
           ) : null}
 
@@ -2783,7 +2783,7 @@ function WellInspector({
 
       {/* Role selector */}
       <Field label="Role" htmlFor={`well-role-${wellCode}`}>
-        <NativeSelect
+        <Select
           id={`well-role-${wellCode}`}
           value={role}
           onChange={(e) => onAssignRole(e.target.value as AssignmentRole)}
@@ -2793,7 +2793,7 @@ function WellInspector({
               {ROLE_STYLES[r].label}
             </option>
           ))}
-        </NativeSelect>
+        </Select>
       </Field>
 
       {/* Sample link (for sample and control roles) */}
@@ -3074,7 +3074,7 @@ function AnalysisBlockEditor({
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
         <ChartField label="Saved analysis">
-          <NativeSelect
+          <Select
             aria-label="Saved analysis"
             value={draft.definitionId ?? ''}
             onChange={(e) => chooseDefinition(e.target.value)}
@@ -3093,7 +3093,7 @@ function AnalysisBlockEditor({
                 {`${d.name} · v${d.version}`}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
           <p className="text-xs text-fg-muted">
             Analyses execute against live dataset rows. Freeze to pin the inputs
             as evidence.

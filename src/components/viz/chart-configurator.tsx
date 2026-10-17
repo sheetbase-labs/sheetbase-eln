@@ -11,7 +11,7 @@ import type { ReactNode } from 'react'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Input } from '#/components/v3/ui/input'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   CARTESIAN_CHART_TYPES,
   CHART_TYPES,
@@ -430,7 +430,7 @@ export function ChartConfigurator({
             >
               {field.label}
             </label>
-            <NativeSelect
+            <Select
               id={`${idPrefix}-${field.key}`}
               aria-label={field.ariaLabel}
               value={field.value}
@@ -443,7 +443,7 @@ export function ChartConfigurator({
                   {column.label}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
         ))}
       </div>
@@ -455,7 +455,7 @@ export function ChartConfigurator({
           >
             Aggregation
           </label>
-          <NativeSelect
+          <Select
             id={`${idPrefix}-aggregation`}
             aria-label="Aggregation function"
             value={
@@ -474,7 +474,7 @@ export function ChartConfigurator({
             <option value="min">Minimum (by x)</option>
             <option value="max">Maximum (by x)</option>
             <option value="count">Count (by x)</option>
-          </NativeSelect>
+          </Select>
         </div>
         <div className="min-w-36 flex-1">
           <label
@@ -483,7 +483,7 @@ export function ChartConfigurator({
           >
             Normalisation
           </label>
-          <NativeSelect
+          <Select
             id={`${idPrefix}-normalisation`}
             aria-label="Normalisation method"
             value={
@@ -499,7 +499,7 @@ export function ChartConfigurator({
             <option value="">None</option>
             <option value="percent_of_max">Percent of maximum</option>
             <option value="z_score">Z-score</option>
-          </NativeSelect>
+          </Select>
         </div>
         {errorColumns.length ? (
           <div className="min-w-40 flex-1">
@@ -509,7 +509,7 @@ export function ChartConfigurator({
             >
               Error bars
             </label>
-            <NativeSelect
+            <Select
               id={`${idPrefix}-error-column`}
               aria-label="Error bar column"
               value={spec.overlays.errorBars?.fieldId ?? ''}
@@ -522,7 +522,7 @@ export function ChartConfigurator({
                   {column.label}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
         ) : null}
       </div>
@@ -534,7 +534,7 @@ export function ChartConfigurator({
           >
             Linear fit
           </label>
-          <NativeSelect
+          <Select
             id={`${idPrefix}-fit`}
             aria-label="Linear fit"
             value={spec.overlays.fit?.method === 'ols' ? 'ols' : ''}
@@ -558,7 +558,7 @@ export function ChartConfigurator({
           >
             <option value="">None</option>
             <option value="ols">OLS linear</option>
-          </NativeSelect>
+          </Select>
         </div>
         <div className="min-w-36 flex-1">
           <label
@@ -567,7 +567,7 @@ export function ChartConfigurator({
           >
             Interval
           </label>
-          <NativeSelect
+          <Select
             id={`${idPrefix}-error-source`}
             aria-label="Error bar interval"
             value={
@@ -614,7 +614,7 @@ export function ChartConfigurator({
             {errorColumns.length ? (
               <option value="field">Explicit field</option>
             ) : null}
-          </NativeSelect>
+          </Select>
         </div>
       </div>
       <div className="flex flex-wrap items-end gap-3 pt-2.5">
@@ -728,7 +728,7 @@ export function ChartConfigurator({
             >
               Cell value
             </label>
-            <NativeSelect
+            <Select
               id={`${idPrefix}-heatmap-aggregate`}
               aria-label="Heatmap cell aggregation"
               value={spec.typeParams.heatmap?.aggregate ?? 'count'}
@@ -753,7 +753,7 @@ export function ChartConfigurator({
                   {a === 'count' ? 'Row count' : `${a} of value field`}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
           {(spec.typeParams.heatmap?.aggregate ?? 'count') !== 'count' ? (
             <div className="min-w-36 flex-1">
@@ -763,7 +763,7 @@ export function ChartConfigurator({
               >
                 Value field
               </label>
-              <NativeSelect
+              <Select
                 id={`${idPrefix}-heatmap-value-field`}
                 aria-label="Heatmap value field"
                 value={spec.typeParams.heatmap?.valueField?.fieldId ?? ''}
@@ -783,7 +783,7 @@ export function ChartConfigurator({
                     {column.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </div>
           ) : null}
           <div className="min-w-24">
@@ -840,7 +840,7 @@ export function ChartConfigurator({
           >
             Facet by (optional)
           </label>
-          <NativeSelect
+          <Select
             id={`${idPrefix}-facet`}
             aria-label="Facet column"
             value={spec.fields.facet?.fieldId ?? ''}
@@ -853,7 +853,7 @@ export function ChartConfigurator({
                 {column.label}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </div>
       </div>
       <div className="pt-2.5">

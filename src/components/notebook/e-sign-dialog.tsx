@@ -40,7 +40,7 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/v3/ui/dialog'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   ASSURANCE_LEVEL_STATEMENT,
   SIGNATURE_MEANING_OPTIONS,
@@ -203,7 +203,7 @@ export function ESignDialog({
                 </Field>
                 {meanings.length > 0 ? (
                   <Field label="Signature meaning">
-                    <NativeSelect
+                    <Select
                       aria-label="Signature meaning"
                       value={meaning}
                       onChange={(event) =>
@@ -219,7 +219,7 @@ export function ESignDialog({
                           {option.label}
                         </option>
                       ))}
-                    </NativeSelect>
+                    </Select>
                   </Field>
                 ) : null}
                 <p className="m-0 text-label text-fg-muted">

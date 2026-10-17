@@ -16,7 +16,7 @@ import {
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   Table,
   TableBody,
@@ -238,7 +238,7 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="text-xs text-fg-muted">
               Link type
-              <NativeSelect
+              <Select
                 className="mt-1"
                 value={linkType}
                 onChange={(event) => setLinkType(event.target.value)}
@@ -252,11 +252,11 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
                     {entry}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
             <label className="text-xs text-fg-muted">
               Target model
-              <NativeSelect
+              <Select
                 className="mt-1"
                 value={target}
                 onChange={(event) => setTargetModelKey(event.target.value)}
@@ -270,7 +270,7 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
                     {kind.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
             <label className="text-xs text-fg-muted">
               Minimum links

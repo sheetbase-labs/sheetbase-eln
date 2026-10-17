@@ -78,6 +78,15 @@ export const COMPARISON_CHECKLIST: readonly ChecklistItem[] = Object.freeze([
     evidence: 'manual',
   },
   {
+    id: 'keyboard-picker',
+    area: 'keyboard',
+    instruction:
+      'Reach the picker by Tab, change the chosen option with the arrow keys and with typeahead, and reach an option inside a group without a pointer.',
+    requires: ['picker'],
+    evidence: 'automated',
+    ref: 'tests/browser/component-compare.test.ts — keyboard: changes the option without a pointer, in both columns',
+  },
+  {
     id: 'keyboard-pagination',
     area: 'keyboard',
     instruction: 'Move to the next and previous page without a pointer.',
@@ -112,6 +121,14 @@ export const COMPARISON_CHECKLIST: readonly ChecklistItem[] = Object.freeze([
     area: 'mouse',
     instruction: 'Select a row, and select a second row.',
     requires: ['select'],
+    evidence: 'manual',
+  },
+  {
+    id: 'mouse-picker',
+    area: 'mouse',
+    instruction:
+      'Change the chosen option with the pointer alone, choosing an option inside a group and leaving the disabled option alone.',
+    requires: ['picker'],
     evidence: 'manual',
   },
   {

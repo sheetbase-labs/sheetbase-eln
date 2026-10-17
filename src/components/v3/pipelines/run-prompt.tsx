@@ -4,7 +4,7 @@ import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   Table,
   TableBody,
@@ -307,7 +307,7 @@ export function RunPromptPanel({
             if (field.type === 'text' && field.options.length) {
               return (
                 <Field key={field.key} label={label} required={field.required}>
-                  <NativeSelect
+                  <Select
                     aria-label={field.label}
                     value={String(values[field.key] ?? '')}
                     onChange={(e) =>
@@ -320,7 +320,7 @@ export function RunPromptPanel({
                         {option}
                       </option>
                     ))}
-                  </NativeSelect>
+                  </Select>
                 </Field>
               )
             }

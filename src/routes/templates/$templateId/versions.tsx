@@ -8,6 +8,7 @@ import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Notice } from '#/components/v3/ui/alert'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import {
   DescriptionList,
   Inspector,
@@ -499,9 +500,8 @@ function TemplateVersions() {
 
         <InspectorSection title="Compare">
           <Field label="Compare with">
-            <select
+            <Select
               aria-label="Compare with another version"
-              className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
               value={search.compare ?? ''}
               onChange={(e) =>
                 void navigate({
@@ -523,7 +523,7 @@ function TemplateVersions() {
                     v{v.version}
                   </option>
                 ))}
-            </select>
+            </Select>
           </Field>
         </InspectorSection>
       </Inspector>

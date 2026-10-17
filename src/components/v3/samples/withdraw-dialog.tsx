@@ -13,7 +13,7 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
 import { DescriptionList } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { cn } from '#/lib/utils'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -400,7 +400,7 @@ export function WithdrawDialog({
               />
             </Field>
             <Field label="Unit" required>
-              <NativeSelect
+              <Select
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
                 disabled={unitLocked}
@@ -410,14 +410,14 @@ export function WithdrawDialog({
                     {option}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
           </div>
 
           <QuantityKeypad onKey={onKey} className="md:hidden" />
 
           <Field label="Purpose" required>
-            <NativeSelect
+            <Select
               value={purpose}
               onChange={(event) => setPurpose(event.target.value)}
             >
@@ -431,17 +431,17 @@ export function WithdrawDialog({
                   {experiment.identifier} · {experiment.title}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
 
           <Field label="Into">
-            <NativeSelect
+            <Select
               value={into}
               onChange={(event) => setInto(event.target.value)}
             >
               <option value="keep">Keep in this sample</option>
               <option value="new">New container, print label</option>
-            </NativeSelect>
+            </Select>
           </Field>
 
           {into === 'new' ? (
@@ -625,7 +625,7 @@ export function ReserveDialog({
               />
             </Field>
             <Field label="Unit" required>
-              <NativeSelect
+              <Select
                 value={unit}
                 onChange={(event) => setUnit(event.target.value)}
                 disabled={unitLocked}
@@ -635,14 +635,14 @@ export function ReserveDialog({
                     {option}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
           </div>
 
           <QuantityKeypad onKey={onKey} className="md:hidden" />
 
           <Field label="For" required>
-            <NativeSelect
+            <Select
               value={experiment}
               onChange={(event) => setExperiment(event.target.value)}
             >
@@ -656,7 +656,7 @@ export function ReserveDialog({
                   {option.identifier} · {option.title}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
 
           <label className="flex items-center gap-2 text-label">

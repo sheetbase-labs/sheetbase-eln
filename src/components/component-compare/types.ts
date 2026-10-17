@@ -49,6 +49,7 @@ export const COMPARISON_CONTROLS = [
   'select',
   'resize',
   'pagination',
+  'picker',
 ] as const
 export type ComparisonControl = (typeof COMPARISON_CONTROLS)[number]
 

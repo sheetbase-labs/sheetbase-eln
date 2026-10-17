@@ -1,5 +1,6 @@
 import type { ComparisonPair } from '#/components/component-compare/types'
 import { historyRowsPair } from '#/components/component-compare/pairs/history-rows'
+import { nativeSelectPair } from '#/components/component-compare/pairs/native-select'
 import { notebookSortablePair } from '#/components/component-compare/pairs/notebook-sortable'
 import { emptyStatePair } from '#/components/component-compare/pairs/empty-state'
 import { quantityFieldPair } from '#/components/component-compare/pairs/quantity-field'
@@ -23,4 +24,5 @@ export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   shortcutKeysPair,
   fileUploadPair,
   registryGridPair,
+  nativeSelectPair,
 ])

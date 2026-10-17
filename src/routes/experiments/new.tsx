@@ -10,7 +10,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { PageHeader, Muted } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { toast } from '#/components/v3/ui/sonner'
 import {
@@ -322,7 +322,7 @@ function NewExperiment() {
               : undefined
           }
         >
-          <NativeSelect
+          <Select
             value={effectiveProjectId}
             onChange={(e) => setProjectId(e.target.value)}
             disabled={projects.isLoading || accessPending || rows.length === 0}
@@ -342,7 +342,7 @@ function NewExperiment() {
                 {projectNote(p)}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Field
           label="Title"
@@ -361,7 +361,7 @@ function NewExperiment() {
           label="Reviewer"
           hint="Who reviews the submitted notebook. Optional."
         >
-          <NativeSelect
+          <Select
             value={reviewerId}
             onChange={(e) => setReviewerId(e.target.value)}
           >
@@ -371,7 +371,7 @@ function NewExperiment() {
                 {m.name}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Field
           label="Planned end"
@@ -391,7 +391,7 @@ function NewExperiment() {
               : 'Only effective versions can start an experiment. Optional.'
           }
         >
-          <NativeSelect
+          <Select
             value={protocolVersionId}
             onChange={(e) => {
               const value = e.target.value
@@ -416,7 +416,7 @@ function NewExperiment() {
                 </option>
               )
             })}
-          </NativeSelect>
+          </Select>
         </Field>
         <label className="flex cursor-pointer items-center gap-2 text-label">
           <Checkbox
@@ -429,7 +429,7 @@ function NewExperiment() {
           label="Copy materials from"
           hint="Links the same samples and materials as an earlier experiment. Optional."
         >
-          <NativeSelect
+          <Select
             value={copyFromId}
             onChange={(e) => setCopyFromId(e.target.value)}
           >
@@ -439,7 +439,7 @@ function NewExperiment() {
                 {x.identifier} · {x.title}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <div className="flex gap-2">
           <Button

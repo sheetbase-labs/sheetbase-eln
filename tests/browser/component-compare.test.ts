@@ -498,3 +498,134 @@ test.describe('density and overflow', () => {
     expect(overflow).toBeLessThanOrEqual(1)
   })
 })
+
+/**
+ * Pair 2 — the registry table.
+ *
+ * The blocks above are written for the notebook's reorderable list: its
+ * assertions are about grips, drags and insertion lines, and they name the
+ * pair's own row chrome. This block carries the same evidence for the registry
+ * pair — axe in Chromium with colour contrast on, in both themes and both
+ * columns, plus the two controls the pair declares (`sort`, `select`) exercised
+ * from the keyboard — so the row in the comparison record cites a run rather
+ * than a claim.
+ */
+test.describe('registry table pair', () => {
+  async function openRegistryPair(page: Page, theme: 'light' | 'dark') {
+    await openHarness(page, { theme, fixture: 'long-labels' })
+    await page.getByTestId('comparison-pair').selectOption('registry-grid')
+    for (const id of COLUMNS) {
+      await expect(
+        column(page, id).locator(`[data-comparison-grid="${id}"]`),
+      ).toBeVisible()
+    }
+  }
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const id of COLUMNS) {
+      test(`${id} column has no axe violations — registry pair, ${theme}`, async ({
+        page,
+      }) => {
+        await openRegistryPair(page, theme)
+        await page.addScriptTag({ content: axe.source })
+        const violations = await page.evaluate(async (selector: string) => {
+          const target = document.querySelector(selector)
+          if (!target) throw new Error(`no ${selector}`)
+          const runner = (
+            globalThis as {
+              axe?: {
+                run: (context: Element) => Promise<{
+                  violations: Array<{ id: string; impact: string | null }>
+                }>
+              }
+            }
+          ).axe
+          if (!runner) throw new Error('axe was not injected')
+          const results = await runner.run(target)
+          return results.violations.map((violation) => ({
+            id: violation.id,
+            impact: violation.impact,
+          }))
+        }, `[data-comparison-column="${id}"]`)
+        expect(violations).toEqual([])
+      })
+    }
+  }
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const id of COLUMNS) {
+      test(`screenshot of the registry pair's ${id} column — ${theme}`, async ({
+        page,
+      }, testInfo) => {
+        await openRegistryPair(page, theme)
+        const file = await shot(
+          column(page, id),
+          testInfo,
+          `registry-${id}-${theme}`,
+        )
+        expect(file.endsWith(`registry-${id}-${theme}.png`)).toBe(true)
+        await expect(column(page, id)).toBeVisible()
+      })
+    }
+  }
+
+  for (const size of [DESKTOP, PHONE] as const) {
+    test(`density and overflow — registry pair, ${size.width}x${size.height}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(size)
+      await openRegistryPair(page, 'light')
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(1)
+      for (const id of COLUMNS) {
+        await expect(
+          column(page, id).locator(`[data-comparison-grid="${id}"]`),
+        ).toBeVisible()
+      }
+    })
+  }
+
+  test('sorts and selects from the keyboard, on both sides', async ({
+    page,
+  }) => {
+    await openRegistryPair(page, 'light')
+
+    for (const id of COLUMNS) {
+      const side = column(page, id)
+      // `sort`: the picker both columns carry, reachable and operable.
+      const picker = side.getByLabel('Sort rows')
+      await picker.focus()
+      await expect(picker).toBeFocused()
+      const before = await side
+        .locator('[data-row-id], tbody tr')
+        .evaluateAll((rows) =>
+          rows.map((row) => (row.textContent ?? '').slice(0, 12)),
+        )
+      await picker.selectOption('name')
+      await expect
+        .poll(async () =>
+          side
+            .locator('[data-row-id], tbody tr')
+            .evaluateAll((rows) =>
+              rows.map((row) => (row.textContent ?? '').slice(0, 12)),
+            ),
+        )
+        .not.toEqual(before)
+    }
+
+    // `select`: the row checkbox the grid adds, reached by keyboard. Ours has
+    // no equivalent control — the checklist records that as a result, not as a
+    // skipped check.
+    const theirs = column(page, 'theirs')
+    const rowBox = theirs.getByRole('checkbox', { name: /select/i }).nth(1)
+    await rowBox.focus()
+    await expect(rowBox).toBeFocused()
+    await page.keyboard.press('Space')
+    await expect(rowBox).toBeChecked()
+    await expect(theirs).toContainText('1 selected')
+  })
+})

@@ -404,16 +404,18 @@ function MaterialsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <RegistryGrid
-            className="max-md:hidden"
-            label="Material lots"
-            rows={visible}
-            columns={columns}
-            getRowId={(m) => m.uuid}
-            rowSelection={rowSelection}
-            onRowSelectionChange={onRowSelectionChange}
-            isLoading={page.isLoading}
-          />
+          {page.isLoading || visible.length > 0 ? (
+            <RegistryGrid
+              className="max-md:hidden"
+              label="Material lots"
+              rows={visible}
+              columns={columns}
+              getRowId={(m) => m.uuid}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              isLoading={page.isLoading}
+            />
+          ) : null}
           <MobileList
             label="Material lots"
             items={visible.map((m) => ({

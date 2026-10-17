@@ -262,16 +262,18 @@ function DatasetsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <RegistryGrid
-            className="max-md:hidden"
-            label="Datasets"
-            rows={visible}
-            columns={columns}
-            getRowId={(d) => d.uuid}
-            rowSelection={rowSelection}
-            onRowSelectionChange={onRowSelectionChange}
-            isLoading={query.isLoading}
-          />
+          {query.isLoading || visible.length > 0 ? (
+            <RegistryGrid
+              className="max-md:hidden"
+              label="Datasets"
+              rows={visible}
+              columns={columns}
+              getRowId={(d) => d.uuid}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              isLoading={query.isLoading}
+            />
+          ) : null}
           <MobileList
             label="Datasets"
             items={visible.map((d) => {

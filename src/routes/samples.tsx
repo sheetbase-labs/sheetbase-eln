@@ -276,16 +276,18 @@ function SamplesList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <RegistryGrid
-            className="max-md:hidden"
-            label="Samples"
-            rows={visible}
-            columns={columns}
-            getRowId={(s) => s.uuid}
-            rowSelection={rowSelection}
-            onRowSelectionChange={onRowSelectionChange}
-            isLoading={page.isLoading}
-          />
+          {page.isLoading || visible.length > 0 ? (
+            <RegistryGrid
+              className="max-md:hidden"
+              label="Samples"
+              rows={visible}
+              columns={columns}
+              getRowId={(s) => s.uuid}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              isLoading={page.isLoading}
+            />
+          ) : null}
           <MobileList
             label="Samples"
             items={visible.map((s) => ({

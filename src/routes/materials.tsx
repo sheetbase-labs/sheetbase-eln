@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { RowSelectionState } from '@tanstack/react-table'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -7,13 +8,10 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
   ConfirmDialog,
@@ -40,8 +38,6 @@ import {
   ListToolbar,
   MobileList,
   Textarea,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import {
@@ -194,6 +190,55 @@ function MaterialsList() {
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
+
+  const columns = useMemo<RegistryColumn<MaterialListRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+      },
+      { id: 'material', header: 'Material', accessorFn: (m) => m.name },
+      { id: 'supplier', header: 'Supplier', accessorFn: (m) => m.supplier },
+      { id: 'lot', header: 'Lot', accessorFn: (m) => m.lot },
+      {
+        id: 'stock',
+        header: 'Stock',
+        accessorFn: (m) => m.stock,
+        meta: rightAligned<MaterialListRow>().meta,
+      },
+      { id: 'location', header: 'Location', accessorFn: (m) => m.location },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <Status tone={row.original.status.tone}>
+            {row.original.status.label}
+          </Status>
+        ),
+      },
+    ],
+    [],
+  )
+
+  const rowSelection = useMemo<RowSelectionState>(
+    () => (sel ? { [sel.uuid]: true } : {}),
+    [sel],
+  )
+
+  // The screen selects one row for the inspector, so the grid's checkbox state
+  // is derived from the selection rather than kept beside it. The grid merges a
+  // toggle into the selection it was given, so the row the change is about is
+  // the one it turned on — taking the first key would leave the row the screen
+  // already had, and the checkbox would do nothing.
+  const setRowSelection = (
+    next: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState),
+  ) => {
+    const value = typeof next === 'function' ? next(rowSelection) : next
+    const selectedIds = Object.keys(value)
+    const turnedOn = selectedIds.find((id) => !Object.hasOwn(rowSelection, id))
+    setSelected(turnedOn ?? selectedIds.at(0) ?? null)
+  }
 
   const usage = useQuery({
     queryKey: ['ui-port', 'materials', 'usage', sel?.id ?? ''],
@@ -373,41 +418,15 @@ function MaterialsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table aria-label="Material lots" className="max-md:hidden">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={stickyHead}>ID</TableHead>
-                <TableHead>Material</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Lot</TableHead>
-                <TableHead align="right">Stock</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((m) => (
-                <TableRow
-                  key={m.uuid}
-                  selected={m.uuid === sel?.uuid}
-                  className="cursor-pointer"
-                  onClick={() => setSelected(m.uuid)}
-                >
-                  <TableCell className={stickyCell}>
-                    <span className="mono">{m.id}</span>
-                  </TableCell>
-                  <TableCell>{m.name}</TableCell>
-                  <TableCell>{m.supplier}</TableCell>
-                  <TableCell>{m.lot}</TableCell>
-                  <TableCell align="right">{m.stock}</TableCell>
-                  <TableCell>{m.location}</TableCell>
-                  <TableCell>
-                    <Status tone={m.status.tone}>{m.status.label}</Status>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label="Material lots"
+            rows={visible}
+            columns={columns}
+            getRowId={(m) => m.uuid}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+            isLoading={page.isLoading}
+          />
           <MobileList
             label="Material lots"
             items={visible.map((m) => ({

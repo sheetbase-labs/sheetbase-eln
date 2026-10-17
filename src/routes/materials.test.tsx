@@ -68,6 +68,31 @@ vi.mock('#/lib/reagent-data', async (importOriginal) => {
   }
 })
 
+/**
+ * jsdom has no layout: the grid's virtualiser measures a zero-height viewport
+ * and would render no rows at all, so the order this test is about could not be
+ * observed. The double returns the full row range — the same rows the browser
+ * renders — and only the five methods the grid calls; the real virtualiser is
+ * covered by `tests/browser/registry-grid.test.ts`, which asserts its own
+ * `data-index` attribute. Same double as `protocols.test.tsx`.
+ */
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        start: index * 33,
+        end: index * 33 + 33,
+        size: 33,
+      })),
+    getTotalSize: () => count * 33,
+    measureElement: () => {},
+    scrollToIndex: () => {},
+    scrollToOffset: () => {},
+  }),
+}))
+
 function makeReagent(overrides: Partial<Reagent> = {}): Reagent {
   return {
     id: 'mat-1',

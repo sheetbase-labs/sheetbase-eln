@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { RowSelectionState } from '@tanstack/react-table'
 import {
   Link,
   Outlet,
@@ -11,14 +12,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Dot } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Choice } from '#/components/v3/ui/choice'
@@ -40,8 +35,6 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import {
@@ -267,6 +260,138 @@ function InstrumentsList() {
         replace: true,
       })
 
+  const columns = useMemo<RegistryColumn<InstrumentRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        cell: ({ row }) => (
+          <span className="mono">
+            {row.original.displayId ?? row.original.id.slice(0, 8)}
+          </span>
+        ),
+      },
+      {
+        id: 'name',
+        header: 'Name and type',
+        // The grid zeroes a cell's own vertical padding, so a two-line cell
+        // carries its line height and padding on its content instead. The
+        // bespoke body's two-line rows were 46px, and stay 46px.
+        cell: ({ row }) => (
+          <span className="block py-1.5 leading-[17px]">
+            <span className="block">
+              <Link
+                to="/instruments/$instrumentId"
+                params={{ instrumentId: row.original.id }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {row.original.name}
+              </Link>
+            </span>
+            <span className="block text-label text-fg-muted">
+              {row.original.instrumentType}
+            </span>
+          </span>
+        ),
+      },
+      {
+        id: 'model',
+        header: 'Make and model',
+        meta: { cellClassName: 'max-w-[180px]' },
+        cell: ({ row }) => (
+          <span className="block py-1.5 leading-[17px]">
+            <span className="block truncate">{row.original.model ?? '—'}</span>
+            <span className="block truncate text-label text-fg-muted">
+              {row.original.vendor ?? '—'}
+            </span>
+          </span>
+        ),
+      },
+      {
+        id: 'location',
+        header: 'Location',
+        cell: ({ row }) => row.original.location ?? '—',
+      },
+      {
+        id: 'intake',
+        header: 'How data gets in',
+        cell: ({ row }) => {
+          const health = healthFor(row.original)
+          return (
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <Dot tone={health.tone} />
+              <span>{intakeMethodLabel(row.original.intakeMethod)}</span>
+              {health.tone === 'bad' || health.tone === 'warn' ? (
+                <span
+                  className={cn(
+                    'text-fg-muted',
+                    health.tone === 'bad' && 'text-danger-text',
+                    health.tone === 'warn' && 'text-warning-text',
+                  )}
+                >
+                  · {health.label}
+                </span>
+              ) : null}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'calibration',
+        header: 'Calibration due',
+        meta: { cellClassName: 'py-1.5 leading-[17px]' },
+        cell: ({ row }) => {
+          const c = calFor(row.original.id)
+          return (
+            <span
+              className={cn(
+                'whitespace-nowrap',
+                c.tone === 'bad' && 'text-danger-text',
+                c.tone === 'warn' && 'text-warning-text',
+              )}
+            >
+              {c.label}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'owner',
+        header: 'Owner',
+        meta: { headerClassName: 'pr-6', cellClassName: 'pr-6' },
+        cell: ({ row }) =>
+          row.original.ownerId ? names.userLabel(row.original.ownerId) : '—',
+      },
+    ],
+    // Rebuilt with the evidence the cells read — the owner labels, and the
+    // calibration and intake maps — so a late arrival cannot leave a stale
+    // cell behind.
+    [names, latest, lastImports, readiness, parserReadiness.isSuccess],
+  )
+
+  const rowSelection = useMemo<RowSelectionState>(
+    () => (sel ? { [sel.id]: true } : {}),
+    [sel],
+  )
+
+  // This screen keeps its selection in the URL, so the grid's checkbox writes
+  // the same `selected` param the bespoke body's row click did. The grid merges
+  // a toggle into the selection it was given, so the row the change is about is
+  // the one it turned on — taking the first key would leave the row the URL
+  // already held, and the checkbox would do nothing.
+  const setRowSelection = (
+    next: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState),
+  ) => {
+    const value = typeof next === 'function' ? next(rowSelection) : next
+    const selectedIds = Object.keys(value)
+    const turnedOn = selectedIds.find((id) => !Object.hasOwn(rowSelection, id))
+    void navigate({
+      to: '/instruments',
+      search: (s) => ({ ...s, selected: turnedOn ?? selectedIds.at(0) }),
+      replace: true,
+    })
+  }
+
   if (search.state === 'denied') {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -447,106 +572,15 @@ function InstrumentsList() {
                   }
                 })}
               />
-              <div className="overflow-x-auto max-md:hidden">
-                <Table
-                  aria-label="Instruments"
-                  className="max-xl:min-w-[1080px]"
-                >
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className={stickyHead}>ID</TableHead>
-                      <TableHead>Name and type</TableHead>
-                      <TableHead>Make and model</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>How data gets in</TableHead>
-                      <TableHead>Calibration due</TableHead>
-                      <TableHead className="pr-6">Owner</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visible.map((i) => {
-                      const c = calFor(i.id)
-                      const health = healthFor(i)
-                      return (
-                        <TableRow
-                          key={i.id}
-                          selected={i.id === sel?.id}
-                          className="cursor-pointer"
-                          onClick={() =>
-                            void navigate({
-                              to: '/instruments',
-                              search: (s) => ({ ...s, selected: i.id }),
-                              replace: true,
-                            })
-                          }
-                        >
-                          <TableCell className={stickyCell}>
-                            <span className="mono">
-                              {i.displayId ?? i.id.slice(0, 8)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="py-1.5 leading-[17px]">
-                            <span className="block">
-                              <Link
-                                to="/instruments/$instrumentId"
-                                params={{ instrumentId: i.id }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {i.name}
-                              </Link>
-                            </span>
-                            <span className="block text-label text-fg-muted">
-                              {i.instrumentType}
-                            </span>
-                          </TableCell>
-                          <TableCell className="max-w-[180px] py-1.5 leading-[17px]">
-                            <span className="block truncate">
-                              {i.model ?? '—'}
-                            </span>
-                            <span className="block truncate text-label text-fg-muted">
-                              {i.vendor ?? '—'}
-                            </span>
-                          </TableCell>
-                          <TableCell>{i.location ?? '—'}</TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                              <Dot tone={health.tone} />
-                              <span>{intakeMethodLabel(i.intakeMethod)}</span>
-                              {health.tone === 'bad' ||
-                              health.tone === 'warn' ? (
-                                <span
-                                  className={cn(
-                                    'text-fg-muted',
-                                    health.tone === 'bad' && 'text-danger-text',
-                                    health.tone === 'warn' &&
-                                      'text-warning-text',
-                                  )}
-                                >
-                                  · {health.label}
-                                </span>
-                              ) : null}
-                            </span>
-                          </TableCell>
-                          <TableCell className="py-1.5 leading-[17px]">
-                            <span
-                              className={cn(
-                                'whitespace-nowrap',
-                                c.tone === 'bad' && 'text-danger-text',
-                                c.tone === 'warn' && 'text-warning-text',
-                              )}
-                            >
-                              {c.label}
-                            </span>
-                          </TableCell>
-                          <TableCell className="pr-6">
-                            {i.ownerId ? names.userLabel(i.ownerId) : '—'}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <RegistryGrid
+                label="Instruments"
+                rows={visible}
+                columns={columns}
+                getRowId={(i) => i.id}
+                rowSelection={rowSelection}
+                onRowSelectionChange={setRowSelection}
+                isLoading={query.isLoading}
+              />
             </>
           ) : search.state === 'empty' || rows.length === 0 ? (
             <div className="px-4 md:px-6">

@@ -381,4 +381,6 @@ add the pair's row above and its detail section with: what we use now, what the
 candidate offers, the per-item checklist result for both sides, the automated
 evidence with its commands, the conditions an adoption would carry, the decision
 and the reason, and the limits. `docs/development/component-compare.md` has the
-step-by-step.
+step-by-step, including where a declined candidate lives: vendored under
+`src/components/reui/**` when the pair imports the real file, reproduced inside
+the pair when it does not, with the row saying which.

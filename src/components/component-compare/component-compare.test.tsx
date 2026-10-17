@@ -135,7 +135,10 @@ describe('the comparison harness is generic over a pair', () => {
       }
       unmount()
     }
-  })
+    // Six registered pairs x five fixtures x four states is 120 jsdom renders,
+    // and the notebook pair's columns mount a block frame per row, so the sweep
+    // needs a budget off the default rather than a boundary one.
+  }, 120_000)
 
   // Two 5,000-row jsdom renders take seconds, so this one gets its own timeout;
   // the browser run measures the same fixture in a real engine. Measured ~29s

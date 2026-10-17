@@ -134,14 +134,8 @@ import type {
 import { useUserNames } from '#/lib/user-names'
 import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
 import type { SignatureWire } from '#/lib/signatures'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   deleteBlock,
   duplicateBlock,
@@ -1348,37 +1342,85 @@ function RecordNotebookPanel({
       ...revisions.map((r) => r.created_by_user_id),
     ].filter(Boolean),
   )
+  const linkColumns = useMemo<RegistryColumn<NotebookLink>[]>(
+    () => [
+      {
+        id: 'kind',
+        header: 'Kind',
+        meta: {
+          headerClassName: 'pl-3!',
+          cellClassName: 'capitalize pl-3!',
+        },
+        cell: ({ row }) => row.original.targetKind.replace(/_/g, ' '),
+      },
+      {
+        id: 'identifier',
+        header: 'Identifier',
+        meta: { cellClassName: 'mono' },
+        cell: ({ row }) => row.original.targetIdentifier,
+      },
+      {
+        id: 'relation',
+        header: 'Relation',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => row.original.linkType,
+      },
+      {
+        id: 'linked',
+        header: 'Linked',
+        meta: {
+          headerClassName: 'pr-3!',
+          cellClassName: 'pr-3! text-fg-muted',
+        },
+        cell: ({ row }) => row.original.createdAt.slice(0, 10),
+      },
+    ],
+    [],
+  )
+  const revisionColumns = useMemo<RegistryColumn<RevisionWire>[]>(
+    () => [
+      {
+        id: 'revision',
+        header: 'Revision',
+        meta: { headerClassName: 'pl-3!', cellClassName: 'mono pl-3!' },
+        cell: ({ row }) => `v${row.original.structure_version}`,
+      },
+      {
+        id: 'reason',
+        header: 'Reason',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => row.original.reason,
+      },
+      {
+        id: 'by',
+        header: 'By',
+        cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
+      },
+      {
+        id: 'when',
+        header: 'When',
+        meta: {
+          headerClassName: 'pr-3!',
+          cellClassName: 'pr-3! text-fg-muted',
+        },
+        cell: ({ row }) =>
+          row.original.created_at.slice(0, 16).replace('T', ' '),
+      },
+    ],
+    [names],
+  )
   if (tab === 'links') {
     return (
       <section aria-label="Links" className="py-4">
         {links.length ? (
           <div className="overflow-hidden rounded-md border border-border">
-            <Table aria-label="Linked records">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="first:pl-3">Kind</TableHead>
-                  <TableHead>Identifier</TableHead>
-                  <TableHead>Relation</TableHead>
-                  <TableHead className="pr-3">Linked</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {links.map((l) => (
-                  <TableRow key={l.id}>
-                    <TableCell className="first:pl-3 capitalize">
-                      {l.targetKind.replace(/_/g, ' ')}
-                    </TableCell>
-                    <TableCell className="mono">{l.targetIdentifier}</TableCell>
-                    <TableCell className="text-fg-muted">
-                      {l.linkType}
-                    </TableCell>
-                    <TableCell className="pr-3 text-fg-muted">
-                      {l.createdAt.slice(0, 10)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Linked records"
+              rows={links}
+              columns={linkColumns}
+              getRowId={(link) => link.id}
+              selectable={false}
+            />
           </div>
         ) : (
           <Muted>Nothing is linked to this record yet.</Muted>
@@ -1406,30 +1448,13 @@ function RecordNotebookPanel({
     <section aria-label={tab} className="py-4">
       {rows.length ? (
         <div className="overflow-hidden rounded-md border border-border">
-          <Table aria-label="Revisions">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="first:pl-3">Revision</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>By</TableHead>
-                <TableHead className="pr-3">When</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="first:pl-3 mono">
-                    v{r.structure_version}
-                  </TableCell>
-                  <TableCell className="text-fg-muted">{r.reason}</TableCell>
-                  <TableCell>{names.userLabel(r.created_by_user_id)}</TableCell>
-                  <TableCell className="pr-3 text-fg-muted">
-                    {r.created_at.slice(0, 16).replace('T', ' ')}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label="Revisions"
+            rows={rows}
+            columns={revisionColumns}
+            getRowId={(revision) => revision.id}
+            selectable={false}
+          />
         </div>
       ) : (
         <Muted>No revisions yet.</Muted>

@@ -109,12 +109,13 @@ function AnalysisView() {
           <EmptyState
             icon="chart"
             title="This analysis does not exist"
-            body="It may have been deleted, or it belongs to another workspace."
-          >
-            <Button nativeButton={false} render={<Link to="/analysis/new" />}>
-              Open the studio
-            </Button>
-          </EmptyState>
+            description="It may have been deleted, or it belongs to another workspace."
+            action={
+              <Button nativeButton={false} render={<Link to="/analysis/new" />}>
+                Open the studio
+              </Button>
+            }
+          />
         </div>
       </div>
     )

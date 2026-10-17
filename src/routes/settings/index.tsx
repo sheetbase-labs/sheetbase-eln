@@ -35,15 +35,16 @@ function General() {
           <EmptyState
             icon="lock"
             title="Only workspace admins can see workspace settings"
-            body="The workspace name, time zone, display formats and identifier prefixes apply to everyone in the workspace. Ask a workspace admin to change them."
-          >
-            <Button
-              nativeButton={false}
-              render={<Link to="/settings/profile" />}
-            >
-              Open your profile settings
-            </Button>
-          </EmptyState>
+            description="The workspace name, time zone, display formats and identifier prefixes apply to everyone in the workspace. Ask a workspace admin to change them."
+            action={
+              <Button
+                nativeButton={false}
+                render={<Link to="/settings/profile" />}
+              >
+                Open your profile settings
+              </Button>
+            }
+          />
         </div>
       </>
     )

@@ -7,15 +7,12 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import type { Crumb } from '#/components/v3/ui/breadcrumb'
 import { PageHeader } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import { NotebookTemplateUpdateView } from '#/components/v3/templates/template-update-view'
 import { applyNotebookTemplateUpgrade } from '#/lib/notebook-template-data'
@@ -29,6 +26,55 @@ import {
   useTemplateVersions,
   templateDataQueryKeys,
 } from '#/components/v3/templates/templates-data'
+
+/** A notebook that can take the target version: the registry's use read. */
+type TemplateNotebookRow = NonNullable<
+  ReturnType<typeof useTemplateUsers>['data']
+>[number]
+
+/** The eligible-notebooks table's columns. */
+function eligibleColumns(
+  templateId: string,
+  targetVersion: number,
+): RegistryColumn<TemplateNotebookRow>[] {
+  return [
+    {
+      id: 'notebook',
+      header: 'Notebook',
+      meta: { cellClassName: 'mono' },
+      cell: ({ row }) => (
+        <Link to="/experiments/$expId" params={{ expId: row.original.id }}>
+          {row.original.identifier}
+        </Link>
+      ),
+    },
+    {
+      id: 'title',
+      header: 'Title',
+      cell: ({ row }) => row.original.title,
+    },
+    {
+      id: 'actions',
+      header: '',
+      meta: rightAligned<TemplateNotebookRow>().meta,
+      cell: ({ row }) => (
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={
+            <Link
+              to="/templates/$templateId/update"
+              params={{ templateId }}
+              search={{ record: row.original.id }}
+            />
+          }
+        >
+          Review v{targetVersion}
+        </Button>
+      ),
+    },
+  ]
+}
 
 /** UI port (roadmap-4/ui-app3): take a new template version into one notebook.
  * A new version never changes existing work; the owner chooses. Apply runs the
@@ -107,7 +153,7 @@ function TemplateUpdate() {
           <EmptyState
             icon="template"
             title="Nothing to take yet"
-            body="A notebook can only take a published version. Publish one first."
+            description="A notebook can only take a published version. Publish one first."
           />
         </div>
       </div>
@@ -130,48 +176,19 @@ function TemplateUpdate() {
         <div className="px-4 py-4 md:px-6">
           {eligible.length ? (
             <TableBox className="max-w-[760px]">
-              <Table aria-label="Notebooks that can take the version">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Notebook</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead align="right" aria-label="Actions" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {eligible.map((n) => (
-                    <TableRow key={n.id}>
-                      <TableCell className="mono">
-                        <Link to="/experiments/$expId" params={{ expId: n.id }}>
-                          {n.identifier}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{n.title}</TableCell>
-                      <TableCell align="right">
-                        <Button
-                          size="sm"
-                          nativeButton={false}
-                          render={
-                            <Link
-                              to="/templates/$templateId/update"
-                              params={{ templateId }}
-                              search={{ record: n.id }}
-                            />
-                          }
-                        >
-                          Review v{target.version}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Notebooks that can take the version"
+                rows={eligible}
+                columns={eligibleColumns(templateId, target.version)}
+                getRowId={(row) => row.id}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <EmptyState
               icon="template"
               title="No notebook needs this version"
-              body="Every notebook made from this template is already on it, or none exist yet."
+              description="Every notebook made from this template is already on it, or none exist yet."
             />
           )}
         </div>

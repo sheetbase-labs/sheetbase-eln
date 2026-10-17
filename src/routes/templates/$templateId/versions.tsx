@@ -15,15 +15,12 @@ import {
   InspectorSection,
   Muted,
 } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   Dialog,
   DialogBody,
@@ -99,6 +96,37 @@ function ChangeValue({ value }: { value: string | undefined }) {
   )
 }
 
+const changeSetColumns: RegistryColumn<TemplateChangeSetEntry>[] = [
+  {
+    id: 'change',
+    header: 'Change',
+    meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
+    cell: ({ row }) => (
+      <Status tone={TAG_TONE[row.original.tag]}>
+        {TAG_LABEL[row.original.tag]}
+      </Status>
+    ),
+  },
+  {
+    id: 'target',
+    header: 'Target',
+    meta: { cellClassName: 'text-fg-muted' },
+    cell: ({ row }) =>
+      `${row.original.label}${row.original.field ? ` · ${row.original.field}` : ''}`,
+  },
+  {
+    id: 'before',
+    header: 'Before',
+    cell: ({ row }) => <ChangeValue value={row.original.before} />,
+  },
+  {
+    id: 'after',
+    header: 'After',
+    meta: { headerClassName: 'pr-3!', cellClassName: 'pr-3!' },
+    cell: ({ row }) => <ChangeValue value={row.original.after} />,
+  },
+]
+
 function ChangeSetTable({
   entries,
   label,
@@ -111,41 +139,71 @@ function ChangeSetTable({
   }
   return (
     <TableBox>
-      <Table aria-label={label}>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="first:pl-3">Change</TableHead>
-            <TableHead>Target</TableHead>
-            <TableHead>Before</TableHead>
-            <TableHead className="pr-3">After</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {entries.map((entry, index) => (
-            <TableRow
-              key={`${entry.tag}-${entry.kind}-${entry.id}-${entry.field ?? ''}-${index}`}
-            >
-              <TableCell className="first:pl-3">
-                <Status tone={TAG_TONE[entry.tag]}>
-                  {TAG_LABEL[entry.tag]}
-                </Status>
-              </TableCell>
-              <TableCell className="text-fg-muted">
-                {entry.label}
-                {entry.field ? ` · ${entry.field}` : ''}
-              </TableCell>
-              <TableCell>
-                <ChangeValue value={entry.before} />
-              </TableCell>
-              <TableCell className="pr-3">
-                <ChangeValue value={entry.after} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <RegistryGrid
+        label={label}
+        rows={entries}
+        columns={changeSetColumns}
+        getRowId={(entry) =>
+          `${entry.tag}-${entry.kind}-${entry.id}-${entry.field ?? ''}`
+        }
+        selectable={false}
+      />
     </TableBox>
   )
+}
+
+/** The versions table's columns; `records` counts the notebooks on each
+ * version, read from the usage matrix. */
+function versionColumns(
+  ownerLabel: (userId: string) => string,
+  records: Map<string, number>,
+  currentId: string | undefined,
+): RegistryColumn<NotebookTemplateVersion>[] {
+  return [
+    {
+      id: 'version',
+      header: 'Version',
+      meta: { cellClassName: 'font-medium' },
+      cell: ({ row }) => (
+        <>
+          v{row.original.version}
+          {currentId === row.original.id ? (
+            <span className="ml-2 text-label text-fg-muted">current</span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const lifecycle = templateLifecycle(row.original.lifecycle)
+        return <Status tone={lifecycle.tone}>{lifecycle.label}</Status>
+      },
+    },
+    {
+      id: 'published',
+      header: 'Published',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) =>
+        row.original.publishedAt ? row.original.publishedAt.slice(0, 10) : '—',
+    },
+    {
+      id: 'by',
+      header: 'By',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) =>
+        row.original.publishedByUserId
+          ? ownerLabel(row.original.publishedByUserId)
+          : '—',
+    },
+    {
+      id: 'records',
+      header: 'Records',
+      meta: rightAligned<NotebookTemplateVersion>().meta,
+      cell: ({ row }) => records.get(row.original.id) ?? 0,
+    },
+  ]
 }
 
 interface StalePublish {
@@ -234,7 +292,7 @@ function TemplateVersions() {
         <EmptyState
           icon="template"
           title="No versions yet"
-          body="A template needs a version before a notebook can be made from it."
+          description="A template needs a version before a notebook can be made from it."
         />
       </div>
     )
@@ -295,60 +353,26 @@ function TemplateVersions() {
           </Notice>
         ) : null}
         <TableBox>
-          <Table aria-label="Template versions">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Version</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Published</TableHead>
-                <TableHead>By</TableHead>
-                <TableHead align="right">Records</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((v) => {
-                const lifecycle = templateLifecycle(v.lifecycle)
-                return (
-                  <TableRow
-                    key={v.id}
-                    selected={v.id === selected.id}
-                    className="cursor-pointer"
-                    onClick={() =>
-                      void navigate({
-                        to: '/templates/$templateId/versions',
-                        params: { templateId },
-                        search: (s) => ({ ...s, v: v.id }),
-                        replace: true,
-                      })
-                    }
-                  >
-                    <TableCell className="font-medium">
-                      v{v.version}
-                      {current?.id === v.id ? (
-                        <span className="ml-2 text-label text-fg-muted">
-                          current
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={lifecycle.tone}>{lifecycle.label}</Status>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {v.publishedAt ? v.publishedAt.slice(0, 10) : '—'}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {v.publishedByUserId
-                        ? names.userLabel(v.publishedByUserId)
-                        : '—'}
-                    </TableCell>
-                    <TableCell align="right">
-                      {recordsByVersion.get(v.id) ?? 0}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label="Template versions"
+            rows={rows}
+            columns={versionColumns(
+              names.userLabel,
+              recordsByVersion,
+              current?.id,
+            )}
+            getRowId={(version) => version.id}
+            rowSelection={{ [selected.id]: true }}
+            onRowClick={(version) =>
+              void navigate({
+                to: '/templates/$templateId/versions',
+                params: { templateId },
+                search: (s) => ({ ...s, v: version.id }),
+                replace: true,
+              })
+            }
+            selectable={false}
+          />
         </TableBox>
         <Muted className="mt-3">
           Publishing keeps earlier versions readable for the notebooks that used

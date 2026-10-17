@@ -8,15 +8,12 @@ import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { Select } from '#/components/v3/ui/select'
 import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { useUserNames } from '#/lib/user-names'
 import {
   buildInUseMatrix,
@@ -99,6 +96,135 @@ function updateCell(
       Update available
     </Link>
   )
+}
+
+/** The records-on-a-version table's columns; `projects` resolves the project
+ * name and `updateCell` states whether the record can move to the current
+ * version. */
+function inUseRecordColumns({
+  projects,
+  userLabel,
+  version,
+  current,
+}: {
+  projects: Map<string, string> | undefined
+  userLabel: (userId: string) => string
+  version: NotebookTemplateVersion
+  current: NotebookTemplateVersion | undefined
+}): RegistryColumn<TemplateUsageRecord>[] {
+  return [
+    {
+      id: 'record',
+      header: 'Record',
+      meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
+      cell: ({ row }) => (
+        <>
+          <Link
+            to="/experiments/$expId"
+            params={{ expId: row.original.id }}
+            className="mono"
+          >
+            {row.original.identifier}
+          </Link>
+          <span className="block text-label text-fg-muted">
+            {row.original.title}
+          </span>
+        </>
+      ),
+    },
+    {
+      id: 'project',
+      header: 'Project',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) =>
+        row.original.project_id
+          ? (projects?.get(row.original.project_id) ?? row.original.project_id)
+          : '—',
+    },
+    {
+      id: 'owner',
+      header: 'Owner',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) =>
+        row.original.created_by_user_id
+          ? userLabel(row.original.created_by_user_id)
+          : '—',
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const status = recordStatus(row.original)
+        return <Status tone={status.tone}>{status.label}</Status>
+      },
+    },
+    {
+      id: 'pinned',
+      header: 'Pinned since',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) => row.original.created_at.slice(0, 10),
+    },
+    {
+      id: 'update',
+      header: 'Update',
+      meta: {
+        ...rightAligned<TemplateUsageRecord>().meta,
+        headerClassName: 'pr-3! text-right',
+        cellClassName: 'pr-3! text-right',
+      },
+      cell: ({ row }) => updateCell(row.original, version, current),
+    },
+  ]
+}
+
+function inUseMatrixColumns(
+  currentId: string | undefined,
+): RegistryColumn<ReturnType<typeof buildInUseMatrix>[number]>[] {
+  const right = () =>
+    rightAligned<ReturnType<typeof buildInUseMatrix>[number]>().meta
+  return [
+    {
+      id: 'version',
+      header: 'Version',
+      meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
+      cell: ({ row }) => (
+        <>
+          v{row.original.version.version}
+          {row.original.version.id === currentId ? (
+            <span className="ml-1.5 text-label text-fg-muted">current</span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: 'inProgress',
+      header: 'In progress',
+      meta: right(),
+      cell: ({ row }) => row.original.inProgress,
+    },
+    {
+      id: 'inReview',
+      header: 'In review',
+      meta: right(),
+      cell: ({ row }) => row.original.inReview,
+    },
+    {
+      id: 'signed',
+      header: 'Signed',
+      meta: right(),
+      cell: ({ row }) => row.original.signed,
+    },
+    {
+      id: 'total',
+      header: 'Total',
+      meta: {
+        ...right(),
+        headerClassName: 'pr-3! text-right',
+        cellClassName: 'pr-3! text-right font-medium',
+      },
+      cell: ({ row }) => row.original.total,
+    },
+  ]
 }
 
 function TemplateInUse() {
@@ -204,13 +330,13 @@ function TemplateInUse() {
           <EmptyState
             icon="lock"
             title="No records you can access yet"
-            body={unlistedEmptyBody}
+            description={unlistedEmptyBody}
           />
         ) : (
           <EmptyState
             icon="template"
             title="No records use this template yet"
-            body={`Records made from ${current ? `v${current.version}` : 'this template'} appear here, grouped by the version they were made from.`}
+            description={`Records made from ${current ? `v${current.version}` : 'this template'} appear here, grouped by the version they were made from.`}
           />
         )}
       </div>
@@ -304,12 +430,13 @@ function TemplateInUse() {
           <EmptyState
             icon="search"
             title="No records match these filters"
-            body="Try another version or project."
-          >
-            <Button size="sm" onClick={clearFilters}>
-              Clear filters
-            </Button>
-          </EmptyState>
+            description="Try another version or project."
+            action={
+              <Button size="sm" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            }
+          />
         ) : (
           <div className="flex flex-col gap-6">
             {groups.map(({ version, records }) => (
@@ -327,61 +454,18 @@ function TemplateInUse() {
                   </span>
                 </h2>
                 <div className="overflow-hidden rounded-md border border-border">
-                  <Table caption={`Records on version ${version.version}`}>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="first:pl-3">Record</TableHead>
-                        <TableHead>Project</TableHead>
-                        <TableHead>Owner</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Pinned since</TableHead>
-                        <TableHead className="pr-3" align="right">
-                          Update
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {records.map((r) => {
-                        const status = recordStatus(r)
-                        return (
-                          <TableRow key={r.id}>
-                            <TableCell className="first:pl-3">
-                              <Link
-                                to="/experiments/$expId"
-                                params={{ expId: r.id }}
-                                className="mono"
-                              >
-                                {r.identifier}
-                              </Link>
-                              <span className="block text-label text-fg-muted">
-                                {r.title}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-fg-muted">
-                              {r.project_id
-                                ? (projects.data?.get(r.project_id) ??
-                                  r.project_id)
-                                : '—'}
-                            </TableCell>
-                            <TableCell className="text-fg-muted">
-                              {r.created_by_user_id
-                                ? names.userLabel(r.created_by_user_id)
-                                : '—'}
-                            </TableCell>
-                            <TableCell>
-                              <Status tone={status.tone}>{status.label}</Status>
-                            </TableCell>
-                            <TableCell className="text-fg-muted">
-                              {r.created_at.slice(0, 10)}
-                            </TableCell>
-                            <TableCell align="right" className="pr-3">
-                              {updateCell(r, version, current)}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label={`Records on version ${version.version}`}
+                    rows={records}
+                    columns={inUseRecordColumns({
+                      projects: projects.data,
+                      userLabel: names.userLabel,
+                      version,
+                      current,
+                    })}
+                    getRowId={(record) => record.id}
+                    selectable={false}
+                  />
                 </div>
               </section>
             ))}
@@ -392,39 +476,13 @@ function TemplateInUse() {
       <Inspector label="In-use details" width={320}>
         <InspectorSection title="Records by version">
           <TableBox>
-            <Table caption="Records by version">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="first:pl-3">Version</TableHead>
-                  <TableHead align="right">In progress</TableHead>
-                  <TableHead align="right">In review</TableHead>
-                  <TableHead align="right">Signed</TableHead>
-                  <TableHead align="right" className="pr-3">
-                    Total
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {matrix.map((row) => (
-                  <TableRow key={row.version.id}>
-                    <TableCell className="first:pl-3">
-                      v{row.version.version}
-                      {row.version.id === current?.id ? (
-                        <span className="ml-1.5 text-label text-fg-muted">
-                          current
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell align="right">{row.inProgress}</TableCell>
-                    <TableCell align="right">{row.inReview}</TableCell>
-                    <TableCell align="right">{row.signed}</TableCell>
-                    <TableCell align="right" className="pr-3 font-medium">
-                      {row.total}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Records by version"
+              rows={matrix}
+              columns={inUseMatrixColumns(current?.id)}
+              getRowId={(row) => row.version.id}
+              selectable={false}
+            />
           </TableBox>
           <Muted className="mt-2">
             {totals.total} record{totals.total === 1 ? '' : 's'} in total ·{' '}

@@ -12,7 +12,51 @@
  *
  * It also provides the standard `matchMedia` stub jsdom lacks, used by the
  * theme provider's system-theme resolution.
+ *
+ * `@tanstack/react-virtual` is replaced with a synchronous window that renders
+ * every row. jsdom has no layout, so the real virtualizer measures a zero-height
+ * scroll viewport and returns no items at all; without this stub every grid
+ * screen (the shared registry grid on the registry and detail screens) renders
+ * an empty body in unit tests, and assertions on row content cannot run. The
+ * stub preserves the window contract the grid reads (`getVirtualItems`,
+ * `getTotalSize`, `measureElement`, `scrollToIndex`, `measure`, `scrollToOffset`)
+ * while deliberately ignoring layout. Browser specs still exercise the real
+ * virtualizer.
  */
+import { vi } from 'vitest'
+
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: (options: {
+    count: number
+    estimateSize?: (index: number) => number
+    getItemKey?: (index: number) => string | number
+  }) => {
+    const estimate = (index: number) => options.estimateSize?.(index) ?? 33
+    let offset = 0
+    const items = Array.from({ length: options.count }, (_, index) => {
+      const size = estimate(index)
+      const start = offset
+      offset += size
+      return {
+        index,
+        key: options.getItemKey?.(index) ?? index,
+        start,
+        end: offset,
+        size,
+        lane: 0,
+      }
+    })
+    return {
+      getVirtualItems: () => items,
+      getTotalSize: () => offset,
+      getOffsetForIndex: () => [0, 'start'] as const,
+      measure: () => {},
+      measureElement: () => {},
+      scrollToIndex: () => {},
+      scrollToOffset: () => {},
+    }
+  },
+}))
 
 function isFunctionalStorage(candidate: unknown): candidate is Storage {
   if (typeof candidate !== 'object' || candidate === null) return false

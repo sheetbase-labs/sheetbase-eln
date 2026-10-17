@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -10,15 +10,12 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   fetchBlocksForRecord,
   fetchRecord,
@@ -26,7 +23,7 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
-import type { RevisionWire } from '#/lib/notebook-data'
+import type { NotebookLink, RevisionWire } from '#/lib/notebook-data'
 import {
   acknowledgeProtocolVersion,
   fetchProtocolAcknowledgements,
@@ -38,6 +35,104 @@ import { protocolStatus } from '#/components/v3/protocols/protocols-registry-gri
 
 const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
 type ProtocolTab = (typeof tabs)[number]
+
+/** A template block row; the grid reads only these fields. */
+interface ProtocolBlockRow {
+  id: string
+  order: number
+  type: string
+  version: number
+}
+
+const protocolBlockColumns: RegistryColumn<ProtocolBlockRow>[] = [
+  {
+    id: 'order',
+    header: 'Order',
+    meta: {
+      ...rightAligned<ProtocolBlockRow>().meta,
+      cellClassName: 'text-right num',
+    },
+    cell: ({ row }) => row.original.order,
+  },
+  {
+    id: 'block',
+    header: 'Block',
+    cell: ({ row }) => row.original.type,
+  },
+  {
+    id: 'version',
+    header: 'Version',
+    meta: { cellClassName: 'text-fg-muted' },
+    cell: ({ row }) => `v${row.original.version}`,
+  },
+]
+
+const protocolLinkColumns: RegistryColumn<NotebookLink>[] = [
+  {
+    id: 'record',
+    header: 'Record',
+    meta: { cellClassName: 'mono' },
+    cell: ({ row }) => row.original.targetIdentifier,
+  },
+  {
+    id: 'kind',
+    header: 'Kind',
+    cell: ({ row }) => row.original.targetKind,
+  },
+  {
+    id: 'link',
+    header: 'Link',
+    meta: { cellClassName: 'text-fg-muted' },
+    cell: ({ row }) => row.original.linkType,
+  },
+]
+
+function protocolRevisionColumns(
+  ownerLabel: (userId: string) => string,
+): RegistryColumn<RevisionWire>[] {
+  return [
+    {
+      id: 'version',
+      header: 'Version',
+      meta: {
+        ...rightAligned<RevisionWire>().meta,
+        cellClassName: 'text-right num',
+      },
+      cell: ({ row, table }) =>
+        `v${table.getRowModel().rows.length - row.index}`,
+    },
+    {
+      id: 'reason',
+      header: 'Reason',
+      cell: ({ row }) => row.original.reason,
+    },
+    {
+      id: 'author',
+      header: 'Author',
+      cell: ({ row }) => ownerLabel(row.original.created_by_user_id),
+    },
+    {
+      id: 'created',
+      header: 'Created',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) => row.original.created_at.slice(0, 16).replace('T', ' '),
+    },
+    {
+      id: 'actions',
+      header: '',
+      meta: rightAligned<RevisionWire>().meta,
+      cell: ({ row }) => (
+        <Link
+          to="/evidence/$revisionId"
+          params={{ revisionId: row.original.id }}
+          className="text-link"
+        >
+          Evidence
+        </Link>
+      ),
+    },
+  ]
+}
 
 /** UI port (roadmap-4/ui-app3): the protocol detail frame. The controlled
  * document is the record's rich-text blocks; Template, Used by and Versions
@@ -95,6 +190,10 @@ function ProtocolPage() {
     ...(record.data ? [record.data.createdByUserId] : []),
     ...(revisions.data ?? []).map((r) => r.created_by_user_id),
   ])
+  const revisionColumns = useMemo(
+    () => protocolRevisionColumns(names.userLabel),
+    [names],
+  )
   const p = record.data
 
   if (!p || p.kind !== 'protocol_template') {
@@ -173,28 +272,13 @@ function ProtocolPage() {
             <Section title="Template" count={blocks.data?.length ?? 0}>
               {blocks.data?.length ? (
                 <TableBox className="max-w-[900px]">
-                  <Table aria-label="Protocol template blocks">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead align="right">Order</TableHead>
-                        <TableHead>Block</TableHead>
-                        <TableHead>Version</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {blocks.data.map((b) => (
-                        <TableRow key={b.id}>
-                          <TableCell align="right" className="num">
-                            {b.order}
-                          </TableCell>
-                          <TableCell>{b.type}</TableCell>
-                          <TableCell className="text-fg-muted">
-                            v{b.version}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Protocol template blocks"
+                    rows={blocks.data}
+                    columns={protocolBlockColumns}
+                    getRowId={(block) => block.id}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <Muted>This protocol has no notebook structure yet.</Muted>
@@ -206,28 +290,13 @@ function ProtocolPage() {
             <Section title="Used by" count={links.data?.length ?? 0}>
               {links.data?.length ? (
                 <TableBox className="max-w-[900px]">
-                  <Table aria-label="Records linked to this protocol">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Record</TableHead>
-                        <TableHead>Kind</TableHead>
-                        <TableHead>Link</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {links.data.map((l) => (
-                        <TableRow key={l.id}>
-                          <TableCell className="mono">
-                            {l.targetIdentifier}
-                          </TableCell>
-                          <TableCell>{l.targetKind}</TableCell>
-                          <TableCell className="text-fg-muted">
-                            {l.linkType}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Records linked to this protocol"
+                    rows={links.data}
+                    columns={protocolLinkColumns}
+                    getRowId={(link) => link.id}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <Muted>
@@ -245,48 +314,19 @@ function ProtocolPage() {
             >
               {revisions.data?.length ? (
                 <TableBox className="max-w-[900px]">
-                  <Table aria-label="Protocol version history">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead align="right">Version</TableHead>
-                        <TableHead>Reason</TableHead>
-                        <TableHead>Author</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead aria-label="Actions" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {revisions.data.map((r, i) => (
-                        <TableRow key={r.id}>
-                          <TableCell align="right" className="num">
-                            v{revisions.data.length - i}
-                          </TableCell>
-                          <TableCell>{r.reason}</TableCell>
-                          <TableCell>
-                            {names.userLabel(r.created_by_user_id)}
-                          </TableCell>
-                          <TableCell className="text-fg-muted">
-                            {r.created_at.slice(0, 16).replace('T', ' ')}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Link
-                              to="/evidence/$revisionId"
-                              params={{ revisionId: r.id }}
-                              className="text-link"
-                            >
-                              Evidence
-                            </Link>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Protocol version history"
+                    rows={revisions.data}
+                    columns={revisionColumns}
+                    getRowId={(revision) => revision.id}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <EmptyState
                   icon="protocol"
                   title="No frozen versions yet"
-                  body="A version is frozen when the protocol is submitted for review. New experiments pin the version they start from."
+                  description="A version is frozen when the protocol is submitted for review. New experiments pin the version they start from."
                 />
               )}
             </Section>
@@ -366,7 +406,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       <EmptyState
         icon="protocol"
         title="No frozen versions yet"
-        body="A version is frozen when the protocol is submitted for review. Acknowledgement is recorded against the exact frozen version, and an experiment can only start from a version its operator has acknowledged."
+        description="A version is frozen when the protocol is submitted for review. Acknowledgement is recorded against the exact frozen version, and an experiment can only start from a version its operator has acknowledged."
       />
     )
   }

@@ -4,7 +4,9 @@ import { OpenLink } from '#/components/notebook/block-preview'
 
 /**
  * The small in-block link the previews use for canonical destinations. The
- * Storybook TanStack framework supplies the router, so the href is real.
+ * Storybook TanStack framework supplies the router, and the mount route has to
+ * exist in it for `Link` to resolve: a `path` alone only moves the URL, so the
+ * route is declared here as well.
  */
 const meta = {
   title: 'Notebook/Open link',
@@ -12,7 +14,11 @@ const meta = {
   tags: ['autodocs'],
   parameters: {
     tanstack: {
-      router: { path: '/records/$recordId', params: { recordId: 'record-1' } },
+      router: {
+        route: { path: '/records/$recordId' },
+        path: '/records/$recordId',
+        params: { recordId: 'record-1' },
+      },
     },
   },
   args: { to: '/records/record-1', children: 'Open experiment' },
@@ -27,8 +33,8 @@ export const InRow: Story = {
   render: (args) => (
     <div className="flex items-center gap-3">
       <OpenLink {...args} />
-      <OpenLink to="/datasets">Open dataset</OpenLink>
-      <OpenLink to="/sheets">Open sheet</OpenLink>
+      <OpenLink to="/records/record-2">Open sample</OpenLink>
+      <OpenLink to="/records/record-3">Open protocol</OpenLink>
     </div>
   ),
 }

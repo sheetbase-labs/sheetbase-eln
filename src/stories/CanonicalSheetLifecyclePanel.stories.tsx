@@ -9,7 +9,9 @@ import type { SheetInstance } from '#/lib/sheet-instance-data'
  * The composed Sheet lifecycle panel: adopt a definition version, upgrade,
  * extract-and-publish and materialise. Every action asks before it runs and
  * each one writes through an RPC, so the stories render the panel at rest
- * with the definition/dataset reads left pending.
+ * with the definition/dataset reads left pending. Its host mounts it only for
+ * a writable instance (`canonical-sheet-workspace.tsx`), so there is no
+ * archived state to show here: an archived sheet never renders the panel.
  */
 const baseInstance: SheetInstance = {
   id: '0198d970-e266-4000-8000-000000000030',
@@ -95,11 +97,5 @@ export const AdHoc: Story = {
       state: { ...baseInstance.state, provenance: { createdFrom: 'ad_hoc' } },
     },
   },
-  render: (args) => <Harness value={args.instance} />,
-}
-
-/** An archived sheet states its lifecycle rather than offering actions. */
-export const Archived: Story = {
-  args: { instance: { ...baseInstance, lifecycle: 'archived' } },
   render: (args) => <Harness value={args.instance} />,
 }

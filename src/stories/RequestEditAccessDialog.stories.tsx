@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { RequestEditAccessDialog } from '#/components/notebook/notebook-viewer-actions'
@@ -6,7 +7,7 @@ import { RequestEditAccessDialog } from '#/components/notebook/notebook-viewer-a
 /**
  * The request-access dialog a viewer opens from the read-only bar. It is
  * controlled, so the wrapper owns `open`; submitting the request needs the
- * project, which the stories supply.
+ * project, which the stories supply, and a query client for the mutation.
  */
 function Harness({ initiallyOpen }: { initiallyOpen?: boolean }) {
   const [open, setOpen] = useState(Boolean(initiallyOpen))
@@ -37,9 +38,15 @@ const meta = {
   tags: ['autodocs'],
   decorators: [
     (Story) => (
-      <div className="p-6">
-        <Story />
-      </div>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+        }
+      >
+        <div className="p-6">
+          <Story />
+        </div>
+      </QueryClientProvider>
     ),
   ],
   args: {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-notebook-dialog'
@@ -7,7 +8,8 @@ import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
 /**
  * Duplicating a notebook. The dialog suggests a title derived from the source
  * and copies the blocks the caller supplies, so the stories pass a small
- * document and record what the caller receives.
+ * document and record what the caller receives. The copy is a mutation, so the
+ * stories supply the client the router would.
  */
 const source: NotebookRecord = {
   id: '0198d970-e266-4000-8000-0000000000a1',
@@ -67,9 +69,15 @@ const meta = {
   tags: ['autodocs'],
   decorators: [
     (Story) => (
-      <div className="p-6">
-        <Story />
-      </div>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+        }
+      >
+        <div className="p-6">
+          <Story />
+        </div>
+      </QueryClientProvider>
     ),
   ],
   args: {

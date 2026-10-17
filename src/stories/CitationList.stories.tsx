@@ -54,7 +54,13 @@ const meta = {
   tags: ['autodocs'],
   parameters: {
     tanstack: {
-      router: { path: '/records/$recordId', params: { recordId: 'record-1' } },
+      router: {
+        // A `path` alone moves the URL; `route` puts the record route in the
+        // sandbox router so every citation's `Link` resolves.
+        route: { path: '/records/$recordId' },
+        path: '/records/$recordId',
+        params: { recordId: 'record-1' },
+      },
     },
   },
   args: { citations },

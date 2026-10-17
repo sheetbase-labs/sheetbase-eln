@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
+import { Breadcrumb } from '#/components/v3/ui/breadcrumb'
 import { buttonVariants } from '#/components/v3/ui/button'
 
 /** Static release help. Lifecycle labels describe states, not workspace records. */
@@ -62,21 +63,10 @@ function RecordsArticle() {
   return (
     <div className="min-h-full min-w-0 bg-surface">
       <header className="flex flex-col gap-1.5 border-b border-border px-4 pb-3 pt-4 md:px-8">
-        <nav
-          aria-label="Breadcrumb"
-          className="text-label font-normal leading-[normal] text-fg-muted"
-        >
-          <ol className="m-0 flex list-none items-center gap-1 p-0">
-            <li>
-              <Link to="/" className="text-link">
-                Home
-              </Link>
-            </li>
-            <li aria-current="page">
-              <span aria-hidden="true">/ </span>Help
-            </li>
-          </ol>
-        </nav>
+        <Breadcrumb
+          trail={[{ label: 'Home', link: { to: '/' } }, { label: 'Help' }]}
+          className="font-normal leading-[normal]"
+        />
         <h1 className="m-0 text-title leading-[normal]">
           How records, reviews and signatures work
         </h1>

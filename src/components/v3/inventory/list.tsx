@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
@@ -10,6 +10,7 @@ import {
 } from '#/components/v3/ui/dropdown-menu'
 import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
+import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
 import { cn } from '#/lib/utils'
 
 // Pieces shared by the registry lists (samples, materials, protocols, datasets): a header with the total and actions,
@@ -17,12 +18,6 @@ import { cn } from '#/lib/utils'
 
 const tabCls =
   'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:-outline-offset-2'
-
-/** How long the search box waits after the last keystroke before it tells the
- * route. The field keeps the typed text itself, so a burst faster than a router
- * round-trip — a hardware barcode scanner, or a paste — is never rendered back
- * from stale state. */
-const SEARCH_SETTLE_MS = 200
 
 export function SearchTabs({
   items,
@@ -63,11 +58,15 @@ export function SearchTabs({
 export function ListHeader({
   title,
   total,
+  subtitle,
   actions,
   tabs,
 }: {
   title: string
   total?: number
+  /** What this list is, beside its name. Hidden on phones, where the title is
+   * the whole reference header. */
+  subtitle?: React.ReactNode
   actions?: React.ReactNode
   tabs?: React.ReactNode
 }) {
@@ -77,6 +76,11 @@ export function ListHeader({
         <h1 className="text-title max-md:text-[18px] max-md:leading-6">
           {title}
         </h1>
+        {subtitle ? (
+          <span className="text-body text-fg-muted max-md:hidden">
+            {subtitle}
+          </span>
+        ) : null}
         {total != null ? (
           <span className="num text-body text-fg-muted">
             {total.toLocaleString('en-GB')}
@@ -84,6 +88,12 @@ export function ListHeader({
         ) : null}
         <span className="flex-1" />
         {actions ? (
+          // The row wraps and below `md` the actions take a line of their own,
+          // exactly as the shell's own TopBar does: on one line the title,
+          // count and action need more than a 400 %-zoom column has
+          // (QA4-zoom-experiments), and the inbox's two actions measured 408px
+          // at 390 and pushed "Mark all seen" outside the viewport with no
+          // ancestor able to scroll to it (WCAG 1.4.10).
           <div className="flex shrink-0 flex-wrap gap-2 max-md:w-full max-md:[&>*]:flex-1">
             {actions}
           </div>
@@ -258,36 +268,14 @@ export function ListToolbar({
   const lead = views ? <ViewControls {...views} /> : children
   const fields = views?.fields
   const onToggleField = views?.onToggleField
-  // The box holds what was typed and reports a settled value up. Rendering it
-  // straight from the route's `q` lost characters: each keystroke navigated, and
-  // a re-render with the still-stale param wrote an older value back into the
-  // field before the router had caught up.
-  const [query, setQuery] = useState(q ?? '')
-  // The last value this box handed to the route, so a `q` that arrives from
-  // somewhere else (a tab, "Clear search") can be told apart from the echo of
-  // our own search and adopted without clobbering pending typing.
-  const sent = useRef(q ?? '')
-  const timer = useRef<number | null>(null)
-  useEffect(() => {
-    const next = q ?? ''
-    if (next === sent.current) return
-    // The route changed the query itself (a tab, "Clear search"): drop anything
-    // still queued from typing and adopt what the route now shows.
-    clearTimeout(timer.current ?? undefined)
-    timer.current = null
-    sent.current = next
-    setQuery(next)
-  }, [q])
-  useEffect(() => () => clearTimeout(timer.current ?? undefined), [])
-  const search = (next: string) => {
-    setQuery(next)
-    clearTimeout(timer.current ?? undefined)
-    timer.current = window.setTimeout(() => {
-      timer.current = null
-      sent.current = next
-      onSearch(next)
-    }, SEARCH_SETTLE_MS)
-  }
+  // The box holds what was typed and reports the settled value up; the
+  // two-nature rule it used to spell out here — adopt a value that changed
+  // somewhere else, drop anything still queued from typing — lives in the hook.
+  const { value: query, setValue: search } = useSettledValue(
+    q ?? '',
+    SEARCH_SETTLE_MS,
+    onSearch,
+  )
   return (
     <div className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6">
       {lead}

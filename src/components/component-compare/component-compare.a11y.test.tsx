@@ -1,6 +1,8 @@
 import { cleanup, render } from '@testing-library/react'
 import axe from 'axe-core'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+
+import type * as TanStackRouter from '@tanstack/react-router'
 
 import { COMPARISON_PAIRS } from './pairs'
 import { COMPARISON_FIXTURES } from './fixtures'
@@ -28,7 +30,41 @@ import type {
  *
  * A violation fails here. There is no allow-list: if a column cannot pass, the
  * pair is not adoptable and the fact belongs in the comparison record.
+ *
+ * The columns are rendered outside a router, and four of the registered pairs
+ * navigate (`Pager`, `Breadcrumb`, `ListHeader`'s tabs, `LoadMore`'s retry).
+ * The real `Link` throws without a router context, so it is the plain anchor
+ * the route suites mock it as; every other router export stays real. The
+ * disabled state keeps its `aria-disabled`, because that is the attribute axe
+ * and the checklist ask about — in the browser run the link is the real one.
  */
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof TanStackRouter>()
+  return {
+    ...actual,
+    Link: ({
+      children,
+      to,
+      params: _params,
+      search: _search,
+      disabled,
+      ...props
+    }: React.ComponentProps<'a'> & {
+      to?: unknown
+      params?: unknown
+      search?: unknown
+      disabled?: boolean
+    }) => (
+      <a
+        href={typeof to === 'string' ? to : '#'}
+        aria-disabled={disabled ? true : undefined}
+        {...props}
+      >
+        {children}
+      </a>
+    ),
+  }
+})
 
 const RESET_STATES: readonly ComparisonState[] = [
   'loading',

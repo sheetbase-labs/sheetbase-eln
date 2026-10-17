@@ -1,4 +1,4 @@
-import { Link, createFileRoute, Navigate } from '@tanstack/react-router'
+import { createFileRoute, Navigate } from '@tanstack/react-router'
 
 import { usePipelineIdForRun } from '#/components/v3/pipelines/pipelines-data'
 import { Notice } from '#/components/v3/ui/alert'
@@ -28,11 +28,7 @@ function RunRedirect() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <Link to="/pipelines" className="text-link">
-            Pipelines
-          </Link>
-        }
+        trail={[{ label: 'Pipelines', link: { to: '/pipelines' } }]}
         title={
           pipelineId.isLoading
             ? 'Loading run…'

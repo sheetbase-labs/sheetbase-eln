@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
+import { Pager } from '#/components/v3/ui/pager'
 import {
   ProjectList,
   ProjectListFailure,
@@ -142,31 +143,19 @@ function ProjectSamplesTab() {
       }}
       footer={
         total > PROJECT_LIST_PAGE_SIZE ? (
-          <span className="flex flex-wrap items-center gap-3">
-            <span>
-              Showing {start}–{end} of {total} samples
-            </span>
-            {page > 1 ? (
-              <Link
-                to="/projects/$projectId/samples"
-                params={{ projectId }}
-                search={{ page: page - 1 }}
-                className="text-link"
-              >
-                Previous
-              </Link>
-            ) : null}
-            {page < pageCount ? (
-              <Link
-                to="/projects/$projectId/samples"
-                params={{ projectId }}
-                search={{ page: page + 1 }}
-                className="text-link"
-              >
-                Next
-              </Link>
-            ) : null}
-          </span>
+          <Pager
+            page={page}
+            pageCount={pageCount}
+            start={start}
+            end={end}
+            total={total}
+            noun="samples"
+            linkFor={(next) => ({
+              to: '/projects/$projectId/samples',
+              params: { projectId },
+              search: { page: next },
+            })}
+          />
         ) : undefined
       }
     />

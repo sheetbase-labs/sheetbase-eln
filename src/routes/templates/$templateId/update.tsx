@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import type { Crumb } from '#/components/v3/ui/breadcrumb'
 import { PageHeader } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -89,26 +90,19 @@ function TemplateUpdate() {
   }
 
   const t = template.data
-  const crumbs = (
-    <>
-      <Link to="/templates" className="text-link">
-        Templates
-      </Link>{' '}
-      /{' '}
-      <Link
-        to="/templates/$templateId"
-        params={{ templateId }}
-        className="text-link mono"
-      >
-        {t?.key ?? templateId}
-      </Link>
-    </>
-  )
+  const trail: Crumb[] = [
+    { label: 'Templates', link: { to: '/templates' } },
+    {
+      label: t?.key ?? templateId,
+      link: { to: '/templates/$templateId', params: { templateId } },
+      mono: true,
+    },
+  ]
 
   if (!target) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader crumbs={crumbs} title="No published version" />
+        <PageHeader trail={trail} title="No published version" />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="template"
@@ -124,7 +118,7 @@ function TemplateUpdate() {
     return (
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
-          crumbs={crumbs}
+          trail={trail}
           title={`Notebooks that can take v${target.version}`}
           meta={
             <>
@@ -189,7 +183,7 @@ function TemplateUpdate() {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        crumbs={crumbs}
+        trail={trail}
         title={
           nb
             ? `Update ${nb.identifier} to template v${target.version}`

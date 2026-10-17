@@ -118,7 +118,7 @@ function NewSheet() {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        crumbs="New"
+        trail={[{ label: 'New' }]}
         title="New sheet"
         meta={
           <span>Sheets are private to a project and are never evidence.</span>

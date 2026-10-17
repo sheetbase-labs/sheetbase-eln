@@ -103,6 +103,40 @@ in both columns in the browser run and measured for overflow; it is the layout
 and cost fixture. If a pair's accessibility changes with list length, add the
 fixture back and accept the runtime.
 
+## Pair notes
+
+Each registered pair, and the things about it a future run has to know.
+
+- **`notebook-sortable`** — the first pair, and the browser spec's default. The
+  candidate needed one integration fix-up (its drag handle as a real button, its
+  container handed the list's semantics); the measurement and condition C1 are
+  in `component-compare.a11y.test.tsx` and in the comparison record.
+- **`paging-a-list`** — ours is `src/components/v3/ui/pager.tsx`, theirs the
+  stock shadcn `Pagination*`. The columns page through the fixture with the
+  pager's own links (`linkFor` also moves the column's page, because the harness
+  has one route); the stock column's `href`s are anchors, which is one of the
+  reasons the record declines it.
+- **`load-more-control`** — theirs is **the deleted implementation**, kept in the
+  pair file so the comparison survives the deletion. Its page size is 4, small
+  enough that the fixtures' handfuls of rows exercise "more to read", the last
+  page and the audit tail's control-less idle state.
+- **`list-header`** — ours is `ListHeader`, theirs the inbox header as it was
+  hand-composed. The experiments header (count and one full-width action) is the
+  same band and is covered by the story, not by the pair, because a column may
+  render only one `<header>`.
+- **`breadcrumb-trail`** — one trail per column, for the same reason: two
+  hand-spelled trails in one column are two same-named `nav` landmarks and axe
+  reports `landmark-unique` on the pair rather than on the component.
+
+### Pairs whose components navigate
+
+Four pairs render components that use the router (`Pager`, `Breadcrumb`,
+`ListHeader`'s tabs, `LoadMore`'s retry). The two jsdom suites render columns
+outside a router, and the real `Link` throws without one, so both files mock
+`@tanstack/react-router` with the plain anchor the route suites use, keeping
+`aria-disabled` for the disabled state and every other export real. The browser
+run uses the real router.
+
 ## Adding a pair
 
 1. **Install the candidate from the pinned registry.** `components.json` pins

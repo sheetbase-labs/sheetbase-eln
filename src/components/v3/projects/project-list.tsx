@@ -103,7 +103,7 @@ export function ProjectList<T extends { key: string }>({
           />
         )}
       </Section>
-      {footer ? <p className="m-0 text-label text-fg-muted">{footer}</p> : null}
+      {footer ? <div className="text-label text-fg-muted">{footer}</div> : null}
     </div>
   )
 }

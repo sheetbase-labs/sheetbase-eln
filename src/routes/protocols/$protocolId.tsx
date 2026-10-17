@@ -106,11 +106,7 @@ function ProtocolPage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/protocols" className="text-link">
-              Protocols
-            </Link>
-          }
+          trail={[{ label: 'Protocols', link: { to: '/protocols' } }]}
           title={record.isLoading ? 'Loading protocol…' : 'Protocol not found'}
         />
       </div>
@@ -120,14 +116,10 @@ function ProtocolPage() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/protocols" className="text-link">
-              Protocols
-            </Link>{' '}
-            / <span className="mono">{p.identifier}</span>
-          </>
-        }
+        trail={[
+          { label: 'Protocols', link: { to: '/protocols' } },
+          { label: p.identifier, mono: true },
+        ]}
         title={p.title}
         meta={
           <>

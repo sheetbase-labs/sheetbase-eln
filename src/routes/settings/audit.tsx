@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useInfiniteQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { LoadMore } from '#/components/v3/ui/load-more'
 import { Notice } from '#/components/v3/ui/alert'
 import { toast } from '#/components/v3/ui/sonner'
 import { Input } from '#/components/v3/ui/input'
@@ -25,6 +26,7 @@ import {
 import type { AuditEventWire } from '#/lib/audit-history'
 import { createDataClient } from '#/lib/data-client'
 import { downloadTextFile } from '#/lib/download'
+import { useSettledValue } from '#/lib/settled-value'
 
 /** UI port (roadmap-4/ui-app3): the audit log reads the append-only change
  * events for the workspace through the permission-aware `api.audit_events`
@@ -42,30 +44,24 @@ const dataClient = createDataClient()
 const PAGE_SIZE = 50
 
 /** How still the search box is before it becomes a server read, so one read
- * covers a burst of keystrokes. */
+ * covers a burst of keystrokes. A server read waits longer than the 200 ms a
+ * route navigation takes. */
 const SEARCH_SETTLE_MS = 250
 
 /** How close to the bottom the grid must be before it asks for the next page. */
 const LOAD_MORE_THRESHOLD_PX = 240
 
-/** Hold a typed search term still for a moment. Seeded with the initial term
- * so the first read is immediate rather than waiting out the first delay. */
-function useSettledSearch(term: string): string {
-  const [settled, setSettled] = useState(term)
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSettled(term), SEARCH_SETTLE_MS)
-    return () => window.clearTimeout(timer)
-  }, [term])
-  return settled
-}
-
 function Audit() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
-  const [q, setQ] = useState('')
   const [operation, setOperation] = useState<string>('')
   const [exporting, setExporting] = useState(false)
-  const search = useSettledSearch(q)
+  // The box holds the typed term and the grid reads the settled one.
+  const {
+    value: q,
+    setValue: setQ,
+    settled: search,
+  } = useSettledValue('', SEARCH_SETTLE_MS)
 
   const filter = useMemo(
     () => ({
@@ -183,32 +179,24 @@ function Audit() {
 
   // The end of the body states the tail of the read: a page arriving, a page
   // that failed, or that the history is exhausted. It sits inside the body so
-  // the scroll trigger and the keyboard path share one control.
-  if (rows.length > 0 && activity.hasNextPage) {
+  // the scroll trigger and the keyboard path share one control — the keyboard
+  // path is the control `LoadMore` renders, which this tail used to lack.
+  if (rows.length > 0) {
     bodyRows.push(
       <TableRow key="__more">
         <TableCell colSpan={8} className="text-fg-muted">
-          {activity.isFetchNextPageError ? (
-            <span className="flex items-center gap-2">
-              Older entries could not be loaded.
-              <Button size="sm" onClick={() => void activity.fetchNextPage()}>
-                Retry
-              </Button>
-            </span>
-          ) : activity.isFetchingNextPage ? (
-            'Loading older entries…'
-          ) : (
-            'Scroll for older entries'
-          )}
-        </TableCell>
-      </TableRow>,
-    )
-  }
-  if (rows.length > 0 && !activity.hasNextPage) {
-    bodyRows.push(
-      <TableRow key="__end">
-        <TableCell colSpan={8} className="text-fg-muted">
-          End of the log — every matching entry is loaded.
+          <LoadMore
+            label="Older audit entries"
+            hasMore={activity.hasNextPage}
+            loading={activity.isFetchingNextPage}
+            error={
+              activity.isFetchNextPageError
+                ? 'Older entries could not be loaded.'
+                : undefined
+            }
+            onLoadMore={() => void activity.fetchNextPage()}
+            endLabel="End of the log — every matching entry is loaded."
+          />
         </TableCell>
       </TableRow>,
     )

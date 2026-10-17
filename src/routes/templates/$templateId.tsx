@@ -1,5 +1,4 @@
 import {
-  Link,
   Outlet,
   createFileRoute,
   redirect,
@@ -47,11 +46,7 @@ function TemplateLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/templates" className="text-link">
-              Templates
-            </Link>
-          }
+          trail={[{ label: 'Templates', link: { to: '/templates' } }]}
           title="Template could not be loaded"
         />
         <div className="px-4 py-4 md:px-6">
@@ -76,11 +71,7 @@ function TemplateLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/templates" className="text-link">
-              Templates
-            </Link>
-          }
+          trail={[{ label: 'Templates', link: { to: '/templates' } }]}
           title={
             template.isLoading ? 'Loading template…' : 'Template not found'
           }
@@ -98,14 +89,10 @@ function TemplateLayout() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/templates" className="text-link">
-              Templates
-            </Link>{' '}
-            / <span className="mono">{t.key}</span>
-          </>
-        }
+        trail={[
+          { label: 'Templates', link: { to: '/templates' } },
+          { label: t.key, mono: true },
+        ]}
         title={t.name}
         meta={
           <>

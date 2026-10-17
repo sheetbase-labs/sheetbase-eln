@@ -101,11 +101,7 @@ function ExperimentLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/experiments" className="text-link">
-              Experiments
-            </Link>
-          }
+          trail={[{ label: 'Experiments', link: { to: '/experiments' } }]}
           title={
             record.isLoading ? 'Loading experiment…' : 'Experiment not found'
           }
@@ -122,14 +118,10 @@ function ExperimentLayout() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/experiments" className="text-link">
-              Experiments
-            </Link>{' '}
-            / <span className="mono">{e.identifier}</span>
-          </>
-        }
+        trail={[
+          { label: 'Experiments', link: { to: '/experiments' } },
+          { label: e.identifier, mono: true },
+        ]}
         title={e.title}
         meta={
           <>

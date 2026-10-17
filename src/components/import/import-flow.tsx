@@ -326,7 +326,7 @@ export function ImportUploadFlow({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        crumbs="Datasets / Import data"
+        trail={[{ label: 'Datasets' }, { label: 'Import data' }]}
         title="Import data"
         meta="Store the file, check its columns, then see every row before importing."
       />
@@ -774,7 +774,10 @@ export function ImportMapCheckFlow({
   if (notFound) {
     return (
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        <PageHeader crumbs="Datasets / Import data" title="Import not found" />
+        <PageHeader
+          trail={[{ label: 'Datasets' }, { label: 'Import data' }]}
+          title="Import not found"
+        />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="upload"
@@ -797,7 +800,7 @@ export function ImportMapCheckFlow({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        crumbs="Datasets / Import data"
+        trail={[{ label: 'Datasets' }, { label: 'Import data' }]}
         title="Import data"
         meta={
           <>

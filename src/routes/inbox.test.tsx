@@ -590,16 +590,26 @@ describe('Inbox header fits the phone width (QA4-inbox-phone)', () => {
     expect(row).not.toBeNull()
     // On one non-wrapping row the title and the two actions could not share a
     // 390px viewport (Mark all seen ended at 408), which clipped the action
-    // with no ancestor able to scroll to it. The row wraps instead, so both
-    // controls stay on the page rather than being dropped from the affordance
-    // set the reference's desktop header shows.
-    expect(row!.className).toContain('max-md:flex-wrap')
-    // Both actions stay in the wrapping row: "Mark all seen" is a real button,
+    // with no ancestor able to scroll to it. `ListHeader` wraps instead — and
+    // below `md` the actions take a line of their own — so both controls stay
+    // on the page rather than being dropped from the affordance set the
+    // reference's desktop header shows. The header is the shared one now, so
+    // the wrap is the header's guarantee rather than this screen's.
+    expect(row!.className).toContain('flex-wrap')
+    const actions = row!.parentElement!.querySelector(
+      '[class*="max-md:w-full"]',
+    )
+    expect(actions).not.toBeNull()
+    // Both actions stay in the header: "Mark all seen" is a real button,
     // "Notification settings" is a Link-based button (its role comes from Base
     // UI, so the shared Link mock leaves it roleless here).
-    expect(row!.contains(getByText('Notification settings'))).toBe(true)
-    expect(row!.contains(getByRole('button', { name: 'Mark all seen' }))).toBe(
-      true,
-    )
+    expect(
+      row!.parentElement!.contains(getByText('Notification settings')),
+    ).toBe(true)
+    expect(
+      row!.parentElement!.contains(
+        getByRole('button', { name: 'Mark all seen' }),
+      ),
+    ).toBe(true)
   })
 })

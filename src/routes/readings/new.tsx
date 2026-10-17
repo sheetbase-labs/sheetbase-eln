@@ -248,7 +248,7 @@ function NewReading() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-      <PageHeader crumbs="Readings" title="Record reading" />
+      <PageHeader trail={[{ label: 'Readings' }]} title="Record reading" />
       <form
         className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-4 md:px-6 md:py-6"
         onSubmit={(e) => {

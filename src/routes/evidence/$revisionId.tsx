@@ -130,14 +130,17 @@ export function EvidencePage() {
   if (revisionQuery.isLoading) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader crumbs="Evidence" title="Loading evidence…" />
+        <PageHeader trail={[{ label: 'Evidence' }]} title="Loading evidence…" />
       </div>
     )
   }
   if (!revision) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader crumbs="Evidence" title="Evidence not found" />
+        <PageHeader
+          trail={[{ label: 'Evidence' }]}
+          title="Evidence not found"
+        />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="protocol"
@@ -197,14 +200,10 @@ export function EvidencePage() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
-          crumbs={
-            <>
-              <Link to="/inbox" className="text-link">
-                Inbox
-              </Link>{' '}
-              / <span className="mono">{identifier}</span>
-            </>
-          }
+          trail={[
+            { label: 'Inbox', link: { to: '/inbox' } },
+            { label: identifier, mono: true },
+          ]}
           title={title}
           meta={
             <>

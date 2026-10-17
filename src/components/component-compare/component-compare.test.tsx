@@ -6,10 +6,12 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { ThemeProvider } from '#/components/theme-provider'
 import { ComponentCompare } from './harness'
+import type * as TanStackRouter from '@tanstack/react-router'
+
 import { COMPARISON_PAIRS } from './pairs'
 import { COMPARISON_FIXTURES } from './fixtures'
 import { COMPARISON_CHECKLIST } from './checklist'
@@ -24,7 +26,39 @@ import type {
  * shared and immutable, a pair is data rather than a bespoke comparator, and
  * the columns really reorder — the notebook column through the notebook's own
  * module, the ReUI column through `@dnd-kit`.
+ *
+ * The columns are rendered outside a router, and the paging, header and trail
+ * pairs navigate. The real `Link` throws without a router context, so it is the
+ * plain anchor the route suites mock it as; every other router export stays
+ * real. The browser run drives the real one.
  */
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof TanStackRouter>()
+  return {
+    ...actual,
+    Link: ({
+      children,
+      to,
+      params: _params,
+      search: _search,
+      disabled,
+      ...props
+    }: React.ComponentProps<'a'> & {
+      to?: unknown
+      params?: unknown
+      search?: unknown
+      disabled?: boolean
+    }) => (
+      <a
+        href={typeof to === 'string' ? to : '#'}
+        aria-disabled={disabled ? true : undefined}
+        {...props}
+      >
+        {children}
+      </a>
+    ),
+  }
+})
 
 beforeAll(() => {
   globalThis.ResizeObserver = class {
@@ -307,9 +341,15 @@ describe('the ReUI column offers the candidate’s own controls', () => {
 })
 
 describe('the registered pair set', () => {
-  it('holds the notebook sortable list, and nothing else yet', () => {
+  it('lists the notebook first, then the pairs this change added', () => {
+    // The order is load-bearing: the browser spec drives the first pair, so the
+    // notebook's reorderable list stays first.
     expect(COMPARISON_PAIRS.map((pair) => pair.id)).toEqual([
       'notebook-sortable',
+      'paging-a-list',
+      'load-more-control',
+      'list-header',
+      'breadcrumb-trail',
     ])
   })
 })

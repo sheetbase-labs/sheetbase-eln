@@ -96,7 +96,10 @@ function declarations(selector: string): Map<string, string> {
     }
     from = end
   }
-  expect(found.size, `${selector} declarations in src/styles.css`).toBeGreaterThan(0)
+  expect(
+    found.size,
+    `${selector} declarations in src/styles.css`,
+  ).toBeGreaterThan(0)
   return found
 }
 
@@ -112,9 +115,7 @@ function utilityColour(utility: string, theme: 'light' | 'dark'): Oklch {
   for (let hop = 0; hop < 4 && value?.startsWith('var('); hop += 1) {
     value = vars.get(value.slice('var('.length, value.indexOf(')')))
   }
-  const channels = value?.match(
-    /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/,
-  )
+  const channels = value?.match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/)
   expect(channels, `an oklch value for ${utility}`).toBeTruthy()
   return {
     L: Number(channels![1]),
@@ -125,8 +126,11 @@ function utilityColour(utility: string, theme: 'light' | 'dark'): Oklch {
 
 /**
  * The colour an element paints as its background (`bg`) or its ink (`text`):
- * the last class in its list that its own attributes select and that names a
- * colour token.
+ * the class that wins the cascade among the ones the element's own attributes
+ * select. The winner is the highest specificity (most variant selectors), then
+ * the last such class, which is how Tailwind's own output resolves — a
+ * `data-*` variant adds its attribute selector, so `data-disabled:data-checked:`
+ * beats a plain `data-disabled:` rule whatever order Tailwind emits them in.
  */
 function painted(
   element: Element,
@@ -134,18 +138,21 @@ function painted(
   theme: 'light' | 'dark',
 ): Oklch | null {
   const themeVars = declarations('@theme inline')
-  const applied = [...element.classList].filter((name) => {
-    const variants = name.split(':').slice(0, -1)
-    return variants.every((variant) => element.hasAttribute(variant))
-  })
-  const colour = applied.flatMap((name) => {
-    const utility = name.split(':').at(-1) ?? ''
+  const candidates = [...element.classList].flatMap((name) => {
+    const parts = name.split(':')
+    const utility = parts.at(-1) ?? ''
+    const variants = parts.slice(0, -1)
+    if (!variants.every((variant) => element.hasAttribute(variant))) return []
     if (!utility.startsWith(`${property}-`)) return []
     const token = utility.slice(property.length + 1)
-    return themeVars.has(`--color-${token}`) ? [token] : []
+    if (!themeVars.has(`--color-${token}`)) return []
+    return [{ token, specificity: variants.length + 1 }]
   })
-  const winner = colour.at(-1)
-  return winner ? utilityColour(winner, theme) : null
+  if (!candidates.length) return null
+  const winner = candidates.reduce((best, candidate) =>
+    candidate.specificity >= best.specificity ? candidate : best,
+  )
+  return utilityColour(winner.token, theme)
 }
 
 describe('Checkbox — the mixed state paints a visible mark', () => {
@@ -165,15 +172,40 @@ describe('Checkbox — the mixed state paints a visible mark', () => {
       expect(ink, 'an ink colour for the mark').not.toBeNull()
 
       // The defect was this pair being the same colour.
-      expect(contrastRatio(oklchToSrgb(ink!), oklchToSrgb(fill!))).toBeGreaterThanOrEqual(
-        3,
-      )
+      expect(
+        contrastRatio(oklchToSrgb(ink!), oklchToSrgb(fill!)),
+      ).toBeGreaterThanOrEqual(3)
       // And it is a fill, not the unfilled box the mixed state used to keep.
       expect(oklchToSrgb(fill!)).not.toEqual(
         oklchToSrgb(utilityColour('surface', theme)),
       )
     },
   )
+
+  it('keeps the fill and the mark on a set box that is also disabled', () => {
+    // The same defect in its other half: a disabled checked box kept the
+    // disabled surface while the tick stayed `on-accent`, so it was invisible
+    // too. Both set states must be filled and visible when disabled.
+    render(
+      <div>
+        <Checkbox defaultChecked disabled aria-label="Checked and disabled" />
+        <Checkbox indeterminate disabled aria-label="Mixed and disabled" />
+      </div>,
+    )
+    const [checked, mixed] = screen.getAllByRole('checkbox')
+    expect(checked.hasAttribute('data-disabled')).toBe(true)
+    expect(mixed.hasAttribute('data-disabled')).toBe(true)
+
+    const primary = utilityColour('primary', 'light')
+    for (const box of [checked, mixed]) {
+      const fill = painted(box, 'bg', 'light')
+      const ink = painted(box, 'text', 'light')
+      expect(oklchToSrgb(fill!)).toEqual(oklchToSrgb(primary))
+      expect(
+        contrastRatio(oklchToSrgb(ink!), oklchToSrgb(fill!)),
+      ).toBeGreaterThanOrEqual(3)
+    }
+  })
 
   it('leaves the unchecked and checked paint as they were', () => {
     const unchecked = render(<Checkbox aria-label="Unchecked" />)
@@ -187,5 +219,12 @@ describe('Checkbox — the mixed state paints a visible mark', () => {
     expect(
       oklchToSrgb(painted(screen.getByRole('checkbox'), 'bg', 'light')!),
     ).toEqual(oklchToSrgb(utilityColour('primary', 'light')))
+  })
+
+  it('still fades a disabled box that has nothing set', () => {
+    render(<Checkbox disabled aria-label="Disabled" />)
+    expect(
+      oklchToSrgb(painted(screen.getByRole('checkbox'), 'bg', 'light')!),
+    ).toEqual(oklchToSrgb(utilityColour('surface-disabled', 'light')))
   })
 })

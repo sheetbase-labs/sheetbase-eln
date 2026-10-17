@@ -31,29 +31,36 @@ jobs worth one component, and says which candidates already have a story.
 
 ## Landed
 
-| Workstream     | Head       | Decision and evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| -------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `work/stepper` | `5204d087` | **Declined** `@reui/stepper`. It is a wizard navigation primitive — a `<nav>` of `<div>` items holding a `role="tablist"` of tabs, with no `aria-current` and no failed state — so it cannot carry the shipped contract (`<ol aria-label="Steps">`, one `<li>` per step, `aria-current="step"`), and measured on the flow's own steps it reports three critical axe violations, two of which survive the consumer's fixes. The legacy Radix stepper is deleted instead, and the forward row at `src/components/v3/ui/stepper.tsx` is the single implementation. Record row 2; the comparison is pinned in `component-compare.a11y.test.tsx` rather than registered as a route pair, because an axe-failing column must not turn the harness suite red. |
+All lanes named below are merged into `GWP/notebook-document-surface` (the merge
+queue landed as `66df2782`), each with its record row and its story:
 
-## Workstreams in flight
-
-| Workstream                  | Covers                                                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `work/b2-notebook-sortable` | ReUI Sortable replaces the notebook's 114 lines of HTML5 drag; touch and keyboard sensors                     |
-| `work/b3-b4-grid`           | TanStack Table v9 on `scientific/data-table.tsx`, then Frame + Data Grid on the inventory list                |
-| `work/b5-file-upload`       | ReUI file upload in the import flow; transport stays ours                                                     |
-| `work/b5-timeline`          | ReUI Timeline consolidates the audit/history rows                                                             |
-| `work/empty-states`         | One Empty component; empty states are back in scope; remaining sites inventoried                              |
-| `work/convert-a`            | Spinner, progress, collapsible, code/payload block and the hand-rolled copy controls                          |
-| `work/convert-b`            | Avatar/initials unification, notice/banner onto the v3 pair, `@reui/file-type`                                |
-| `work/convert-c`            | Row chrome: ~30 renderers in six families, incl. the `RecordLink`/`LinkedRecordList` twins                    |
-| `work/convert-d`            | Pagination and load-more, list header, breadcrumb semantics, the copied settle-delay debounce                 |
-| `work/convert-e`            | Tab/segment family reconciliation (after the `analysis/new.tsx` keyboard defect fix)                          |
-| `work/convert-f`            | One select primitive over the 22 native `<select>` sites; the row targets the native item                     |
-| `work/convert-g`            | Settings twins (~300 lines), chip/toggle pill, Command/listbox reconciliation                                 |
-| `work/tier2-small`          | Number field, signature pad, icon tile/marker/trace/kbd                                                       |
-| `work/stories-kit`          | Stories for the forward kit, registry and icons; a structural coverage guard; `build-storybook` in `validate` |
-| `work/stories-domain-a/b`   | Stories for every domain and screen component                                                                 |
+- `work/b2-notebook-sortable` — ReUI Sortable replaces the notebook's hand-rolled
+  drag; the pair is re-pointed at the shipped integration (rows 1 and 1a).
+- `work/stepper` — `@reui/stepper` declined on measurement; the two in-house
+  steppers consolidated to one.
+- `work/b5-timeline` — one shared history surface on `@reui/timeline`.
+- `work/b5-file-upload` — `@reui/use-file-upload` behind one pick-and-drop field.
+- `work/empty-states` — empty states back in scope; one component, twelve sites
+  migrated, the rest inventoried.
+- `work/convert-a` — spinner, progress, collapsible and payload block, each
+  measured and componentised; `@reui/code-block` declined on dependency weight.
+- `work/convert-b` — avatar/initials, notice/banner and `@reui/file-type`.
+- `work/convert-c` — one row vocabulary (`Row`, `RowList`, `DescriptionList`)
+  replacing ~30 renderers; the inspector density change is recorded against the
+  design set.
+- `work/convert-d` — pager, load-more, list header, breadcrumb semantics and the
+  settle-delay debounce; the stock pagination and breadcrumb items declined.
+- `work/convert-e` — one tab contract (state and URL modes) after fixing the
+  `analysis/new.tsx` keyboard defect; the tab and toggle-group items declined.
+- `work/convert-f` — one native select over 25 sites; the popup listbox declined.
+- `work/convert-g` — settings twins, chip and the command/listbox reconciliation
+  (cmdk removed).
+- `work/b3-b4-grid` — TanStack v9, then Frame + Data Grid on `/protocols`; the
+  remaining seven registry screens are a recorded follow-on tranche.
+- `work/tier2-small` — number field, signature pad and shortcut cap declined on
+  measurement, with the plan's premise about the signature pad corrected.
+- `work/stories-domain-a` — 98 story files, 303 stories, for the domain
+  components.
 
 ## Still to take
 

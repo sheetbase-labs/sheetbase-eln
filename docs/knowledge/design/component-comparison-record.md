@@ -27,15 +27,15 @@ a decision is not a record.
 
 ## Rows
 
-| #   | Component (generic UI job)                                        | What we use now                                                                                                                                                                                                                                                                                                     | What ReUI offers                                                                                                                                                                                                                                                                               | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                  | Decision                                                                                                                                                                                            | Measured    |
-| --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 1   | Reorderable list — reorder rows by pointer and keyboard           | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                                   | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                                                                                                                                     | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                    | 16 Oct 2026 |
-| 2   | Paging a list — move between pages, and say which rows you are on | Four byte-identical 26-line pager blocks, one per project tab: `routes/projects/$projectId/{experiments,datasets,samples,files}.tsx` (the arithmetic was already shared; the markup was copied)                                                                                                                     | `@reui/pagination` **is not a registry item** — the pinned base-nova registry returns `404 {"error":"Registry item not found","message":"pagination is part of shadcn/ui, not a ReUI item."}`. The nearest item is the stock shadcn `Pagination*` the repository already has in the legacy kit | Ours (`src/components/v3/ui/pager.tsx`, the survivor): all 6 applicable items pass, including keyboard paging (Tab to "Next", Enter moves the page and "Previous" turns live). Theirs (`src/components/ui/pagination.tsx`, restyled): all 6 pass too — its numbered links are keyboard-reachable and it pages. The decision is not carried by the checklist: see "What is materially worse" in the detail section | **Adopt the in-house `Pager`; the four copies are deleted.** Decline the stock `Pagination*` item (row 3) and record that `@reui/pagination` does not exist                                         | 16 Oct 2026 |
-| 3   | Stock shadcn `Pagination*` (the only pagination on the index)     | Not used anywhere in the app: `src/components/ui/pagination.tsx` has a story and **zero** call sites (it is already half-migrated — it imports `buttonVariants` from the v3 kit)                                                                                                                                    | Nothing: this is the stock shadcn item reached by bare name, not a ReUI item (`@reui/pagination` 404s, row 2)                                                                                                                                                                                  | Checklist passes (see row 2), so this decision is not about the checklist. It is about the model: `PaginationLink` renders an `<a href>`, so paging would leave the router and full-reload the screen; it has no range or count (the design's footer is a count line, "11 of 17 files"); and it is numbered pages where the screens are 25-row windows                                                            | **Decline.** ADR-0055 decision 1: the legacy kit is not extended, and this change adds no new legacy import. The anchor model and the missing range label are the named defects                     | 16 Oct 2026 |
-| 4   | Growing-window list control — read the next page of a list        | Six hand-rolled controls with five labels between them and no `nav` landmark: `routes/search.tsx`, `routes/experiments.tsx`, `routes/datasets/$datasetId/{rows,compare}.tsx`, `components/v3/integrations/enterprise-source-panel.tsx`, and the audit log's tail, which had **no control at all** in its idle state | No item: `@reui/load-more` answers `404 {"error":"Registry item not found"}` and ReUI's index has no load-more component. The job is a button and a count                                                                                                                                      | Ours (`src/components/v3/ui/load-more.tsx`): all 6 applicable items pass; one label, one count format, a landmark, and a keyboard path the audit tail did not have. Theirs (the deleted spellings, kept in the pair): passes 5 of 6 — the audit tail's 5000-row case leaves older entries reachable only by scrolling                                                                                             | **Adopt the in-house `LoadMore`; the six controls are deleted.** No registry candidate exists to compare against. Recorded as a consolidation, not a ReUI adoption                                  | 16 Oct 2026 |
-| 5   | List screen header — title, count, actions, views                 | `ListHeader` (`src/components/v3/inventory/list.tsx`) is composed by **eight** registry screens. Two more composed the identical band by hand, character for character: `routes/experiments.tsx:228-252` and `routes/inbox.tsx:406-462`                                                                             | Nothing: `ListHeader` is in-house and ReUI has no list-header item                                                                                                                                                                                                                             | Ours (`ListHeader`, with one new `subtitle` prop): all 6 pass. Theirs (the two hand-rolls): 5 of 6 — the inbox header has no count slot, so it wraps its title and subtitle in one row and puts the sentence beside the `<h1>`. Both wrap rather than clip at 390 (the 408px action measurement that produced the hand-rolled wrap is now the header's own rule)                                                  | **Adopt the migration.** The band, the wrap rule and the count format are the shared header's; neither screen is a special case once `ListHeader` can carry a subtitle                              | 16 Oct 2026 |
-| 6   | Page location trail — say where the page is                       | The trail was markup each of **24 files** composed and passed as `crumbs`: 12 of them hand-spelled the `/` separator, none produced `ol`/`li`, and none marked the crumb you are on (`help/records.tsx` was the one place that did). The two help routes hand-rolled their own nav                                  | Nothing: ReUI's index has no breadcrumb; the stock shadcn `Breadcrumb*` is the legacy kit's (`src/components/ui/breadcrumb.tsx`, zero call sites)                                                                                                                                              | Ours (`src/components/v3/ui/breadcrumb.tsx`, rendered by `PageHeader trail`): all 6 pass — `ol`/`li`, a separator `aria-hidden`, `aria-current="page"` on the last unlinked crumb. Theirs (the node 24 files passed): 5 of 6 — jsdom axe flags `landmark-unique` when two hand-spelled trails sit in one column, and the separator is a text node in the accessibility tree                                       | **Adopt the in-house `Breadcrumb`; the `crumbs` node slot is deleted** (24 files migrated, no parallel implementation). The stock shadcn item is not taken for the same reason as row 3: decision 1 | 16 Oct 2026 |
-| 7   | Settle-delay search box — hold typing still, then report          | Three copies of one debounce: `components/v3/inventory/list.tsx` (200 ms), `routes/datasets/$datasetId/rows.tsx` (a **verbatim copy including its comment**), `routes/settings/audit.tsx` (250 ms, a different shape)                                                                                               | Nothing: a hook, not a component — no registry item and nothing to render                                                                                                                                                                                                                      | Both sides are the same input, so there is nothing for a column to compare: the difference is where the 25 lines live. Evidence is the hook's own suite instead (`src/lib/settled-value.test.ts`, 5 cases: a burst reports once, no report on mount, an external change is adopted and the queued keystroke dropped, the echo of its own report is ignored, the settled value is held with no callback)           | **Adopt the shared hook; the three copies are deleted.** No pair is registered, because a pair whose two columns render identical controls measures nothing                                         | 16 Oct 2026 |
+| #   | Component (generic UI job)                                        | What we use now                                                                                                                                                                                                                                                                                                     | What ReUI offers                                                                                                                                                                                                                                                                               | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                  | Decision                                                                                                                                                                                        | Measured    |
+| --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard           | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                                   | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                                                                                                                                     | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                | 16 Oct 2026 |
+| 17  | Paging a list — move between pages, and say which rows you are on | Four byte-identical 26-line pager blocks, one per project tab: `routes/projects/$projectId/{experiments,datasets,samples,files}.tsx` (the arithmetic was already shared; the markup was copied)                                                                                                                     | `@reui/pagination` **is not a registry item** — the pinned base-nova registry returns `404 {"error":"Registry item not found","message":"pagination is part of shadcn/ui, not a ReUI item."}`. The nearest item is the stock shadcn `Pagination*` the repository already has in the legacy kit | Ours (`src/components/v3/ui/pager.tsx`, the survivor): all 6 applicable items pass, including keyboard paging (Tab to "Next", Enter moves the page and "Previous" turns live). Theirs (`src/components/ui/pagination.tsx`, restyled): all 6 pass too — its numbered links are keyboard-reachable and it pages. The decision is not carried by the checklist: see "What is materially worse" in the detail section | **Adopt the in-house `Pager`; the four copies are deleted.** Decline the stock `Pagination*` item (row 18) and record that `@reui/pagination` does not exist                                    | 16 Oct 2026 |
+| 18  | Stock shadcn `Pagination*` (the only pagination on the index)     | Not used anywhere in the app: `src/components/ui/pagination.tsx` has a story and **zero** call sites (it is already half-migrated — it imports `buttonVariants` from the v3 kit)                                                                                                                                    | Nothing: this is the stock shadcn item reached by bare name, not a ReUI item (`@reui/pagination` 404s, row 17)                                                                                                                                                                                 | Checklist passes (see row 17), so this decision is not about the checklist. It is about the model: `PaginationLink` renders an `<a href>`, so paging would leave the router and full-reload the screen; it has no range or count (the design's footer is a count line, "11 of 17 files"); and it is numbered pages where the screens are 25-row windows                                                           | **Decline.** ADR-0055 decision 1: the legacy kit is not extended, and this change adds no new legacy import. The anchor model and the missing range label are the named defects                 | 16 Oct 2026 |
+| 19  | Growing-window list control — read the next page of a list        | Six hand-rolled controls with five labels between them and no `nav` landmark: `routes/search.tsx`, `routes/experiments.tsx`, `routes/datasets/$datasetId/{rows,compare}.tsx`, `components/v3/integrations/enterprise-source-panel.tsx`, and the audit log's tail, which had **no control at all** in its idle state | No item: `@reui/load-more` answers `404 {"error":"Registry item not found"}` and ReUI's index has no load-more component. The job is a button and a count                                                                                                                                      | Ours (`src/components/v3/ui/load-more.tsx`): all 6 applicable items pass; one label, one count format, a landmark, and a keyboard path the audit tail did not have. Theirs (the deleted spellings, kept in the pair): passes 5 of 6 — the audit tail's 5000-row case leaves older entries reachable only by scrolling                                                                                             | **Adopt the in-house `LoadMore`; the six controls are deleted.** No registry candidate exists to compare against. Recorded as a consolidation, not a ReUI adoption                              | 16 Oct 2026 |
+| 20  | List screen header — title, count, actions, views                 | `ListHeader` (`src/components/v3/inventory/list.tsx`) is composed by **eight** registry screens. Two more composed the identical band by hand, character for character: `routes/experiments.tsx:228-252` and `routes/inbox.tsx:406-462`                                                                             | Nothing: `ListHeader` is in-house and ReUI has no list-header item                                                                                                                                                                                                                             | Ours (`ListHeader`, with one new `subtitle` prop): all 6 pass. Theirs (the two hand-rolls): 5 of 6 — the inbox header has no count slot, so it wraps its title and subtitle in one row and puts the sentence beside the `<h1>`. Both wrap rather than clip at 390 (the 408px action measurement that produced the hand-rolled wrap is now the header's own rule)                                                  | **Adopt the migration.** The band, the wrap rule and the count format are the shared header's; neither screen is a special case once `ListHeader` can carry a subtitle                          | 16 Oct 2026 |
+| 21  | Page location trail — say where the page is                       | The trail was markup each of **24 files** composed and passed as `crumbs`: 12 of them hand-spelled the `/` separator, none produced `ol`/`li`, and none marked the crumb you are on (`help/records.tsx` was the one place that did). The two help routes hand-rolled their own nav                                  | Nothing: ReUI's index has no breadcrumb; the stock shadcn `Breadcrumb*` is the legacy kit's (`src/components/ui/breadcrumb.tsx`, zero call sites)                                                                                                                                              | Ours (`src/components/v3/ui/breadcrumb.tsx`, rendered by `PageHeader trail`): all 6 pass — `ol`/`li`, a separator `aria-hidden`, `aria-current="page"` on the last unlinked crumb. Theirs (the node 24 files passed): 5 of 6 — jsdom axe flags `landmark-unique` when two hand-spelled trails sit in one column, and the separator is a text node in the accessibility tree                                       | **Adopt the in-house `Breadcrumb`; the `crumbs` node slot is deleted** (24 files migrated, no parallel implementation). The stock shadcn item is not taken, under the standing ruling in row 18 | 16 Oct 2026 |
+| 22  | Settle-delay search box — hold typing still, then report          | Three copies of one debounce: `components/v3/inventory/list.tsx` (200 ms), `routes/datasets/$datasetId/rows.tsx` (a **verbatim copy including its comment**), `routes/settings/audit.tsx` (250 ms, a different shape)                                                                                               | Nothing: a hook, not a component — no registry item and nothing to render                                                                                                                                                                                                                      | Both sides are the same input, so there is nothing for a column to compare: the difference is where the 25 lines live. Evidence is the hook's own suite instead (`src/lib/settled-value.test.ts`, 5 cases: a burst reports once, no report on mount, an external change is adopted and the queued keystroke dropped, the echo of its own report is ignored, the settled value is held with no callback)           | **Adopt the shared hook; the three copies are deleted.** No pair is registered, because a pair whose two columns render identical controls measures nothing                                     | 16 Oct 2026 |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -195,7 +195,7 @@ reason disappears and this decision should be re-measured rather than inherited.
 - This row records one pair. It is not a verdict on `@dnd-kit`, on ReUI as a
   registry, or on any other ReUI item.
 
-## Row 2 — Paging a list (`paging-a-list`)
+## Row 17 — Paging a list (`paging-a-list`)
 
 ### What we use now
 
@@ -228,7 +228,7 @@ GET https://reui.io/r/base-nova/pagination.json
 
 and the shadcn CLI refuses `@reui/pagination` the same way. The nearest item is
 the stock shadcn `Pagination*`, which the repository already has in the legacy
-kit — that is row 3.
+kit — that is row 18.
 
 ### Checklist result
 
@@ -248,7 +248,7 @@ applicable rather than skipped.
 Reorder, sort, filter, select and resize: not applicable to this pair (12 items).
 
 **What the checklist does not settle.** Both sides pass, so the decision is not
-carried by it. What separates them is in row 3: the stock item's `<a href>` model
+carried by it. What separates them is in row 18: the stock item's `<a href>` model
 leaves the router, it has no range or count, and it is the legacy kit.
 
 ### Automated evidence
@@ -279,7 +279,7 @@ this row declined the stock item against.
 - The stock column is the repository's existing copy of the item, restyled; a
   fresh `shadcn add pagination` would be a different file.
 
-## Row 3 — Stock shadcn `Pagination*` (declined)
+## Row 18 — Stock shadcn `Pagination*` (declined)
 
 ### What we use now
 
@@ -306,17 +306,23 @@ legacy kit's copy of the stock shadcn item.
 
 ### Checklist result
 
-It passes the same 6 items as row 2 (it is keyboard-reachable and it pages), and
+It passes the same 6 items as row 17 (it is keyboard-reachable and it pages), and
 that is recorded rather than argued with: the decline is on the four points
 above, not on the checklist.
 
 ### Decision and reason
 
-**Decline.** `@reui/pagination` does not exist (row 2's 404 body), so there is no
+**Decline.** `@reui/pagination` does not exist (row 17's 404 body), so there is no
 ReUI candidate; the stock shadcn item fails ADR-0055 decision 1 and, on its own
 merits, cannot drive this router or print this range. The in-house `Pager` keeps
 the link model the screens already had, adds the landmark and the inert ends,
 and deletes four copies.
+
+**This ruling is the standing one for a stock shadcn item in the legacy kit**
+(`src/components/ui/**`): leaving the router, printing no range or count, and
+living in the kit decision 1 does not extend are each sufficient, and the same
+three apply to the stock `Breadcrumb*` item at row 21. It is recorded once here
+rather than re-argued per component.
 
 ### Limits of this row
 
@@ -325,7 +331,7 @@ and deletes four copies.
   the CLI installs, and that is the same file family.
 - No browser run for this row's appearance beyond the harness screenshots.
 
-## Row 4 — Growing-window list control (`load-more-control`)
+## Row 19 — Growing-window list control (`load-more-control`)
 
 ### What we use now
 
@@ -384,6 +390,17 @@ the button and again in a footer bar.
 says what is being extended, and a keyboard path the audit tail lacked. Six
 call sites and their five labels are deleted in the same change.
 
+### What is still queued
+
+- **`components/v3/datasets/dataset-history-tab.tsx`** — the sixth v3 load-more
+  site — delegates its control to `ObjectHistoryTimeline`, which is the shared
+  surface the audit-timeline lane has since landed. It is queued for the next
+  tranche and should be a small change against that surface: hand it the
+  `LoadMore` contract rather than its own button.
+- The three peers outside the v3 surfaces (`components/audit/object-history-timeline.tsx`,
+  `components/audit/audit-trail.tsx`, `components/sheet/canonical-sheet-workspace.tsx`)
+  are the same call sites once that surface is one control.
+
 ### Limits of this row
 
 - The audit log's tail is inside a table body (`<TableRow><TableCell>`), so the
@@ -391,8 +408,10 @@ call sites and their five labels are deleted in the same change.
   the same.
 - The connector panel's continuation token is compared without a count, because
   the panel does not know one.
+- The label unification was accepted on review: "Load more" with the remaining
+  count as the control's own line, rather than a count inside the button.
 
-## Row 5 — List screen header (`list-header`)
+## Row 20 — List screen header (`list-header`)
 
 ### What we use now
 
@@ -455,7 +474,7 @@ experiments header's QA4 comment moves to the header that now owns the rule.
 - The tab strips are left as they are: reconciling the six tab and segment
   components is its own task, and this pair does not pre-empt it.
 
-## Row 6 — Page location trail (`breadcrumb-trail`)
+## Row 21 — Page location trail (`breadcrumb-trail`)
 
 ### What we use now
 
@@ -478,7 +497,7 @@ document surfaces; the design canvas gives them `md:px-8`, not the header's
 
 Nothing: ReUI's index has no breadcrumb item, and the stock shadcn
 `Breadcrumb*` is the legacy kit's (`src/components/ui/breadcrumb.tsx`, zero call
-sites) — declined on decision 1, as in row 3. The shape the scan suggested
+sites) — declined under the same ruling as row 18. The shape the scan suggested
 ("change `PageHeader` to take a trail") is what this change does.
 
 ### Checklist result
@@ -521,7 +540,7 @@ article.
   "Home". This row is about how a trail is rendered, not about what each screen
   claims its location is.
 
-## Row 7 — Settle-delay search box (`useSettledValue`, no pair)
+## Row 22 — Settle-delay search box (`useSettledValue`, no pair)
 
 ### What we use now
 

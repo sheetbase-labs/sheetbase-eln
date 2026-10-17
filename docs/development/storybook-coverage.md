@@ -1,8 +1,9 @@
 # Storybook coverage
 
 This file records the deliberate exceptions to the rule that every exported
-React component has a story. It is the input the structural guard reads: a
-component that has neither a story nor an entry here is a coverage gap.
+React component has a story, and the story-level limits that are deliberate
+rather than gaps. It is written to be the input for a structural guard; no such
+guard exists on this branch yet.
 
 Stories live in `src/stories/<ComponentName>.stories.tsx` (a few live beside
 their component under `src/components/**`); the Storybook config picks up both.
@@ -11,12 +12,42 @@ static, and reads are satisfied by seeding a React Query cache with
 `staleTime: Infinity` or by a promise that never settles, which renders the
 component's own loading or error state.
 
+## Domain audit (17 October 2026)
+
+Every component in the domain directories had a story file when this pass
+started, so the gap was not coverage by file. Rendering every domain story in a
+browser found stories that did not render what they claimed:
+
+- **23 stories failed to render at all.** Sixteen dialogs and editors called
+  `useMutation`/`useQuery` with no `QueryClientProvider` in their decorators
+  (`AmendNotebookDialog`, `DuplicateNotebookDialog`, `RequestEditAccessDialog`,
+  `SheetPromote`, `PipelineOutputBlockEditor`, `AnalysisBlockPreview`); four
+  `ScientificSheetBlock` stories threw because the block was rendered outside
+  `ScientificWorkbookProvider`; three `ChartRenderer` stories passed an `any`
+  fixture with no `typeParams` and no `datasetId`, so the renderer threw on the
+  type parameters it reads.
+- **7 stories rendered “Route not found”.** `OpenLink` and `CitationList` set
+  `parameters.tanstack.router.path` without a matching `route`, which moves the
+  story URL but leaves the sandbox router with no such route, so every `Link`
+  destination failed.
+- **4 `CanonicalSheetWorkspace` stories** all rendered the instance-read failure
+  path. The loaded instance read is now seeded, so the writable, read-only and
+  composed-wrapper states render their real grid.
+- **1 unreachable story** was removed: the lifecycle panel is mounted only for a
+  writable instance, so an archived instance never renders it.
+
+The deliberate silences below were re-checked in the same pass and are correct:
+portalled dialogs (`E-Sign`, `Duplicate`, `Amend`, `RequestEditAccess`,
+`SheetPromote`), skeleton loaders, icon-only triggers, and components that
+return `null` by contract.
+
 ## Notebook
 
-| Component                         | Reason                                                                                                                                                            |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ScientificWorkbookProvider`      | Provider only. It creates the workbook context its children read (`useSheetCalculation`); it renders `children` unchanged and has no rendered surface of its own. |
-| `useAutosave` (`use-autosave.ts`) | Hook, not a component. Exported so callers can hold the machine directly; it has no rendered surface.                                                             |
+| Component                                                                                       | Reason                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ScientificWorkbookProvider`                                                                    | Provider only. It creates the workbook context its children read (`useSheetCalculation`); it renders `children` unchanged and has no rendered surface of its own. Consumers (`ScientificSheetBlock`) are wrapped in it by their stories. |
+| `useAutosave` (`use-autosave.ts`)                                                               | Hook, not a component. Exported so callers can hold the machine directly; it has no rendered surface.                                                                                                                                    |
+| `PROPOSAL_ABSENT_MESSAGE`, `PROPOSAL_UNREADABLE_MESSAGE` (`pipeline-output-block-proposal.tsx`) | Constants, not components. The states they name are rendered by `PipelineProposalAbsent.stories.tsx` and `PipelineProposalUnreadable.stories.tsx`.                                                                                       |
 
 ## Sheet
 
@@ -48,16 +79,18 @@ mocked at the module boundary.
 
 ## Viz
 
-| Component                                       | Reason                               |
-| ----------------------------------------------- | ------------------------------------ |
-| `CHART_PALETTE` (`chart-renderer.tsx`)          | Constant re-export, not a component. |
-| `describeExecutionError` (`analysis-panel.tsx`) | Utility function, not a component.   |
+| Component                                       | Reason                                                                                                               |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `CHART_PALETTE` (`chart-renderer.tsx`)          | Constant re-export, not a component.                                                                                 |
+| `describeExecutionError` (`analysis-panel.tsx`) | Utility function, not a component.                                                                                   |
+| `LARGE_PLATE_CELL_THRESHOLD` (`plate-map.tsx`)  | Constant, not a component. The compact and 96-well states it switches between are covered by `PlateMap.stories.tsx`. |
 
 ## Audit
 
-| Component                                                 | Reason                             |
-| --------------------------------------------------------- | ---------------------------------- |
-| `mapTimelineEvents`, `describeAuditEvent`, `auditLinkFor` | Utility functions, not components. |
+| Component                                                                                 | Reason                                                                                          |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `mapTimelineEvents`, `describeAuditEvent`, `auditLinkFor`                                 | Utility functions, not components.                                                              |
+| `AUDIT_OPERATION_ICONS`, `AUDIT_ENTITY_ICONS`, `AUDIT_DECISION_ICONS`, `AUDIT_TYPE_ICONS` | Icon maps, not components. The rows that use them are covered by `HistoryTimeline.stories.tsx`. |
 
 ## Scientific
 
@@ -84,6 +117,18 @@ stored-file read.
 ## Related work
 
 None. Both the pure list and the live panel have stories.
+
+## Story-level limits
+
+These are reachable states that a static fixture cannot show as a visual
+difference. They are recorded here so they are not mistaken for coverage.
+
+| Component                                                                            | Limit                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ScientificRecordLinker` (`scientific-record-linker.tsx`)                            | The rule-restricted tabs and the no-allowed-kind state only differ inside the open picker, and the picker's search reads need a backend. The at-rest stories keep their claims; `scientific-record-linker.test.tsx` covers the restricted tab set and the fallback tab. |
+| `CanonicalSheetEditor` (`canonical-sheet-workspace.tsx`)                             | `readOnly`, `NoProject` and `Archived` change whether cells accept an edit, not the rendered chrome, so their stories render the same toolbar and grid. The cell-level refusal is expressed through the grid's `readOnly` column settings.                              |
+| `CanonicalSheetLifecyclePanel` (`canonical-sheet-lifecycle-panel.tsx`)               | The panel is mounted by its host only when the instance is writable, so an archived variant is not a reachable state and has no story. Its per-instance differences need the definition reads, which the stories leave pending.                                         |
+| `NotebookTemplateUpgradeBanner`, `PromoteRejected`, `TagPills`, `ContributorAvatars` | The silent states are the contract: each returns `null` rather than rendering an empty container. Their stories name the silence so a reader can see the contract exercised.                                                                                            |
 
 ## Covered elsewhere (not a gap, not a skip)
 

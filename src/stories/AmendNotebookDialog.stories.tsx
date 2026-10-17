@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
@@ -6,7 +7,8 @@ import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog
 /**
  * Amending a locked notebook creates a new revision from the locked one, so
  * the note the dialog collects is what the amendment records. The write is
- * only sent on submit; the story records nothing.
+ * only sent on submit; the story records nothing. The dialog is a mutation
+ * caller, so it needs a client in context — the same one the router mounts.
  */
 const meta = {
   title: 'Notebook/Amend notebook dialog',
@@ -14,9 +16,15 @@ const meta = {
   tags: ['autodocs'],
   decorators: [
     (Story) => (
-      <div className="p-6">
-        <Story />
-      </div>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+        }
+      >
+        <div className="p-6">
+          <Story />
+        </div>
+      </QueryClientProvider>
     ),
   ],
   args: {

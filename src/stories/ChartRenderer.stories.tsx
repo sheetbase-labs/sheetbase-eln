@@ -1,20 +1,33 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { CHART_PALETTE } from '#/lib/chart-spec'
+import type { ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
 
-const spec: any = {
+/**
+ * The renderer takes a spec, the rows the spec was materialised against, and
+ * the optional frozen payload. Both fixtures are typed against those contracts
+ * rather than `any`: the renderer reads `spec.typeParams` for the bar and
+ * histogram parameters, so an untyped fixture fails at render instead of
+ * drawing a chart.
+ *
+ * The dataset is fictitious and stands for the rows a chart block carries; no
+ * read is issued.
+ */
+const spec = {
   specVersion: 1,
   type: 'line',
-  datasets: [{ tableId: 'table-1' }],
+  datasets: [{ datasetId: 'dataset-1' }],
   fields: {
-    x: { columnId: 'x', fieldName: 'time' },
-    y: { columnId: 'y', fieldName: 'od' },
-    series: { columnId: 's', fieldName: 'condition' },
+    x: { fieldId: 'x' },
+    y: { fieldId: 'y' },
+    series: { fieldId: 's' },
     color: null,
     size: null,
+    facet: null,
   },
   filters: [],
   transformations: [],
+  typeParams: {},
   display: {
     axes: {
       x: { label: 'Time', scale: 'linear', unit: 'h' },
@@ -24,17 +37,21 @@ const spec: any = {
     legend: { visible: true },
   },
   overlays: { errorBars: null },
-}
+} satisfies ChartSpec
 
-const materialised: any = {
+const materialised = {
   state: { kind: 'ok' },
-  columns: [],
+  columns: [
+    { id: 'x', label: 'Time', logicalType: 'number', unit: 'h' },
+    { id: 'y', label: 'OD₆₀₀', logicalType: 'number' },
+    { id: 's', label: 'Condition', logicalType: 'text' },
+  ],
   rows: [
-    { time: 0, od: 0.05 },
-    { time: 2, od: 0.12 },
-    { time: 4, od: 0.34 },
-    { time: 6, od: 0.68 },
-    { time: 8, od: 0.82 },
+    { x: 0, y: 0.05, s: '37 °C' },
+    { x: 2, y: 0.12, s: '37 °C' },
+    { x: 4, y: 0.34, s: '37 °C' },
+    { x: 6, y: 0.68, s: '37 °C' },
+    { x: 8, y: 0.82, s: '37 °C' },
   ],
   series: [
     {
@@ -53,7 +70,9 @@ const materialised: any = {
   xLabel: 'Time',
   yLabel: 'OD₆₀₀',
   xUnit: 'h',
-}
+  yUnit: undefined,
+  droppedPoints: 0,
+} satisfies MaterialisedChart
 
 const meta = {
   title: 'Visualization/Chart renderer',

@@ -127,9 +127,13 @@ export function RegistryGrid<T extends RowData>({
           // The registry table never wraps: a row is one line, and the scroll
           // area carries the overflow (the v3 table's own rule).
           base: 'w-full whitespace-nowrap',
-          // The v3 table's header band: muted across the full width.
+          // The v3 table's own geometry, so the swap is invisible: a 31px
+          // muted header band, 33px rows, 10px cell padding with the first
+          // cell inset to 24px.
           headerRow: 'bg-surface-muted',
-          header: 'text-fg-muted',
+          header:
+            'text-fg-muted [&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6',
+          body: '[&_td]:h-[33px] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6',
         }}
       >
         <DataGridScrollArea orientation="both">

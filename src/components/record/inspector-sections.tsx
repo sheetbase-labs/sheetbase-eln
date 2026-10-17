@@ -68,7 +68,6 @@ export interface FileItem {
   href?: string
 }
 
-
 /**
  * Resolve a row's type: the file name first, because a stored MIME type of
  * `application/octet-stream` says nothing about a name that ends `.xlsx`; the

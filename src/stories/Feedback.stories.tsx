@@ -3,12 +3,7 @@ import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Progress } from '#/components/v3/ui/progress'
 import { Spinner } from '#/components/v3/ui/spinner'
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-  Skeleton,
-} from '#/components/ui'
+import { Alert, AlertDescription, AlertTitle, Skeleton } from '#/components/ui'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 
 const meta = { title: 'UI/Feedback', tags: ['autodocs'] } satisfies Meta

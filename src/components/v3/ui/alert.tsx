@@ -33,7 +33,7 @@ export function Notice({
   children,
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> &
+}: Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> &
   VariantProps<typeof noticeVariants> & {
     icon?: IconName | false
     action?: React.ReactNode
@@ -92,7 +92,7 @@ export function Banner({
   children,
   className,
   ...props
-}: React.HTMLAttributes<HTMLDivElement> &
+}: Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> &
   VariantProps<typeof bannerVariants> & {
     icon?: IconName
     action?: React.ReactNode

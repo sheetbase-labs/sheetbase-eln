@@ -296,11 +296,7 @@ function SampleLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/samples" className="text-link">
-              Samples
-            </Link>
-          }
+          trail={[{ label: 'Samples', link: { to: '/samples' } }]}
           title={query.isLoading ? 'Loading sample…' : 'Sample not found'}
         />
       </div>
@@ -369,14 +365,10 @@ function SampleLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
           className="px-4 md:px-8"
-          crumbs={
-            <>
-              <Link to="/samples" className="text-link">
-                Samples
-              </Link>{' '}
-              / <span className="mono">{sample.identifier}</span>
-            </>
-          }
+          trail={[
+            { label: 'Samples', link: { to: '/samples' } },
+            { label: sample.identifier, mono: true },
+          ]}
           title={sample.title}
           meta={
             <>

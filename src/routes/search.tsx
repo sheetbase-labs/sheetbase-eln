@@ -3,6 +3,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { LoadMore } from '#/components/v3/ui/load-more'
 import { Notice } from '#/components/v3/ui/alert'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
@@ -435,16 +436,13 @@ function SearchPage() {
               )
             })}
 
-            {query.hasNextPage ? (
-              <div className="mt-4">
-                <Button
-                  onClick={() => void query.fetchNextPage()}
-                  disabled={query.isFetchingNextPage}
-                >
-                  {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
-                </Button>
-              </div>
-            ) : null}
+            <LoadMore
+              label="Search results"
+              className="mt-4"
+              hasMore={query.hasNextPage}
+              loading={query.isFetchingNextPage}
+              onLoadMore={() => void query.fetchNextPage()}
+            />
           </>
         )}
       </div>

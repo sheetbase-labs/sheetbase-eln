@@ -242,11 +242,7 @@ function InstrumentPage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/instruments" className="text-link">
-              Instruments
-            </Link>
-          }
+          trail={[{ label: 'Instruments', link: { to: '/instruments' } }]}
           title={
             instrument.isLoading
               ? 'Loading instrument…'
@@ -288,14 +284,10 @@ function InstrumentPage() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/instruments" className="text-link">
-              Instruments
-            </Link>{' '}
-            / <span className="mono">{i.displayId ?? i.id.slice(0, 8)}</span>
-          </>
-        }
+        trail={[
+          { label: 'Instruments', link: { to: '/instruments' } },
+          { label: i.displayId ?? i.id.slice(0, 8), mono: true },
+        ]}
         title={i.name}
         meta={
           <>

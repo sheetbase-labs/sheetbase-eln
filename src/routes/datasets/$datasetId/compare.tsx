@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+import { LoadMore } from '#/components/v3/ui/load-more'
 import { Diff } from '#/components/v3/ui/source'
 import { Muted } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
@@ -369,18 +369,15 @@ function Compare() {
         <Muted>No differences between these snapshots.</Muted>
       )}
 
-      {diff.hasNextPage ? (
-        <div>
-          <Button
-            onClick={() => void diff.fetchNextPage()}
-            disabled={diff.isFetchingNextPage}
-          >
-            {diff.isFetchingNextPage
-              ? 'Loading…'
-              : `Load more (${Math.max(totalChanges - entries.length, 0)} left)`}
-          </Button>
-        </div>
-      ) : null}
+      <LoadMore
+        label="Comparison changes"
+        loaded={entries.length}
+        total={totalChanges}
+        noun="changes"
+        hasMore={diff.hasNextPage}
+        loading={diff.isFetchingNextPage}
+        onLoadMore={() => void diff.fetchNextPage()}
+      />
 
       <Muted>
         Comparing {describeVersion(from)} with {describeVersion(to)}. Rows are

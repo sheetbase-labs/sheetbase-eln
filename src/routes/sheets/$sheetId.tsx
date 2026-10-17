@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 
+import type { Crumb } from '#/components/v3/ui/breadcrumb'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { CopyButton } from '#/components/v3/ui/copy-button'
 import {
@@ -90,38 +91,33 @@ export function ComposedSheetRoute() {
     ? safeBuildRoomId(context.workspace?.id, 'sheet', sheetId)
     : null
 
+  // The sheet's location: its project and the record that owns it, when it has
+  // them, then the sheet itself.
+  const trail: Crumb[] = []
+  if (instanceProjectId) {
+    trail.push({
+      label: projectQuery.data?.title ?? 'Project',
+      link: {
+        to: '/projects/$projectId',
+        params: { projectId: instanceProjectId },
+      },
+    })
+  }
+  if (owningRecordId && owningRecordQuery.data) {
+    trail.push({
+      label: owningRecordQuery.data.title,
+      link: {
+        to: '/records/$recordId/notebook',
+        params: { recordId: owningRecordId },
+      },
+    })
+  }
+  trail.push({ label: 'Sheet', mono: true })
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            {instanceProjectId ? (
-              <>
-                <Link
-                  to="/projects/$projectId"
-                  params={{ projectId: instanceProjectId }}
-                  className="text-link"
-                >
-                  {projectQuery.data?.title ?? 'Project'}
-                </Link>{' '}
-                /{' '}
-              </>
-            ) : null}
-            {owningRecordId && owningRecordQuery.data ? (
-              <>
-                <Link
-                  to="/records/$recordId/notebook"
-                  params={{ recordId: owningRecordId }}
-                  className="text-link"
-                >
-                  {owningRecordQuery.data.title}
-                </Link>{' '}
-                /{' '}
-              </>
-            ) : null}
-            <span className="mono">Sheet</span>
-          </>
-        }
+        trail={trail}
         title={instance?.name ?? 'Sheet'}
         meta={
           <>

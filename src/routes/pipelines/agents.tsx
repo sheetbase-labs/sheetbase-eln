@@ -283,7 +283,7 @@ function AgentsRoute() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs="Agents"
+        trail={[{ label: 'Agents' }]}
         title="Agents"
         meta={
           <>

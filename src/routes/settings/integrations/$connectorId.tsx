@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { Icon } from '#/components/icons'
 import { PageHeader, Section } from '#/components/v3/ui/layout'
@@ -73,11 +73,9 @@ function ConnectorDetailRoute() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/settings/integrations" className="text-link">
-              Integrations
-            </Link>
-          }
+          trail={[
+            { label: 'Integrations', link: { to: '/settings/integrations' } },
+          ]}
           title="Connector"
         />
         {connectorQuery.error instanceof Error ? (
@@ -95,14 +93,10 @@ function ConnectorDetailRoute() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/settings/integrations" className="text-link">
-              Integrations
-            </Link>{' '}
-            / <span className="mono">{connector.key}</span>
-          </>
-        }
+        trail={[
+          { label: 'Integrations', link: { to: '/settings/integrations' } },
+          { label: connector.key, mono: true },
+        ]}
         title={connector.name}
         meta={
           <>

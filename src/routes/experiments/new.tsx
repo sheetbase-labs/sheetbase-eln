@@ -295,14 +295,10 @@ function NewExperiment() {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/experiments" className="text-link">
-              Experiments
-            </Link>{' '}
-            / New
-          </>
-        }
+        trail={[
+          { label: 'Experiments', link: { to: '/experiments' } },
+          { label: 'New' },
+        ]}
         title="New experiment"
       />
       <form

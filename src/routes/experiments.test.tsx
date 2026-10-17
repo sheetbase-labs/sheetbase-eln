@@ -165,7 +165,16 @@ describe('experiments header reflows at 400 % zoom (QA4-zoom-experiments)', () =
     const row = (await screen.findByText('Experiments', { selector: 'h1' }))
       .parentElement
     expect(row).not.toBeNull()
-    expect(row!.className).toContain('max-md:flex-wrap')
-    expect(row!.contains(screen.getByText('New experiment'))).toBe(true)
+    // The header is `ListHeader` now, so the wrap is the header's guarantee:
+    // the row wraps, and below `md` the actions take a line of their own
+    // rather than being pushed past the column edge.
+    expect(row!.className).toContain('flex-wrap')
+    const actions = row!.parentElement!.querySelector(
+      '[class*="max-md:w-full"]',
+    )
+    expect(actions).not.toBeNull()
+    expect(
+      row!.parentElement!.contains(screen.getByText('New experiment')),
+    ).toBe(true)
   })
 })

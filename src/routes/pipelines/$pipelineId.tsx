@@ -1,5 +1,4 @@
 import {
-  Link,
   Outlet,
   createFileRoute,
   redirect,
@@ -113,11 +112,7 @@ function PipelineLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/pipelines" className="text-link">
-              Pipelines
-            </Link>
-          }
+          trail={[{ label: 'Pipelines', link: { to: '/pipelines' } }]}
           title={
             definition.isLoading ? 'Loading pipeline…' : 'Pipeline not found'
           }
@@ -129,14 +124,10 @@ function PipelineLayout() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/pipelines" className="text-link">
-              Pipelines
-            </Link>{' '}
-            / <span className="mono">{d.key}</span>
-          </>
-        }
+        trail={[
+          { label: 'Pipelines', link: { to: '/pipelines' } },
+          { label: d.key, mono: true },
+        ]}
         title={d.name}
         meta={
           <>

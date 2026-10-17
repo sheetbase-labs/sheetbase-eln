@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
   useInfiniteQuery,
@@ -6,7 +6,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query'
 
-import { Button } from '#/components/v3/ui/button'
+import { LoadMore } from '#/components/v3/ui/load-more'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -30,6 +30,7 @@ import {
   flagKey,
 } from '#/lib/dataset-flags'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
 import { cn } from '#/lib/utils'
 import { useDatasetVersions } from '../$datasetId'
 
@@ -58,10 +59,6 @@ const UUID_RE =
  * grid asks for one window at a time and extends it through the visible
  * "Load more" control instead of stopping at a fixed first page. */
 const ROWS_PAGE_SIZE = 100
-
-/** How long the search box waits after the last keystroke before it reports the
- * query to the route. The shared registry toolbar settles the same way. */
-const SEARCH_SETTLE_MS = 200
 
 /** UI port (roadmap-4/ui-app3): the dataset Rows grid, wired to
  * query_dataset_version_rows + schema fields, with selected-value actions for
@@ -92,40 +89,20 @@ function Rows() {
   const navigate = Route.useNavigate()
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
-  // The box holds what was typed and reports a settled value to the route.
-  // Rendering it straight from `search.q` lost characters: every keystroke
-  // navigated, and a re-render with the still-stale param wrote an older value
-  // back into the field before the router had caught up.
-  const [query, setQuery] = useState(search.q ?? '')
-  // The last value this box handed to the route, so a `q` that arrives from
-  // somewhere else (a deep link, "Load more" with a new snapshot) can be told
-  // apart from the echo of our own search and adopted without clobbering
-  // pending typing.
-  const sentQuery = useRef(search.q ?? '')
-  const searchTimer = useRef<number | null>(null)
-  useEffect(() => {
-    const next = search.q ?? ''
-    if (next === sentQuery.current) return
-    clearTimeout(searchTimer.current ?? undefined)
-    searchTimer.current = null
-    sentQuery.current = next
-    setQuery(next)
-  }, [search.q])
-  useEffect(() => () => clearTimeout(searchTimer.current ?? undefined), [])
-  const searchRows = (next: string) => {
-    setQuery(next)
-    clearTimeout(searchTimer.current ?? undefined)
-    searchTimer.current = window.setTimeout(() => {
-      searchTimer.current = null
-      sentQuery.current = next
+  // The box holds what was typed and reports the settled value to the route —
+  // the two-nature rule (adopt a change made elsewhere, drop pending typing)
+  // lives in the hook, twice over in this screen's history.
+  const { value: query, setValue: searchRows } = useSettledValue(
+    search.q ?? '',
+    SEARCH_SETTLE_MS,
+    (next) =>
       void navigate({
         to: '/datasets/$datasetId/rows',
         params: { datasetId },
         search: (s) => ({ ...s, q: next || undefined }),
         replace: true,
-      })
-    }, SEARCH_SETTLE_MS)
-  }
+      }),
+  )
   const versions = useDatasetVersions(datasetId)
   const version =
     (versions.data ?? []).find((v) => v.id === search.snapshot) ??
@@ -357,26 +334,16 @@ function Rows() {
                 : ''}
             </span>
             {rowsQuery.hasNextPage ? (
-              <>
-                <span className="font-sans">
-                  Search and the flagged filter look at the rows loaded so far.
-                </span>
-                <div>
-                  <Button
-                    size="sm"
-                    onClick={() => void rowsQuery.fetchNextPage()}
-                    disabled={rowsQuery.isFetchingNextPage}
-                  >
-                    {rowsQuery.isFetchingNextPage
-                      ? 'Loading…'
-                      : `Load more (${Math.max(
-                          (payload?.totalCount ?? 0) - rows.length,
-                          0,
-                        )} left)`}
-                  </Button>
-                </div>
-              </>
+              <span className="font-sans">
+                Search and the flagged filter look at the rows loaded so far.
+              </span>
             ) : null}
+            <LoadMore
+              label="More dataset rows"
+              hasMore={rowsQuery.hasNextPage}
+              loading={rowsQuery.isFetchingNextPage}
+              onLoadMore={() => void rowsQuery.fetchNextPage()}
+            />
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
@@ -414,11 +414,7 @@ function ModelEditor() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/models" className="text-link">
-              Models
-            </Link>
-          }
+          trail={[{ label: 'Models', link: { to: '/models' } }]}
           title={definition.isLoading ? 'Loading model…' : 'Model not found'}
         />
       </div>
@@ -431,22 +427,14 @@ function ModelEditor() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
-          crumbs={
-            <>
-              <Link to="/models" className="text-link">
-                Models
-              </Link>{' '}
-              /{' '}
-              <Link
-                to="/models/$modelId"
-                params={{ modelId }}
-                className="text-link"
-              >
-                {model.name}
-              </Link>{' '}
-              / Draft
-            </>
-          }
+          trail={[
+            { label: 'Models', link: { to: '/models' } },
+            {
+              label: model.name,
+              link: { to: '/models/$modelId', params: { modelId } },
+            },
+            { label: 'Draft' },
+          ]}
           title={`Edit ${model.name}`}
           meta={
             <>

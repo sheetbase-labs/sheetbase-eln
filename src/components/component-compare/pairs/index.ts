@@ -16,6 +16,10 @@ import { spinnerPair } from '#/components/component-compare/pairs/spinner'
 import { progressPair } from '#/components/component-compare/pairs/progress'
 import { collapsiblePair } from '#/components/component-compare/pairs/collapsible'
 import { payloadBlockPair } from '#/components/component-compare/pairs/payload-block'
+import { pagingAListPair } from '#/components/component-compare/pairs/paging-a-list'
+import { loadMoreControlPair } from '#/components/component-compare/pairs/load-more-control'
+import { listHeaderPair } from '#/components/component-compare/pairs/list-header'
+import { breadcrumbTrailPair } from '#/components/component-compare/pairs/breadcrumb-trail'
 
 /**
  * The registered comparison pairs, in the order the harness lists them.
@@ -25,16 +29,19 @@ import { payloadBlockPair } from '#/components/component-compare/pairs/payload-b
  * classes they have; the checklist items for absent controls are recorded as
  * not applicable rather than left blank.
  *
- * Pairs 2–5 are the small primitives batch. Their `theirs` column is an
- * in-house v3 component rather than a registry item, because the pinned
- * base-nova registry has no item for three of the four jobs (`spinner`,
- * `progress`, `collapsible` and `accordion` are stock shadcn, and 404 there),
- * and a bare-name install writes into the legacy Radix kit ADR-0055 decision 1
- * refuses to extend. The fourth, `@reui/code-block`, does exist and was
- * measured; the record carries the numbers and the decline. What every one of
- * these rows decides is the componentisation itself — one component against
- * four to six spellings — and the measurement is a real before/after on the
- * same fixtures.
+ * The first entry is the harness's default, which the browser spec
+ * (`tests/browser/component-compare.test.ts`) drives through its generic
+ * checks, so it stays the notebook's reorderable list.
+ *
+ * Several pairs' `theirs` column is an in-house v3 component rather than a
+ * registry item, because the pinned base-nova registry has no item for the job
+ * (`spinner`, `progress`, `collapsible`, `accordion`, `pagination`, `tabs`,
+ * `toggle-group`, `select`, `breadcrumb` and `empty` are stock shadcn and 404
+ * there), and a bare-name install writes into the legacy Radix kit ADR-0055
+ * decision 1 refuses to extend. `@reui/code-block` does exist and was measured;
+ * the record carries the numbers and the decline. What those rows decide is the
+ * componentisation itself — one component against several spellings — and the
+ * measurement is a real before/after on the same fixtures.
  */
 export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   notebookSortablePair,
@@ -54,4 +61,8 @@ export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   avatarInitialsPair,
   noticeBannerPair,
   fileTypePair,
+  pagingAListPair,
+  loadMoreControlPair,
+  listHeaderPair,
+  breadcrumbTrailPair,
 ])

@@ -184,7 +184,14 @@ describe('audit log grid', () => {
       )
     renderAudit()
     await screen.findByText('2026-10-01 09:00:00')
-    expect(screen.getByText('Scroll for older entries')).toBeTruthy()
+    // The tail is the shared control now: a landmark and a real button, so the
+    // rest of the log is reachable without scrolling — which is the only way it
+    // was reachable before.
+    const tail = screen.getByRole('navigation', {
+      name: 'Older audit entries',
+    })
+    expect(tail).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Load more' })).toBeTruthy()
     expect(screen.queryByText('2026-09-01 09:00:00')).toBeNull()
 
     fireEvent.scroll(scrollPane())

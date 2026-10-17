@@ -143,11 +143,7 @@ function RunPage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/pipelines" className="text-link">
-              Pipelines
-            </Link>
-          }
+          trail={[{ label: 'Pipelines', link: { to: '/pipelines' } }]}
           title={run.isLoading ? 'Loading run…' : 'Run not found'}
         />
       </div>
@@ -158,22 +154,17 @@ function RunPage() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/pipelines" className="text-link">
-              Pipelines
-            </Link>{' '}
-            /{' '}
-            <Link
-              to="/pipelines/$pipelineId/runs"
-              params={{ pipelineId }}
-              className="text-link"
-            >
-              Runs
-            </Link>{' '}
-            / <span className="mono">{r.id.slice(0, 8)}</span>
-          </>
-        }
+        trail={[
+          { label: 'Pipelines', link: { to: '/pipelines' } },
+          {
+            label: 'Runs',
+            link: {
+              to: '/pipelines/$pipelineId/runs',
+              params: { pipelineId },
+            },
+          },
+          { label: r.id.slice(0, 8), mono: true },
+        ]}
         title={`Run ${r.id.slice(0, 8)}${version ? ` · v${version.version}` : ''}`}
         meta={
           <>

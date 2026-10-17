@@ -13,6 +13,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { LoadMore } from '#/components/v3/ui/load-more'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
@@ -433,21 +434,17 @@ function S3SourcePanel({
           >
             List objects
           </Button>
-          {continuationToken && (
-            <Button
-              size="sm"
-              variant="quiet"
-              disabled={discoverMutation.isPending}
-              onClick={() => discoverMutation.mutate(continuationToken)}
-            >
-              Load more
-            </Button>
-          )}
-          {discoverMutation.error instanceof Error && (
-            <span role="alert" className="text-label text-danger-text">
-              {discoverMutation.error.message}
-            </span>
-          )}
+          <LoadMore
+            label="Object storage objects"
+            hasMore={Boolean(continuationToken)}
+            loading={discoverMutation.isPending}
+            error={
+              discoverMutation.error instanceof Error
+                ? discoverMutation.error.message
+                : undefined
+            }
+            onLoadMore={() => discoverMutation.mutate(continuationToken)}
+          />
         </div>
 
         {objects.length > 0 && (

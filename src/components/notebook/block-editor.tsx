@@ -85,7 +85,8 @@ import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
 import { OpenLink } from './block-preview'
 import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
-import { formatBytes, validateFileForUpload } from '#/lib/file-attach'
+import { validateFileForUpload } from '#/lib/file-attach'
+import { formatFileSize } from '#/lib/format-numbers'
 import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
 import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type { AnalysisBlockPayload } from '#/lib/analysis-block'
@@ -1883,7 +1884,7 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
           <div className="min-w-0 space-y-0.5">
             <p className="truncate text-sm font-medium">{name}</p>
             <p className="font-mono text-xs text-fg-muted tabular-nums">
-              {mediaType || 'unknown'} · {formatBytes(byteSize)}
+              {mediaType || 'unknown'} · {formatFileSize(byteSize)}
             </p>
           </div>
           <Badge variant="add" className="ml-auto shrink-0">
@@ -1908,7 +1909,7 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
       hint={
         <>
           CSV, text, JSON, PDF, images &amp; Office formats · up to{' '}
-          {formatBytes(FILE_MAX_BYTES)}
+          {formatFileSize(FILE_MAX_BYTES)}
         </>
       }
       validate={validateFileForUpload}

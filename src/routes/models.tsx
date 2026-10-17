@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { RowSelectionState } from '@tanstack/react-table'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Link,
@@ -19,21 +20,16 @@ import {
   Muted,
 } from '#/components/v3/ui/layout'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
-import {
   ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
+import {
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
 import {
   modelStatus,
@@ -189,6 +185,102 @@ function ModelsList() {
   const sel =
     visible.find((m) => m.id === (selected ?? search.selected)) ?? visible.at(0)
 
+  const columns = useMemo<RegistryColumn<ModelRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        cell: ({ row }) => (
+          <span className="mono">{row.original.display_id ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'key',
+        header: 'Key',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => <span className="mono">{row.original.key}</span>,
+      },
+      {
+        id: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <Link
+            to="/models/$modelId"
+            params={{ modelId: row.original.id }}
+            onClick={(event) => event.stopPropagation()}
+            className={row.getIsSelected() ? 'font-medium' : undefined}
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      {
+        id: 'version',
+        header: 'Version',
+        meta: rightAligned<ModelRow>().meta,
+        cell: ({ row }) => modelVersionLabel(row.original),
+      },
+      {
+        id: 'fields',
+        header: 'Fields',
+        accessorFn: (m) => m.fieldCount,
+        meta: rightAligned<ModelRow>().meta,
+      },
+      {
+        id: 'datasets',
+        header: 'Datasets',
+        meta: rightAligned<ModelRow>().meta,
+        cell: ({ row }) => (
+          <span
+            className={
+              row.original.datasetCount === 0 ? 'text-fg-muted' : undefined
+            }
+          >
+            {row.original.datasetCount}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => {
+          const status = modelStatus(row.original.lifecycle)
+          return <Status tone={status.tone}>{status.label}</Status>
+        },
+      },
+      {
+        id: 'owner',
+        header: 'Owner',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => ownerName(row.original.created_by_user_id),
+      },
+      {
+        id: 'updated',
+        header: 'Updated',
+        meta: {
+          ...rightAligned<ModelRow>().meta,
+          cellClassName: 'text-right text-fg-muted',
+        },
+        cell: ({ row }) => row.original.updated_at.slice(0, 10),
+      },
+    ],
+    [members.data],
+  )
+
+  const rowSelection = useMemo<RowSelectionState>(
+    () => (sel ? { [sel.id]: true } : {}),
+    [sel],
+  )
+
+  // The screen selects one row for the inspector, so the grid's checkbox state
+  // is derived from the selection rather than kept beside it.
+  const setRowSelection = (
+    next: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState),
+  ) => {
+    const value = typeof next === 'function' ? next(rowSelection) : next
+    setSelected(Object.keys(value)[0] ?? null)
+  }
+
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -242,71 +334,17 @@ function ModelsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table aria-label="Models" className="max-lg:hidden">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={stickyHead}>ID</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead align="right">Version</TableHead>
-                <TableHead align="right">Fields</TableHead>
-                <TableHead align="right">Datasets</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead align="right">Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((m) => {
-                const status = modelStatus(m.lifecycle)
-                return (
-                  <TableRow
-                    key={m.id}
-                    selected={m.id === sel?.id}
-                    className="cursor-pointer"
-                    onClick={() => setSelected(m.id)}
-                  >
-                    <TableCell className={stickyCell}>
-                      <span className="mono">{m.display_id ?? '—'}</span>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      <span className="mono">{m.key}</span>
-                    </TableCell>
-                    <TableCell
-                      className={m.id === sel?.id ? 'font-medium' : undefined}
-                    >
-                      <Link
-                        to="/models/$modelId"
-                        params={{ modelId: m.id }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {m.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell align="right">{modelVersionLabel(m)}</TableCell>
-                    <TableCell align="right">{m.fieldCount}</TableCell>
-                    <TableCell
-                      align="right"
-                      className={
-                        m.datasetCount === 0 ? 'text-fg-muted' : undefined
-                      }
-                    >
-                      {m.datasetCount}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={status.tone}>{status.label}</Status>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {ownerName(m.created_by_user_id)}
-                    </TableCell>
-                    <TableCell align="right" className="text-fg-muted">
-                      {m.updated_at.slice(0, 10)}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          {query.isLoading || visible.length > 0 ? (
+            <RegistryGrid
+              label="Models"
+              rows={visible}
+              columns={columns}
+              getRowId={(m) => m.id}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+              isLoading={query.isLoading}
+            />
+          ) : null}
           <MobileList
             label="Models"
             items={visible.map((m) => {

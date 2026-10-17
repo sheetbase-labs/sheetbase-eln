@@ -259,7 +259,10 @@ export function RegistryGrid<T extends RowData>({
           onRowSelectionChange?.({ [getRowId(row)]: true })
           onRowClick?.(row)
         }}
-        tableLayout={{ width: 'auto', headerSticky: true }}
+        // The rows scroll inside the grid, so a sticky header would hold the
+        // band at the top of the list area while scrolling — a behaviour the
+        // tables it replaces never had. The header scrolls with the rows.
+        tableLayout={{ width: 'auto', headerSticky: false }}
         tableClassNames={{
           // The registry table never wraps: a row is one line, and the scroll
           // area carries the overflow (the v3 table's own rule).

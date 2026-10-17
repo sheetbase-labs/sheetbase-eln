@@ -713,7 +713,12 @@ Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `registry-ours-light.png`,
   `pr-6!`, because a plain `pr-6` loses to the component's own cell rules. The
   grid's scroll container also has to be stretched by the screen
   (`[&>*]:flex-1`), or a short list leaves the horizontal scrollbar floating
-  under its last row instead of at the list area's edge.
+  under its last row instead of at the list area's edge. That stretch also gave
+  the rows their own vertical scroll inside the grid, which is what engages the
+  item's sticky header — the tables these screens replace scrolled the header
+  away with the rows, so `headerSticky` is off. Measured on `/samples`: the
+  header moves 172 → -28 at scrollTop 200 in both the pre-swap build and this
+  one, over the same 292px of overflow.
 - **C7 — the column widths, the header type and the numerals are the table's,
   not the grid's.** Measured on the migrated screens: the grid's defaults put a
   13px `text-fg` header in a 40px band over 37px rows with 12px cell padding,

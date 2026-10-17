@@ -143,6 +143,7 @@ export function ProtocolsRegistryGrid({
 
   return (
     <RegistryGrid
+      className="max-md:hidden"
       label="Protocols"
       rows={rows}
       columns={columns}

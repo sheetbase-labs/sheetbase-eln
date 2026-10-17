@@ -565,6 +565,7 @@ function InstrumentsList() {
                 })}
               />
               <RegistryGrid
+                className="max-md:hidden"
                 label="Instruments"
                 rows={visible}
                 columns={columns}

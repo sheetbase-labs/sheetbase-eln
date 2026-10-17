@@ -277,6 +277,7 @@ function SamplesList() {
         />
         <div className="min-h-0 flex-1 overflow-auto">
           <RegistryGrid
+            className="max-md:hidden"
             label="Samples"
             rows={visible}
             columns={columns}

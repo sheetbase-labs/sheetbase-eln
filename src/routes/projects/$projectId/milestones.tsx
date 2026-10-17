@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   useMutation,
@@ -16,13 +16,14 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import { Muted } from '#/components/v3/ui/layout'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  bandRow,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type {
+  RegistryColumn,
+  RegistryRow,
+} from '#/components/v3/inventory/registry-grid'
 import {
   Dialog,
   DialogBody,
@@ -297,6 +298,97 @@ function Milestones() {
   const selected: StudyTask | undefined =
     milestones.find((t) => t.id === m) ?? clientDates.at(0) ?? milestones.at(0)
   const selectedRisk = selected ? riskByTask.get(selected.id) : undefined
+
+  // One grid row per task, with a band before each group — the grouped table the
+  // bespoke body drew with a spanning strip cell.
+  const gridRows: RegistryRow<StudyTask>[] = bands.flatMap((band) => [
+    // The band keeps the bespoke strip's own label: name, then its count.
+    bandRow(`${band.name} · ${band.milestones.length}`),
+    ...band.milestones.flatMap((planMilestone) => {
+      const task = milestones.find((t) => t.id === planMilestone.id)
+      return task ? [task] : []
+    }),
+  ])
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    selected?.id ?? null,
+    (id) =>
+      void navigate({
+        to: '/projects/$projectId/milestones',
+        params: { projectId },
+        search: (prev: Record<string, unknown>) => ({
+          ...prev,
+          m: id ?? undefined,
+        }),
+        replace: true,
+      }),
+  )
+  const milestoneColumns: RegistryColumn<StudyTask>[] = [
+    {
+      id: 'milestone',
+      header: () => <span className="-ml-3">Milestone</span>,
+      // The bespoke table inset this column to 12px. The grid positions a
+      // grouped band's label from the cell's own inset, so the cell keeps the
+      // 24px inset the grid gives it and the *content* carries the 12px, which
+      // leaves the band label inside the card and the column widths unchanged.
+      cell: ({ row }) => (
+        <span className="-ml-3 font-medium">{row.original.title}</span>
+      ),
+    },
+    {
+      id: 'due',
+      header: 'Due',
+      cell: ({ row }) => {
+        const risk = riskByTask.get(row.original.id)
+        return (
+          <span
+            className={cn(
+              'text-fg-muted',
+              risk?.risk === 'late' && 'text-danger-text',
+            )}
+          >
+            {row.original.dueAt ? row.original.dueAt.slice(0, 10) : '—'}
+            {risk?.late && row.original.dueAt
+              ? ` · ${relativeDay(row.original.dueAt)}`
+              : ''}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const status = milestoneStatus(row.original)
+        return <Status tone={status.tone}>{status.label}</Status>
+      },
+    },
+    {
+      id: 'doneWhen',
+      header: 'Done when',
+      cell: ({ row }) => {
+        const items = deliverablesFor(row.original.id)
+        const met = items.filter((d) => d.status === 'delivered').length
+        return (
+          <span className="text-fg-muted">
+            {items.length ? `${met} of ${items.length} met` : 'No conditions'}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'visibility',
+      header: clientLabel,
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.clientVisible
+            ? `Visible since ${row.original.sharedSince?.slice(0, 10) ?? '—'}`
+            : 'Internal'}
+        </span>
+      ),
+      meta: { headerClassName: 'pr-3!', cellClassName: 'pr-3! text-fg-muted' },
+    },
+  ]
+
   const dueChanges = useQuery({
     queryKey: ['ui-port', 'milestones', 'due-changes', selected?.id ?? ''],
     queryFn: () =>
@@ -528,16 +620,17 @@ function Milestones() {
           <EmptyState
             icon="calendar"
             title="No milestones yet"
-            body="Milestones are what this project has promised. Each names the records that prove it’s done, so progress comes from delivered evidence."
-          >
-            <Button
-              variant="primary"
-              disabled={denied}
-              onClick={() => setAddOpen(true)}
-            >
-              Add a milestone
-            </Button>
-          </EmptyState>
+            description="Milestones are what this project has promised. Each names the records that prove it’s done, so progress comes from delivered evidence."
+            action={
+              <Button
+                variant="primary"
+                disabled={denied}
+                onClick={() => setAddOpen(true)}
+              >
+                Add a milestone
+              </Button>
+            }
+          />
           {templateSection}
         </div>
         {addOpen ? (
@@ -637,89 +730,15 @@ function Milestones() {
           />
 
           <div className="overflow-x-auto rounded-md border border-border">
-            <Table aria-label="Milestones">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="first:pl-3">Milestone</TableHead>
-                  <TableHead>Due</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Done when</TableHead>
-                  <TableHead className="pr-3">{clientLabel}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bands.map((band) => (
-                  <Fragment key={`band-${band.id}`}>
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="bg-surface-muted text-label font-medium text-fg-muted"
-                      >
-                        {band.name} · {band.milestones.length}
-                      </TableCell>
-                    </TableRow>
-                    {band.milestones.map((planMilestone) => {
-                      const task = milestones.find(
-                        (t) => t.id === planMilestone.id,
-                      )
-                      if (!task) return null
-                      const items = deliverablesFor(task.id)
-                      const met = items.filter(
-                        (d) => d.status === 'delivered',
-                      ).length
-                      const status = milestoneStatus(task)
-                      const risk = riskByTask.get(task.id)
-                      return (
-                        <TableRow
-                          key={task.id}
-                          selected={task.id === selected.id}
-                          className="cursor-pointer"
-                          onClick={() =>
-                            void navigate({
-                              to: '/projects/$projectId/milestones',
-                              params: { projectId },
-                              search: (prev: Record<string, unknown>) => ({
-                                ...prev,
-                                m: task.id,
-                              }),
-                              replace: true,
-                            })
-                          }
-                        >
-                          <TableCell className="first:pl-3 font-medium">
-                            {task.title}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              'text-fg-muted',
-                              risk?.risk === 'late' && 'text-danger-text',
-                            )}
-                          >
-                            {task.dueAt ? task.dueAt.slice(0, 10) : '—'}
-                            {risk?.late && task.dueAt
-                              ? ` · ${relativeDay(task.dueAt)}`
-                              : ''}
-                          </TableCell>
-                          <TableCell>
-                            <Status tone={status.tone}>{status.label}</Status>
-                          </TableCell>
-                          <TableCell className="text-fg-muted">
-                            {items.length
-                              ? `${met} of ${items.length} met`
-                              : 'No conditions'}
-                          </TableCell>
-                          <TableCell className="pr-3 text-fg-muted">
-                            {task.clientVisible
-                              ? `Visible since ${task.sharedSince?.slice(0, 10) ?? '—'}`
-                              : 'Internal'}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </Fragment>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Milestones"
+              rows={gridRows}
+              columns={milestoneColumns}
+              getRowId={(task) => task.id}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              selectable={false}
+            />
           </div>
           <Muted className="mt-3">
             A milestone only counts as done once its linked records are
@@ -970,6 +989,37 @@ function StartFromTemplateDialog({
     due.setDate(due.getDate() + offset)
     return due.toISOString().slice(0, 10)
   }
+  const previewColumns: RegistryColumn<
+    NonNullable<typeof source>['milestones'][number]
+  >[] = [
+    {
+      id: 'milestone',
+      header: 'Milestone',
+      cell: ({ row }) => row.original.title,
+      meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
+    },
+    {
+      id: 'due',
+      header: 'Due',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">{previewDue(row.original.dueAt)}</span>
+      ),
+    },
+    {
+      id: 'visibility',
+      header: 'Visibility',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.clientVisible ? 'Visible' : 'Internal'}
+        </span>
+      ),
+      meta: {
+        headerClassName: 'pr-3!',
+        cellClassName: 'pr-3! text-fg-muted',
+      },
+    },
+  ]
+
   return (
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
@@ -1000,30 +1050,13 @@ function StartFromTemplateDialog({
           </Field>
           {source ? (
             <div className="overflow-hidden rounded-md border border-border">
-              <Table aria-label="Template preview">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="first:pl-3">Milestone</TableHead>
-                    <TableHead>Due</TableHead>
-                    <TableHead className="pr-3">Visibility</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {source.milestones.map((milestone) => (
-                    <TableRow key={milestone.id}>
-                      <TableCell className="first:pl-3">
-                        {milestone.title}
-                      </TableCell>
-                      <TableCell className="text-fg-muted">
-                        {previewDue(milestone.dueAt)}
-                      </TableCell>
-                      <TableCell className="pr-3 text-fg-muted">
-                        {milestone.clientVisible ? 'Visible' : 'Internal'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Template preview"
+                rows={source.milestones}
+                columns={previewColumns}
+                getRowId={(milestone) => milestone.id}
+                selectable={false}
+              />
             </div>
           ) : null}
         </DialogBody>

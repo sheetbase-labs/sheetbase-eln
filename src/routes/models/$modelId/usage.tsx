@@ -3,15 +3,12 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted, Section } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { fetchModelFieldsWithUsage } from '#/lib/model-fields'
 import {
   countActionableModelImpact,
@@ -39,7 +36,7 @@ function ModelUsage() {
         <EmptyState
           icon="schema"
           title="Usage applies to record models"
-          body="This is a dataset schema. Usage counts how a record model is referenced across records, sheets and templates."
+          description="This is a dataset schema. Usage counts how a record model is referenced across records, sheets and templates."
         />
       </div>
     )
@@ -59,6 +56,36 @@ function RecordModelUsage({ modelKey }: { modelKey: string }) {
   })
 
   const fieldRows = fields.data ?? []
+  const columns: RegistryColumn<(typeof fieldRows)[number]>[] = [
+    {
+      id: 'field',
+      header: 'Field',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.label}</span>
+      ),
+    },
+    {
+      id: 'type',
+      header: 'Type',
+      cell: ({ row }) => row.original.logicalType,
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'lifecycle',
+      header: 'Lifecycle',
+      cell: ({ row }) => row.original.lifecycle,
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'values',
+      header: 'Values',
+      cell: ({ row }) => row.original.usageCount,
+      meta: {
+        ...rightAligned<(typeof fieldRows)[number]>().meta,
+        cellClassName: 'num text-right',
+      },
+    },
+  ]
   const dependencies = impact.data?.dependencies ?? []
   const groups = groupModelImpact(dependencies)
   const actionable = countActionableModelImpact(dependencies)
@@ -73,32 +100,13 @@ function RecordModelUsage({ modelKey }: { modelKey: string }) {
         </Muted>
         {fieldRows.length ? (
           <TableBox>
-            <Table aria-label="Field usage">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Field</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Lifecycle</TableHead>
-                  <TableHead className="text-right">Values</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fieldRows.map((field) => (
-                  <TableRow key={field.id}>
-                    <TableCell className="font-medium">{field.label}</TableCell>
-                    <TableCell className="text-fg-muted">
-                      {field.logicalType}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {field.lifecycle}
-                    </TableCell>
-                    <TableCell className="num text-right">
-                      {field.usageCount}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Field usage"
+              rows={fieldRows}
+              columns={columns}
+              getRowId={(field) => field.id}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <Muted>This model has no fields.</Muted>

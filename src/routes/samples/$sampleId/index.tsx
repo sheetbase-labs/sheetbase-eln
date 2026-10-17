@@ -3,15 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 
 import { Section, DescriptionList } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   computeSampleHold,
   formatHoldDate,
@@ -38,6 +35,7 @@ import {
 import type {
   DerivedDisplayEntry,
   DerivedSample,
+  SampleEvent,
   SampleRecord,
 } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -205,6 +203,102 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
   const releaseChecks = describeReleaseChecks(sample.releaseChecks) ?? '—'
   const params = { sampleId: sample.id }
 
+  const withdrawalColumns: RegistryColumn<SampleEvent>[] = [
+    {
+      id: 'when',
+      header: 'When',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {formatSampleEventDayTime(row.original.createdAt)}
+        </span>
+      ),
+    },
+    {
+      id: 'by',
+      header: 'By',
+      cell: ({ row }) =>
+        row.original.actorUserId
+          ? names.userLabel(row.original.actorUserId)
+          : 'System',
+    },
+    {
+      id: 'volume',
+      header: 'Volume',
+      cell: ({ row }) =>
+        formatVolume(
+          Math.abs(row.original.quantityDelta ?? 0),
+          row.original.quantityUnit ?? volume.unit,
+        ),
+      meta: rightAligned<SampleEvent>().meta,
+    },
+    {
+      id: 'purpose',
+      header: 'Purpose',
+      cell: ({ row }) => (
+        <WithdrawalPurpose
+          notes={row.original.notes}
+          recordId={row.original.purposeRecordId}
+          purposes={purposes.data}
+        />
+      ),
+      meta: { cellClassName: 'whitespace-normal' },
+    },
+    {
+      id: 'remaining',
+      header: 'Remaining',
+      cell: ({ row }) =>
+        formatVolume(row.original.quantityAfter, row.original.quantityUnit),
+      meta: rightAligned<SampleEvent>().meta,
+    },
+  ]
+
+  const derivedColumns: RegistryColumn<DerivedDisplayEntry>[] = [
+    {
+      id: 'identifier',
+      header: 'ID',
+      cell: ({ row }) => (
+        // The tree indent the bespoke row carried as an inline cell padding.
+        <span
+          className="mono"
+          style={row.original.depth > 0 ? { marginLeft: 2 } : undefined}
+        >
+          {row.original.depth > 0 ? '↳ ' : ''}
+          {row.original.recordId ? (
+            <Link
+              to="/samples/$sampleId"
+              params={{ sampleId: row.original.recordId }}
+              className="text-link"
+            >
+              {row.original.identifier}
+            </Link>
+          ) : (
+            row.original.identifier
+          )}
+        </span>
+      ),
+    },
+    {
+      id: 'name',
+      header: 'Name',
+      cell: ({ row }) => row.original.title,
+    },
+    {
+      id: 'relation',
+      header: 'Relation',
+      cell: ({ row }) => row.original.relation ?? '—',
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const status = row.original.status
+          ? sampleStatus(row.original.status)
+          : null
+        return status ? <Status tone={status.tone}>{status.label}</Status> : '—'
+      },
+    },
+  ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       <div className="grid gap-x-10 gap-y-[26px] md:grid-cols-2">
@@ -296,47 +390,13 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
       <Section title="Withdrawals" count={withdrawals.length}>
         {withdrawals.length ? (
           <TableBox className="max-w-[900px]">
-            <Table aria-label="Withdrawals">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>When</TableHead>
-                  <TableHead>By</TableHead>
-                  <TableHead align="right">Volume</TableHead>
-                  <TableHead>Purpose</TableHead>
-                  <TableHead align="right">Remaining</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {withdrawals.map((event) => (
-                  <TableRow key={event.id}>
-                    <TableCell className="text-fg-muted">
-                      {formatSampleEventDayTime(event.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      {event.actorUserId
-                        ? names.userLabel(event.actorUserId)
-                        : 'System'}
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatVolume(
-                        Math.abs(event.quantityDelta ?? 0),
-                        event.quantityUnit ?? volume.unit,
-                      )}
-                    </TableCell>
-                    <TableCell className="whitespace-normal">
-                      <WithdrawalPurpose
-                        notes={event.notes}
-                        recordId={event.purposeRecordId}
-                        purposes={purposes.data}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatVolume(event.quantityAfter, event.quantityUnit)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Withdrawals"
+              rows={withdrawals}
+              columns={withdrawalColumns}
+              getRowId={(event) => event.id}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <p className="m-0 text-caption text-fg-muted">
@@ -360,21 +420,13 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
       >
         {derived.data?.length ? (
           <TableBox className="max-w-[900px]">
-            <Table aria-label="Derived samples">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Relation</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {groupDerivedSamples(derived.data).map((entry) => (
-                  <DerivedRow key={entry.linkIds.join(',')} entry={entry} />
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Derived samples"
+              rows={groupDerivedSamples(derived.data)}
+              columns={derivedColumns}
+              getRowId={(entry) => entry.linkIds.join(',')}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <p className="m-0 text-caption text-fg-muted">
@@ -383,36 +435,6 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
         )}
       </Section>
     </div>
-  )
-}
-
-function DerivedRow({ entry }: { entry: DerivedDisplayEntry }) {
-  const status = entry.status ? sampleStatus(entry.status) : null
-  return (
-    <TableRow>
-      <TableCell
-        className="mono"
-        style={entry.depth > 0 ? { paddingLeft: 26 } : undefined}
-      >
-        {entry.depth > 0 ? '↳ ' : ''}
-        {entry.recordId ? (
-          <Link
-            to="/samples/$sampleId"
-            params={{ sampleId: entry.recordId }}
-            className="text-link"
-          >
-            {entry.identifier}
-          </Link>
-        ) : (
-          entry.identifier
-        )}
-      </TableCell>
-      <TableCell>{entry.title}</TableCell>
-      <TableCell>{entry.relation ?? '—'}</TableCell>
-      <TableCell>
-        {status ? <Status tone={status.tone}>{status.label}</Status> : '—'}
-      </TableCell>
-    </TableRow>
   )
 }
 

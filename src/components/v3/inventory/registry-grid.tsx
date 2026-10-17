@@ -46,6 +46,7 @@ import {
   DataGridTableRowSelectAll,
 } from '#/components/reui/data-grid/data-grid-table'
 import { DataGridTableVirtual } from '#/components/reui/data-grid/data-grid-table-virtual'
+import { cn } from '#/lib/utils'
 
 /** A column of a registry table. */
 export type RegistryColumn<T extends RowData> = ColumnDef<DataGridFeatures, T>
@@ -143,6 +144,12 @@ export interface RegistryGridProps<T extends RowData> {
   isLoading?: boolean
   /** The extra classes a screen's row needs (e.g. a muted cell). */
   rowClassName?: string
+  /**
+   * The wrapper's own classes. A registry list passes `max-md:hidden` because
+   * it has a `MobileList` underneath; a detail-screen table renders at every
+   * width, which is what it did before it moved onto the grid.
+   */
+  className?: string
 }
 
 export function RegistryGrid<T extends RowData>({
@@ -154,6 +161,7 @@ export function RegistryGrid<T extends RowData>({
   onRowSelectionChange,
   onRowClick,
   selectable = true,
+  className,
   sorting,
   onSortingChange,
   isLoading = false,
@@ -247,7 +255,12 @@ export function RegistryGrid<T extends RowData>({
     // `[&>*]` stretches the grid's own scroll container: it sizes itself to
     // its rows, which on a short list leaves the horizontal scrollbar floating
     // under the last row instead of at the list area's edge.
-    <div className="flex h-full min-h-0 flex-col max-md:hidden [&>*]:min-h-0 [&>*]:flex-1">
+    <div
+      className={cn(
+        'flex h-full min-h-0 flex-col [&>*]:min-h-0 [&>*]:flex-1',
+        className,
+      )}
+    >
       <DataGrid
         className="min-h-0 flex-1"
         table={table}

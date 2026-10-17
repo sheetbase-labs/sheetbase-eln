@@ -263,6 +263,7 @@ function DatasetsList() {
         />
         <div className="min-h-0 flex-1 overflow-auto">
           <RegistryGrid
+            className="max-md:hidden"
             label="Datasets"
             rows={visible}
             columns={columns}
@@ -302,12 +303,27 @@ function DatasetsList() {
                         ? 'No datasets have issues'
                         : `No datasets in ${tabLabel[tab].toLowerCase()}`
                 }
-                body={
+                description={
                   hasProjectAccess === false
                     ? NO_PROJECT_ACCESS_BODY
                     : q
                       ? 'Search looks at ID, name and model.'
                       : 'Datasets appear here when an import or a check puts them in this list.'
+                }
+                action={
+                  hasProjectAccess !== false && (q || tab !== 'all') ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link
+                          to="/datasets"
+                          search={{ q: undefined, tab: q ? tab : undefined }}
+                        />
+                      }
+                    >
+                      {q ? 'Clear search' : 'Show all datasets'}
+                    </Button>
+                  ) : undefined
                 }
               />
             </div>

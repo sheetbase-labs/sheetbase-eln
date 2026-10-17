@@ -22,15 +22,9 @@ import {
   Muted,
   PageHeader,
 } from '#/components/v3/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { TableBox } from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
 import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
@@ -66,6 +60,31 @@ function RunPage() {
   const run = usePipelineRun(runId)
   const logs = useRunLogs(runId)
   const outputs = useRunOutputs(runId)
+  type RunOutput = NonNullable<typeof outputs.data>[number]
+  const outputColumns: RegistryColumn<RunOutput>[] = [
+    { id: 'label', header: 'Label', cell: ({ row }) => row.original.label },
+    {
+      id: 'dataset',
+      header: 'Dataset',
+      cell: ({ row }) => (
+        <Link
+          to="/datasets/$datasetId/snapshots"
+          params={{ datasetId: row.original.dataset_id }}
+        >
+          <span className="mono">{row.original.dataset_id.slice(0, 8)}</span>
+        </Link>
+      ),
+    },
+    {
+      id: 'snapshot',
+      header: 'Snapshot',
+      cell: ({ row }) => (
+        <span className="mono">
+          {row.original.dataset_version_id.slice(0, 8)}
+        </span>
+      ),
+    },
+  ]
   const prompts = useRunPrompts(runId)
   const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
@@ -256,33 +275,13 @@ function RunPage() {
                 Outputs kept
               </h2>
               <TableBox>
-                <Table aria-label="Run outputs">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Label</TableHead>
-                      <TableHead>Dataset</TableHead>
-                      <TableHead>Snapshot</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {outputs.data.map((o) => (
-                      <TableRow key={o.id}>
-                        <TableCell>{o.label}</TableCell>
-                        <TableCell className="mono">
-                          <Link
-                            to="/datasets/$datasetId/snapshots"
-                            params={{ datasetId: o.dataset_id }}
-                          >
-                            {o.dataset_id.slice(0, 8)}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="mono">
-                          {o.dataset_version_id.slice(0, 8)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <RegistryGrid
+                  label="Run outputs"
+                  rows={outputs.data}
+                  columns={outputColumns}
+                  getRowId={(o) => o.id}
+                  selectable={false}
+                />
               </TableBox>
             </section>
           ) : (

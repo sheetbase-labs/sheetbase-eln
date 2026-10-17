@@ -2,15 +2,12 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { fetchSampleMeasurements } from '#/lib/samples'
 import type { SampleMeasurement } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -34,6 +31,57 @@ function MeasurementsTab() {
   })
   const rows = measurements.data ?? []
 
+  const columns: RegistryColumn<SampleMeasurement>[] = [
+    {
+      id: 'measurement',
+      header: 'Measurement',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.measurement}</span>
+      ),
+    },
+    {
+      id: 'value',
+      header: 'Value',
+      cell: ({ row }) => {
+        const m = row.original
+        return m.valueText ?? (m.value != null ? String(m.value) : '—')
+      },
+      meta: {
+        ...rightAligned<SampleMeasurement>().meta,
+        cellClassName: 'num text-right',
+      },
+    },
+    {
+      id: 'unit',
+      header: 'Unit',
+      cell: ({ row }) => row.original.unit ?? '—',
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'method',
+      header: 'Method',
+      cell: ({ row }) => row.original.method ?? '—',
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'source',
+      header: 'Source',
+      cell: ({ row }) => <MeasurementSource measurement={row.original} />,
+    },
+    {
+      id: 'result',
+      header: 'Result',
+      cell: ({ row }) => row.original.result ?? '—',
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'measured',
+      header: 'Measured',
+      cell: ({ row }) => row.original.measuredAt.slice(0, 10),
+      meta: { cellClassName: 'num text-fg-muted' },
+    },
+  ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       <div className="flex items-center gap-2">
@@ -47,50 +95,19 @@ function MeasurementsTab() {
 
       {rows.length ? (
         <TableBox>
-          <Table aria-label="Measurements">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Measurement</TableHead>
-                <TableHead align="right">Value</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Result</TableHead>
-                <TableHead>Measured</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((m) => (
-                <TableRow key={m.id}>
-                  <TableCell className="font-medium">{m.measurement}</TableCell>
-                  <TableCell align="right" className="num">
-                    {m.valueText ?? (m.value != null ? String(m.value) : '—')}
-                  </TableCell>
-                  <TableCell className="text-fg-muted">
-                    {m.unit ?? '—'}
-                  </TableCell>
-                  <TableCell className="text-fg-muted">
-                    {m.method ?? '—'}
-                  </TableCell>
-                  <TableCell>
-                    <MeasurementSource measurement={m} />
-                  </TableCell>
-                  <TableCell className="text-fg-muted">
-                    {m.result ?? '—'}
-                  </TableCell>
-                  <TableCell className="num text-fg-muted">
-                    {m.measuredAt.slice(0, 10)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label="Measurements"
+            rows={rows}
+            columns={columns}
+            getRowId={(m) => m.id}
+            selectable={false}
+          />
         </TableBox>
       ) : (
         <EmptyState
           className="py-2"
           title="No measurements yet"
-          body="Values recorded against this sample in a dataset or QC appear here, with a link to their source row."
+          description="Values recorded against this sample in a dataset or QC appear here, with a link to their source row."
         />
       )}
     </div>

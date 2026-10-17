@@ -264,6 +264,7 @@ function TemplatesList() {
         <div className="min-h-0 flex-1 overflow-auto">
           {query.isLoading || visible.length > 0 ? (
             <RegistryGrid
+              className="max-md:hidden"
               label="Templates"
               rows={visible}
               columns={columns}

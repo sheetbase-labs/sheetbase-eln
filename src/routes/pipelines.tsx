@@ -316,6 +316,7 @@ function PipelinesList() {
         <div className="min-h-0 flex-1 overflow-auto">
           {query.isLoading || visible.length > 0 ? (
             <RegistryGrid
+              className="max-md:hidden"
               label="Pipelines"
               rows={visible}
               columns={columns}
@@ -356,7 +357,19 @@ function PipelinesList() {
                     ? `No pipelines match “${search.q}”`
                     : `No pipelines in ${tabLabel[tab].toLowerCase()}`
                 }
-                body="Search looks at pipeline keys and names."
+                description="Search looks at pipeline keys and names."
+                action={
+                  q ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/pipelines" search={{ tab: search.tab }} />
+                      }
+                    >
+                      Clear search
+                    </Button>
+                  ) : undefined
+                }
               />
             </div>
           ) : null}

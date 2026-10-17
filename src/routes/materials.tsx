@@ -405,6 +405,7 @@ function MaterialsList() {
         />
         <div className="min-h-0 flex-1 overflow-auto">
           <RegistryGrid
+            className="max-md:hidden"
             label="Material lots"
             rows={visible}
             columns={columns}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -23,7 +23,8 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
-import type { NotebookLink, RevisionWire } from '#/lib/notebook-data'
+import type { RevisionWire } from '#/lib/notebook-data'
+
 import {
   acknowledgeProtocolVersion,
   fetchProtocolAcknowledgements,
@@ -35,104 +36,6 @@ import { protocolStatus } from '#/components/v3/protocols/protocols-registry-gri
 
 const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
 type ProtocolTab = (typeof tabs)[number]
-
-/** A template block row; the grid reads only these fields. */
-interface ProtocolBlockRow {
-  id: string
-  order: number
-  type: string
-  version: number
-}
-
-const protocolBlockColumns: RegistryColumn<ProtocolBlockRow>[] = [
-  {
-    id: 'order',
-    header: 'Order',
-    meta: {
-      ...rightAligned<ProtocolBlockRow>().meta,
-      cellClassName: 'text-right num',
-    },
-    cell: ({ row }) => row.original.order,
-  },
-  {
-    id: 'block',
-    header: 'Block',
-    cell: ({ row }) => row.original.type,
-  },
-  {
-    id: 'version',
-    header: 'Version',
-    meta: { cellClassName: 'text-fg-muted' },
-    cell: ({ row }) => `v${row.original.version}`,
-  },
-]
-
-const protocolLinkColumns: RegistryColumn<NotebookLink>[] = [
-  {
-    id: 'record',
-    header: 'Record',
-    meta: { cellClassName: 'mono' },
-    cell: ({ row }) => row.original.targetIdentifier,
-  },
-  {
-    id: 'kind',
-    header: 'Kind',
-    cell: ({ row }) => row.original.targetKind,
-  },
-  {
-    id: 'link',
-    header: 'Link',
-    meta: { cellClassName: 'text-fg-muted' },
-    cell: ({ row }) => row.original.linkType,
-  },
-]
-
-function protocolRevisionColumns(
-  ownerLabel: (userId: string) => string,
-): RegistryColumn<RevisionWire>[] {
-  return [
-    {
-      id: 'version',
-      header: 'Version',
-      meta: {
-        ...rightAligned<RevisionWire>().meta,
-        cellClassName: 'text-right num',
-      },
-      cell: ({ row, table }) =>
-        `v${table.getRowModel().rows.length - row.index}`,
-    },
-    {
-      id: 'reason',
-      header: 'Reason',
-      cell: ({ row }) => row.original.reason,
-    },
-    {
-      id: 'author',
-      header: 'Author',
-      cell: ({ row }) => ownerLabel(row.original.created_by_user_id),
-    },
-    {
-      id: 'created',
-      header: 'Created',
-      meta: { cellClassName: 'text-fg-muted' },
-      cell: ({ row }) => row.original.created_at.slice(0, 16).replace('T', ' '),
-    },
-    {
-      id: 'actions',
-      header: '',
-      meta: rightAligned<RevisionWire>().meta,
-      cell: ({ row }) => (
-        <Link
-          to="/evidence/$revisionId"
-          params={{ revisionId: row.original.id }}
-          className="text-link"
-        >
-          Evidence
-        </Link>
-      ),
-    },
-  ]
-}
 
 /** UI port (roadmap-4/ui-app3): the protocol detail frame. The controlled
  * document is the record's rich-text blocks; Template, Used by and Versions
@@ -190,10 +93,6 @@ function ProtocolPage() {
     ...(record.data ? [record.data.createdByUserId] : []),
     ...(revisions.data ?? []).map((r) => r.created_by_user_id),
   ])
-  const revisionColumns = useMemo(
-    () => protocolRevisionColumns(names.userLabel),
-    [names],
-  )
   const p = record.data
 
   if (!p || p.kind !== 'protocol_template') {
@@ -207,6 +106,100 @@ function ProtocolPage() {
     )
   }
   const status = protocolStatus(p.status)
+  type ProtocolBlock = NonNullable<typeof blocks.data>[number]
+  type ProtocolLink = NonNullable<typeof links.data>[number]
+  type ProtocolRevision = NonNullable<typeof revisions.data>[number]
+  const revisionList = revisions.data ?? []
+
+  const blockColumns: RegistryColumn<ProtocolBlock>[] = [
+    {
+      id: 'order',
+      header: 'Order',
+      cell: ({ row }) => row.original.order,
+      meta: {
+        ...rightAligned<ProtocolBlock>().meta,
+        cellClassName: 'num text-right',
+      },
+    },
+    { id: 'block', header: 'Block', cell: ({ row }) => row.original.type },
+    {
+      id: 'version',
+      header: 'Version',
+      cell: ({ row }) => `v${row.original.version}`,
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+  ]
+
+  const linkColumns: RegistryColumn<ProtocolLink>[] = [
+    {
+      id: 'record',
+      header: 'Record',
+      cell: ({ row }) => (
+        <span className="mono">{row.original.targetIdentifier}</span>
+      ),
+    },
+    {
+      id: 'kind',
+      header: 'Kind',
+      cell: ({ row }) => row.original.targetKind,
+    },
+    {
+      id: 'link',
+      header: 'Link',
+      cell: ({ row }) => row.original.linkType,
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+  ]
+
+  const revisionColumns: RegistryColumn<ProtocolRevision>[] = [
+    {
+      id: 'version',
+      header: 'Version',
+      cell: ({ row }) =>
+        `v${
+          revisionList.length -
+          revisionList.findIndex((r) => r.id === row.original.id)
+        }`,
+      meta: {
+        ...rightAligned<ProtocolRevision>().meta,
+        cellClassName: 'num text-right',
+      },
+    },
+    {
+      id: 'reason',
+      header: 'Reason',
+      cell: ({ row }) => row.original.reason,
+    },
+    {
+      id: 'author',
+      header: 'Author',
+      cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
+    },
+    {
+      id: 'created',
+      header: 'Created',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.created_at.slice(0, 16).replace('T', ' ')}
+        </span>
+      ),
+    },
+    {
+      id: 'evidence',
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <Link
+          to="/evidence/$revisionId"
+          params={{ revisionId: row.original.id }}
+          className="text-link"
+        >
+          Evidence
+        </Link>
+      ),
+      meta: rightAligned<ProtocolRevision>().meta,
+    },
+  ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -275,8 +268,8 @@ function ProtocolPage() {
                   <RegistryGrid
                     label="Protocol template blocks"
                     rows={blocks.data}
-                    columns={protocolBlockColumns}
-                    getRowId={(block) => block.id}
+                    columns={blockColumns}
+                    getRowId={(b) => b.id}
                     selectable={false}
                   />
                 </TableBox>
@@ -293,8 +286,8 @@ function ProtocolPage() {
                   <RegistryGrid
                     label="Records linked to this protocol"
                     rows={links.data}
-                    columns={protocolLinkColumns}
-                    getRowId={(link) => link.id}
+                    columns={linkColumns}
+                    getRowId={(l) => l.id}
                     selectable={false}
                   />
                 </TableBox>
@@ -318,7 +311,7 @@ function ProtocolPage() {
                     label="Protocol version history"
                     rows={revisions.data}
                     columns={revisionColumns}
-                    getRowId={(revision) => revision.id}
+                    getRowId={(r) => r.id}
                     selectable={false}
                   />
                 </TableBox>

@@ -502,6 +502,7 @@ function Experiments() {
           }))}
         />
         <RegistryGrid
+          className="max-md:hidden"
           label="Experiments"
           rows={gridRows}
           columns={columns}

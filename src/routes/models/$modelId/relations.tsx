@@ -17,15 +17,9 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { Select } from '#/components/v3/ui/select'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { TableBox } from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { isUuid } from '#/lib/field-value-validation'
 import { fetchModelKinds } from '#/lib/model-fields'
 import {
@@ -60,7 +54,7 @@ function ModelRelations() {
         <EmptyState
           icon="schema"
           title="Relations apply to record models"
-          body="This is a dataset schema. Typed relationships attach to a record model's links, so author them from the model that defines those records."
+          description="This is a dataset schema. Typed relationships attach to a record model's links, so author them from the model that defines those records."
         />
       </div>
     )
@@ -166,6 +160,60 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
     }
   }
 
+  const columns: RegistryColumn<(typeof rules)[number]>[] = [
+    {
+      id: 'linkType',
+      header: 'Link type',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.linkType}</span>
+      ),
+    },
+    {
+      id: 'target',
+      header: 'Target model',
+      cell: ({ row }) => (
+        <span className="mono">{row.original.targetModelKey}</span>
+      ),
+    },
+    {
+      id: 'min',
+      header: 'Min',
+      cell: ({ row }) => row.original.minLinks,
+      meta: { cellClassName: 'num' },
+    },
+    {
+      id: 'max',
+      header: 'Max',
+      cell: ({ row }) => row.original.maxLinks ?? '∞',
+      meta: { cellClassName: 'num' },
+    },
+    {
+      id: 'label',
+      header: 'Label',
+      cell: ({ row }) => row.original.label ?? '—',
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <Button
+          variant="quiet"
+          size="sm"
+          disabled={busy}
+          onClick={() =>
+            setRemoveTarget({
+              id: row.original.id,
+              description: `${row.original.linkType} → ${row.original.targetModelKey}`,
+            })
+          }
+        >
+          Remove
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
       <Section title="Relations" count={rules.length}>
@@ -177,58 +225,19 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
         </Muted>
         {rules.length ? (
           <TableBox>
-            <Table aria-label="Model relations">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Link type</TableHead>
-                  <TableHead>Target model</TableHead>
-                  <TableHead>Min</TableHead>
-                  <TableHead>Max</TableHead>
-                  <TableHead>Label</TableHead>
-                  <TableHead aria-label="Actions" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rules.map((rule) => (
-                  <TableRow key={rule.id}>
-                    <TableCell className="font-medium">
-                      {rule.linkType}
-                    </TableCell>
-                    <TableCell className="mono">
-                      {rule.targetModelKey}
-                    </TableCell>
-                    <TableCell className="num">{rule.minLinks}</TableCell>
-                    <TableCell className="num">
-                      {rule.maxLinks ?? '∞'}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {rule.label ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="quiet"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() =>
-                          setRemoveTarget({
-                            id: rule.id,
-                            description: `${rule.linkType} → ${rule.targetModelKey}`,
-                          })
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Model relations"
+              rows={rules}
+              columns={columns}
+              getRowId={(rule) => rule.id}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <EmptyState
             icon="schema"
             title="No relations yet"
-            body="Add a relation to constrain the typed links this model's records accept."
+            description="Add a relation in the form below to constrain the typed links this model's records accept."
           />
         )}
       </Section>

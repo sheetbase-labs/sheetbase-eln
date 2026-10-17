@@ -10,16 +10,14 @@ import {
   Section,
 } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   fetchProjectMembers,
   useProjectMilestones,
@@ -113,57 +111,127 @@ function ProjectOverview() {
       : []),
   ]
 
+  const milestoneColumns: RegistryColumn<(typeof milestones)[number]>[] = [
+    {
+      id: 'milestone',
+      header: 'Milestone',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name}</span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const tone = milestoneTone(row.original.status)
+        return <Status tone={tone.tone}>{tone.label}</Status>
+      },
+    },
+    {
+      id: 'due',
+      header: 'Due',
+      cell: ({ row }) => (
+        <span className="mono text-fg-muted">
+          {row.original.dueAt ? row.original.dueAt.slice(0, 10) : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'evidence',
+      header: 'Evidence',
+      cell: ({ row }) =>
+        row.original.linkedRecordId ? (
+          <Link
+            to="/records/$recordId"
+            params={{ recordId: row.original.linkedRecordId }}
+            className="text-link"
+          >
+            <span className="mono">
+              {row.original.linkedRecordIdentifier ?? 'Record'}
+            </span>
+          </Link>
+        ) : (
+          <span className="text-fg-muted">—</span>
+        ),
+    },
+  ]
+
+  const experimentColumns: RegistryColumn<(typeof experiments)[number]>[] = [
+    {
+      id: 'identifier',
+      header: 'ID',
+      cell: ({ row }) => (
+        <span className="mono">{row.original.identifier}</span>
+      ),
+    },
+    {
+      id: 'title',
+      header: 'Experiment',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.title}</span>
+      ),
+    },
+    {
+      id: 'owner',
+      header: 'Owner',
+      cell: ({ row }) => userLabel(row.original.createdByUserId),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <Status tone={statusTone(row.original.status)}>
+          {statusLabel(row.original.status)}
+        </Status>
+      ),
+    },
+    {
+      id: 'updated',
+      header: 'Updated',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.updatedAt.slice(0, 10)}
+        </span>
+      ),
+      meta: {
+        ...rightAligned<(typeof experiments)[number]>().meta,
+        cellClassName: 'text-right text-fg-muted',
+      },
+    },
+  ]
+
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
         <Section title="Milestones" count={milestones.length}>
           {milestones.length ? (
             <TableBox>
-              <Table aria-label="Project milestones">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Milestone</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Due</TableHead>
-                    <TableHead>Evidence</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {milestones.map((m) => {
-                    const tone = milestoneTone(m.status)
-                    return (
-                      <TableRow key={m.id}>
-                        <TableCell className="font-medium">{m.name}</TableCell>
-                        <TableCell>
-                          <Status tone={tone.tone}>{tone.label}</Status>
-                        </TableCell>
-                        <TableCell className="mono text-fg-muted">
-                          {m.dueAt ? m.dueAt.slice(0, 10) : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {m.linkedRecordId ? (
-                            <Link
-                              to="/records/$recordId"
-                              params={{ recordId: m.linkedRecordId }}
-                              className="text-link mono"
-                            >
-                              {m.linkedRecordIdentifier ?? 'Record'}
-                            </Link>
-                          ) : (
-                            <span className="text-fg-muted">—</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Project milestones"
+                rows={milestones}
+                columns={milestoneColumns}
+                getRowId={(m) => m.id}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <EmptyState
               className="py-2"
               title="No milestones yet"
-              body="Milestones are the project's deliverables with a target date, linked to the records that evidence them."
+              description="Milestones are the project's deliverables with a target date, linked to the records that evidence them."
+              action={
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/projects/$projectId/milestones"
+                      params={{ projectId }}
+                    />
+                  }
+                >
+                  Add a milestone
+                </Button>
+              }
             />
           )}
         </Section>
@@ -179,41 +247,33 @@ function ProjectOverview() {
         >
           {experiments.length ? (
             <TableBox>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Experiment</TableHead>
-                    <TableHead>Owner</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead align="right">Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {experiments.map((e) => (
-                    <TableRow key={e.id}>
-                      <TableCell className="mono">{e.identifier}</TableCell>
-                      <TableCell className="font-medium">{e.title}</TableCell>
-                      <TableCell>{userLabel(e.createdByUserId)}</TableCell>
-                      <TableCell>
-                        <Status tone={statusTone(e.status)}>
-                          {statusLabel(e.status)}
-                        </Status>
-                      </TableCell>
-                      <TableCell align="right" className="text-fg-muted">
-                        {e.updatedAt.slice(0, 10)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Recent experiments"
+                rows={experiments}
+                columns={experimentColumns}
+                getRowId={(e) => e.id}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <EmptyState
               className="py-2"
               icon="flask"
               title="No experiments yet"
-              body="Experiments you start in this project appear here."
+              description="Experiments you start in this project appear here."
+              action={
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/experiments/new"
+                      search={{ project: projectId }}
+                    />
+                  }
+                >
+                  Create an experiment
+                </Button>
+              }
             />
           )}
         </Section>

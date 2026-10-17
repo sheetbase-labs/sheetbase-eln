@@ -14,15 +14,12 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import { useExperimentLinks } from '../$expId'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -115,6 +112,51 @@ function ResultsTab() {
   })
 
   const [open, setOpen] = useState(false)
+  const datasetColumns: RegistryColumn<DatasetSummaryWire>[] = [
+    {
+      id: 'id',
+      header: 'ID',
+      cell: ({ row }) => (
+        <span className="mono">{row.original.display_id}</span>
+      ),
+    },
+    {
+      id: 'dataset',
+      header: 'Dataset',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name}</span>
+      ),
+    },
+    {
+      id: 'model',
+      header: 'Model',
+      cell: ({ row }) => row.original.model ?? '—',
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'rows',
+      header: 'Rows',
+      cell: ({ row }) => String(row.original.row_count),
+      meta: {
+        ...rightAligned<DatasetSummaryWire>().meta,
+        cellClassName: 'num text-right',
+      },
+    },
+    {
+      id: 'validation',
+      header: 'Validation',
+      cell: ({ row }) => {
+        const issues = Number(row.original.issue_count)
+        return issues === 0 ? (
+          <Status tone="ok">Valid</Status>
+        ) : (
+          <Status tone="bad">
+            {issues} issue{issues === 1 ? '' : 's'}
+          </Status>
+        )
+      },
+    },
+  ]
   const decision = record.data?.decision ?? null
   const decisionLabel = decision
     ? (DECISIONS.find((d) => d.value === decision)?.label ?? decision)
@@ -138,7 +180,7 @@ function ResultsTab() {
           <EmptyState
             className="py-2"
             title="No cited analyses"
-            body="Analyses saved and cited into this experiment’s notebook appear here."
+            description="Cite an analysis in this experiment’s notebook and it appears here."
           />
         )}
       </Section>
@@ -146,49 +188,19 @@ function ResultsTab() {
       <Section title="Datasets" count={datasets.data?.length ?? 0}>
         {datasets.data?.length ? (
           <TableBox>
-            <Table aria-label="Result datasets">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Dataset</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead align="right">Rows</TableHead>
-                  <TableHead>Validation</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {datasets.data.map((d) => {
-                  const issues = Number(d.issue_count)
-                  return (
-                    <TableRow key={d.display_id}>
-                      <TableCell className="mono">{d.display_id}</TableCell>
-                      <TableCell className="font-medium">{d.name}</TableCell>
-                      <TableCell className="text-fg-muted">
-                        {d.model ?? '—'}
-                      </TableCell>
-                      <TableCell align="right" className="num">
-                        {String(d.row_count)}
-                      </TableCell>
-                      <TableCell>
-                        {issues === 0 ? (
-                          <Status tone="ok">Valid</Status>
-                        ) : (
-                          <Status tone="bad">
-                            {issues} issue{issues === 1 ? '' : 's'}
-                          </Status>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Result datasets"
+              rows={datasets.data}
+              columns={datasetColumns}
+              getRowId={(d) => d.name}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <EmptyState
             className="py-2"
             title="No datasets"
-            body="Datasets this experiment produced appear here when they are linked."
+            description="Datasets this experiment produced appear here when they are linked."
           />
         )}
       </Section>

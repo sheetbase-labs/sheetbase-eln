@@ -45,7 +45,7 @@
     "test:phase3": "vitest run --config vitest.db.config.ts phase3-proof",
     "test:phase4": "vitest run src/lib/formula-ir.test.ts src/lib/scientific-workbook-engine.test.ts src/lib/calculation.server.test.ts src/lib/formula-write.server.test.ts src/lib/function-descriptions.test.ts src/lib/sheet-calculation.test.ts src/lib/sheet-calculation-exclusion.test.ts src/components/notebook/scientific-workbook-provider.test.tsx && playwright test phase4-proof",
     "typecheck": "tsc --noEmit",
-    "validate": "pnpm check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "validate": "pnpm check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm build-storybook",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate-once.mjs",
     "db:seed": "tsx src/db/seed/run.ts",

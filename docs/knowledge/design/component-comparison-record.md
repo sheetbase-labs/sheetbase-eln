@@ -27,51 +27,31 @@ a decision is not a record.
 
 ## Rows
 
-> The rows below are the union of the lanes that wrote them. Each row's number
-> is the number its lane gave it, and several lanes numbered from 1; a single
-> pass renumbers them after the merge queue settles. The pair id in a section
-> heading is the stable reference until then.
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-| #       | Component (generic UI job)                                                                   | What we use now                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | What ReUI offers                                                                                                                                                                                                                                                                                                                                                                                                    | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Measured                                                                                                                                                                                                                                                                                                                                                           |
-| ------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1       | Reorderable list — reorder rows by pointer and keyboard                                      | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                                                                                                                                                                                                           | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                                                                                                                                                                                                                                                          | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                                                                                                                                                                                                         | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 1a      | The same job, adopted — the notebook's integration of the item against the item as published | `src/components/notebook/notebook-block-reorder.tsx` rebuilt on `@reui/sortable`: `NotebookBlockList`, `NotebookBlockRow`, `NotebookBlockHandle`, with the notebook's own row frame                                                                                                                                                                                                                                                                                                         | The registry item as published, with the C1 semantics fix-up — the reference column of the same pair                                                                                                                                                                                                                                                                                                                | Ours: all 10 pass, including pointer reordering at 390x844, which the adoption was decided on and which the phone-width case now asserts by performing a drag. Theirs: all 10 pass. 8 items not applicable, as above                                                                                                                                                                                                                                                                                                                                                                                       | **Adopted** (workstream B2). C1 resolved in the shipped markup; C2 still open (a real device); C3 and C4 discharged as described below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 2       | Step progress row — an ordered flow's current stage                                          | `src/components/v3/ui/stepper.tsx` (67 lines), the forward kit's row and the import flow's only step chrome (`import-flow.tsx:327`, `:831`). After this change it is the only stepper in `src`; the legacy duplicate `src/components/ui/stepper.tsx` was deleted here                                                                                                                                                                                                                       | `@reui/stepper` (base-nova pin), a wizard-navigation primitive: `src/components/reui/stepper.tsx` (494 lines) — a `<nav>` of `<div>` items holding a `role="tablist"` of tabs                                                                                                                                                                                                                                       | Ours: all 8 applicable items pass — display-only, `aria-current="step"`, axe clean, fits 390x844 by wrapping. Theirs: **could not be measured as an adoptable column and was not registered as a pair.** It cannot render the shipped contract (no list named "Steps", no listitem, no `aria-current`), and it fails the harness's own axe gate: 3 critical violations as published, 2 of them still there with the consumer's container fixes. It also fails 390x844 (the row overflows and labels truncate). 8 items are not applicable — no reorder, sort, filter, select, resize or pagination control | **Decline — do not adopt.** The item is a different job (wizard navigation, not a progress row) and clearing the bar means rewriting the tags, roles and attributes it declares, which ADR-0055 decision 2 does not permit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 3       | File pick and drop — pick or drop a file, watch its upload, and retry a failure              | Hand-rolled `<input type="file">` in four screens: import flow, parser settings, instrument ingestion panel and the notebook's file block. Progress was one boolean line per screen, one error string, and no retry; drag-and-drop was absent app-wide                                                                                                                                                                                                                                      | `@reui/use-file-upload` (base-nova pin), a hook plus the vendor's example compositions: `src/components/reui/use-file-upload.ts`, shipped through `src/components/v3/ui/file-drop.tsx`                                                                                                                                                                                                                              | Ours: all 8 applicable items pass **as containment** (the shared harness states), but the pair's own job has no drop handler, no file row, no per-file progress and no retry. Theirs: all 8 pass, and the drop, the progress and the retry do (see the detail table). 10 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                                                                                                                                                    | **Adopt — done in this change**, with four conditions carried forward (C1–C4 below). The old implementation is deleted in the same change; its frozen copy is the baseline column this row cites                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 4       | List row / row chrome — one row, its link form, and the list that holds it                   | ≈30 hand-rolled row renderers across 21 domain files; two competing entity rows (`RecordLink`, 92 lines, and `LinkedRecordList`, 47); six families (entity, property, file, comment, check, step), each spelling its own leading slot, truncation, meta line, trailing slot, hover and focus treatment                                                                                                                                                                                      | **Nothing to install.** `@reui/item` and `@reui/row` both return `404 {"error":"Registry item not found", "message":"item is part of shadcn/ui, not a ReUI item"}`. The nearest registry item is stock shadcn's compound `Item`, which is not ReUI-native and has no link form, no read-only state vocabulary, and pulls the `cn` package                                                                           | Not run against a registry candidate — there is none for this job, so ADR-0055 decision 5's A/B comparison has no second column. The in-house pair's own contract is pinned instead: `src/components/v3/ui/row.test.tsx` (11 tests: the four forms, list semantics, empty, windowing, hover detail), the migrated sites' tests (176 pass), axe with **zero violations** (WCAG 2 A/AA) over the rendered inspector, and the rendered evidence below                                                                                                                                                         | **Consolidate in-house: `Row` + `RowList` in the v3 kit, with `DescriptionList` as the property row.** No registry adoption. Reason: every family's cost is the _number of implementations_, not a missing feature, and the rival implementations differ in exactly the ways one component should fix — which registry item to install is a different question, and for this job there is none                                                                                                                                                                                                                                                                                                                                               | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 5       | Empty state — explain what is absent and offer one next action                               | The forward kit's 37-line `EmptyState` (`src/components/v3/ui/empty-state.tsx` at `35423ec2`): `icon`, `title`, `body`, and a `children` slot nothing documents as the action slot. 92 product sites use it; 70 are self-closing, and the plan's §11.2 count puts 73 that cannot satisfy `DESIGN.md:383`. The legacy kit's `ui/empty.tsx` (a compound `Empty`/`EmptyIcon`/`EmptyTitle`/`EmptyDescription`/`EmptyActions` family with **zero** product call sites) is the second predecessor | The catalogue lists Empty, but the ReUI registry serves no such item: `https://reui.io/r/base-nova/empty.json` answers **404** — "empty is part of shadcn/ui, not a ReUI item. Install it with: `npx shadcn@latest add empty`". The candidate is therefore the **stock shadcn `empty` item, by bare name** (`ui.shadcn.com/r/styles/new-york-v4/empty.json`): `Empty`, `EmptyHeader`, `EmptyMedia` (`variant="icon" | "default"`), `EmptyTitle`, `EmptyDescription`, `EmptyContent`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Ours: the two applicable behavioural items pass — the action is reachable and works from `children`, and the states hold — but the _product_ fails the rule the item exists to satisfy: 70 of 92 sites close the component with nothing in `children`, and the plan's §11.2 count puts 73 of 92 that cannot satisfy `DESIGN.md:383` (see the detail table). Theirs: all applicable items pass, with three measured costs — the title and description are `<div>`s (no heading, no paragraph), the dashed border draws nothing on its own, and the presentation is centred, which the design system's EmptyState rule contradicts. 10 items are not applicable — this pair has no reorder, sort, filter, select, resize or pagination control | **Adopt in part, in this change**: the item's documented action slot and its title/description/media vocabulary are taken; the compound exports, the `div` semantics and the centred borderless-empty presentation are declined. The single component that results is `src/components/v3/ui/empty-state.tsx`, and both predecessors are deleted in the same change | 16 Oct 2026 |
-| 6       | History rows — render a chronological list of audit events as rows                           | Three panels with their own rows: `src/components/audit/audit-trail.tsx` (175 lines), `object-history-timeline.tsx` (308), `record-history-timeline.tsx` (264) — a triplicated loading skeleton, two byte-identical dashed empty states, a local relative-time formatter, four icon maps, two row layouts and two continuation controls between them                                                                                                                                        | `@reui/timeline` (base-nova pin), one file: `src/components/reui/timeline.tsx` — `Timeline`, `TimelineItem`, `TimelineIndicator`, `TimelineSeparator`, `TimelineHeader`, `TimelineDate`, `TimelineTitle`, `TimelineContent`. No states, no controls, no chips, no disclosure                                                                                                                                        | Ours: all 8 applicable items pass — the rows render the fixture with both time labels, the before→after chip, the deep link and the disclosure; axe clean in both themes; no overflow at either width. Theirs: the composition renders, but the item ships no states, no controls and no `<time>` value, so its empty, loading and error cells are the harness's own. 10 items are not applicable — this pair has no reorder, sort, filter, select, resize or pagination control                                                                                                                           | **Adopt, in this change**: the shared surface `src/components/audit/history-timeline.tsx` is built on the item, the three panels map onto it, and the duplicated skeleton, empty state, formatter, icon maps, row layout and continuation control are deleted with it. No parallel implementation is left behind                                                                                                                                                                                                                                                                                                                                                                                                                             | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 7       | Numeric quantity field — enter a number that carries a unit                                  | No shared numeric component: the kit's `Input` with `type="number"`/`inputMode="decimal"`, labelled by `Field`, with a per-screen check (`materials.tsx:783-790` is the pattern the other ~20 numeric call sites repeat)                                                                                                                                                                                                                                                                    | `@reui/number-field` (base-nova pin), a Base UI `NumberField` wrapper — group, decrement, input, increment, scrub area: `src/components/reui/number-field.tsx`                                                                                                                                                                                                                                                      | Ours: the 8 applicable items pass, including density at 390x844 (see the detail table). Theirs: 7 of 8 pass — axe is clean and the states hold, but the field **displays a formatter's value rather than the value**: `1e-21`, `1.602176634e-19` and `Number.EPSILON` all read `0`, and typing `1e-21` yields `1`. 10 items are not applicable — this pair has no sort, filter, select, resize, pagination or reorder control                                                                                                                                                                              | **Decline.** Our implementation is not materially worse: it keeps the digits the scientist entered, and the candidate at its defaults loses them on screen and on entry. See the detail below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 8       | Signature pad — capture a signature as ink                                                   | **Nothing draws.** The surface the plan names, `src/components/notebook/e-sign-dialog.tsx` (261 lines), is the credential attestation form: signing-as, meaning, revision, content hash, server-time statement, re-authentication password, type-your-name confirmation. No canvas, no pointer capture, no export exists anywhere in `src` for a signature                                                                                                                                  | `@reui/signature-pad` (base-nova pin), 1,382 lines, `cn` only: pressure- and speed-sized ink, touch and stylus input, undo/redo, PNG/JPEG/SVG/JSON export                                                                                                                                                                                                                                                           | Not applicable: the harness compares two implementations of one job, and only one of these does the job. There is no side to put in the second column                                                                                                                                                                                                                                                                                                                                                                                                                                                      | **Decline — a different job.** An ink pad answers "what did the mark look like"; electronic signature here is an attestation under an audit chain (REV-03), which ReUI neither carries nor may replace. See the detail below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 9       | Keyboard shortcut cap — show the keys that trigger a command                                 | One shared `Kbd` already exists: `src/components/v3/ui/kbd.tsx` (10 lines), a `<kbd>` bound to the v3 tokens; a chord is three of them in the `flex gap-1` span the call sites write. One component, used by the shortcuts dialog, the help page and the search palette                                                                                                                                                                                                                     | Stock shadcn `kbd` (a bare name on the same index; §11.3.4), 28 lines: `Kbd`, `KbdGroup` to wrap a chord, and an inversion inside tooltip content — `src/components/reui/kbd.tsx`                                                                                                                                                                                                                                   | Ours: the 8 applicable items pass. Theirs: all 8 pass. 10 items are not applicable — no sort, filter, select, resize, pagination or reorder control, and neither side puts a cap on the keyboard path                                                                                                                                                                                                                                                                                                                                                                                                      | **Decline.** Our implementation is not materially worse: it is the one shared, token-bound cap, and the candidate's only additions are a chord wrapper the call sites already write and a tooltip treatment that is inert here. See the detail below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| ======= |
-| #       | Component (generic UI job)                                                                   | What we use now                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | What ReUI offers                                                                                                                                                                                                                                                                                                                                                                                                    | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Measured                                                                                                                                                                                                                                                                                                                                                           |
-| ---     | -------------------------------------------------------                                      | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------                                                                                                                                                                                                                                                             | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------                                                                                                                                                                          | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------                                                                                                                                                                   | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------                                                                                                                                                                                                                                                                                                                                                                                                                                       | -----------                                                                                                                                                                                                                                                                                                                                                        |
-| 1       | Reorderable list — reorder rows by pointer and keyboard                                      | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                                                                                                                                                                                                           | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                                                                                                                                                                                                                                                          | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 9 items are not applicable — this pair has no sort, filter, select, resize or pagination control, and no `navigate` control                                                                                                                                                                                                                                                              | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 2       | Tab family — one of N views, in place                                                        | `src/components/v3/ui/tabs.tsx` in `mode="state"`: Base UI tablist — roving focus, ArrowLeft/ArrowRight, Home/End, `aria-selected`, activation on focus. The reconciliation that produced it deleted five other implementations                                                                                                                                                                                                                                                             | **Nothing to compare against:** the pinned registry answers 404 for `tabs` and says it is a shadcn item. Placed from shadcn/ui (new-york) at `src/components/reui/tabs.tsx`, primitive import re-pointed to the unified `radix-ui` package                                                                                                                                                                          | Ours: 9 of the 9 applicable items pass. Theirs: the same 9 pass, with one structural difference and one cost — the tab stop sits on the `role="tablist"` container (`tabindex="0"`, inline `outline: none`) rather than on the tab, and the item as published needs `@radix-ui/react-tabs`. 10 items not applicable (no reorder, sort, filter, select, resize or pagination control)                                                                                                                                                                                                                       | **Decline — keep ours.** Both sides pass the same keyboard contract, so no named behaviour is missing; the item covers only the in-page half of the job (most of the strips this change migrated are URL tabs, which the item has no mode for) and would add a second primitive library beside Base UI                                                                                                                                                                                                                                                                                                                                                                                                                                       | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-| 3       | Pressed-state chips — filter by several kinds at once                                        | The shipped multi-select chip row: `role="group"`, one `aria-pressed` button per kind, each chip its own tab stop (`revision-diff-review.tsx:493-534` is the reference shape)                                                                                                                                                                                                                                                                                                               | **Nothing to compare against:** the pinned registry answers 404 for `toggle-group` and says it is a shadcn item. Placed from shadcn/ui (new-york) at `src/components/reui/toggle-group.tsx` + `toggle.tsx`                                                                                                                                                                                                          | Ours: 8 of the 8 applicable items pass. Theirs: the same 8 pass, but it announces `role="toolbar"` where ours announces `role="group"`, puts the single tab stop on that container (`tabindex="0"`, inline `outline: none`) and forwards focus to the first chip, and as published needs `@radix-ui/react-toggle-group`. 11 items not applicable, including `keyboard-navigate`: a multi-select group has no roving focus in its pattern                                                                                                                                                                   | **Decline — keep ours.** No missing behaviour to buy, a role change we would have to reason about, and two more dependencies                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
-
-> > > > > > > origin/work/convert-e
-> > > > > > > \=======
-> > > > > > > | # | Component (generic UI job) | What we use now | What ReUI offers | Checklist result | Decision | Measured |
-> > > > > > > | --- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-> > > > > > > | 1 | Reorderable list — reorder rows by pointer and keyboard | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row) | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx` | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface | 16 Oct 2026 |
-> > > > > > > | 2 | Credential panel — one panel for both Settings credential screens (in-house) | Two identical components: `settings-api-tokens.tsx` (314 lines) and `settings-service-credentials.tsx` (313), differing only in the function name, the wire types and the copy; the scan's item 2 measured the structural diff as one line | **No registry counterpart.** No ReUI or stock shadcn item covers a credential panel (scopes, prefix, reveal-once secret, revoke/rotate); adopting a generic table or dialog for it would replace no duplication and lose the domain contract | Not applicable — the harness checklist compares two implementations of one generic UI job, and this consolidation has no candidate column. Evidence instead: the two panels' tests merged and run once per copy preset (12 cases, every headline string asserted literally), and a pixel comparison of the rendered `/settings/api` before and after (`magick compare -metric AE` = **0** at both scroll positions) | **Consolidate.** One panel + a `CredentialPanelCopy` prop + the route's two presets; both files and both test files deleted | 16 Oct 2026 |
-> > > > > > > | 3 | Chip / toggle pill — a removable value, a pressed filter or scope, a phone nav section (in-house) | Five renderers, three class strings: `v3/projects/chip.tsx` (removable, 2 consumers), the record picker's inline `Chip`, the search palette's inline pill (a copy of the picker's string), `routes/settings.tsx` phone nav pills, `routes/client-portal.tsx` pill row | **No registry item.** ReUI's `Toggle Group` and `Button Group` are groups of controls, not a chip — the scan's candidate 8 says not to adopt them for this job, and ADR-0055 decision 4's "serves a generic UI job" bar is not met by a group primitive standing in for one pill | Not applicable — no candidate column. Evidence instead: the `UI/Chip` story (three variants), the five migrated call sites typechecked and rendered, the filter chip and both nav rails inspected in the app, and the phone palette's pill measured in the browser at 390px (34×36 CSS px, 36px after the touch treatment below) | **Consolidate into a new forward-kit `Chip`** (`src/components/v3/ui/chip.tsx`, Base UI `useRender`), with `remove` / `toggle` / `nav` variants; `v3/projects/chip.tsx` and the two inline renderings deleted. `badge.tsx` and `choice.tsx` were checked first and are different jobs (see the detail section) | 16 Oct 2026 |
-> > > > > > > | 4 | Command and listbox — one grouped, keyboard-driven option list (in-house reconciliation) | Three implementations: the forward kit's `v3/ui/command.tsx` (465 lines, 4 consumers), the search palette's own combobox + listbox inside the screen (664 lines, ~200 of them list and keyboard logic), and the legacy cmdk palette (`components/ui/command.tsx`, 158, plus `searchable-select.tsx`, 142) | The stock shadcn `Command` **is** the cmdk item — i.e. what the legacy kit already was. Swapping the forward kit's contract for it re-imports the dependency this change removes and re-opens §11.3.1 (a plain install re-introduces the deprecated kit); a like-for-like replacement would be its own comparison row and this row's conclusion is that it is not worth one | Not applicable — no candidate column. Evidence instead: the palette's 13 tests unchanged and green through the migration (⌘↵ new tab, `aria-controls` only naming a mounted listbox, relevance-ordered groups, result labels, focus return), plus in-situ Chromium checks at 1440 and 390 (active option and its ↵ hint, `aria-activedescendant` resolving, ⌘↵ opening the record in a tab while the palette stays open, the no-match state dropping the listbox attributes) | **Reconcile into the forward kit's Command** and delete the rest: the palette's own list, keyboard handling and combobox wiring are gone (−200/+144), the legacy palette and its unreferenced `searchable-select` are deleted, `extension-slots`' group composes the v3 parts, and `cmdk` leaves the dependency list. The kit gained the five props the palette needed (detail below) | 16 Oct 2026 |
-> > > > > > > origin/work/convert-g
+| #   | Component (generic UI job)                                                                        | What we use now                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | What ReUI offers                                                                                                                                                                                                                                                                                                                                                                                           | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Decision                                                                                                                                                                                                                                                                                                                                                                                                                           | Measured    |
+| --- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard                                           | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                                                                                                                                                                                                                                           | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                                                                                                                                                                                                                                                 | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                                                                                                                                                                                                                                        | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                                                                                                                                                                                                                                   | 16 Oct 2026 |
+| 2   | Paging a list — move between pages, and say which rows you are on                                 | Four byte-identical 26-line pager blocks, one per project tab: `routes/projects/$projectId/{experiments,datasets,samples,files}.tsx` (the arithmetic was already shared; the markup was copied)                                                                                                                                                                                                                                                                                                                             | `@reui/pagination` **is not a registry item** — the pinned base-nova registry returns `404 {"error":"Registry item not found","message":"pagination is part of shadcn/ui, not a ReUI item."}`. The nearest item is the stock shadcn `Pagination*` the repository already has in the legacy kit                                                                                                             | Ours (`src/components/v3/ui/pager.tsx`, the survivor): all 6 applicable items pass, including keyboard paging (Tab to "Next", Enter moves the page and "Previous" turns live). Theirs (`src/components/ui/pagination.tsx`, restyled): all 6 pass too — its numbered links are keyboard-reachable and it pages. The decision is not carried by the checklist: see "What is materially worse" in the detail section                                                                                                                                                                                                                         | **Adopt the in-house `Pager`; the four copies are deleted.** Decline the stock `Pagination*` item (row 18) and record that `@reui/pagination` does not exist                                                                                                                                                                                                                                                                       | 16 Oct 2026 |
+| 3   | Stock shadcn `Pagination*` (the only pagination on the index)                                     | Not used anywhere in the app: `src/components/ui/pagination.tsx` has a story and **zero** call sites (it is already half-migrated — it imports `buttonVariants` from the v3 kit)                                                                                                                                                                                                                                                                                                                                            | Nothing: this is the stock shadcn item reached by bare name, not a ReUI item (`@reui/pagination` 404s, row 17)                                                                                                                                                                                                                                                                                             | Checklist passes (see row 17), so this decision is not about the checklist. It is about the model: `PaginationLink` renders an `<a href>`, so paging would leave the router and full-reload the screen; it has no range or count (the design's footer is a count line, "11 of 17 files"); and it is numbered pages where the screens are 25-row windows                                                                                                                                                                                                                                                                                   | **Decline.** ADR-0055 decision 1: the legacy kit is not extended, and this change adds no new legacy import. The anchor model and the missing range label are the named defects                                                                                                                                                                                                                                                    | 16 Oct 2026 |
+| 4   | Growing-window list control — read the next page of a list                                        | Six hand-rolled controls with five labels between them and no `nav` landmark: `routes/search.tsx`, `routes/experiments.tsx`, `routes/datasets/$datasetId/{rows,compare}.tsx`, `components/v3/integrations/enterprise-source-panel.tsx`, and the audit log's tail, which had **no control at all** in its idle state                                                                                                                                                                                                         | No item: `@reui/load-more` answers `404 {"error":"Registry item not found"}` and ReUI's index has no load-more component. The job is a button and a count                                                                                                                                                                                                                                                  | Ours (`src/components/v3/ui/load-more.tsx`): all 6 applicable items pass; one label, one count format, a landmark, and a keyboard path the audit tail did not have. Theirs (the deleted spellings, kept in the pair): passes 5 of 6 — the audit tail's 5000-row case leaves older entries reachable only by scrolling                                                                                                                                                                                                                                                                                                                     | **Adopt the in-house `LoadMore`; the six controls are deleted.** No registry candidate exists to compare against. Recorded as a consolidation, not a ReUI adoption                                                                                                                                                                                                                                                                 | 16 Oct 2026 |
+| 5   | List screen header — title, count, actions, views                                                 | `ListHeader` (`src/components/v3/inventory/list.tsx`) is composed by **eight** registry screens. Two more composed the identical band by hand, character for character: `routes/experiments.tsx:228-252` and `routes/inbox.tsx:406-462`                                                                                                                                                                                                                                                                                     | Nothing: `ListHeader` is in-house and ReUI has no list-header item                                                                                                                                                                                                                                                                                                                                         | Ours (`ListHeader`, with one new `subtitle` prop): all 6 pass. Theirs (the two hand-rolls): 5 of 6 — the inbox header has no count slot, so it wraps its title and subtitle in one row and puts the sentence beside the `<h1>`. Both wrap rather than clip at 390 (the 408px action measurement that produced the hand-rolled wrap is now the header's own rule)                                                                                                                                                                                                                                                                          | **Adopt the migration.** The band, the wrap rule and the count format are the shared header's; neither screen is a special case once `ListHeader` can carry a subtitle                                                                                                                                                                                                                                                             | 16 Oct 2026 |
+| 6   | Page location trail — say where the page is                                                       | The trail was markup each of **24 files** composed and passed as `crumbs`: 12 of them hand-spelled the `/` separator, none produced `ol`/`li`, and none marked the crumb you are on (`help/records.tsx` was the one place that did). The two help routes hand-rolled their own nav                                                                                                                                                                                                                                          | Nothing: ReUI's index has no breadcrumb; the stock shadcn `Breadcrumb*` is the legacy kit's (`src/components/ui/breadcrumb.tsx`, zero call sites)                                                                                                                                                                                                                                                          | Ours (`src/components/v3/ui/breadcrumb.tsx`, rendered by `PageHeader trail`): all 6 pass — `ol`/`li`, a separator `aria-hidden`, `aria-current="page"` on the last unlinked crumb. Theirs (the node 24 files passed): 5 of 6 — jsdom axe flags `landmark-unique` when two hand-spelled trails sit in one column, and the separator is a text node in the accessibility tree                                                                                                                                                                                                                                                               | **Adopt the in-house `Breadcrumb`; the `crumbs` node slot is deleted** (24 files migrated, no parallel implementation). The stock shadcn item is not taken, under the standing ruling in row 18                                                                                                                                                                                                                                    | 16 Oct 2026 |
+| 7   | Settle-delay search box — hold typing still, then report                                          | Three copies of one debounce: `components/v3/inventory/list.tsx` (200 ms), `routes/datasets/$datasetId/rows.tsx` (a **verbatim copy including its comment**), `routes/settings/audit.tsx` (250 ms, a different shape)                                                                                                                                                                                                                                                                                                       | Nothing: a hook, not a component — no registry item and nothing to render                                                                                                                                                                                                                                                                                                                                  | Both sides are the same input, so there is nothing for a column to compare: the difference is where the 25 lines live. Evidence is the hook's own suite instead (`src/lib/settled-value.test.ts`, 5 cases: a burst reports once, no report on mount, an external change is adopted and the queued keystroke dropped, the echo of its own report is ignored, the settled value is held with no callback)                                                                                                                                                                                                                                   | **Adopt the shared hook; the three copies are deleted.** No pair is registered, because a pair whose two columns render identical controls measures nothing                                                                                                                                                                                                                                                                        | 16 Oct 2026 |
+| 8   | Registry table — a list of records with sorting, row selection and a pinned first column          | The seven untouched registry screens hand-roll the same `v3/ui/table` body inside the shared chrome in `src/components/v3/inventory/list.tsx` (`src/routes/samples.tsx` and its siblings): sticky first column via `stickyHead`/`stickyCell`, click-only row selection, no keyboard path, no virtualisation. `/protocols` shipped this body until this change deleted its copy                                                                                                                                              | `@reui/frame` + `@reui/data-grid` (base-nova pin), placed under `src/components/reui/`: virtualised rows, column and row pinning, a row-select checkbox column, and a frame with its own footer                                                                                                                                                                                                            | Ours: 8 of the 9 applicable items pass; **`keyboard-select` fails** — no row selection is reachable without a pointer (see the detail table). Theirs: all 9 pass. 5 items are not applicable — this pair has no reorder, filter or resize control                                                                                                                                                                                                                                                                                                                                                                                         | **Adopt** on `/protocols`, which this change does: the bespoke body and the screen's `ListFooter` usage are deleted in the same change. The other seven registry screens keep their copy for now (see the limits of this row)                                                                                                                                                                                                      | 16 Oct 2026 |
+| 9   | Working indicator — show that work is in progress                                                 | Six spellings of `animate-spin` over four glyphs in five files: `live/connection-status.tsx:43,54` (`Loader2`, `RefreshCw`), `notebook/save-status.tsx:43,53` (our `clock`, our `move`), `offline/offline-banner.tsx:76` (`RefreshCw`), `dataset-schema/schema-badge.tsx:46` (`Loader2`), `routes/analysis/new.tsx:1191` (our `clock`)                                                                                                                                                                                      | **No admissible registry item.** `spinner` is stock shadcn, not ReUI: `/r/base-nova/spinner.json` 404s, and §11.3.1 records that a bare-name install resolves into the legacy Radix kit decision 1 refuses to extend. Candidate is in-house: `src/components/v3/ui/spinner.tsx`                                                                                                                            | Ours: Tab reaches no control in either column — the indicators are decorative and the states are named in text. Theirs: the same, and it adds the reduced-motion decision (`motion-reduce:animate-none`) that nothing in ours owned. Chromium axe with colour contrast **on**: 0 violations, both columns, both themes. jsdom axe: 0 violations, 6 fixtures and 3 states per side                                                                                                                                                                                                                                                         | **Adopt — the in-house component**, and delete the legacy file with it (zero product call sites; `/foundations` does not render it)                                                                                                                                                                                                                                                                                                | 16 Oct 2026 |
+| 10  | Horizontal quantity bar — show one value against its maximum                                      | Four renderings: a correct `progressbar` (`v3/samples/sample-hold-meter.tsx:179-196`), two `role="img"` bars whose only accessible content is a sentence (`v3/home/home-quiet.tsx:281-300`, `v3/samples/sample-usage.tsx:58-76`), and a bare `{n}%` text (`routes/instruments/$instrumentId.tsx:533-535`), plus `routes/settings/usage.tsx:438-454`                                                                                                                                                                         | **No admissible registry item.** `progress` is stock shadcn (`/r/base-nova/progress.json` 404s) with the same bare-name trap. Candidate is in-house on Base UI: `src/components/v3/ui/progress.tsx`                                                                                                                                                                                                        | Ours: the shipped bars render correctly on every fixture — but only because each caller computed its own percentage by hand (see the detail section). Theirs: **the harness caught a critical `aria-valid-attr-value` in the candidate itself** on the high-precision fixture — `aria-valuenow="1.6e-19"` is not a valid ARIA number — fixed, and both halves pinned; the same rule also fires on an exponential `aria-valuemax`, which is recorded as a limit below. After the fix: 0 violations everywhere, both engines, both themes; the two `role="img"` renderings gain a real `progressbar` contract and the bare text gains a bar | **Adopt — the in-house component**, one per shape (single value and stacked ledger); the caller's arithmetic is no longer the contract                                                                                                                                                                                                                                                                                             | 16 Oct 2026 |
+| 11  | Disclosure — reveal detail behind a control                                                       | Four in-scope `<details>` (`v3/projects/projects-page.tsx:1385`, `v3/integrations/run-history.tsx:201`, `v3/settings/parser-settings.tsx:238`, `settings/signatures.tsx:578,660`) and one expander that manages its own state with **no `aria-expanded` at all** (`v3/integrations/run-history.tsx:150-157`)                                                                                                                                                                                                                | **No admissible registry item.** `collapsible` and `accordion` are stock shadcn (`/r/base-nova/collapsible.json`, `/accordion.json` 404). Candidate is in-house on Base UI Collapsible: `src/components/v3/ui/collapsible.tsx`                                                                                                                                                                             | Measured in Chromium: ours has 7 `<summary>` elements, all focusable, **0 carrying `aria-expanded`**, plus 1 expander button that also carries none; theirs has 8 triggers, each with `aria-expanded` and `aria-controls`. Chromium axe: 0 violations both columns, both themes. jsdom axe: 0 violations, 6 fixtures and 3 states per side                                                                                                                                                                                                                                                                                                | **Adopt — the in-house component.** The expander is the one place with a real defect and it gains a stated state; `<details>` converts for consistency, not for a missing behaviour                                                                                                                                                                                                                                                | 16 Oct 2026 |
+| 12  | Code and raw-payload block — show text as text                                                    | Five renderings: the pipeline `CodeBlock` (the one deliberate one) and four ad-hoc `<pre>`s — `v3/pipelines/agents/agent-surface.tsx:117-126`, `v3/integrations/run-history.tsx:201-208`, `v3/settings/parser-settings.tsx:242-246`, `review/review-check-results.tsx:124`, `audit/object-history-timeline.tsx:130-151`. None of the four is copyable; three have no label, bound or empty state                                                                                                                            | `@reui/code-block` exists and was **measured, then declined** — see the detail section. 3,402 lines of copy-and-own source across two files, and `shiki@4`: **13.1 MB installed across 1,062 files** (9.0 MB of it language grammars), for highlighting, streaming, diffs, folding and per-line interaction this job does not have. Its own registry dependencies pull the legacy Radix `button` (§11.3.1) | Ours: **Chromium axe reports `scrollable-region-focusable` (serious)** — three of the four ad-hoc `<pre>`s scroll without a keyboard path; Tab reaches 1 control in the column. Theirs: 0 violations in both engines and both themes, and Tab reaches a `Copy` control plus a focusable payload region on every row                                                                                                                                                                                                                                                                                                                       | **Decline the install; adopt the in-house `CodeBlock`** (promoted from `pipeline-code.tsx`), with one `CopyButton`/`copyText` for the single-value copy sites                                                                                                                                                                                                                                                                      | 16 Oct 2026 |
+| 13  | Avatar and initials — one person, one reading                                                     | Six render sites in four files, three initials algorithms, two hand-rolled stacks and one unused prop: `record/record-header.tsx` (a local component _named_ `Avatar`, exported as `RecordHeaderAvatar`), `record/inspector-sections.tsx` (`ActivityFeed`, `CommentList`, `ContributorAvatars`), `comments/comment-thread.tsx` (`authorInitials`), `collaboration/presence-avatars.tsx` (`initialsFor`; the only site composing the v3 Avatar); `audit/audit-trail.tsx` carried an `initials?` prop that was never rendered | **No item.** `reui.io/r/base-nova/avatar.json` 404s, and the catalogue lists `avatar` as a stock shadcn component installed by bare name: a Radix `Avatar`/`AvatarImage`/`AvatarFallback` with a fixed `size-8` box, no derivation, no size scale, no tones and no group                                                                                                                                   | Ours: 8 of 8 applicable items pass (10 are not applicable — no reorder, sort, filter, select, resize or pagination control). Theirs: **not run as a like-for-like candidate** — an install would not have replaced the hand-rolled spellings, because the candidate has no derivation to converge on; see the detail table for what was measured instead                                                                                                                                                                                                                                                                                  | **Decline the install; componentise onto the v3 `Avatar`.** Six sites migrated onto one `initialsFromName` rule and one `AvatarStack`; the local `Avatar`, its export and the dead prop are deleted                                                                                                                                                                                                                                | 16 Oct 2026 |
+| 14  | Notice and banner chrome — inline message and page strip                                          | Six hand-rolled alert/banner chromes in five files: `comments/comment-panel.tsx` (load failure and action failure), `audit/record-history-timeline.tsx` (error + retry), `audit/object-history-timeline.tsx` (error), `offline/offline-banner.tsx` (a page strip), `notebook/conflict-banner.tsx` (the block conflict) — all on the app-3 bridge vocabulary (`border-destructive`, `border-danger/40`, `bg-destructive/10`) while sixteen files already compose the v3 pair                                                 | `@reui/alert` (base-nova pin, ReUI-native, one file, `cva` + `cn`): a grid box with `has-[>svg]` icon column, `AlertTitle`, `AlertDescription`, `AlertAction`, and variants `default / destructive / info / success / warning / invert`                                                                                                                                                                    | Ours: 8 of 8 applicable items pass (10 not applicable). Theirs: the same 7 universal items pass **after two behavioural changes** — the page-strip anatomy has to be built outside the item, and its `role="alert"` on every variant is a behaviour our tone-derived `role` exists to avoid. Neither change is available from the item's own API                                                                                                                                                                                                                                                                                          | **Decline.** The v3 pair already owns the job and sixteen files compose it; a second alert vocabulary is the second design language ADR-0055 decision 1 exists to prevent. The six hand-rolls move onto the v3 pair instead                                                                                                                                                                                                        | 16 Oct 2026 |
+| 15  | File type — resolve a name or MIME type to an icon                                                | Three icon resolvers and a duplicate size formatter: `record/inspector-sections.tsx` (`fileTypeIcon`, MIME-first, four Lucide-family glyphs), `notebook/block-preview.tsx` (`fileIconForType`/`FileIcon`/`FileMetaLine`), `notebook/block-editor.tsx` (`fileGlyphFor`); `formatBytes` existed twice (`src/lib/file-attach.ts` as an alias, and again locally in `src/routes/records/$recordId/notebook.tsx`)                                                                                                                | `@reui/file-type` (base-nova pin, ReUI-native, one file, `class-variance-authority` + `cn`): 171 extensions across 13 families, `getFileType` / `getFileTypeCategory`, variants `outline / solid / light / mono`, sizes down to an 18px row                                                                                                                                                                | Ours (before): 7 of 8 applicable items pass — the icon carries no type in words, so the type's accessible name is absent (`aria-hidden`), and a generic stored MIME type resolves an `.xlsx` name to the neutral glyph. Theirs (after): 8 of 8 pass — every icon is `role="img"` with a named type, name-first resolution replaces the MIME-first fall-through, and long names still truncate in the row                                                                                                                                                                                                                                  | **Adopt, scoped.** `src/components/reui/file-type.tsx`, restyled to app tokens, replaces the inspector's resolver; the two block-resident resolvers stay (Part A owns notebook blocks) and are recorded as an explicit exclusion. `formatBytes` is one helper again                                                                                                                                                                | 16 Oct 2026 |
+| 16  | Tab family — one of N views, in place                                                             | `src/components/v3/ui/tabs.tsx` in `mode="state"`: Base UI tablist — roving focus, ArrowLeft/ArrowRight, Home/End, `aria-selected`, activation on focus. The reconciliation that produced it deleted five other implementations                                                                                                                                                                                                                                                                                             | **Nothing to compare against:** the pinned registry answers 404 for `tabs` and says it is a shadcn item. Placed from shadcn/ui (new-york) at `src/components/reui/tabs.tsx`, primitive import re-pointed to the unified `radix-ui` package                                                                                                                                                                 | Ours: 9 of the 9 applicable items pass. Theirs: the same 9 pass, with one structural difference and one cost — the tab stop sits on the `role="tablist"` container (`tabindex="0"`, inline `outline: none`) rather than on the tab, and the item as published needs `@radix-ui/react-tabs`. 10 items not applicable (no reorder, sort, filter, select, resize or pagination control)                                                                                                                                                                                                                                                      | **Decline — keep ours.** Both sides pass the same keyboard contract, so no named behaviour is missing; the item covers only the in-page half of the job (most of the strips this change migrated are URL tabs, which the item has no mode for) and would add a second primitive library beside Base UI                                                                                                                             | 16 Oct 2026 |
+| 17  | Pressed-state chips — filter by several kinds at once                                             | The shipped multi-select chip row: `role="group"`, one `aria-pressed` button per kind, each chip its own tab stop (`revision-diff-review.tsx:493-534` is the reference shape)                                                                                                                                                                                                                                                                                                                                               | **Nothing to compare against:** the pinned registry answers 404 for `toggle-group` and says it is a shadcn item. Placed from shadcn/ui (new-york) at `src/components/reui/toggle-group.tsx` + `toggle.tsx`                                                                                                                                                                                                 | Ours: 8 of the 8 applicable items pass. Theirs: the same 8 pass, but it announces `role="toolbar"` where ours announces `role="group"`, puts the single tab stop on that container (`tabindex="0"`, inline `outline: none`) and forwards focus to the first chip, and as published needs `@radix-ui/react-toggle-group`. 11 items not applicable, including `keyboard-navigate`: a multi-select group has no roving focus in its pattern                                                                                                                                                                                                  | **Decline — keep ours.** No missing behaviour to buy, a role change we would have to reason about, and two more dependencies                                                                                                                                                                                                                                                                                                       | 16 Oct 2026 |
+| 18  | Option picker — choose one option from a grouped list                                             | v3 `Select` (`src/components/v3/ui/select.tsx`): the **native** `<select>`, styled like `Input`. This change hoists it out of `projects/select.tsx`, makes it the single definition (a second one in `inventory/list.tsx` is deleted), and migrates 22 route sites and 3 further v3 sites onto it                                                                                                                                                                                                                           | **Stock shadcn `native-select`**, placed by hand at `src/components/reui/native-select.tsx`. **Not a ReUI item**: the pinned ReUI registry serves neither `native-select` nor `select`, so there is no base-nova build of this job to install                                                                                                                                                              | Ours: 8 of the 10 applicable items pass, 1 is a measured gap (density at 390: the 44px clause) and 1 is not measurable in either engine (the platform popup's pointer path; see the detail table). Theirs: the same 8, the same gap, the same unmeasurable item. 10 items are not applicable — this pair has no reorder, sort, filter, row-select, resize or pagination control                                                                                                                                                                                                                                                           | **Keep ours; no adoption.** The two are the same platform control, so there is no measured decline to weigh: the candidate's own additions (option/optgroup wrappers, `has-[select:disabled]:opacity-50`, a lucide chevron, 36/32px sizes) change nothing behaviourally, and our contract is the better fit — two sizes that grow on mobile, `invalid`, `Field`-awareness, the kit's tokens, no new dependency, and one definition | 16 Oct 2026 |
+| 19  | Credential panel — one panel for both Settings credential screens (in-house)                      | Two identical components: `settings-api-tokens.tsx` (314 lines) and `settings-service-credentials.tsx` (313), differing only in the function name, the wire types and the copy; the scan's item 2 measured the structural diff as one line                                                                                                                                                                                                                                                                                  | **No registry counterpart.** No ReUI or stock shadcn item covers a credential panel (scopes, prefix, reveal-once secret, revoke/rotate); adopting a generic table or dialog for it would replace no duplication and lose the domain contract                                                                                                                                                               | Not applicable — the harness checklist compares two implementations of one generic UI job, and this consolidation has no candidate column. Evidence instead: the two panels' tests merged and run once per copy preset (12 cases, every headline string asserted literally), and a pixel comparison of the rendered `/settings/api` before and after (`magick compare -metric AE` = **0** at both scroll positions)                                                                                                                                                                                                                       | **Consolidate.** One panel + a `CredentialPanelCopy` prop + the route's two presets; both files and both test files deleted                                                                                                                                                                                                                                                                                                        | 16 Oct 2026 |
+| 20  | Chip / toggle pill — a removable value, a pressed filter or scope, a phone nav section (in-house) | Five renderers, three class strings: `v3/projects/chip.tsx` (removable, 2 consumers), the record picker's inline `Chip`, the search palette's inline pill (a copy of the picker's string), `routes/settings.tsx` phone nav pills, `routes/client-portal.tsx` pill row                                                                                                                                                                                                                                                       | **No registry item.** ReUI's `Toggle Group` and `Button Group` are groups of controls, not a chip — the scan's candidate 8 says not to adopt them for this job, and ADR-0055 decision 4's "serves a generic UI job" bar is not met by a group primitive standing in for one pill                                                                                                                           | Not applicable — no candidate column. Evidence instead: the `UI/Chip` story (three variants), the five migrated call sites typechecked and rendered, the filter chip and both nav rails inspected in the app, and the phone palette's pill measured in the browser at 390px (34×36 CSS px, 36px after the touch treatment below)                                                                                                                                                                                                                                                                                                          | **Consolidate into a new forward-kit `Chip`** (`src/components/v3/ui/chip.tsx`, Base UI `useRender`), with `remove` / `toggle` / `nav` variants; `v3/projects/chip.tsx` and the two inline renderings deleted. `badge.tsx` and `choice.tsx` were checked first and are different jobs (see the detail section)                                                                                                                     | 16 Oct 2026 |
+| 21  | Command and listbox — one grouped, keyboard-driven option list (in-house reconciliation)          | Three implementations: the forward kit's `v3/ui/command.tsx` (465 lines, 4 consumers), the search palette's own combobox + listbox inside the screen (664 lines, ~200 of them list and keyboard logic), and the legacy cmdk palette (`components/ui/command.tsx`, 158, plus `searchable-select.tsx`, 142)                                                                                                                                                                                                                   | The stock shadcn `Command` **is** the cmdk item — i.e. what the legacy kit already was. Swapping the forward kit's contract for it re-imports the dependency this change removes and re-opens §11.3.1 (a plain install re-introduces the deprecated kit); a like-for-like replacement would be its own comparison row and this row's conclusion is that it is not worth one                                | Not applicable — no candidate column. Evidence instead: the palette's 13 tests unchanged and green through the migration (⌘↵ new tab, `aria-controls` only naming a mounted listbox, relevance-ordered groups, result labels, focus return), plus in-situ Chromium checks at 1440 and 390 (active option and its ↵ hint, `aria-activedescendant` resolving, ⌘↵ opening the record in a tab while the palette stays open, the no-match state dropping the listbox attributes)                                                                                                                                                              | **Reconcile into the forward kit's Command** and delete the rest: the palette's own list, keyboard handling and combobox wiring are gone (−200/+144), the legacy palette and its unreferenced `searchable-select` are deleted, `extension-slots`' group composes the v3 parts, and `cmdk` leaves the dependency list. The kit gained the five props the palette needed (detail below)                                              | 16 Oct 2026 |
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
-
-**This row is the pre-adoption record**: the comparison that decided the
-adoption. What the notebook does now, and what the adoption measured, are in
-[Row 1a](#row-1a--reorderable-list-adopted-notebook-sortable) below. Nothing in
-this section is overwritten — the pair it describes was measured at revision
-`35423ec2` of `work/b2-notebook-sortable`, and that revision is where the
-hand-rolled implementation, its pair and these numbers still reproduce.
 
 ### What we use now
 
@@ -229,1686 +209,401 @@ reason disappears and this decision should be re-measured rather than inherited.
 - This row records one pair. It is not a verdict on `@dnd-kit`, on ReUI as a
   registry, or on any other ReUI item.
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-## Row 1a — Reorderable list, adopted (`notebook-sortable`)
-
-The same pair, after its candidate was adopted (workstream B2 of
-`plans/notebook-editor-and-reui.html`, §11.6). The columns no longer differ in
-mechanism; they differ in integration, which is where an adoption's regressions
-show up. Our side is the shipped code; the reference side is the registry item
-as published with the C1 fix-up, unchanged from row 1.
-
-### What changed
-
-`src/components/notebook/notebook-block-reorder.tsx` was rebuilt on the vendored
-item. It holds no drag mechanics — no `dragover` midpoint comparison, no
-insertion indicator, no edge auto-scroll — and exports three components plus the
-move maths the optimistic writer needs:
-
-- **`NotebookBlockList`** — the vendored `Sortable` bound to the notebook's own
-  `onMove(itemId, targetIndex)` contract. `Sortable`'s `onValueChange` is unused:
-  the order is the route's canonical `blocks` plus an optimistic override the
-  document holds, never the list's local state.
-- **`NotebookBlockRow`** — the item wearing the notebook's row semantics: a
-  labelled `role="group"` with its own tab stop and its own `aria-label`, instead
-  of the item's `role="button"` and `tabindex` — C1's resolution, now in the
-  shipped markup rather than in a column adapter.
-- **`NotebookBlockHandle`** — the item's own handle rendered as a real
-  `<button>`, which is what makes its keyboard sensor reachable at all.
-
-Three input paths land in that one callback: pointer and touch through the
-item's sensors on the grip; the item's keyboard sensor on the grip (Enter or
-Space lifts, arrows move, Enter or Space drops, announced through its live
-region); and the notebook's own Alt+↑/↓ and block-menu moves, which share the
-same optimistic writer the drop uses. `NotebookBlock` gained a `handle` slot so
-the frame can render a caller's grip while keeping its built-in one for the
-design gallery and the stories.
-
-Two integration decisions to read before changing any of it:
-
-- **The rows are our own components, not bare `SortableItem`s**, so the item's
-  clone-the-active-child overlay does not apply. The clone would mount a second
-  block editor inside its portal, and for a sheet block a second canonical sheet
-  grid. The drag reads through the item's own dimming and the movement
-  transforms on the rows around it. The reference column keeps raw
-  `SortableItem` children, which is the difference the two columns now measure.
-- **The grip is rendered at every width, and its hover reveal is gated on the
-  pointer** (`pointer-fine`) rather than on a width, because a touchscreen
-  cannot hover and the grip is its only route to a reorder. Below `lg` the row
-  carries the gutter itself (`pl-7 print:pl-0 lg:pl-0`) because the page margin
-  there is not wide enough to hold it. Above `lg` the row's box, its padding and
-  the grip's box are unchanged from before the adoption.
-
-### Checklist result after adoption
-
-Applicable items are the same 10 as row 1; the other 8 need controls this pair
-does not have and stay recorded as not applicable.
-
-| Check                                                     | Ours                                                                                                                                                    | Reference                                                                           | How it was measured                                                                                          |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Tab reaches every control, with a visible focus indicator | Pass — the grip button per row, then each keyboard-reachable row; the row is the item's single drag control                                             | Pass — the handle button per row; the item container is deliberately not a tab stop | Browser, both columns                                                                                        |
-| Reorder by keyboard                                       | Pass — Alt+arrow from the focused row, and the item's own lift-and-move on the grip, both announced                                                     | Pass — lift with Enter, move with arrows, drop with Enter                           | Browser and jsdom; the lift, its announcement and its cancel are jsdom cases in `notebook-document.test.tsx` |
-| Reorder by pointer                                        | Pass — drag from the grip past the 10px activation; the rows shift and the drag lands where the pointer left it                                         | Pass — the same gesture, same library                                               | Browser, both columns; both produce the same order for the same drop                                         |
-| Empty (0 rows), loading, error, permission-restricted     | Pass (with row 1's caveat: these are states of a whole screen and the harness owns them)                                                                | Pass                                                                                | Browser (both columns) and jsdom                                                                             |
-| Dark theme                                                | Pass — token-bound colours only; axe clean in dark                                                                                                      | Pass                                                                                | axe in Chromium with colour contrast on, both columns and both themes                                        |
-| Density and overflow at 1440x900                          | Pass — no horizontal overflow, no clipped row, grip visible on hover                                                                                    | Pass                                                                                | Browser, both columns                                                                                        |
-| Density and overflow at 390x844                           | **Pass — the grip is rendered, is at least 16px, and a drag from it reorders the list.** This is the gap row 1 recorded and the reason for the adoption | Pass — the same                                                                     | Browser, both columns, asserted per column rather than averaged                                              |
-
-### Automated evidence
-
-| Evidence                                                                                                                                                         | Result                                                                            | Command                                                                                                                   |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides, plus the 2 C1 pins against the vendored item                                                       | 20 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                                   |
-| axe in Chromium, colour contrast **on**                                                                                                                          | 4 cases (2 columns × 2 themes), **zero violations**                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep axe`                          |
-| Harness contracts (one scenario object to both columns, frozen fixtures, keyboard reorder, states)                                                               | 12 tests, pass                                                                    | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                                        |
-| Full browser checklist (keyboard, pointer, states, density, the phone-width drag, 4 screenshots)                                                                 | 18 tests, pass                                                                    | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`                                     |
-| Notebook suites, including the grip's registration, the keyboard sensor's lift and cancel, the print-hide membership and the Alt+arrow/menu destination contract | 54 tests, pass                                                                    | `pnpm exec vitest run src/components/notebook/notebook-document.test.tsx src/components/notebook/notebook-block.test.tsx` |
-| The real notebook route: keyboard build, reorder and delete against PostgREST                                                                                    | 2 tests, pass                                                                     | `pnpm exec playwright test tests/browser/note-01-authoring.test.ts --project=browser`                                     |
-| Full unit suite                                                                                                                                                  | 4,827 tests, pass                                                                 | `pnpm test`                                                                                                               |
-
-Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `ours-light.png`, `ours-dark.png`,
-`theirs-light.png`, `theirs-dark.png` — one per column per theme, on the
-long-labels fixture. Appearance is evidence; it is not the verdict.
-
-Measurements taken by hand, because no kept test reaches them, all from the
-repository at this revision:
-
-- **Desktop geometry is unchanged.** At 1440x900 the notebook's row box is
-  256–1116, its left padding is 0px and the grip's box is 229–247 — the same
-  numbers as before the adoption. With a fine pointer present the grip's computed
-  `opacity` is 0 until the pointer is over the row, and 1 while it is.
-- **Phone width is a real path.** At 390x844 the row is 64–374 with 28px of
-  leading padding and the grip sits at 65–83 at `opacity: 1`; the document
-  reports no horizontal overflow (`scrollWidth` 390), and the grip is clear of
-  the shell's rail.
-- **Print drops both.** Under `emulateMedia({ media: 'print' })` the gutter's
-  `display` is `none` and the row's left padding is `0px`, so the printed
-  document carries neither the grip nor the space it needed. The grip's
-  membership of the print-hide set is also a kept jsdom assertion.
-- **The touch sensor is wired, and that is not a device test.** A synthetic
-  `touchstart` on the grip, a 250 ms hold and a `touchmove` set the row's
-  `data-dragging` to `true`, and `touchend` clears it. Synthetic touch in
-  Chromium is not a touchscreen; C2 below is what that leaves open.
-
-### Conditions, discharged
-
-- **C1 — where the drag's semantics live. Discharged.** The shipped row is a
-  labelled group with its own tab stop and its own `aria-label`, so the grip is
-  the single control and axe is clean in both engines (20 jsdom cases, 4
-  Chromium cases). Both halves of the original measurement still run against the
-  vendored item unchanged.
-- **C2 — verify touch on a device. OPEN, and named as such.** No real
-  touchscreen has run this. What stands in for it: the grip is rendered at every
-  width and is visible wherever no hover exists (`pointer-fine` gates the
-  reveal), the pointer path reorders at 390x844 in a browser case, and the touch
-  sensor activates under synthetic touch in Chromium. None of that is a device,
-  so this condition is not closed — closing it needs one. It no longer blocks,
-  as row 1 assumed it would, because there is nothing of the hand-rolled
-  implementation left to delete.
-- **C3 — accept the dependencies. Discharged.** `@dnd-kit/core`,
-  `@dnd-kit/sortable` and `@dnd-kit/utilities` are the versions the shadcn CLI
-  chose when the item was installed (`6.3.1`, `10.0.0`, `3.2.2`) and they were
-  already in the lockfile from row 1's change. What replaces the 240 lines is
-  one copy-and-own file plus the three notebook components that bind it.
-- **C4 — the drop preview. Discharged where the design set expects it.** The
-  insertion line is gone: the dragged row dims and the rows around it shift,
-  rather than a floating clone following the pointer. That is a smaller change
-  than row 1 anticipated and it is deliberate — the item's overlay clones the
-  row it is dragging, which here would mount a second block editor, and for a
-  sheet block a second canonical sheet grid. The notebook's canvases draw no
-  authoring affordance at all (no grip, no insertion line, no drop preview), so
-  the difference is recorded in the two places the design set owns it rather
-  than left in a component: the parity registry's expectation
-  (`tests/visual/design-states.ts`, which keeps `Nb*` and `Notebook` pending
-  until it is settled) and the adoption strategy's verification rule
-  (`docs/knowledge/roadmap-4/DESIGN_ADOPTION.md`, "one difference is known and
-  is not yet an exception"). Settling it means re-vendoring the canvases with
-  the affordances drawn, or an owner decision recorded against those screens —
-  not a silent pass.
-- Standing requirements from ADR-0055 decision 4: the old implementation is
-  deleted in this change with no parallel mechanism left behind, tokens are
-  respected (`pnpm check`'s colour check is clean), and the vendored file's only
-  edit remains the `cn` import.
-
-### Decision and reason
-
-**Adopted.** The measured reason row 1 gave — no pointer or touch route to a
-reorder below 1024px, and a mechanism we maintain ourselves — is closed by
-measurement rather than by claim: the phone-width case now performs a drag on
-our column and asserts the order changed, where it previously asserted that the
-grip was not rendered.
-
-### Limits of this row
-
-- Desktop Chromium (Playwright, one worker) only; no Firefox, WebKit, or real
-  device. C2 stands.
-- The two columns are no longer two mechanisms. This row measures the adoption's
-  integration; it is not a second verdict on `@dnd-kit`.
-- The 5,000-row fixture is measured for rendering and overflow, not by axe, as in
-  row 1.
-- The grip's glyph is the repository's `move` icon, as it was before the
-  adoption. At 14px it reads as a small square rather than as a grip, and the
-  icon set has no grip or drag icon; that is a discoverability question for the
-  touch path, recorded here rather than fixed in a swap.
-
-- **The bulk fixture is not measurable on this pair.** The browser harness
-  renders a rich row per row on both sides — ours is the shipped notebook
-  list — so the page never reaches a reportable state at 5,000 rows. The
-  bulk check runs on a light pair instead, and this pair's density is
-  measured at 1440×900 and 390×844. `docs/development/component-compare.md`
-  records both this and the Playwright timeout trap it exposed.
-
-## Row 2 — Step progress row (`import-stepper`)
-
-### The step chrome in `src`, as found (2026-10-16)
-
-The proposal counted eight distinct step-chrome renderers (`plans/notebook-editor-and-reui.html` §11.2). Eight stateful stage renderers is what this change found; exactly **two of them are the same job**, and those two are the ones consolidated here.
-
-| #   | Renderer                | Where                                                                                                                            | What marks the stage                                                                                    | Same job as the row?                             |
-| --- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 1   | `Stepper` (forward kit) | `src/components/v3/ui/stepper.tsx`; import flow `:334`, `:831`                                                                   | `aria-current="step"`, tick on done steps, reserved `failed` marker                                     | **Yes — the survivor**                           |
-| 2   | `Stepper` (legacy kit)  | `src/components/ui/stepper.tsx`; a story only                                                                                    | `data-state` (`done`/`now`/`todo`/`bad`); no `aria-current`                                             | **Yes — deleted by this change**                 |
-| 3   | `ApprovalStepper`       | `src/components/audit/approval-stepper.tsx`; review workspace, `/foundations`                                                    | per-step review state (pending, active, completed, rejected, returned, unavailable) with actor and time | No — an approval workflow, not a flow's progress |
-| 4   | `GuidePanel`            | `src/components/assist/guide-panel.tsx`; analysis-to-figure and submission-readiness guides                                      | per-step Done / Current / Blocked, with blocked reasons and next-action buttons                         | No — a guidance panel                            |
-| 5   | Protocol progress list  | `src/components/overview/overview-view.tsx:245-307`                                                                              | per-step `Status` Done / Not started; no current step                                                   | No — procedure progress in an inspector          |
-| 6   | Agent workflow steps    | `src/components/v3/pipelines/agents/agent-surface.tsx:480` (a `current_step / steps` cell) and `:561` (the Steps inspector list) | step records with status, and a numeric progress cell                                                   | No — agent-run detail                            |
-| 7   | First-run checklist     | `src/routes/index.tsx:630-679`                                                                                                   | numbered circle, tick when done, "N of M done"; no current step                                         | No — an onboarding checklist, order-free         |
-| 8   | Review walkthrough      | `src/components/review/revision-diff-review.tsx:166`, `:265`                                                                     | `aria-current="step"` on the change being walked                                                        | No — walking a change list                       |
-
-Two near-misses were checked and are not step chrome at all: the help centre's how-to list (`src/routes/help/index.tsx:203`, `Step {i + 1}` over `list-decimal`, no state) and the pipeline's code-step list (`src/components/v3/pipelines/pipeline-code.tsx`, `PipelineSteps`) — a guide's numbered list and a pipeline's code steps, as §11.4 predicted. The run log list (`runs/$runId.tsx:314`) and the "Step {step_id}" caption on a paused prompt (`run-prompt.tsx:255`) are likewise not.
-
-So the consolidation is two implementations to one, not eight to one. Renderers 3–8 are different jobs, and this change leaves them alone.
+## Row 2 — Paging a list (`paging-a-list`)
 
 ### What we use now
 
-`src/components/v3/ui/stepper.tsx` (67 lines): `<ol aria-label="Steps">` with one `<li>` per step, `aria-current="step"` on the current one, a tick on the steps behind it, and `!` on the current step when its `failed` prop is set. Display-only — no focusable element, no interaction. Its only product surface is the import flow (`src/components/import/import-flow.tsx:327`, `:831`), and `tests/browser/import-flow.test.ts:185-193` is its shipped contract. Story: `UI/Stepper` (`src/stories/Stepper.stories.tsx`).
+Four byte-identical 26-line pager blocks, one per project tab —
+`routes/projects/$projectId/{experiments,datasets,samples,files}.tsx` — each
+inside the `footer` prop of `ProjectList`. The arithmetic was already shared
+(`projectPageSummary`), the markup was copied: a `<span>` of "Showing {start}–{end}
+of {total} {noun}", then `Previous` and `Next` as `text-link` router links that
+**vanish** at the ends, so at page 1 the row moves and a reader cannot tell a
+first page from a missing control. There was no `nav`, no landmark and no
+`aria-label="Pagination"` anywhere in the tree.
 
-The legacy kit's `src/components/ui/stepper.tsx` was the same row with the same state derivation and no accessibility contract: `data-state` only, no accessible name for the list, no `aria-current`, no `label`, `text-caption`/`text-muted-foreground` where the v3 row is on the app-3 tokens. Its only consumer was a story. Deleted in this change, with the story repointed at the survivor, the legacy barrel export removed, the legacy README mapping row re-pointed at `v3/ui/stepper.tsx`, and its two unit cases replaced by `src/components/v3/ui/stepper.test.tsx` — which pins the shipped contract and the `failed` marker that no browser test asserts positively.
-
-### What ReUI offers
-
-`src/components/reui/stepper.tsx` (494 lines): `@reui/stepper` installed from the pinned base-nova registry with the shadcn CLI in a scratch directory and placed by hand at the path the item's own `files[].target` names, with the two permitted edits — the `cn` import re-pointed to `#/lib/utils`, and the classes restyled to the app-3 vocabulary (`bg-surface`, `text-fg-muted`, `bg-accent-strong`, `text-on-accent`, `bg-border-strong`, `outline-focus`, `text-label`). No dependency was added: `@base-ui/react` is already the kit's base and `cn` is never installed.
-
-It is a wizard-navigation primitive. `Stepper` renders `<div role="tablist">`, `StepperNav` a `<nav>`, `StepperItem` a `<div>`, and `StepperTrigger` a `<button role="tab">` with `aria-selected`, a roving tabindex and `aria-controls="stepper-panel-N"`; `StepperIndicator`, `StepperTitle`, `StepperDescription`, `StepperSeparator`, `StepperPanel` and `StepperContent` complete it. Its states are `active` / `completed` / `inactive` (and a `loading` flag); there is no failed step. Story: `ReUI/Stepper` (`src/components/reui/stepper.stories.tsx`).
-
-### Checklist result
-
-Fixed checklist: `src/components/component-compare/checklist.ts`. The 8 items that apply to a step row are below; the 8 that need reorder, sort, filter, select, resize or pagination controls are not applicable to this job and are recorded as such, not skipped.
-
-| Check                                                     | Ours                                                                                                                                     | Theirs                                                                                                                                             | How it was measured                                                                                                |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Tab reaches every control, with a visible focus indicator | Pass, vacuously — the row is display-only and holds no focusable element, so Tab passes over it in DOM order                             | One tab stop: the current step's trigger (roving tabindex `0`; the others `-1`), ring on the `outline-focus` token                                 | jsdom structure (S1 pin); not run in a browser for the candidate — see the limits                                  |
-| Empty (0 steps), loading, error, permission-restricted    | Pass — the row itself has none of those states (the flow's `STEPS` is a constant); with `restricted` there is nothing to disable         | Pass on containment; `restricted` is the pair's difference — its steps stay interactive unless the consumer disables every item                    | jsdom (S1 pin) and the code read                                                                                   |
-| Dark theme                                                | Pass — axe with colour contrast **on** reports zero violations and zero incomplete on the shipped row in the running app, in both themes | **Not run** — the candidate is not a registered pair                                                                                               | Ours: axe injected into the dev server on `/import`, colour contrast enabled, dark and light; theirs: not measured |
-| Density at 1440x900                                       | Pass — no overflow                                                                                                                       | Pass — no page overflow at 1200 in the story                                                                                                       | Storybook capture at 1200x260                                                                                      |
-| Density at 390x844                                        | Pass — the row fits by wrapping labels                                                                                                   | **Fail** — the row overflows its container and labels truncate; the consumer has to allow the trigger to shrink (`min-w-0`) and truncate the title | Storybook captures of both stories at 390x260, and the measured overflow (`ol.scrollWidth - clientWidth`)          |
-
-The row's remaining checklist lines are answered by measurements the harness cannot host — the contract run and axe — and are under "Automated evidence" below.
-
-### Automated evidence
-
-| Evidence                                                                                                                                       | Result                                                                                                                                             | Command                                                                                   |
-| ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| axe, both sides, on the flow's own three steps with the second current (S1)                                                                    | Ours **zero violations**; theirs as published **3 critical violations**: `aria-required-children`, `aria-required-parent`, `aria-valid-attr-value` | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`   |
-| axe, the candidate with the consumer's own container fixes (`role="none"` on the item wrappers, the panel targets its `aria-controls` expects) | `aria-valid-attr-value` cleared; the two structural violations remain                                                                              | same file, third S1 case                                                                  |
-| The candidate cannot render the shipped contract                                                                                               | No `list` named "Steps", no `listitem`, no `aria-current="step"` (S1, case 1)                                                                      | same file                                                                                 |
-| The shipped contract, ours, end to end                                                                                                         | Pass — 3 steps, names, `aria-current` on the current one                                                                                           | `pnpm exec playwright test tests/browser/import-flow.test.ts --project=browser`           |
-| The same spec with the candidate composed in the import flow (the adoption attempt)                                                            | **Fails at the first assertion**: `getByRole('list', { name: 'Steps' }).getByRole('listitem')` resolved to 0 elements, expected 3                  | same command, run 16 Oct 2026 and then reverted; the structural half is pinned by S1      |
-| The survivor's contract and its `failed` marker                                                                                                | 4 tests pass                                                                                                                                       | `pnpm exec vitest run src/components/v3/ui/stepper.test.tsx`                              |
-| axe, the shipped row in the running app, colour contrast **on**                                                                                | Zero violations and zero incomplete on `/import` in **both** themes (dark and light)                                                               | axe injected into the dev server at 1280x800; the dark capture is `import-steps-dark.png` |
-
-### Why this row is not a registered harness pair
-
-`docs/development/component-compare.md` is explicit that a column which cannot pass axe is not adoptable and that a violation fails the harness's own a11y suite with no allow-list. The candidate cannot pass that gate in any composition a consumer could ship for a progress row — two of the three critical violations are structural to the item, and the third needs placeholder elements for a panel id nothing renders. Registering it would either leave `pnpm test` red or require the harness to tolerate violations, which the runbook forbids. Its measurements are therefore pinned in the harness suite itself (S1 in `component-compare.a11y.test.tsx`), where both sides are rendered on the same steps and compared, and the pair is not in `pairs/index.ts`.
-
-### Decision and reason
-
-**Decline. `@reui/stepper` does not replace the step chrome, and the two in-house steppers are consolidated to one instead.** Four reasons, in the order they decide it:
-
-1. **The shipped contract cannot be met.** `tests/browser/import-flow.test.ts:185-193` requires `<ol aria-label="Steps">`, one `<li>` per step and `aria-current="step"` on the current one. The item renders a `<nav>` of `<div>`s holding a `role="tablist"` of tabs, with no `aria-current` anywhere: measured structurally (S1, case 1) and end to end, where the spec fails at its first assertion with 0 listitems against 3 expected. Producing the contract would mean rewriting the element tags, roles and attributes the copied item declares — which ADR-0055 decision 2 does not permit beyond import-path fixes and restyling.
-2. **It fails the harness's own axe gate.** Three critical violations as published, two of them still present after the consumer's own container fixes. An adoption would have to strip the semantics the item declares rather than restyle them.
-3. **It is a different job, not a better one.** The item is wizard navigation — steps that change the active step, a roving tab stop, panels it expects to control — where the flow needs a display-only progress row, and its state union has no failed step for the marker the flow reserves. The attempt had to invent that marker; the item cannot mark it.
-4. **ADR-0055 decision 4's bar is "materially better, not merely different".** The candidate is ~490 lines to own where the repository owns 67, and what it adds over our row (jumping between steps, a loading indicator, a vertical orientation) is behaviour the import flow does not want.
-
-The one place it does measure better — labels truncate where ours wrap, so a narrow row could be made tidier with consumer work — is not a missing behaviour in our row, and it comes with the checkout of everything above.
-
-If a future surface genuinely needs a navigable wizard (steps as controls, panels per step), this item is the right shape for _that_ screen, and this row should be re-measured rather than inherited: the decline is about this job, not about the registry.
-
-### Limits of this row
-
-- The candidate was measured on its own composition (jsdom axe, structure, and one end-to-end contract run in the import flow). It is not a registered pair, so the browser checklist — screenshots per column per theme, keyboard focus, the four states, dark-theme contrast — was not run for it. The items marked "not run" above are ones the decision did not turn on.
-- Appearance evidence comes from Storybook at 1200x260 and 390x260 rather than the harness; appearance is evidence, not the verdict.
-- The 5,000-step case was not measured. The item registers every trigger through a state-setting effect and scans its node list per trigger, so its cost grows faster than the step count — a code read, not a measurement; the fixtures' bulk case applies to registered pairs and this one is not.
-- Desktop Chromium (Storybook and Playwright) only; no Firefox, WebKit or real device.
-- The candidate's restyle was verified visually in Storybook in light theme only; our row was captured in the app in dark and light.
-
-## Row 3 — File pick and drop (`import-file-upload`)
-
-### What we use now
-
-Four screens picked a file, each with a bare `<input type="file">` and each
-carrying its own copy of the surrounding state:
-
-- `src/components/import/import-flow.tsx` step 1 ("Laboratory file"): the v3
-  `Input`, disabled until a target was chosen; upload progress was one boolean —
-  `busy` — rendered as one `role="status"` line, "Storing and reading the
-  file…", and a failure was a page-level `Banner` ("Import error"). The retry
-  was the person picking the file again.
-- `src/components/v3/settings/parser-settings.tsx` ("Upload a new test file"):
-  progress was `upload.isPending` on the input's `disabled`.
-- `src/components/v3/integrations/ingest-panel.tsx` ("Instrument file", inside a
-  `Field`): the pick was only a selection — the bytes were retained later, when
-  the run started.
-- `src/components/notebook/block-editor.tsx` (the file block): a dashed, centred
-  box with an icon well and a file input inside it. This is the box that looked
-  like a drop target and had no drop handler; progress was a `pending` line and
-  the failure a `Notice`.
-
-None of the four could say which file failed, none offered a retry, and none
-accepted a dropped file. Drag-and-drop was absent app-wide. ReUI's own note on
-the item — "no example sends a picked `File` to a server; picks stay in React
-state until you add the upload request" — describes the shape the adoption
-keeps: transport, validation and storage policy stay with the screens.
+The survivor is `src/components/v3/ui/pager.tsx`: a `nav[aria-label="Pagination"]`
+carrying the same range label, with both ends always rendered and inert
+(`disabled` on the router `Link`, which drops the `href` and sets
+`aria-disabled="true"`; the dimmed style is the pager's own class, so a screen
+that renders it outside the router still shows which end it is at). The
+arithmetic stays the caller's — the page size, the parse and the range are
+`project-lists.ts`'s policy.
 
 ### What ReUI offers
 
-`@reui/use-file-upload` (base-nova pin): one file, `registry:hook`, no
-dependencies, and no `cn` import to re-point. It is a hook, not a component:
-the pick-and-drop machinery (a hidden input, the four drag handlers,
-`isDragging`, `multiple`, `maxFiles`, `maxSize`, `accept`, and its own
-validation), plus the vendor's example compositions — a dashed drop zone, a
-queue of file rows with a per-file progress bar, a retry and a remove, and a
-drag state. `src/components/reui/use-file-upload.ts` is the item;
-`src/components/v3/ui/file-drop.tsx` is the shipping integration, which takes
-the caller's transport as `onFile`, its validation policy as `validate`, and the
-text of its disabled reason as `disabledReason`.
-
-### Checklist result
-
-Fixed checklist: `src/components/component-compare/checklist.ts`. Applicable
-items are the 8 whose control class or state this pair has; the other 10 need
-sort, filter, select, resize or pagination controls that neither side has, and
-are recorded as not applicable rather than skipped.
-
-| Check                                                     | Ours                                                          | Theirs                                                                                                                                     | How it was measured                                         |
-| --------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| Tab reaches every control, with a visible focus indicator | Pass — the native input is the tab stop, with a UA focus ring | Pass — the "Choose file" button is the tab stop; the hidden input is `sr-only` and `tabIndex={-1}`, as the vendor's own examples render it | Browser, both columns                                       |
-| Empty (0 rows), loading, error, permission-restricted     | Pass (see the caveat below)                                   | Pass — and with permission restricted the pick button, the retry and the remove are all disabled, with the reason in text                  | Browser, both columns; jsdom across 6 fixtures              |
-| Dark theme                                                | Pass — token-bound colours only                               | Pass                                                                                                                                       | axe in Chromium with colour contrast on, both themes; jsdom |
-| Density and overflow at 1440x900                          | Pass — the input is bounded, and the surface shows no queue   | Pass, **after one layout fix-up** (C2)                                                                                                     | Browser, both columns, asserted per row and per control     |
-| Density and overflow at 390x844                           | Pass                                                          | Pass — the pick button meets the phone control size                                                                                        | Browser, both columns                                       |
-
-The pair-specific behaviour the fixed checklist does not name — the drop, the
-per-file progress and the retry — is measured in the browser run:
-
-| Pair-specific check                           | Ours                                                                  | Theirs                                                                                                  | How it was measured                     |
-| --------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| A dropped file reaches the caller's transport | **No drop handler**: a drop adds nothing and the surface shows no row | Pass — the drop adds a row, which then carries its own progress and status                              | Browser, both columns, real drop events |
-| Per-file progress while the transport runs    | **One boolean line** for the surface, not per file, and no file row   | Pass — a row per file with its own progress bar and status                                              | Browser and jsdom                       |
-| Retry after a failure                         | **None** — the only retry is picking the file again                   | Pass — a rejected transport puts the message on the row with a Retry that runs it again and resolves    | Browser, both columns; jsdom            |
-| The caller's validation refuses a pick        | Client-side check, message on the page, no file row                   | Pass — the refusal is the row's own message, and a refusal offers removal rather than a pointless retry | jsdom and the Storybook `Refused` story |
-
-**Caveat on the empty, loading and error states.** These are picture states of a
-whole screen and the harness owns them: both columns show the same harness
-notice for a 0-row fixture, for loading and for a load failure, so those rows
-measure containment and keyboard order rather than either side's own empty
-rendering. `restricted` is different — each column renders its own disabled
-affordances and those were compared — and the file pair's own empty state (a
-pick surface with nothing picked) is what both columns render beside the shared
-notice.
-
-### Automated evidence
-
-| Evidence                                                                                                                 | Result                                                                                           | Command                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                                             | 18 cases, **zero violations** (colour contrast off: jsdom)                                       | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                       |
-| axe in Chromium with colour contrast **on**, both columns in both themes                                                 | 4 cases, **zero violations**                                                                     | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep 'file pair'`      |
-| Harness contracts (every pair × fixture × state, the registration, frozen fixtures)                                      | pass                                                                                             | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                            |
-| The field's own contract: drop → transport, failure → retry, refusal → nothing handed on, remove → cleared selection     | 4 tests, pass                                                                                    | `pnpm exec vitest run src/components/v3/ui/file-drop.test.tsx`                                                |
-| The pair's browser checks: drop and retry, ours' limits, keyboard, the four states, density at two widths, 5 screenshots | 7 tests, pass                                                                                    | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep 'file pair'`      |
-| The four screens' own tests, which address the input by its label                                                        | pass                                                                                             | `pnpm exec vitest run src/components/import/import-flow.test.tsx src/components/notebook/file-block.test.tsx` |
-| The import flow end to end, in the browser, against the seeded design Dataset                                            | 3 tests, pass                                                                                    | `pnpm exec playwright test tests/browser/import-flow.test.ts --project=browser`                               |
-| Storybook, `UI/FileDrop`: at rest, uploading, uploaded, refused, failed                                                  | renders; the four non-default stories pick or drop a real file through the component's own input | `pnpm storybook`, then `/?path=/story/ui-filedrop--default`                                                   |
-
-Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `file-upload-ours-light.png`,
-`file-upload-ours-dark.png`, `file-upload-theirs-light.png`,
-`file-upload-theirs-dark.png`, and `file-upload-dropped.png` for the candidate
-after a real drop, all on the long-labels fixture. Appearance is evidence; it is
-not the verdict.
-
-### What the adoption cost — conditions
-
-- **C1 — re-point the item's `accept`.** The hook's `accept` option defaults to
-  `"*"`, and it writes `accept="*"` onto the input. A wildcard that matches no
-  file type is how both a browser dialog and `user-event`'s `upload` read the
-  attribute, so every pick is dropped before the hook sees it and the screen
-  fails silently. The field passes its own `accept` after the spread, omitting
-  the attribute when the caller has none. Any re-composition of the item has to
-  repeat that.
-- **C2 — `min-w-0` on the file row.** The vendor's example rows sit in a block
-  container; the field and the pair's column list them in a grid, where a row's
-  automatic minimum size is its content's — so a long file name kept the row at
-  the name's full width and pushed the row's own Retry and Remove past the
-  column edge. It is fixed with one `min-w-0`, and the appearance screenshots
-  are what showed it.
-- **C3 — the queue is not adopted, only the pick.** The shipping field holds one
-  file at a time, because every transport on these screens takes one
-  (`uploadImportFile`, `attachFileToBlock`). Multi-file, `maxFiles` and the
-  queue's own summary counts were therefore measured on the candidate and not
-  taken; a screen that needs a queue is a new change against the hook.
-- **C4 — the progress is indeterminate, and that is the transport's limit.**
-  Every one of these transports is a single `fetch` POST with no byte events, so
-  the row reports the state it can (uploading, uploaded, refused, failed) with a
-  live bar rather than a percentage. A determinate bar would mean rewriting the
-  shared import transport on `XMLHttpRequest`, which this adoption deliberately
-  did not do.
-- Plus the standing requirements from ADR-0055 decision 4: restyle to Sheetbase
-  tokens, pass the colour check and the adoption guard, and replace the old
-  implementation in the same change with no parallel implementation left behind.
-  The frozen pre-adoption column in the harness is not a parallel
-  implementation: it is this row's baseline, it ships on a development-only
-  route, and the product's copy is gone.
-
-### Decision and reason
-
-**Adopt — done in this change.** Decision 4's second test is met twice over, and
-both halves are named behaviours rather than preferences: the repository had no
-drop target anywhere in the application, and a failure had no retry anywhere —
-the person's only recourse was to pick the file again, and on the notebook's
-file block not even the file's name was on screen. The candidate adds the drop
-path, a row per file with its own progress and status, and a retry that re-runs
-the caller's transport.
-
-The change deletes the four hand-rolled copies in the same commit (decision 4's
-fourth clause), and it lies inside the programme's non-goals: the transport, the
-validation policy and the storage policy are untouched, and no scientific
-surface is involved. The four screens that pick a file now compose one field,
-and the field's keyboard route — a real button that opens the dialog the hidden
-input would — is the route all four keep.
-
-### Limits of this row
-
-- Desktop Chromium only (Playwright, one worker); no Firefox, WebKit or real
-  device was run. The drop path is desktop-only in any case: a touch device has
-  no drag-and-drop for files, so the pick button is its route.
-- The harness's transport is a stand-in with a fixed 600 ms delay and a
-  first-attempt failure. It measures the field's own progress, status and retry
-  states, not the real transports' latency or error vocabulary.
-- The fixture's "files" are built from its rows (the row's name becomes the
-  file's name), so the hostile names are the fixture's, not a file system's.
-- The candidate column composes the registry item rather than the shipping field
-  (`file-drop.tsx`), because the field takes one file at a time and this pair
-  measures the queue. The shipping field's own behaviour is what the four
-  screens' tests and the Storybook stories cover.
-- The pre-adoption column is a frozen copy: it is no longer the code that ships,
-  and it exists to make the record readable.
-- The 5,000-row fixture is capped at 12 listed files per column, with the count
-  stated on screen; the queue's cost at length is not measured.
-- This row records one pair. It is not a verdict on ReUI as a registry, on the
-  hook's other options, or on any other ReUI item.
-
-## Row 4 — List row / row chrome (`row`)
-
-### What we use now
-
-≈30 row renderers across 21 files in the domain components, in six families
-(entity/linked record, property/metadata, file, comment, check/readiness, event
-and step) — the count and the paths are in
-[`reui-opportunity-scan-domain.md`](reui-opportunity-scan-domain.md) §JH-1. The
-two closest implementations were duplicates of each other: `RecordLink`
-(`scientific/record-link.tsx`, 92 lines) carried five honest read-only states
-that `LinkedRecordList` (`record/inspector-sections.tsx`, 47 lines) could not
-express; each spelled its own leading slot, truncation, meta line, trailing
-slot, hover, focus ring and link-vs-static branch.
-
-Migration detail, the settled API and every remaining site are in
-[`row-chrome-migration.md`](row-chrome-migration.md).
-
-### What ReUI offers
-
-**Nothing to install.** The pinned registry answers directly:
+Nothing. `@reui/pagination` is not a registry item: the pinned base-nova
+registry answers
 
 ```
-$ curl -sL https://reui.io/r/base-nova/item.json
-404 {"error":"Registry item not found","message":"item is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add item"}
-
-$ curl -sL https://reui.io/r/base-nova/row.json
-404 {"error":"Registry item not found","message":"This is not a ReUI registry item. …"}
+GET https://reui.io/r/base-nova/pagination.json
+404 {"error":"Registry item not found","message":"pagination is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add pagination"}
 ```
 
-The nearest item on the same index is stock shadcn's compound `Item`
-(`Item`, `ItemMedia`, `ItemContent`, `ItemTitle`, `ItemActions`, …). It is not a
-ReUI item, and it is a frame with slots only: no link form, no read-only state,
-no list semantics, and it imports `cn` from the `cn` package rather than
-`#/lib/utils`. The scan's §JH-1 sits in "in-house jobs to componentise (no ReUI
-item, or our twin already exists)" for this reason.
+and the shadcn CLI refuses `@reui/pagination` the same way. The nearest item is
+the stock shadcn `Pagination*`, which the repository already has in the legacy
+kit — that is row 18.
 
 ### Checklist result
 
-There is no candidate column, so the harness's fixed checklist was not run —
-this is a recorded absence of a second column, not a skipped check. What was
-measured instead:
-
-| Evidence                                                                                                               | Result                                                                                                     | Command                                                                                                |
-| ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Primitive contract (four forms, list semantics, empty slot, windowing, hover detail)                                   | 11 tests, pass                                                                                             | `pnpm exec vitest run src/components/v3/ui/row.test.tsx`                                               |
-| Migrated sites' unit tests (inspector, relationships, lineage, related work, notifications, offline, foundations a11y) | 176 tests, pass                                                                                            | `pnpm exec vitest run src/components/{record,knowledge,related-work,collaboration,offline,scientific}` |
-| axe, WCAG 2 A/AA, on the rendered inspector (Related work, Relationships, Lineage, Files rows)                         | **zero violations**                                                                                        | Playwright + `axe-core` against the dev server, `/records/…/notebook`                                  |
-| Keyboard focus                                                                                                         | the row is a single tab stop with a 2px visible outline                                                    | same run: `outline: 2px solid …` on the focused row                                                    |
-| Pointer hover (desktop context, `(hover: hover)` true)                                                                 | the hover fill applies and the going-somewhere arrow appears at 0 → 1 opacity                              | same run: `getComputedStyle(arrow).opacity` 0 → 1, plus the clip                                       |
-| Appearance, light and dark, 1440×900                                                                                   | rows render as designed: compact rows in the inspector lists, cards where a card is warranted, no clipping | screenshots in the change's artifacts                                                                  |
-
-### Decision and reason
-
-**Consolidate in-house — `Row` + `RowList` in `src/components/v3/ui/row.tsx`,
-with `DescriptionList` as the property row. No registry adoption, and no harness
-pair, because there is no registry item for this job to compare against.**
-
-The reason is about what the duplication actually costs. Every one of the ≈30
-renderers exists and works; what is wrong is that there are ≈30 of them, and
-that the twin implementations differ in exactly the ways a single component
-should settle — one can express a read-only state and the other cannot, one
-truncates and the other wraps, one shows a hover affordance and the other does
-not. A registry install would add a thirty-first frame to a repository that
-needs one, and the family's own verdict (the entity row that already exists
-becoming the single implementation, plus a property row and a list wrapper) is
-cheaper than any of them.
-
-Two requirements from ADR-0055 decision 4 still bind the change that migrates a
-site: the old implementation is deleted in the same change (the twin
-`LinkedRecordList` was deleted with its call sites updated, not deprecated), and
-the substituted surface passes the colour check, axe and the adoption guard.
-
-The third primitive, the property row, stays with `DescriptionList` and needs
-`stacked`, an inline split alignment and a per-item `mono` option before
-`scientific/property-list.tsx`, `scientific-record-summary.tsx` and
-`notebook/notebook-inspector.tsx` can converge on it. That extension is §JH-2's
-work and is recorded, not built, in the migration map.
-
-### Limits of this row
-
-- No harness pair exists for row chrome, so the comparison checklist has no
-  second column and none of its items were answered by a run. This row is the
-  in-house consolidation's decision and its evidence, which is what a
-  no-registry-item job can carry.
-- axe, hover and focus were measured on one rendered inspector surface (a seeded
-  experiment's notebook inspector) in Chromium; the offline list and the
-  notification popover were verified by unit test and story, not on live data
-  (the seeded workspace has no unread notifications and no pending offline
-  edits).
-- The compact `list` density is borderless, so a migrated bordered row changes
-  appearance. Each migration records that, and no screen in the design parity
-  set was re-measured by this change. The parity rows that cover the inspector
-  (`RecordDetail-light`/`-dark`, mapped and already at cause 3; `Notebook-light`/`-dark`,
-  pending) are named with the evidence and the debt in
-  [`row-chrome-migration.md`](row-chrome-migration.md) §Design-set impact; none
-  were re-rendered, because the board is red by construction.
-
-## Row 5 — Empty state (`empty-state`)
-
-### What we use now
-
-Two components existed, and this change deletes both.
-
-`src/components/v3/ui/empty-state.tsx` at `35423ec2` was 37 lines: an optional
-`icon` (20px, `text-fg-muted`), a required `title` in an `h2.text-section`, an
-optional `body` paragraph, and a `children` row. It is the forward kit's
-component and 92 product sites render it. Two facts about it decide this row:
-
-- **70 of the 92 sites are self-closing**, and 67 of those have no action at
-  all. `children` is the only place an action _can_ go and nothing documents it
-  as the action slot, so a screen that writes
-  `<EmptyState title … body … />` cannot offer a next step.
-  `DESIGN.md` §Application states asks for one: "Empty states explain what is
-  absent and offer one relevant next action."
-- **22 sites are not self-closing**, and the plan's count puts 19 of the 92 as
-  offering an action through `children` — the same slot under an undocumented
-  name. The two spellings are what the consolidation removes.
-
-`src/components/ui/empty.tsx` is the legacy kit's compound family — `Empty`,
-`EmptyIcon`, `EmptyTitle`, `EmptyDescription`, `EmptyActions` — with **zero**
-product call sites: only a story used it. It is deleted with its barrel export.
-
-### What ReUI offers
-
-Nothing, as an item. The catalogue index lists Empty
-(`reui.io/components/empty`, "empty state components for zero-data screens"),
-but the registry behind the pinned alias does not serve it:
-
-```text
-$ curl -sSL https://reui.io/r/base-nova/empty.json
-404 {"error":"Registry item not found","message":"empty is part of shadcn/ui,
-not a ReUI item. Install it with: npx shadcn@latest add empty"}
-```
-
-The item's own page shows the same command, `npx shadcn@latest add empty`. The
-candidate is therefore the **stock shadcn `empty` item, installed by bare name**
-under the configured `new-york-v4` style, which is what the harness's second
-column renders — restyled to the app-3 token vocabulary
-(`src/styles.css:683-707`) because an adoption means restyling anyway, and
-otherwise unchanged:
-
-| Part               | What it is                                                                                                      | Restyle the app-3 vocabulary forces                                                                                                |
-| ------------------ | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `Empty`            | `flex flex-col items-center justify-center gap-6 rounded-lg border-dashed p-6 text-center text-balance md:p-12` | `border-dashed` keeps drawing nothing: Tailwind v4 sets border _style_ with no width, so the published item has no visible outline |
-| `EmptyHeader`      | `max-w-sm` centred column, `gap-2`                                                                              | —                                                                                                                                  |
-| `EmptyMedia`       | `variant="default"` transparent, or `variant="icon"`: `size-10 rounded-lg bg-muted`                             | `bg-muted` → `bg-surface-muted`, `text-foreground` → `text-fg`                                                                     |
-| `EmptyTitle`       | a **`div`**, `text-lg font-medium`                                                                              | `text-lg` → `text-section`                                                                                                         |
-| `EmptyDescription` | a **`div`**, `text-sm/relaxed text-muted-foreground`                                                            | `text-sm` → `text-body`, `text-muted-foreground` → `text-fg-muted`                                                                 |
-| `EmptyContent`     | the action/content slot: full-width column, `gap-4`                                                             | —                                                                                                                                  |
-
-`EmptyContent` is the part the product does not have, and it is the part the
-rule needs: an action slot that is part of the component's contract rather than
-a `children` slot that happens to hold a button.
-
-### Checklist result
-
-Fixed checklist: `src/components/component-compare/checklist.ts`. Ten of its 18
-items need reorder, sort, filter, select, resize or pagination controls and are
-recorded as not applicable; the eight that apply are below.
-
-| Check                                                           | Ours                                                                                                                                 | Theirs         | How it was measured                                                                      |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------- | ---------------------------------------------------------------------------------------- |
-| Tab reaches every control, with a visible focus indicator       | Pass — the action is the only control and it takes focus with the kit's ring                                                         | Pass — same    | Browser, both columns (`the next action is reachable by keyboard and clears the filter`) |
-| Empty (0 rows), loading, error and permission-restricted states | Pass — each column renders its own copy for the state; the 0-row fixture is the nothing-yet case, `restricted` is the no-access case | Pass           | jsdom axe over 6 fixtures × 3 states per column; browser run on `long-labels`            |
-| Dark theme                                                      | Pass — token-bound colours only                                                                                                      | Pass           | axe in Chromium with colour contrast on, both columns, both themes                       |
-| Density and overflow at 1440x900 and 390x844                    | Pass — the 200-character scientific name wraps; the action stays on screen and ≥20px tall                                            | Pass           | Browser, both columns, asserted per column                                               |
-| Reorder by keyboard / pointer                                   | Not applicable                                                                                                                       | Not applicable | —                                                                                        |
-| Sort / filter / select, by keyboard or pointer                  | Not applicable                                                                                                                       | Not applicable | —                                                                                        |
-| Resize / pagination                                             | Not applicable                                                                                                                       | Not applicable | —                                                                                        |
-
-The two columns render the same scenario and the same copy, derived from the
-fixture's own hostile content: the `long-labels` fixture puts the 200-character
-scientific name in the title and its unit in the description. The action is real
-in both columns — pressing it clears the "filter" and the empty state becomes
-the nothing-yet copy — so the keyboard item is answered by doing it.
-
-### Automated evidence
-
-| Evidence                                                                                                                                                                       | Result                                                                                                                                                     | Command                                                                                            |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                                                                                                   | 18 cases for this pair, **zero violations**; the file's 38 tests are these, row 1's 18, and two for C1 (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`            |
-| Harness contracts, including this pair's registration                                                                                                                          | 12 tests, pass                                                                                                                                             | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                 |
-| axe in Chromium, colour contrast **on**, both columns, both themes                                                                                                             | 4 cases, **zero violations**                                                                                                                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep empty` |
-| Keyboard: Tab to the action, its focus ring, Enter, and the state it claims to change — plus C1 (ours announces the new copy as a heading; the item's `EmptyTitle` is a `div`) | 1 test, pass, both columns                                                                                                                                 | same file                                                                                          |
-| Density at 1440x900 and 390x844, with the 200-character name; the action stays visible and ≥20px                                                                               | 2 tests, pass, both columns                                                                                                                                | same file                                                                                          |
-| Screenshots (appearance evidence)                                                                                                                                              | `empty-ours-light.png`, `empty-ours-dark.png`, `empty-theirs-light.png`, `empty-theirs-dark.png`, written and inspected                                    | same file, `COMPONENT_COMPARE_SHOTS=<dir>`                                                         |
-| The whole spec, both pairs                                                                                                                                                     | 29 tests, pass (18 for row 1, 11 for this pair)                                                                                                            | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`              |
-
-The `bulk` fixture is not an axe target here for the same reason as row 1 (the
-runbook's cost note); for this pair the empty state does not render the rows at
-all, so that fixture is only a mount check.
-
-### What an adoption would cost — conditions
-
-- **C1 — decide the semantics deliberately if the item is copied.** Its
-  `EmptyTitle` and `EmptyDescription` are `<div>`s. The product's empty states
-  are `h2` + `p` today, and a screen's empty state is one of the few headings a
-  table-heavy page offers for navigation. Copying the item as published would
-  silently remove it; the harness's own 0-row check reads `role=heading`.
-- **C2 — restyle to the app-3 vocabulary, not the legacy one.** The item writes
-  `bg-muted`, `text-muted-foreground`, `text-sm` and `text-lg`. Those tokens
-  still resolve (they are the ELN semantic set, `src/styles.css:336`), so a
-  straight copy renders, looks wrong beside its neighbours, and passes the
-  colour check — the trap §11.5 of the plan records.
-- **C3 — keep the design system's placement.** `Empty` centres its content and
-  gives it `min-h-48` and a dashed border. The design system's EmptyState rule
-  is "place it where the rows would be, left-aligned with the table, not centred
-  in the window" (`docs/knowledge/design/ui-system-v3/design-system/components/EmptyState/README.md`).
-  A direct copy contradicts the design set on every list screen.
-- **C4 — keep the props the 92 sites use, or migrate them all.** The sites pass
-  `icon`, `title` and `body`; the item's compound API has no such props.
-
-### Decision and reason
-
-**Adopt in part, in this change.** The item's one genuinely missing affordance—
-a documented action slot — is taken, along with its `title` / `description` /
-media vocabulary; the compound exports, the `div` title and description, the
-centred dashed-card presentation and the legacy token vocabulary are declined.
-The result is the single component `src/components/v3/ui/empty-state.tsx`:
-`icon` (or a `media` node), `title`, `description`, `action`, and `children` for
-anything after them, with `body` kept as a deprecated alias until the migration
-in `docs/knowledge/design/empty-state-migration.md` is finished.
-
-The reason is measured, not preferential. The job the rule names is "say what is
-absent and offer one next action", and 70 of the 92 sites render nothing in
-`children` and cannot do the second half with the component as it was — the
-action slot did not exist (73 by the plan's §11.2 count). The item
-supplies that slot. But the item as published is worse on three axes the pair
-measures or reads directly: it drops the heading and paragraph semantics the
-product's empty states have, it centres and dashes a block the design system
-places as a row-aligned notice, and it writes the legacy token vocabulary that
-the port exists to leave behind (C1–C3). Adopting it verbatim would therefore
-trade one inconsistency (no action) for three.
-
-Both predecessors are deleted in this change, so nothing is left with two
-empties: the legacy kit's `ui/empty.tsx` and its barrel export, and the 37-line
-implementation this row measures, are gone.
-
-**The change does not run in the reverse direction.** This row is the record of
-the comparison; the component it ships is the durable part, and the harness pair
-stays registered so the same measurement can be repeated if the item changes.
-
-### Limits of this row
-
-- **The `ours` column renders the implementation this change replaces, not the
-  code that ships after it** — the pre-change component is vendored into
-  `src/components/component-compare/pairs/empty-state.tsx` because it is deleted
-  by the same change. That is the runbook's "our side renders the code that
-  ships" rule bent deliberately, and only for this pair: the measured "before"
-  is the evidence the decision rests on. The shipped component is
-  `#/components/v3/ui/empty-state`.
-- The item was read from the live registries on 16 Oct 2026
-  (`reui.io/r/base-nova/empty.json` → 404; `ui.shadcn.com/r/styles/new-york-v4/empty.json`
-  → the file above). Registry contents change; re-read before re-deciding.
-- Desktop Chromium only (Playwright, one worker); no Firefox, WebKit or real
-  device was run.
-- The restyle of the `theirs` column is the runbook's allowance, so the column
-  measures the item's structure and semantics, not its published pixels.
-- This row records one pair. It is not a verdict on shadcn as a registry, nor
-  on the 88 sites that roll their own empty markup (listed in
-  `docs/knowledge/design/empty-state-migration.md`).
-
-## Row 6 — History rows (`history-rows`)
-
-### What we use now
-
-Three panels, each with its own rows:
-
-- `src/components/audit/audit-trail.tsx` (175 lines) — typed `AuditEvent`s. A row
-  was an icon dot, the title, an `actor · timestamp · target` line and an sr-only
-  sentence; the file also held its own four-row loading skeleton, its own dashed
-  empty state, a `typeIcons` map, the `Load more (N left)` button (with a
-  chevron) and the `Showing N of M events` line.
-- `src/components/audit/object-history-timeline.tsx` (308 lines) — authoritative
-  wire change events, correlated by `groupAuditEvents`. A row was an
-  actor/action/subject line, the relative and absolute time, before→after
-  `ChangeChip`s, `↳` correlated rows, the canonical deep link and the `Raw event`
-  disclosure; the file also held its own skeleton (a 3.5px bar where the other
-  two used 3px), a dashed empty state byte-identical to the audit trail's,
-  `OPERATION_ICONS` and `ENTITY_ICONS`, a load-more button without a count, and a
-  dead `showRawOnly` state.
-- `src/components/audit/record-history-timeline.tsx` (264 lines) — the
-  `api.record_timeline` RPC mapped to `AuditEvent[]` by `mapTimelineEvents` and
-  rendered through `AuditTrail`. The file held its own skeleton, its own error
-  box with a `Try again` button, its own `relativeTime` formatter, its own
-  `OPERATION_ICONS` and `DECISION_ICONS`, and the section heading, Refresh and
-  the revision/integrity footer.
-
-Between them: three loading skeletons, two byte-identical dashed empty states
-(the third panel rendered none of its own), two relative-time formatters in play
-(`formatRelativeTime` from `#/lib/notebook-data` and the local `relativeTime`),
-four icon maps, two row layouts and two continuation controls. The behaviour
-ADR-0055's bar asks about — the sr-only sentence per event, the relative and
-absolute time, the chips, the disclosure, the continuation control, the
-permission state and the real `<button>`/`<summary>`/dialog routes — is
-unchanged by the consolidation and pinned by the panels' own tests.
-
-### What ReUI offers
-
-`src/components/reui/timeline.tsx` (273 lines, installed from `@reui/timeline`
-at the pinned base-nova registry and placed by hand): `Timeline`,
-`TimelineItem`, `TimelineIndicator`, `TimelineSeparator`, `TimelineHeader`,
-`TimelineDate`, `TimelineTitle`, `TimelineContent`, a context, `useRender` on
-every part, `step`/`value`/`defaultValue` semantics and two orientations.
-
-It ships no states, no controls, no chips, no disclosure, no icon well and no
-list semantics: by default the parts render `div`s, `TimelineTitle` renders an
-`h3`, and `defaultValue = 1` marks the first item completed.
-
-### Checklist result
-
-Fixed checklist: `src/components/component-compare/checklist.ts`. Applicable
-items are the 8 this pair has — it declares no controls, so the 10 items needing
-reorder, sort, filter, select, resize or pagination are recorded as not
+Fixed checklist: `src/components/component-compare/checklist.ts`. The applicable
+items are the 6 whose state or `pagination` control this pair has; the other 12
+need reorder, sort, filter, select or resize controls and are recorded as not
 applicable rather than skipped.
 
-| Check                                                     | Ours                                                                                                                            | Theirs                                                                                        | How it was measured                                                   |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Tab reaches every control, with a visible focus indicator | Pass — the deep link and the `Raw event` summary, in DOM order, plus the scroll region (C2), each drawing a visible indicator   | Nothing to reach: the item renders no controls of its own; only the harness's state cells are | Browser, both columns                                                 |
-| Empty (0 rows)                                            | Pass — the panel's own dashed `No recorded activity for this object yet.`                                                       | The item ships none; the harness's `No rows` notice stands in                                 | Browser and jsdom, both columns                                       |
-| Loading                                                   | Pass — the four-row skeleton, `aria-busy` and `aria-live="polite"`                                                              | The item ships none; the harness's loading rows stand in                                      | Browser and jsdom, both columns                                       |
-| Error and permission-restricted                           | Pass — the failure is its own state (`role="alert"`); this column offers **no retry**, because the dataset tab passes none (C1) | The item ships none; the harness's notice and its working retry stand in                      | Browser and jsdom, both columns                                       |
-| Dark theme                                                | Pass — token-bound colours only; axe clean in dark                                                                              | Pass                                                                                          | axe in Chromium with colour contrast on, both columns and both themes |
-| Density and overflow at 1440x900                          | Pass — no horizontal overflow, no row clipped                                                                                   | Pass                                                                                          | Browser, both columns                                                 |
-| Density and overflow at 390x844                           | Pass — same, asserted per column                                                                                                | Pass                                                                                          | Browser, both columns, asserted per column rather than averaged       |
+| Check                                                     | Ours                                                                                                                                | Theirs (stock `Pagination*`, restyled)              | How it was measured                                         |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator | Pass — the range label, then `Previous`, then `Next`                                                                                | Pass — `Previous`, the numbered links, `Next`       | Browser, both columns                                       |
+| Move to the next and previous page without a pointer      | Pass — Tab to `Next`, Enter moves to "Showing 26–50 of 5000 rows"; at page 1 `Previous` is not a tab stop and reads `aria-disabled` | Pass — Tab to a numbered link, Enter moves the page | Browser (bulk fixture), both columns                        |
+| Empty (0 rows), loading, error, permission-restricted     | Pass (harness-owned states; the pager renders nothing for a 0-row fixture)                                                          | Pass                                                | jsdom axe, both columns, and the browser run                |
+| Dark theme                                                | Pass — token-bound colours only                                                                                                     | Pass                                                | jsdom axe (contrast off); Chromium axe for the default pair |
+| Density and overflow at 1440x900 and 390x844              | Pass — the row wraps; no horizontal overflow                                                                                        | Pass                                                | Browser, both columns                                       |
 
-Sort, filter, select, resize, reorder and pagination: not applicable to this pair
-(10 items). They are listed in the harness with that verdict.
+Reorder, sort, filter, select and resize: not applicable to this pair (12 items).
 
-**The states are not symmetric, and the record says so.** The shared surface
-ships its own loading skeleton, empty message and error notice, so this pair's
-`ours` column drives the shipped ones; the item ships none, so the empty,
-loading and error cells of the `theirs` column are the harness's own notices.
-That is a difference between the two columns in what those three items measure,
-not a skipped check. `restricted` is different again: neither component has
-editing controls, so both render the harness's "View only" notice and the item
-measures containment and keyboard order.
+**What the checklist does not settle.** Both sides pass, so the decision is not
+carried by it. What separates them is in row 18: the stock item's `<a href>` model
+leaves the router, it has no range or count, and it is the legacy kit.
 
 ### Automated evidence
 
-| Evidence                                                                                                                               | Result                                                                                                                                  | Command                                                                                                                                                                      |
-| -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| axe, both columns of every pair: 6 fixtures × 2 sides + 3 states × 2 sides                                                             | 38 tests, **zero violations** (colour contrast disabled: jsdom cannot measure it)                                                       | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                                                                                      |
-| axe in Chromium, colour contrast **on**, the history pair's two columns in both themes                                                 | 4 cases, zero violations                                                                                                                | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser --grep "history rows pair"`                                                             |
-| The pair's full checklist in Chromium: rows and chips, keyboard, the four states, both densities, the 5,000-row fixture, 4 screenshots | 14 tests, pass                                                                                                                          | same command                                                                                                                                                                 |
-| The shipped panels' behaviour (sr-only sentence, chips, disclosure, load-more, error states)                                           | 21 tests, pass (`audit-trail` 7, `object-history-timeline` 4, `record-history-timeline` 10)                                             | `pnpm exec vitest run src/components/audit/audit-trail.test.tsx src/components/audit/object-history-timeline.test.tsx src/components/audit/record-history-timeline.test.tsx` |
-| The panels on real screens: the dataset History tab and the review screen's History tab                                                | 7 tests, pass (rows, both time labels, chips, link, disclosure, Load more, axe light and dark, the sr-only sentence and the count line) | `pnpm exec playwright test tests/browser/history-timeline.test.ts --project=browser`                                                                                         |
-| Harness contracts (one scenario object to both columns, frozen fixtures, the state transitions)                                        | 12 tests, pass                                                                                                                          | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                                                                                           |
-| Whole suite, and the repository's gates                                                                                                | 4,847 tests pass; `pnpm check`, `pnpm lint`, `pnpm typecheck`, `pnpm build` clean                                                       | `pnpm test`, `pnpm check`, `pnpm lint`, `pnpm typecheck`, `pnpm build`                                                                                                       |
+| Evidence                                                                 | Result                                   | Command                                                                                 |
+| ------------------------------------------------------------------------ | ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides             | 18 cases, zero violations (contrast off) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
+| Harness contracts (one scenario object to both columns, frozen fixtures) | pass                                     | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`      |
+| The route the copies lived on: range label, and `Previous` on page 1     | pass                                     | `pnpm exec vitest run src/routes/projects/$projectId/experiments.test.tsx`              |
 
-Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `history-ours-light.png`,
-`history-ours-dark.png`, `history-theirs-light.png`, `history-theirs-dark.png`,
-plus `dataset-history-light.png`, `dataset-history-dark.png` and
-`review-record-history-light.png` from `HISTORY_SHOTS=<dir>` on the product
-screens. Appearance is evidence; it is not the verdict.
+Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`, or the harness page itself):
+`.amp/in/artifacts/harness-paging-a-list-{ours,theirs}.png` from the run that
+produced this row — the 5,000-row fixture, where ours reads "Showing 1–25 of 5000
+rows · Previous · Next" and theirs shows "Previous · 1 · 2 · 200 · Next".
 
-### What the adoption cost — conditions
+### Conditions an adoption would carry
 
-- **C1 — the item ships no states, controls, chips or disclosure.** The shared
-  surface owns all of them: the skeleton, the dashed empty state, the `Notice`
-  error state and its optional retry, the before→after `ChangeChip`, the
-  `Raw event` disclosure, the deep link, the continuation control and the
-  "showing N of M" line. An adoption that dropped any of them would lose
-  behaviour ADR-0055's bar requires to survive, so they are part of the surface
-  rather than of the item. One consequence is visible in this pair: the dataset
-  History tab passes no retry, so that column's error state reports the failure
-  without offering one; the record-history panel passes the retry the same
-  surface supports.
-- **C2 — a capped list is a scrollable region, and axe says so.** In Chromium,
-  `scrollable-region-focusable` (serious) fires on the list when its rows hold
-  no controls of their own — the record-history panel's rows are text only.
-  Found by the new product browser test; fixed by making the list a tab stop
-  with a focus ring. This adds a tab stop to all three panels, which is a
-  deliberate behaviour change rather than a restyle.
-- **C3 — contrast on the record-history footer.** The same test found
-  `color-contrast` (serious) on the revision/integrity line's
-  `text-fg-muted/70`; it is now `text-fg-muted`. Pre-existing, found by the new
-  coverage, fixed in the same change.
-- **C4 — list and step semantics are the integration's job.** The parts render
-  `div`s and `defaultValue = 1` marks the first item completed. The integration
-  hands the timeline `<ol>` and each item `<li>` through `render`, and passes
-  `value={0}` so no row claims completion. Keeping that is what makes the rows a
-  list to a screen reader instead of a stack of divs.
-- **C5 — geometry and tokens are restyled, not extended.** The published 1rem
-  hollow ring, `border-primary/20`, `bg-primary/10` and the connector's offsets
-  are restyled to the app's 2rem indicator well, `border-border`, `bg-border`
-  and `accent-strong`. That is all ADR-0055 decision 2 permits in this
-  directory, and it is why the `theirs` column shows the app's indicator rather
-  than the published one.
-- **C6 — the title is not a heading.** `TimelineTitle` defaults to `h3`; the
-  rows render it as `<p>`, because the previous rows were not headings and a
-  history of 5,000 events should not add 5,000 of them.
-- **C7 — the surface renders every row.** There is no virtualisation: the
-  5,000-row fixture takes about 1.3 minutes through the dev server, which is why
-  that case carries its own 240-second timeout in the browser spec. The panels
-  page at 50 rows and continue with "Load more", so a real screen never renders
-  the bulk fixture; the cost is recorded because it is the reason the
-  continuation control must stay.
-- **C8 — dependencies.** `@base-ui/react` is already a dependency and the item's
-  `cn` import is re-pointed to `#/lib/utils`, so no package is added
-  (ADR-0055's consequences section).
-
-### Decision and reason
-
-**Adopt, in this change.** The three panels now map their own data onto one
-shared surface (`src/components/audit/history-timeline.tsx`) built on the item,
-and the duplication goes with it: one row layout, one skeleton, one empty state,
-one relative-time formatter, one icon vocabulary, one continuation control. The
-panels keep their domain mapping — typed audit events, wire change events with
-correlation grouping, and the record-timeline RPC — because that is domain work,
-not row work.
-
-The reason is ADR-0055 decision 4's second test, the maintenance burden. Three
-files carried the same skeleton, the same empty markup and their own row
-layouts; two of them carried their own operation-icon map; two of them carried
-a relative-time formatter; two carried a continuation control. The item supplies
-the composition — indicator, separator, header, date, title, content — and the
-step semantics that the hand-rolled rows re-implemented by hand, and it is one
-copy-and-own file rather than three.
-
-The three files fall from 747 lines to 440, and the 426-line shared surface
-replaces what they duplicated: the row layout, the skeleton, the empty state,
-the formatter, the icon vocabulary, the chips, the disclosure, the states and
-the continuation control now exist once.
+None for ours: it replaces the four copies in the same change. A future adoption
+of a registry pager would have to be a router-link pager (TanStack `Link`, not
+`<a href>`), carry a range label, and be restyled to tokens — that is the bar
+this row declined the stock item against.
 
 ### Limits of this row
 
-- Desktop Chromium only (Playwright, one worker); no Firefox, WebKit or real
-  device was run.
-- The two columns differ in where their states come from (above), so the empty,
-  loading and error rows are not a like-for-like comparison; the shipped states
-  are exercised on the product screens instead.
-- The 5,000-row fixture is rendered and measured for overflow in both columns,
-  not by axe, for the reason the runbook records.
-- `src/components/audit/experiment-history.tsx` — the day-grouped table on
-  `/experiments/:id/history` — is **not** part of this row. It is not one of the
-  three panels, it renders a table with its own inspector rather than timeline
-  rows, and its screen is in the design-parity set (`ExpHistory`). The plan's
-  inventory counted it among the history surfaces; it remains for a future
-  change to consider.
-- This row records one pair. It is not a verdict on ReUI as a registry, or on
-  any other ReUI item.
+- Desktop Chromium and jsdom only; no Firefox, WebKit or real device.
+- The pair fixes the page size at 25 rows and renders the pager alone; the
+  screens' footer bars (project tabs) are not in either column.
+- The stock column is the repository's existing copy of the item, restyled; a
+  fresh `shadcn add pagination` would be a different file.
 
-## Row 7 — Numeric quantity field (`quantity-field`)
+## Row 3 — Stock shadcn `Pagination*` (declined)
 
 ### What we use now
 
-There is **no shared numeric component**. A quantity, a volume or a parameter
-value is the kit's `Input` (`src/components/v3/ui/input.tsx`, 15 lines) carrying
-`type="number"` or `inputMode="decimal"`, labelled by `Field` (which renders the
-label, the hint and the error), with a check written inline on the screen:
+Nothing. `src/components/ui/pagination.tsx` has a story
+(`src/stories/Pagination.stories.tsx`) and **zero** call sites in the app, and it
+is already half-migrated: it imports `buttonVariants` from the v3 kit. It is the
+legacy kit's copy of the stock shadcn item.
 
-| Surface                                                    | Field                                                                                                       | Numeric behaviour                                                               |
-| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `materials.tsx`                                            | replacement and received quantity, `:661-805`                                                               | `Number()`, finite-and-positive test on submit, `Field` error                   |
-| `samples.tsx`                                              | sample quantity, `:406-497`                                                                                 | `type="number"`, no client check                                                |
-| `withdraw-dialog.tsx`                                      | withdraw and reserve volume, `:359-417`, `:579-642`                                                         | `parseQuantityInput` + `validateQuantity`, `inputMode="decimal"`, mobile keypad |
-| `block-editor.tsx`                                         | metric value, material quantities, plate well volume, plate min/max, `:934-964`, `:1650-1808`, `:2878-3062` | `parseFloat \|\| 0`, `parseInt`, no visual validation                           |
-| `model-field-input.tsx`, `record-model-version-editor.tsx` | parameter values and their min/max/default, `:175-230`                                                      | `Number()`, browser `required` only                                             |
-| `chart-configurator.tsx`, `agent-surface.tsx`              | chart bounds and agent limits                                                                               | `Number()` with clamping, no errors                                             |
+### What it offers, and what is materially worse
 
-The job is one job — type a number — and the repository does it eight times with
-four parsers and three error presentations, which is why the plan named it. What
-this row measures is the _function_ of that job on a hostile value, because that
-is where the two sides differ.
-
-### What ReUI offers
-
-`src/components/reui/number-field.tsx` (258 lines), installed from
-`@reui/number-field` at the pinned base-nova registry with the shadcn CLI into a
-scratch directory and placed by hand. Edits to the copy: the `cn` import
-re-pointed at `#/lib/utils`; the legacy-kit `Label` import dropped (the app's
-`Field` labels the field, and `src/components/ui/label.tsx` is the deprecated
-kit); classes restyled to the v3 vocabulary (`border-input` → `border-border`,
-`bg-accent` → `bg-surface-hover`, `text-muted-foreground` → `text-fg-muted`,
-`ring-ring`/`ring-3` → `outline-focus`, `rounded-lg` → `rounded-md`, the size
-ladder onto the kit's `h-[30px]`/`text-body` rung); the cursor's
-`drop-shadow-[…_#0008]` literal removed, which the colour check bans; and the
-input's `outline-none` dropped in favour of `focus-visible:outline-2
-outline-offset-1 outline-focus`, so the focused control draws the kit's ring
-rather than only the group around it.
-
-It wraps Base UI's `NumberField`: a group holding a decrement button, the input
-and an increment button, plus a scrub area whose label the pointer can drag. It
-renders **two inputs per field** — a visible `type="text"` one
-(`inputmode="numeric"`) and a `tabindex="-1"` `type="number"` carrier that holds
-the parsed value.
+- **It leaves the router.** `PaginationLink`, `PaginationPrevious` and
+  `PaginationNext` all render a plain `<a href>`. A pager here navigates the
+  same route at another `?page=`; an anchor full-reloads the screen and drops
+  the client router.
+- **No range and no count.** The design's footer line is a count — "11 of 17
+  files · instrument exports are parsed into datasets" (ProjectFiles canvas) —
+  and the four hand-rolled blocks printed "Showing 1–25 of 40 experiments". This
+  item prints numbered pages and nothing else.
+- **The wrong model.** It is built for numbered pages; these lists are 25-row
+  windows on server-paged reads (and 50-row cursor pages elsewhere).
+- **Decision 1.** It is the legacy kit, which ADR-0055 decision 1 says is not
+  extended. Adopting it would also add the first legacy import to a v3 screen
+  and trip `src/components/v3/ui/component-adoption.test.ts`.
 
 ### Checklist result
 
-Fixed checklist: `src/components/component-compare/checklist.ts`. The 8
-applicable items are the ones requiring no control class and the 3 states the
-harness owns; the other 10 need reorder, sort, filter, select, resize or
-pagination controls that neither side of this pair has, and are recorded as not
-applicable rather than skipped.
+It passes the same 6 items as row 17 (it is keyboard-reachable and it pages), and
+that is recorded rather than argued with: the decline is on the four points
+above, not on the checklist.
 
-| Check                                                     | Ours                                                                             | Theirs                                                                        | How it was measured                                                                                 |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Tab reaches every control, with a visible focus indicator | Pass — one tab stop per row, the input                                           | Pass — one tab stop per row (the two step buttons are `tabindex="-1"`)        | Browser, both columns; `quantity-field.test.tsx` pins the count                                     |
-| Empty (0 rows), loading, error, permission-restricted     | Pass                                                                             | Pass                                                                          | Browser (both columns) and jsdom; the `Field` error and `aria-invalid` were compared as well        |
-| Dark theme                                                | Pass — token-bound colours only; axe clean in dark                               | Pass                                                                          | axe in Chromium with colour contrast on, both columns and both themes                               |
-| Density and overflow at 1440x900                          | Pass                                                                             | Pass                                                                          | Browser, both columns                                                                               |
-| Density and overflow at 390x844                           | Pass                                                                             | Pass                                                                          | Browser, both columns                                                                               |
-| **A quantity the formatter cannot round**                 | Pass — `1e-21`, `1.602176634e-19` and `Number.EPSILON` are displayed as entered  | **Fails** — the same values display as `0`, and `1/3` as `0.333`              | Chromium, both columns, `high-precision` fixture; `quantity-field.test.tsx` pins the rounded result |
-| **Entering a small quantity**                             | Pass — typing `2.5e-8` yields `2.5e-8`                                           | **Fails** — typing `1e-21` yields `1`: the `e` is refused and the rest parses | Chromium, both columns, real keystrokes                                                             |
-| A value that is not a number                              | Refused at the DOM — the field goes empty, and the screen's own check states why | Refused at the typed boundary — the value is `null` and the field goes empty  | jsdom and Chromium, `mixed-types` fixture                                                           |
+### Decision and reason
 
-Sort, filter, select, resize, pagination and reorder: not applicable to this pair
-(10 items).
+**Decline.** `@reui/pagination` does not exist (row 17's 404 body), so there is no
+ReUI candidate; the stock shadcn item fails ADR-0055 decision 1 and, on its own
+merits, cannot drive this router or print this range. The in-house `Pager` keeps
+the link model the screens already had, adds the landmark and the inert ends,
+and deletes four copies.
+
+**This ruling is the standing one for a stock shadcn item in the legacy kit**
+(`src/components/ui/**`): leaving the router, printing no range or count, and
+living in the kit decision 1 does not extend are each sufficient, and the same
+three apply to the stock `Breadcrumb*` item at row 21. It is recorded once here
+rather than re-argued per component.
+
+### Limits of this row
+
+- The item was compared as the repository's copy, restyled to tokens. Its
+  upstream shadcn equivalent may differ; the item that would matter is the one
+  the CLI installs, and that is the same file family.
+- No browser run for this row's appearance beyond the harness screenshots.
+
+## Row 4 — Growing-window list control (`load-more-control`)
+
+### What we use now
+
+Six hand-rolled controls with five labels between them — `"Loading…"`,
+`"Loading more…"`, `"Load more"`, `"Load more (N left)"`, `"Scroll for older
+entries"` — and no `nav` landmark on any of them:
+
+- `routes/search.tsx` — a plain button, `Loading…` while fetching;
+- `routes/experiments.tsx` — a small quiet button in the list's footer bar;
+- `routes/datasets/$datasetId/rows.tsx` — count, note and a `Load more (N left)`
+  button in the grid's foot;
+- `routes/datasets/$datasetId/compare.tsx` — `Load more (N left)`;
+- `components/v3/integrations/enterprise-source-panel.tsx` — a continuation
+  token beside "List objects";
+- `routes/settings/audit.tsx` — a cursor tail inside the table body whose **idle
+  state offered no control at all**: older entries were reachable by scrolling
+  and by no keyboard path.
+
+The survivor is `src/components/v3/ui/load-more.tsx`: one `nav` with the screen's
+own label, an optional "Showing {loaded} of {total} {noun}" line for the screens
+that do not print the count themselves, one button ("Load more" / "Loading…"), a
+retry for a failed read, and an optional screen-authored end line.
+
+### What ReUI offers
+
+No item. `GET https://reui.io/r/base-nova/load-more.json` answers
+`404 {"error":"Registry item not found"}` and ReUI's index has no load-more
+component; the stock shadcn catalogue has none either. There is nothing to
+adopt and nothing to compare against, so this row records a consolidation.
+
+### Checklist result
+
+| Check                                                     | Ours                                                        | Theirs (the deleted spellings, kept in the pair)                                       | How it was measured      |
+| --------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------ |
+| Tab reaches every control, with a visible focus indicator | Pass                                                        | Pass, except the audit tail's idle state                                               | jsdom axe, both columns  |
+| Move forward through the list without a pointer           | Pass — Tab to the control, Enter reads the next page        | Pass in the four button spellings; **fail** on the audit tail (text, not a control)    | Browser, both columns    |
+| Empty (0 rows), loading, error, permission-restricted     | Pass — the control disappears when there is nothing to read | Pass, except that the audit tail still says "Scroll for older entries" with no control | jsdom axe, both columns  |
+| Dark theme                                                | Pass — token-bound colours only                             | Pass                                                                                   | jsdom axe (contrast off) |
+| Density and overflow at 1440x900 and 390x844              | Pass                                                        | Pass                                                                                   | Browser, both columns    |
+
+The count trio is on this pair, so its count line is compared: ours reads
+"Showing 4 of 12 changes" once, where the deleted spellings printed the count in
+the button and again in a footer bar.
 
 ### Automated evidence
 
-| Evidence                                                                                                       | Result                                                                            | Command                                                                                 |
-| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                                   | 16 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
-| axe in Chromium, colour contrast **on**                                                                        | 4 cases (2 columns × 2 themes), **zero violations**                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`   |
-| The browser checklist, for this pair: Tab order, appearance, the three states, density at 1440x900 and 390x844 | 14 tests, pass — 47 pass in the file, all three pairs                             | same command; the generic checks run for every pair in the spec's `PAIRS` list          |
-| The pair's load-bearing measurements, pinned                                                                   | 6 tests, pass                                                                     | `pnpm exec vitest run src/components/component-compare/pairs/quantity-field.test.tsx`   |
-| Harness contracts (one scenario object to both columns, frozen fixtures, states)                               | 12 tests, pass                                                                    | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`      |
-
-Appearance evidence: `quantity-field-{ours,theirs}-{light,dark}.png` from the
-browser run (`COMPONENT_COMPARE_SHOTS=<dir>`), on the `long-labels` fixture, and
-the story `src/stories/NumberField.stories.tsx`.
+| Evidence                                                             | Result                                   | Command                                                                                                          |
+| -------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| axe, both columns, every fixture and state                           | 18 cases, zero violations (contrast off) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                          |
+| Harness contracts                                                    | pass                                     | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                               |
+| The three routes that owned a copy: paging, retry and the audit tail | pass                                     | `pnpm exec vitest run src/routes/datasets/$datasetId/{rows,compare}.test.tsx src/routes/settings/audit.test.tsx` |
 
 ### Decision and reason
 
-**Decline.** The bar has two halves, and the candidate fails the first: our
-implementation is _not_ materially worse — on the one axis this product cares
-about it is materially better.
+**Adopt.** One control, one label, one count format, one retry, a landmark that
+says what is being extended, and a keyboard path the audit tail lacked. Six
+call sites and their five labels are deleted in the same change.
 
-- **The named behaviour is missing on the candidate's side, not ours.** At its
-  published defaults the field shows the value through the browser's number
-  formatter: `1.602176634e-19`, `1e-21` and `Number.EPSILON` all read **`0`**,
-  `1/3` reads `0.333`, `1234567.8901234567` reads `1,234,567.89`. The exact
-  value survives in a second, non-tabbable input, so nothing is corrupted — but
-  what the scientist reads and types is wrong by up to 21 orders of magnitude.
-  A quantities field that displays a real measurement as `0` is worse than a
-  field with no stepper.
-- **Entry is worse for the same reason.** Typing `1e-21` into the candidate
-  produces `1`. Our `type="number"` holds `2.5e-8` verbatim. Scientific notation
-  is how these values are written down.
-- **The plan's stated gains are thinner than they look.** The steppers are
-  `tabindex="-1"`: a pointer affordance, not a keyboard one, and the keyboard
-  path is the input's own arrow keys, which `type="number"` already gives.
-  "Consistent validation display" is not something the component supplies — the
-  `Field` error plus `aria-invalid` already does that, and the inconsistency the
-  plan names is the per-screen checks, which survive an adoption of the field
-  either way.
-- **The cost is real.** An adoption replaces roughly twenty call sites across
-  materials, plate maps, parameters and charts, plus one vendored file to
-  maintain, to gain a scrub area.
+### What is still queued
 
-**What would change the answer.** Two conditions, either of which makes this a
-re-measurement rather than an inheritance of the row:
-
-- **N1 — set `format` (and `locale`) on every field.** The rounding is the
-  item's default presentation, not Base UI's only option; an adoption that
-  configures the format and the number of digits, and that can hold `1e-21` in
-  the visible input, removes the reason for this decline.
-- **N2 — the scrub area becomes a product requirement.** Drag-to-change is the
-  one behaviour here that we have no equivalent of. If a design asks for it, the
-  trade inverts and the row must be re-measured against a configured candidate.
+- **`components/v3/datasets/dataset-history-tab.tsx`** — the sixth v3 load-more
+  site — delegates its control to `ObjectHistoryTimeline`, which is the shared
+  surface the audit-timeline lane has since landed. It is queued for the next
+  tranche and should be a small change against that surface: hand it the
+  `LoadMore` contract rather than its own button.
+- The three peers outside the v3 surfaces (`components/audit/object-history-timeline.tsx`,
+  `components/audit/audit-trail.tsx`, `components/sheet/canonical-sheet-workspace.tsx`)
+  are the same call sites once that surface is one control.
 
 ### Limits of this row
 
-- Desktop Chromium only (the harness browser check); no Firefox, WebKit, real
-  device or real stylus was run.
-- The exact strings the formatter produces are the engine's and its ICU data, so
-  the pinned test asserts the semantic loss (`Number(visible.value) !== the
-value`) rather than `"0.333"`.
-- The mixed-type and high-precision rows are fixtures, not a screen: this row
-  measures one field per fixture row, which is the shape a materials table or a
-  plate map has, not the whole screen's form.
-- The 5,000-row fixture is measured for rendering and overflow, not by axe.
-- This row records one pair. It is not a verdict on `@base-ui/react`, on ReUI as
-  a registry, or on any other ReUI item — and it does not authorise, or forbid,
-  changing the eight screens' numeric call sites.
+- The audit log's tail is inside a table body (`<TableRow><TableCell>`), so the
+  column renders it as a cell and not as the shipped table row; the control is
+  the same.
+- The connector panel's continuation token is compared without a count, because
+  the panel does not know one.
+- The label unification was accepted on review: "Load more" with the remaining
+  count as the control's own line, rather than a count inside the button.
 
-## Row 8 — Signature pad (`signature-pad`)
+## Row 5 — List screen header (`list-header`)
 
 ### What we use now
 
-**Nothing draws.** The plan's §4.5 row reads "Signature Pad — Drawing surface in
-`e-sign-dialog.tsx` (261)". The file that is 261 lines —
-`src/components/notebook/e-sign-dialog.tsx` — contains no drawing surface, and
-neither does any other file. This row exists because the premise needed checking
-before the registry item did.
+`ListHeader` (`src/components/v3/inventory/list.tsx`) is composed by eight
+registry screens (samples, materials, protocols, datasets, templates, pipelines,
+models, instruments). Two more composed the same band by hand, with class
+strings that matched `ListHeader`'s character for character — including the
+`-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0` tab rail:
 
-What that dialog is: the single electronic-signature dialog over the REV-03
-contract. It shows signing-as, the meaning, the revision id, the content digest
-and a statement that the time is server time; it collects the signer's
-re-authentication password, the meaning when more than one is offered, and a
-typed-name confirmation. Its own header records the decisions behind that: the
-password field is exactly the re-authentication the server performs and the
-dialog never verifies a credential itself; `signedAt` is always the database's
-`clock_timestamp()`; and the step-up request and the write stay with each flow
-because their `SignatureStepUpInput` payloads differ.
+- `routes/experiments.tsx` — `h1`, count, a primary action that had to wrap at
+  400 % zoom (QA4-zoom-experiments, the reason for its own `max-md:flex-wrap`),
+  and the URL tab strip;
+- `routes/inbox.tsx` — `h1`, a muted subtitle, two actions that measured 408px
+  at 390 and pushed "Mark all seen" out of the viewport (WCAG 1.4.10), and a
+  roving-focus `role="tablist"`.
 
-Checked, rather than assumed:
+### What one component's API had to cover
 
-| Search                                                  | Result                                                                                                                                                                                                     |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `getContext(`, `toDataURL`, `toBlob`, `Path2D` in `src` | three files, none a signature: `scan/jsqr-code-decoder.ts` (QR decode), `lib/visualisation-export.ts` (chart export), `scientific/data-table.tsx` (TanStack `getContext`)                                  |
-| `pointerdown`, `setPointerCapture` in `src`             | one file, `sheet/formula-reference-editor.tsx` — not a signature                                                                                                                                           |
-| files named `*sign*`                                    | `e-sign-dialog.tsx`, `sign-notebook-dialog.tsx`, `review/sign-dialogs.tsx`, `review/signatures-table.tsx`, `lib/signatures.ts`, `lib/signature-certification.ts` — attestations, chains and tables, no ink |
-| `SignaturePad` as a component, ours or vendored         | not present                                                                                                                                                                                                |
-
-So the plan's row is stale in the way §11.1's corrections table describes for
-nine other claims: it sizes a file correctly and describes what is not in it.
-Revision 5 re-verified Part B against the tree; this one claim was not among the
-nine it corrected.
-
-### What ReUI offers
-
-`@reui/signature-pad` at the pinned base-nova registry: one file, 1,382 lines,
-`cn` as its only dependency and a `button` registry dependency.
-`SignaturePad`, `SignaturePadArea`, `SignaturePadGuide`, `SignaturePadPlaceholder`,
-`SignaturePadControls`, `SignaturePadClear` — a canvas pad with pressure- and
-speed-sized ink, touch and stylus input, undo and redo, native form fields, and
-PNG, JPEG, SVG or JSON export.
-
-It is read from its own published registry item, not vendored: see the decision
-below for why no copy was placed.
-
-### Why there is no harness pair
-
-The harness compares **two implementations of one job** on one fixture, and this
-item has one implementation. A pair here would need a second column that does the
-same job, and the honest second column is empty — a column that draws nothing is
-not a comparison, it is a demonstration. Registering one would put a row in this
-record whose columns answer different questions, which is the failure mode the
-fixed checklist exists to prevent.
-
-That is a deliberate departure from "a pair per row", recorded here so it is a
-decision rather than an omission, and it is the finding: the item is declined
-because it is a different job, not because it lost a comparison.
-
-### Decision and reason
-
-**Decline — the item is a different job.** ADR-0055 decision 4's first test is
-"it serves a generic UI job"; an ink pad serves a job this product does not have.
-
-- **Electronic signature here is an attestation, not a drawing.** What makes a
-  signature meaningful in this product is the meaning selected, the revision id
-  and content digest it was taken against, the server-recorded time, the
-  re-authentication that proves who acted, and the audit chain and certification
-  that follow. None of that is in an ink pad, and the mark itself would sit
-  beside the attestation as decoration — a picture a reviewer must trust rather
-  than a record the server can verify.
-- **Nothing would be replaced.** ADR-0055 decision 4 requires the old component
-  to be deleted in the same change. There is no old component; the dialog that
-  would host a pad stays exactly as it is either way, so an adoption would add
-  1,382 lines to maintain and remove none.
-- **The plan already fences the job.** Its own row reads "**UI only** — signing
-  authority, step-up and the audit chain stay exactly where they are". With
-  those three fenced off, what remains is a drawing surface that nothing in the
-  signature path asks for.
-
-**What would change the answer.** Two conditions:
-
-- **S1 — a wet-ink requirement appears.** A regulated flow that must retain the
-  appearance of a handwritten mark — a client-facing or witnessed signature, or
-  a partner that requires a rasterised signature image in a submission packet —
-  makes the pad's export formats the point rather than the ink. Then the job
-  exists and the item is measured against what that flow uses instead.
-- **S2 — a drawing job appears somewhere else.** If a scientist needs to sketch
-  a plate map, annotate a gel or mark a figure, that is a generic drawing job and
-  this item is a candidate for it — evaluated on the screen that needs it, not
-  retro-fitted to the signature dialog.
-
-### Limits of this row
-
-- The finding is a source read of the current tree, not a run: no pad was
-  rendered, because rendering the candidate alone would demonstrate the item, not
-  compare it.
-- The candidate's own behaviour (ink, pressure, undo, export) is taken from its
-  published registry item and its documentation; it was not exercised.
-- This row is not a verdict on `@reui/signature-pad` as a component, on
-  canvas-based signing in general, or on signature pads in products that do
-  collect a mark. It says this repository has no drawing surface and no job for
-  one.
-
-## Row 9 — Keyboard shortcut cap (`shortcut-keys`)
-
-### What we use now
-
-`src/components/v3/ui/kbd.tsx`, ten lines: a `<kbd>` with
-`rounded-[3px] border border-border bg-surface px-1 font-mono text-[10px]
-text-fg-muted`. It is not a bespoke piece — it is the one shared cap the v3 kit
-ships, consumed by the shortcuts dialog, the search palette, the app shell, the
-slash-command menu, the v3 command menu, the help page, the shortcuts page and
-the inbox; the legacy `Kbd` has one consumer left, its own story. A chord is
-three of them in the `flex items-center gap-1` span the call sites write, as
-`src/stories/Kbd.stories.tsx` shows.
-
-The plan's §4.5 groups kbd with "small bespoke presentation pieces across
-pipelines, agents, help". On the current tree the piece is neither bespoke nor
-repeated: it is one token-bound component with five consumers, so the "cheap
-consistency win" the plan expected is already banked.
-
-### What ReUI offers
-
-The stock shadcn `kbd` item — a bare name on the same index as the ReUI items
-(§11.3.4), read from its own registry item, installed with the shadcn CLI into a
-scratch directory and placed at `src/components/reui/kbd.tsx`. Its published
-target is `ui/kbd.tsx`, which in this repository is the deprecated kit and
-already holds a different `Kbd`; placing it there is exactly the trap §11.3.1
-describes, so it is hand-placed under `reui/` instead.
-
-Edits to the copy: the `cn` import re-pointed at `#/lib/utils`, and `bg-muted` →
-`bg-surface-muted`, `text-muted-foreground` → `text-fg-muted`. The
-`[[data-slot=tooltip-content]_&]` classes are kept as published and are inert:
-no v3 tooltip content carries that attribute.
-
-It adds `KbdGroup` — a wrapping `<kbd data-slot="kbd-group">` for a chord — and
-the tooltip inversion. Measured in Chromium, on the long-labels fixture, both on
-the same 20px height:
-
-|               | Cap width | Radius | Type                 | Fill                   | Border |
-| ------------- | --------- | ------ | -------------------- | ---------------------- | ------ |
-| Ours          | 16px      | 3px    | 10px JetBrains Mono  | `bg-surface`           | 1px    |
-| Theirs        | 20px      | 4px    | 12px Inter           | `bg-surface-muted`     | none   |
-| Theirs' group | 44px      | —      | (inherits 13px mono) | transparent, no chrome | none   |
+`ListHeader`'s existing `title`/`total`/`actions`/`tabs` plus one thing the
+hand-rolls carried that it did not: **a line beside the title**. The inbox's
+subtitle could only go in the `<h1>` otherwise, which would have made the
+sentence part of the heading's accessible name. The wrap rule the experiments
+header had invented is now the header's own (`flex-wrap` on the row, actions
+full-width below `md`), and the unknown-count state is the existing
+`total?: number` — omit it and no count renders.
 
 ### Checklist result
 
-Fixed checklist: `src/components/component-compare/checklist.ts`. The 8
-applicable items are the ones requiring no control class plus the states the
-harness owns; the other 10 need reorder, sort, filter, select, resize or
-pagination controls neither side has, and are recorded as not applicable.
+| Check                                                     | Ours (`ListHeader`)                                                 | Theirs (the two hand-rolls)                                            | How it was measured      |
+| --------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------ |
+| Tab reaches every control, with a visible focus indicator | Pass — actions, then the tab links                                  | Pass — actions, then the tab buttons                                   | jsdom axe, both columns  |
+| Empty, loading, error, permission-restricted              | Pass (harness-owned states)                                         | Pass                                                                   | jsdom axe, both columns  |
+| Dark theme                                                | Pass — token-bound colours only                                     | Pass                                                                   | jsdom axe (contrast off) |
+| Density and overflow at 1440x900 and 390x844              | Pass — the row wraps and the actions take their own line below `md` | Pass — the inbox header wraps; the experiments header wraps below `md` | Browser, both columns    |
 
-| Check                                                     | Ours                                                           | Theirs                                             | How it was measured                                                   |
-| --------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------- |
-| Tab reaches every control, with a visible focus indicator | Pass — and there is nothing to reach: a cap is not interactive | Pass — same, and the group does not add a tab stop | `shortcut-keys.test.tsx`, and the browser Tab walk                    |
-| Empty (0 rows), loading, error, permission-restricted     | Pass                                                           | Pass                                               | Browser (both columns) and jsdom                                      |
-| Dark theme                                                | Pass — token-bound colours only; axe clean in dark             | Pass                                               | axe in Chromium with colour contrast on, both columns and both themes |
-| Density and overflow at 1440x900                          | Pass                                                           | Pass                                               | Browser, both columns                                                 |
-| Density and overflow at 390x844                           | Pass                                                           | Pass                                               | Browser, both columns                                                 |
-| A very long command name beside a chord                   | Pass — the name truncates, the chord keeps its width           | Pass — the same, at a wider cap                    | Browser, long-labels fixture                                          |
-
-Sort, filter, select, resize, pagination and reorder: not applicable to this pair
-(10 items), and neither column has an interactive control of any kind.
+No control class applies (`controls: []`), so the sort/filter/select/reorder/
+resize/pagination items are all not applicable.
 
 ### Automated evidence
 
-| Evidence                                                                                             | Result                                                                            | Command                                                                                 |
-| ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides                                         | 16 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
-| axe in Chromium, colour contrast **on**                                                              | 4 cases (2 columns × 2 themes), **zero violations**                               | `pnpm exec playwright test tests/browser/component-compare.test.ts --project=browser`   |
-| The browser checklist for this pair: Tab order, appearance, the three states, density at both widths | 14 tests, pass — 47 pass in the file, all three pairs                             | same command                                                                            |
-| The pair's structural facts, pinned                                                                  | 3 tests, pass                                                                     | `pnpm exec vitest run src/components/component-compare/pairs/shortcut-keys.test.tsx`    |
-
-Appearance evidence: `shortcut-keys-{ours,theirs}-{light,dark}.png` from the
-browser run (`COMPONENT_COMPARE_SHOTS=<dir>`), and the story
-`src/stories/RegistryKbd.stories.tsx`.
+| Evidence                                                     | Result                                                   | Command                                                                                 |
+| ------------------------------------------------------------ | -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| axe, both columns, every fixture and state                   | 18 cases, zero violations (contrast off)                 | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
+| The two screens the headers were migrated on                 | pass, including the no-longer-hand-rolled wrap assertion | `pnpm exec vitest run src/routes/experiments.test.tsx src/routes/inbox.test.tsx`        |
+| The story: registry, no-count, subtitle and tab-strip states | renders                                                  | `src/stories/ListHeader.stories.tsx`                                                    |
 
 ### Decision and reason
 
-**Decline.** ADR-0055 decision 4's first test is whether our version is
-materially worse — "a named behaviour is missing, or the maintenance burden is
-demonstrably ours". Neither holds:
-
-- **No behaviour is missing.** Both sides render `<kbd>` elements with the keys
-  in them, both are non-interactive, and both are axe-clean in both themes. The
-  candidate's `KbdGroup` is a `<kbd>` wrapped around `<kbd>`s, which is the same
-  reading as our span-wrapped chord and no better semantics — `kbd` is a
-  phrasing element and nesting it states nothing extra.
-- **The tooltip treatment is inert here.** It keys on
-  `[data-slot="tooltip-content"]`, and no v3 tooltip content carries that
-  attribute. Adopting it would mean either leaving dead CSS in the copy or
-  editing the v3 tooltip to suit a candidate that is not being adopted.
-- **The burden is ours either way, and ours is smaller.** Ours is ten lines in
-  the kit we already maintain and it is what the adoption guard points at; the
-  candidate is twenty-eight lines vendored beside it. The only measurable
-  difference is presentation — a 20px cap against our 16px, sans against mono,
-  filled against bordered — and a design choice is not a missing behaviour.
-
-**What would change the answer.** Two conditions:
-
-- **K1 — a design wants caps inverted inside tooltips.** Then the v3 tooltip
-  gains a `data-slot`, our `Kbd` gains the treatment (three lines), and the
-  candidate's remaining advantage is `KbdGroup` alone — still not enough to
-  vendor a file.
-- **K2 — a chord needs to be one accessible unit.** If a screen reader must
-  announce "⌘K" as one shortcut rather than two keys, the fix is an
-  `aria-label` on the wrapper, which our call sites can add without a registry
-  item.
+**Adopt the migration.** The band, the count format and the wrap rule are the
+shared header's; the inbox is not a special case once `ListHeader` can carry a
+subtitle. The two hand-rolled headers are deleted in the same change, and the
+experiments header's QA4 comment moves to the header that now owns the rule.
 
 ### Limits of this row
 
-- Desktop Chromium only; no other engine was run.
-- The comparison is of two presentation components on fixture rows, which is
-  where a cap is used and not a whole screen: it measures how the caps render
-  beside a long command name, not the shortcuts dialog's layout.
-- The 5,000-row fixture is rendered and measured for overflow, not by axe.
-- This row is not a verdict on the stock shadcn `kbd` item in general, and it
-  does not authorise changing the five kbd call sites.
-  \=======
+- The column compares the **inbox** header (the harder of the two: subtitle, two
+  actions, roving-focus tablist). The experiments header — count and one
+  full-width action — is the same band and is covered by the story, not by the
+  pair.
+- The tab strips are left as they are: reconciling the six tab and segment
+  components is its own task, and this pair does not pre-empt it.
 
-## Row 2 — Tab family (`tab-family`)
+## Row 6 — Page location trail (`breadcrumb-trail`)
 
 ### What we use now
 
-`src/components/v3/ui/tabs.tsx`, `mode="state"`: Base UI's tablist — one tab
-stop, ArrowLeft/ArrowRight, Home/End, `aria-selected`, activation that follows
-focus, and `aria-controls` only where a `TabsPanel` is rendered (a dangling
-one is an axe violation). It is the outcome of this change's reconciliation: the
-two `SearchTabs`, the unused `RouteTabs`, `LinkTabs` and `SegmentLinks` were
-deleted, and nine hand-rolled strips and two chip rows moved onto this contract
-in `mode="url"` where the tabs are URLs.
+24 files composed the crumb line and passed it to `PageHeader crumbs`, 57 times
+between them. The trail was markup: a `Link`, a `{' '}`, a hand-spelled `/`, and
+an identifier wrapped by hand at each site (`<span className="mono">`). Twelve
+route files spelled the separator themselves; none produced `ol`/`li`; none
+marked the crumb you are on, so the "you are here" half of a breadcrumb was
+missing everywhere. The two help routes hand-rolled their own: `help/records.tsx`
+had the `ol`/`li` and `aria-current` (the one place in the app that did), and
+`help/shortcuts.tsx` had a text separator and no list at all.
 
-The job this pair compares is the in-page half: _switch which view of the same
-rows is shown, without leaving the page_. The other half — tabs that are links,
-with `aria-current="page"` — is most of the strips this change migrated, and the candidate
-has no mode for it.
+The survivor is `src/components/v3/ui/breadcrumb.tsx`: the trail as data
+(`{ label, link?, mono? }[]`), rendered by `PageHeader trail` and used directly by
+the two help articles, which keep their own header bands (they are full-bleed
+document surfaces; the design canvas gives them `md:px-8`, not the header's
+`md:px-6`).
 
 ### What ReUI offers
 
-**No ReUI item.** On 16 October 2026 the pinned registry redirects and answers:
-
-```
-$ curl -s https://reui.io/r/base-nova/tabs.json
-{"error":"Registry item not found","message":"tabs is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add tabs"}
-```
-
-so the candidate is the stock shadcn item (`ui.shadcn.com/r/styles/new-york/tabs.json`,
-`registry:ui`, one file, dependency `@radix-ui/react-tabs`), placed at
-`src/components/reui/tabs.tsx`. Three edits and nothing else, recorded in that
-file's header: the primitive import re-pointed to the unified `radix-ui` package
-the repository already has (as published it needs `@radix-ui/react-tabs`, which
-is not a dependency), `cn` from `#/lib/utils`, and the tokens restyled
-(`bg-muted` → `bg-surface-muted`, `ring-ring` → the kit's `outline-focus`), which
-an adoption would have to do anyway.
+Nothing: ReUI's index has no breadcrumb item, and the stock shadcn
+`Breadcrumb*` is the legacy kit's (`src/components/ui/breadcrumb.tsx`, zero call
+sites) — declined under the same ruling as row 18. The shape the scan suggested
+("change `PageHeader` to take a trail") is what this change does.
 
 ### Checklist result
 
-Applicable items are the 9 the pair has: `keyboard-tab` and
-`keyboard-navigate` (`navigate` is the control class added for this pair — a
-widget whose parts are moved between with the arrow keys), the five state items,
-and both densities. The other 10 need reorder, sort, filter, select, resize or
-pagination controls that neither side of this pair has.
+| Check                                                     | Ours                                   | Theirs (the node 24 files passed) | How it was measured      |
+| --------------------------------------------------------- | -------------------------------------- | --------------------------------- | ------------------------ |
+| Tab reaches every control, with a visible focus indicator | Pass — each linked crumb               | Pass — each linked crumb          | jsdom axe, both columns  |
+| Empty, loading, error, permission-restricted              | Pass (harness-owned states)            | Pass                              | jsdom axe, both columns  |
+| Dark theme                                                | Pass — token-bound colours only        | Pass                              | jsdom axe (contrast off) |
+| Density and overflow at 1440x900 and 390x844              | Pass — one line, `truncate` on the nav | Pass                              | Browser, both columns    |
 
-| Check                                                                     | Ours                                                                                                                                                            | Theirs                                                                                                                                                    | How it was measured                                                  |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Tab reaches every control, with a visible focus indicator                 | Pass — the tab stop is the current tab; the ring is drawn on it (`outline: solid 2px`)                                                                          | Pass — the tab stop is the `role="tablist"` container (`tabindex="0"`, inline `outline: none`); focusing it forwards focus to a tab, which draws the ring | Browser, both columns, `document.activeElement` + `getComputedStyle` |
-| Move between the widget's parts with the arrow keys the pattern calls for | Pass — ArrowRight moved focus **and** selection from `All` to `Sample`, the roving `tabindex` followed (`[0,-1,-1,-1]` → `[-1,0,-1,-1]`), and the panel changed | Pass — the same, including wrap; `End` jumped to the last tab                                                                                             | Browser, trusted key events (`agent-browser press`), both columns    |
-| Empty (0 rows), loading, error, permission-restricted                     | Pass (see the caveat below)                                                                                                                                     | Pass                                                                                                                                                      | jsdom and browser                                                    |
-| Dark theme                                                                | Pass — token-bound colours only; axe clean in dark                                                                                                              | Pass                                                                                                                                                      | axe in Chromium, colour contrast on, both columns and both themes    |
-| Density and overflow at 1440x900                                          | Pass — one line, no horizontal page overflow, long labels do not overlap                                                                                        | Pass                                                                                                                                                      | Browser, both columns                                                |
-| Density and overflow at 390x844                                           | Pass — the rail scrolls sideways instead of wrapping, and the current tab is scrolled into view                                                                 | Pass                                                                                                                                                      | Browser, both columns, and the story's 390px state                   |
-
-Sort, filter, select, resize and pagination: not applicable to this pair (10
-items). They are listed in the harness with that verdict.
-
-**Caveat on the empty, loading and error states.** As in row 1, these are picture
-states of a whole screen and the harness owns them: both columns show the same
-harness notice for a 0-row fixture, for loading and for a load failure. The
-`restricted` state has nothing to disable in a view switch, so both columns show
-the same notice above an unchanged strip; that is recorded rather than dressed up.
+**Structural difference, which is the point of the row:** ours is
+`nav > ol > li` with the separator `aria-hidden` and `aria-current="page"` on the
+last unlinked crumb; theirs is a `nav` with a run of fragments, the separator as
+content, and no current crumb. jsdom axe reports `landmark-unique` on the
+hand-spelled column when two of them sit side by side — a property of the pair,
+recorded as such, not a defect of the shipped code.
 
 ### Automated evidence
 
-| Evidence                                                                                                                                                                   | Result                                                                            | Command                                                                                 |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides (this pair)                                                                                                   | 18 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
-| Harness contracts, including the registered pair set                                                                                                                       | pass                                                                              | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`      |
-| The contract itself: state mode's tab stop, arrows, Home/End, counts, callback; URL mode's `aria-current`, no `aria-selected`, and the `activeOptions` it hands the router | 5 tests, pass                                                                     | `pnpm exec vitest run src/components/v3/ui/tabs.test.tsx`                               |
-| Appearance                                                                                                                                                                 | one capture per column per theme on the long-labels fixture                       | the harness at `/component-compare`, pair _Tab family_                                  |
+| Evidence                                                   | Result                                                                           | Command                                                                                 |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| axe, both columns, every fixture and state                 | 18 cases, zero violations (contrast off)                                         | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
+| The two help routes that hand-rolled a trail               | pass (their browser specs, `tests/visual/help-*.spec.ts`, assert axe on `#main`) | `pnpm exec vitest run src/routes/help.test.tsx`                                         |
+| The story: one crumb, section-and-identifier, three levels | renders                                                                          | `src/stories/BreadcrumbTrail.stories.tsx`                                               |
 
 ### Decision and reason
 
-**Decline — keep ours.** ADR-0055 decision 4 asks whether the candidate is
-_materially better_: a named behaviour is missing from ours, or the maintenance
-burden is demonstrably ours. Neither holds. Measured in the same browser, both
-sides move focus with ArrowLeft/ArrowRight and Home/End, both announce
-`role="tablist"`/`role="tab"` with `aria-selected`, and both keep one tab stop —
-the only structural difference is _where_ that stop lives (the tab, or the
-container). What the item does not have is the half of the job most of our
-strips do: `mode="url"`, where each tab is its own URL and the current one
-carries `aria-current="page"`. Adopting it would therefore either leave the app
-with two tab implementations — the thing this change removed — or force the URL
-mode onto a list component by hand.
-
-The costs are real and one-sided: as published it needs `@radix-ui/react-tabs`,
-a second primitive library beside the Base UI kit the v3 components are built on
-(ADR-0055 decision 1), and its token vocabulary is the deprecated bridge
-(`bg-muted`, `text-muted-foreground`, `outline: none`) that §11.5 says renders
-wrong beside every neighbour while still passing the colour check.
-
-This row is the _comparison_, not the reconciliation: the reconciliation is the
-change that produced `src/components/v3/ui/tabs.tsx`, and it needed this
-comparison done first, which is why the same change carries both.
+**Adopt the in-house `Breadcrumb` and delete the `crumbs` node slot** — 24 files
+migrated in the same change, with no parallel way to pass a trail left behind.
+The win is the semantics: list structure, a separator the accessibility tree does
+not read, and a marked current crumb, on every screen rather than in one help
+article.
 
 ### Limits of this row
 
-- Desktop Chromium only (Playwright's engine through `agent-browser`); no
-  Firefox, WebKit or real device was run.
-- The two sides were compared on the _strip_: the panel under each is one line of
-  text, so the items about content are answered by the columns' own containment.
-- The candidate is the item **with the three edits its header records**. Left as
-  published it would not compile here (`@radix-ui/react-tabs` is not installed),
-  and that is itself part of the measured cost.
-- The 5,000-row fixture is rendered and measured for overflow in both columns,
-  not by axe (row 1's recorded limit applies to every pair).
+- The pair compares one trail per column. A single-crumb trail (the loading and
+  not-found states) is covered by the story, not by the pair.
+- Crumb **content** is unchanged: `crumbs="Home"` on `/analysis` still says
+  "Home". This row is about how a trail is rendered, not about what each screen
+  claims its location is.
 
-## Row 3 — Pressed-state chips (`pressed-chips`)
+## Row 7 — Settle-delay search box (`useSettledValue`, no pair)
 
 ### What we use now
 
-The shipped multi-select filter chip row: `revision-diff-review.tsx:493-534` (its
-change-type and change-area filters) — a `role="group"` with an `aria-label`, one
-`<button aria-pressed>` per kind, a count in the label, and **each chip its own
-tab stop**. Ten other sites share the shape.
+Three copies of one debounce, and the second was a verbatim copy of the first
+including its comment:
 
-This is the second half of the domain scan's "pressed-state toggle chip group"
-finding. Its first half — the _single-select_ chip rows in `schedule.tsx`,
-`review/$revisionId.tsx`, `audit/experiment-history.tsx` and
-`scientific/scientific-record-linker.tsx` — turned out to be the tab job: they
-are the `variant="segment"` state tabs now, with the roving focus and arrow keys
-the scan said they lacked. The scan's claim does not hold for what is left: a
-multi-select group has no roving focus in its pattern, which is why
-`keyboard-navigate` is recorded as not applicable for this pair.
+- `src/components/v3/inventory/list.tsx` (`ListToolbar`, 200 ms) — the rule the
+  comments describe: hold what was typed, report a settled value, and adopt a
+  value that changed somewhere else (a tab, "Clear search") without clobbering
+  pending typing;
+- `routes/datasets/$datasetId/rows.tsx` (200 ms) — the same code, character for
+  character, with `navigate` in place of `onSearch`;
+- `routes/settings/audit.tsx` (250 ms) — a different shape (`useSettledSearch`),
+  because a server read does not need the two-nature half.
 
-### What ReUI offers
+The survivor is `src/lib/settled-value.ts`: `useSettledValue(value, ms,
+onSettle?)` returning `{ value, setValue, settled }`, with the `sent` ref and the
+cleanup. The two route-navigation sites share `SEARCH_SETTLE_MS` (200 ms); the
+audit read keeps 250 ms and says why in its own comment.
 
-**No ReUI item.** The pinned registry answers 404 the same way:
+### Why there is no pair
 
-```
-$ curl -s https://reui.io/r/base-nova/toggle-group.json
-{"error":"Registry item not found","message":"toggle-group is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add toggle-group"}
-```
-
-The candidate is the stock shadcn item (`toggle-group`, registry dependency
-`toggle`, dependencies `@radix-ui/react-toggle-group` and `@radix-ui/react-toggle`),
-placed at `src/components/reui/toggle-group.tsx` + `toggle.tsx` with the same
-three edits as row 2.
-
-### Checklist result
-
-Applicable items are the 8 the pair has: `keyboard-tab`, the five state items and
-both densities. The other 11 need controls this pair has none of — including
-`keyboard-navigate`, which a multi-select group does not have a pattern for.
-
-| Check                                                     | Ours                                                                                             | Theirs                                                                                                                                                 | How it was measured                                                  |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| Tab reaches every control, with a visible focus indicator | Pass — each chip is a tab stop of its own, and the chip draws the ring                           | Pass — the group is the single tab stop (`tabindex="0"`, inline `outline: none`); focusing it forwards focus to the first chip, which draws a 2px ring | Browser, both columns, `document.activeElement` + `getComputedStyle` |
-| Empty (0 rows), loading, error, permission-restricted     | Pass — no chips to render for a fixture with no kinds; the columns' own states are the harness's | Pass                                                                                                                                                   | jsdom and browser                                                    |
-| Dark theme                                                | Pass — token-bound colours only; axe clean in dark                                               | Pass                                                                                                                                                   | axe in Chromium, colour contrast on, both themes                     |
-| Density and overflow at 1440x900                          | Pass — chips wrap inside the column, no page overflow                                            | Pass                                                                                                                                                   | Browser, both columns                                                |
-| Density and overflow at 390x844                           | Pass — chips wrap, none clipped                                                                  | Pass                                                                                                                                                   | Browser, both columns                                                |
+A comparison harness compares two rendered columns. Both columns here would be
+the same input with the same behaviour — the difference is where 25 lines live,
+which a column cannot show. Registering a pair would produce two identical
+screenshots and no evidence. The evidence is the hook's suite instead.
 
 ### Automated evidence
 
-Same three commands as row 2, over this pair: **18 axe cases, zero
-violations**, the harness contract tests, and `tabs.test.tsx` for the contract the
-other half of the finding moved onto.
+| Evidence                                                                                                                                                                                  | Result                                               | Command                                                                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Burst reports once; no report on mount; an external change is adopted and the queued keystroke dropped; the echo of its own report is ignored; the settled value is held with no callback | 5 tests, pass                                        | `pnpm exec vitest run src/lib/settled-value.test.ts`                                                   |
+| The three call sites: the registry toolbar, the dataset rows grid, the audit log                                                                                                          | pass (their existing suites, unchanged in behaviour) | `pnpm exec vitest run src/routes/settings/audit.test.tsx src/routes/datasets/$datasetId/rows.test.tsx` |
 
 ### Decision and reason
 
-**Decline — keep ours.** There is no behaviour to buy. Both sides announce each
-chip's pressed state as `aria-pressed`, and neither is unreachable by keyboard;
-the differences the measurement found are costs, not gains: the item changes the
-announced role from `group` to `toolbar` (a toolbar promises arrow-key
-navigation between its controls, which a multi-select filter row does not
-implement), moves the single tab stop onto that container (so Tab reaches the
-row once rather than reaching the chips), and brings two dependencies
-(`@radix-ui/react-toggle-group`, `@radix-ui/react-toggle`) or an import-path fix
-that makes it not-as-published. Restyling it to Sheetbase tokens is ours either
-way.
+**Adopt the shared hook; delete the three copies.** The behaviour is the part
+worth keeping — the `sent` ref and the cleanup are what stop a settled report
+clobbering typing that is still pending — and it was the part copied by hand.
 
 ### Limits of this row
 
-- Same engine, fixtures and exclusions as row 2.
-- The candidate was compared `type="multiple"`, which is the mode the shipped
-  sites use. A single-select row is a different job here and is the segment mode
-  of the tab contract, not this item.
-- The two chip rows in `revision-diff-review.tsx` are _filters_, and ADR-0055
-  decision 6 holds anything the `sheetbase-advanced-search` filter builder owns
-  until the filter model is reconciled. This row compares the control, not the
-  filter model.
+- No browser evidence: the debounce is covered in jsdom with fake timers, and the
+  routes that use it are covered by their own suites.
+- `settled` and `onSettle` are both offered because the three call sites needed
+  different halves of the same mechanism; a fourth site should use whichever it
+  needs rather than adding a third shape.
 
-> > > > > > > origin/work/convert-e
-> > > > > > > \=======
-
-## Row 2 — Credential panel (`settings-credentials`)
-
-### What we use now
-
-Two components that were the same component. `SettingsApiTokens`
-(`src/components/v3/settings/settings-api-tokens.tsx`, 314 lines) and
-`SettingsServiceCredentials` (`settings-service-credentials.tsx`, 313) rendered
-the same section — intro, reveal-once `Notice` + `Secret`, create form with the
-scope checkboxes, the eight-column table
-(Name/Prefix/Scopes/Created/Last used/Expires/Status/Actions) and the
-revoke/rotate `ConfirmDialog` — from the same `SCOPE_GROUPS`. A structural diff
-after normalising the function name returned one line, as the scan's item 2
-recorded; the real differences were the copy, the two wire types
-(`PersonalTokenWire` has no `kind`) and one stray `className="gap-6"` on the
-personal panel's `Section`.
-
-Both are mounted on one route, `/settings/api`: the personal panel for every
-member, the owner-gated service panel below it
-(`src/routes/settings/api.tsx:158,178`).
-
-### What the registry offers
-
-Nothing. This row records an **in-house consolidation with no registry
-counterpart**: no ReUI or stock shadcn item covers a credential panel, and
-adopting a generic table or dialog would replace no duplication while giving up
-the domain contract (scopes, prefix, one-time secret, revoke/rotate). Naming the
-supplier, as the catalogue requires: the panel is ours, built from the v3 kit
-(`Section`, `Table`, `ConfirmDialog`, `Secret`, `Checkbox`, `Field`).
-
-### What changed
-
-`src/components/v3/settings/settings-credentials.tsx` (445 lines) holds one
-`SettingsCredentials` and the two copy presets, `personalTokensCopy` and
-`serviceCredentialsCopy`, exported beside it. The panel takes the copy, the rows
-(structurally, so both wire shapes satisfy it), the revealed secret and the three
-callbacks; the route passes the preset that belongs to each section. The
-personal panel keeps its `className="gap-6"` through the component's own
-`className`, so the two sections render exactly as before. Both old files and
-both old test files are deleted; one test file runs the union of their cases once
-per preset.
-
-### Checklist result
-
-The harness's fixed checklist (keyboard, mouse, states, density) compares two
-implementations of one generic UI job on identical fixtures. There is no
-candidate column here, so the items are not applicable rather than passed, and
-the evidence is different in kind:
-
-| Evidence                                                             | Result                                                                                  | How it was measured                                                                      |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Every headline string of both screens, asserted literally per preset | Pass — 12 cases (revoke, rotate, scope-required create, section heading, copy, refusal) | `pnpm exec vitest run src/components/v3/settings/settings-credentials.test.tsx`          |
-| The rendered screen, before and after, same server and session       | Pass — **0 differing pixels** at both scroll positions                                  | `/settings/api` at 1440×2600 DPR 2, `magick compare -metric AE` on the before/after pair |
-| Both wire shapes still accepted by the panel                         | Pass — `PersonalTokenWire[]` and `CredentialWire[]` both satisfy the row contract       | `pnpm typecheck`; the route's two call sites are unchanged but for the preset            |
-| Empty states                                                         | Pass — "You have no personal tokens." / "No service credentials." render as before      | Rendered in the running app and inspected                                                |
-
-### Decision and reason
-
-**Consolidate.** The scan's own bar — "a named behaviour is missing, or the
-maintenance burden is demonstrably ours" — is met on the second clause in the
-plainest way available: two files that differ only in their words, and a
-divergence that had already started (the `gap-6`). One component with a copy
-prop deletes ~180 lines of product code and ~80 of test, and removes the reason
-to edit twice.
-
-### Limits of this row
-
-- No axe run and no Playwright suite in this orb (its browsers are not
-  installed); the accessibility evidence is the component tests plus the
-  rendered screen.
-- The pixel comparison holds data constant (the same seeded workspace, the same
-  session), so it proves the refactor renders identically on this data, not on
-  every data shape; the row types are pinned by `typecheck` instead.
-- The 24px section rhythm of the personal panel and the default of the service
-  panel are both preserved; that they differ at all is recorded here as a
-  pre-existing inconsistency, not repaired by this change.
-
-## Row 3 — Chip / toggle pill (`chip`)
-
-### What we use now
-
-Five renderers of one visual idea, with three class strings between them:
-
-| Renderer                   | Before                                              | Shape                                                                                          |
-| -------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Removable filter chip      | `src/components/v3/projects/chip.tsx` (2 consumers) | `h-6`, `border-border`, an 18px named `x` button                                               |
-| Toggle chip (filter/scope) | inline in `v3/record-picker/record-picker.tsx`      | `h-7` / `max-md:h-9`, `aria-pressed`, optional icon and count, selected = the selection tokens |
-| Toggle pill (search scope) | inline in `v3/search/search-palette.tsx`            | the record-picker's string copied, with `max-md:px-2` instead of the phone height              |
-| Nav pill (settings, phone) | `routes/settings.tsx`                               | `h-8` / `max-md:h-9`, `aria-current="page"`, no surface background                             |
-| Nav pill (client portal)   | `routes/client-portal.tsx`                          | `h-9`, `text-body`, two full class branches instead of a conditional                           |
-
-### The two existing components checked first
-
-The owner's instruction was to check `badge.tsx` and `choice.tsx` before adding a
-fourth vocabulary, and neither is the twin:
-
-- `Badge`/`Tag` (`v3/ui/badge.tsx`) is documented as a **diff marker or kind
-  label** — "Tags mark changes in a diff (add / chg / del). Kind labels a record
-  type. Never use either for status." It has no pressed/current state and no
-  interaction, so a chip built on it would be a new component wearing its name.
-- `Choice`/`ChoiceCheckbox` (`v3/ui/choice.tsx`) is a **labelled form option** —
-  a radio or checkbox with a title and one line of consequence, inside a
-  `RadioGroup`. It owns a labelable control; the chip owns a pressed or current
-  state and no input.
-
-So the pill is a new forward-kit component, not an extension of either.
-A legacy `Chip` also exists (`components/ui/chip.tsx`, removable only) — that is
-the legacy kit, which ADR-0055 decision 1 does not extend.
-
-### What ReUI offers
-
-Nothing for this job. ReUI's `Toggle Group` and `Button Group` are groups of
-controls; the scan's candidate 8 records that they are "not this job; do not
-adopt them for it". A single pill is not served by a group primitive, so
-ADR-0055 decision 4's first condition is not met and no adoption is proposed.
-
-### What changed
-
-`src/components/v3/ui/chip.tsx` (115 lines) exports one `Chip` on
-`@base-ui/react`'s `useRender` — the same render-prop idiom the kit's `Button`,
-`DialogClose` and menu triggers use — with `remove`, `toggle` and `nav`
-variants, a `nav` size axis (`sm` for the settings rail, `md` for the portal
-rail), and one selected token pair (`border-selection-border` on `bg-selection`)
-for the pressed and current states. `v3/projects/chip.tsx` and both inline
-renderings are deleted; the two nav rails compose it (the settings rail through
-`render={<Link … />}`, so `aria-current="page"` and the router link survive).
-
-**One deliberate visual change.** The palette's phone pill was the only renderer
-that stayed 28px on phones (`max-md:px-2`) where the record picker's grew to the
-36px touch target (`max-md:h-9`). The consolidation gives the palette the touch
-treatment too; it is measured at 34×36 CSS px in the phone palette, and its
-label is already screen-reader-only at that width. Everything else is
-class-for-class what it replaced.
-
-### Checklist result
-
-No candidate column, so the harness items are not applicable. Evidence:
-
-| Evidence                                                  | Result                                                                                                | How it was measured                                             |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Chip story: removable, toggle (pressed, icon, count), nav | Pass                                                                                                  | `UI/Chip` story, rendered and inspected in the built Storybook  |
-| Removable filter chip in place                            | Pass — pill and its named `x` render under the experiments toolbar                                    | `/experiments`, inspected                                       |
-| Settings phone rail in place                              | Pass — pills render in the scrolling rail, current section (off-screen right) keeps the selected pair | `/settings/api` at 390px, inspected                             |
-| Palette scope pill in place                               | Pass — 36px icon-only pill, aligned with the scope select and Cancel, no overlap or clipping          | `/` with the palette open at 390px; box measured in the DOM     |
-| Pressed and current states announce themselves            | Pass — `aria-pressed` on toggle, `aria-current="page"` on nav (the Link keeps it through `render`)    | Palette snapshot in the running app; the settings rail's markup |
-
-### Decision and reason
-
-**Consolidate into one in-house `Chip`.** Three class strings for one visual
-idea, one of the five a character-for-character copy of another, and two mobile
-treatments for the same control: the maintenance burden is ours, and no registry
-item claims the job. The user-facing result is one pill vocabulary, and the next
-filter row, scope toggle or phone section rail composes rather than re-spells.
-
-### Limits of this row
-
-- Chromium only, and the phone captures are viewport-based in headless Chromium
-  (`(pointer: coarse)` was not matched) — they show the narrow layout, not a
-  real phone.
-- The settings and portal rails stay owned by the tabs/segmented family
-  reconciliation (`reui-opportunity-scan-routes.md` §2-A/§2-F): this row
-  consolidates the pill those rails render, not the rail-and-rail-nav
-  composition. `routes/settings.tsx` and `routes/client-portal.tsx` are the two
-  files where that workstream and this one touch the same lines.
-- The selected-state contrast was not measured with axe; it is the same token
-  pair the chips already shipped with.
-
-## Row 4 — Command and listbox (`command`)
-
-### What we use now
-
-Three implementations of one job — a grouped, keyboard-driven option list:
-
-- **The forward kit's `Command`** (`src/components/v3/ui/command.tsx`, 465
-  lines before this change), composed by four files: `v3/record-picker`,
-  `scientific/record-picker`, `sheet/sheet-record-picker` and the notebook's
-  add-block menu. It owns the keyboard model (↑ ↓, Home/End, ↵, pointer
-  follow), the ARIA wiring (`combobox` → `listbox` → `option`, with
-  `aria-activedescendant`), group headings that hide themselves when empty, and
-  the dialog/popover shells.
-- **The ⌘K search palette** (`src/components/v3/search/search-palette.tsx`, 664
-  lines), which hand-rolled the same job inside the screen: its own
-  `role="combobox"` input, its own `role="listbox"`/`role="option"` list, its
-  own `activeIndex`, its own ↑/↓ and ↵ handling, its own footer chrome.
-- **The legacy cmdk palette** (`src/components/ui/command.tsx`, 158 lines, and
-  its only app consumer `ui/searchable-select.tsx`, 142 lines, itself
-  unreferenced by any route).
-
-### What the registry offers
-
-The stock shadcn `Command` **is** the cmdk item. ADR-0055 decision 2 pins the
-registry to the Base UI build, and the scan's §7 already concluded this job is
-"reconciliation, not a ReUI swap — unless the reconciliation concludes the kit's
-`Command` should be replaced by the stock item, which would be a one-for-one
-replacement and a comparison row of its own". The reconciliation does not
-conclude that: replacing the forward kit's contract with the stock item would
-re-introduce the dependency this change deletes and repeat §11.3.1's finding
-that a plain install writes primitives into the legacy kit. Recorded here so the
-next reader knows the swap was considered, not missed.
-
-### What changed
-
-The palette now composes the kit: `Command` for query/active/keyboard state,
-`CommandInput` for the combobox, `CommandList`, `CommandGroup` (heading plus its
-count as the group's `action`), `CommandItem` for each row and each contextual
-action, `CommandFooter` for the footer chrome, and `CommandDialog` for the
-shell. What stays in the screen is what is a screen's: the search itself, the
-debounce and the generation guard, the scope select and archived chip in the
-input's row, the error panel with its retry, the scope-miss and did-you-mean
-panels, and "See all". Its own list, keyboard handling and combobox wiring are
-deleted: −200/+144 lines.
-
-The kit grew the five things the palette needed, each of them a behaviour a
-second consumer can now use:
-
-- `loading` on the root (marks the list busy and holds `CommandEmpty` back, for
-  callers that own their own progress row);
-- `onSelect(value, newTab)` — ⌘/Ctrl+↵ reports the request instead of being
-  indistinguishable from ↵;
-- `trailing` on `CommandInput`, for controls in the same row as the input;
-- `rowClassName` on `CommandInput`, because a screen's header may not be the
-  kit's 44px (the palette's is 48px, per the design's `SearchPalette` canvas);
-- list-presence-aware `aria-controls`/`aria-expanded`: `CommandList` registers
-  itself, so the input stops naming a listbox that is not in the document —
-  which is the QA3-palette-2 behaviour the palette used to implement by hand.
-
-The loser is deleted rather than excepted. The task asked for that check
-explicitly: the legacy command is not rendered by `/foundations` or any other
-legacy-only surface — the adoption guard's allow-list recorded its only app
-importer as `searchable-select`, and that file had no route consumer — so
-`ui/command.tsx`, `ui/searchable-select.tsx`, their barrel exports, their
-allow-list entries and the legacy `Command` story are all removed, and
-`extension-slots`' `ExtensionCommandGroup` composes `v3/ui/command` instead.
-`cmdk` is no longer a dependency (`package.json` and `pnpm-lock.yaml`).
-`src/stories/Command.stories.tsx` is now the v3 story (default, empty, loading,
-picker, dialog).
-
-### Checklist result
-
-No candidate column, so the harness items are not applicable. Evidence:
-
-| Evidence                                                           | Result                                                                                                                                                             | How it was measured                                                          |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| The palette's own test suite, unchanged through the migration      | Pass — 13 tests: ⌘↵ new tab, `aria-controls` only with a mounted listbox, relevance-ordered groups, sheet labels, focus restore, archived scope, failure and retry | `pnpm exec vitest run src/components/v3/search/search-palette.test.tsx`      |
-| Keyboard: the active option moves and is announced                 | Pass — ArrowDown moved the active option to the second result; `aria-activedescendant` resolved; the ↵ hint renders on the active row only, as the design draws it | `/` with the palette open at 1440px, DOM assertions and an inspected capture |
-| ⌘/Ctrl+↵ opens the record in a new tab and leaves the palette open | Pass — the new tab landed on `/records/<id>/notebook`; the palette's tab kept its query and its open dialog                                                        | Same session, `tab list` and per-tab DOM checks                              |
-| The listbox's absence is honest                                    | Pass — the no-match state renders "No matches for …" and the input drops `aria-controls` and `aria-activedescendant`                                               | Same session, DOM assertions and an inspected capture                        |
-| The other four consumers still compose the same kit                | Pass — `record-picker`, `scientific/record-picker`, `sheet-record-picker` and `add-block-menu` unchanged, their tests green                                        | `pnpm test` (481 files, 4830 tests)                                          |
-
-A short recording of the palette (open, type, pointer across rows, toggle the
-archived scope) was taken while making this change; the captures kept beside
-this record are the 1440px results and no-match states and the 390px phone
-header.
-
-### Decision and reason
-
-**Reconcile into the forward kit and delete the rest.** Two implementations of
-one job in one tree — one of them inside a screen, and a third of them in the
-kit the app migrated away from: the maintenance burden is demonstrably ours, and
-the palette's fixes could never reach the kit's other four consumers (or the
-reverse). The user-facing result is one behaviour, including the ⌘↵ contract the
-screen had and the kit now carries.
-
-### Limits of this row
-
-- No axe run over the palette in this orb and no Playwright suite (its browsers
-  are not installed); the accessibility evidence is the unit tests, the DOM
-  assertions in Chromium and the rendered captures.
-- The palette's screen states (error, scope-miss, did-you-mean, archived
-  toggle) are covered by its tests and were not each captured.
-- The kit's `trailing`/`rowClassName` additions are used by one consumer today
-  (the palette); they are recorded as kit surface, and the second consumer may
-  yet show that one of them should have stayed screen-local.
-
-> > > > > > > origin/work/convert-g
-
-## Row 2 — Registry table (`registry-grid`)
+## Row 8 — Registry table (`registry-grid`)
 
 ### What we use now
 
@@ -2043,7 +738,7 @@ recorded limit of this row rather than a claim that the consolidation is done.
 - The item's own header, filter, drag and cell-selection layers were read but
   not adopted, so this row is not a verdict on them.
 
-## Row 2 — Working indicator (`spinner`)
+## Row 9 — Working indicator (`spinner`)
 
 ### What we use now
 
@@ -2135,7 +830,7 @@ component is the `ui/empty.tsx` pattern §11.2 already records.
 - Reduced motion was reasoned from the class, not measured with a
   `prefers-reduced-motion` emulation.
 
-## Row 3 — Horizontal quantity bar (`progress`)
+## Row 10 — Horizontal quantity bar (`progress`)
 
 ### What we use now
 
@@ -2236,7 +931,7 @@ stays at the call site.
   comparison column does not invent one, and this is a recorded limit rather than
   a fixed defect.
 
-## Row 4 — Disclosure (`collapsible`)
+## Row 11 — Disclosure (`collapsible`)
 
 ### What we use now
 
@@ -2329,7 +1024,7 @@ one spacing rule and a control beside the summary.
   it, and adding to it is the checklist owner's decision).
 - Chromium only; no Firefox, WebKit or real device.
 
-## Row 5 — Code and raw-payload block (`payload-block`)
+## Row 12 — Code and raw-payload block (`payload-block`)
 
 ### What we use now
 
@@ -2457,7 +1152,7 @@ value's affordance and stays with the surface that owns the selection.
   lines and now scrolls horizontally, which is the kit's documented decision for
   every payload; the change is stated here because it is visible.
 
-## Row 2 — Avatar and initials (`avatar-initials`)
+## Row 13 — Avatar and initials (`avatar-initials`)
 
 ### What we use now — before this change
 
@@ -2557,7 +1252,7 @@ included).
   (`sm`). That is a visible size change, and it is deliberate: one scale is the
   point of the change.
 
-## Row 3 — Notice and banner chrome (`notice-banner`)
+## Row 14 — Notice and banner chrome (`notice-banner`)
 
 ### What we use now — before this change
 
@@ -2657,7 +1352,7 @@ set has no offline glyph.
 - The offline strip's own tests assert text and hooks, not colour; its contrast
   evidence is the browser axe pass, not a unit assertion.
 
-## Row 4 — File type (`file-type`)
+## Row 15 — File type (`file-type`)
 
 ### What we use now — before this change
 
@@ -2781,401 +1476,189 @@ axe-with-contrast cases and the 12 column screenshots cited above. The run
 covers desktop Chromium at 1440x900 and 390x844 only; no other engine and no
 real device was used.
 
-## Row 17 — Paging a list (`paging-a-list`)
+## Row 16 — Tab family (`tab-family`)
 
 ### What we use now
 
-Four byte-identical 26-line pager blocks, one per project tab —
-`routes/projects/$projectId/{experiments,datasets,samples,files}.tsx` — each
-inside the `footer` prop of `ProjectList`. The arithmetic was already shared
-(`projectPageSummary`), the markup was copied: a `<span>` of "Showing {start}–{end}
-of {total} {noun}", then `Previous` and `Next` as `text-link` router links that
-**vanish** at the ends, so at page 1 the row moves and a reader cannot tell a
-first page from a missing control. There was no `nav`, no landmark and no
-`aria-label="Pagination"` anywhere in the tree.
+`src/components/v3/ui/tabs.tsx`, `mode="state"`: Base UI's tablist — one tab
+stop, ArrowLeft/ArrowRight, Home/End, `aria-selected`, activation that follows
+focus, and `aria-controls` only where a `TabsPanel` is rendered (a dangling
+one is an axe violation). It is the outcome of this change's reconciliation: the
+two `SearchTabs`, the unused `RouteTabs`, `LinkTabs` and `SegmentLinks` were
+deleted, and nine hand-rolled strips and two chip rows moved onto this contract
+in `mode="url"` where the tabs are URLs.
 
-The survivor is `src/components/v3/ui/pager.tsx`: a `nav[aria-label="Pagination"]`
-carrying the same range label, with both ends always rendered and inert
-(`disabled` on the router `Link`, which drops the `href` and sets
-`aria-disabled="true"`; the dimmed style is the pager's own class, so a screen
-that renders it outside the router still shows which end it is at). The
-arithmetic stays the caller's — the page size, the parse and the range are
-`project-lists.ts`'s policy.
+The job this pair compares is the in-page half: _switch which view of the same
+rows is shown, without leaving the page_. The other half — tabs that are links,
+with `aria-current="page"` — is most of the strips this change migrated, and the candidate
+has no mode for it.
 
 ### What ReUI offers
 
-Nothing. `@reui/pagination` is not a registry item: the pinned base-nova
-registry answers
+**No ReUI item.** On 16 October 2026 the pinned registry redirects and answers:
 
 ```
-GET https://reui.io/r/base-nova/pagination.json
-404 {"error":"Registry item not found","message":"pagination is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add pagination"}
+$ curl -s https://reui.io/r/base-nova/tabs.json
+{"error":"Registry item not found","message":"tabs is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add tabs"}
 ```
 
-and the shadcn CLI refuses `@reui/pagination` the same way. The nearest item is
-the stock shadcn `Pagination*`, which the repository already has in the legacy
-kit — that is row 18.
+so the candidate is the stock shadcn item (`ui.shadcn.com/r/styles/new-york/tabs.json`,
+`registry:ui`, one file, dependency `@radix-ui/react-tabs`), placed at
+`src/components/reui/tabs.tsx`. Three edits and nothing else, recorded in that
+file's header: the primitive import re-pointed to the unified `radix-ui` package
+the repository already has (as published it needs `@radix-ui/react-tabs`, which
+is not a dependency), `cn` from `#/lib/utils`, and the tokens restyled
+(`bg-muted` → `bg-surface-muted`, `ring-ring` → the kit's `outline-focus`), which
+an adoption would have to do anyway.
 
 ### Checklist result
 
-Fixed checklist: `src/components/component-compare/checklist.ts`. The applicable
-items are the 6 whose state or `pagination` control this pair has; the other 12
-need reorder, sort, filter, select or resize controls and are recorded as not
-applicable rather than skipped.
+Applicable items are the 9 the pair has: `keyboard-tab` and
+`keyboard-navigate` (`navigate` is the control class added for this pair — a
+widget whose parts are moved between with the arrow keys), the five state items,
+and both densities. The other 10 need reorder, sort, filter, select, resize or
+pagination controls that neither side of this pair has.
 
-| Check                                                     | Ours                                                                                                                                | Theirs (stock `Pagination*`, restyled)              | How it was measured                                         |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------- |
-| Tab reaches every control, with a visible focus indicator | Pass — the range label, then `Previous`, then `Next`                                                                                | Pass — `Previous`, the numbered links, `Next`       | Browser, both columns                                       |
-| Move to the next and previous page without a pointer      | Pass — Tab to `Next`, Enter moves to "Showing 26–50 of 5000 rows"; at page 1 `Previous` is not a tab stop and reads `aria-disabled` | Pass — Tab to a numbered link, Enter moves the page | Browser (bulk fixture), both columns                        |
-| Empty (0 rows), loading, error, permission-restricted     | Pass (harness-owned states; the pager renders nothing for a 0-row fixture)                                                          | Pass                                                | jsdom axe, both columns, and the browser run                |
-| Dark theme                                                | Pass — token-bound colours only                                                                                                     | Pass                                                | jsdom axe (contrast off); Chromium axe for the default pair |
-| Density and overflow at 1440x900 and 390x844              | Pass — the row wraps; no horizontal overflow                                                                                        | Pass                                                | Browser, both columns                                       |
+| Check                                                                     | Ours                                                                                                                                                            | Theirs                                                                                                                                                    | How it was measured                                                  |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator                 | Pass — the tab stop is the current tab; the ring is drawn on it (`outline: solid 2px`)                                                                          | Pass — the tab stop is the `role="tablist"` container (`tabindex="0"`, inline `outline: none`); focusing it forwards focus to a tab, which draws the ring | Browser, both columns, `document.activeElement` + `getComputedStyle` |
+| Move between the widget's parts with the arrow keys the pattern calls for | Pass — ArrowRight moved focus **and** selection from `All` to `Sample`, the roving `tabindex` followed (`[0,-1,-1,-1]` → `[-1,0,-1,-1]`), and the panel changed | Pass — the same, including wrap; `End` jumped to the last tab                                                                                             | Browser, trusted key events (`agent-browser press`), both columns    |
+| Empty (0 rows), loading, error, permission-restricted                     | Pass (see the caveat below)                                                                                                                                     | Pass                                                                                                                                                      | jsdom and browser                                                    |
+| Dark theme                                                                | Pass — token-bound colours only; axe clean in dark                                                                                                              | Pass                                                                                                                                                      | axe in Chromium, colour contrast on, both columns and both themes    |
+| Density and overflow at 1440x900                                          | Pass — one line, no horizontal page overflow, long labels do not overlap                                                                                        | Pass                                                                                                                                                      | Browser, both columns                                                |
+| Density and overflow at 390x844                                           | Pass — the rail scrolls sideways instead of wrapping, and the current tab is scrolled into view                                                                 | Pass                                                                                                                                                      | Browser, both columns, and the story's 390px state                   |
 
-Reorder, sort, filter, select and resize: not applicable to this pair (12 items).
+Sort, filter, select, resize and pagination: not applicable to this pair (10
+items). They are listed in the harness with that verdict.
 
-**What the checklist does not settle.** Both sides pass, so the decision is not
-carried by it. What separates them is in row 18: the stock item's `<a href>` model
-leaves the router, it has no range or count, and it is the legacy kit.
+**Caveat on the empty, loading and error states.** As in row 1, these are picture
+states of a whole screen and the harness owns them: both columns show the same
+harness notice for a 0-row fixture, for loading and for a load failure. The
+`restricted` state has nothing to disable in a view switch, so both columns show
+the same notice above an unchanged strip; that is recorded rather than dressed up.
 
 ### Automated evidence
 
-| Evidence                                                                 | Result                                   | Command                                                                                 |
-| ------------------------------------------------------------------------ | ---------------------------------------- | --------------------------------------------------------------------------------------- |
-| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides             | 18 cases, zero violations (contrast off) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
-| Harness contracts (one scenario object to both columns, frozen fixtures) | pass                                     | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`      |
-| The route the copies lived on: range label, and `Previous` on page 1     | pass                                     | `pnpm exec vitest run src/routes/projects/$projectId/experiments.test.tsx`              |
-
-Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`, or the harness page itself):
-`.amp/in/artifacts/harness-paging-a-list-{ours,theirs}.png` from the run that
-produced this row — the 5,000-row fixture, where ours reads "Showing 1–25 of 5000
-rows · Previous · Next" and theirs shows "Previous · 1 · 2 · 200 · Next".
-
-### Conditions an adoption would carry
-
-None for ours: it replaces the four copies in the same change. A future adoption
-of a registry pager would have to be a router-link pager (TanStack `Link`, not
-`<a href>`), carry a range label, and be restyled to tokens — that is the bar
-this row declined the stock item against.
-
-### Limits of this row
-
-- Desktop Chromium and jsdom only; no Firefox, WebKit or real device.
-- The pair fixes the page size at 25 rows and renders the pager alone; the
-  screens' footer bars (project tabs) are not in either column.
-- The stock column is the repository's existing copy of the item, restyled; a
-  fresh `shadcn add pagination` would be a different file.
-
-## Row 18 — Stock shadcn `Pagination*` (declined)
-
-### What we use now
-
-Nothing. `src/components/ui/pagination.tsx` has a story
-(`src/stories/Pagination.stories.tsx`) and **zero** call sites in the app, and it
-is already half-migrated: it imports `buttonVariants` from the v3 kit. It is the
-legacy kit's copy of the stock shadcn item.
-
-### What it offers, and what is materially worse
-
-- **It leaves the router.** `PaginationLink`, `PaginationPrevious` and
-  `PaginationNext` all render a plain `<a href>`. A pager here navigates the
-  same route at another `?page=`; an anchor full-reloads the screen and drops
-  the client router.
-- **No range and no count.** The design's footer line is a count — "11 of 17
-  files · instrument exports are parsed into datasets" (ProjectFiles canvas) —
-  and the four hand-rolled blocks printed "Showing 1–25 of 40 experiments". This
-  item prints numbered pages and nothing else.
-- **The wrong model.** It is built for numbered pages; these lists are 25-row
-  windows on server-paged reads (and 50-row cursor pages elsewhere).
-- **Decision 1.** It is the legacy kit, which ADR-0055 decision 1 says is not
-  extended. Adopting it would also add the first legacy import to a v3 screen
-  and trip `src/components/v3/ui/component-adoption.test.ts`.
-
-### Checklist result
-
-It passes the same 6 items as row 17 (it is keyboard-reachable and it pages), and
-that is recorded rather than argued with: the decline is on the four points
-above, not on the checklist.
+| Evidence                                                                                                                                                                   | Result                                                                            | Command                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides (this pair)                                                                                                   | 18 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
+| Harness contracts, including the registered pair set                                                                                                                       | pass                                                                              | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`      |
+| The contract itself: state mode's tab stop, arrows, Home/End, counts, callback; URL mode's `aria-current`, no `aria-selected`, and the `activeOptions` it hands the router | 5 tests, pass                                                                     | `pnpm exec vitest run src/components/v3/ui/tabs.test.tsx`                               |
+| Appearance                                                                                                                                                                 | one capture per column per theme on the long-labels fixture                       | the harness at `/component-compare`, pair _Tab family_                                  |
 
 ### Decision and reason
 
-**Decline.** `@reui/pagination` does not exist (row 17's 404 body), so there is no
-ReUI candidate; the stock shadcn item fails ADR-0055 decision 1 and, on its own
-merits, cannot drive this router or print this range. The in-house `Pager` keeps
-the link model the screens already had, adds the landmark and the inert ends,
-and deletes four copies.
+**Decline — keep ours.** ADR-0055 decision 4 asks whether the candidate is
+_materially better_: a named behaviour is missing from ours, or the maintenance
+burden is demonstrably ours. Neither holds. Measured in the same browser, both
+sides move focus with ArrowLeft/ArrowRight and Home/End, both announce
+`role="tablist"`/`role="tab"` with `aria-selected`, and both keep one tab stop —
+the only structural difference is _where_ that stop lives (the tab, or the
+container). What the item does not have is the half of the job most of our
+strips do: `mode="url"`, where each tab is its own URL and the current one
+carries `aria-current="page"`. Adopting it would therefore either leave the app
+with two tab implementations — the thing this change removed — or force the URL
+mode onto a list component by hand.
 
-**This ruling is the standing one for a stock shadcn item in the legacy kit**
-(`src/components/ui/**`): leaving the router, printing no range or count, and
-living in the kit decision 1 does not extend are each sufficient, and the same
-three apply to the stock `Breadcrumb*` item at row 21. It is recorded once here
-rather than re-argued per component.
+The costs are real and one-sided: as published it needs `@radix-ui/react-tabs`,
+a second primitive library beside the Base UI kit the v3 components are built on
+(ADR-0055 decision 1), and its token vocabulary is the deprecated bridge
+(`bg-muted`, `text-muted-foreground`, `outline: none`) that §11.5 says renders
+wrong beside every neighbour while still passing the colour check.
+
+This row is the _comparison_, not the reconciliation: the reconciliation is the
+change that produced `src/components/v3/ui/tabs.tsx`, and it needed this
+comparison done first, which is why the same change carries both.
 
 ### Limits of this row
 
-- The item was compared as the repository's copy, restyled to tokens. Its
-  upstream shadcn equivalent may differ; the item that would matter is the one
-  the CLI installs, and that is the same file family.
-- No browser run for this row's appearance beyond the harness screenshots.
+- Desktop Chromium only (Playwright's engine through `agent-browser`); no
+  Firefox, WebKit or real device was run.
+- The two sides were compared on the _strip_: the panel under each is one line of
+  text, so the items about content are answered by the columns' own containment.
+- The candidate is the item **with the three edits its header records**. Left as
+  published it would not compile here (`@radix-ui/react-tabs` is not installed),
+  and that is itself part of the measured cost.
+- The 5,000-row fixture is rendered and measured for overflow in both columns,
+  not by axe (row 1's recorded limit applies to every pair).
 
-## Row 19 — Growing-window list control (`load-more-control`)
+## Row 17 — Pressed-state chips (`pressed-chips`)
 
 ### What we use now
 
-Six hand-rolled controls with five labels between them — `"Loading…"`,
-`"Loading more…"`, `"Load more"`, `"Load more (N left)"`, `"Scroll for older
-entries"` — and no `nav` landmark on any of them:
+The shipped multi-select filter chip row: `revision-diff-review.tsx:493-534` (its
+change-type and change-area filters) — a `role="group"` with an `aria-label`, one
+`<button aria-pressed>` per kind, a count in the label, and **each chip its own
+tab stop**. Ten other sites share the shape.
 
-- `routes/search.tsx` — a plain button, `Loading…` while fetching;
-- `routes/experiments.tsx` — a small quiet button in the list's footer bar;
-- `routes/datasets/$datasetId/rows.tsx` — count, note and a `Load more (N left)`
-  button in the grid's foot;
-- `routes/datasets/$datasetId/compare.tsx` — `Load more (N left)`;
-- `components/v3/integrations/enterprise-source-panel.tsx` — a continuation
-  token beside "List objects";
-- `routes/settings/audit.tsx` — a cursor tail inside the table body whose **idle
-  state offered no control at all**: older entries were reachable by scrolling
-  and by no keyboard path.
-
-The survivor is `src/components/v3/ui/load-more.tsx`: one `nav` with the screen's
-own label, an optional "Showing {loaded} of {total} {noun}" line for the screens
-that do not print the count themselves, one button ("Load more" / "Loading…"), a
-retry for a failed read, and an optional screen-authored end line.
+This is the second half of the domain scan's "pressed-state toggle chip group"
+finding. Its first half — the _single-select_ chip rows in `schedule.tsx`,
+`review/$revisionId.tsx`, `audit/experiment-history.tsx` and
+`scientific/scientific-record-linker.tsx` — turned out to be the tab job: they
+are the `variant="segment"` state tabs now, with the roving focus and arrow keys
+the scan said they lacked. The scan's claim does not hold for what is left: a
+multi-select group has no roving focus in its pattern, which is why
+`keyboard-navigate` is recorded as not applicable for this pair.
 
 ### What ReUI offers
 
-No item. `GET https://reui.io/r/base-nova/load-more.json` answers
-`404 {"error":"Registry item not found"}` and ReUI's index has no load-more
-component; the stock shadcn catalogue has none either. There is nothing to
-adopt and nothing to compare against, so this row records a consolidation.
+**No ReUI item.** The pinned registry answers 404 the same way:
+
+```
+$ curl -s https://reui.io/r/base-nova/toggle-group.json
+{"error":"Registry item not found","message":"toggle-group is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add toggle-group"}
+```
+
+The candidate is the stock shadcn item (`toggle-group`, registry dependency
+`toggle`, dependencies `@radix-ui/react-toggle-group` and `@radix-ui/react-toggle`),
+placed at `src/components/reui/toggle-group.tsx` + `toggle.tsx` with the same
+three edits as row 2.
 
 ### Checklist result
 
-| Check                                                     | Ours                                                        | Theirs (the deleted spellings, kept in the pair)                                       | How it was measured      |
-| --------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------ |
-| Tab reaches every control, with a visible focus indicator | Pass                                                        | Pass, except the audit tail's idle state                                               | jsdom axe, both columns  |
-| Move forward through the list without a pointer           | Pass — Tab to the control, Enter reads the next page        | Pass in the four button spellings; **fail** on the audit tail (text, not a control)    | Browser, both columns    |
-| Empty (0 rows), loading, error, permission-restricted     | Pass — the control disappears when there is nothing to read | Pass, except that the audit tail still says "Scroll for older entries" with no control | jsdom axe, both columns  |
-| Dark theme                                                | Pass — token-bound colours only                             | Pass                                                                                   | jsdom axe (contrast off) |
-| Density and overflow at 1440x900 and 390x844              | Pass                                                        | Pass                                                                                   | Browser, both columns    |
+Applicable items are the 8 the pair has: `keyboard-tab`, the five state items and
+both densities. The other 11 need controls this pair has none of — including
+`keyboard-navigate`, which a multi-select group does not have a pattern for.
 
-The count trio is on this pair, so its count line is compared: ours reads
-"Showing 4 of 12 changes" once, where the deleted spellings printed the count in
-the button and again in a footer bar.
-
-### Automated evidence
-
-| Evidence                                                             | Result                                   | Command                                                                                                          |
-| -------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| axe, both columns, every fixture and state                           | 18 cases, zero violations (contrast off) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx`                          |
-| Harness contracts                                                    | pass                                     | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`                               |
-| The three routes that owned a copy: paging, retry and the audit tail | pass                                     | `pnpm exec vitest run src/routes/datasets/$datasetId/{rows,compare}.test.tsx src/routes/settings/audit.test.tsx` |
-
-### Decision and reason
-
-**Adopt.** One control, one label, one count format, one retry, a landmark that
-says what is being extended, and a keyboard path the audit tail lacked. Six
-call sites and their five labels are deleted in the same change.
-
-### What is still queued
-
-- **`components/v3/datasets/dataset-history-tab.tsx`** — the sixth v3 load-more
-  site — delegates its control to `ObjectHistoryTimeline`, which is the shared
-  surface the audit-timeline lane has since landed. It is queued for the next
-  tranche and should be a small change against that surface: hand it the
-  `LoadMore` contract rather than its own button.
-- The three peers outside the v3 surfaces (`components/audit/object-history-timeline.tsx`,
-  `components/audit/audit-trail.tsx`, `components/sheet/canonical-sheet-workspace.tsx`)
-  are the same call sites once that surface is one control.
-
-### Limits of this row
-
-- The audit log's tail is inside a table body (`<TableRow><TableCell>`), so the
-  column renders it as a cell and not as the shipped table row; the control is
-  the same.
-- The connector panel's continuation token is compared without a count, because
-  the panel does not know one.
-- The label unification was accepted on review: "Load more" with the remaining
-  count as the control's own line, rather than a count inside the button.
-
-## Row 20 — List screen header (`list-header`)
-
-### What we use now
-
-`ListHeader` (`src/components/v3/inventory/list.tsx`) is composed by eight
-registry screens (samples, materials, protocols, datasets, templates, pipelines,
-models, instruments). Two more composed the same band by hand, with class
-strings that matched `ListHeader`'s character for character — including the
-`-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0` tab rail:
-
-- `routes/experiments.tsx` — `h1`, count, a primary action that had to wrap at
-  400 % zoom (QA4-zoom-experiments, the reason for its own `max-md:flex-wrap`),
-  and the URL tab strip;
-- `routes/inbox.tsx` — `h1`, a muted subtitle, two actions that measured 408px
-  at 390 and pushed "Mark all seen" out of the viewport (WCAG 1.4.10), and a
-  roving-focus `role="tablist"`.
-
-### What one component's API had to cover
-
-`ListHeader`'s existing `title`/`total`/`actions`/`tabs` plus one thing the
-hand-rolls carried that it did not: **a line beside the title**. The inbox's
-subtitle could only go in the `<h1>` otherwise, which would have made the
-sentence part of the heading's accessible name. The wrap rule the experiments
-header had invented is now the header's own (`flex-wrap` on the row, actions
-full-width below `md`), and the unknown-count state is the existing
-`total?: number` — omit it and no count renders.
-
-### Checklist result
-
-| Check                                                     | Ours (`ListHeader`)                                                 | Theirs (the two hand-rolls)                                            | How it was measured      |
-| --------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------ |
-| Tab reaches every control, with a visible focus indicator | Pass — actions, then the tab links                                  | Pass — actions, then the tab buttons                                   | jsdom axe, both columns  |
-| Empty, loading, error, permission-restricted              | Pass (harness-owned states)                                         | Pass                                                                   | jsdom axe, both columns  |
-| Dark theme                                                | Pass — token-bound colours only                                     | Pass                                                                   | jsdom axe (contrast off) |
-| Density and overflow at 1440x900 and 390x844              | Pass — the row wraps and the actions take their own line below `md` | Pass — the inbox header wraps; the experiments header wraps below `md` | Browser, both columns    |
-
-No control class applies (`controls: []`), so the sort/filter/select/reorder/
-resize/pagination items are all not applicable.
+| Check                                                     | Ours                                                                                             | Theirs                                                                                                                                                 | How it was measured                                                  |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator | Pass — each chip is a tab stop of its own, and the chip draws the ring                           | Pass — the group is the single tab stop (`tabindex="0"`, inline `outline: none`); focusing it forwards focus to the first chip, which draws a 2px ring | Browser, both columns, `document.activeElement` + `getComputedStyle` |
+| Empty (0 rows), loading, error, permission-restricted     | Pass — no chips to render for a fixture with no kinds; the columns' own states are the harness's | Pass                                                                                                                                                   | jsdom and browser                                                    |
+| Dark theme                                                | Pass — token-bound colours only; axe clean in dark                                               | Pass                                                                                                                                                   | axe in Chromium, colour contrast on, both themes                     |
+| Density and overflow at 1440x900                          | Pass — chips wrap inside the column, no page overflow                                            | Pass                                                                                                                                                   | Browser, both columns                                                |
+| Density and overflow at 390x844                           | Pass — chips wrap, none clipped                                                                  | Pass                                                                                                                                                   | Browser, both columns                                                |
 
 ### Automated evidence
 
-| Evidence                                                     | Result                                                   | Command                                                                                 |
-| ------------------------------------------------------------ | -------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| axe, both columns, every fixture and state                   | 18 cases, zero violations (contrast off)                 | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
-| The two screens the headers were migrated on                 | pass, including the no-longer-hand-rolled wrap assertion | `pnpm exec vitest run src/routes/experiments.test.tsx src/routes/inbox.test.tsx`        |
-| The story: registry, no-count, subtitle and tab-strip states | renders                                                  | `src/stories/ListHeader.stories.tsx`                                                    |
+Same three commands as row 2, over this pair: **18 axe cases, zero
+violations**, the harness contract tests, and `tabs.test.tsx` for the contract the
+other half of the finding moved onto.
 
 ### Decision and reason
 
-**Adopt the migration.** The band, the count format and the wrap rule are the
-shared header's; the inbox is not a special case once `ListHeader` can carry a
-subtitle. The two hand-rolled headers are deleted in the same change, and the
-experiments header's QA4 comment moves to the header that now owns the rule.
+**Decline — keep ours.** There is no behaviour to buy. Both sides announce each
+chip's pressed state as `aria-pressed`, and neither is unreachable by keyboard;
+the differences the measurement found are costs, not gains: the item changes the
+announced role from `group` to `toolbar` (a toolbar promises arrow-key
+navigation between its controls, which a multi-select filter row does not
+implement), moves the single tab stop onto that container (so Tab reaches the
+row once rather than reaching the chips), and brings two dependencies
+(`@radix-ui/react-toggle-group`, `@radix-ui/react-toggle`) or an import-path fix
+that makes it not-as-published. Restyling it to Sheetbase tokens is ours either
+way.
 
 ### Limits of this row
 
-- The column compares the **inbox** header (the harder of the two: subtitle, two
-  actions, roving-focus tablist). The experiments header — count and one
-  full-width action — is the same band and is covered by the story, not by the
-  pair.
-- The tab strips are left as they are: reconciling the six tab and segment
-  components is its own task, and this pair does not pre-empt it.
+- Same engine, fixtures and exclusions as row 2.
+- The candidate was compared `type="multiple"`, which is the mode the shipped
+  sites use. A single-select row is a different job here and is the segment mode
+  of the tab contract, not this item.
+- The two chip rows in `revision-diff-review.tsx` are _filters_, and ADR-0055
+  decision 6 holds anything the `sheetbase-advanced-search` filter builder owns
+  until the filter model is reconciled. This row compares the control, not the
+  filter model.
 
-## Row 21 — Page location trail (`breadcrumb-trail`)
-
-### What we use now
-
-24 files composed the crumb line and passed it to `PageHeader crumbs`, 57 times
-between them. The trail was markup: a `Link`, a `{' '}`, a hand-spelled `/`, and
-an identifier wrapped by hand at each site (`<span className="mono">`). Twelve
-route files spelled the separator themselves; none produced `ol`/`li`; none
-marked the crumb you are on, so the "you are here" half of a breadcrumb was
-missing everywhere. The two help routes hand-rolled their own: `help/records.tsx`
-had the `ol`/`li` and `aria-current` (the one place in the app that did), and
-`help/shortcuts.tsx` had a text separator and no list at all.
-
-The survivor is `src/components/v3/ui/breadcrumb.tsx`: the trail as data
-(`{ label, link?, mono? }[]`), rendered by `PageHeader trail` and used directly by
-the two help articles, which keep their own header bands (they are full-bleed
-document surfaces; the design canvas gives them `md:px-8`, not the header's
-`md:px-6`).
-
-### What ReUI offers
-
-Nothing: ReUI's index has no breadcrumb item, and the stock shadcn
-`Breadcrumb*` is the legacy kit's (`src/components/ui/breadcrumb.tsx`, zero call
-sites) — declined under the same ruling as row 18. The shape the scan suggested
-("change `PageHeader` to take a trail") is what this change does.
-
-### Checklist result
-
-| Check                                                     | Ours                                   | Theirs (the node 24 files passed) | How it was measured      |
-| --------------------------------------------------------- | -------------------------------------- | --------------------------------- | ------------------------ |
-| Tab reaches every control, with a visible focus indicator | Pass — each linked crumb               | Pass — each linked crumb          | jsdom axe, both columns  |
-| Empty, loading, error, permission-restricted              | Pass (harness-owned states)            | Pass                              | jsdom axe, both columns  |
-| Dark theme                                                | Pass — token-bound colours only        | Pass                              | jsdom axe (contrast off) |
-| Density and overflow at 1440x900 and 390x844              | Pass — one line, `truncate` on the nav | Pass                              | Browser, both columns    |
-
-**Structural difference, which is the point of the row:** ours is
-`nav > ol > li` with the separator `aria-hidden` and `aria-current="page"` on the
-last unlinked crumb; theirs is a `nav` with a run of fragments, the separator as
-content, and no current crumb. jsdom axe reports `landmark-unique` on the
-hand-spelled column when two of them sit side by side — a property of the pair,
-recorded as such, not a defect of the shipped code.
-
-### Automated evidence
-
-| Evidence                                                   | Result                                                                           | Command                                                                                 |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| axe, both columns, every fixture and state                 | 18 cases, zero violations (contrast off)                                         | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
-| The two help routes that hand-rolled a trail               | pass (their browser specs, `tests/visual/help-*.spec.ts`, assert axe on `#main`) | `pnpm exec vitest run src/routes/help.test.tsx`                                         |
-| The story: one crumb, section-and-identifier, three levels | renders                                                                          | `src/stories/BreadcrumbTrail.stories.tsx`                                               |
-
-### Decision and reason
-
-**Adopt the in-house `Breadcrumb` and delete the `crumbs` node slot** — 24 files
-migrated in the same change, with no parallel way to pass a trail left behind.
-The win is the semantics: list structure, a separator the accessibility tree does
-not read, and a marked current crumb, on every screen rather than in one help
-article.
-
-### Limits of this row
-
-- The pair compares one trail per column. A single-crumb trail (the loading and
-  not-found states) is covered by the story, not by the pair.
-- Crumb **content** is unchanged: `crumbs="Home"` on `/analysis` still says
-  "Home". This row is about how a trail is rendered, not about what each screen
-  claims its location is.
-
-## Row 22 — Settle-delay search box (`useSettledValue`, no pair)
-
-### What we use now
-
-Three copies of one debounce, and the second was a verbatim copy of the first
-including its comment:
-
-- `src/components/v3/inventory/list.tsx` (`ListToolbar`, 200 ms) — the rule the
-  comments describe: hold what was typed, report a settled value, and adopt a
-  value that changed somewhere else (a tab, "Clear search") without clobbering
-  pending typing;
-- `routes/datasets/$datasetId/rows.tsx` (200 ms) — the same code, character for
-  character, with `navigate` in place of `onSearch`;
-- `routes/settings/audit.tsx` (250 ms) — a different shape (`useSettledSearch`),
-  because a server read does not need the two-nature half.
-
-The survivor is `src/lib/settled-value.ts`: `useSettledValue(value, ms,
-onSettle?)` returning `{ value, setValue, settled }`, with the `sent` ref and the
-cleanup. The two route-navigation sites share `SEARCH_SETTLE_MS` (200 ms); the
-audit read keeps 250 ms and says why in its own comment.
-
-### Why there is no pair
-
-A comparison harness compares two rendered columns. Both columns here would be
-the same input with the same behaviour — the difference is where 25 lines live,
-which a column cannot show. Registering a pair would produce two identical
-screenshots and no evidence. The evidence is the hook's suite instead.
-
-### Automated evidence
-
-| Evidence                                                                                                                                                                                  | Result                                               | Command                                                                                                |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Burst reports once; no report on mount; an external change is adopted and the queued keystroke dropped; the echo of its own report is ignored; the settled value is held with no callback | 5 tests, pass                                        | `pnpm exec vitest run src/lib/settled-value.test.ts`                                                   |
-| The three call sites: the registry toolbar, the dataset rows grid, the audit log                                                                                                          | pass (their existing suites, unchanged in behaviour) | `pnpm exec vitest run src/routes/settings/audit.test.tsx src/routes/datasets/$datasetId/rows.test.tsx` |
-
-### Decision and reason
-
-**Adopt the shared hook; delete the three copies.** The behaviour is the part
-worth keeping — the `sent` ref and the cleanup are what stop a settled report
-clobbering typing that is still pending — and it was the part copied by hand.
-
-### Limits of this row
-
-- No browser evidence: the debounce is covered in jsdom with fake timers, and the
-  routes that use it are covered by their own suites.
-- `settled` and `onSettle` are both offered because the three call sites needed
-  different halves of the same mechanism; a fourth site should use whichever it
-  needs rather than adding a third shape.
-
-## Row 2 — Option picker (`native-select`)
+## Row 18 — Option picker (`native-select`)
 
 ### What we use now
 
@@ -3320,6 +1803,279 @@ item because native is the repository's deliberate choice for it.
 - This row records one pair. It is not a verdict on the shadcn registry, on
   `@base-ui/react`'s `Select`, or on any other item.
 
+## Row 19 — Credential panel (`settings-credentials`)
+
+### What we use now
+
+Two components that were the same component. `SettingsApiTokens`
+(`src/components/v3/settings/settings-api-tokens.tsx`, 314 lines) and
+`SettingsServiceCredentials` (`settings-service-credentials.tsx`, 313) rendered
+the same section — intro, reveal-once `Notice` + `Secret`, create form with the
+scope checkboxes, the eight-column table
+(Name/Prefix/Scopes/Created/Last used/Expires/Status/Actions) and the
+revoke/rotate `ConfirmDialog` — from the same `SCOPE_GROUPS`. A structural diff
+after normalising the function name returned one line, as the scan's item 2
+recorded; the real differences were the copy, the two wire types
+(`PersonalTokenWire` has no `kind`) and one stray `className="gap-6"` on the
+personal panel's `Section`.
+
+Both are mounted on one route, `/settings/api`: the personal panel for every
+member, the owner-gated service panel below it
+(`src/routes/settings/api.tsx:158,178`).
+
+### What the registry offers
+
+Nothing. This row records an **in-house consolidation with no registry
+counterpart**: no ReUI or stock shadcn item covers a credential panel, and
+adopting a generic table or dialog would replace no duplication while giving up
+the domain contract (scopes, prefix, one-time secret, revoke/rotate). Naming the
+supplier, as the catalogue requires: the panel is ours, built from the v3 kit
+(`Section`, `Table`, `ConfirmDialog`, `Secret`, `Checkbox`, `Field`).
+
+### What changed
+
+`src/components/v3/settings/settings-credentials.tsx` (445 lines) holds one
+`SettingsCredentials` and the two copy presets, `personalTokensCopy` and
+`serviceCredentialsCopy`, exported beside it. The panel takes the copy, the rows
+(structurally, so both wire shapes satisfy it), the revealed secret and the three
+callbacks; the route passes the preset that belongs to each section. The
+personal panel keeps its `className="gap-6"` through the component's own
+`className`, so the two sections render exactly as before. Both old files and
+both old test files are deleted; one test file runs the union of their cases once
+per preset.
+
+### Checklist result
+
+The harness's fixed checklist (keyboard, mouse, states, density) compares two
+implementations of one generic UI job on identical fixtures. There is no
+candidate column here, so the items are not applicable rather than passed, and
+the evidence is different in kind:
+
+| Evidence                                                             | Result                                                                                  | How it was measured                                                                      |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Every headline string of both screens, asserted literally per preset | Pass — 12 cases (revoke, rotate, scope-required create, section heading, copy, refusal) | `pnpm exec vitest run src/components/v3/settings/settings-credentials.test.tsx`          |
+| The rendered screen, before and after, same server and session       | Pass — **0 differing pixels** at both scroll positions                                  | `/settings/api` at 1440×2600 DPR 2, `magick compare -metric AE` on the before/after pair |
+| Both wire shapes still accepted by the panel                         | Pass — `PersonalTokenWire[]` and `CredentialWire[]` both satisfy the row contract       | `pnpm typecheck`; the route's two call sites are unchanged but for the preset            |
+| Empty states                                                         | Pass — "You have no personal tokens." / "No service credentials." render as before      | Rendered in the running app and inspected                                                |
+
+### Decision and reason
+
+**Consolidate.** The scan's own bar — "a named behaviour is missing, or the
+maintenance burden is demonstrably ours" — is met on the second clause in the
+plainest way available: two files that differ only in their words, and a
+divergence that had already started (the `gap-6`). One component with a copy
+prop deletes ~180 lines of product code and ~80 of test, and removes the reason
+to edit twice.
+
+### Limits of this row
+
+- No axe run and no Playwright suite in this orb (its browsers are not
+  installed); the accessibility evidence is the component tests plus the
+  rendered screen.
+- The pixel comparison holds data constant (the same seeded workspace, the same
+  session), so it proves the refactor renders identically on this data, not on
+  every data shape; the row types are pinned by `typecheck` instead.
+- The 24px section rhythm of the personal panel and the default of the service
+  panel are both preserved; that they differ at all is recorded here as a
+  pre-existing inconsistency, not repaired by this change.
+
+## Row 20 — Chip / toggle pill (`chip`)
+
+### What we use now
+
+Five renderers of one visual idea, with three class strings between them:
+
+| Renderer                   | Before                                              | Shape                                                                                          |
+| -------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Removable filter chip      | `src/components/v3/projects/chip.tsx` (2 consumers) | `h-6`, `border-border`, an 18px named `x` button                                               |
+| Toggle chip (filter/scope) | inline in `v3/record-picker/record-picker.tsx`      | `h-7` / `max-md:h-9`, `aria-pressed`, optional icon and count, selected = the selection tokens |
+| Toggle pill (search scope) | inline in `v3/search/search-palette.tsx`            | the record-picker's string copied, with `max-md:px-2` instead of the phone height              |
+| Nav pill (settings, phone) | `routes/settings.tsx`                               | `h-8` / `max-md:h-9`, `aria-current="page"`, no surface background                             |
+| Nav pill (client portal)   | `routes/client-portal.tsx`                          | `h-9`, `text-body`, two full class branches instead of a conditional                           |
+
+### The two existing components checked first
+
+The owner's instruction was to check `badge.tsx` and `choice.tsx` before adding a
+fourth vocabulary, and neither is the twin:
+
+- `Badge`/`Tag` (`v3/ui/badge.tsx`) is documented as a **diff marker or kind
+  label** — "Tags mark changes in a diff (add / chg / del). Kind labels a record
+  type. Never use either for status." It has no pressed/current state and no
+  interaction, so a chip built on it would be a new component wearing its name.
+- `Choice`/`ChoiceCheckbox` (`v3/ui/choice.tsx`) is a **labelled form option** —
+  a radio or checkbox with a title and one line of consequence, inside a
+  `RadioGroup`. It owns a labelable control; the chip owns a pressed or current
+  state and no input.
+
+So the pill is a new forward-kit component, not an extension of either.
+A legacy `Chip` also exists (`components/ui/chip.tsx`, removable only) — that is
+the legacy kit, which ADR-0055 decision 1 does not extend.
+
+### What ReUI offers
+
+Nothing for this job. ReUI's `Toggle Group` and `Button Group` are groups of
+controls; the scan's candidate 8 records that they are "not this job; do not
+adopt them for it". A single pill is not served by a group primitive, so
+ADR-0055 decision 4's first condition is not met and no adoption is proposed.
+
+### What changed
+
+`src/components/v3/ui/chip.tsx` (115 lines) exports one `Chip` on
+`@base-ui/react`'s `useRender` — the same render-prop idiom the kit's `Button`,
+`DialogClose` and menu triggers use — with `remove`, `toggle` and `nav`
+variants, a `nav` size axis (`sm` for the settings rail, `md` for the portal
+rail), and one selected token pair (`border-selection-border` on `bg-selection`)
+for the pressed and current states. `v3/projects/chip.tsx` and both inline
+renderings are deleted; the two nav rails compose it (the settings rail through
+`render={<Link … />}`, so `aria-current="page"` and the router link survive).
+
+**One deliberate visual change.** The palette's phone pill was the only renderer
+that stayed 28px on phones (`max-md:px-2`) where the record picker's grew to the
+36px touch target (`max-md:h-9`). The consolidation gives the palette the touch
+treatment too; it is measured at 34×36 CSS px in the phone palette, and its
+label is already screen-reader-only at that width. Everything else is
+class-for-class what it replaced.
+
+### Checklist result
+
+No candidate column, so the harness items are not applicable. Evidence:
+
+| Evidence                                                  | Result                                                                                                | How it was measured                                             |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Chip story: removable, toggle (pressed, icon, count), nav | Pass                                                                                                  | `UI/Chip` story, rendered and inspected in the built Storybook  |
+| Removable filter chip in place                            | Pass — pill and its named `x` render under the experiments toolbar                                    | `/experiments`, inspected                                       |
+| Settings phone rail in place                              | Pass — pills render in the scrolling rail, current section (off-screen right) keeps the selected pair | `/settings/api` at 390px, inspected                             |
+| Palette scope pill in place                               | Pass — 36px icon-only pill, aligned with the scope select and Cancel, no overlap or clipping          | `/` with the palette open at 390px; box measured in the DOM     |
+| Pressed and current states announce themselves            | Pass — `aria-pressed` on toggle, `aria-current="page"` on nav (the Link keeps it through `render`)    | Palette snapshot in the running app; the settings rail's markup |
+
+### Decision and reason
+
+**Consolidate into one in-house `Chip`.** Three class strings for one visual
+idea, one of the five a character-for-character copy of another, and two mobile
+treatments for the same control: the maintenance burden is ours, and no registry
+item claims the job. The user-facing result is one pill vocabulary, and the next
+filter row, scope toggle or phone section rail composes rather than re-spells.
+
+### Limits of this row
+
+- Chromium only, and the phone captures are viewport-based in headless Chromium
+  (`(pointer: coarse)` was not matched) — they show the narrow layout, not a
+  real phone.
+- The settings and portal rails stay owned by the tabs/segmented family
+  reconciliation (`reui-opportunity-scan-routes.md` §2-A/§2-F): this row
+  consolidates the pill those rails render, not the rail-and-rail-nav
+  composition. `routes/settings.tsx` and `routes/client-portal.tsx` are the two
+  files where that workstream and this one touch the same lines.
+- The selected-state contrast was not measured with axe; it is the same token
+  pair the chips already shipped with.
+
+## Row 21 — Command and listbox (`command`)
+
+### What we use now
+
+Three implementations of one job — a grouped, keyboard-driven option list:
+
+- **The forward kit's `Command`** (`src/components/v3/ui/command.tsx`, 465
+  lines before this change), composed by four files: `v3/record-picker`,
+  `scientific/record-picker`, `sheet/sheet-record-picker` and the notebook's
+  add-block menu. It owns the keyboard model (↑ ↓, Home/End, ↵, pointer
+  follow), the ARIA wiring (`combobox` → `listbox` → `option`, with
+  `aria-activedescendant`), group headings that hide themselves when empty, and
+  the dialog/popover shells.
+- **The ⌘K search palette** (`src/components/v3/search/search-palette.tsx`, 664
+  lines), which hand-rolled the same job inside the screen: its own
+  `role="combobox"` input, its own `role="listbox"`/`role="option"` list, its
+  own `activeIndex`, its own ↑/↓ and ↵ handling, its own footer chrome.
+- **The legacy cmdk palette** (`src/components/ui/command.tsx`, 158 lines, and
+  its only app consumer `ui/searchable-select.tsx`, 142 lines, itself
+  unreferenced by any route).
+
+### What the registry offers
+
+The stock shadcn `Command` **is** the cmdk item. ADR-0055 decision 2 pins the
+registry to the Base UI build, and the scan's §7 already concluded this job is
+"reconciliation, not a ReUI swap — unless the reconciliation concludes the kit's
+`Command` should be replaced by the stock item, which would be a one-for-one
+replacement and a comparison row of its own". The reconciliation does not
+conclude that: replacing the forward kit's contract with the stock item would
+re-introduce the dependency this change deletes and repeat §11.3.1's finding
+that a plain install writes primitives into the legacy kit. Recorded here so the
+next reader knows the swap was considered, not missed.
+
+### What changed
+
+The palette now composes the kit: `Command` for query/active/keyboard state,
+`CommandInput` for the combobox, `CommandList`, `CommandGroup` (heading plus its
+count as the group's `action`), `CommandItem` for each row and each contextual
+action, `CommandFooter` for the footer chrome, and `CommandDialog` for the
+shell. What stays in the screen is what is a screen's: the search itself, the
+debounce and the generation guard, the scope select and archived chip in the
+input's row, the error panel with its retry, the scope-miss and did-you-mean
+panels, and "See all". Its own list, keyboard handling and combobox wiring are
+deleted: −200/+144 lines.
+
+The kit grew the five things the palette needed, each of them a behaviour a
+second consumer can now use:
+
+- `loading` on the root (marks the list busy and holds `CommandEmpty` back, for
+  callers that own their own progress row);
+- `onSelect(value, newTab)` — ⌘/Ctrl+↵ reports the request instead of being
+  indistinguishable from ↵;
+- `trailing` on `CommandInput`, for controls in the same row as the input;
+- `rowClassName` on `CommandInput`, because a screen's header may not be the
+  kit's 44px (the palette's is 48px, per the design's `SearchPalette` canvas);
+- list-presence-aware `aria-controls`/`aria-expanded`: `CommandList` registers
+  itself, so the input stops naming a listbox that is not in the document —
+  which is the QA3-palette-2 behaviour the palette used to implement by hand.
+
+The loser is deleted rather than excepted. The task asked for that check
+explicitly: the legacy command is not rendered by `/foundations` or any other
+legacy-only surface — the adoption guard's allow-list recorded its only app
+importer as `searchable-select`, and that file had no route consumer — so
+`ui/command.tsx`, `ui/searchable-select.tsx`, their barrel exports, their
+allow-list entries and the legacy `Command` story are all removed, and
+`extension-slots`' `ExtensionCommandGroup` composes `v3/ui/command` instead.
+`cmdk` is no longer a dependency (`package.json` and `pnpm-lock.yaml`).
+`src/stories/Command.stories.tsx` is now the v3 story (default, empty, loading,
+picker, dialog).
+
+### Checklist result
+
+No candidate column, so the harness items are not applicable. Evidence:
+
+| Evidence                                                           | Result                                                                                                                                                             | How it was measured                                                          |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| The palette's own test suite, unchanged through the migration      | Pass — 13 tests: ⌘↵ new tab, `aria-controls` only with a mounted listbox, relevance-ordered groups, sheet labels, focus restore, archived scope, failure and retry | `pnpm exec vitest run src/components/v3/search/search-palette.test.tsx`      |
+| Keyboard: the active option moves and is announced                 | Pass — ArrowDown moved the active option to the second result; `aria-activedescendant` resolved; the ↵ hint renders on the active row only, as the design draws it | `/` with the palette open at 1440px, DOM assertions and an inspected capture |
+| ⌘/Ctrl+↵ opens the record in a new tab and leaves the palette open | Pass — the new tab landed on `/records/<id>/notebook`; the palette's tab kept its query and its open dialog                                                        | Same session, `tab list` and per-tab DOM checks                              |
+| The listbox's absence is honest                                    | Pass — the no-match state renders "No matches for …" and the input drops `aria-controls` and `aria-activedescendant`                                               | Same session, DOM assertions and an inspected capture                        |
+| The other four consumers still compose the same kit                | Pass — `record-picker`, `scientific/record-picker`, `sheet-record-picker` and `add-block-menu` unchanged, their tests green                                        | `pnpm test` (481 files, 4830 tests)                                          |
+
+A short recording of the palette (open, type, pointer across rows, toggle the
+archived scope) was taken while making this change; the captures kept beside
+this record are the 1440px results and no-match states and the 390px phone
+header.
+
+### Decision and reason
+
+**Reconcile into the forward kit and delete the rest.** Two implementations of
+one job in one tree — one of them inside a screen, and a third of them in the
+kit the app migrated away from: the maintenance burden is demonstrably ours, and
+the palette's fixes could never reach the kit's other four consumers (or the
+reverse). The user-facing result is one behaviour, including the ⌘↵ contract the
+screen had and the kit now carries.
+
+### Limits of this row
+
+- No axe run over the palette in this orb and no Playwright suite (its browsers
+  are not installed); the accessibility evidence is the unit tests, the DOM
+  assertions in Chromium and the rendered captures.
+- The palette's screen states (error, scope-miss, did-you-mean, archived
+  toggle) are covered by its tests and were not each captured.
+- The kit's `trailing`/`rowClassName` additions are used by one consumer today
+  (the palette); they are recorded as kit surface, and the second consumer may
+  yet show that one of them should have stayed screen-local.
+
 ## Adding a row
 
 Register the pair in `src/components/component-compare/pairs/index.ts` with its
@@ -3328,6 +2084,4 @@ add the pair's row above and its detail section with: what we use now, what the
 candidate offers, the per-item checklist result for both sides, the automated
 evidence with its commands, the conditions an adoption would carry, the decision
 and the reason, and the limits. `docs/development/component-compare.md` has the
-step-by-step, including where a declined candidate lives: vendored under
-`src/components/reui/**` when the pair imports the real file, reproduced inside
-the pair when it does not, with the row saying which.
+step-by-step.

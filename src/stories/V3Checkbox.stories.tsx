@@ -38,16 +38,28 @@ export const Checked: Story = {
 }
 
 /**
- * The mixed state. Measured in Chromium, this is a defect rather than a third
- * glyph: the control reports `aria-checked="mixed"` and `data-indeterminate`,
- * but the root keeps `bg-surface` while the indicator's tick inherits
- * `text-on-accent`, so a white tick sits on a white box and nothing is visible.
- * Only `data-checked` fills the box. Fixing the appearance is a design decision
- * (a filled box, or a dash in ink colour) and is not this lane's change; the
- * story is here so the state is reviewable.
+ * The mixed state — a header checkbox over a partly selected page of rows. The
+ * control reports `aria-checked="mixed"` and `data-indeterminate`; the box is
+ * filled with the primary colour, exactly as the checked state is, so the tick
+ * is painted `on-accent` on a fill rather than white on white. `checkbox.test.tsx`
+ * resolves both colours out of `src/styles.css` for light and dark and fails if
+ * they stop differing.
+ *
+ * The mark stays a tick: making mixed *distinguishable* from checked (a dash in
+ * place of the tick) is a design decision this lane did not take — see the
+ * checkbox row in `docs/development/storybook-coverage.md`.
  */
 export const Indeterminate: Story = {
   render: () => label('7 of 12 runs selected', <Checkbox indeterminate />),
+}
+
+/** Mixed and disabled: the state a locked selection shows. */
+export const IndeterminateDisabled: Story = {
+  render: () =>
+    label(
+      '7 of 12 runs selected (locked)',
+      <Checkbox indeterminate disabled />,
+    ),
 }
 
 /**

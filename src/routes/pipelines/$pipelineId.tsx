@@ -8,7 +8,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { toast } from '#/components/v3/ui/sonner'
@@ -175,8 +175,10 @@ function PipelineLayout() {
           </>
         }
         tabs={
-          <LinkTabs
-            tabs={[
+          <Tabs
+            mode="url"
+            label="Pipeline sections"
+            items={[
               {
                 label: 'Overview',
                 link: {

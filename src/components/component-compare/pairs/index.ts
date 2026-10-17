@@ -7,6 +7,8 @@ import { quantityFieldPair } from '#/components/component-compare/pairs/quantity
 import { shortcutKeysPair } from '#/components/component-compare/pairs/shortcut-keys'
 import { fileUploadPair } from '#/components/component-compare/pairs/file-upload'
 import { registryGridPair } from '#/components/component-compare/pairs/registry-grid'
+import { tabFamilyPair } from '#/components/component-compare/pairs/tab-family'
+import { pressedChipsPair } from '#/components/component-compare/pairs/pressed-chips'
 
 /**
  * The registered comparison pairs, in the order the harness lists them.
@@ -25,4 +27,6 @@ export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   fileUploadPair,
   registryGridPair,
   nativeSelectPair,
+  tabFamilyPair,
+  pressedChipsPair,
 ])

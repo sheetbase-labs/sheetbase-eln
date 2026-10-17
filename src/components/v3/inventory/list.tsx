@@ -13,52 +13,14 @@ import { Skeleton } from '#/components/v3/ui/skeleton'
 import { cn } from '#/lib/utils'
 
 // Pieces shared by the registry lists (samples, materials, protocols, datasets): a header with the total and actions,
-// tabs that live in the `tab` search param, a toolbar with the `q` search box, and a footer count.
-
-const tabCls =
-  'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:-outline-offset-2'
+// a toolbar with the `q` search box, and a footer count. The tab strip that used to live here is now
+// `#/components/v3/ui/tabs` (`mode="url"`), the one tab component the app has.
 
 /** How long the search box waits after the last keystroke before it tells the
  * route. The field keeps the typed text itself, so a burst faster than a router
  * round-trip — a hardware barcode scanner, or a paste — is never rendered back
  * from stale state. */
 const SEARCH_SETTLE_MS = 200
-
-export function SearchTabs({
-  items,
-  current,
-  label = 'Filter',
-}: {
-  items: {
-    key: string
-    label: string
-    count?: React.ReactNode
-    link: LinkProps
-  }[]
-  current: string
-  label?: string
-}) {
-  return (
-    <nav aria-label={label} className="flex gap-5 whitespace-nowrap">
-      {items.map((t) => (
-        <Link
-          key={t.key}
-          {...t.link}
-          className={cn(tabCls, t.key === current && 'border-link text-fg')}
-          aria-current={t.key === current ? 'page' : undefined}
-          activeOptions={{ exact: true, includeSearch: true }}
-        >
-          {t.label}
-          {t.count != null ? (
-            <span className="num text-label font-normal text-fg-muted">
-              {t.count}
-            </span>
-          ) : null}
-        </Link>
-      ))}
-    </nav>
-  )
-}
 
 export function ListHeader({
   title,

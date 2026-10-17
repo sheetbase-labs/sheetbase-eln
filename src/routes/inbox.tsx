@@ -19,6 +19,7 @@ import {
   DescriptionList,
 } from '#/components/v3/ui/layout'
 import { Kbd } from '#/components/v3/ui/kbd'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   useRegisterShortcuts,
   useShortcutScope,
@@ -308,36 +309,6 @@ function Inbox() {
     updateSearch({ type: next })
   }
 
-  // QA3-inbox-3 — the tabs announce `role="tab"`, so the arrow keys move
-  // between them and only the selected tab sits in the tab order, matching
-  // what a screen reader is told.
-  const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
-  const onTabKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const current = tabs.findIndex(([t]) => t === tab)
-    let next: number
-    switch (event.key) {
-      case 'ArrowRight':
-      case 'ArrowDown':
-        next = (current + 1) % tabs.length
-        break
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        next = (current - 1 + tabs.length) % tabs.length
-        break
-      case 'Home':
-        next = 0
-        break
-      case 'End':
-        next = tabs.length - 1
-        break
-      default:
-        return
-    }
-    event.preventDefault()
-    selectTab(tabs[next][0])
-    tabsRef.current[next]?.focus()
-  }
-
   const filterRef = useRef<HTMLDivElement>(null)
   const rowsRef = useRef<WorkItem[]>(orderedRows)
   const selectedKeyRef = useRef<string | null>(selectedKey)
@@ -431,35 +402,18 @@ function Inbox() {
               Mark all seen
             </Button>
           </div>
-          <div
-            role="tablist"
-            aria-label="Inbox"
-            onKeyDown={onTabKeys}
-            className="mt-1 flex gap-5 overflow-x-auto [scrollbar-width:none]"
-          >
-            {tabs.map(([t, l], index) => (
-              <button
-                key={t}
-                ref={(el) => {
-                  tabsRef.current[index] = el
-                }}
-                type="button"
-                role="tab"
-                aria-selected={tab === t}
-                tabIndex={tab === t ? 0 : -1}
-                onClick={() => selectTab(t)}
-                className={cn(
-                  'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted hover:text-fg max-md:h-11',
-                  tab === t && 'border-link text-fg',
-                )}
-              >
-                {l}
-                <span className="text-label font-normal text-fg-muted">
-                  {countsKnown ? tabCount(t) : '—'}
-                </span>
-              </button>
-            ))}
-          </div>
+          <Tabs
+            mode="state"
+            label="Inbox"
+            value={tab}
+            onValueChange={(next) => selectTab(next as InboxTab)}
+            className="mt-1"
+            items={tabs.map(([key, label]) => ({
+              key,
+              label,
+              count: countsKnown ? tabCount(key) : '—',
+            }))}
+          />
         </header>
 
         <div

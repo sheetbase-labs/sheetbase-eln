@@ -9,7 +9,7 @@ import {
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { PageHeader } from '#/components/v3/ui/layout'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
   publishedTemplateVersion,
@@ -119,8 +119,10 @@ function TemplateLayout() {
           </>
         }
         tabs={
-          <LinkTabs
-            tabs={[
+          <Tabs
+            mode="url"
+            label="Template sections"
+            items={[
               {
                 label: 'Sections',
                 count: shown?.configuration.placements.length,

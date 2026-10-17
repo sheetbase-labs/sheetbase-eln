@@ -22,12 +22,12 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
 } from '#/components/v3/inventory/list'
 import {
   ProtocolsRegistryGrid,
   protocolStatus,
 } from '#/components/v3/protocols/protocols-registry-grid'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
@@ -181,9 +181,10 @@ function ProtocolsList() {
           title="Protocols"
           total={rows.length}
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Protocol lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],

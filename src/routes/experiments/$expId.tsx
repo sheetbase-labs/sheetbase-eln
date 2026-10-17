@@ -2,7 +2,7 @@ import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
@@ -174,8 +174,10 @@ function ExperimentLayout() {
           </>
         }
         tabs={
-          <LinkTabs
-            tabs={[
+          <Tabs
+            mode="url"
+            label="Experiment sections"
+            items={[
               {
                 label: 'Overview',
                 link: {

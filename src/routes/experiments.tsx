@@ -32,7 +32,7 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { FilterMenu } from '#/components/v3/ui/filter-menu'
-import { SearchTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { FilterChip } from '#/components/v3/projects/chip'
 import { MobileList, stickyCol } from '#/components/v3/projects/mobile-list'
 import {
@@ -246,14 +246,15 @@ function Experiments() {
             New experiment
           </Button>
         </div>
-        <SearchTabs
+        <Tabs
+          mode="url"
+          value={tab}
           className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0"
           label="Experiment views"
-          tabs={tabs.map((t) => ({
+          items={tabs.map((t) => ({
             key: t,
             label: tabLabel[t],
             count: counts[t],
-            active: t === tab,
             link: {
               to: '/experiments',
               search: { ...search, tab: t === 'all' ? undefined : t },

@@ -48,6 +48,14 @@ export const COMPARISON_CHECKLIST: readonly ChecklistItem[] = Object.freeze([
     ref: 'tests/browser/component-compare.test.ts — keyboard: reaches every control by Tab, with a visible focus indicator',
   },
   {
+    id: 'keyboard-navigate',
+    area: 'keyboard',
+    instruction:
+      'Move between the parts of the widget with the arrow keys its pattern calls for, and see the part the widget announces as current follow the focused part.',
+    requires: ['navigate'],
+    evidence: 'manual',
+  },
+  {
     id: 'keyboard-reorder',
     area: 'keyboard',
     instruction:

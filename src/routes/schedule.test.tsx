@@ -208,7 +208,7 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
     fake.state.bookings = [bookingRow({})]
     const user = userEvent.setup()
     renderSchedule()
-    await user.click(await screen.findByRole('button', { name: 'Day' }))
+    await user.click(await screen.findByRole('tab', { name: 'Day' }))
 
     // The 20:00 hour is only drawn because the window widened to the booking.
     expect(await screen.findByText('20:00')).toBeTruthy()
@@ -258,7 +258,7 @@ describe('Schedule booking cancellation', () => {
     fake.rpc.mockResolvedValue([])
     const user = userEvent.setup()
     renderSchedule()
-    await user.click(await screen.findByRole('button', { name: 'Day' }))
+    await user.click(await screen.findByRole('tab', { name: 'Day' }))
 
     // A booking is no longer inert: clicking it opens the detail/cancel dialog.
     await user.click(screen.getByTitle(TITLE))
@@ -282,7 +282,7 @@ describe('Schedule booking cancellation', () => {
     )
     const user = userEvent.setup()
     renderSchedule()
-    await user.click(await screen.findByRole('button', { name: 'Day' }))
+    await user.click(await screen.findByRole('tab', { name: 'Day' }))
 
     await user.click(screen.getByTitle(TITLE))
     const dialog = await screen.findByRole('dialog')

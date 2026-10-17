@@ -8,6 +8,7 @@ import {
 
 import { cn } from '#/lib/utils'
 import { settingsNavForRole } from '#/components/v3/settings/settings-nav'
+import { Tabs } from '#/components/v3/ui/tabs'
 import type { SettingsNavItem } from '#/components/v3/settings/settings-nav'
 
 /** UI port (roadmap-4/ui-app3): the settings shell. Sections are grouped
@@ -62,28 +63,21 @@ function SettingsLayout() {
         </div>
         {account.map(item)}
       </nav>
-      <nav
-        aria-label="Settings sections"
-        className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-b border-border-subtle px-4 py-2 [scrollbar-width:none] md:px-6 lg:hidden"
-      >
-        {[...workspace, ...account].map((i) => {
-          const on = i.match(pathname)
-          return (
-            <Link
-              key={i.label}
-              {...i.link}
-              aria-current={on ? 'page' : undefined}
-              className={cn(
-                'inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full border border-border px-3 text-label text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline max-md:h-9',
-                on &&
-                  'border-selection-border bg-selection font-medium hover:bg-selection',
-              )}
-            >
-              {i.label}
-            </Link>
-          )
-        })}
-      </nav>
+      <Tabs
+        mode="url"
+        variant="chip"
+        label="Settings sections"
+        className="shrink-0 border-b border-border-subtle px-4 py-2 md:px-6 lg:hidden"
+        // The nav's own item predicate decides the current section: a rail
+        // item's `match` covers a subtree (`/settings/members` and the pages
+        // under it), which no path comparison in the strip could restate.
+        value={[...workspace, ...account].find((i) => i.match(pathname))?.label}
+        items={[...workspace, ...account].map((i) => ({
+          key: i.label,
+          label: i.label,
+          link: i.link,
+        }))}
+      />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto">
         <Outlet />
       </div>

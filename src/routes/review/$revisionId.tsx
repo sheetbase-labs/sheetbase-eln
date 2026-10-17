@@ -88,7 +88,13 @@ import { SignatureDialog } from '#/components/review/sign-dialogs'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Skeleton } from '#/components/v3/ui/skeleton'
-import { Tabs, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
+import {
+  Tabs,
+  TabsRoot,
+  TabsList,
+  TabsPanel,
+  TabsTab,
+} from '#/components/v3/ui/tabs'
 import { Select } from '#/components/v3/ui/select'
 import { Textarea } from '#/components/v3/inventory/list'
 import { DataClientError } from '#/lib/data-client'
@@ -718,7 +724,7 @@ export function ReviewWorkspaceRoute() {
             />
           ) : null}
 
-          <Tabs
+          <TabsRoot
             value={activeTab}
             onValueChange={(value) =>
               navigateTab(value as WorkspaceSearch['tab'])
@@ -866,7 +872,7 @@ export function ReviewWorkspaceRoute() {
                 }
               />
             </TabsPanel>
-          </Tabs>
+          </TabsRoot>
         </div>
       </RouteShell>
     </CollaborationRoom>
@@ -1350,28 +1356,17 @@ function DiffPanel({
               Loading comparison…
             </span>
           ) : null}
-          <div
-            role="group"
-            aria-label="Reading view"
-            className="flex flex-wrap gap-1"
-          >
-            <Button
-              variant={view === 'document' ? 'primary' : 'secondary'}
-              size="sm"
-              aria-pressed={view === 'document'}
-              onClick={() => setView('document')}
-            >
-              Document
-            </Button>
-            <Button
-              variant={view === 'changes' ? 'primary' : 'secondary'}
-              size="sm"
-              aria-pressed={view === 'changes'}
-              onClick={() => setView('changes')}
-            >
-              Change list
-            </Button>
-          </div>
+          <Tabs
+            mode="state"
+            variant="segment"
+            label="Reading view"
+            value={view}
+            onValueChange={(next) => setView(next as 'document' | 'changes')}
+            items={[
+              { key: 'document', label: 'Document' },
+              { key: 'changes', label: 'Change list' },
+            ]}
+          />
         </div>
       </div>
 

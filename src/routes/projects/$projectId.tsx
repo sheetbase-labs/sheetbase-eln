@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
   fetchProjectFolders,
@@ -125,8 +125,10 @@ function ProjectLayout() {
           </>
         }
         tabs={
-          <LinkTabs
-            tabs={[
+          <Tabs
+            mode="url"
+            label="Project sections"
+            items={[
               {
                 label: 'Overview',
                 link: {

@@ -40,10 +40,10 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
   stickyCell,
   stickyHead,
 } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   CALIBRATION_DUE_SOON_DAYS,
   INTAKE_METHODS,
@@ -310,9 +310,10 @@ function InstrumentsList() {
             </>
           }
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Instrument lists"
-              current={tab}
+              value={tab}
               items={(
                 ['all', 'connected', 'calibration', 'retired'] as const
               ).map((key) => ({

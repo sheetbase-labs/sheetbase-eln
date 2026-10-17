@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   AgentPoliciesPanel,
   AgentProposalsPanel,
@@ -291,50 +292,37 @@ function AgentsRoute() {
           </>
         }
         tabs={
-          <nav aria-label="Agent sections" className="flex gap-5">
-            {(
-              [
-                {
-                  label: 'Proposals',
-                  view: 'proposals' as const,
-                  count: proposals.length,
+          <Tabs
+            mode="url"
+            label="Agent sections"
+            value={view}
+            items={[
+              {
+                key: 'proposals',
+                label: 'Proposals',
+                count: proposals.length,
+                link: {
+                  to: '/pipelines/agents',
+                  search: { view: 'proposals' },
                 },
-                {
-                  label: 'Workflows',
-                  view: 'workflows' as const,
-                  count: workflows.length,
+              },
+              {
+                key: 'workflows',
+                label: 'Workflows',
+                count: workflows.length,
+                link: {
+                  to: '/pipelines/agents',
+                  search: { view: 'workflows' },
                 },
-                {
-                  label: 'Policies',
-                  view: 'policies' as const,
-                  count: policiesQuery.data?.length,
-                },
-              ] as const
-            ).map((t) => {
-              const active = view === t.view
-              return (
-                <Link
-                  key={t.label}
-                  to="/pipelines/agents"
-                  search={{ view: t.view }}
-                  aria-current={active ? 'page' : undefined}
-                  className={
-                    'flex items-center gap-1.5 border-b-2 px-0.5 pb-1.5 text-body no-underline hover:no-underline ' +
-                    (active
-                      ? 'border-link text-fg'
-                      : 'border-transparent text-fg-muted hover:text-fg')
-                  }
-                >
-                  {t.label}
-                  {t.count != null ? (
-                    <span className="num text-label text-fg-muted">
-                      {t.count}
-                    </span>
-                  ) : null}
-                </Link>
-              )
-            })}
-          </nav>
+              },
+              {
+                key: 'policies',
+                label: 'Policies',
+                count: policiesQuery.data?.length,
+                link: { to: '/pipelines/agents', search: { view: 'policies' } },
+              },
+            ]}
+          />
         }
       />
       {error instanceof Error ? (

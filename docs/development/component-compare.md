@@ -54,6 +54,9 @@ naming the **control classes** it needs (`reorder`, `sort`, `filter`, `select`,
 `resize`, `pagination`, `picker`). A pair declares which controls its components
 have; an
 item whose control is absent is recorded as _not applicable_, which is a
+naming the **control classes** it needs (`navigate`, `reorder`, `sort`, `filter`,
+`select`, `resize`, `pagination`). A pair declares which controls its components
+have; an item whose control is absent is recorded as _not applicable_, which is a
 recorded result rather than a skipped check. A pair cannot narrow the
 questions to the ones its candidate happens to pass.
 
@@ -131,6 +134,14 @@ fixture back and accept the runtime.
    tailwind-merge the Sheetbase type scale). Nothing else in the file is edited
    beyond formatting and restyling to Sheetbase tokens; the directory carries
    its own scoped lint relaxation in `eslint.config.js`.
+
+   A candidate whose row ends in _decline_ stays vendored there **when its pair
+   imports the real file** — the harness column then measures the item rather
+   than a copy of it. A pair that cannot import it, because it has to reproduce
+   the item's wiring to compare it at all, renders that reproduction inside the
+   pair instead and needs no vendored file; the row says which of the two it is.
+   The rule exists so that a later reader can tell a declined candidate from an
+   adopted one by where the file lives.
 
 3. **Add the dependencies the CLI chose** at the versions it chose, and
    regenerate `pnpm-lock.yaml`. Keep `@base-ui/react` on the repository's own

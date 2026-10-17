@@ -27,6 +27,7 @@ a decision is not a record.
 
 ## Rows
 
+<<<<<<< HEAD
 | #   | Component (generic UI job)                                                                   | What we use now                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | What ReUI offers                                                                                                                                                                                                                                                                                                                                                                                                    | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Measured                                                                                                                                                                                                                                                                                                                                                           |
 | --- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1   | Reorderable list — reorder rows by pointer and keyboard                                      | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                                                                                                                                                                                                                                                                                           | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                                                                                                                                                                                                                                                          | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 8 items are not applicable — this pair has no sort, filter, select, resize or pagination control                                                                                                                                                                                                                                                                                         | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
@@ -39,6 +40,13 @@ a decision is not a record.
 | 7   | Numeric quantity field — enter a number that carries a unit                                  | No shared numeric component: the kit's `Input` with `type="number"`/`inputMode="decimal"`, labelled by `Field`, with a per-screen check (`materials.tsx:783-790` is the pattern the other ~20 numeric call sites repeat)                                                                                                                                                                                                                                                                    | `@reui/number-field` (base-nova pin), a Base UI `NumberField` wrapper — group, decrement, input, increment, scrub area: `src/components/reui/number-field.tsx`                                                                                                                                                                                                                                                      | Ours: the 8 applicable items pass, including density at 390x844 (see the detail table). Theirs: 7 of 8 pass — axe is clean and the states hold, but the field **displays a formatter's value rather than the value**: `1e-21`, `1.602176634e-19` and `Number.EPSILON` all read `0`, and typing `1e-21` yields `1`. 10 items are not applicable — this pair has no sort, filter, select, resize, pagination or reorder control                                                                                                                                                                              | **Decline.** Our implementation is not materially worse: it keeps the digits the scientist entered, and the candidate at its defaults loses them on screen and on entry. See the detail below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
 | 8   | Signature pad — capture a signature as ink                                                   | **Nothing draws.** The surface the plan names, `src/components/notebook/e-sign-dialog.tsx` (261 lines), is the credential attestation form: signing-as, meaning, revision, content hash, server-time statement, re-authentication password, type-your-name confirmation. No canvas, no pointer capture, no export exists anywhere in `src` for a signature                                                                                                                                  | `@reui/signature-pad` (base-nova pin), 1,382 lines, `cn` only: pressure- and speed-sized ink, touch and stylus input, undo/redo, PNG/JPEG/SVG/JSON export                                                                                                                                                                                                                                                           | Not applicable: the harness compares two implementations of one job, and only one of these does the job. There is no side to put in the second column                                                                                                                                                                                                                                                                                                                                                                                                                                                      | **Decline — a different job.** An ink pad answers "what did the mark look like"; electronic signature here is an attestation under an audit chain (REV-03), which ReUI neither carries nor may replace. See the detail below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
 | 9   | Keyboard shortcut cap — show the keys that trigger a command                                 | One shared `Kbd` already exists: `src/components/v3/ui/kbd.tsx` (10 lines), a `<kbd>` bound to the v3 tokens; a chord is three of them in the `flex gap-1` span the call sites write. One component, used by the shortcuts dialog, the help page and the search palette                                                                                                                                                                                                                     | Stock shadcn `kbd` (a bare name on the same index; §11.3.4), 28 lines: `Kbd`, `KbdGroup` to wrap a chord, and an inversion inside tooltip content — `src/components/reui/kbd.tsx`                                                                                                                                                                                                                                   | Ours: the 8 applicable items pass. Theirs: all 8 pass. 10 items are not applicable — no sort, filter, select, resize, pagination or reorder control, and neither side puts a cap on the keyboard path                                                                                                                                                                                                                                                                                                                                                                                                      | **Decline.** Our implementation is not materially worse: it is the one shared, token-bound cap, and the candidate's only additions are a chord wrapper the call sites already write and a tooltip treatment that is inert here. See the detail below                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 16 Oct 2026                                                                                                                                                                                                                                                                                                                                                        |
+=======
+| #   | Component (generic UI job)                              | What we use now                                                                                                                                                                                                                 | What ReUI offers                                                                                                                                                                                                                           | Checklist result                                                                                                                                                                                                                                                                                                                                                                                                                         | Decision                                                                                                                                                                                                                                                                                               | Measured    |
+| --- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| 1   | Reorderable list — reorder rows by pointer and keyboard | Notebook hand-rolled HTML5 drag-and-drop: `src/components/notebook/notebook-block-reorder.tsx`, consumed by `notebook-document.tsx` (mechanics were inline there before this row)                                               | `@reui/sortable` (base-nova pin), a `@dnd-kit` wrapper: `src/components/reui/sortable.tsx`                                                                                                                                                 | Ours: 9 of the 10 applicable items pass — pointer reordering is unavailable at 390x844, which is the reason for the decision (see the detail table). Theirs: all 10 pass **after one accessibility fix-up** (C1). 9 items are not applicable — this pair has no sort, filter, select, resize or pagination control, and no `navigate` control                                                                                            | **Adopt in a follow-up change**, conditional on C1–C4. Not adopted by this change, which adds no product surface                                                                                                                                                                                       | 16 Oct 2026 |
+| 2   | Tab family — one of N views, in place                   | `src/components/v3/ui/tabs.tsx` in `mode="state"`: Base UI tablist — roving focus, ArrowLeft/ArrowRight, Home/End, `aria-selected`, activation on focus. The reconciliation that produced it deleted five other implementations | **Nothing to compare against:** the pinned registry answers 404 for `tabs` and says it is a shadcn item. Placed from shadcn/ui (new-york) at `src/components/reui/tabs.tsx`, primitive import re-pointed to the unified `radix-ui` package | Ours: 9 of the 9 applicable items pass. Theirs: the same 9 pass, with one structural difference and one cost — the tab stop sits on the `role="tablist"` container (`tabindex="0"`, inline `outline: none`) rather than on the tab, and the item as published needs `@radix-ui/react-tabs`. 10 items not applicable (no reorder, sort, filter, select, resize or pagination control)                                                     | **Decline — keep ours.** Both sides pass the same keyboard contract, so no named behaviour is missing; the item covers only the in-page half of the job (most of the strips this change migrated are URL tabs, which the item has no mode for) and would add a second primitive library beside Base UI | 16 Oct 2026 |
+| 3   | Pressed-state chips — filter by several kinds at once   | The shipped multi-select chip row: `role="group"`, one `aria-pressed` button per kind, each chip its own tab stop (`revision-diff-review.tsx:493-534` is the reference shape)                                                   | **Nothing to compare against:** the pinned registry answers 404 for `toggle-group` and says it is a shadcn item. Placed from shadcn/ui (new-york) at `src/components/reui/toggle-group.tsx` + `toggle.tsx`                                 | Ours: 8 of the 8 applicable items pass. Theirs: the same 8 pass, but it announces `role="toolbar"` where ours announces `role="group"`, puts the single tab stop on that container (`tabindex="0"`, inline `outline: none`) and forwards focus to the first chip, and as published needs `@radix-ui/react-toggle-group`. 11 items not applicable, including `keyboard-navigate`: a multi-select group has no roving focus in its pattern | **Decline — keep ours.** No missing behaviour to buy, a role change we would have to reason about, and two more dependencies                                                                                                                                                                           | 16 Oct 2026 |
+>>>>>>> origin/work/convert-e
 
 ## Row 1 — Reorderable list (`notebook-sortable`)
 
@@ -205,6 +213,7 @@ reason disappears and this decision should be re-measured rather than inherited.
 - This row records one pair. It is not a verdict on `@dnd-kit`, on ReUI as a
   registry, or on any other ReUI item.
 
+<<<<<<< HEAD
 ## Row 1a — Reorderable list, adopted (`notebook-sortable`)
 
 The same pair, after its candidate was adopted (workstream B2 of
@@ -1419,6 +1428,189 @@ demonstrably ours". Neither holds:
 - The 5,000-row fixture is rendered and measured for overflow, not by axe.
 - This row is not a verdict on the stock shadcn `kbd` item in general, and it
   does not authorise changing the five kbd call sites.
+=======
+## Row 2 — Tab family (`tab-family`)
+
+### What we use now
+
+`src/components/v3/ui/tabs.tsx`, `mode="state"`: Base UI's tablist — one tab
+stop, ArrowLeft/ArrowRight, Home/End, `aria-selected`, activation that follows
+focus, and `aria-controls` only where a `TabsPanel` is rendered (a dangling
+one is an axe violation). It is the outcome of this change's reconciliation: the
+two `SearchTabs`, the unused `RouteTabs`, `LinkTabs` and `SegmentLinks` were
+deleted, and nine hand-rolled strips and two chip rows moved onto this contract
+in `mode="url"` where the tabs are URLs.
+
+The job this pair compares is the in-page half: _switch which view of the same
+rows is shown, without leaving the page_. The other half — tabs that are links,
+with `aria-current="page"` — is most of the strips this change migrated, and the candidate
+has no mode for it.
+
+### What ReUI offers
+
+**No ReUI item.** On 16 October 2026 the pinned registry redirects and answers:
+
+```
+$ curl -s https://reui.io/r/base-nova/tabs.json
+{"error":"Registry item not found","message":"tabs is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add tabs"}
+```
+
+so the candidate is the stock shadcn item (`ui.shadcn.com/r/styles/new-york/tabs.json`,
+`registry:ui`, one file, dependency `@radix-ui/react-tabs`), placed at
+`src/components/reui/tabs.tsx`. Three edits and nothing else, recorded in that
+file's header: the primitive import re-pointed to the unified `radix-ui` package
+the repository already has (as published it needs `@radix-ui/react-tabs`, which
+is not a dependency), `cn` from `#/lib/utils`, and the tokens restyled
+(`bg-muted` → `bg-surface-muted`, `ring-ring` → the kit's `outline-focus`), which
+an adoption would have to do anyway.
+
+### Checklist result
+
+Applicable items are the 9 the pair has: `keyboard-tab` and
+`keyboard-navigate` (`navigate` is the control class added for this pair — a
+widget whose parts are moved between with the arrow keys), the five state items,
+and both densities. The other 10 need reorder, sort, filter, select, resize or
+pagination controls that neither side of this pair has.
+
+| Check                                                                     | Ours                                                                                                                                                            | Theirs                                                                                                                                                    | How it was measured                                                  |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator                 | Pass — the tab stop is the current tab; the ring is drawn on it (`outline: solid 2px`)                                                                          | Pass — the tab stop is the `role="tablist"` container (`tabindex="0"`, inline `outline: none`); focusing it forwards focus to a tab, which draws the ring | Browser, both columns, `document.activeElement` + `getComputedStyle` |
+| Move between the widget's parts with the arrow keys the pattern calls for | Pass — ArrowRight moved focus **and** selection from `All` to `Sample`, the roving `tabindex` followed (`[0,-1,-1,-1]` → `[-1,0,-1,-1]`), and the panel changed | Pass — the same, including wrap; `End` jumped to the last tab                                                                                             | Browser, trusted key events (`agent-browser press`), both columns    |
+| Empty (0 rows), loading, error, permission-restricted                     | Pass (see the caveat below)                                                                                                                                     | Pass                                                                                                                                                      | jsdom and browser                                                    |
+| Dark theme                                                                | Pass — token-bound colours only; axe clean in dark                                                                                                              | Pass                                                                                                                                                      | axe in Chromium, colour contrast on, both columns and both themes    |
+| Density and overflow at 1440x900                                          | Pass — one line, no horizontal page overflow, long labels do not overlap                                                                                        | Pass                                                                                                                                                      | Browser, both columns                                                |
+| Density and overflow at 390x844                                           | Pass — the rail scrolls sideways instead of wrapping, and the current tab is scrolled into view                                                                 | Pass                                                                                                                                                      | Browser, both columns, and the story's 390px state                   |
+
+Sort, filter, select, resize and pagination: not applicable to this pair (10
+items). They are listed in the harness with that verdict.
+
+**Caveat on the empty, loading and error states.** As in row 1, these are picture
+states of a whole screen and the harness owns them: both columns show the same
+harness notice for a 0-row fixture, for loading and for a load failure. The
+`restricted` state has nothing to disable in a view switch, so both columns show
+the same notice above an unchanged strip; that is recorded rather than dressed up.
+
+### Automated evidence
+
+| Evidence                                                                                                                                                                   | Result                                                                            | Command                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| axe, both columns: 6 fixtures × 2 sides + 3 states × 2 sides (this pair)                                                                                                   | 18 cases, **zero violations** (colour contrast disabled: jsdom cannot measure it) | `pnpm exec vitest run src/components/component-compare/component-compare.a11y.test.tsx` |
+| Harness contracts, including the registered pair set                                                                                                                       | pass                                                                              | `pnpm exec vitest run src/components/component-compare/component-compare.test.tsx`      |
+| The contract itself: state mode's tab stop, arrows, Home/End, counts, callback; URL mode's `aria-current`, no `aria-selected`, and the `activeOptions` it hands the router | 5 tests, pass                                                                     | `pnpm exec vitest run src/components/v3/ui/tabs.test.tsx`                               |
+| Appearance                                                                                                                                                                 | one capture per column per theme on the long-labels fixture                       | the harness at `/component-compare`, pair _Tab family_                                  |
+
+### Decision and reason
+
+**Decline — keep ours.** ADR-0055 decision 4 asks whether the candidate is
+_materially better_: a named behaviour is missing from ours, or the maintenance
+burden is demonstrably ours. Neither holds. Measured in the same browser, both
+sides move focus with ArrowLeft/ArrowRight and Home/End, both announce
+`role="tablist"`/`role="tab"` with `aria-selected`, and both keep one tab stop —
+the only structural difference is _where_ that stop lives (the tab, or the
+container). What the item does not have is the half of the job most of our
+strips do: `mode="url"`, where each tab is its own URL and the current one
+carries `aria-current="page"`. Adopting it would therefore either leave the app
+with two tab implementations — the thing this change removed — or force the URL
+mode onto a list component by hand.
+
+The costs are real and one-sided: as published it needs `@radix-ui/react-tabs`,
+a second primitive library beside the Base UI kit the v3 components are built on
+(ADR-0055 decision 1), and its token vocabulary is the deprecated bridge
+(`bg-muted`, `text-muted-foreground`, `outline: none`) that §11.5 says renders
+wrong beside every neighbour while still passing the colour check.
+
+This row is the _comparison_, not the reconciliation: the reconciliation is the
+change that produced `src/components/v3/ui/tabs.tsx`, and it needed this
+comparison done first, which is why the same change carries both.
+
+### Limits of this row
+
+- Desktop Chromium only (Playwright's engine through `agent-browser`); no
+  Firefox, WebKit or real device was run.
+- The two sides were compared on the _strip_: the panel under each is one line of
+  text, so the items about content are answered by the columns' own containment.
+- The candidate is the item **with the three edits its header records**. Left as
+  published it would not compile here (`@radix-ui/react-tabs` is not installed),
+  and that is itself part of the measured cost.
+- The 5,000-row fixture is rendered and measured for overflow in both columns,
+  not by axe (row 1's recorded limit applies to every pair).
+
+## Row 3 — Pressed-state chips (`pressed-chips`)
+
+### What we use now
+
+The shipped multi-select filter chip row: `revision-diff-review.tsx:493-534` (its
+change-type and change-area filters) — a `role="group"` with an `aria-label`, one
+`<button aria-pressed>` per kind, a count in the label, and **each chip its own
+tab stop**. Ten other sites share the shape.
+
+This is the second half of the domain scan's "pressed-state toggle chip group"
+finding. Its first half — the _single-select_ chip rows in `schedule.tsx`,
+`review/$revisionId.tsx`, `audit/experiment-history.tsx` and
+`scientific/scientific-record-linker.tsx` — turned out to be the tab job: they
+are the `variant="segment"` state tabs now, with the roving focus and arrow keys
+the scan said they lacked. The scan's claim does not hold for what is left: a
+multi-select group has no roving focus in its pattern, which is why
+`keyboard-navigate` is recorded as not applicable for this pair.
+
+### What ReUI offers
+
+**No ReUI item.** The pinned registry answers 404 the same way:
+
+```
+$ curl -s https://reui.io/r/base-nova/toggle-group.json
+{"error":"Registry item not found","message":"toggle-group is part of shadcn/ui, not a ReUI item. Install it with: npx shadcn@latest add toggle-group"}
+```
+
+The candidate is the stock shadcn item (`toggle-group`, registry dependency
+`toggle`, dependencies `@radix-ui/react-toggle-group` and `@radix-ui/react-toggle`),
+placed at `src/components/reui/toggle-group.tsx` + `toggle.tsx` with the same
+three edits as row 2.
+
+### Checklist result
+
+Applicable items are the 8 the pair has: `keyboard-tab`, the five state items and
+both densities. The other 11 need controls this pair has none of — including
+`keyboard-navigate`, which a multi-select group does not have a pattern for.
+
+| Check                                                     | Ours                                                                                             | Theirs                                                                                                                                                 | How it was measured                                                  |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| Tab reaches every control, with a visible focus indicator | Pass — each chip is a tab stop of its own, and the chip draws the ring                           | Pass — the group is the single tab stop (`tabindex="0"`, inline `outline: none`); focusing it forwards focus to the first chip, which draws a 2px ring | Browser, both columns, `document.activeElement` + `getComputedStyle` |
+| Empty (0 rows), loading, error, permission-restricted     | Pass — no chips to render for a fixture with no kinds; the columns' own states are the harness's | Pass                                                                                                                                                   | jsdom and browser                                                    |
+| Dark theme                                                | Pass — token-bound colours only; axe clean in dark                                               | Pass                                                                                                                                                   | axe in Chromium, colour contrast on, both themes                     |
+| Density and overflow at 1440x900                          | Pass — chips wrap inside the column, no page overflow                                            | Pass                                                                                                                                                   | Browser, both columns                                                |
+| Density and overflow at 390x844                           | Pass — chips wrap, none clipped                                                                  | Pass                                                                                                                                                   | Browser, both columns                                                |
+
+### Automated evidence
+
+Same three commands as row 2, over this pair: **18 axe cases, zero
+violations**, the harness contract tests, and `tabs.test.tsx` for the contract the
+other half of the finding moved onto.
+
+### Decision and reason
+
+**Decline — keep ours.** There is no behaviour to buy. Both sides announce each
+chip's pressed state as `aria-pressed`, and neither is unreachable by keyboard;
+the differences the measurement found are costs, not gains: the item changes the
+announced role from `group` to `toolbar` (a toolbar promises arrow-key
+navigation between its controls, which a multi-select filter row does not
+implement), moves the single tab stop onto that container (so Tab reaches the
+row once rather than reaching the chips), and brings two dependencies
+(`@radix-ui/react-toggle-group`, `@radix-ui/react-toggle`) or an import-path fix
+that makes it not-as-published. Restyling it to Sheetbase tokens is ours either
+way.
+
+### Limits of this row
+
+- Same engine, fixtures and exclusions as row 2.
+- The candidate was compared `type="multiple"`, which is the mode the shipped
+  sites use. A single-select row is a different job here and is the segment mode
+  of the tab contract, not this item.
+- The two chip rows in `revision-diff-review.tsx` are _filters_, and ADR-0055
+  decision 6 holds anything the `sheetbase-advanced-search` filter builder owns
+  until the filter model is reconciled. This row compares the control, not the
+  filter model.
+>>>>>>> origin/work/convert-e
 
 ## Adding a row
 
@@ -1428,4 +1620,6 @@ add the pair's row above and its detail section with: what we use now, what the
 candidate offers, the per-item checklist result for both sides, the automated
 evidence with its commands, the conditions an adoption would carry, the decision
 and the reason, and the limits. `docs/development/component-compare.md` has the
-step-by-step.
+step-by-step, including where a declined candidate lives: vendored under
+`src/components/reui/**` when the pair imports the real file, reproduced inside
+the pair when it does not, with the row saying which.

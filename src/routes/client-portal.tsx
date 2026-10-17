@@ -22,6 +22,7 @@ import {
 } from '#/components/v3/ui/table'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Textarea } from '#/components/v3/inventory/list'
 import { cn } from '#/lib/utils'
 import {
@@ -497,26 +498,18 @@ function ClientPortal() {
             You see records only after your CDMO team approves and shares them.
           </Muted>
         </nav>
-        <nav
-          aria-label="Portal sections"
-          className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border px-4 py-2 [scrollbar-width:none] lg:hidden"
-        >
-          {tabs.map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-current={tab === t ? 'page' : undefined}
-              onClick={() => setTab(t)}
-              className={
-                tab === t
-                  ? 'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-selection-border bg-selection px-3.5 text-body font-medium text-fg'
-                  : 'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-transparent px-3.5 text-body text-fg'
-              }
-            >
-              {tabLabel[t]}
-            </button>
-          ))}
-        </nav>
+        <Tabs
+          mode="state"
+          variant="chip"
+          label="Portal sections"
+          className="shrink-0 border-b border-border px-4 py-2 lg:hidden"
+          value={tab}
+          onValueChange={(next) => setTab(next as PortalTab)}
+          items={tabs.map((key) => ({
+            key,
+            label: tabLabel[key],
+          }))}
+        />
 
         <main id="main" className="min-h-0 min-w-0 flex-1 overflow-auto">
           {tab === 'projects' ? (

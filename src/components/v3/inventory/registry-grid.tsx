@@ -124,12 +124,24 @@ export function RegistryGrid<T extends RowData>({
     return [
       {
         id: 'select',
-        header: () => <DataGridTableRowSelectAll />,
+        // The checkbox sits in the first column's own inset rather than in a
+        // column of its own: a 40px column would push a table that already
+        // fills the list area into a horizontal scroll, which is a change to
+        // the screen, not an extra row control.
+        header: () => (
+          <span className="absolute inset-y-0 left-1.5 flex items-center">
+            <DataGridTableRowSelectAll />
+          </span>
+        ),
         cell: ({ row }) =>
-          isBand(row.original) ? null : <DataGridTableRowSelect row={row} />,
+          isBand(row.original) ? null : (
+            <span className="absolute inset-y-0 left-1.5 flex items-center">
+              <DataGridTableRowSelect row={row} />
+            </span>
+          ),
         enableSorting: false,
         enableHiding: false,
-        size: 40,
+        size: 0,
       },
       ...body,
     ]
@@ -207,14 +219,22 @@ export function RegistryGrid<T extends RowData>({
         tableClassNames={{
           // The registry table never wraps: a row is one line, and the scroll
           // area carries the overflow (the v3 table's own rule).
-          base: 'w-full whitespace-nowrap',
+          base: 'num w-full whitespace-nowrap',
           // The v3 table's own geometry, so the swap is invisible: a 31px
           // muted header band, 33px rows, 10px cell padding with the first
           // cell inset to 24px.
           headerRow: 'bg-surface-muted',
-          header:
-            'text-fg-muted [&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6',
-          body: '[&_td]:h-[33px] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6',
+          // The th carries its own font and colour, so the header's own
+          // classes have to reach it: `text-label` (12px, medium) in
+          // `text-fg-muted`, as the v3 table head renders. With the select
+          // column collapsed to zero width, the first *data* cell carries the
+          // 24px inset the first column always had.
+          header: selectable
+            ? '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:nth-child(2)]:pl-6 [&_th:first-child]:relative [&_th:first-child]:w-0 [&_th:first-child]:p-0 [&_th]:text-label [&_th]:text-fg-muted'
+            : '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th]:text-label [&_th]:text-fg-muted',
+          body: selectable
+            ? '[&_td]:h-[33px] [&_td]:py-0 [&_td]:px-2.5 [&_td:nth-child(2)]:pl-6 [&_td:first-child]:relative [&_td:first-child]:w-0 [&_td:first-child]:p-0'
+            : '[&_td]:h-[33px] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6',
         }}
       >
         <DataGridScrollArea orientation="both">

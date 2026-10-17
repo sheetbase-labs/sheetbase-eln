@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 
-import { Dialog, DialogContent } from '#/components/v3/ui/dialog'
 import { Button } from '#/components/v3/ui/button'
+import { Chip } from '#/components/v3/ui/chip'
+import {
+  Command,
+  CommandDialog,
+  CommandFooter,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '#/components/v3/ui/command'
 import { Kbd } from '#/components/v3/ui/kbd'
 import { Select } from '#/components/v3/ui/select'
 import { Icon } from '#/components/v3/icons'
@@ -30,7 +39,6 @@ import type {
   SearchResultGroup,
 } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { cn } from '#/lib/utils'
 
 /**
  * UI port (roadmap-4/ui-app3): the ⌘K search palette. Mounted once in the
@@ -43,6 +51,11 @@ import { cn } from '#/lib/utils'
  * R5-SHELL-04 adds the archived scope (pushed to the search boundary as
  * `p_include_archived`, never filtered here) and a "Did you mean {id}?"
  * correction from `api.search_did_you_mean` when a query finds nothing.
+ *
+ * The list is the forward kit's Command (`src/components/v3/ui/command.tsx`) —
+ * combobox wiring, active option, group headings and the footer chrome are
+ * its, not this screen's; what stays here is the search itself and its own
+ * states (error, scope miss, correction).
  */
 const MAX_PER_GROUP = 3
 const FETCH_LIMIT = 24
@@ -71,15 +84,15 @@ type PaletteEntry =
   | { type: 'result'; result: SearchResult }
   | { type: 'action'; action: SearchContextAction }
 
-type PaletteRow =
-  | { kind: 'header'; label: string; count?: number }
-  | {
-      kind: 'result'
-      entry: PaletteEntry
-      index: number
-      group: SearchResultGroup
-    }
-  | { kind: 'action'; entry: PaletteEntry; index: number }
+/** A row's key, and the value the kit's CommandItem tracks it by. */
+const resultKey = (result: SearchResult) =>
+  `${result.resultType}-${result.recordId}`
+
+/** Every option shares the design's three-column row: icon, text, ↵ hint. */
+const optionRow =
+  'group grid grid-cols-[20px_1fr_auto] items-start gap-2.5 rounded-md px-2.5 py-1.5 text-body max-md:min-h-12 max-md:py-2'
+/** The ↵ hint only occupies a column on the active row, as the design draws it. */
+const optionHint = 'hidden group-aria-selected:inline-flex'
 
 export function SearchPalette({
   open: openProp,
@@ -93,7 +106,6 @@ export function SearchPalette({
   const [openState, setOpenState] = useState(false)
   const open = openProp ?? openState
   const navigate = useNavigate()
-  const listId = useId()
   const [q, setQ] = useState(initialQuery)
   const [scope, setScope] = useState<string>(SEARCH_SCOPE_ALL)
   // Archived scope: pushed to the search boundary, never a browser-side
@@ -105,8 +117,6 @@ export function SearchPalette({
   const [suggestion, setSuggestion] = useState<DidYouMeanSuggestion | null>(
     null,
   )
-  const [active, setActive] = useState(0)
-  const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
   // A response must not write into the palette once a newer search, or the
@@ -148,7 +158,6 @@ export function SearchPalette({
           if (generation !== searchGeneration.current) return
           setRes(rows)
           setSearching(false)
-          setActive(0)
         })
         .catch((cause: unknown) => {
           if (generation !== searchGeneration.current) return
@@ -249,41 +258,8 @@ export function SearchPalette({
     )
   }, [scoped, q])
   const actions = useMemo(() => contextualSearchActions(scoped), [scoped])
-  const rows = useMemo<PaletteRow[]>(() => {
-    const out: PaletteRow[] = []
-    let index = 0
-    for (const bucket of buckets) {
-      out.push({ kind: 'header', label: bucket.group, count: bucket.total })
-      for (const result of bucket.results) {
-        out.push({
-          kind: 'result',
-          entry: { type: 'result', result },
-          index: index++,
-          group: bucket.group,
-        })
-      }
-    }
-    if (actions.length) {
-      out.push({ kind: 'header', label: 'Actions' })
-      for (const action of actions) {
-        out.push({
-          kind: 'action',
-          entry: { type: 'action', action },
-          index: index++,
-        })
-      }
-    }
-    return out
-  }, [buckets, actions])
-  const entryCount = rows.reduce(
-    (n, row) => (row.kind === 'header' ? n : n + 1),
-    0,
-  )
-  const entries = useMemo(
-    () => rows.flatMap((row) => (row.kind === 'header' ? [] : [row.entry])),
-    [rows],
-  )
-  const activeIndex = entryCount ? active % entryCount : 0
+  const entryCount =
+    buckets.reduce((n, bucket) => n + bucket.results.length, 0) + actions.length
 
   const go = (result: SearchResult, newTab = false) => {
     if (newTab) {
@@ -337,21 +313,13 @@ export function SearchPalette({
     })
   }
 
+  // The list's own keyboard handling is the kit's (↑ ↓, Home/End, ↵, ⌘/Ctrl+↵
+  // with `newTab`). The one case left here is ↵ with nothing to open: the
+  // palette has no row to activate, so it goes to the results page.
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (e.key === 'Enter' && !entryCount && q.trim()) {
       e.preventDefault()
-      if (!entryCount) return
-      const n =
-        (activeIndex + (e.key === 'ArrowDown' ? 1 : -1) + entryCount) %
-        entryCount
-      setActive(n)
-      listRef.current
-        ?.querySelector(`[data-index="${n}"]`)
-        ?.scrollIntoView({ block: 'nearest' })
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (entryCount) activate(entries[activeIndex], e.metaKey || e.ctrlKey)
-      else if (q.trim()) seeAll()
+      seeAll()
     }
   }
 
@@ -362,76 +330,72 @@ export function SearchPalette({
       : 'See all results'
   // QA3-palette-2 — the listbox only replaces the error and no-match states
   // when it is actually rendered; `aria-controls` must not point at an id the
-  // document does not contain in those states.
+  // document does not contain in those states (CommandInput reads whether a
+  // CommandList is mounted and drops both attributes when none is).
   const showList =
     !error && !(res !== null && q.trim() && entryCount === 0 && !searching)
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent
-        className="top-20 w-[min(640px,calc(100vw-32px))] max-md:inset-0 max-md:max-h-dvh max-md:rounded-none max-md:border-0"
-        aria-label="Search"
+    <CommandDialog
+      open={open}
+      onOpenChange={setOpen}
+      title="Search Sheetbase"
+      className="w-[min(640px,calc(100vw-32px))] max-md:inset-0 max-md:max-h-dvh max-md:rounded-none max-md:border-0"
+    >
+      <Command
+        label="Search"
+        query={q}
+        onQueryChange={setQ}
+        shouldFilter={false}
+        loading={searching}
       >
-        <DialogPrimitive.Title className="sr-only">
-          Search Sheetbase
-        </DialogPrimitive.Title>
-        <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-border-subtle px-3.5 max-md:h-14">
-          <Icon name="search" size={16} className="text-fg-muted" />
-          <label className="flex-1">
-            <span className="sr-only">Search</span>
-            <input
-              ref={inputRef}
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Search experiments, samples, datasets"
-              role="combobox"
-              aria-expanded={entryCount > 0}
-              aria-controls={showList ? listId : undefined}
-              aria-activedescendant={
-                showList && entryCount ? `${listId}-${activeIndex}` : undefined
-              }
-              aria-autocomplete="list"
-              className="w-full border-0 bg-transparent font-sans text-[15px] text-fg outline-none placeholder:text-fg-faint"
-            />
-          </label>
-          <label className="shrink-0">
-            <span className="sr-only">Scope</span>
-            <Select
-              value={scope}
-              onChange={(e) => setScope(e.target.value)}
-              aria-label="Search scope"
-              className="w-[150px] max-md:w-[128px]"
-            >
-              <option value={SEARCH_SCOPE_ALL}>In: all projects</option>
-              {[...(projects.data ?? new Map()).entries()].map(([id, name]) => (
-                <option key={id} value={id}>
-                  In: {name}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <button
-            type="button"
-            aria-pressed={archived}
-            aria-label="Include archived"
-            onClick={() => setArchived((a) => !a)}
-            className={cn(
-              'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-label text-fg hover:bg-surface-hover max-md:px-2 [&_svg]:text-fg-muted',
-              archived &&
-                'border-selection-border bg-selection font-medium hover:bg-selection',
-            )}
-          >
-            <Icon name="archive" size={12} />
-            {/* QA3-palette-1 — the scope stays available at every width: the
-                label becomes screen-reader only rather than being removed
-                with the control (the label is also the accessible name). */}
-            <span className="max-md:sr-only">Include archived</span>
-          </button>
-          <DialogPrimitive.Close className="inline-flex h-9 cursor-pointer items-center rounded-md border-0 bg-transparent px-2 text-body text-link md:hidden">
-            Cancel
-          </DialogPrimitive.Close>
-        </div>
+        <CommandInput
+          ref={inputRef}
+          // The design's palette header is 48px (SearchPalette canvas), the
+          // kit's command row is 44px.
+          rowClassName="h-12"
+          placeholder="Search experiments, samples, datasets"
+          aria-label="Search"
+          autoFocus={false}
+          onKeyDown={onKeyDown}
+          trailing={
+            <>
+              <label className="shrink-0">
+                <span className="sr-only">Scope</span>
+                <Select
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value)}
+                  aria-label="Search scope"
+                  className="w-[150px] max-md:w-[128px]"
+                >
+                  <option value={SEARCH_SCOPE_ALL}>In: all projects</option>
+                  {[...(projects.data ?? new Map()).entries()].map(
+                    ([id, name]) => (
+                      <option key={id} value={id}>
+                        In: {name}
+                      </option>
+                    ),
+                  )}
+                </Select>
+              </label>
+              <Chip
+                variant="toggle"
+                pressed={archived}
+                onClick={() => setArchived((a) => !a)}
+                icon="archive"
+                aria-label="Include archived"
+              >
+                {/* QA3-palette-1 — the scope stays available at every width: the
+                    label becomes screen-reader only rather than being removed
+                    with the control (the label is also the accessible name). */}
+                <span className="max-md:sr-only">Include archived</span>
+              </Chip>
+              <DialogPrimitive.Close className="inline-flex h-9 cursor-pointer items-center rounded-md border-0 bg-transparent px-2 text-body text-link md:hidden">
+                Cancel
+              </DialogPrimitive.Close>
+            </>
+          }
+        />
         {error ? (
           <div role="alert" className="flex flex-col gap-2.5 px-5 py-7">
             <div className="font-semibold">Search could not run</div>
@@ -525,14 +489,7 @@ export function SearchPalette({
             )}
           </div>
         ) : (
-          <div
-            ref={listRef}
-            id={listId}
-            role="listbox"
-            aria-label="Results"
-            aria-busy={searching}
-            className="max-h-[440px] overflow-auto pb-2 pt-1 max-md:max-h-none max-md:min-h-0 max-md:flex-1"
-          >
+          <CommandList className="max-h-[440px] pb-2 pt-1 max-md:max-h-none">
             {!q.trim() ? (
               <div className="px-3.5 py-6 text-body text-fg-muted">
                 Type an ID like <span className="mono">EXP-0001</span>, a name,
@@ -547,55 +504,27 @@ export function SearchPalette({
                 Searching…
               </div>
             ) : null}
-            {rows.map((row) => {
-              if (row.kind === 'header') {
-                return (
-                  <div
-                    key={`header-${row.label}`}
-                    role="presentation"
-                    className="flex justify-between px-3.5 pb-1 pt-2 text-[11px] font-medium text-fg-muted"
-                  >
-                    <span>{row.label}</span>
-                    {row.count !== undefined ? (
-                      <span className="num">{row.count}</span>
-                    ) : null}
-                  </div>
-                )
-              }
-              const isActive = row.index === activeIndex
-              const result =
-                row.entry.type === 'result' ? row.entry.result : null
-              const action =
-                row.entry.type === 'action' ? row.entry.action : null
-              const group = row.kind === 'result' ? row.group : null
-              const label = result ? searchResultLabel(result) : null
-              return (
-                <div
-                  key={
-                    result
-                      ? `${result.resultType}-${result.recordId}`
-                      : action?.id
-                  }
-                  id={`${listId}-${row.index}`}
-                  data-index={row.index}
-                  role="option"
-                  aria-selected={isActive}
-                  onMouseMove={() => setActive(row.index)}
-                  onClick={() => activate(row.entry)}
-                  className={cn(
-                    'mx-1 grid cursor-pointer grid-cols-[20px_1fr_auto] items-start gap-2.5 rounded-md px-2.5 py-1.5 text-body max-md:min-h-12 max-md:py-2',
-                    isActive && 'bg-selection',
-                  )}
-                >
-                  <span className="pt-px text-fg-muted">
-                    <Icon
-                      name={group ? GROUP_ICONS[group] : 'plus'}
-                      size={14}
-                    />
-                  </span>
-                  <span className="min-w-0">
-                    {result ? (
-                      <>
+            {buckets.map((bucket) => (
+              <CommandGroup
+                key={bucket.group}
+                heading={bucket.group}
+                action={<span className="num">{bucket.total}</span>}
+              >
+                {bucket.results.map((result) => {
+                  const label = searchResultLabel(result)
+                  return (
+                    <CommandItem
+                      key={resultKey(result)}
+                      value={resultKey(result)}
+                      onSelect={(_value, newTab) =>
+                        activate({ type: 'result', result }, newTab)
+                      }
+                      className={optionRow}
+                    >
+                      <span className="pt-px text-fg-muted">
+                        <Icon name={GROUP_ICONS[bucket.group]} size={14} />
+                      </span>
+                      <span className="min-w-0">
                         {label ? (
                           <span className="mono mr-1.5 text-fg-muted">
                             {label}
@@ -624,18 +553,34 @@ export function SearchPalette({
                             ),
                           )}
                         </span>
-                      </>
-                    ) : (
-                      <span>{action?.label}</span>
-                    )}
-                  </span>
-                  {isActive ? <Kbd>↵</Kbd> : <span />}
-                </div>
-              )
-            })}
-          </div>
+                      </span>
+                      <Kbd className={optionHint}>↵</Kbd>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            ))}
+            {actions.length ? (
+              <CommandGroup heading="Actions">
+                {actions.map((action) => (
+                  <CommandItem
+                    key={action.id}
+                    value={action.id}
+                    onSelect={(_value, newTab) => runAction(action, newTab)}
+                    className={optionRow}
+                  >
+                    <span className="pt-px text-fg-muted">
+                      <Icon name="plus" size={14} />
+                    </span>
+                    <span className="min-w-0">{action.label}</span>
+                    <Kbd className={optionHint}>↵</Kbd>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+          </CommandList>
         )}
-        <div className="flex shrink-0 items-center gap-3.5 border-t border-border-subtle bg-surface-muted px-3.5 py-2 text-label text-fg-muted max-md:min-h-12 max-md:pb-[max(8px,env(safe-area-inset-bottom))]">
+        <CommandFooter hints={false}>
           <span className="max-md:hidden">
             <Kbd>↑</Kbd> <Kbd>↓</Kbd> move
           </span>
@@ -657,8 +602,8 @@ export function SearchPalette({
               {seeAllLabel}
             </button>
           ) : null}
-        </div>
-      </DialogContent>
-    </Dialog>
+        </CommandFooter>
+      </Command>
+    </CommandDialog>
   )
 }

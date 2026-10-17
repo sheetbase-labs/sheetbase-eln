@@ -25,7 +25,7 @@ import * as React from 'react'
 import { Puzzle } from 'lucide-react'
 
 import { Button } from '#/components/v3/ui/button'
-import { CommandGroup, CommandItem } from '#/components/ui'
+import { CommandGroup, CommandItem } from '#/components/v3/ui/command'
 import type { InspectorTab } from '#/components/record'
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
 

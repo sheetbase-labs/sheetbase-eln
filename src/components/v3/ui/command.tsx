@@ -25,8 +25,9 @@ import { cn } from '#/lib/utils'
 //     </CommandList>
 //   </Command>
 // Items filter themselves against the query (value + keywords) unless `shouldFilter={false}` (server search).
-// ↑ ↓ move, Home/End jump, ↵ selects, the pointer follows the mouse. Groups with no visible items hide themselves.
-// Put it in <CommandDialog> (Base UI Dialog; a bottom sheet on phones) or <CommandPopover> (Base UI Popover).
+// ↑ ↓ move, Home/End jump, ↵ selects, ⌘/Ctrl+↵ selects with `newTab`, the pointer follows the mouse.
+// Groups with no visible items hide themselves. `loading` on the root (or <CommandLoading>) marks the
+// list busy and holds CommandEmpty back; <CommandInput> may carry the row's `trailing` controls.
 
 type Ctx = {
   query: string
@@ -38,6 +39,11 @@ type Ctx = {
   count: number
   loading: boolean
   setLoading: (l: boolean) => void
+  /** A CommandList is mounted, so the input may point aria-controls at it. */
+  list: boolean
+  setList: (mounted: boolean) => void
+  /** The ⌘/Ctrl state of the key press that activated the item (⌘↵ is a new tab). */
+  modified: React.RefObject<boolean>
 }
 const CommandContext = createContext<Ctx | null>(null)
 const useCommand = () => {
@@ -61,6 +67,7 @@ export function Command({
   onQueryChange,
   shouldFilter = true,
   loop = true,
+  loading: loadingProp,
   className,
   children,
   ...props
@@ -70,6 +77,8 @@ export function Command({
   onQueryChange?: (q: string) => void
   shouldFilter?: boolean
   loop?: boolean
+  /** The list is waiting on the server: marks it busy and holds CommandEmpty back. */
+  loading?: boolean
 }) {
   const [queryState, setQueryState] = useState('')
   const query = queryProp ?? queryState
@@ -82,9 +91,12 @@ export function Command({
   )
   const [active, setActive] = useState<string | null>(null)
   const [count, setCount] = useState(-1)
-  const [loading, setLoading] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const loading = loadingProp ?? busy
+  const [list, setList] = useState(false)
   const listId = useId()
   const root = useRef<HTMLDivElement>(null)
+  const modified = useRef(false)
 
   const items = () => [
     ...(root.current?.querySelectorAll<HTMLElement>(
@@ -134,7 +146,10 @@ export function Command({
     } else if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
       if (i >= 0) {
         e.preventDefault()
+        // ⌘/Ctrl+↵ asks for a new tab: the item reads that as it activates.
+        modified.current = e.metaKey || e.ctrlKey
         els[i].click()
+        modified.current = false
       }
     }
   }
@@ -149,7 +164,10 @@ export function Command({
         listId,
         count,
         loading,
-        setLoading,
+        setLoading: setBusy,
+        list,
+        setList,
+        modified,
       }}
     >
       <div
@@ -168,18 +186,29 @@ export function Command({
 
 export function CommandInput({
   className,
+  rowClassName,
   placeholder,
   icon = 'search',
   autoFocus = true,
   onValueChange,
+  trailing,
   ...props
 }: Omit<React.ComponentProps<'input'>, 'value' | 'onChange'> & {
   icon?: IconName | false
   onValueChange?: (value: string) => void
+  /** The row's own height, where a screen's header is not the default 44px. */
+  rowClassName?: string
+  /** Controls beside the input in the same row (a scope select, a filter chip). */
+  trailing?: React.ReactNode
 }) {
   const c = useCommand()
   return (
-    <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-border-subtle px-3.5 max-md:h-14">
+    <div
+      className={cn(
+        'flex h-11 shrink-0 items-center gap-2.5 border-b border-border-subtle px-3.5 max-md:h-14',
+        rowClassName,
+      )}
+    >
       {icon ? <Icon name={icon} size={16} className="text-fg-muted" /> : null}
       <input
         value={c.query}
@@ -190,12 +219,12 @@ export function CommandInput({
         placeholder={placeholder}
         autoFocus={autoFocus}
         role="combobox"
-        aria-expanded
-        aria-controls={c.listId}
+        aria-expanded={c.list}
+        aria-controls={c.list ? c.listId : undefined}
         aria-autocomplete="list"
         aria-label={placeholder}
         aria-activedescendant={
-          c.active ? optionId(c.listId, c.active) : undefined
+          c.list && c.active ? optionId(c.listId, c.active) : undefined
         }
         className={cn(
           'min-w-0 flex-1 border-0 bg-transparent font-sans text-[15px] text-fg outline-none placeholder:text-fg-faint',
@@ -203,6 +232,7 @@ export function CommandInput({
         )}
         {...props}
       />
+      {trailing}
     </div>
   )
 }
@@ -213,6 +243,12 @@ export function CommandList({
   ...props
 }: React.ComponentProps<'div'> & { label?: string }) {
   const c = useCommand()
+  // The input's aria-controls must not name an element that is not in the
+  // document: the listbox can be replaced by an empty or error panel.
+  useLayoutEffect(() => {
+    c.setList(true)
+    return () => c.setList(false)
+  }, [])
   return (
     <div
       id={c.listId}
@@ -270,7 +306,8 @@ export function CommandItem({
   value: string
   keywords?: string[]
   disabled?: boolean
-  onSelect?: (value: string) => void
+  /** `newTab` is true when the item was activated with ⌘/Ctrl+↵. */
+  onSelect?: (value: string, newTab: boolean) => void
 }) {
   const c = useCommand()
   if (c.shouldFilter && !matches(c.query, [value, ...keywords])) return null
@@ -288,7 +325,7 @@ export function CommandItem({
       }}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => {
-        if (!disabled) onSelect?.(value)
+        if (!disabled) onSelect?.(value, c.modified.current)
       }}
       className={cn(
         'mx-1 flex min-h-8 cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-1.5 text-body text-fg max-md:min-h-11 aria-disabled:cursor-default aria-disabled:text-fg-faint aria-selected:bg-selection [&_svg]:text-fg-muted',

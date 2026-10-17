@@ -28,36 +28,97 @@ import {
 } from '#/components/v3/ui/table'
 import { SCOPE_GROUPS } from '#/lib/api-credential-scopes'
 import type { Scope } from '#/lib/api-credential-scopes'
-import type {
-  CreatedPersonalTokenWire,
-  PersonalTokenWire,
-} from '#/lib/personal-api-tokens'
 import { formatDate } from '#/lib/workspace-admin'
 
-/** UI port (roadmap-4/ui-app3): personal API tokens, app-3's v3 kit. */
-export function SettingsApiTokens({
+/**
+ * UI port (roadmap-4/ui-app3): the credential panel. Personal API tokens and
+ * workspace service credentials are one panel — the same table, create form,
+ * reveal-once secret and revoke/rotate confirmation — so it takes the screen's
+ * copy and its rows as props. Consolidated from the two identical files
+ * `settings-api-tokens.tsx` and `settings-service-credentials.tsx`.
+ */
+
+/** The row fields the panel renders; both credential wire shapes satisfy it. */
+export interface CredentialRow {
+  id: string
+  name: string
+  displayPrefix: string
+  scopes: Scope[]
+  createdAt: string
+  lastUsedAt: string | null
+  revokedAt: string | null
+  expiresAt: string | null
+}
+
+/** The one-time secret, shown once after a create or a rotate. */
+export interface RevealedCredential {
+  secret: string
+  displayPrefix: string
+  name: string
+  scopes: Scope[]
+}
+
+/** Every word the panel renders; the two screens differ only here. */
+export interface CredentialPanelCopy {
+  /** Section heading, e.g. "Personal tokens". */
+  title: string
+  /** Line under the heading: what the credential is and how it behaves. */
+  intro: React.ReactNode
+  /** Reveal notice, naming the credential being shown. */
+  revealNotice: (name: string) => string
+  secret: {
+    copyLabel: string
+    copiedMessage: string
+    failedMessage: string
+  }
+  create: {
+    title: string
+    namePlaceholder: string
+    submit: string
+  }
+  tableLabel: string
+  emptyLabel: string
+  confirm: {
+    rotate: {
+      title: (name: string) => string
+      description: string
+      action: string
+    }
+    revoke: {
+      title: (name: string) => string
+      description: string
+      action: string
+    }
+  }
+}
+
+export function SettingsCredentials({
+  copy,
   tokens,
   revealed,
   onCreate,
   onRevoke,
   onRotate,
   onDismissRevealed,
+  className,
 }: {
-  tokens: PersonalTokenWire[]
-  revealed: CreatedPersonalTokenWire | null
+  copy: CredentialPanelCopy
+  tokens: CredentialRow[]
+  revealed: RevealedCredential | null
   onCreate: (name: string, scopes: Scope[], expiresAt: string | null) => void
-  onRevoke: (tokenId: string) => void
-  onRotate: (tokenId: string) => void
+  onRevoke: (credentialId: string) => void
+  onRotate: (credentialId: string) => void
   onDismissRevealed: () => void
+  className?: string
 }) {
   const [name, setName] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
   const [selected, setSelected] = useState<Set<Scope>>(() => new Set<Scope>())
-  // Revoke is permanent and rotate invalidates the live secret, so both ask
+  // Revoking is permanent and rotating invalidates the live secret, so both ask
   // first: the row buttons only pick the action.
   const [confirming, setConfirming] = useState<{
     kind: 'revoke' | 'rotate'
-    token: PersonalTokenWire
+    row: CredentialRow
   } | null>(null)
 
   function toggle(scope: Scope) {
@@ -83,30 +144,24 @@ export function SettingsApiTokens({
     setSelected(new Set<Scope>())
   }
 
+  const confirm =
+    confirming?.kind === 'rotate' ? copy.confirm.rotate : copy.confirm.revoke
+
   return (
-    <Section title="Personal tokens" className="gap-6">
-      <p className="m-0 max-w-3xl text-body text-fg-muted">
-        A personal API token acts as you (the signed-in member), under the same
-        canonical Core-domain scopes and fail-closed allowlist as a workspace
-        service credential. It inherits your membership role — so a{' '}
-        <code>viewer</code> token is read-only. It is exchanged for a
-        short-lived token at <code>POST /api/token</code> and never passes
-        Notebook submit / sign / amend / revision checks. The full secret is
-        shown once.
-      </p>
+    <Section title={copy.title} className={className}>
+      <p className="m-0 max-w-3xl text-body text-fg-muted">{copy.intro}</p>
 
       {revealed ? (
         <Notice tone="warn" className="flex-col items-start">
           <div className="flex flex-col gap-3">
             <p className="m-0 font-medium">
-              Copy the token for {revealed.name} now. It will not be shown
-              again.
+              {copy.revealNotice(revealed.name)}
             </p>
             <Secret
               value={revealed.secret}
-              copyLabel="Copy token"
-              copiedMessage="Token copied"
-              failedMessage="Couldn’t copy the token. Select it and copy it by hand."
+              copyLabel={copy.secret.copyLabel}
+              copiedMessage={copy.secret.copiedMessage}
+              failedMessage={copy.secret.failedMessage}
             />
             <p className="m-0 text-label">
               Prefix <code>{revealed.displayPrefix}</code>. Scopes:{' '}
@@ -126,14 +181,14 @@ export function SettingsApiTokens({
         className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4"
       >
         <h3 className="m-0 font-heading text-doc font-semibold">
-          Create personal token
+          {copy.create.title}
         </h3>
         <div className="max-w-md">
           <Field label="Name" required>
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Local Jupyter"
+              placeholder={copy.create.namePlaceholder}
               required
             />
           </Field>
@@ -186,13 +241,13 @@ export function SettingsApiTokens({
             variant="primary"
             disabled={!name.trim() || selected.size === 0}
           >
-            Create token
+            {copy.create.submit}
           </Button>
         </div>
       </form>
 
       <TableBox>
-        <Table aria-label="Personal tokens">
+        <Table aria-label={copy.tableLabel}>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
@@ -237,9 +292,7 @@ export function SettingsApiTokens({
                       <Button
                         size="sm"
                         disabled={isRevoked || isExpired}
-                        onClick={() =>
-                          setConfirming({ kind: 'rotate', token: row })
-                        }
+                        onClick={() => setConfirming({ kind: 'rotate', row })}
                       >
                         Rotate
                       </Button>
@@ -247,9 +300,7 @@ export function SettingsApiTokens({
                         size="sm"
                         variant="danger"
                         disabled={isRevoked}
-                        onClick={() =>
-                          setConfirming({ kind: 'revoke', token: row })
-                        }
+                        onClick={() => setConfirming({ kind: 'revoke', row })}
                       >
                         Revoke
                       </Button>
@@ -264,7 +315,7 @@ export function SettingsApiTokens({
                   colSpan={8}
                   className="py-8 text-center text-fg-muted"
                 >
-                  You have no personal tokens.
+                  {copy.emptyLabel}
                 </TableCell>
               </TableRow>
             )}
@@ -281,14 +332,10 @@ export function SettingsApiTokens({
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
             <ConfirmDialogTitle>
-              {confirming?.kind === 'rotate'
-                ? `Rotate ${confirming.token.name}?`
-                : `Revoke ${confirming?.token.name}?`}
+              {confirm.title(confirming?.row.name ?? '')}
             </ConfirmDialogTitle>
             <ConfirmDialogDescription>
-              {confirming?.kind === 'rotate'
-                ? 'The current secret stops working immediately and the new one is shown once. Update whatever uses this token before you rotate it.'
-                : 'This is immediate and permanent. Every request that uses this token starts failing and the token cannot be restored.'}
+              {confirm.description}
             </ConfirmDialogDescription>
           </ConfirmDialogHeader>
           <ConfirmDialogFooter>
@@ -299,16 +346,100 @@ export function SettingsApiTokens({
               }
               onClick={() => {
                 if (!confirming) return
-                if (confirming.kind === 'rotate') onRotate(confirming.token.id)
-                else onRevoke(confirming.token.id)
+                if (confirming.kind === 'rotate') onRotate(confirming.row.id)
+                else onRevoke(confirming.row.id)
                 setConfirming(null)
               }}
             >
-              {confirming?.kind === 'rotate' ? 'Rotate token' : 'Revoke token'}
+              {confirm.action}
             </ConfirmDialogAction>
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
       </ConfirmDialog>
     </Section>
   )
+}
+
+/** Personal API tokens: the signed-in member's own credentials. */
+export const personalTokensCopy: CredentialPanelCopy = {
+  title: 'Personal tokens',
+  intro: (
+    <>
+      A personal API token acts as you (the signed-in member), under the same
+      canonical Core-domain scopes and fail-closed allowlist as a workspace
+      service credential. It inherits your membership role — so a{' '}
+      <code>viewer</code> token is read-only. It is exchanged for a short-lived
+      token at <code>POST /api/token</code> and never passes Notebook submit /
+      sign / amend / revision checks. The full secret is shown once.
+    </>
+  ),
+  revealNotice: (name) =>
+    `Copy the token for ${name} now. It will not be shown again.`,
+  secret: {
+    copyLabel: 'Copy token',
+    copiedMessage: 'Token copied',
+    failedMessage: 'Couldn’t copy the token. Select it and copy it by hand.',
+  },
+  create: {
+    title: 'Create personal token',
+    namePlaceholder: 'Local Jupyter',
+    submit: 'Create token',
+  },
+  tableLabel: 'Personal tokens',
+  emptyLabel: 'You have no personal tokens.',
+  confirm: {
+    rotate: {
+      title: (name) => `Rotate ${name}?`,
+      description:
+        'The current secret stops working immediately and the new one is shown once. Update whatever uses this token before you rotate it.',
+      action: 'Rotate token',
+    },
+    revoke: {
+      title: (name) => `Revoke ${name}?`,
+      description:
+        'This is immediate and permanent. Every request that uses this token starts failing and the token cannot be restored.',
+      action: 'Revoke token',
+    },
+  },
+}
+
+/** Workspace service credentials: owner-gated, shared by every integration. */
+export const serviceCredentialsCopy: CredentialPanelCopy = {
+  title: 'Workspace service credentials',
+  intro: (
+    <>
+      A service credential authenticates a machine (a script, pipeline or
+      integration) for this workspace, under the canonical Core-domain scopes
+      and the fail-closed allowlist. The full secret is shown once.
+    </>
+  ),
+  revealNotice: (name) =>
+    `Copy the credential for ${name} now. It will not be shown again.`,
+  secret: {
+    copyLabel: 'Copy credential',
+    copiedMessage: 'Credential copied',
+    failedMessage:
+      'Couldn’t copy the credential. Select it and copy it by hand.',
+  },
+  create: {
+    title: 'Create service credential',
+    namePlaceholder: 'Nightly import',
+    submit: 'Create credential',
+  },
+  tableLabel: 'Workspace service credentials',
+  emptyLabel: 'No service credentials.',
+  confirm: {
+    rotate: {
+      title: (name) => `Rotate ${name}?`,
+      description:
+        'This credential is shared: the current secret stops working for every integration using it, and the new secret is shown once. Update those integrations before you rotate.',
+      action: 'Rotate credential',
+    },
+    revoke: {
+      title: (name) => `Revoke ${name}?`,
+      description:
+        'This credential is shared: every request using it starts failing at once, and a revoked credential cannot be restored. Create a new one if you need it again.',
+      action: 'Revoke credential',
+    },
+  },
 }

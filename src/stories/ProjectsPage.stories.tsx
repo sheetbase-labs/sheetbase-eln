@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ProjectsPage } from '#/components/v3/projects/projects-page'
 import { projectAccessQueryKey } from '#/components/v3/projects/project-access'
 import type { ProjectRow } from '#/components/v3/projects/types'
-import { screenQueryClient, screenRoutes } from './screen-stories'
+import { holdRead, screenQueryClient, screenRoutes } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
@@ -28,10 +28,10 @@ const meta = {
     layout: 'fullscreen',
     tanstack: {
       router: {
-        route: screenRoutes('/projects', [
-          '/projects/$projectId',
-          '/records/$recordId',
-        ]),
+        route: screenRoutes(
+          ['/projects', '$projectId'],
+          [['/records', '$recordId']],
+        ),
         path: '/projects',
       },
     },
@@ -50,8 +50,20 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-function client(seeds: ReadSeed[]) {
+const roleKey = ['workspace', 'my-role', ME_ID] as const
+
+/**
+ * A story's client. Every read the screen performs has to be either seeded or
+ * held: the screen supplies its own `queryFn` for both of them, so an unseeded
+ * key runs that function and leaves the page — the static server answers 404,
+ * which renders the failure state where the story asked for its own.
+ */
+function client(
+  seeds: ReadSeed[],
+  held?: { key: readonly unknown[]; read: 'pending' | 'error' },
+) {
   const instance = screenQueryClient({ data: seeds })
+  if (held) holdRead(instance, held.key, held.read)
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={instance}>
       <Story />
@@ -114,7 +126,7 @@ export const Loaded: Story = {
   decorators: [
     client([
       { key: projectAccessQueryKey, value: assigned },
-      { key: ['workspace', 'my-role', ME_ID], value: { role: 'owner' } },
+      { key: roleKey, value: { role: 'owner' } },
     ]),
   ],
   args: { projects },
@@ -122,7 +134,12 @@ export const Loaded: Story = {
 
 /** Reading the board: the loading line replaces the rows, not the chrome. */
 export const Loading: Story = {
-  decorators: [client([{ key: projectAccessQueryKey, value: assigned }])],
+  decorators: [
+    client([{ key: roleKey, value: { role: 'owner' } }], {
+      key: projectAccessQueryKey,
+      read: 'pending',
+    }),
+  ],
   args: { projects: [], loading: true },
 }
 
@@ -131,7 +148,7 @@ export const Empty: Story = {
   decorators: [
     client([
       { key: projectAccessQueryKey, value: assigned },
-      { key: ['workspace', 'my-role', ME_ID], value: { role: 'owner' } },
+      { key: roleKey, value: { role: 'owner' } },
     ]),
   ],
   args: { projects: [] },
@@ -145,7 +162,7 @@ export const NoProjectAccess: Story = {
   decorators: [
     client([
       { key: projectAccessQueryKey, value: [] },
-      { key: ['workspace', 'my-role', ME_ID], value: { role: 'viewer' } },
+      { key: roleKey, value: { role: 'viewer' } },
     ]),
   ],
   args: { projects: [], canCreate: false },
@@ -156,7 +173,7 @@ export const CannotCreate: Story = {
   decorators: [
     client([
       { key: projectAccessQueryKey, value: assigned },
-      { key: ['workspace', 'my-role', ME_ID], value: { role: 'viewer' } },
+      { key: roleKey, value: { role: 'viewer' } },
     ]),
   ],
   args: { projects: projects.slice(0, 1), canCreate: false },
@@ -164,6 +181,11 @@ export const CannotCreate: Story = {
 
 /** The read failed: the screen says so and offers the retry it was handed. */
 export const Failed: Story = {
-  decorators: [client([])],
+  decorators: [
+    client([{ key: roleKey, value: { role: 'owner' } }], {
+      key: projectAccessQueryKey,
+      read: 'error',
+    }),
+  ],
   args: { projects: [], error: 'The workspace connection failed.' },
 }

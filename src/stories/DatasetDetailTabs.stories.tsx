@@ -9,8 +9,13 @@ import { auditHistoryQueryKeys } from '#/lib/audit-history'
 import type { AuditEventWire } from '#/lib/audit-history'
 import { importQueryKeys } from '#/lib/import/data'
 import type { ObjectDependency } from '#/lib/object-dependencies'
-import { infinitePage, screenQueryClient, screenRoutes } from './screen-stories'
-import type { ReadSeed, UnseededRead } from './screen-stories'
+import {
+  holdRead,
+  infinitePage,
+  screenQueryClient,
+  screenRoutes,
+} from './screen-stories'
+import type { ReadSeed } from './screen-stories'
 
 /**
  * The three data tabs of a dataset's detail page — Imports, Used by and History
@@ -44,9 +49,24 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-/** A story's read client, seeded with whatever that tab reads. */
-function provider(data: ReadSeed[], read: UnseededRead = 'pending') {
-  const client = screenQueryClient({ data, read })
+/**
+ * A story's read client for one tab: either the tab's own read seeded with rows,
+ * or that read held in the state the story claims.
+ *
+ * The `read` option on `screenQueryClient` cannot do this: the tabs supply their
+ * own `queryFn`, which outranks a client-level default, so an unseeded read runs
+ * and fetches `/api/…` instead of rendering the state the story is named for.
+ * `holdRead` puts the read in the cache before the tab mounts.
+ */
+type TabRead = 'loading' | 'denied' | 'error'
+
+function provider(key: readonly unknown[], read: TabRead | ReadSeed[]) {
+  const client = screenQueryClient({
+    data: Array.isArray(read) ? read : [],
+  })
+  if (!Array.isArray(read)) {
+    holdRead(client, key, read === 'loading' ? 'pending' : read)
+  }
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />
@@ -98,41 +118,38 @@ const connector: DatasetImportRecord = {
   created_at: '2026-09-22T02:05:00.000Z',
 }
 
+const importsKey = importQueryKeys.imports(DATASET_ID)
+
 const importSeeds: ReadSeed[] = [
-  {
-    key: importQueryKeys.imports(DATASET_ID),
-    value: [committed, failed, connector],
-  },
+  { key: importsKey, value: [committed, failed, connector] },
 ]
 
 /** Committed, failed and connector-authored receipts, from the frozen provenance. */
 export const Imports: Story = {
-  decorators: [provider(importSeeds)],
+  decorators: [provider(importsKey, importSeeds)],
   render: () => <DatasetImportsTab datasetId={DATASET_ID} />,
 }
 
 /** A dataset that has never been imported into: the create action is Import a file. */
 export const ImportsEmpty: Story = {
-  decorators: [
-    provider([{ key: importQueryKeys.imports(DATASET_ID), value: [] }]),
-  ],
+  decorators: [provider(importsKey, [{ key: importsKey, value: [] }])],
   render: () => <DatasetImportsTab datasetId={DATASET_ID} />,
 }
 
 export const ImportsLoading: Story = {
-  decorators: [provider([], 'pending')],
+  decorators: [provider(importsKey, 'loading')],
   render: () => <DatasetImportsTab datasetId={DATASET_ID} />,
 }
 
 /** A non-member read: the tab says who to ask rather than showing an empty list. */
 export const ImportsDenied: Story = {
-  decorators: [provider([], 'denied')],
+  decorators: [provider(importsKey, 'denied')],
   render: () => <DatasetImportsTab datasetId={DATASET_ID} />,
 }
 
 /** A failed read keeps its own state, with the retry the empty state offers. */
 export const ImportsFailed: Story = {
-  decorators: [provider([], 'error')],
+  decorators: [provider(importsKey, 'error')],
   render: () => <DatasetImportsTab datasetId={DATASET_ID} />,
 }
 
@@ -171,7 +188,7 @@ const usedByKey = ['ui-port', 'dataset-usage', DATASET_ID] as const
 
 export const UsedBy: Story = {
   decorators: [
-    provider([
+    provider(usedByKey, [
       {
         key: usedByKey,
         value: { kind: 'dataset', id: DATASET_ID, dependencies },
@@ -183,7 +200,7 @@ export const UsedBy: Story = {
 
 export const UsedByNothingYet: Story = {
   decorators: [
-    provider([
+    provider(usedByKey, [
       {
         key: usedByKey,
         value: { kind: 'dataset', id: DATASET_ID, dependencies: [] },
@@ -194,7 +211,7 @@ export const UsedByNothingYet: Story = {
 }
 
 export const UsedByDenied: Story = {
-  decorators: [provider([], 'denied')],
+  decorators: [provider(usedByKey, 'denied')],
   render: () => <DatasetUsedByTab datasetId={DATASET_ID} />,
 }
 
@@ -250,14 +267,16 @@ const historyKey = auditHistoryQueryKeys.events({ object: DATASET_ID })
 
 export const History: Story = {
   decorators: [
-    provider([{ key: historyKey, value: infinitePage(historyPage) }]),
+    provider(historyKey, [
+      { key: historyKey, value: infinitePage(historyPage) },
+    ]),
   ],
   render: () => <DatasetHistoryTab datasetId={DATASET_ID} />,
 }
 
 export const HistoryEmpty: Story = {
   decorators: [
-    provider([
+    provider(historyKey, [
       {
         key: historyKey,
         value: infinitePage({ ...historyPage, events: [] }),
@@ -268,17 +287,17 @@ export const HistoryEmpty: Story = {
 }
 
 export const HistoryLoading: Story = {
-  decorators: [provider([], 'pending')],
+  decorators: [provider(historyKey, 'loading')],
   render: () => <DatasetHistoryTab datasetId={DATASET_ID} />,
 }
 
 export const HistoryFailed: Story = {
-  decorators: [provider([], 'error')],
+  decorators: [provider(historyKey, 'error')],
   render: () => <DatasetHistoryTab datasetId={DATASET_ID} />,
 }
 
 /** A non-member read: the timeline's error slot carries the denial message. */
 export const HistoryDenied: Story = {
-  decorators: [provider([], 'denied')],
+  decorators: [provider(historyKey, 'denied')],
   render: () => <DatasetHistoryTab datasetId={DATASET_ID} />,
 }

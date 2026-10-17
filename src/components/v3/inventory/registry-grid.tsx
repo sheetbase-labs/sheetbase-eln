@@ -18,7 +18,7 @@
  * The route keeps ownership of ordering: it sorts the array it passes, exactly
  * as the Sort menus it already had. The grid does not sort.
  */
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { useTable } from '@tanstack/react-table'
 import type {
@@ -79,6 +79,40 @@ export function rightAligned<T extends RowData>(): Pick<
   return {
     meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
   }
+}
+
+/**
+ * The selection a screen whose inspector follows one row wants: give it the id
+ * the inspector is showing and the setter, and it hands back the state the grid
+ * renders plus the change handler.
+ *
+ * The grid merges a checkbox toggle into the selection it was given, so the
+ * handler takes the row the change *turned on* rather than the first key in the
+ * merged state — otherwise a checkbox on any other row would look inert, which
+ * is exactly what the first spelling of this did. Clearing the last checked row
+ * closes the inspector.
+ */
+export function useRowFocus(
+  selectedId: string | null,
+  setSelectedId: (id: string | null) => void,
+): {
+  rowSelection: RowSelectionState
+  onRowSelectionChange: OnChangeFn<RowSelectionState>
+} {
+  const rowSelection = useMemo<RowSelectionState>(
+    () => (selectedId ? { [selectedId]: true } : {}),
+    [selectedId],
+  )
+  const onRowSelectionChange = useCallback<OnChangeFn<RowSelectionState>>(
+    (next) => {
+      const value = typeof next === 'function' ? next(rowSelection) : next
+      const ids = Object.keys(value)
+      const turnedOn = ids.find((id) => !Object.hasOwn(rowSelection, id))
+      setSelectedId(turnedOn ?? ids.at(-1) ?? null)
+    },
+    [rowSelection, setSelectedId],
+  )
+  return { rowSelection, onRowSelectionChange }
 }
 
 export interface RegistryGridProps<T extends RowData> {

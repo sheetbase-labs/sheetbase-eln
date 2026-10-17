@@ -55,8 +55,11 @@ queue landed as `66df2782`), each with its record row and its story:
 - `work/convert-f` — one native select over 25 sites; the popup listbox declined.
 - `work/convert-g` — settings twins, chip and the command/listbox reconciliation
   (cmdk removed).
-- `work/b3-b4-grid` — TanStack v9, then Frame + Data Grid on `/protocols`; the
-  remaining seven registry screens are a recorded follow-on tranche.
+- `work/b3-b4-grid` — TanStack v9, then the one registry grid on every registry
+  list screen (protocols, datasets, experiments, samples, materials,
+  instruments, models, templates, pipelines), rendered flush with the app's own
+  header band, row height and widths. The registry's `Frame` is declined: its
+  card restyles the list chrome.
 - `work/tier2-small` — number field, signature pad and shortcut cap declined on
   measurement, with the plan's premise about the signature pad corrected.
 - `work/stories-domain-a` — 98 story files, 303 stories, for the domain

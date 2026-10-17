@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import type { RowSelectionState } from '@tanstack/react-table'
 import {
   Link,
   Outlet,
@@ -30,6 +29,7 @@ import {
 import {
   RegistryGrid,
   rightAligned,
+  useRowFocus,
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
@@ -198,19 +198,10 @@ function DatasetsList() {
     [],
   )
 
-  const rowSelection = useMemo<RowSelectionState>(
-    () => (sel ? { [sel.uuid]: true } : {}),
-    [sel],
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.uuid ?? null,
+    setSelected,
   )
-
-  // The screen selects one row for the inspector, so the grid's checkbox state
-  // is derived from the selection rather than kept beside it.
-  const setRowSelection = (
-    next: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState),
-  ) => {
-    const value = typeof next === 'function' ? next(rowSelection) : next
-    setSelected(Object.keys(value)[0] ?? null)
-  }
 
   return (
     <div className="flex min-w-0 flex-1">
@@ -277,7 +268,7 @@ function DatasetsList() {
             columns={columns}
             getRowId={(d) => d.uuid}
             rowSelection={rowSelection}
-            onRowSelectionChange={setRowSelection}
+            onRowSelectionChange={onRowSelectionChange}
             isLoading={query.isLoading}
           />
           <MobileList

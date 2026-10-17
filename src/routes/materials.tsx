@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import type { RowSelectionState } from '@tanstack/react-table'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -10,6 +9,7 @@ import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import {
   RegistryGrid,
   rightAligned,
+  useRowFocus,
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -221,24 +221,10 @@ function MaterialsList() {
     [],
   )
 
-  const rowSelection = useMemo<RowSelectionState>(
-    () => (sel ? { [sel.uuid]: true } : {}),
-    [sel],
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.uuid ?? null,
+    setSelected,
   )
-
-  // The screen selects one row for the inspector, so the grid's checkbox state
-  // is derived from the selection rather than kept beside it. The grid merges a
-  // toggle into the selection it was given, so the row the change is about is
-  // the one it turned on — taking the first key would leave the row the screen
-  // already had, and the checkbox would do nothing.
-  const setRowSelection = (
-    next: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState),
-  ) => {
-    const value = typeof next === 'function' ? next(rowSelection) : next
-    const selectedIds = Object.keys(value)
-    const turnedOn = selectedIds.find((id) => !Object.hasOwn(rowSelection, id))
-    setSelected(turnedOn ?? selectedIds.at(0) ?? null)
-  }
 
   const usage = useQuery({
     queryKey: ['ui-port', 'materials', 'usage', sel?.id ?? ''],
@@ -424,7 +410,7 @@ function MaterialsList() {
             columns={columns}
             getRowId={(m) => m.uuid}
             rowSelection={rowSelection}
-            onRowSelectionChange={setRowSelection}
+            onRowSelectionChange={onRowSelectionChange}
             isLoading={page.isLoading}
           />
           <MobileList

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import type { RowSelectionState } from '@tanstack/react-table'
 import {
   Link,
   Outlet,
@@ -39,6 +38,7 @@ import {
 import {
   RegistryGrid,
   rightAligned,
+  useRowFocus,
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
@@ -228,23 +228,15 @@ function PipelinesList() {
     [],
   )
 
-  const rowSelection = useMemo<RowSelectionState>(
-    () => (sel ? { [sel.id]: true } : {}),
-    [sel],
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.id ?? null,
+    (id) =>
+      void navigate({
+        to: '/pipelines',
+        search: (s) => ({ ...s, selected: id ?? undefined }),
+        replace: true,
+      }),
   )
-
-  // The screen keeps its selection in the URL, so the grid's checkbox state is
-  // derived from it and a change writes it back the way a row click did.
-  const setRowSelection = (
-    next: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState),
-  ) => {
-    const value = typeof next === 'function' ? next(rowSelection) : next
-    void navigate({
-      to: '/pipelines',
-      search: (s) => ({ ...s, selected: Object.keys(value)[0] }),
-      replace: true,
-    })
-  }
 
   const run = useMutation({
     mutationFn: (row: PipelineListRow) => {
@@ -329,7 +321,7 @@ function PipelinesList() {
               columns={columns}
               getRowId={(p) => p.id}
               rowSelection={rowSelection}
-              onRowSelectionChange={setRowSelection}
+              onRowSelectionChange={onRowSelectionChange}
               isLoading={query.isLoading}
             />
           ) : null}

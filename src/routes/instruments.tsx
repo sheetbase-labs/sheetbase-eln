@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import type { RowSelectionState } from '@tanstack/react-table'
 import {
   Link,
   Outlet,
@@ -12,7 +11,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Dot } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import {
+  RegistryGrid,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -369,28 +371,15 @@ function InstrumentsList() {
     [names, latest, lastImports, readiness, parserReadiness.isSuccess],
   )
 
-  const rowSelection = useMemo<RowSelectionState>(
-    () => (sel ? { [sel.id]: true } : {}),
-    [sel],
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.id ?? null,
+    (id) =>
+      void navigate({
+        to: '/instruments',
+        search: (s) => ({ ...s, selected: id ?? undefined }),
+        replace: true,
+      }),
   )
-
-  // This screen keeps its selection in the URL, so the grid's checkbox writes
-  // the same `selected` param the bespoke body's row click did. The grid merges
-  // a toggle into the selection it was given, so the row the change is about is
-  // the one it turned on — taking the first key would leave the row the URL
-  // already held, and the checkbox would do nothing.
-  const setRowSelection = (
-    next: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState),
-  ) => {
-    const value = typeof next === 'function' ? next(rowSelection) : next
-    const selectedIds = Object.keys(value)
-    const turnedOn = selectedIds.find((id) => !Object.hasOwn(rowSelection, id))
-    void navigate({
-      to: '/instruments',
-      search: (s) => ({ ...s, selected: turnedOn ?? selectedIds.at(0) }),
-      replace: true,
-    })
-  }
 
   if (search.state === 'denied') {
     return (
@@ -578,7 +567,7 @@ function InstrumentsList() {
                 columns={columns}
                 getRowId={(i) => i.id}
                 rowSelection={rowSelection}
-                onRowSelectionChange={setRowSelection}
+                onRowSelectionChange={onRowSelectionChange}
                 isLoading={query.isLoading}
               />
             </>

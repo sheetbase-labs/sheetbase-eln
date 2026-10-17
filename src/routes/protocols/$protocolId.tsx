@@ -38,7 +38,7 @@ import {
   fetchProtocolVersions,
 } from '#/lib/controlled-protocols'
 import { useUserNames } from '#/lib/user-names'
-import { protocolStatus } from '../protocols'
+import { protocolStatus } from '#/components/v3/protocols/protocols-registry-grid'
 
 const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
 type ProtocolTab = (typeof tabs)[number]

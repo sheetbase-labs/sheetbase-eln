@@ -5,6 +5,7 @@ import { emptyStatePair } from '#/components/component-compare/pairs/empty-state
 import { quantityFieldPair } from '#/components/component-compare/pairs/quantity-field'
 import { shortcutKeysPair } from '#/components/component-compare/pairs/shortcut-keys'
 import { fileUploadPair } from '#/components/component-compare/pairs/file-upload'
+import { registryGridPair } from '#/components/component-compare/pairs/registry-grid'
 
 /**
  * The registered comparison pairs, in the order the harness lists them.
@@ -21,4 +22,5 @@ export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   quantityFieldPair,
   shortcutKeysPair,
   fileUploadPair,
+  registryGridPair,
 ])

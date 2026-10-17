@@ -7,6 +7,7 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
 import { Status } from '#/components/v3/ui/status'
 import { DataTable } from '#/components/scientific/data-table'
+import type { DataTableFeatures } from '#/components/scientific/data-table'
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import { downloadTextFile } from '#/lib/download'
@@ -54,8 +55,10 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
     [records, fields, q, status, fieldName, fieldValue],
   )
 
-  const columns = useMemo<ColumnDef<RecordModelRecord, unknown>[]>(() => {
-    const base: ColumnDef<RecordModelRecord, unknown>[] = [
+  const columns = useMemo<
+    ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[]
+  >(() => {
+    const base: ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[] = [
       {
         id: 'identifier',
         header: 'ID',
@@ -92,21 +95,23 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
     ]
     return [
       ...base,
-      ...fields.map<ColumnDef<RecordModelRecord, unknown>>((field) => ({
-        id: `field:${field.fieldName}`,
-        header: field.label,
-        accessorFn: (record) =>
-          displayModelFieldValue(
-            field,
-            recordFieldValue(record, field.fieldName),
+      ...fields.map<ColumnDef<DataTableFeatures, RecordModelRecord, unknown>>(
+        (field) => ({
+          id: `field:${field.fieldName}`,
+          header: field.label,
+          accessorFn: (record) =>
+            displayModelFieldValue(
+              field,
+              recordFieldValue(record, field.fieldName),
+            ),
+          cell: ({ getValue }) => (
+            <span className="block max-w-[240px] truncate">
+              {String(getValue() ?? '')}
+            </span>
           ),
-        cell: ({ getValue }) => (
-          <span className="block max-w-[240px] truncate">
-            {String(getValue() ?? '')}
-          </span>
-        ),
-        meta: { className: 'max-w-[240px]' },
-      })),
+          meta: { className: 'max-w-[240px]' },
+        }),
+      ),
     ]
   }, [fields, modelKey])
 

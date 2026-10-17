@@ -38,21 +38,36 @@ export const Checked: Story = {
 }
 
 /**
- * The mixed state. Measured in Chromium, this is a defect rather than a third
- * glyph: the control reports `aria-checked="mixed"` and `data-indeterminate`,
- * but the root keeps `bg-surface` while the indicator's tick inherits
- * `text-on-accent`, so a white tick sits on a white box and nothing is visible.
- * Only `data-checked` fills the box. Fixing the appearance is a design decision
- * (a filled box, or a dash in ink colour) and is not this lane's change; the
- * story is here so the state is reviewable.
+ * The mixed state — a header checkbox over a partly selected page of rows. The
+ * control reports `aria-checked="mixed"` and `data-indeterminate`; the box is
+ * filled with the primary colour, exactly as the checked state is, so the tick
+ * is painted `on-accent` on a fill rather than white on white. Measured in
+ * Chromium: fill `oklch(0.551 0.188 256)`, ink `oklch(1 0 89.9)`. The same is
+ * true of a disabled set box, which is why the component repeats its set-state
+ * fill for `data-disabled:data-checked:` and `data-disabled:data-indeterminate:`
+ * — see `checkbox.tsx`. `checkbox.test.tsx` resolves those colours out of
+ * `src/styles.css` for light and dark and fails if they stop differing.
+ *
+ * The mark stays a tick: making mixed *distinguishable* from checked (a dash in
+ * place of the tick) is a design decision this lane did not take.
  */
 export const Indeterminate: Story = {
   render: () => label('7 of 12 runs selected', <Checkbox indeterminate />),
 }
 
+/** Mixed and disabled: the same fill and mark, as a disabled checked box has. */
+export const IndeterminateDisabled: Story = {
+  render: () =>
+    label(
+      '7 of 12 runs selected (locked)',
+      <Checkbox indeterminate disabled />,
+    ),
+}
+
 /**
- * Disabled, in both states. A reader still needs to see what is set, so the
- * checked-and-disabled pair keeps the checked fill.
+ * Disabled, in both states. A reader still needs to see what is set, so a set
+ * box keeps its fill and its tick while a box with nothing set fades to the
+ * disabled surface.
  */
 export const Disabled: Story = {
   render: () => (

@@ -14,6 +14,7 @@
  */
 import { useQuery } from '@tanstack/react-query'
 
+import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Section } from '#/components/v3/ui/layout'
 import {
@@ -80,10 +81,17 @@ export function DatasetUsedByTab({ datasetId }: { datasetId: string }) {
               ? 'References are not available to you'
               : 'References could not be loaded'
           }
-          body={
+          description={
             access === 'denied'
               ? 'A dataset’s dependents belong to its workspace. Ask a workspace member for access.'
-              : 'The dependency read model could not be read. Try again, or check the workspace connection.'
+              : 'The dependency read model could not be read. Check the workspace connection, then try again.'
+          }
+          action={
+            access === 'error' ? (
+              <Button variant="primary" onClick={() => void query.refetch()}>
+                Try again
+              </Button>
+            ) : undefined
           }
         />
       </div>
@@ -138,7 +146,7 @@ export function DatasetUsedByTab({ datasetId }: { datasetId: string }) {
           <EmptyState
             icon="link"
             title="Nothing references this dataset yet"
-            body="Sheets that bind it, records that carry its values and other dependents appear here as they are created."
+            description="Sheets that bind it, records that carry its values and other dependents appear here as they are created."
           />
         )}
       </Section>

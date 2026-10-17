@@ -48,7 +48,13 @@ export function ProjectList<T extends { key: string }>({
   cols: ProjectListCol<T>[]
   rows: T[]
   mobile: MobileRow[]
-  empty: { icon?: IconName; title: string; body: string }
+  /** What to show with no rows, and the one next action that fills them. */
+  empty: {
+    icon?: IconName
+    title: string
+    body: string
+    action?: React.ReactNode
+  }
   footer?: React.ReactNode
 }) {
   return (
@@ -99,7 +105,8 @@ export function ProjectList<T extends { key: string }>({
             className="py-2"
             icon={empty.icon}
             title={empty.title}
-            body={empty.body}
+            description={empty.body}
+            action={empty.action}
           />
         )}
       </Section>

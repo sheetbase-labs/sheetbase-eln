@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { Badge } from '#/components/v3/ui/badge'
@@ -187,7 +187,7 @@ export function AgentProposalsPanel({
       <EmptyState
         icon="pipeline"
         title="No operation proposals"
-        body="Agent tools submit typed proposals through the Sheetbase API. Each appears here with its exact impact before any mutation."
+        description="Agent tools submit typed proposals through the Sheetbase API. Each appears here with its exact impact before any mutation."
       />
     )
   }
@@ -440,7 +440,7 @@ export function AgentWorkflowsPanel({
       <EmptyState
         icon="pipeline"
         title="No agent workflows"
-        body="Agent workflows appear here with their plan, step outcomes and budget as they run."
+        description="A workflow appears here when an agent client starts one through the Sheetbase API, showing its plan, step outcomes and budget as it runs."
       />
     )
   }
@@ -688,6 +688,8 @@ export function AgentPoliciesPanel({
   onDisable: (policy: AgentOperationPolicy) => void
 }) {
   const [name, setName] = useState('')
+  /** The empty state's one action puts the cursor in the field that starts it. */
+  const nameRef = useRef<HTMLInputElement>(null)
   const [credentialId, setCredentialId] = useState(credentials[0]?.id ?? '')
   const [targetType, setTargetType] =
     useState<AgentOperationPolicyTargetType>('dataset')
@@ -764,6 +766,7 @@ export function AgentPoliciesPanel({
           >
             <Field label="Policy name" required>
               <Input
+                ref={nameRef}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Assay import rows"
@@ -920,7 +923,21 @@ export function AgentPoliciesPanel({
             className="py-2"
             icon="pipeline"
             title="No execution policies"
-            body="Every dataset row commit requires a human until a policy delegates it."
+            description={
+              canManage
+                ? 'Every dataset row commit requires a human until a policy delegates it. The form above delegates one credential’s create and append writes.'
+                : 'Every dataset row commit requires a human until a policy delegates it. Ask a workspace owner or Data Steward to delegate one.'
+            }
+            action={
+              canManage ? (
+                <Button
+                  variant="primary"
+                  onClick={() => nameRef.current?.focus()}
+                >
+                  Create the first policy
+                </Button>
+              ) : undefined
+            }
           />
         )}
       </Section>

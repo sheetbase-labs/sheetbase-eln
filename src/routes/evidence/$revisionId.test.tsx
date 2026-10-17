@@ -171,7 +171,9 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
     const table = screen.getByRole('table', {
       name: 'Frozen revision content',
     })
-    expect(table.parentElement?.className).toContain('max-md:hidden')
+    // The grid owns the breakpoint, so the hidden-at-phone class sits on its
+    // wrapper rather than the table's immediate parent.
+    expect(table.closest('[class*="max-md:hidden"]')).not.toBeNull()
 
     // The phone column carries the same frozen blocks, as wrapping rows.
     const phoneColumn = screen.getByRole('list', {

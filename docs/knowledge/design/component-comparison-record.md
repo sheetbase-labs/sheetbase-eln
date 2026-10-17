@@ -766,13 +766,18 @@ at the same widths and the same 33px rows as the table it replaced.
 
 ### Limits of this row
 
-- Tables outside the registry lists are not converted by this row: the
-  detail-page tables (a model's versions and fields, a protocol's blocks and
-  version history, an evidence revision's content, a record's linked records,
-  the client portal's milestones, the saved-analyses list) are read-only tables
-  inside a detail screen, several of them in a bordered box, and none of them
-  carries the list chrome, selection or inspector the registry body does. They
-  are a separate comparison, not an omission hidden behind scoping.
+- Tables outside the registry lists are converted too, in the same change: the
+  read-only detail tables — a model's versions, fields, relations, rules and
+  usage; a protocol's blocks, links and version history; an evidence revision's
+  content; a record's linked records and revisions; the client portal's
+  milestones, records and reports; the saved-analyses list; the settings,
+  integration, signature and usage tables; the home dashboard — render through
+  the same grid with `selectable={false}`, each keeping its own container, so
+  no checkbox column appears where nothing is selected. Two stay bespoke, with
+  reasons: `settings/audit`'s span-carrying load-more tail and `analysis/new`'s
+  chart preview, whose row click drives a chart rather than a selection. A
+  third exception is `models/$modelId/edit.tsx`, an editable form whose tables
+  are inputs rather than a grid.
 - `/experiments` takes the grid without the selection column: its rows navigate
   to the experiment, so a checkbox would be a control with nothing to select.
   Its group bands are drawn by the grid's own band rows (`bandRow`), which is a

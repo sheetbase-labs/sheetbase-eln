@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { Button } from '#/components/v3/ui/button'
-import { ListHeader, SearchTabs } from '#/components/v3/inventory/list'
+import { ListHeader } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 
 /**
  * The header of a list screen: title, count, actions and the tab strip.
@@ -51,9 +52,10 @@ export const WithSubtitle: Story = {
 export const WithTabs: Story = {
   args: {
     tabs: (
-      <SearchTabs
+      <Tabs
+        mode="url"
         label="Sample lists"
-        current="instock"
+        value="instock"
         items={[
           {
             key: 'all',

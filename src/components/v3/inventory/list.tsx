@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
@@ -10,26 +10,25 @@ import {
 } from '#/components/v3/ui/dropdown-menu'
 import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
+import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
 import { cn } from '#/lib/utils'
 
 // Pieces shared by the registry lists (samples, materials, protocols, datasets): a header with the total and actions,
 // a toolbar with the `q` search box, and a footer count. The tab strip that used to live here is now
 // `#/components/v3/ui/tabs` (`mode="url"`), the one tab component the app has.
 
-/** How long the search box waits after the last keystroke before it tells the
- * route. The field keeps the typed text itself, so a burst faster than a router
- * round-trip — a hardware barcode scanner, or a paste — is never rendered back
- * from stale state. */
-const SEARCH_SETTLE_MS = 200
-
 export function ListHeader({
   title,
   total,
+  subtitle,
   actions,
   tabs,
 }: {
   title: string
   total?: number
+  /** What this list is, beside its name. Hidden on phones, where the title is
+   * the whole reference header. */
+  subtitle?: React.ReactNode
   actions?: React.ReactNode
   tabs?: React.ReactNode
 }) {
@@ -39,6 +38,11 @@ export function ListHeader({
         <h1 className="text-title max-md:text-[18px] max-md:leading-6">
           {title}
         </h1>
+        {subtitle ? (
+          <span className="text-body text-fg-muted max-md:hidden">
+            {subtitle}
+          </span>
+        ) : null}
         {total != null ? (
           <span className="num text-body text-fg-muted">
             {total.toLocaleString('en-GB')}
@@ -224,32 +228,14 @@ export function ListToolbar({
   // straight from the route's `q` lost characters: each keystroke navigated, and
   // a re-render with the still-stale param wrote an older value back into the
   // field before the router had caught up.
-  const [query, setQuery] = useState(q ?? '')
-  // The last value this box handed to the route, so a `q` that arrives from
-  // somewhere else (a tab, "Clear search") can be told apart from the echo of
-  // our own search and adopted without clobbering pending typing.
-  const sent = useRef(q ?? '')
-  const timer = useRef<number | null>(null)
-  useEffect(() => {
-    const next = q ?? ''
-    if (next === sent.current) return
-    // The route changed the query itself (a tab, "Clear search"): drop anything
-    // still queued from typing and adopt what the route now shows.
-    clearTimeout(timer.current ?? undefined)
-    timer.current = null
-    sent.current = next
-    setQuery(next)
-  }, [q])
-  useEffect(() => () => clearTimeout(timer.current ?? undefined), [])
-  const search = (next: string) => {
-    setQuery(next)
-    clearTimeout(timer.current ?? undefined)
-    timer.current = window.setTimeout(() => {
-      timer.current = null
-      sent.current = next
-      onSearch(next)
-    }, SEARCH_SETTLE_MS)
-  }
+  // The box holds what was typed and reports the settled value up; the
+  // two-nature rule it used to spell out here — adopt a value that changed
+  // somewhere else, drop anything still queued from typing — lives in the hook.
+  const { value: query, setValue: search } = useSettledValue(
+    q ?? '',
+    SEARCH_SETTLE_MS,
+    onSearch,
+  )
   return (
     <div className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6">
       {lead}

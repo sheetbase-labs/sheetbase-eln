@@ -8,7 +8,7 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import type { RowSelectionState, SortingState } from '@tanstack/react-table'
+import type { SortingState } from '@tanstack/react-table'
 
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -29,6 +29,7 @@ import {
   ProtocolsRegistryGrid,
   protocolStatus,
 } from '#/components/v3/protocols/protocols-registry-grid'
+import { useRowFocus } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchTemplates } from '#/lib/templates'
@@ -130,7 +131,13 @@ function ProtocolsList() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const [sorting, setSorting] = useState<SortingState>(SORTS.Updated)
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [selectedId, setSelectedId] = useState<string | null>(
+    search.selected ?? null,
+  )
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    selectedId,
+    setSelectedId,
+  )
   const query = useQuery({
     queryKey: ['ui-port', 'protocols'],
     queryFn: () =>
@@ -170,9 +177,10 @@ function ProtocolsList() {
     )
     .map(({ r }) => r)
 
-  const selectedIds = Object.keys(rowSelection)
+  // One row drives the inspector: the checkbox selects it, and with nothing
+  // checked the screen falls back to the URL's row or the first one.
   const sel =
-    visible.find((r) => selectedIds.includes(r.id)) ??
+    visible.find((r) => r.id === selectedId) ??
     visible.find((r) => r.id === search.selected) ??
     visible.at(0)
 
@@ -230,7 +238,7 @@ function ProtocolsList() {
               sorting={sorting}
               onSortingChange={setSorting}
               rowSelection={rowSelection}
-              onRowSelectionChange={setRowSelection}
+              onRowSelectionChange={onRowSelectionChange}
             />
           ) : null}
           <MobileList
@@ -277,11 +285,7 @@ function ProtocolsList() {
             </div>
           ) : null}
         </div>
-        <ListFooter
-          right={
-            selectedIds.length ? `${selectedIds.length} selected` : undefined
-          }
-        >
+        <ListFooter right={selectedId ? '1 selected' : undefined}>
           {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
         </ListFooter>
       </div>

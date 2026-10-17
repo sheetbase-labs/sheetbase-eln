@@ -41,10 +41,7 @@ import {
 } from '#/components/reui/data-grid/data-grid'
 import type { DataGridFeatures } from '#/components/reui/data-grid/data-grid'
 import { DataGridScrollArea } from '#/components/reui/data-grid/data-grid-scroll-area'
-import {
-  DataGridTableRowSelect,
-  DataGridTableRowSelectAll,
-} from '#/components/reui/data-grid/data-grid-table'
+import { DataGridTableRowSelect } from '#/components/reui/data-grid/data-grid-table'
 import { DataGridTableVirtual } from '#/components/reui/data-grid/data-grid-table-virtual'
 import { cn } from '#/lib/utils'
 
@@ -176,11 +173,10 @@ export function RegistryGrid<T extends RowData>({
         // column of its own: a 40px column would push a table that already
         // fills the list area into a horizontal scroll, which is a change to
         // the screen, not an extra row control.
-        header: () => (
-          <span className="absolute inset-y-0 left-1.5 flex items-center">
-            <DataGridTableRowSelectAll />
-          </span>
-        ),
+        // No select-all: the app's selection is one row for the inspector, so
+        // a control that says "select every row" would be a promise the screen
+        // cannot keep — measured: clicking it left one row selected.
+        header: () => null,
         cell: ({ row }) =>
           isBand(row.original) ? null : (
             <span className="absolute inset-y-0 left-1.5 flex items-center">

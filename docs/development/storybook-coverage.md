@@ -19,9 +19,12 @@ component's own loading or error state.
 
 ## Domain audit (17 October 2026)
 
-Every component in the domain directories had a story file when this pass
-started, so the gap was not coverage by file. Rendering every domain story in a
-browser found stories that did not render what they claimed:
+Every component in the domain directories the first pass listed had a story file
+when this pass started, so the gap there was not coverage by file — but three
+components had no story at all (`knowledge/`'s `RecordLineageSection` and
+`RelationshipPanel`, `extensions/`'s `ExtensionSlots`), and stories were written
+for them. Rendering every domain story in a browser found stories that did not
+render what they claimed:
 
 - **23 stories failed to render at all.** Sixteen dialogs and editors called
   `useMutation`/`useQuery` with no `QueryClientProvider` in their decorators

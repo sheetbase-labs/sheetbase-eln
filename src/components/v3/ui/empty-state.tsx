@@ -12,9 +12,9 @@ import { cn } from '#/lib/utils'
  * by the change that added `description` and `action` below.
  *
  * `description` says what would fill the space and `action` carries the one
- * next step (a `Button`, usually). `body` is the same slot under its old name,
- * kept so the sites not yet swept keep rendering while the migration runs —
- * `docs/knowledge/design/empty-state-migration.md` is the list of those sites.
+ * next step (a `Button`, usually). The deprecated `body` alias that carried the
+ * description through the migration is gone: every site passes `description`
+ * now, and `docs/knowledge/design/empty-state-migration.md` records the sweep.
  *
  * The anatomy follows the shadcn `empty` item (`EmptyHeader`, `EmptyMedia`,
  * `EmptyTitle`, `EmptyDescription`, `EmptyContent`), restated as the props the
@@ -28,7 +28,6 @@ export function EmptyState({
   media,
   title,
   description,
-  body,
   action,
   children,
   className,
@@ -40,16 +39,12 @@ export function EmptyState({
   title: React.ReactNode
   /** What is absent, and what would fill it. */
   description?: React.ReactNode
-  /** @deprecated use `description`. */
-  body?: React.ReactNode
   /** The one relevant next action. */
   action?: React.ReactNode
   /** Anything else below the action row. */
   children?: React.ReactNode
   className?: string
 }) {
-  const text = description ?? body
-
   return (
     <div
       className={cn(
@@ -65,8 +60,8 @@ export function EmptyState({
         </span>
       ) : null}
       <h2 className="text-section">{title}</h2>
-      {text ? (
-        <p className="m-0 text-body leading-5 text-fg-muted">{text}</p>
+      {description ? (
+        <p className="m-0 text-body leading-5 text-fg-muted">{description}</p>
       ) : null}
       {action || children ? (
         <div className="mt-1 flex flex-wrap items-center gap-2">

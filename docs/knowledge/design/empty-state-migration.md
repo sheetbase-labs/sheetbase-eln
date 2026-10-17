@@ -47,6 +47,31 @@ system's rule is that they say who to ask. **Informational** states (history,
 lineage, "nothing needs you today") have no next action to offer and satisfy the
 rule by explaining the absence. Everything else has an action available.
 
+## Sweep result
+
+The sweep is complete. 99 `EmptyState` sites render the component across 68
+files in `src/**` (tests, stories and the comparison harness excluded), every
+one of them passing `description`, and `action` where the row asked for one;
+none passes the deleted `body` alias. What each site got, or why it needs
+nothing, is the table below, read with these three judgements:
+
+- **Not-allowed and not-applicable states** take no control; their copy says who
+  to ask. That covers the no-project-access states, the dataset-schema screens
+  (`models/$modelId/{relations,rules,usage}`), and the frozen-version views.
+- **Informational states** — sample and material history, lineage,
+  measurements, usage, instrument runs, the releases table, "nothing due today"
+  — satisfy the rule by explaining the absence.
+- **States whose next step is permanently on screen** take no action of their
+  own, because the control is already in the header or the form beside them: the
+  result citations and result datasets (the Notebook tab), a pipeline's Run now,
+  the inline add-a-rule and add-a-relation forms, the editor-hosted start a
+  version, and the project tabs, whose `ProjectList` header carries the create or
+  registry link. `ProjectList` accepts an `action` for the day one of those tabs
+  needs its own.
+
+Two sites gained an action the row did not ask for, both because a failed read is
+not the empty state the row described: the two dataset tabs offer **Try again**.
+
 ## The 92 sites
 
 | Site                                                       | Renders today                                                                      | Next action                                                       | Satisfies `DESIGN.md:383`                                          |

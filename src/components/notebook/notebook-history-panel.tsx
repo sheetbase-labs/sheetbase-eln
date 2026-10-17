@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { RecordHistoryTimeline } from '#/components/audit/record-history-timeline'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   fetchRevisionsForRecord,
   fetchRecordTimeline,
@@ -48,7 +49,12 @@ export function NotebookHistoryPanel({
           </p>
         ) : null}
         {revisions.data && revisions.data.length === 0 ? (
-          <p className="text-sm text-fg-muted">No submitted revisions yet.</p>
+          <EmptyState
+            icon="edit"
+            className="py-2"
+            title="No submitted revisions yet."
+            description="Each submission for review keeps the revision it was judged against; they appear here once the record is submitted."
+          />
         ) : null}
         <ul className="space-y-1">
           {(revisions.data ?? []).map((revision) => {

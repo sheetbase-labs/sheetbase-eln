@@ -760,16 +760,17 @@ export function ImportMapCheckFlow({
           <EmptyState
             icon="upload"
             title="This import doesn’t exist"
-            body="It may have been cancelled, or it belongs to another workspace. Start again from the upload step."
-          >
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={<Link to="/import" />}
-            >
-              Import data
-            </Button>
-          </EmptyState>
+            description="It may have been cancelled, or it belongs to another workspace. Start again from the upload step."
+            action={
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={<Link to="/import" />}
+              >
+                Import data
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -910,16 +911,17 @@ export function ImportMapCheckFlow({
           <EmptyState
             icon="table"
             title="This import has no target"
-            body="The file is stored but no Dataset is pinned. Start the import again to choose one."
-          >
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={<Link to="/import" />}
-            >
-              Import data
-            </Button>
-          </EmptyState>
+            description="The file is stored but no Dataset is pinned. Start the import again to choose one."
+            action={
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={<Link to="/import" />}
+              >
+                Import data
+              </Button>
+            }
+          />
         ) : null}
 
         {file.data && datasetId && !parsed ? (

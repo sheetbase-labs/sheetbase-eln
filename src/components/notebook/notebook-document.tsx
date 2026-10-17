@@ -16,6 +16,7 @@ import {
   proseBackspaceAction,
   proseRunMembers,
 } from '#/lib/notebook-prose-runs'
+import { Button } from '#/components/v3/ui/button'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -26,6 +27,7 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   Popover,
   PopoverContent,
@@ -946,33 +948,28 @@ function NotebookDocumentContent({
         />
       ) : null}
       {orderedIds.length === 0 && !isReadOnly ? (
-        <div
-          className="rounded-lg border border-dashed bg-surface-muted/20 px-6 py-8 text-center"
-          data-empty-notebook
-        >
-          <h2 className="font-display text-base font-semibold">
-            Start this Notebook
-          </h2>
-          <p className="mx-auto mt-1 max-w-md text-sm text-fg-muted">
-            Begin with an objective, method, observation, or another scientific
-            block. The new block opens in place and saves automatically.
-          </p>
-          <div className="mx-auto mt-4 flex max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
-            <button
-              id="notebook-empty-start"
-              type="button"
-              onClick={() => void handleInsert('rich_text')}
-              className="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Start writing
-            </button>
-            <AddBlockControl
-              onInsert={(type) => void handleInsert(type)}
-              label="Choose block type"
-              className="sm:w-44"
-            />
-          </div>
-        </div>
+        <EmptyState
+          className="items-center rounded-lg border border-dashed bg-surface-muted/20 px-6 text-center"
+          title="Start this Notebook"
+          description="Begin with an objective, method, observation, or another scientific block. The new block opens in place and saves automatically."
+          action={
+            <>
+              <Button
+                id="notebook-empty-start"
+                type="button"
+                variant="primary"
+                onClick={() => void handleInsert('rich_text')}
+              >
+                Start writing
+              </Button>
+              <AddBlockControl
+                onInsert={(type) => void handleInsert(type)}
+                label="Choose block type"
+                className="sm:w-44"
+              />
+            </>
+          }
+        />
       ) : null}
       <NotebookBlockList
         ids={orderedIds}

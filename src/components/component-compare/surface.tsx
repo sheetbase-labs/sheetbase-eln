@@ -23,7 +23,7 @@ export function ComparisonEmptyState() {
     <EmptyState
       icon="table"
       title="No rows"
-      body="This fixture has no rows. The column must say so and keep its controls reachable."
+      description="This fixture has no rows. The column must say so and keep its controls reachable."
     />
   )
 }

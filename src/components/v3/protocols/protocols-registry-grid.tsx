@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useTable } from '@tanstack/react-table'
 import type {
   ColumnDef,
   OnChangeFn,
@@ -8,39 +7,22 @@ import type {
   SortingState,
 } from '@tanstack/react-table'
 
-import {
-  DataGrid,
-  dataGridFeatures,
-} from '#/components/reui/data-grid/data-grid'
 import type { DataGridFeatures } from '#/components/reui/data-grid/data-grid'
-import { DataGridScrollArea } from '#/components/reui/data-grid/data-grid-scroll-area'
 import {
-  DataGridTableRowSelect,
-  DataGridTableRowSelectAll,
-} from '#/components/reui/data-grid/data-grid-table'
-import { DataGridTableVirtual } from '#/components/reui/data-grid/data-grid-table-virtual'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import type { NotebookRecord } from '#/lib/notebook-data'
 
 /**
- * The protocols registry's grid: `@reui/data-grid`, installed from the pinned
- * base-nova registry (ADR-0055) and placed under `src/components/reui/`. It
- * replaces the bespoke `v3/ui/table` body the registry screens hand-rolled.
+ * The protocols registry's columns, rendered through the one registry grid
+ * (`src/components/v3/inventory/registry-grid.tsx`). The screen's chrome — the
+ * flush table, its header band and its `ListFooter` — is that component's, so
+ * this file holds only what is specific to protocols.
  *
- * The grid is rendered flush, like every other table screen: no card, no
- * inset, and the screen keeps its own `ListFooter` underneath. The registry's
- * `Frame` wrapper is deliberately not used here — it framed the table as a
- * floating card, which is a redesign of the list chrome rather than a swap of
- * the table.
- *
- * What the adoption buys on this screen: rows are virtualised, the identifier
- * column is pinned instead of a `sticky` utility, and a row can be selected
- * from the keyboard through the grid's checkbox column — the bespoke body's
- * selection was click-only.
- *
- * The grid's own sorting is off the columns' `enableSorting` path on purpose:
- * the route's toolbar owns the sort menu and writes the table's sorting state,
+ * The route's toolbar owns the sort menu and writes the table's sorting state,
  * so there is one owner. The columns pass the registry's collation as a
  * `sortFn` rather than using the bundle's `alphanumeric` built-in, which orders
  * `AAV9…` before `AAV …` where the registry's en-GB collation does not.
@@ -97,14 +79,6 @@ export function ProtocolsRegistryGrid({
   const columns = useMemo<ColumnDef<DataGridFeatures, NotebookRecord>[]>(
     () => [
       {
-        id: 'select',
-        header: () => <DataGridTableRowSelectAll />,
-        cell: ({ row }) => <DataGridTableRowSelect row={row} />,
-        enableSorting: false,
-        enableHiding: false,
-        size: 40,
-      },
-      {
         id: 'identifier',
         accessorFn: (p) => p.identifier,
         header: 'ID',
@@ -156,7 +130,7 @@ export function ProtocolsRegistryGrid({
         accessorFn: (p) => p.updatedAt,
         header: 'Updated',
         meta: {
-          headerClassName: 'text-right',
+          ...rightAligned<NotebookRecord>().meta,
           cellClassName: 'text-right text-fg-muted',
         },
         sortFn: (rowA, rowB, columnId) =>
@@ -167,46 +141,17 @@ export function ProtocolsRegistryGrid({
     [ownerLabel],
   )
 
-  const table = useTable({
-    features: dataGridFeatures,
-    columns,
-    data: rows,
-    state: { sorting, rowSelection },
-    onSortingChange,
-    onRowSelectionChange,
-    getRowId: (p) => p.id,
-    // A virtualised grid renders every row, so the paginated row model has to
-    // be told the data already is the page; this route has no server paging.
-    manualPagination: true,
-    enableRowSelection: true,
-  })
-
   return (
-    <div className="flex h-full min-h-0 flex-col max-lg:hidden">
-      <DataGrid
-        table={table}
-        recordCount={rows.length}
-        isLoading={isLoading}
-        i18n={{ labels: { tableLabel: 'Protocols' } }}
-        onRowClick={(p) => onRowSelectionChange({ [p.id]: true })}
-        tableLayout={{
-          width: 'auto',
-          headerSticky: true,
-        }}
-        tableClassNames={{
-          // The registry table never wraps: a row is one line, and the
-          // scroll area carries the overflow (the v3 table's own rule).
-          base: 'w-full whitespace-nowrap',
-          // The v3 table's header band: the app's lists have a muted header
-          // across the full width, not a white sticky header with a blur.
-          headerRow: 'bg-surface-muted',
-          header: 'text-fg-muted',
-        }}
-      >
-        <DataGridScrollArea orientation="both">
-          <DataGridTableVirtual height="100%" estimateSize={33} overscan={12} />
-        </DataGridScrollArea>
-      </DataGrid>
-    </div>
+    <RegistryGrid
+      label="Protocols"
+      rows={rows}
+      columns={columns}
+      getRowId={(p) => p.id}
+      rowSelection={rowSelection}
+      onRowSelectionChange={onRowSelectionChange}
+      sorting={sorting}
+      onSortingChange={onSortingChange}
+      isLoading={isLoading}
+    />
   )
 }

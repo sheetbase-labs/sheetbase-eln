@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import {
   useInfiniteQuery,
   useQuery,
@@ -7,19 +7,17 @@ import {
 } from '@tanstack/react-query'
 
 import { LoadMore } from '#/components/v3/ui/load-more'
+import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Inspector, InspectorSection, Muted } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { ValueActions } from '#/components/v3/datasets/value-actions'
 import type { RepeatSourceSample } from '#/components/v3/datasets/value-actions'
 import { datasetListQueryKeys } from '#/components/v3/datasets/datasets-data'
@@ -33,6 +31,9 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
 import { cn } from '#/lib/utils'
 import { useDatasetVersions } from '../$datasetId'
+
+/** A row of the snapshot grid: the loader's own row shape. */
+type RowGridRow = RowValuePayload['rows'][number]
 
 interface RowValuePayload {
   datasetVersionId: string
@@ -166,6 +167,66 @@ function Rows() {
     )
   })
   const selected = visible.find((r) => r.rowId === search.row) ?? visible.at(0)
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    selected?.rowId ?? null,
+    (rowId) =>
+      void navigate({
+        to: '/datasets/$datasetId/rows',
+        params: { datasetId },
+        search: (s) => ({ ...s, row: rowId ?? undefined }),
+        replace: true,
+      }),
+  )
+  // One grid column per schema field, right-aligned unless the field is text —
+  // the bespoke table's own rule — plus the row-number column the snapshot
+  // shows. A value cell carries the flag colour of its own row and field.
+  const columns = useMemo<RegistryColumn<RowGridRow>[]>(() => {
+    const rowNumber: RegistryColumn<RowGridRow> = {
+      id: 'row',
+      header: 'Row',
+      cell: ({ row }) => {
+        if (!('values' in row.original)) return null
+        const index = visible.findIndex((r) => r.rowId === row.original.rowId)
+        return (
+          <span className="num text-fg-muted">
+            {index + 1}
+            {flaggedRowIds.has(row.original.rowId) ? (
+              <span className="ml-1 text-danger">•</span>
+            ) : null}
+          </span>
+        )
+      },
+      meta: { headerClassName: 'min-w-[64px]' },
+    }
+    return [
+      rowNumber,
+      ...fields.map((f) => {
+        const align = f.logical_type === 'text' ? undefined : 'right'
+        return {
+          id: f.field_id,
+          header: f.label,
+          cell: ({ row }) => {
+            if (!('values' in row.original)) return null
+            const value = row.original.values[f.field_id]
+            const flagged = flagIndex.get(
+              flagKey(row.original.rowId, f.field_id),
+            )
+            return (
+              <span className={cn(flagged && 'text-danger-text')}>
+                {value == null ? '—' : String(value)}
+              </span>
+            )
+          },
+          meta: align
+            ? {
+                headerClassName: 'text-right',
+                cellClassName: 'text-right',
+              }
+            : undefined,
+        } satisfies RegistryColumn<RowGridRow>
+      }),
+    ]
+  }, [fields, flagIndex, flaggedRowIds, visible])
   const selectedField =
     fields.find((f) => f.field_id === search.field) ?? fields.at(0)
 
@@ -194,7 +255,20 @@ function Rows() {
         <EmptyState
           icon="table"
           title="No snapshot to read rows from"
-          body="Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot."
+          description="Snapshot the dataset to freeze its rows as evidence; the grid reads a snapshot."
+          action={
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  to="/datasets/$datasetId/snapshots"
+                  params={{ datasetId }}
+                />
+              }
+            >
+              Create a snapshot
+            </Button>
+          }
         />
       </div>
     )
@@ -248,65 +322,15 @@ function Rows() {
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-3 md:px-6">
           {visible.length ? (
             <TableBox className="mt-3">
-              <Table className="min-w-max">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">Row</TableHead>
-                    {fields.map((f) => (
-                      <TableHead
-                        key={f.field_id}
-                        align={f.logical_type === 'text' ? undefined : 'right'}
-                      >
-                        {f.label}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visible.map((r, i) => {
-                    const rowFlagged = flags.some((f) => f.rowId === r.rowId)
-                    return (
-                      <TableRow
-                        key={r.rowId}
-                        selected={r.rowId === selected?.rowId}
-                        className="cursor-pointer"
-                        onClick={() =>
-                          void navigate({
-                            to: '/datasets/$datasetId/rows',
-                            params: { datasetId },
-                            search: (s) => ({ ...s, row: r.rowId }),
-                            replace: true,
-                          })
-                        }
-                      >
-                        <TableCell className="num text-fg-muted">
-                          {i + 1}
-                          {rowFlagged ? (
-                            <span className="ml-1 text-danger">•</span>
-                          ) : null}
-                        </TableCell>
-                        {fields.map((f) => {
-                          const value = r.values[f.field_id]
-                          const cellFlag = flagIndex.get(
-                            flagKey(r.rowId, f.field_id),
-                          )
-                          return (
-                            <TableCell
-                              key={f.field_id}
-                              align={
-                                f.logical_type === 'text' ? undefined : 'right'
-                              }
-                              className={cn(cellFlag && 'text-danger-text')}
-                            >
-                              {value == null ? '—' : String(value)}
-                            </TableCell>
-                          )
-                        })}
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Dataset rows"
+                rows={visible}
+                columns={columns}
+                getRowId={(r) => r.rowId}
+                rowSelection={rowSelection}
+                onRowSelectionChange={onRowSelectionChange}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <EmptyState
@@ -316,10 +340,30 @@ function Rows() {
                   ? 'No rows in this snapshot'
                   : 'No rows match'
               }
-              body={
+              description={
                 payload && payload.totalCount === 0
                   ? 'The snapshot froze a dataset with no rows; import rows into the dataset and snapshot it again.'
                   : 'Search looks at the rows loaded so far; the flagged filter keeps rows with any flagged value.'
+              }
+              action={
+                payload && payload.totalCount === 0 ? undefined : (
+                  <Button
+                    onClick={() =>
+                      void navigate({
+                        to: '/datasets/$datasetId/rows',
+                        params: { datasetId },
+                        search: (s) => ({
+                          ...s,
+                          q: undefined,
+                          flagged: undefined,
+                        }),
+                        replace: true,
+                      })
+                    }
+                  >
+                    Clear search and filters
+                  </Button>
+                )
               }
             />
           )}

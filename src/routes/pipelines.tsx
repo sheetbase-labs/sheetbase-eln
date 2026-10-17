@@ -356,7 +356,19 @@ function PipelinesList() {
                     ? `No pipelines match “${search.q}”`
                     : `No pipelines in ${tabLabel[tab].toLowerCase()}`
                 }
-                body="Search looks at pipeline keys and names."
+                description="Search looks at pipeline keys and names."
+                action={
+                  q ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/pipelines" search={{ tab: search.tab }} />
+                      }
+                    >
+                      Clear search
+                    </Button>
+                  ) : undefined
+                }
               />
             </div>
           ) : null}

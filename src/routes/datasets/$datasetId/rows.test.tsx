@@ -41,6 +41,15 @@ const routeContext = vi.hoisted(() => ({
   },
 }))
 
+// jsdom reports no layout, so the grid's virtualiser would render no rows: give
+// every element the viewport a browser would report for the list area.
+for (const prop of ['offsetHeight', 'clientHeight'] as const) {
+  Object.defineProperty(HTMLElement.prototype, prop, {
+    configurable: true,
+    get: () => 600,
+  })
+}
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ datasetId: 'ds-1' }),
@@ -49,6 +58,8 @@ vi.mock('@tanstack/react-router', () => ({
     useRouteContext: () => ({ context: routeContext.value }),
     options: config,
   }),
+  // The rows screen's no-snapshot empty state offers the snapshots tab.
+  Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
 }))
 
 vi.mock('#/components/v3/datasets/value-actions', () => ({
@@ -185,7 +196,9 @@ describe('dataset rows grid', () => {
 
     await user.click(screen.getByRole('button', { name: /Load more/ }))
 
-    expect((await screen.findAllByText('val-120')).length).toBeGreaterThan(0)
+    // The grid virtualises its rows, so the second page's last row is not in
+    // the DOM; the screen's own count is what says every row is loaded.
+    expect(await screen.findByText(/Showing 120 of 120 rows/)).toBeTruthy()
     expect(dataClient.rpc).toHaveBeenCalledWith('query_dataset_version_rows', {
       p_dataset_version_id: 'v-1',
       p_limit: PAGE_SIZE,

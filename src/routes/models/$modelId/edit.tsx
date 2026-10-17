@@ -520,7 +520,16 @@ function ModelEditor() {
             <EmptyState
               icon="schema"
               title="No draft to edit"
-              body="Start a draft to change this model’s fields. The published version stays in use until the draft is published."
+              description="Start a draft to change this model’s fields. The published version stays in use until the draft is published."
+              action={
+                <Button
+                  variant="primary"
+                  disabled={denied || startDraft.isPending}
+                  onClick={() => startDraft.mutate()}
+                >
+                  Start draft
+                </Button>
+              }
             />
           </div>
         ) : (

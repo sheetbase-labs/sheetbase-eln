@@ -17,15 +17,13 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/v3/ui/dialog'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
 import { Select } from '#/components/v3/ui/select'
@@ -157,6 +155,77 @@ function ProjectFolders() {
 
   if (!project) return null
 
+  const columns: RegistryColumn<(typeof shown)[number]>[] = [
+    {
+      id: 'select',
+      header: () => (
+        <Checkbox
+          aria-label="Select all items"
+          checked={allOn}
+          onCheckedChange={(on) =>
+            setSelected(on ? new Set(shown.map((r) => r.id)) : new Set())
+          }
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          aria-label={`Select ${row.original.identifier}`}
+          checked={selected.has(row.original.id)}
+          onCheckedChange={(on) =>
+            setSelected((s) => {
+              const n = new Set(s)
+              if (on) n.add(row.original.id)
+              else n.delete(row.original.id)
+              return n
+            })
+          }
+        />
+      ),
+      meta: { headerClassName: 'w-9', cellClassName: 'w-9' },
+    },
+    {
+      id: 'name',
+      header: 'Name',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.title}</span>
+      ),
+    },
+    {
+      id: 'kind',
+      header: 'Kind',
+      cell: ({ row }) => (
+        <>
+          {row.original.kind} ·{' '}
+          <span className="mono">{row.original.identifier}</span>
+        </>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <Status tone={statusTone(row.original.status)}>
+          {statusLabel(row.original.status)}
+        </Status>
+      ),
+    },
+    {
+      id: 'updated',
+      header: 'Updated',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.updatedAt.slice(0, 10)}
+        </span>
+      ),
+      meta: {
+        ...rightAligned<(typeof shown)[number]>().meta,
+        cellClassName: 'text-right text-fg-muted',
+      },
+    },
+  ]
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(null, () => {})
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
       <div className="flex w-[240px] shrink-0 flex-col gap-0.5 overflow-auto border-r border-border p-3 max-lg:hidden">
@@ -218,65 +287,32 @@ function ProjectFolders() {
 
         {shown.length ? (
           <TableBox>
-            <Table aria-label={`Items in ${currentFolder?.name ?? 'Unfiled'}`}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-9">
-                    <Checkbox
-                      aria-label="Select all items"
-                      checked={allOn}
-                      onCheckedChange={(on) =>
-                        setSelected(
-                          on ? new Set(shown.map((r) => r.id)) : new Set(),
-                        )
-                      }
-                    />
-                  </TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead align="right">Updated</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {shown.map((r) => (
-                  <TableRow key={r.id} selected={selected.has(r.id)}>
-                    <TableCell>
-                      <Checkbox
-                        aria-label={`Select ${r.identifier}`}
-                        checked={selected.has(r.id)}
-                        onCheckedChange={(on) =>
-                          setSelected((s) => {
-                            const n = new Set(s)
-                            if (on) n.add(r.id)
-                            else n.delete(r.id)
-                            return n
-                          })
-                        }
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium">{r.title}</TableCell>
-                    <TableCell>
-                      {r.kind} · <span className="mono">{r.identifier}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={statusTone(r.status)}>
-                        {statusLabel(r.status)}
-                      </Status>
-                    </TableCell>
-                    <TableCell align="right" className="text-fg-muted">
-                      {r.updatedAt.slice(0, 10)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label={`Items in ${currentFolder?.name ?? 'Unfiled'}`}
+              rows={shown}
+              columns={columns}
+              getRowId={(r) => r.id}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <EmptyState
             icon="folder"
             title={`Nothing in ${currentFolder?.name ?? 'Unfiled'} yet`}
-            body="Select items in another folder and choose Move… to file them here."
+            description="Select items in another folder and choose Move… to file them here."
+            action={
+              canEdit ? (
+                <NewFolder
+                  parents={folders}
+                  busy={addFolder.isPending}
+                  onCreate={(name, parentId) =>
+                    addFolder.mutate({ name, parentId })
+                  }
+                />
+              ) : undefined
+            }
           />
         )}
 

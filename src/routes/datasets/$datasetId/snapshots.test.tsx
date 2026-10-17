@@ -33,6 +33,15 @@ const routeContext = vi.hoisted(() => ({
   },
 }))
 
+// jsdom reports no layout, so the grid's virtualiser would render no rows: give
+// every element the viewport a browser would report for the list area.
+for (const prop of ['offsetHeight', 'clientHeight'] as const) {
+  Object.defineProperty(HTMLElement.prototype, prop, {
+    configurable: true,
+    get: () => 600,
+  })
+}
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ datasetId: 'ds-1' }),

@@ -164,7 +164,7 @@ function SampleLineage() {
             className="py-2"
             icon="folder"
             title="No lineage links yet"
-            body="Parents and derived samples appear here once records are linked."
+            description="Parents and derived samples appear here once records are linked."
           />
         )}
       </Section>

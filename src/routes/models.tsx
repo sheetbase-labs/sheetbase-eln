@@ -360,7 +360,19 @@ function ModelsList() {
                     ? `No models match “${search.q}”`
                     : `No models in ${tabLabel[tab].toLowerCase()}`
                 }
-                body="Search looks at model keys and names."
+                description="Search looks at model keys and names."
+                action={
+                  q ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/models" search={{ tab: search.tab }} />
+                      }
+                    >
+                      Clear search
+                    </Button>
+                  ) : undefined
+                }
               />
             </div>
           ) : null}

@@ -76,12 +76,13 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
             <EmptyState
               icon="warn"
               title="The model definition could not be read"
-              body="This model exists only if its read succeeds; a failed request cannot prove it is missing. Check the connection and try again."
-            >
-              <Button onClick={() => void definition.refetch()}>
-                Try again
-              </Button>
-            </EmptyState>
+              description="This model exists only if its read succeeds; a failed request cannot prove it is missing. Check the connection and try again."
+              action={
+                <Button onClick={() => void definition.refetch()}>
+                  Try again
+                </Button>
+              }
+            />
           </div>
         </div>
       )
@@ -266,16 +267,17 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
           <EmptyState
             icon="table"
             title={`${kind.label} is a built-in model`}
-            body="Built-in kinds keep their own surface. Open it from the link below; workspace-defined models show their records here."
-          >
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={<Link to={surface?.to ?? '/models'} />}
-            >
-              {surface ? `Open ${surface.label}` : 'Back to Models'}
-            </Button>
-          </EmptyState>
+            description="Built-in kinds keep their own surface. Open it below; workspace-defined models show their records here."
+            action={
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={<Link to={surface?.to ?? '/models'} />}
+              >
+                {surface ? `Open ${surface.label}` : 'Back to Models'}
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -291,17 +293,18 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
           <EmptyState
             icon="warn"
             title={`Model “${modelKey}” could not be read`}
-            body="A failed request cannot prove the key is unused. Check the connection and try again."
-          >
-            <Button
-              onClick={() => {
-                void model.refetch()
-                void builtIn.refetch()
-              }}
-            >
-              Try again
-            </Button>
-          </EmptyState>
+            description="A failed request cannot prove the key is unused. Check the connection and try again."
+            action={
+              <Button
+                onClick={() => {
+                  void model.refetch()
+                  void builtIn.refetch()
+                }}
+              >
+                Try again
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -314,16 +317,17 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
         <EmptyState
           icon="table"
           title={`No model “${modelKey}”`}
-          body="This workspace has no record model with that key, and it is not a built-in kind."
-        >
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={<Link to="/models" />}
-          >
-            Back to Models
-          </Button>
-        </EmptyState>
+          description="This workspace has no record model with that key, and it is not a built-in kind."
+          action={
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<Link to="/models" />}
+            >
+              Back to Models
+            </Button>
+          }
+        />
       </div>
     </div>
   )

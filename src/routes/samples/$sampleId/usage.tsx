@@ -5,15 +5,12 @@ import { Button } from '#/components/v3/ui/button'
 import { Section } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { toast } from '#/components/v3/ui/sonner'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableBox,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { UsageBalanceBar } from '#/components/v3/samples/sample-usage'
 import {
   formatQuantityAmount,
@@ -31,12 +28,27 @@ import {
   fetchSampleReservations,
   sampleQueryKeys,
 } from '#/lib/samples'
-import type { SampleEvent, SampleReservation } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { RecordWire } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 
 import { sampleEventsQueryKey } from '../$sampleId'
+
+/**
+ * One row of the merged usage table: a withdrawal event or a live reservation,
+ * reduced to the cells the table shows.
+ */
+interface UsageEntry {
+  id: string
+  experimentId: string | null
+  title: string
+  purpose: string
+  volume: string
+  actor: string
+  when: string
+  whenTitle?: string
+  cancel?: () => void
+}
 
 /**
  * LAB-01 step 3 — the sample Usage tab (SampleUsage).
@@ -132,6 +144,106 @@ function SampleUsage() {
 
   const unit = balances.data?.unit ? ` ${balances.data.unit}` : ''
 
+  // One row shape for a withdrawal and a reservation: the design shows both in
+  // one table, so the grid renders the merged list rather than two bodies.
+  const usageRows: UsageEntry[] = [
+    ...withdrawalEvents.map((event) => ({
+      id: event.id,
+      experimentId: event.purposeRecordId,
+      title: event.purposeRecordId
+        ? (experimentById.get(event.purposeRecordId)?.title ?? '—')
+        : '—',
+      purpose: event.notes ?? '—',
+      volume:
+        event.quantityDelta == null
+          ? '—'
+          : `${formatQuantityAmount(Math.abs(event.quantityDelta))}${unit}`,
+      actor: event.actorUserId ? names.userLabel(event.actorUserId) : 'System',
+      when: formatSampleEventDay(event.createdAt),
+      whenTitle: formatSampleEventTime(event.createdAt),
+    })),
+    ...reservationRows.map((reservation) => ({
+      id: reservation.id,
+      experimentId: reservation.experimentRecordId,
+      title: experimentById.get(reservation.experimentRecordId)?.title ?? '—',
+      purpose:
+        reservation.notes ??
+        (reservation.planned ? 'Planned use' : 'In progress'),
+      volume: `${formatQuantityAmount(reservation.quantity)}${unit}`,
+      actor: reservation.createdByUserId
+        ? names.userLabel(reservation.createdByUserId)
+        : '—',
+      when:
+        reservation.state === 'active' && reservation.planned
+          ? 'Planned'
+          : formatSampleEventDay(reservation.createdAt),
+      cancel:
+        reservation.state === 'active'
+          ? () => cancel.mutate(reservation.id)
+          : undefined,
+    })),
+  ]
+
+  const columns: RegistryColumn<UsageEntry>[] = [
+    {
+      id: 'experiment',
+      header: 'Experiment',
+      cell: ({ row }) => (
+        <ExperimentLabel
+          experimentId={row.original.experimentId}
+          byId={experimentById}
+        />
+      ),
+    },
+    {
+      id: 'title',
+      header: 'Title',
+      cell: ({ row }) => row.original.title,
+      meta: { cellClassName: 'max-w-[20rem] whitespace-normal leading-[17px]' },
+    },
+    {
+      id: 'purpose',
+      header: 'Purpose',
+      cell: ({ row }) => row.original.purpose,
+      meta: { cellClassName: 'max-w-[16rem] whitespace-normal leading-[17px]' },
+    },
+    {
+      id: 'volume',
+      header: 'Volume',
+      cell: ({ row }) => row.original.volume,
+      meta: rightAligned<UsageEntry>().meta,
+    },
+    {
+      id: 'by',
+      header: 'By',
+      cell: ({ row }) => row.original.actor,
+    },
+    {
+      id: 'when',
+      header: 'When',
+      cell: ({ row }) => (
+        <span className="text-fg-muted" title={row.original.whenTitle}>
+          {row.original.when}
+        </span>
+      ),
+      meta: {
+        ...rightAligned<UsageEntry>().meta,
+        cellClassName: 'text-right text-fg-muted',
+      },
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) =>
+        row.original.cancel && !cancel.isPending ? (
+          <Button size="sm" onClick={row.original.cancel}>
+            Cancel
+          </Button>
+        ) : null,
+      meta: { cellClassName: 'text-right' },
+    },
+  ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       <Section
@@ -158,58 +270,20 @@ function SampleUsage() {
       >
         {rowCount ? (
           <TableBox>
-            <Table aria-label="Sample usage">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Experiment</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Purpose</TableHead>
-                  <TableHead align="right">Volume</TableHead>
-                  <TableHead>By</TableHead>
-                  <TableHead align="right">When</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {withdrawalEvents.map((event) => (
-                  <UsageRow
-                    key={event.id}
-                    event={event}
-                    experiment={experimentById}
-                    unit={unit}
-                    actor={
-                      event.actorUserId
-                        ? names.userLabel(event.actorUserId)
-                        : 'System'
-                    }
-                  />
-                ))}
-                {reservationRows.map((reservation) => (
-                  <ReservationRow
-                    key={reservation.id}
-                    reservation={reservation}
-                    experiment={experimentById}
-                    unit={unit}
-                    actor={
-                      reservation.createdByUserId
-                        ? names.userLabel(reservation.createdByUserId)
-                        : '—'
-                    }
-                    busy={cancel.isPending}
-                    onCancel={() => cancel.mutate(reservation.id)}
-                  />
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Sample usage"
+              rows={usageRows}
+              columns={columns}
+              getRowId={(row) => row.id}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <EmptyState
             className="py-2"
             icon="tube"
             title="Not used yet"
-            body="Withdrawals and planned reservations appear here."
+            description="Withdrawals and planned reservations appear here once someone books or consumes this sample."
           />
         )}
       </Section>
@@ -237,106 +311,5 @@ function ExperimentLabel({
     >
       {experiment.identifier}
     </Link>
-  )
-}
-
-function UsageRow({
-  event,
-  experiment,
-  unit,
-  actor,
-}: {
-  event: SampleEvent
-  experiment: Map<string, RecordWire>
-  unit: string
-  actor: string
-}) {
-  const title = event.purposeRecordId
-    ? (experiment.get(event.purposeRecordId)?.title ?? '—')
-    : '—'
-  const volume =
-    event.quantityDelta == null
-      ? '—'
-      : `${formatQuantityAmount(Math.abs(event.quantityDelta))}${unit}`
-  return (
-    <TableRow>
-      <TableCell>
-        <ExperimentLabel
-          experimentId={event.purposeRecordId}
-          byId={experiment}
-        />
-      </TableCell>
-      <TableCell className="max-w-[20rem] whitespace-normal leading-[17px]">
-        {title}
-      </TableCell>
-      <TableCell className="max-w-[16rem] whitespace-normal leading-[17px]">
-        {event.notes ?? '—'}
-      </TableCell>
-      <TableCell align="right">{volume}</TableCell>
-      <TableCell>{actor}</TableCell>
-      <TableCell
-        align="right"
-        className="text-fg-muted"
-        title={formatSampleEventTime(event.createdAt)}
-      >
-        {formatSampleEventDay(event.createdAt)}
-      </TableCell>
-      <TableCell />
-    </TableRow>
-  )
-}
-
-function ReservationRow({
-  reservation,
-  experiment,
-  unit,
-  actor,
-  busy,
-  onCancel,
-}: {
-  reservation: SampleReservation
-  experiment: Map<string, RecordWire>
-  unit: string
-  actor: string
-  busy: boolean
-  onCancel: () => void
-}) {
-  const title = experiment.get(reservation.experimentRecordId)?.title ?? '—'
-  const active = reservation.state === 'active'
-  const when =
-    active && reservation.planned
-      ? 'Planned'
-      : formatSampleEventDay(reservation.createdAt)
-  return (
-    <TableRow>
-      <TableCell>
-        <ExperimentLabel
-          experimentId={reservation.experimentRecordId}
-          byId={experiment}
-        />
-      </TableCell>
-      <TableCell className="max-w-[20rem] whitespace-normal leading-[17px]">
-        {title}
-      </TableCell>
-      <TableCell className="max-w-[16rem] whitespace-normal leading-[17px]">
-        {reservation.notes ??
-          (reservation.planned ? 'Planned use' : 'In progress')}
-      </TableCell>
-      <TableCell align="right">
-        {formatQuantityAmount(reservation.quantity)}
-        {unit}
-      </TableCell>
-      <TableCell>{actor}</TableCell>
-      <TableCell align="right" className="text-fg-muted">
-        {when}
-      </TableCell>
-      <TableCell align="right">
-        {active ? (
-          <Button size="sm" disabled={busy} onClick={onCancel}>
-            Cancel
-          </Button>
-        ) : null}
-      </TableCell>
-    </TableRow>
   )
 }

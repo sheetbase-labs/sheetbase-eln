@@ -10,15 +10,12 @@ import {
   InspectorSection,
   Muted,
 } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   useModelFields,
   useModelVersions,
@@ -54,6 +51,37 @@ function ModelFields() {
   const [selected, setSelected] = useState<string | null>(null)
   const rows = fields.data ?? []
   const sel = rows.find((f) => f.field_id === selected) ?? rows.at(0)
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.field_id ?? null,
+    setSelected,
+  )
+  const columns: RegistryColumn<CanonicalDatasetSchemaField>[] = [
+    {
+      id: 'key',
+      header: 'Key',
+      cell: ({ row }) => <span className="mono">{row.original.key}</span>,
+    },
+    { id: 'label', header: 'Label', cell: ({ row }) => row.original.label },
+    {
+      id: 'type',
+      header: 'Type',
+      cell: ({ row }) => fieldTypeLabel(row.original),
+    },
+    {
+      id: 'nullable',
+      header: 'Nullable',
+      cell: ({ row }) => (row.original.nullable ? 'Yes' : 'Required'),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <Status tone={row.original.lifecycle === 'active' ? 'ok' : 'stored'}>
+          {row.original.lifecycle === 'active' ? 'Active' : 'Retired'}
+        </Status>
+      ),
+    },
+  ]
 
   return (
     <>
@@ -93,49 +121,25 @@ function ModelFields() {
             <EmptyState
               icon="table"
               title="No version yet"
-              body="Start a version from the header, add fields, then publish it."
+              description="Start a version from the header, add fields, then publish it."
             />
           ) : rows.length ? (
             <TableBox>
-              <Table aria-label="Model fields">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Key</TableHead>
-                    <TableHead>Label</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Nullable</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((f) => (
-                    <TableRow
-                      key={f.field_id}
-                      selected={f.field_id === sel?.field_id}
-                      className="cursor-pointer"
-                      onClick={() => setSelected(f.field_id)}
-                    >
-                      <TableCell className="mono">{f.key}</TableCell>
-                      <TableCell>{f.label}</TableCell>
-                      <TableCell>{fieldTypeLabel(f)}</TableCell>
-                      <TableCell>{f.nullable ? 'Yes' : 'Required'}</TableCell>
-                      <TableCell>
-                        <Status
-                          tone={f.lifecycle === 'active' ? 'ok' : 'stored'}
-                        >
-                          {f.lifecycle === 'active' ? 'Active' : 'Retired'}
-                        </Status>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Model fields"
+                rows={rows}
+                columns={columns}
+                getRowId={(f) => f.field_id}
+                rowSelection={rowSelection}
+                onRowSelectionChange={onRowSelectionChange}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <EmptyState
               icon="table"
               title="No fields on this version"
-              body="Add fields to the draft version, then publish it for datasets to use."
+              description="Add fields to the draft version, then publish it for datasets to use."
             />
           )}
         </div>

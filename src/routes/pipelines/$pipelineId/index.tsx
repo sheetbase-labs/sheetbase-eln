@@ -9,15 +9,12 @@ import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted, Section } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   currentVersion,
   draftVersion,
@@ -63,11 +60,70 @@ function PipelineOverview() {
         <EmptyState
           icon="pipeline"
           title="No version yet"
-          body="A pipeline needs a draft version with inputs, a transform and an output before it can run."
+          description="A pipeline needs a draft version with inputs, a transform and an output before it can run."
         />
       </div>
     )
   }
+
+  type ConfigInput = NonNullable<ConfigShape['inputs']>[number]
+  type ConfigParameter = NonNullable<ConfigShape['parameters']>[number]
+
+  const inputColumns: RegistryColumn<ConfigInput>[] = [
+    {
+      id: 'name',
+      header: 'Name',
+      cell: ({ row }) => <span className="mono">{row.original.name}</span>,
+    },
+    {
+      id: 'required',
+      header: 'Required',
+      cell: ({ row }) => (row.original.required ? 'Yes' : 'No'),
+    },
+  ]
+
+  const parameterColumns: RegistryColumn<ConfigParameter>[] = [
+    {
+      id: 'name',
+      header: 'Name',
+      cell: ({ row }) => <span className="mono">{row.original.name}</span>,
+    },
+    { id: 'type', header: 'Type', cell: ({ row }) => row.original.type },
+    {
+      id: 'required',
+      header: 'Required',
+      cell: ({ row }) => (row.original.required ? 'Yes' : 'No'),
+    },
+  ]
+
+  const versionColumns: RegistryColumn<(typeof list)[number]>[] = [
+    {
+      id: 'version',
+      header: 'Version',
+      cell: ({ row }) => (
+        <span className="font-medium">v{row.original.version}</span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const status = versionStatus(row.original.lifecycle)
+        return <Status tone={status.tone}>{status.label}</Status>
+      },
+    },
+    {
+      id: 'published',
+      header: 'Published',
+      cell: ({ row }) =>
+        row.original.published_at
+          ? row.original.published_at.slice(0, 10)
+          : '—',
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+  ]
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(shown.id, () => {})
 
   const config = shown.configuration as ConfigShape
   // R5-SHELL-06: what the run keeps, and where a person can act on its
@@ -101,22 +157,13 @@ function PipelineOverview() {
           {config.inputs?.length ? (
             <div className="flex flex-col gap-2">
               <TableBox>
-                <Table aria-label="Pipeline inputs">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Required</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {config.inputs.map((i) => (
-                      <TableRow key={i.name}>
-                        <TableCell className="mono">{i.name}</TableCell>
-                        <TableCell>{i.required ? 'Yes' : 'No'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <RegistryGrid
+                  label="Pipeline inputs"
+                  rows={config.inputs}
+                  columns={inputColumns}
+                  getRowId={(i) => i.name}
+                  selectable={false}
+                />
               </TableBox>
               <div className="flex flex-wrap items-center gap-2">
                 <TemporaryArtefact>Temporary tables</TemporaryArtefact>
@@ -135,24 +182,13 @@ function PipelineOverview() {
         <Section title="Parameters" count={config.parameters?.length ?? 0}>
           {config.parameters?.length ? (
             <TableBox>
-              <Table aria-label="Pipeline parameters">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Required</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {config.parameters.map((p) => (
-                    <TableRow key={p.name}>
-                      <TableCell className="mono">{p.name}</TableCell>
-                      <TableCell>{p.type}</TableCell>
-                      <TableCell>{p.required ? 'Yes' : 'No'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Pipeline parameters"
+                rows={config.parameters}
+                columns={parameterColumns}
+                getRowId={(p) => p.name}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <Muted>No parameters declared.</Muted>
@@ -218,30 +254,15 @@ function PipelineOverview() {
 
         <Section title="Versions" count={list.length}>
           <TableBox>
-            <Table aria-label="Pipeline versions">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Published</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {list.map((v) => (
-                  <TableRow key={v.id} selected={v.id === shown.id}>
-                    <TableCell className="font-medium">v{v.version}</TableCell>
-                    <TableCell>
-                      <Status tone={versionStatus(v.lifecycle).tone}>
-                        {versionStatus(v.lifecycle).label}
-                      </Status>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {v.published_at ? v.published_at.slice(0, 10) : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Pipeline versions"
+              rows={list}
+              columns={versionColumns}
+              getRowId={(v) => v.id}
+              selectable={false}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+            />
           </TableBox>
         </Section>
       </div>

@@ -33,15 +33,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/v3/ui/dropdown-menu'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import { Select } from '#/components/v3/ui/select'
 import {
@@ -125,6 +122,67 @@ function ProjectMembers() {
     return (peopleQuery.data ?? []).filter((p) => !present.has(p.user_id))
   }, [peopleQuery.data, members])
 
+  const columns: RegistryColumn<(typeof members)[number]>[] = [
+    {
+      id: 'person',
+      header: 'Person',
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {row.original.name}
+          {row.original.is_lead ? (
+            <span className="ml-1.5 text-label text-fg-muted">Lead</span>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      id: 'role',
+      header: 'Project role',
+      cell: ({ row }) =>
+        row.original.project_role ?? (row.original.is_lead ? 'Lead' : '—'),
+    },
+    {
+      id: 'access',
+      header: 'Access',
+      cell: ({ row }) =>
+        accessLabel[row.original.access_level] ?? row.original.access_level,
+    },
+    {
+      id: 'added',
+      header: 'Added',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.added_at.slice(0, 10)}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) =>
+        isLead && !row.original.is_lead ? (
+          <RoleMenu
+            name={row.original.name}
+            accessLevel={row.original.access_level}
+            busy={setRole.isPending || remove.isPending}
+            onRole={(access) =>
+              setRole.mutate({
+                userId: row.original.user_id,
+                accessLevel: access,
+              })
+            }
+            onRemove={() =>
+              setPendingRemove({
+                id: row.original.user_id,
+                name: row.original.name,
+              })
+            }
+          />
+        ) : null,
+      meta: rightAligned<(typeof members)[number]>().meta,
+    },
+  ]
+
   if (!project) return null
 
   return (
@@ -151,57 +209,13 @@ function ProjectMembers() {
           }
         >
           <TableBox>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {['Person', 'Project role', 'Access', 'Added'].map((h) => (
-                    <TableHead key={h}>{h}</TableHead>
-                  ))}
-                  <TableHead aria-label="Actions" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {members.map((m) => (
-                  <TableRow key={m.user_id}>
-                    <TableCell className="font-medium">
-                      {m.name}
-                      {m.is_lead ? (
-                        <span className="ml-1.5 text-label text-fg-muted">
-                          Lead
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      {m.project_role ?? (m.is_lead ? 'Lead' : '—')}
-                    </TableCell>
-                    <TableCell>
-                      {accessLabel[m.access_level] ?? m.access_level}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {m.added_at.slice(0, 10)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {isLead && !m.is_lead ? (
-                        <RoleMenu
-                          name={m.name}
-                          accessLevel={m.access_level}
-                          busy={setRole.isPending || remove.isPending}
-                          onRole={(access) =>
-                            setRole.mutate({
-                              userId: m.user_id,
-                              accessLevel: access,
-                            })
-                          }
-                          onRemove={() =>
-                            setPendingRemove({ id: m.user_id, name: m.name })
-                          }
-                        />
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Project members"
+              rows={members}
+              columns={columns}
+              getRowId={(m) => m.user_id}
+              selectable={false}
+            />
           </TableBox>
         </Section>
 

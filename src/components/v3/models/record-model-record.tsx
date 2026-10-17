@@ -53,21 +53,22 @@ export function RecordModelRecord({
         <EmptyState
           icon="table"
           title="Record not found"
-          body="This record is not visible in this workspace, or it has been removed."
-        >
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={
-              <Link
-                to="/models/$modelId/records"
-                params={{ modelId: modelKey }}
-              />
-            }
-          >
-            Back to records
-          </Button>
-        </EmptyState>
+          description="This record is not visible in this workspace, or it has been removed."
+          action={
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/models/$modelId/records"
+                  params={{ modelId: modelKey }}
+                />
+              }
+            >
+              Back to records
+            </Button>
+          }
+        />
       </div>
     )
   }

@@ -14,6 +14,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
+import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -120,10 +121,20 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
               ? 'Imports are not available to you'
               : 'Imports could not be loaded'
           }
-          body={
+          description={
             access === 'denied'
               ? 'Import receipts belong to the dataset’s workspace. Ask a workspace member for access.'
-              : 'The import receipts could not be read. Try again, or check the workspace connection.'
+              : 'The import receipts could not be read. Check the workspace connection, then try again.'
+          }
+          action={
+            access === 'error' ? (
+              <Button
+                variant="primary"
+                onClick={() => void query.refetch()}
+              >
+                Try again
+              </Button>
+            ) : undefined
           }
         />
       </div>
@@ -181,7 +192,16 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
           <EmptyState
             icon="upload"
             title="No imports yet"
-            body="Rows enter this dataset by import. Each committed import is receipted here with the file, parser and rows it wrote."
+            description="Rows enter this dataset by import. Each committed import is receipted here with the file, parser and rows it wrote."
+            action={
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={<Link to="/import" />}
+              >
+                Import a file
+              </Button>
+            }
           />
         )}
       </Section>

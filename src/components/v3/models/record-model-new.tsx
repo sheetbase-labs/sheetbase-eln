@@ -118,16 +118,17 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         <EmptyState
           icon="table"
           title="Model not found"
-          body={`No workspace record model with the key “${modelKey}” is visible in this workspace.`}
-        >
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={<Link to="/models" />}
-          >
-            Back to Models
-          </Button>
-        </EmptyState>
+          description={`No workspace record model with the key “${modelKey}” is visible in this workspace.`}
+          action={
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<Link to="/models" />}
+            >
+              Back to Models
+            </Button>
+          }
+        />
       </div>
     )
   }

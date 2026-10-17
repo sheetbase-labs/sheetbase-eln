@@ -128,10 +128,7 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
           }
           action={
             access === 'error' ? (
-              <Button
-                variant="primary"
-                onClick={() => void query.refetch()}
-              >
+              <Button variant="primary" onClick={() => void query.refetch()}>
                 Try again
               </Button>
             ) : undefined

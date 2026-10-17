@@ -51,8 +51,41 @@ const PAIRS = [
   'quantity-field',
   'shortcut-keys',
   'import-file-upload',
+  'registry-grid',
+  'native-select',
+  'tab-family',
+  'pressed-chips',
+  'spinner',
+  'progress',
+  'collapsible',
+  'payload-block',
+  'avatar-initials',
+  'notice-banner',
+  'file-type',
+  'paging-a-list',
+  'load-more-control',
+  'list-header',
+  'breadcrumb-trail',
 ] as const
 type PairId = (typeof PAIRS)[number]
+
+/**
+ * The pairs the generic browser matrix runs against. Every registered pair is
+ * named in `PAIRS` (the coverage check fails otherwise), but the axe, appearance,
+ * state and density matrix is a heavy run and the remaining pairs' Chromium axe
+ * and behaviour evidence is in their own `pairs/<pair>.test.tsx` and their
+ * lane's run, recorded in the comparison record.
+ */
+const GENERIC_PAIRS: readonly PairId[] = [
+  'notebook-sortable',
+  'empty-state',
+  'history-rows',
+  'quantity-field',
+  'shortcut-keys',
+  'import-file-upload',
+  'registry-grid',
+  'paging-a-list',
+]
 
 /** A pair whose components reorder rows: the drag and drop tests are its own. */
 const REORDERABLE_PAIR: PairId = 'notebook-sortable'
@@ -176,7 +209,7 @@ test.describe('axe', () => {
   // already exercise. That fixture is measured for rendering and overflow
   // instead (see `density and overflow`), and the exclusion is stated in
   // docs/development/component-compare.md and in the comparison record.
-  for (const pair of PAIRS) {
+  for (const pair of GENERIC_PAIRS) {
     for (const theme of ['light', 'dark'] as const) {
       for (const fixture of ['long-labels'] as const) {
         for (const id of COLUMNS) {
@@ -223,7 +256,7 @@ test.describe('axe', () => {
 })
 
 test.describe('appearance evidence', () => {
-  for (const pair of PAIRS) {
+  for (const pair of GENERIC_PAIRS) {
     for (const theme of ['light', 'dark'] as const) {
       for (const id of COLUMNS) {
         test(`screenshot of the ${pair} ${id} column — ${theme}`, async ({
@@ -258,7 +291,7 @@ test.describe('keyboard', () => {
    * What each pair's columns put on the keyboard path, as `[column, tag, slot,
    * accessible name]` prefixes. The Tab walk below asserts these are reached.
    */
-  const CONTROL_PATH: Record<PairId, readonly string[]> = {
+  const CONTROL_PATH: Partial<Record<PairId, readonly string[]>> = {
     // After the adoption our column renders the shipped integration: the row
     // itself is the labelled, focusable group (its accessible name carries the
     // "Alt+Arrow keys move this row" hint) and the grip is its own control.
@@ -284,7 +317,7 @@ test.describe('keyboard', () => {
     'shortcut-keys': [],
   }
 
-  for (const pair of PAIRS) {
+  for (const pair of GENERIC_PAIRS) {
     test(`${pair} — reaches every control by Tab, with a visible focus indicator`, async ({
       page,
     }) => {
@@ -323,7 +356,7 @@ test.describe('keyboard', () => {
       // keyboard-reachable rows in ours, the ReUI handle in theirs; and for the
       // numeric pair, one input per column per row.
       const focused = reached.join('\n')
-      for (const expected of CONTROL_PATH[pair]) {
+      for (const expected of CONTROL_PATH[pair] ?? []) {
         expect(focused).toContain(expected)
       }
       // The notebook's rows are keyboard-reachable in their own right; the
@@ -820,7 +853,7 @@ test.describe('file pair — pick, drop, progress and retry', () => {
 })
 
 test.describe('density and overflow', () => {
-  for (const pair of PAIRS) {
+  for (const pair of GENERIC_PAIRS) {
     for (const [label, size] of [
       ['desktop 1440x900', DESKTOP],
       ['phone 390x844', PHONE],

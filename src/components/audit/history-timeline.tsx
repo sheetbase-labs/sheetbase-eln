@@ -17,6 +17,11 @@ import type { LucideIcon } from 'lucide-react'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '#/components/v3/ui/collapsible'
 import { Notice } from '#/components/v3/ui/alert'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import {
@@ -235,14 +240,16 @@ function ChangeChip({ change }: { change: FieldChange }) {
  */
 function RawPayload({ value }: { value: unknown }) {
   return (
-    <details className="pt-1">
-      <summary className="cursor-pointer select-none text-xs text-fg-muted hover:text-fg">
+    <Collapsible className="pt-1">
+      <CollapsibleTrigger className="text-xs text-fg-muted hover:text-fg">
         Raw event
-      </summary>
-      <pre className="mt-1 overflow-x-auto rounded-md border bg-surface-muted/40 p-2 font-mono text-[11px] leading-snug text-fg-muted">
-        {JSON.stringify(value, null, 2)}
-      </pre>
-    </details>
+      </CollapsibleTrigger>
+      <CollapsiblePanel role="group" aria-label="Raw event payload">
+        <pre className="mt-1 overflow-x-auto rounded-md border bg-surface-muted/40 p-2 font-mono text-[11px] leading-snug text-fg-muted">
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      </CollapsiblePanel>
+    </Collapsible>
   )
 }
 

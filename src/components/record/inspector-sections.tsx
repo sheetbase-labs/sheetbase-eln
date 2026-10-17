@@ -3,6 +3,7 @@ import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Row, RowList } from '#/components/v3/ui/row'
 import { Icon } from '#/components/v3/icons'
+import { FileType, getFileType } from '#/components/reui/file-type'
 import type { IconName } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
 
@@ -67,40 +68,16 @@ export interface FileItem {
   href?: string
 }
 
-/** Pick a file-type icon + accent colour from the media type. */
-function fileTypeIcon(mediaType?: string): {
-  icon: IconName
-  className: string
-} {
-  const mt = (mediaType ?? '').toLowerCase()
-  if (
-    mt.includes('spreadsheet') ||
-    mt.includes('excel') ||
-    mt.includes('csv') ||
-    mt.endsWith('.xlsx') ||
-    mt.endsWith('.csv') ||
-    mt.endsWith('.tsv')
-  ) {
-    return { icon: 'table', className: 'text-success-text' }
-  }
-  if (mt.includes('pdf') || mt.endsWith('.pdf')) {
-    return { icon: 'download', className: 'text-danger-text' }
-  }
-  if (
-    mt.includes('image') ||
-    mt.endsWith('.png') ||
-    mt.endsWith('.jpg') ||
-    mt.endsWith('.jpeg') ||
-    mt.endsWith('.gif') ||
-    mt.endsWith('.webp') ||
-    mt.endsWith('.svg')
-  ) {
-    return { icon: 'box', className: 'text-link' }
-  }
-  if (mt.includes('text') || mt.endsWith('.txt') || mt.endsWith('.md')) {
-    return { icon: 'download', className: 'text-fg-muted' }
-  }
-  return { icon: 'download', className: 'text-fg-muted' }
+
+/**
+ * Resolve a row's type: the file name first, because a stored MIME type of
+ * `application/octet-stream` says nothing about a name that ends `.xlsx`; the
+ * media type only decides for names with no type in them.
+ */
+function fileTypeFor(file: FileItem): string {
+  const fromName = getFileType(file.name)
+  if (fromName !== 'empty') return fromName
+  return getFileType(file.mediaType ?? file.meta ?? '')
 }
 
 export function FileList({ items }: { items: FileItem[] }) {
@@ -110,19 +87,15 @@ export function FileList({ items }: { items: FileItem[] }) {
       empty={<EmptyHint>No attached files</EmptyHint>}
     >
       {items.map((f) => {
-        const { icon: iconName, className: iconCls } = fileTypeIcon(
-          f.mediaType ?? f.meta,
-        )
         return (
           <Row
             key={f.id}
             href={f.href}
             leading={
-              <Icon
-                name={iconName}
-                size={14}
-                className={cn('shrink-0', iconCls)}
-                aria-hidden="true"
+              <FileType
+                type={fileTypeFor(f)}
+                size="mini"
+                className="shrink-0"
               />
             }
             title={f.name}

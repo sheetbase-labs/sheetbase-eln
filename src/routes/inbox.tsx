@@ -20,6 +20,7 @@ import {
 } from '#/components/v3/ui/layout'
 import { Kbd } from '#/components/v3/ui/kbd'
 import { Tabs } from '#/components/v3/ui/tabs'
+import { ListHeader } from '#/components/v3/inventory/list'
 import {
   useRegisterShortcuts,
   useShortcutScope,
@@ -374,47 +375,40 @@ function Inbox() {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex flex-col gap-1 border-b border-border px-4 pt-4 md:px-6">
-          {/* WCAG 1.4.10 — the phone reference header (PhoneInbox) is the
-              title alone; the two actions cannot share its line with it (at
-              390 they measured 408px and pushed Mark all seen outside the
-              viewport with no ancestor able to scroll to it). The row wraps,
-              exactly as the shell's own TopBar does below `md`, so both
-              controls reflow into view instead of being clipped or dropped.
-              There is nothing to fill here once they wrap, so the desktop
-              spacer goes with the row it spaced. */}
-          <div className="flex items-center gap-2 max-md:flex-wrap">
-            <h1 className="text-title">Inbox</h1>
-            <span className="ml-1 text-body text-fg-muted max-md:hidden">
-              Everything waiting on you, across projects
-            </span>
-            <span className="flex-1 max-md:hidden" />
-            <Button
-              nativeButton={false}
-              render={<Link to="/settings/notifications" />}
-            >
-              Notification settings
-            </Button>
-            <Button
-              disabled={markSeen.isPending || markableKeys.length === 0}
-              onClick={() => markSeen.mutate(markableKeys)}
-            >
-              Mark all seen
-            </Button>
-          </div>
-          <Tabs
-            mode="state"
-            label="Inbox"
-            value={tab}
-            onValueChange={(next) => selectTab(next as InboxTab)}
-            className="mt-1"
-            items={tabs.map(([key, label]) => ({
-              key,
-              label,
-              count: countsKnown ? tabCount(key) : '—',
-            }))}
-          />
-        </header>
+        <ListHeader
+          title="Inbox"
+          subtitle="Everything waiting on you, across projects"
+          actions={
+            <>
+              <Button
+                nativeButton={false}
+                render={<Link to="/settings/notifications" />}
+              >
+                Notification settings
+              </Button>
+              <Button
+                disabled={markSeen.isPending || markableKeys.length === 0}
+                onClick={() => markSeen.mutate(markableKeys)}
+              >
+                Mark all seen
+              </Button>
+            </>
+          }
+          tabs={
+            <Tabs
+              mode="state"
+              label="Inbox"
+              value={tab}
+              onValueChange={(next) => selectTab(next as InboxTab)}
+              className="mt-1"
+              items={tabs.map(([key, label]) => ({
+                key,
+                label,
+                count: countsKnown ? tabCount(key) : '—',
+              }))}
+            />
+          }
+        />
 
         <div
           ref={filterRef}

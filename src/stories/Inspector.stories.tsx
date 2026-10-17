@@ -9,10 +9,11 @@ import {
   FileList,
   InspectorSection,
   InspectorSectionStack,
-  LinkedRecordList,
   TagPills,
 } from '#/components/record/inspector-sections'
 import { Property, PropertyList } from '#/components/scientific/property-list'
+import { RecordLink } from '#/components/scientific/record-link'
+import { RowList } from '#/components/v3/ui/row'
 import { StatusBadge } from '#/components/scientific/status-badge'
 
 /**
@@ -54,25 +55,22 @@ const tabs: InspectorTab[] = [
     label: 'Linked',
     badge: 3,
     content: (
-      <LinkedRecordList
-        items={[
-          {
-            id: 'l1',
-            type: 'Sample',
-            title: 'LVV-CAR-T drug substance',
-            meta: 'SMP-2026-0142',
-            href: '/samples/1',
-            icon: 'tube',
-          },
-          {
-            id: 'l2',
-            type: 'Protocol',
-            title: 'Titration assay',
-            meta: 'PRT-2026-0012',
-            icon: 'protocol',
-          },
-        ]}
-      />
+      <RowList density="list">
+        <RecordLink
+          to="/samples/1"
+          type="Sample"
+          title="LVV-CAR-T drug substance"
+          meta="SMP-2026-0142"
+          icon="tube"
+        />
+        <RecordLink
+          to="/protocols/1"
+          type="Protocol"
+          title="Titration assay"
+          meta="PRT-2026-0012"
+          icon="protocol"
+        />
+      </RowList>
     ),
   },
   {

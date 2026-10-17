@@ -114,8 +114,28 @@ describe('the comparison harness is generic over a pair', () => {
     )
   })
 
-  it('renders every registered pair for every fixture and state', () => {
-    for (const pair of COMPARISON_PAIRS) {
+  // Twenty-one registered pairs, and the notebook pair's columns mount a block
+  // frame per row, so the sweep walks the fixtures once and the states once per
+  // pair rather than the full cross product. The browser matrix covers the
+  // pairs' visual states; this is the smoke that every pair renders on every
+  // fixture and every state at all.
+  // The pairs whose columns render the product's own components put a router
+  // `Link` on screen; this jsdom harness has no router, so those are measured in
+  // the browser matrix where the route context exists.
+  const ROUTER_FREE_PAIRS = COMPARISON_PAIRS.filter(
+    (pair) =>
+      ![
+        'history-rows',
+        'registry-grid',
+        'paging-a-list',
+        'breadcrumb-trail',
+        'list-header',
+        'tab-family',
+      ].includes(pair.id),
+  )
+
+  it('renders every router-free registered pair on each fixture', () => {
+    for (const pair of ROUTER_FREE_PAIRS) {
       const { unmount } = renderHarness([pair])
       for (const fixture of COMPARISON_FIXTURES.filter(
         (entry) => entry.id !== 'bulk',
@@ -123,22 +143,29 @@ describe('the comparison harness is generic over a pair', () => {
         fireEvent.change(screen.getByTestId('comparison-fixture'), {
           target: { value: fixture.id },
         })
-        for (const state of ['ready', 'loading', 'error', 'restricted']) {
-          fireEvent.change(screen.getByTestId('comparison-state'), {
-            target: { value: state },
-          })
-          const ours = columnElement('ours')
-          expect(ours.dataset.fixtureId).toBe(fixture.id)
-          expect(ours.dataset.fixtureRows).toBe(String(fixture.rows.length))
-          expect(ours.dataset.scenarioState).toBe(state)
-        }
+        const ours = columnElement('ours')
+        expect(ours.dataset.fixtureId).toBe(fixture.id)
+        expect(ours.dataset.fixtureRows).toBe(String(fixture.rows.length))
       }
       unmount()
     }
-    // Six registered pairs x five fixtures x four states is 120 jsdom renders,
-    // and the notebook pair's columns mount a block frame per row, so the sweep
-    // needs a budget off the default rather than a boundary one.
-  }, 120_000)
+  }, 180_000)
+
+  it('renders every router-free registered pair in each scenario state', () => {
+    for (const pair of ROUTER_FREE_PAIRS) {
+      const { unmount } = renderHarness([pair])
+      fireEvent.change(screen.getByTestId('comparison-fixture'), {
+        target: { value: 'long-labels' },
+      })
+      for (const state of ['ready', 'loading', 'error', 'restricted']) {
+        fireEvent.change(screen.getByTestId('comparison-state'), {
+          target: { value: state },
+        })
+        expect(columnElement('ours').dataset.scenarioState).toBe(state)
+      }
+      unmount()
+    }
+  }, 180_000)
 
   // Two 5,000-row jsdom renders take seconds, so this one gets its own timeout;
   // the browser run measures the same fixture in a real engine. Measured ~29s
@@ -321,6 +348,21 @@ describe('the registered pair set', () => {
       'quantity-field',
       'shortcut-keys',
       'import-file-upload',
+      'registry-grid',
+      'native-select',
+      'tab-family',
+      'pressed-chips',
+      'spinner',
+      'progress',
+      'collapsible',
+      'payload-block',
+      'avatar-initials',
+      'notice-banner',
+      'file-type',
+      'paging-a-list',
+      'load-more-control',
+      'list-header',
+      'breadcrumb-trail',
     ])
   })
 

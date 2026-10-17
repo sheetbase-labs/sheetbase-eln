@@ -20,6 +20,7 @@ import {
   Muted,
 } from '#/components/v3/ui/layout'
 import {
+  ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
@@ -220,12 +221,10 @@ function ProtocolsList() {
             })
           }
         />
-        <div className="min-h-0 flex-1 overflow-hidden px-4 py-3 max-lg:overflow-auto md:px-6">
+        <div className="min-h-0 flex-1 overflow-auto">
           {query.isLoading || visible.length > 0 ? (
             <ProtocolsRegistryGrid
               rows={visible}
-              total={counts[tab]}
-              scopeLabel={tabLabel[tab].toLowerCase()}
               ownerLabel={names.userLabel}
               isLoading={query.isLoading}
               sorting={sorting}
@@ -278,6 +277,13 @@ function ProtocolsList() {
             </div>
           ) : null}
         </div>
+        <ListFooter
+          right={
+            selectedIds.length ? `${selectedIds.length} selected` : undefined
+          }
+        >
+          {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
+        </ListFooter>
       </div>
 
       {sel ? (

@@ -81,8 +81,6 @@ function FixtureScreen({
     <div className="flex h-[520px] min-w-0 flex-col p-4">
       <ProtocolsRegistryGrid
         rows={rows}
-        total={rows.length}
-        scopeLabel="effective"
         ownerLabel={() => 'Fixture owner'}
         isLoading={isLoading}
         sorting={sorting}

@@ -6,9 +6,8 @@
  * and ADR-0055 decision 4 asks for a story plus a browser test instead.
  *
  * What it proves, on the design seed:
- * - the grid renders the tab's rows, with the identifier column pinned and the
- *   frame's footer carrying the count (what the bespoke body and `ListFooter`
- *   used to do);
+ * - the grid renders the tab's rows flush, like every other table screen, and
+ *   the screen's own `ListFooter` still carries the count;
  * - the toolbar's Sort menu drives the table's ordering, with the registry's
  *   own collation — en-GB, numbers in their numeric order;
  * - a row click still selects, and the row checkbox adds the keyboard path
@@ -61,7 +60,8 @@ async function openProtocols(page: Page) {
 }
 
 const grid = (page: Page) => page.locator('table').first()
-const footer = (page: Page) => page.locator('[data-slot=frame-panel-footer]')
+/** The screen's own footer band, which the grid does not replace. */
+const footer = (page: Page) => page.locator('[data-slot=table-footer]')
 
 const identifiers = (page: Page) =>
   grid(page)
@@ -73,15 +73,21 @@ test('the protocols registry renders, sorts, selects and links on the grid', asy
 }) => {
   await openProtocols(page)
 
-  // The frame's footer carries the count the old `ListFooter` carried.
+  // The screen's footer carries the count, as it did before the grid.
   await expect(footer(page)).toContainText('10 of 10 effective')
   expect(await identifiers(page)).toEqual(ACTIVE)
 
-  // The identifier column is pinned, and the rows are the virtual renderer's
-  // (only `DataGridTableVirtual` sets `data-index`).
+  // The rows are the virtual renderer's (only `DataGridTableVirtual` sets
+  // `data-index`), and the table is flush: no registry `Frame` card wraps it,
+  // and the table starts at the list area's own left edge.
   const firstRow = grid(page).locator('tbody tr').first()
-  await expect(firstRow.locator('td[data-pinned="start"]')).toHaveCount(2)
   await expect(firstRow).toHaveAttribute('data-index', '0')
+  await expect(page.locator('[data-slot=frame]')).toHaveCount(0)
+  const tableBox = await grid(page).boundingBox()
+  const areaBox = await page
+    .locator('[data-slot=data-grid-scroll-area]')
+    .boundingBox()
+  expect(tableBox!.x - areaBox!.x).toBe(0)
 
   // The toolbar's Sort menu drives the table's ordering.
   await page.getByRole('button', { name: 'Sort' }).click()

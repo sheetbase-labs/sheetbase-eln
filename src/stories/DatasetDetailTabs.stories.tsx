@@ -27,7 +27,7 @@ const meta = {
     tanstack: {
       router: {
         // The Imports tab links each receipt to its retained file.
-        route: screenRoutes(['/datasets/$datasetId', '/import/$importId']),
+        route: screenRoutes('/datasets/$datasetId', ['/import/$importId']),
         path: '/datasets/$datasetId',
         params: { datasetId: DATASET_ID },
       },
@@ -113,7 +113,9 @@ export const Imports: Story = {
 
 /** A dataset that has never been imported into: the create action is Import a file. */
 export const ImportsEmpty: Story = {
-  decorators: [provider([{ key: importQueryKeys.imports(DATASET_ID), value: [] }])],
+  decorators: [
+    provider([{ key: importQueryKeys.imports(DATASET_ID), value: [] }]),
+  ],
   render: () => <DatasetImportsTab datasetId={DATASET_ID} />,
 }
 
@@ -182,7 +184,10 @@ export const UsedBy: Story = {
 export const UsedByNothingYet: Story = {
   decorators: [
     provider([
-      { key: usedByKey, value: { kind: 'dataset', id: DATASET_ID, dependencies: [] } },
+      {
+        key: usedByKey,
+        value: { kind: 'dataset', id: DATASET_ID, dependencies: [] },
+      },
     ]),
   ],
   render: () => <DatasetUsedByTab datasetId={DATASET_ID} />,
@@ -244,7 +249,9 @@ const historyPage = {
 const historyKey = auditHistoryQueryKeys.events({ object: DATASET_ID })
 
 export const History: Story = {
-  decorators: [provider([{ key: historyKey, value: infinitePage(historyPage) }])],
+  decorators: [
+    provider([{ key: historyKey, value: infinitePage(historyPage) }]),
+  ],
   render: () => <DatasetHistoryTab datasetId={DATASET_ID} />,
 }
 

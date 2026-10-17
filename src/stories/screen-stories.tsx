@@ -1,7 +1,9 @@
+import { useEffect, useRef } from 'react'
 import { QueryClient } from '@tanstack/react-query'
 import { createRootRoute, createRoute } from '@tanstack/react-router'
 
 import { DataClientError } from '#/lib/data-client'
+import { notebookDataClient } from '#/lib/notebook-data'
 
 /**
  * The harness the v3 screen stories share.
@@ -22,11 +24,21 @@ import { DataClientError } from '#/lib/data-client'
  *   failed, which renders the screen's own loading, denied and error states.
  */
 
-/** The sandbox route tree for one story: the paths the screen links to. */
-export function screenRoutes(paths: readonly string[]) {
+/** The sandbox route tree for one story: the screen's own path, then its links. */
+export function screenRoutes(
+  /**
+   * The path the story renders on. It must come first: the framework injects
+   * the story into the tree's first route, and the story URL is resolved
+   * against it — a tree whose first route is a different destination renders
+   * nothing at all, silently.
+   */
+  mount: string,
+  /** Every other path the screen links to, so its `Link`s resolve. */
+  links: readonly string[] = [],
+) {
   const root = createRootRoute()
   return root.addChildren(
-    paths.map((path) =>
+    [mount, ...links].map((path) =>
       createRoute({
         path,
         getParentRoute: () => root,
@@ -74,6 +86,62 @@ export function screenQueryClient({
   })
   for (const seed of data) client.setQueryData(seed.key, seed.value)
   return client
+}
+
+/** The two client methods a story can replace for an imperative read. */
+export type DataClientStub = {
+  rpc?: (name: string, args: Record<string, unknown>) => Promise<unknown>
+  list?: (resource: string, query?: string) => Promise<unknown[]>
+}
+
+/**
+ * Some screens call the shared `notebookDataClient` imperatively rather than
+ * through React Query — the palette's search and the schedule dialog's
+ * workspace time zone. A query cache cannot seed those, and Storybook has no
+ * module-boundary mock, so those stories replace the two methods for their
+ * lifetime. The patch is applied during render because a child's mount effect
+ * runs before the parent's, so an effect-installed patch would arrive after the
+ * screen's first read. No request leaves the page: the stub answers instead.
+ */
+export function StubDataClient({
+  stub,
+  children,
+}: {
+  stub: DataClientStub
+  children: React.ReactNode
+}) {
+  const saved = useRef<DataClientStub | null>(null)
+  const applied = useRef<DataClientStub | null>(null)
+
+  const install = () => {
+    const client = notebookDataClient as unknown as DataClientStub
+    saved.current ??= {}
+    if (stub.rpc) {
+      saved.current.rpc ??= client.rpc
+      client.rpc = stub.rpc
+    }
+    if (stub.list) {
+      saved.current.list ??= client.list
+      client.list = stub.list
+    }
+    applied.current = stub
+  }
+
+  if (applied.current !== stub) install()
+
+  useEffect(() => {
+    // Re-install after StrictMode's effect cleanup restored the originals.
+    if (applied.current !== stub) install()
+    return () => {
+      const client = notebookDataClient as unknown as DataClientStub
+      if (saved.current?.rpc) client.rpc = saved.current.rpc
+      if (saved.current?.list) client.list = saved.current.list
+      saved.current = null
+      applied.current = null
+    }
+  }, [stub])
+
+  return <>{children}</>
 }
 
 /**

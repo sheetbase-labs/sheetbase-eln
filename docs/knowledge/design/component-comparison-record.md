@@ -366,6 +366,13 @@ grip was not rendered.
   icon set has no grip or drag icon; that is a discoverability question for the
   touch path, recorded here rather than fixed in a swap.
 
+- **The bulk fixture is not measurable on this pair.** The browser harness
+  renders a rich row per row on both sides — ours is the shipped notebook
+  list — so the page never reaches a reportable state at 5,000 rows. The
+  bulk check runs on a light pair instead, and this pair's density is
+  measured at 1440×900 and 390×844. `docs/development/component-compare.md`
+  records both this and the Playwright timeout trap it exposed.
+
 ## Row 2 — Step progress row (`import-stepper`)
 
 ### The step chrome in `src`, as found (2026-10-16)

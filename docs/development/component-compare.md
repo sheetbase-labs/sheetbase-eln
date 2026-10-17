@@ -261,6 +261,17 @@ instrument ingestion panel and the notebook's file block).
 
 ## What this harness does not do
 
+- **A per-test timeout is `test.setTimeout()`, not a third argument.** This
+  repository's Playwright ignores `test(title, body, timeout)`, so a test that
+  needs more than the config's 30 s fails at 30 s with
+  `Test timeout of 30000ms exceeded` while reporting the assertion it was on.
+- **The notebook pair cannot be measured at 5,000 rows.** Both of its columns
+  mount a rich row per row — ours is the shipped notebook list, where every row
+  is a block frame with its own editor surface — so the page never reaches a
+  reportable state inside a sane budget. The bulk check runs on a pair whose
+  columns are light (`shortcut-keys`) and the notebook pair's density is measured
+  at 1440×900 and 390×844 with the long-labels fixture. Row 1a records the limit.
+
 - It does not decide anything, and it does not gate adoption by itself: axe,
   screenshots and the checklist are evidence for the record.
 - `empty`, `loading` and `error` are states of a whole screen, and the harness

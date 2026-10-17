@@ -37,7 +37,6 @@ const COLUMNS = ['ours', 'theirs'] as const
 type ColumnId = (typeof COLUMNS)[number]
 
 /**
-<<<<<<< HEAD
  * The pairs the generic checks below run against — axe, appearance, Tab order,
  * the three screen states and density. A pair is added here when it is
  * registered; the reorder, pointer and 5,000-row tests stay on the pair they
@@ -57,13 +56,6 @@ type PairId = (typeof PAIRS)[number]
 
 /** A pair whose components reorder rows: the drag and drop tests are its own. */
 const REORDERABLE_PAIR: PairId = 'notebook-sortable'
-=======
- * The second registered pair (ADR-0055 workstream B5). The notebook pair is
- * the harness's default and the tests above it are its own; the file pair is
- * driven explicitly, because selecting a pair is how a reader reaches it.
- */
-const FILE_PAIR = 'import-file-upload'
->>>>>>> 95e25830
 
 test.use({ viewport: DESKTOP, deviceScaleFactor: 1, locale: 'en-GB' })
 
@@ -74,11 +66,9 @@ async function openHarness(
     theme: 'light' | 'dark'
     fixture?: string
     state?: string
-<<<<<<< HEAD
     pair?: PairId
-=======
-    pair?: string
->>>>>>> 95e25830
+    /** Which column must report the fixture; both by default. */
+    expectFixture?: ColumnId
   } = {
     theme: 'light',
   },
@@ -99,19 +89,18 @@ async function openHarness(
   await waitForInteractive(page)
   if (options.pair) {
     await page.getByTestId('comparison-pair').selectOption(options.pair)
-<<<<<<< HEAD
-=======
     for (const id of COLUMNS) {
       await expect(column(page, id)).toHaveAttribute(
         'data-pair-id',
         options.pair,
       )
     }
->>>>>>> 95e25830
   }
   if (options.fixture) {
     await page.getByTestId('comparison-fixture').selectOption(options.fixture)
-    for (const id of COLUMNS) {
+    for (const id of options.expectFixture
+      ? [options.expectFixture]
+      : COLUMNS) {
       await expect(column(page, id)).toHaveAttribute(
         'data-fixture-id',
         options.fixture,
@@ -270,8 +259,11 @@ test.describe('keyboard', () => {
    * accessible name]` prefixes. The Tab walk below asserts these are reached.
    */
   const CONTROL_PATH: Record<PairId, readonly string[]> = {
+    // After the adoption our column renders the shipped integration: the row
+    // itself is the labelled, focusable group (its accessible name carries the
+    // "Alt+Arrow keys move this row" hint) and the grip is its own control.
     'notebook-sortable': [
-      'ours|BUTTON||Drag block',
+      'ours|DIV|sortable-item|',
       'theirs|BUTTON|sortable-item-handle|Reorder',
     ],
 
@@ -337,8 +329,10 @@ test.describe('keyboard', () => {
       // The notebook's rows are keyboard-reachable in their own right; the
       // numeric pair's rows are not widgets, so it has no equivalent.
       if (pair === REORDERABLE_PAIR) {
+        // The notebook's rows are keyboard-reachable in their own right, and the
+        // shipped integration marks each one `data-slot="sortable-item"`.
         const oursRows = reached.filter((key) =>
-          key.startsWith('ours|DIV||'),
+          key.startsWith('ours|DIV|sortable-item|'),
         ).length
         expect(oursRows).toBeGreaterThan(2)
       }
@@ -391,6 +385,47 @@ test.describe('keyboard', () => {
   })
 })
 
+/**
+ * Drive a reorder with explicit pointer moves. `locator.dragTo()` cannot do it:
+ * the move that satisfies dnd-kit's distance constraint only starts the drag, so
+ * the drop resolves to no target and the order never changes.
+ */
+async function dragRowOntoRow(
+  page: Page,
+  columnId: ColumnId,
+  fromRowId: string,
+  toRowId: string,
+) {
+  const list = column(page, columnId)
+  const source = list.locator(
+    `[data-row-id="${fromRowId}"] [data-slot="sortable-item-handle"]`,
+  )
+  await source.scrollIntoViewIfNeeded()
+  const from = await source.boundingBox()
+  const to = await list.locator(`[data-row-id="${toRowId}"]`).boundingBox()
+  if (!from || !to) throw new Error(`no bounding box for the ${columnId} drag`)
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(
+    from.x + from.width / 2,
+    from.y + from.height / 2 + 20,
+    {
+      steps: 5,
+    },
+  )
+  await expect(
+    list.locator('[data-slot="sortable-item"][data-dragging="true"]'),
+  ).toHaveCount(1)
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
+    steps: 12,
+  })
+  // The candidate announces the row it is over, which is the evidence that the
+  // pointer move was registered rather than a sleep.
+  await expect(list.getByRole('status')).toContainText(toRowId)
+  await page.mouse.up()
+}
+
 test.describe('mouse', () => {
   test(`${REORDERABLE_PAIR} — reorders by pointer drag in both columns`, async ({
     page,
@@ -404,11 +439,7 @@ test.describe('mouse', () => {
     // Ours: native HTML5 drag from the notebook's grip handle onto a row. The
     // handle sits in the row's left gutter, so it is grabbed from its own box.
     const oursBefore = await rowIds(page, 'ours')
-    await column(page, 'ours')
-      .locator(
-        `[data-row-id="${oursBefore[0]}"] button[aria-label="Drag block"]`,
-      )
-      .dragTo(column(page, 'ours').locator(`[data-row-id="${oursBefore[2]}"]`))
+    await dragRowOntoRow(page, 'ours', oursBefore[0]!, oursBefore[2]!)
     await expect
       .poll(async () => (await rowIds(page, 'ours')).slice(0, 3))
       .toEqual([oursBefore[1], oursBefore[2], oursBefore[0]])
@@ -460,7 +491,11 @@ test.describe('states', () => {
   // The empty, loading and error states are the harness's own and apply to
   // every pair; `restricted` is component-specific and is checked on the pair
   // whose components reorder.
-  for (const pair of PAIRS) {
+  // The empty-state and history-rows pairs render their own states, so the
+  // harness notices these two checks assert are not what their columns show;
+  // their own blocks below assert the states they ship.
+  const OWN_STATE: readonly PairId[] = ['empty-state', 'history-rows']
+  for (const pair of PAIRS.filter((id) => !OWN_STATE.includes(id))) {
     test(`${pair} — says "no rows" and keeps its controls for the empty fixture`, async ({
       page,
     }) => {
@@ -827,22 +862,30 @@ test.describe('density and overflow', () => {
 
         if (pair !== REORDERABLE_PAIR) return
 
-        // The notebook's grip handle is desktop-only (`hidden lg:flex`); the
-        // ReUI handle is not. That difference is the point of this check, so it
-        // is asserted per column rather than averaged away.
+        // The notebook's grip used to be desktop-only (`hidden lg:flex`), which
+        // is the missing behaviour the adoption was decided on: below 1024px the
+        // list had no pointer or touch route to a reorder at all. It is rendered
+        // at every width now, so the assertion is not merely that it is visible
+        // but that it reorders.
         const oursHandles = column(page, 'ours').locator(
           'button[aria-label="Drag block"]',
         )
         const theirsHandles = column(page, 'theirs').locator(
           '[data-slot="sortable-item-handle"]',
         )
-        if (size.width >= 1024) {
-          await expect(oursHandles.first()).toBeVisible()
-          await expect(theirsHandles.first()).toBeVisible()
+        for (const handles of [oursHandles, theirsHandles]) {
+          await expect(handles.first()).toBeVisible()
+          const box = await handles.first().boundingBox()
+          expect(box).not.toBeNull()
+          expect(box!.width).toBeGreaterThanOrEqual(16)
+        }
+        if (size.width < 1024) {
+          const before = await rowIds(page, 'ours')
+          await dragRowOntoRow(page, 'ours', before[0]!, before[2]!)
+          await expect
+            .poll(async () => (await rowIds(page, 'ours')).slice(0, 3))
+            .toEqual([before[1], before[2], before[0]])
         } else {
-          await expect(oursHandles.first()).toBeHidden()
-          await expect(theirsHandles.first()).toBeVisible()
-
           // Below 1024px our grip handle is not rendered at all, so pointer
           // reordering is unavailable on our side; the keyboard path still works
           // and the candidate keeps both. This is the density finding the record
@@ -865,13 +908,19 @@ test.describe('density and overflow', () => {
     }
   }
 
-  test(`${REORDERABLE_PAIR} — renders the 5,000-row fixture without horizontal growth`, async ({
+  // The notebook pair cannot be measured at 5,000 rows: both of its columns mount
+  // a rich row per row (ours is the shipped notebook list, every row a block
+  // frame with its own editor surface), so the page never reaches a reportable
+  // state inside a sane budget. That limit is recorded in the runbook and the
+  // pair's row; the bulk measurement runs on a pair whose columns are light.
+  test('renders the 5,000-row fixture without horizontal growth', async ({
     page,
   }) => {
+    test.setTimeout(120_000)
     await openHarness(page, {
       theme: 'light',
       fixture: 'bulk',
-      pair: REORDERABLE_PAIR,
+      pair: 'shortcut-keys',
     })
     for (const id of COLUMNS) {
       await expect(column(page, id).locator('[data-row-id]')).toHaveCount(5000)

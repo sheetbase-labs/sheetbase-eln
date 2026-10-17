@@ -14,13 +14,10 @@ import {
   DropdownMenuTrigger,
 } from '#/components/v3/ui/dropdown-menu'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { useUserNames } from '#/lib/user-names'
 import { createDataClient } from '#/lib/data-client'
 import {
@@ -103,6 +100,70 @@ function AnalysisHome() {
   )
   const rows = views.data ?? []
   const names = useUserNames(rows.map((r) => r.owner_user_id).filter(Boolean))
+  const columns = useMemo<RegistryColumn<AnalysisViewWire>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        meta: {
+          headerClassName: 'pl-4!',
+          cellClassName: 'pl-4!',
+        },
+        cell: ({ row }) => (
+          <Link
+            to="/analysis/$analysisId"
+            params={{ analysisId: row.original.id }}
+            className="mono"
+          >
+            {row.original.display_id ?? row.original.id.slice(0, 8)}
+          </Link>
+        ),
+      },
+      {
+        id: 'name',
+        header: 'Name',
+        meta: { cellClassName: 'font-medium' },
+        cell: ({ row }) => row.original.name,
+      },
+      {
+        id: 'kind',
+        header: 'Kind',
+        cell: ({ row }) => (
+          <Status tone="analysis">{kindLabel(row.original)}</Status>
+        ),
+      },
+      {
+        id: 'source',
+        header: 'Source',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) =>
+          (datasets.data ?? []).find(
+            (dataset) =>
+              dataset.id === row.original.spec.datasets[0]?.datasetId,
+          )?.name ?? '—',
+      },
+      {
+        id: 'owner',
+        header: 'Owner',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => names.userLabel(row.original.owner_user_id),
+      },
+      {
+        id: 'updated',
+        header: 'Updated',
+        meta: {
+          headerClassName: 'pr-4!',
+          cellClassName: 'pr-4! text-fg-muted',
+        },
+        cell: ({ row }) => row.original.updated_at.slice(0, 10),
+      },
+    ],
+    [datasets.data, names],
+  )
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    selectedId,
+    setSelectedId,
+  )
   const datasetName = (id: string | undefined) =>
     (datasets.data ?? []).find((d) => d.id === id)?.name ?? '—'
 
@@ -169,7 +230,7 @@ function AnalysisHome() {
           <EmptyState
             icon="lock"
             title="You don’t have access to analyses"
-            body="Your workspace role doesn’t include Analysis. You can still see figures that records cite. A workspace admin can change your role in Settings › Members."
+            description="Your workspace role doesn’t include Analysis. You can still see figures that records cite. A workspace admin can change your role in Settings › Members."
           />
         </div>
       </div>
@@ -283,69 +344,52 @@ function AnalysisHome() {
                 icon="chart"
                 className="items-center text-center"
                 title={emptyCopy.title}
-                body={emptyCopy.body}
-              >
-                <div className="flex flex-wrap justify-center gap-2">
-                  {MODES.map((m) => (
+                description={emptyCopy.body}
+                action={
+                  needle ? (
                     <Button
-                      key={m.mode}
-                      nativeButton={false}
-                      render={
-                        <Link to="/analysis/new" search={{ mode: m.mode }} />
+                      onClick={() =>
+                        void navigate({
+                          to: '/analysis',
+                          search: { tab },
+                          replace: true,
+                        })
                       }
                     >
-                      Start a {m.label.toLowerCase()}
+                      Clear search
                     </Button>
-                  ))}
-                </div>
-              </EmptyState>
+                  ) : (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {MODES.map((m) => (
+                        <Button
+                          key={m.mode}
+                          nativeButton={false}
+                          render={
+                            <Link
+                              to="/analysis/new"
+                              search={{ mode: m.mode }}
+                            />
+                          }
+                        >
+                          Start a {m.label.toLowerCase()}
+                        </Button>
+                      ))}
+                    </div>
+                  )
+                }
+              />
             </div>
           ) : (
-            <Table aria-label="Saved analyses">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="first:pl-4">ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead className="pr-4">Updated</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visible.map((v) => (
-                  <TableRow
-                    key={v.id}
-                    selected={v.id === selected?.id}
-                    className="cursor-pointer"
-                    onClick={() => setSelectedId(v.id)}
-                  >
-                    <TableCell className="first:pl-4">
-                      <Link
-                        to="/analysis/$analysisId"
-                        params={{ analysisId: v.id }}
-                        className="mono"
-                      >
-                        {v.display_id ?? v.id.slice(0, 8)}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-medium">{v.name}</TableCell>
-                    <TableCell>
-                      <Status tone="analysis">{kindLabel(v)}</Status>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {datasetName(v.spec.datasets[0]?.datasetId)}
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {names.userLabel(v.owner_user_id)}
-                    </TableCell>
-                    <TableCell className="pr-4 text-fg-muted">
-                      {v.updated_at.slice(0, 10)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Saved analyses"
+              rows={visible}
+              columns={columns}
+              getRowId={(view) => view.id}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              onRowClick={(view) => setSelectedId(view.id)}
+              selectable={false}
+            />
           )}
         </div>
       </div>

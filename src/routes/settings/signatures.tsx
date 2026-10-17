@@ -24,15 +24,9 @@ import {
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { TableBox } from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   CheckRow,
@@ -84,6 +78,28 @@ const MEANING_ROWS = [
     usedFor: 'Releasing the record as evidence',
   },
 ] as const
+
+const signatureMeaningColumns: RegistryColumn<(typeof MEANING_ROWS)[number]>[] =
+  [
+    {
+      id: 'meaning',
+      header: 'Meaning',
+      meta: { cellClassName: 'font-medium' },
+      cell: ({ row }) => row.original.meaning,
+    },
+    {
+      id: 'who',
+      header: 'Who can sign',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) => row.original.who,
+    },
+    {
+      id: 'usedFor',
+      header: 'Used for',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) => row.original.usedFor,
+    },
+  ]
 
 /**
  * Regulated signing always re-establishes the account session, and the step-up
@@ -395,24 +411,13 @@ function Signatures() {
 
         <Section title="Signature meanings" count={MEANING_ROWS.length}>
           <TableBox className="max-w-[760px]">
-            <Table aria-label="Signature meanings">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Meaning</TableHead>
-                  <TableHead>Who can sign</TableHead>
-                  <TableHead>Used for</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {MEANING_ROWS.map((m) => (
-                  <TableRow key={m.meaning}>
-                    <TableCell className="font-medium">{m.meaning}</TableCell>
-                    <TableCell className="text-fg-muted">{m.who}</TableCell>
-                    <TableCell className="text-fg-muted">{m.usedFor}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Signature meanings"
+              rows={[...MEANING_ROWS]}
+              columns={signatureMeaningColumns}
+              getRowId={(meaning) => meaning.meaning}
+              selectable={false}
+            />
           </TableBox>
         </Section>
 

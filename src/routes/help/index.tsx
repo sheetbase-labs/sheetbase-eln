@@ -144,9 +144,13 @@ function HelpCentre() {
               title={`Results for “${q}”`}
               count={hits.length}
               action={
-                <Link to="/help" className="text-label">
-                  Clear search
-                </Link>
+                // When nothing matches, the empty state below carries the
+                // Clear search action, so the header would duplicate it.
+                hits.length ? (
+                  <Link to="/help" className="text-label">
+                    Clear search
+                  </Link>
+                ) : undefined
               }
             >
               {hits.length ? (
@@ -178,13 +182,18 @@ function HelpCentre() {
                   icon="search"
                   className="py-3"
                   title="No help articles match"
-                  body={
+                  description={
                     <>
                       Try the name of an action or a record, like “sign”,
                       “snapshot” or “import”. If you’re stuck, see{' '}
                       <a href="#support">Contact support</a> for how to reach
                       the IT service desk.
                     </>
+                  }
+                  action={
+                    <Link to="/help" className="text-label">
+                      Clear search
+                    </Link>
                   }
                 />
               )}

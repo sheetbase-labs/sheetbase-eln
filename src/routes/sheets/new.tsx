@@ -130,7 +130,7 @@ function NewSheet() {
           <EmptyState
             icon="table"
             title="This sheet is empty"
-            body="A working sheet is for trying things. Bring in data you want to look at, then add local columns to explore it."
+            description="A working sheet is for trying things. Bring in data you want to look at, then add local columns to explore it."
             className="py-0"
           />
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">

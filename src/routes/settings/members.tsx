@@ -32,15 +32,12 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/v3/ui/dialog'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import { SettingsHeader } from '#/components/v3/settings/settings-page'
 import { WorkspaceGroups } from '#/components/v3/settings/workspace-groups'
@@ -275,6 +272,254 @@ function Members() {
     [rows, context.user.id],
   )
 
+  const memberColumns: RegistryColumn<(typeof rows)[number]>[] = [
+    {
+      id: 'name',
+      header: 'Name',
+      cell: ({ row }) => (
+        <>
+          {names.userLabel(row.original.userId)}
+          {row.original.userId === context.user.id ? (
+            <span className="text-fg-muted"> · you</span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: 'role',
+      header: 'Role',
+      cell: ({ row }) => (
+        <>
+          {WORKSPACE_ROLE_LABELS[row.original.role]}
+          {row.original.role === 'client_viewer' ? (
+            <span className="text-fg-muted">
+              {' '}
+              · {clientName(row.original.clientId)}
+            </span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: 'groups',
+      header: 'Groups',
+      cell: ({ row }) =>
+        groups.isError
+          ? 'Unavailable'
+          : groups.isPending
+            ? 'Loading…'
+            : groups.data
+                .filter((group) =>
+                  group.member_ids.includes(row.original.userId),
+                )
+                .map((group) => group.name)
+                .join(', ') || '—',
+    },
+    {
+      id: 'training',
+      header: 'Training',
+      cell: ({ row }) => {
+        const member = row.original
+        if (member.role === 'client_viewer') return '—'
+        const status = memberStatus.data?.find(
+          (entry) => entry.user_id === member.userId,
+        )
+        if (!status) return memberStatus.isPending ? 'Loading…' : 'Unavailable'
+        return (
+          <Status
+            tone={
+              status.training_overdue || status.training_required
+                ? 'warn'
+                : 'ok'
+            }
+          >
+            {status.training_overdue
+              ? `${status.training_overdue} overdue`
+              : status.training_required
+                ? `${status.training_required} to read`
+                : 'Current'}
+          </Status>
+        )
+      },
+    },
+    {
+      id: 'signature',
+      header: 'E-signature',
+      cell: ({ row }) => {
+        const member = row.original
+        if (member.role === 'client_viewer') return '—'
+        if (certifications.isPending) return 'Loading…'
+        if (certifications.isError) return 'Unavailable'
+        const certification = certifications.data.find(
+          (entry) => entry.userId === member.userId,
+        )
+        return certification?.revokedAt
+          ? 'Revoked'
+          : isCurrentStatement(certification)
+            ? 'Certified'
+            : certification?.verificationRequested
+              ? 'Pending verification'
+              : certification?.identityVerifiedAt
+                ? 'Identity verified / not certified'
+                : 'Not certified'
+      },
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <Status tone={row.original.suspendedAt ? 'warn' : 'ok'}>
+          {row.original.suspendedAt ? 'Suspended' : 'Active'}
+        </Status>
+      ),
+    },
+    {
+      id: 'lastActive',
+      header: 'Last active',
+      meta: {
+        ...rightAligned<(typeof rows)[number]>().meta,
+        cellClassName: 'text-right text-fg-muted',
+      },
+      cell: ({ row }) => {
+        const member = row.original
+        if (memberStatus.isError) return 'Unavailable'
+        if (memberStatus.isPending) return 'Loading…'
+        return (
+          memberStatus.data
+            .find((entry) => entry.user_id === member.userId)
+            ?.last_active_at?.replace('T', ' ')
+            .slice(0, 16) ?? '—'
+        )
+      },
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      meta: rightAligned<(typeof rows)[number]>().meta,
+      cell: ({ row }) => {
+        const member = row.original
+        if (!canManage || member.userId === context.user.id) return null
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  size="sm"
+                  aria-label={`Manage ${names.userLabel(member.userId)}`}
+                />
+              }
+            >
+              Manage
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  setDialog({
+                    kind: 'role',
+                    userId: member.userId,
+                    name: names.userLabel(member.userId),
+                    role: member.role,
+                    clientId: member.clientId ?? null,
+                  })
+                }
+              >
+                Role
+              </DropdownMenuItem>
+              {member.suspendedAt ? (
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialog({
+                      kind: 'reinstate',
+                      userId: member.userId,
+                      name: names.userLabel(member.userId),
+                    })
+                  }
+                >
+                  Reinstate
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() =>
+                    setDialog({
+                      kind: 'suspend',
+                      userId: member.userId,
+                      name: names.userLabel(member.userId),
+                    })
+                  }
+                >
+                  Suspend
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                danger
+                onClick={() =>
+                  setDialog({
+                    kind: 'remove',
+                    userId: member.userId,
+                    name: names.userLabel(member.userId),
+                  })
+                }
+              >
+                Remove
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
+
+  const invitationColumns: RegistryColumn<(typeof pending)[number]>[] = [
+    {
+      id: 'email',
+      header: 'Email',
+      cell: ({ row }) => row.original.email,
+    },
+    {
+      id: 'role',
+      header: 'Role',
+      cell: ({ row }) => (
+        <>
+          {WORKSPACE_ROLE_LABELS[row.original.role]}
+          {row.original.role === 'client_viewer' ? (
+            <span className="text-fg-muted">
+              {' '}
+              · {clientName(row.original.clientId)}
+            </span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: 'expires',
+      header: 'Expires',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) => row.original.expiresAt.slice(0, 10),
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      meta: rightAligned<(typeof pending)[number]>().meta,
+      cell: ({ row }) =>
+        canManage ? (
+          <Button
+            size="sm"
+            variant="quiet"
+            disabled={revoke.isPending}
+            onClick={() =>
+              setDialog({
+                kind: 'revoke',
+                invitationId: row.original.id,
+                email: row.original.email,
+              })
+            }
+          >
+            Revoke
+          </Button>
+        ) : null,
+    },
+  ]
+
   return (
     <>
       <SettingsHeader
@@ -304,244 +549,46 @@ function Members() {
         do; project membership decides where.
       </SettingsHeader>
       <div className="min-h-0 flex-1 overflow-auto">
-        <Table aria-label="Members">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Groups</TableHead>
-              <TableHead>Training</TableHead>
-              <TableHead>E-signature</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead align="right">Last active</TableHead>
-              <TableHead align="right" aria-label="Actions" />
-            </TableRow>
-          </TableHeader>
-          <TableBody loading={members.isLoading} colSpan={8}>
-            {rows.map((m) => (
-              <TableRow key={m.id}>
-                <TableCell>
-                  {names.userLabel(m.userId)}
-                  {m.userId === context.user.id ? (
-                    <span className="text-fg-muted"> · you</span>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  {WORKSPACE_ROLE_LABELS[m.role]}
-                  {m.role === 'client_viewer' ? (
-                    <span className="text-fg-muted">
-                      {' '}
-                      · {clientName(m.clientId)}
-                    </span>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  {groups.isError
-                    ? 'Unavailable'
-                    : groups.isPending
-                      ? 'Loading…'
-                      : groups.data
-                          .filter((g) => g.member_ids.includes(m.userId))
-                          .map((g) => g.name)
-                          .join(', ') || '—'}
-                </TableCell>
-                <TableCell>
-                  {m.role === 'client_viewer'
-                    ? '—'
-                    : (() => {
-                        const status = memberStatus.data?.find(
-                          (s) => s.user_id === m.userId,
-                        )
-                        if (!status)
-                          return memberStatus.isPending
-                            ? 'Loading…'
-                            : 'Unavailable'
-                        return (
-                          <Status
-                            tone={
-                              status.training_overdue ||
-                              status.training_required
-                                ? 'warn'
-                                : 'ok'
-                            }
-                          >
-                            {status.training_overdue
-                              ? `${status.training_overdue} overdue`
-                              : status.training_required
-                                ? `${status.training_required} to read`
-                                : 'Current'}
-                          </Status>
-                        )
-                      })()}
-                </TableCell>
-                <TableCell>
-                  {m.role === 'client_viewer'
-                    ? '—'
-                    : (() => {
-                        if (certifications.isPending) return 'Loading…'
-                        if (certifications.isError) return 'Unavailable'
-                        const certification = certifications.data.find(
-                          (c) => c.userId === m.userId,
-                        )
-                        return certification?.revokedAt
-                          ? 'Revoked'
-                          : isCurrentStatement(certification)
-                            ? 'Certified'
-                            : certification?.verificationRequested
-                              ? 'Pending verification'
-                              : certification?.identityVerifiedAt
-                                ? 'Identity verified / not certified'
-                                : 'Not certified'
-                      })()}
-                </TableCell>
-                <TableCell>
-                  <Status tone={m.suspendedAt ? 'warn' : 'ok'}>
-                    {m.suspendedAt ? 'Suspended' : 'Active'}
-                  </Status>
-                </TableCell>
-                <TableCell align="right" className="text-fg-muted">
-                  {memberStatus.isError
-                    ? 'Unavailable'
-                    : memberStatus.isPending
-                      ? 'Loading…'
-                      : (memberStatus.data
-                          .find((s) => s.user_id === m.userId)
-                          ?.last_active_at?.replace('T', ' ')
-                          .slice(0, 16) ?? '—')}
-                </TableCell>
-                <TableCell align="right">
-                  {canManage && m.userId !== context.user.id ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            size="sm"
-                            aria-label={`Manage ${names.userLabel(m.userId)}`}
-                          />
-                        }
-                      >
-                        Manage
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() =>
-                            setDialog({
-                              kind: 'role',
-                              userId: m.userId,
-                              name: names.userLabel(m.userId),
-                              role: m.role,
-                              clientId: m.clientId ?? null,
-                            })
-                          }
-                        >
-                          Role
-                        </DropdownMenuItem>
-                        {m.suspendedAt ? (
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setDialog({
-                                kind: 'reinstate',
-                                userId: m.userId,
-                                name: names.userLabel(m.userId),
-                              })
-                            }
-                          >
-                            Reinstate
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setDialog({
-                                kind: 'suspend',
-                                userId: m.userId,
-                                name: names.userLabel(m.userId),
-                              })
-                            }
-                          >
-                            Suspend
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          danger
-                          onClick={() =>
-                            setDialog({
-                              kind: 'remove',
-                              userId: m.userId,
-                              name: names.userLabel(m.userId),
-                            })
-                          }
-                        >
-                          Remove
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {!members.isLoading && rows.length === 0 ? (
+        {rows.length || members.isLoading ? (
+          <RegistryGrid
+            label="Members"
+            rows={rows}
+            columns={memberColumns}
+            getRowId={(member) => member.id}
+            isLoading={members.isLoading}
+            selectable={false}
+          />
+        ) : (
           <div className="px-4 py-4 md:px-6">
             <EmptyState
               icon="user"
               title="No members"
-              body="Invite people to work in this workspace."
+              description="Invite people to work in this workspace."
+              action={
+                canManage ? (
+                  <Button
+                    variant="primary"
+                    onClick={() => setDialog({ kind: 'invite' })}
+                  >
+                    Invite people
+                  </Button>
+                ) : undefined
+              }
             />
           </div>
-        ) : null}
+        )}
       </div>
       <div className="border-t border-border-subtle px-4 py-4 md:px-6">
         <Section title="Invitations" count={pending.length}>
           {pending.length ? (
             <TableBox className="max-w-[720px]">
-              <Table aria-label="Pending invitations">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Expires</TableHead>
-                    <TableHead align="right" aria-label="Actions" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pending.map((i) => (
-                    <TableRow key={i.id}>
-                      <TableCell>{i.email}</TableCell>
-                      <TableCell>
-                        {WORKSPACE_ROLE_LABELS[i.role]}
-                        {i.role === 'client_viewer' ? (
-                          <span className="text-fg-muted">
-                            {' '}
-                            · {clientName(i.clientId)}
-                          </span>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="text-fg-muted">
-                        {i.expiresAt.slice(0, 10)}
-                      </TableCell>
-                      <TableCell align="right">
-                        {canManage ? (
-                          <Button
-                            size="sm"
-                            variant="quiet"
-                            disabled={revoke.isPending}
-                            onClick={() =>
-                              setDialog({
-                                kind: 'revoke',
-                                invitationId: i.id,
-                                email: i.email,
-                              })
-                            }
-                          >
-                            Revoke
-                          </Button>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Pending invitations"
+                rows={pending}
+                columns={invitationColumns}
+                getRowId={(invitation) => invitation.id}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <Muted>No pending invitations.</Muted>

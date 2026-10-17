@@ -345,7 +345,7 @@ function SearchPage() {
             <EmptyState
               icon="search"
               title="Search names, IDs, cell values, comments and files"
-              body="Type an ID like EXP-0142 or a value like C-150. Press ⌘K anywhere to search without leaving the page."
+              description="Type an ID like EXP-0142 or a value like C-150. Press ⌘K anywhere to search without leaving the page."
             />
           </>
         ) : (

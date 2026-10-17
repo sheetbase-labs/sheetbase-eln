@@ -10,15 +10,12 @@ import {
   Section,
 } from '#/components/v3/ui/layout'
 import { Dot, Status } from '#/components/v3/ui/status'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { HomeQuiet, recentTone } from '#/components/v3/home/home-quiet'
 import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
@@ -36,6 +33,7 @@ import {
   fetchRecentItems,
   recentStatusLabel,
 } from '#/lib/recents'
+import type { RecentItem } from '#/lib/recents'
 import {
   fetchWorkspaceCertifications,
   isCurrentStatement,
@@ -172,6 +170,118 @@ export function firstRunProgress(steps: FirstRunStep[]): {
 } {
   return { done: steps.filter((step) => step.done).length, total: steps.length }
 }
+
+/** A submission awaiting this reader's review, as `fetchHomeReviews` returns
+ * it. */
+interface HomeReviewRow {
+  id: string
+  revisionId: string
+  identifier: string
+  title: string
+  projectTitle: string | null
+  submittedByName: string | null
+  dueAt: string | null
+}
+
+/** Awaiting your review, which names the record, its project, who submitted it
+ * and its due date, with the way into the review. */
+function homeReviewColumns(timeZone: string): RegistryColumn<HomeReviewRow>[] {
+  return [
+    {
+      id: 'record',
+      header: 'Record',
+      cell: ({ row }) => (
+        <Link
+          to="/review/$revisionId"
+          params={{ revisionId: row.original.revisionId }}
+          className="text-fg hover:text-link"
+        >
+          <span className="mono text-fg-muted">{row.original.identifier}</span>{' '}
+          {row.original.title}
+        </Link>
+      ),
+    },
+    {
+      id: 'project',
+      header: 'Project',
+      cell: ({ row }) => row.original.projectTitle ?? '—',
+    },
+    {
+      id: 'submittedBy',
+      header: 'Submitted by',
+      cell: ({ row }) => row.original.submittedByName ?? '—',
+    },
+    {
+      id: 'due',
+      header: 'Due',
+      meta: { cellClassName: 'num' },
+      cell: ({ row }) => homeDueLabel(row.original.dueAt, new Date(), timeZone),
+    },
+    {
+      id: 'action',
+      header: () => <span className="sr-only">Action</span>,
+      meta: rightAligned<HomeReviewRow>().meta,
+      cell: ({ row }) => (
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={
+            <Link
+              to="/review/$revisionId"
+              params={{ revisionId: row.original.revisionId }}
+            />
+          }
+        >
+          Review
+        </Button>
+      ),
+    },
+  ]
+}
+
+const homeRecentColumns: RegistryColumn<RecentItem>[] = [
+  {
+    id: 'name',
+    header: 'Name',
+    cell: ({ row }) => (
+      <>
+        {row.original.identifier ? (
+          <span className="mono text-fg-muted">{row.original.identifier}</span>
+        ) : null}{' '}
+        <Link to={row.original.destination} className="text-fg hover:text-link">
+          {row.original.label}
+        </Link>
+      </>
+    ),
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: ({ row }) => {
+      const status = recentStatusLabel(row.original)
+      return status ? (
+        <Status tone={recentTone(row.original)}>{status}</Status>
+      ) : (
+        <span className="text-fg-muted">—</span>
+      )
+    },
+  },
+  {
+    id: 'change',
+    header: 'Your last change',
+    meta: { cellClassName: 'text-fg-muted' },
+    cell: ({ row }) => describeRecentChange(row.original),
+  },
+  {
+    id: 'updated',
+    header: 'Updated',
+    meta: {
+      ...rightAligned<RecentItem>().meta,
+      cellClassName: 'num text-right text-fg-muted',
+    },
+    cell: ({ row }) => formatRelativeTime(row.original.lastActivityAt),
+  },
+]
 
 export function Home() {
   const { context, shellCounts } = Route.useRouteContext()
@@ -799,62 +909,19 @@ export function Home() {
             >
               {reviews.length ? (
                 <TableBox>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Record</TableHead>
-                        <TableHead>Project</TableHead>
-                        <TableHead>Submitted by</TableHead>
-                        <TableHead>Due</TableHead>
-                        <TableHead>
-                          <span className="sr-only">Action</span>
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {reviews.map((r) => (
-                        <TableRow key={r.id}>
-                          <TableCell>
-                            <Link
-                              to="/review/$revisionId"
-                              params={{ revisionId: r.revisionId }}
-                              className="text-fg hover:text-link"
-                            >
-                              <span className="mono text-fg-muted">
-                                {r.identifier}
-                              </span>{' '}
-                              {r.title}
-                            </Link>
-                          </TableCell>
-                          <TableCell>{r.projectTitle ?? '—'}</TableCell>
-                          <TableCell>{r.submittedByName ?? '—'}</TableCell>
-                          <TableCell className="num">
-                            {homeDueLabel(r.dueAt, new Date(), timeZone)}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Button
-                              size="sm"
-                              nativeButton={false}
-                              render={
-                                <Link
-                                  to="/review/$revisionId"
-                                  params={{ revisionId: r.revisionId }}
-                                />
-                              }
-                            >
-                              Review
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Awaiting your review"
+                    rows={reviews}
+                    columns={homeReviewColumns(timeZone)}
+                    getRowId={(review) => review.id}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <EmptyState
                   className="py-2"
                   title="Nothing awaiting your review"
-                  body="Submitted records assigned to you appear here."
+                  description="Submitted records assigned to you appear here."
                 />
               )}
             </Section>
@@ -869,60 +936,19 @@ export function Home() {
             >
               {recents.length ? (
                 <TableBox>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Your last change</TableHead>
-                        <TableHead align="right">Updated</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {recents.map((r) => {
-                        const status = recentStatusLabel(r)
-                        return (
-                          <TableRow key={`${r.kind}:${r.id}`}>
-                            <TableCell>
-                              {r.identifier ? (
-                                <span className="mono text-fg-muted">
-                                  {r.identifier}
-                                </span>
-                              ) : null}{' '}
-                              <Link
-                                to={r.destination}
-                                className="text-fg hover:text-link"
-                              >
-                                {r.label}
-                              </Link>
-                            </TableCell>
-                            <TableCell>
-                              {status ? (
-                                <Status tone={recentTone(r)}>{status}</Status>
-                              ) : (
-                                <span className="text-fg-muted">—</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-fg-muted">
-                              {describeRecentChange(r)}
-                            </TableCell>
-                            <TableCell
-                              align="right"
-                              className="num text-fg-muted"
-                            >
-                              {formatRelativeTime(r.lastActivityAt)}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Continue working"
+                    rows={recents}
+                    columns={homeRecentColumns}
+                    getRowId={(recent) => `${recent.kind}:${recent.id}`}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <EmptyState
                   className="py-2"
                   title="Nothing worked on recently"
-                  body="Records you edit appear here."
+                  description="Records you edit appear here."
                 />
               )}
             </Section>

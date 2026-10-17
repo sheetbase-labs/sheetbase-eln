@@ -8,13 +8,10 @@ import { Progress } from '#/components/v3/ui/progress'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Status } from '#/components/v3/ui/status'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   SettingsBody,
@@ -130,7 +127,7 @@ function Usage() {
           <EmptyState
             icon="lock"
             title="Only workspace admins can see usage"
-            body="Usage shows seats, storage and activity for the whole workspace. Ask a workspace admin for the numbers you need."
+            description="Usage shows seats, storage and activity for the whole workspace. Ask a workspace admin for the numbers you need."
           />
         </div>
       </>
@@ -166,7 +163,18 @@ function Usage() {
           <EmptyState
             icon="warn"
             title="Usage could not be loaded"
-            body="Check the connection and try again."
+            description="Check the connection and try again."
+            action={
+              <Button
+                onClick={() => {
+                  void usage.refetch()
+                  void storage.refetch()
+                  void members.refetch()
+                }}
+              >
+                Retry
+              </Button>
+            }
           />
         </SettingsBody>
       </>
@@ -528,43 +536,36 @@ function BreakdownTable({
   head: string[]
   rows: React.ReactNode[][]
 }) {
+  const gridRows = rows.map((cells, index) => ({ id: String(index), cells }))
+  const columns: RegistryColumn<(typeof gridRows)[number]>[] = head.map(
+    (heading, index) => ({
+      id: `column-${index}`,
+      header: heading,
+      meta: {
+        ...(index > 0 ? rightAligned<(typeof gridRows)[number]>().meta : {}),
+        ...(index === 0
+          ? {
+              headerClassName: `pl-3!${index === head.length - 1 ? ' pr-3!' : ''}`,
+              cellClassName:
+                'pl-3! min-w-[150px] whitespace-normal py-1.5! leading-[17px]',
+            }
+          : {}),
+        ...(index === head.length - 1 && index > 0
+          ? { headerClassName: 'pr-3! text-right', cellClassName: 'pr-3!' }
+          : {}),
+      },
+      cell: ({ row }) => row.original.cells[index] ?? null,
+    }),
+  )
   return (
     <div className="overflow-hidden rounded-md border border-border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {head.map((h, i) => (
-              <TableHead
-                key={h}
-                align={i > 0 ? 'right' : undefined}
-                className="first:pl-3 last:pr-3"
-              >
-                {h}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((r, k) => (
-            <TableRow key={k}>
-              {r.map((c, i) => (
-                <TableCell
-                  key={i}
-                  align={i > 0 ? 'right' : undefined}
-                  className={
-                    'first:pl-3 last:pr-3' +
-                    (i === 0
-                      ? ' min-w-[150px] whitespace-normal py-1.5 leading-[17px]'
-                      : '')
-                  }
-                >
-                  {c}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <RegistryGrid
+        label={head.join(' · ')}
+        rows={gridRows}
+        columns={columns}
+        getRowId={(row) => row.id}
+        selectable={false}
+      />
     </div>
   )
 }

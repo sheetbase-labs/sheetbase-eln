@@ -3,6 +3,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { CopyButton } from '#/components/v3/ui/copy-button'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -591,15 +592,11 @@ function RequestIdCell({ id }: { id: string }) {
   return (
     <span className="flex items-center gap-1">
       <span className="mono text-label">{id}</span>
-      <Button
+      <CopyButton
+        value={id}
         size="icon"
-        variant="quiet"
-        icon="copy"
         aria-label={`Copy request ID ${id}`}
-        onClick={() => {
-          void navigator.clipboard.writeText(id)
-          toast(`Copied ${id}`)
-        }}
+        copiedMessage={`Copied ${id}`}
       />
     </span>
   )

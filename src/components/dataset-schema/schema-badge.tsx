@@ -3,11 +3,12 @@
  * editor header. Shows the bound schema name and revision, and an
  * "Upgrade available" indicator when a newer published revision exists.
  */
-import { ArrowUpCircle, Loader2 } from 'lucide-react'
+import { ArrowUpCircle } from 'lucide-react'
 
 import { Icon } from '#/components/icons'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { Spinner } from '#/components/v3/ui/spinner'
 import type { ScientificDatasetSchemaBinding } from '#/lib/scientific-sheet-data'
 
 export interface SchemaBadgeProps {
@@ -43,7 +44,7 @@ export function SchemaBadge({
           className="rounded-full"
         >
           {upgrading ? (
-            <Loader2 className="size-3 animate-spin" aria-hidden="true" />
+            <Spinner size={12} />
           ) : (
             <ArrowUpCircle className="size-3" aria-hidden="true" />
           )}

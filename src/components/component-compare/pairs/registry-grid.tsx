@@ -28,7 +28,8 @@ import {
   DataGridTableRowSelectAll,
 } from '#/components/reui/data-grid/data-grid-table'
 import { Frame, FrameFooter, FramePanel } from '#/components/reui/frame'
-import { Select, stickyCell, stickyHead } from '#/components/v3/inventory/list'
+import { stickyCell, stickyHead } from '#/components/v3/inventory/list'
+import { Select } from '#/components/v3/ui/select'
 import { Status } from '#/components/v3/ui/status'
 import {
   Table,

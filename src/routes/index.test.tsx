@@ -459,11 +459,15 @@ describe('Home pace', () => {
     expect(within(projects).getByText('9')).toBeTruthy()
     expect(within(projects).getByText(/of 14 approved/)).toBeTruthy()
     expect(within(projects).getByText('2 in review')).toBeTruthy()
-    expect(
-      within(projects).getByRole('img', {
-        name: '9 of 14 experiments approved',
-      }),
-    ).toBeTruthy()
+    // The approval bar reports a value, not a sentence read as an image.
+    const approval = within(projects).getByRole('progressbar', {
+      name: /^Approval for /,
+    })
+    expect(approval.getAttribute('aria-valuenow')).toBe('9')
+    expect(approval.getAttribute('aria-valuemax')).toBe('14')
+    expect(approval.getAttribute('aria-valuetext')).toBe(
+      '9 of 14 experiments approved',
+    )
 
     // The approved recent is not a pick-up, so it continues the list.
     const continueWorking = screen

@@ -4,6 +4,7 @@ import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { Button } from '#/components/v3/ui/button'
 import { Inspector, InspectorSection, Section } from '#/components/v3/ui/layout'
+import { Progress } from '#/components/v3/ui/progress'
 import { Dot, Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
@@ -279,24 +280,13 @@ export function HomeQuiet(props: HomeQuietProps) {
                       </div>
                     </div>
                     <div>
-                      <div
-                        className="h-1.5 overflow-hidden rounded-full bg-surface-muted"
-                        role="img"
-                        aria-label={`${project.approved} of ${project.total} experiments approved`}
-                      >
-                        <div
-                          className="h-full rounded-full bg-success"
-                          style={{
-                            width: `${
-                              project.total
-                                ? Math.round(
-                                    (project.approved / project.total) * 100,
-                                  )
-                                : 0
-                            }%`,
-                          }}
-                        />
-                      </div>
+                      <Progress
+                        label={`Approval for ${project.title}`}
+                        value={project.approved}
+                        max={project.total}
+                        tone="success"
+                        valueText={`${project.approved} of ${project.total} experiments approved`}
+                      />
                       <div className="num mt-1.5 flex flex-wrap gap-x-3 text-label text-fg-muted">
                         <span>
                           <b className="font-medium text-fg">

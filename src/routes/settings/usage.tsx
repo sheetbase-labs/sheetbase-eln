@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted, Section } from '#/components/v3/ui/layout'
+import { Progress } from '#/components/v3/ui/progress'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Status } from '#/components/v3/ui/status'
 import {
@@ -434,26 +435,17 @@ function MeterCard({
       </div>
       {percent != null ? (
         <div className="flex flex-col gap-1">
-          <div
-            role="progressbar"
-            aria-label={`${label} used`}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(percent)}
-            className="h-1.5 overflow-hidden rounded-full bg-skeleton"
-          >
-            <div
-              className={cn(
-                'h-1.5',
-                level === 'danger'
-                  ? 'bg-danger-text'
-                  : level === 'warning'
-                    ? 'bg-warning-text'
-                    : 'bg-chart-1',
-              )}
-              style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-            />
-          </div>
+          <Progress
+            label={`${label} used`}
+            value={percent}
+            tone={
+              level === 'danger'
+                ? 'danger'
+                : level === 'warning'
+                  ? 'warning'
+                  : 'accent'
+            }
+          />
           {level === 'danger' || level === 'warning' ? (
             <span
               className={cn(

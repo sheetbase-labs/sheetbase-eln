@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
+  Link,
   Outlet,
   createFileRoute,
   redirect,

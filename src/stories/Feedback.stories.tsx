@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
+import { Progress } from '#/components/v3/ui/progress'
+import { Spinner } from '#/components/v3/ui/spinner'
 import {
   Alert,
   AlertDescription,
   AlertTitle,
-  Progress,
   Skeleton,
-  Spinner,
 } from '#/components/ui'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 
@@ -36,7 +36,7 @@ export const Loading: Story = {
         <Spinner />
         Calculating curve fit…
       </div>
-      <Progress value={68} />
+      <Progress label="Fitting the curve" value={68} />
       <Skeleton className="h-24 w-full" />
     </div>
   ),

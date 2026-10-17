@@ -8,6 +8,7 @@ import {
   Muted,
   Section,
 } from '#/components/v3/ui/layout'
+import { Progress } from '#/components/v3/ui/progress'
 import { Status } from '#/components/v3/ui/status'
 import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -531,8 +532,18 @@ function InstrumentPage() {
                         <TableCell>
                           <Status tone={run.tone}>{run.label}</Status>
                         </TableCell>
-                        <TableCell align="right">
-                          {r.progressPercent}%
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Progress
+                              label={`Progress for ${r.name}`}
+                              value={r.progressPercent}
+                              valueText={`${r.progressPercent}%`}
+                              className="w-20"
+                            />
+                            <span className="text-label text-fg-muted">
+                              {r.progressPercent}%
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell className="text-fg-muted">
                           {r.startedAt

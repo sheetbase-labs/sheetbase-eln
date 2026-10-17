@@ -1,7 +1,8 @@
 import * as React from 'react'
-import { Wifi, WifiOff, RefreshCw, Loader2 } from 'lucide-react'
+import { Wifi, WifiOff } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
+import { Spinner } from '#/components/v3/ui/spinner'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import type { LiveStatus } from '#/lib/live-events'
 
@@ -38,23 +39,13 @@ const STATUS_META: Record<
   connecting: {
     label: 'Connecting…',
     dot: 'bg-fg-muted',
-    icon: (
-      <Loader2
-        className="size-3 animate-spin text-fg-muted"
-        aria-hidden="true"
-      />
-    ),
+    icon: <Spinner size={12} className="text-fg-muted" />,
     tip: 'Connecting to the live-event stream.',
   },
   reconnecting: {
     label: 'Reconnecting…',
     dot: 'bg-warning',
-    icon: (
-      <RefreshCw
-        className="size-3 animate-spin text-warning-text"
-        aria-hidden="true"
-      />
-    ),
+    icon: <Spinner size={12} className="text-warning-text" />,
     tip: 'You may be seeing stale data. Saved work is not lost; the stream will catch up automatically.',
   },
   offline: {

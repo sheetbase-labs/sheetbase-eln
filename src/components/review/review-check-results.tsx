@@ -10,6 +10,7 @@
 import { useState } from 'react'
 
 import { Badge } from '#/components/v3/ui/badge'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import type {
@@ -121,9 +122,12 @@ function CheckResultItem({ item }: { item: CheckItemResult }) {
           <div className="mb-1 text-label font-medium uppercase tracking-wide text-fg-muted">
             Evidence
           </div>
-          <pre className="max-h-48 overflow-auto rounded bg-surface-muted p-2 text-label leading-relaxed">
-            {formatEvidence(item.evidence)}
-          </pre>
+          <CodeBlock
+            code={formatEvidence(item.evidence)}
+            language="json"
+            label={`Evidence for ${item.label}`}
+            maxHeight="md"
+          />
         </div>
       )}
     </li>

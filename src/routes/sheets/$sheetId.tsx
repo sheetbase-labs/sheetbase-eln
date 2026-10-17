@@ -3,8 +3,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 
 import { PageHeader } from '#/components/v3/ui/layout'
-import { Button } from '#/components/v3/ui/button'
-import { toast } from '#/components/v3/ui/sonner'
+import { CopyButton } from '#/components/v3/ui/copy-button'
 import {
   CollaborationRoom,
   safeBuildRoomId,
@@ -51,19 +50,6 @@ export const Route = createFileRoute('/sheets/$sheetId')({
   },
   component: ComposedSheetRoute,
 })
-
-/** NAV-02 Share: copies the sheet's deep link. Clipboard access can be denied
- * (no permission, insecure context), so the toast reports the actual outcome —
- * claiming "Link copied" when nothing reached the clipboard leaves the user
- * with an empty paste and no explanation. */
-async function copyShareLink() {
-  try {
-    await navigator.clipboard.writeText(window.location.href)
-    toast('Link copied')
-  } catch {
-    toast.error('Could not copy the link. Copy it from the address bar.')
-  }
-}
 
 export function ComposedSheetRoute() {
   const { sheetId } = Route.useParams()
@@ -153,13 +139,16 @@ export function ComposedSheetRoute() {
         actions={
           <>
             <FavouriteToggle kind="sheet" objectId={sheetId} />
-            <Button
-              onClick={() => {
-                void copyShareLink()
-              }}
+            {/* NAV-02 Share: the control reports the actual outcome — claiming
+                "Link copied" when nothing reached the clipboard would leave the
+                user with an empty paste and no explanation. */}
+            <CopyButton
+              value={window.location.href}
+              copiedMessage="Link copied"
+              failedMessage="Could not copy the link. Copy it from the address bar."
             >
               Share
-            </Button>
+            </CopyButton>
           </>
         }
       />

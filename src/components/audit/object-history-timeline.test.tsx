@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ObjectHistoryTimeline } from './object-history-timeline'
@@ -48,15 +49,27 @@ describe('ObjectHistoryTimeline', () => {
     expect(screen.getByText('Renamed Notebook')).toBeTruthy()
   })
 
-  it('keeps the raw payload out of sight behind a disclosure', () => {
+  it('keeps the raw payload out of sight behind a disclosure that states its state', async () => {
+    const user = userEvent.setup()
     render(
       <ObjectHistoryTimeline
         events={[event({ payload: { title: 'Notebook' } })]}
       />,
     )
-    const summaries = screen.getAllByText('Raw event')
-    expect(summaries).toHaveLength(1)
-    expect(summaries[0].closest('details')?.hasAttribute('open')).toBe(false)
+
+    // The control says what it will do, and the payload is not rendered yet.
+    const trigger = screen.getByRole('button', { name: 'Raw event' })
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    expect(
+      screen.queryByRole('group', { name: 'Raw event payload' }),
+    ).toBeNull()
+
+    await user.click(trigger)
+
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    expect(
+      screen.getByRole('group', { name: 'Raw event payload' }),
+    ).toBeTruthy()
   })
 
   it('shows an honest empty state instead of fabricating history', () => {

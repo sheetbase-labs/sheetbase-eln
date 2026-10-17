@@ -1,4 +1,4 @@
-import { cn } from '#/lib/utils'
+import { Progress } from '#/components/v3/ui/progress'
 import { now as clockNow } from '#/lib/clock'
 
 /**
@@ -176,22 +176,11 @@ export function SampleHoldMeter({
       <div className="num text-caption">
         {state.daysUsed} of {state.totalDays} {dayLabel(state.totalDays)} used
       </div>
-      <div
-        role="progressbar"
-        aria-label="Hold time used"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={state.percentUsed}
-        className="h-1.5 overflow-hidden rounded-full bg-skeleton"
-      >
-        <div
-          className={cn(
-            'h-1.5',
-            state.expired ? 'bg-danger-text' : 'bg-fg-muted',
-          )}
-          style={{ width: `${state.percentUsed}%` }}
-        />
-      </div>
+      <Progress
+        label="Hold time used"
+        value={state.percentUsed}
+        tone={state.expired ? 'danger' : 'neutral'}
+      />
     </div>
   )
 }

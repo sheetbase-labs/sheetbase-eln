@@ -706,6 +706,14 @@ Screenshots (`COMPONENT_COMPARE_SHOTS=<dir>`): `registry-ours-light.png`,
   gesture would compete with the row click that drives it, and the item's cell
   selection is a 2.6k-line controller with its own clipboard and edit contract.
   Both stay in the item, unused by this screen.
+- **C8 — the cell geometry is the component's, and that has an edge.** The
+  component sets 33px rows, 10px cell padding and the first column's 24px inset
+  because that is what makes the swap invisible; a column that carries its own
+  padding (`instruments`' Owner column, the last cell before the swap) needs
+  `pr-6!`, because a plain `pr-6` loses to the component's own cell rules. The
+  grid's scroll container also has to be stretched by the screen
+  (`[&>*]:flex-1`), or a short list leaves the horizontal scrollbar floating
+  under its last row instead of at the list area's edge.
 - **C7 — the column widths, the header type and the numerals are the table's,
   not the grid's.** Measured on the migrated screens: the grid's defaults put a
   13px `text-fg` header in a 40px band over 37px rows with 12px cell padding,

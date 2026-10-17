@@ -17,6 +17,12 @@
  *
  * The route keeps ownership of ordering: it sorts the array it passes, exactly
  * as the Sort menus it already had. The grid does not sort.
+ *
+ * The component owns the cell geometry — 33px rows, 10px cell padding, the 24px
+ * inset on the first data column — because that is what makes the swap
+ * invisible. A column that needs its own padding states it imperatively
+ * (`pr-6!`); a plain `pr-6` in `meta.cellClassName` loses to the component's
+ * own cell rules and is silently ignored.
  */
 import { useCallback, useMemo } from 'react'
 import type { ReactNode } from 'react'
@@ -238,8 +244,12 @@ export function RegistryGrid<T extends RowData>({
   })
 
   return (
-    <div className="flex h-full min-h-0 flex-col max-md:hidden">
+    // `[&>*]` stretches the grid's own scroll container: it sizes itself to
+    // its rows, which on a short list leaves the horizontal scrollbar floating
+    // under the last row instead of at the list area's edge.
+    <div className="flex h-full min-h-0 flex-col max-md:hidden [&>*]:min-h-0 [&>*]:flex-1">
       <DataGrid
+        className="min-h-0 flex-1"
         table={table}
         recordCount={rows.length}
         isLoading={isLoading}
@@ -271,7 +281,7 @@ export function RegistryGrid<T extends RowData>({
             : '[&_td]:h-[33px] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6',
         }}
       >
-        <DataGridScrollArea orientation="both">
+        <DataGridScrollArea orientation="both" className="h-full">
           <DataGridTableVirtual height="100%" estimateSize={33} overscan={12} />
         </DataGridScrollArea>
       </DataGrid>

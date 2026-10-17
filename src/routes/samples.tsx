@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { RowSelectionState } from '@tanstack/react-table'
 import {
   Link,
   Outlet,
@@ -18,13 +19,10 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
   Dialog,
@@ -41,8 +39,6 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import {
@@ -138,6 +134,71 @@ function SamplesList() {
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
 
+  const columns = useMemo<RegistryColumn<SampleListRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+      },
+      {
+        id: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <Link
+            to="/samples/$sampleId"
+            params={{ sampleId: row.original.uuid }}
+            onClick={(event) => event.stopPropagation()}
+            // The selected row is the one the inspector shows, and the
+            // bespoke body gave that row's name the medium weight.
+            className={
+              row.original.uuid === sel?.uuid ? 'font-medium' : undefined
+            }
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      { id: 'type', header: 'Type', accessorFn: (s) => s.type },
+      {
+        id: 'quantity',
+        header: 'Quantity',
+        accessorFn: (s) => s.quantity,
+        meta: rightAligned<SampleListRow>().meta,
+      },
+      { id: 'location', header: 'Location', accessorFn: (s) => s.location },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <Status tone={row.original.status.tone}>
+            {row.original.status.label}
+          </Status>
+        ),
+      },
+    ],
+    [sel?.uuid],
+  )
+
+  const rowSelection = useMemo<RowSelectionState>(
+    () => (sel ? { [sel.uuid]: true } : {}),
+    [sel],
+  )
+
+  // The screen selects one row for the inspector, so the grid's checkbox state
+  // is derived from the selection rather than kept beside it. The grid merges a
+  // toggle into the selection it was given, so the row the change is about is
+  // the one it turned on — taking the first key would leave the row the screen
+  // already had, and the checkbox would do nothing.
+  const setRowSelection = (
+    next: RowSelectionState | ((prev: RowSelectionState) => RowSelectionState),
+  ) => {
+    const value = typeof next === 'function' ? next(rowSelection) : next
+    const selectedIds = Object.keys(value)
+    const turnedOn = selectedIds.find((id) => !Object.hasOwn(rowSelection, id))
+    setSelected(turnedOn ?? selectedIds.at(0) ?? null)
+  }
+
   const create = useMutation({
     mutationFn: (input: {
       projectId: string
@@ -229,49 +290,15 @@ function SamplesList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table aria-label="Samples" className="max-md:hidden">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={stickyHead}>ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead align="right">Quantity</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((s) => (
-                <TableRow
-                  key={s.uuid}
-                  selected={s.uuid === sel?.uuid}
-                  className="cursor-pointer"
-                  onClick={() => setSelected(s.uuid)}
-                >
-                  <TableCell className={stickyCell}>
-                    <span className="mono">{s.id}</span>
-                  </TableCell>
-                  <TableCell
-                    className={s.uuid === sel?.uuid ? 'font-medium' : undefined}
-                  >
-                    <Link
-                      to="/samples/$sampleId"
-                      params={{ sampleId: s.uuid }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {s.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{s.type}</TableCell>
-                  <TableCell align="right">{s.quantity}</TableCell>
-                  <TableCell>{s.location}</TableCell>
-                  <TableCell>
-                    <Status tone={s.status.tone}>{s.status.label}</Status>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label="Samples"
+            rows={visible}
+            columns={columns}
+            getRowId={(s) => s.uuid}
+            rowSelection={rowSelection}
+            onRowSelectionChange={setRowSelection}
+            isLoading={page.isLoading}
+          />
           <MobileList
             label="Samples"
             items={visible.map((s) => ({

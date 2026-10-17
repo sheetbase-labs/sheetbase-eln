@@ -1,13 +1,5 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
-import {
-  Outlet,
-  RouterProvider,
-  createMemoryHistory,
-  createRootRoute,
-  createRoute,
-  createRouter,
-} from '@tanstack/react-router'
 
 import { Tabs } from '#/components/v3/ui/tabs'
 
@@ -24,8 +16,8 @@ import { Tabs } from '#/components/v3/ui/tabs'
  * - **URL** — each tab is its own URL. A nav of links: the current one carries
  *   `aria-current="page"` and no `aria-selected`, because a link is not a tab.
  *
- * The URL stories mount a memory router: a real `Link` needs one above it, and
- * a bare `<a>` would not show what the router does with the current tab.
+ * The URL story is a real `Link` rendered without a router of its own; see the
+ * note on that story for what Storybook can and cannot show.
  */
 const meta = {
   title: 'UI/Tab family',
@@ -94,14 +86,52 @@ export const OverflowAt390: Story = {
   ),
 }
 
-/** URL mode: a list filtered by `?tab=`, where the key names the current tab. */
+/**
+ * URL mode: a list filtered by `?tab=`, where the key names the current tab.
+ *
+ * Rendered without a router: Storybook supplies its own routing context, and a
+ * real `Link` needs the app's router to resolve a `params`-bearing path. The
+ * strip is shown with `value` naming the current tab — the shape all ten list
+ * screens use — so the link targets are the app's own paths and clicking does
+ * nothing here. The router-decides flavour (one path per tab, no key) is
+ * exercised where it is real: the record-detail layouts in the app, and
+ * `tabs.test.tsx` asserts the options the strip hands the router for it.
+ */
 export const UrlSearchParamTabs: Story = {
-  render: () => <SearchParamUrlDemo />,
-}
-
-/** URL mode: one path per tab, where the router decides which is current. */
-export const UrlPathTabs: Story = {
-  render: () => <PathUrlDemo />,
+  render: () => (
+    <Strip>
+      <Tabs
+        mode="url"
+        label="Dataset lists"
+        value="mine"
+        items={[
+          {
+            key: 'all',
+            label: 'All',
+            count: 24,
+            link: { to: '/datasets', search: { tab: undefined } },
+          },
+          {
+            key: 'mine',
+            label: 'Mine',
+            count: 3,
+            link: { to: '/datasets', search: { tab: 'mine' } },
+          },
+          {
+            key: 'issues',
+            label: 'Issues',
+            count: 0,
+            link: { to: '/datasets', search: { tab: 'issues' } },
+          },
+        ]}
+      />
+      <p className="py-3 text-body text-fg-muted">
+        Mine is current: a nav of links, the current one carrying{' '}
+        <span className="mono">aria-current=&quot;page&quot;</span> and no{' '}
+        <span className="mono">aria-selected</span>.
+      </p>
+    </Strip>
+  ),
 }
 
 function Strip({ children }: { children: React.ReactNode }) {
@@ -153,129 +183,4 @@ function ChipDemo() {
       />
     </div>
   )
-}
-
-// --- URL mode, on a memory router -----------------------------------------
-
-const rootRoute = createRootRoute({ component: () => <Outlet /> })
-
-const datasetsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/datasets',
-  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
-    tab: typeof search.tab === 'string' ? search.tab : undefined,
-  }),
-  component: DatasetListPage,
-})
-
-const modelRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/models/$modelId',
-  component: () => <Outlet />,
-})
-
-const modelFieldsRoute = createRoute({
-  getParentRoute: () => modelRoute,
-  path: 'fields',
-  component: ModelSectionPage,
-})
-
-const modelVersionsRoute = createRoute({
-  getParentRoute: () => modelRoute,
-  path: 'versions',
-  component: ModelSectionPage,
-})
-
-function DatasetListPage() {
-  const { tab } = datasetsRoute.useSearch()
-  const current = tab ?? 'all'
-  return (
-    <Strip>
-      <Tabs
-        mode="url"
-        label="Dataset lists"
-        value={current}
-        items={[
-          {
-            key: 'all',
-            label: 'All',
-            count: 24,
-            link: { to: '/datasets', search: { tab: undefined } },
-          },
-          {
-            key: 'mine',
-            label: 'Mine',
-            count: 3,
-            link: { to: '/datasets', search: { tab: 'mine' } },
-          },
-          {
-            key: 'issues',
-            label: 'Issues',
-            count: 0,
-            link: { to: '/datasets', search: { tab: 'issues' } },
-          },
-        ]}
-      />
-      <p className="py-3 text-body text-fg-muted">
-        Showing the <span className="mono">{current}</span> tab — click a tab,
-        the URL follows it.
-      </p>
-    </Strip>
-  )
-}
-
-function ModelSectionPage() {
-  return (
-    <div className="border-b border-border px-4 pb-2">
-      <Tabs
-        mode="url"
-        label="Model sections"
-        items={[
-          {
-            key: 'fields',
-            label: 'Fields',
-            count: 12,
-            link: {
-              to: '/models/$modelId/fields',
-              params: { modelId: 'RM-1' },
-            },
-          },
-          {
-            key: 'versions',
-            label: 'Versions',
-            count: 4,
-            link: {
-              to: '/models/$modelId/versions',
-              params: { modelId: 'RM-1' },
-            },
-          },
-        ]}
-      />
-      <p className="py-3 text-body text-fg-muted">
-        Each tab is its own path, so the strip names no key: the router marks
-        the tab you are on.
-      </p>
-    </div>
-  )
-}
-
-const routeTree = rootRoute.addChildren([
-  datasetsRoute,
-  modelRoute.addChildren([modelFieldsRoute, modelVersionsRoute]),
-])
-
-function SearchParamUrlDemo() {
-  const router = createRouter({
-    routeTree,
-    history: createMemoryHistory({ initialEntries: ['/datasets?tab=mine'] }),
-  })
-  return <RouterProvider router={router} />
-}
-
-function PathUrlDemo() {
-  const router = createRouter({
-    routeTree,
-    history: createMemoryHistory({ initialEntries: ['/models/RM-1/versions'] }),
-  })
-  return <RouterProvider router={router} />
 }

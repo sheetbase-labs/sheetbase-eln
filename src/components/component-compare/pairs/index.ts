@@ -1,5 +1,7 @@
 import type { ComparisonPair } from '#/components/component-compare/types'
 import { notebookSortablePair } from '#/components/component-compare/pairs/notebook-sortable'
+import { tabFamilyPair } from '#/components/component-compare/pairs/tab-family'
+import { pressedChipsPair } from '#/components/component-compare/pairs/pressed-chips'
 
 /**
  * The registered comparison pairs, in the order the harness lists them.
@@ -11,4 +13,6 @@ import { notebookSortablePair } from '#/components/component-compare/pairs/noteb
  */
 export const COMPARISON_PAIRS: readonly ComparisonPair[] = Object.freeze([
   notebookSortablePair,
+  tabFamilyPair,
+  pressedChipsPair,
 ])

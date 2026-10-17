@@ -81,7 +81,7 @@ function ControlledStrip() {
   return <StateStrip value={value} onValueChange={setValue} />
 }
 
-const tabs = () => screen.getAllByRole('tab') as HTMLButtonElement[] // role=tab, native buttons
+const tabs = () => screen.getAllByRole<HTMLButtonElement>('tab')
 const tabIndexes = () => tabs().map((tab) => tab.getAttribute('tabindex'))
 const selected = () => tabs().map((tab) => tab.getAttribute('aria-selected'))
 

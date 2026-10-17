@@ -35,6 +35,7 @@ export type ComparisonState = (typeof COMPARISON_STATES)[number]
  * applicable rather than skipped silently.
  */
 export const COMPARISON_CONTROLS = [
+  'navigate',
   'reorder',
   'sort',
   'filter',

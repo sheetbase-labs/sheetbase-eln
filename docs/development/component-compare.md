@@ -50,9 +50,9 @@ values.
 ## The behavioural checklist
 
 Fixed in `checklist.ts`: keyboard, mouse, state and density, with each item
-naming the **control classes** it needs (`reorder`, `sort`, `filter`, `select`,
-`resize`, `pagination`). A pair declares which controls its components have; an
-item whose control is absent is recorded as _not applicable_, which is a
+naming the **control classes** it needs (`navigate`, `reorder`, `sort`, `filter`,
+`select`, `resize`, `pagination`). A pair declares which controls its components
+have; an item whose control is absent is recorded as _not applicable_, which is a
 recorded result rather than a skipped check. A pair cannot narrow the
 questions to the ones its candidate happens to pass.
 

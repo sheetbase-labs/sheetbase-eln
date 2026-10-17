@@ -307,9 +307,19 @@ describe('the ReUI column offers the candidate’s own controls', () => {
 })
 
 describe('the registered pair set', () => {
-  it('holds the notebook sortable list, and nothing else yet', () => {
+  it('holds the notebook sortable list, the tab family and the pressed chips', () => {
     expect(COMPARISON_PAIRS.map((pair) => pair.id)).toEqual([
       'notebook-sortable',
+      'tab-family',
+      'pressed-chips',
     ])
+    // `navigate` is the control class the tab family declares: a widget whose
+    // parts are moved between with the arrow keys.
+    expect(
+      COMPARISON_PAIRS.find((pair) => pair.id === 'tab-family')?.controls,
+    ).toEqual(['navigate'])
+    expect(
+      COMPARISON_PAIRS.find((pair) => pair.id === 'pressed-chips')?.controls,
+    ).toEqual([])
   })
 })

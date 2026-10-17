@@ -226,10 +226,12 @@ Two things make a screen-level story possible, and both live in the harness at
 - **A sandbox route tree with every destination the screen links to.** The
   Storybook TanStack framework builds its router from the story's own `route`
   parameter, so a `path` alone moves the story URL and leaves every `Link` in
-  the screen unresolvable ("Route not found"). `screenRoutes` builds that tree,
-  and the screen's own path must come first: the framework injects the story
-  into the tree's first route, so a tree that starts with a different
-  destination renders nothing at all, silently.
+  the screen unresolvable ("Route not found"). `screenRoutes` builds that tree
+  from the path the story renders on and then the paths it links to; the mount
+  must be that path, flat, and first — the framework injects the story into the
+  tree's first route, so a tree starting elsewhere, or one whose mount is a
+  section with the story's path nested under it, renders nothing at all. Nesting
+  a _link_ changes nothing, which the Models lane measured.
 - **A query client whose reads are static.** `screenQueryClient` seeds the reads
   a screen performs and leaves the ones it does not seed pending, refused or
   failed, which renders the screen's own loading, denied and error states. No

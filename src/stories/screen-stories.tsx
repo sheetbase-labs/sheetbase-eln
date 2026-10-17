@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { QueryClient } from '@tanstack/react-query'
 import { createRootRoute, createRoute } from '@tanstack/react-router'
-import type { AnyRoute } from '@tanstack/react-router'
 
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -35,48 +34,41 @@ import { notebookDataClient } from '#/lib/notebook-data'
 // --- Router -----------------------------------------------------------------
 
 /**
- * One entry in the sandbox route tree: a path, or a section path with the
- * routes nested under it, relative to their section as the app's own file tree
- * has them.
- */
-export type ScreenPath = string | readonly [string, ...string[]]
-
-/**
- * The sandbox route tree for one story: the screen's own path, then the paths
- * it links to.
+ * The sandbox route tree for one story: the path the story renders on, then the
+ * paths the screen links to.
  *
- * The first argument is where the story renders. It must come first: the
- * framework injects the story into the tree's first route and resolves the
- * story URL against it, so a tree that starts with a different destination
- * renders nothing at all, silently.
+ * `mount` must be the path the story renders on, and it must be first: the
+ * framework injects the story into the tree's *first* route, so a tree that
+ * starts with another destination renders nothing at all, silently.
  *
- * Nest a record route under its section rather than listing the pair flat: a
- * flat `/projects` beside `/projects/$projectId` leaves the parameterised route
- * unresolved, so a `Link` to it renders the path with its placeholder still in
- * it and a story rendering *at* that path renders nothing.
+ * A mount is always one flat path. Nested entries buy nothing: a section with
+ * the story's own path under it (`['/models', '$modelId/records']`) makes the
+ * section the first route and renders nothing, and nesting a plain link
+ * (`[['/records', '$recordId']]`) produces the same tree, the same hrefs and
+ * the same behaviour as listing it flat. This was measured — the Models lane
+ * tried both against this harness.
  *
- * ```ts
- * screenRoutes(['/projects', '$projectId'], ['/records/$recordId'])
- * ```
+ * A parameterised `Link` renders its path with the placeholder still in it
+ * (`/models/$modelId/records/new`) in the sandbox, wherever its route sits: the
+ * framework resolves the href from the current match rather than from the
+ * `Link`'s own `params`. It is a Storybook artefact, not a broken route — the
+ * route exists, and no "Route not found" appears. Do not chase it.
  */
 export function screenRoutes(
-  mount: ScreenPath,
-  links: readonly ScreenPath[] = [],
+  /** The path the story renders on, flat and first. */
+  mount: string,
+  /** Every path the screen links to, so its `Link`s resolve. */
+  links: readonly string[] = [],
 ) {
   const root = createRootRoute()
-  const leaf = (parent: AnyRoute, path: string) =>
-    createRoute({
-      path,
-      getParentRoute: () => parent,
-      component: () => null,
-    })
   return root.addChildren(
-    [mount, ...links].map((entry) => {
-      if (typeof entry === 'string') return leaf(root, entry)
-      const [section, ...children] = entry
-      const parent = leaf(root, section)
-      return parent.addChildren(children.map((child) => leaf(parent, child)))
-    }),
+    [mount, ...links].map((path) =>
+      createRoute({
+        path,
+        getParentRoute: () => root,
+        component: () => null,
+      }),
+    ),
   )
 }
 

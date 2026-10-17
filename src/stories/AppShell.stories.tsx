@@ -29,19 +29,18 @@ const WORKSPACE_ID = '0198d970-e266-4000-8000-0000000000w1'
  * Every destination the shell links to: the nav, the New menu, the account
  * menu, the notification rows' own targets and the pinned projects. A missing
  * route here renders "Route not found" the moment a link is followed, and a
- * *flat* section/record pair leaves the record path unresolved — the pinned
- * project would link to `/projects/$projectId` with the placeholder still in it
- * — so each record route is nested under its section. `/` is the mount, so it
- * comes first: `screenRoutes` takes the story's own path and then its links.
+ * record route is listed flat: nesting a section and its child makes no
+ * difference to the tree the framework resolves. `/` is the mount, so it comes
+ * first: `screenRoutes` takes the story's own path and then its links.
  */
 const SHELL_ROUTES = screenRoutes('/', [
-  ['/projects', '$projectId'],
-  ['/datasets', '$datasetId'],
-  ['/samples', '$sampleId'],
-  ['/sheets', 'new', '$sheetId'],
-  ['/records', '$recordId'],
-  ['/pipelines', 'runs/$runId'],
-  ['/experiments', 'new'],
+  '/projects/$projectId',
+  '/datasets/$datasetId',
+  '/samples/$sampleId',
+  '/sheets/new/$sheetId',
+  '/records/$recordId',
+  '/pipelines/runs/$runId',
+  '/experiments/new',
   '/inbox',
   '/schedule',
   '/protocols',

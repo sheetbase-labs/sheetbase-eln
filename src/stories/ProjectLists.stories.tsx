@@ -27,10 +27,7 @@ const meta = {
     tanstack: {
       router: {
         // Project rows link to their record; the out-of-range notice links back.
-        route: screenRoutes(
-          ['/projects', '$projectId'],
-          [['/records', '$recordId']],
-        ),
+        route: screenRoutes('/projects/$projectId', ['/records/$recordId']),
         path: '/projects/$projectId',
         params: { projectId: 'prj-1' },
       },

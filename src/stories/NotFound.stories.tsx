@@ -47,7 +47,7 @@ function sandboxRouter(router: {
  */
 export const InsideARecord: Story = {
   parameters: sandboxRouter({
-    route: screenRoutes(['/datasets', '$datasetId'], ['/search']),
+    route: screenRoutes('/datasets/$datasetId', ['/search']),
     path: '/datasets/$datasetId',
     params: { datasetId: MISSING_DATASET_ID },
   }),
@@ -61,7 +61,7 @@ export const InsideARecord: Story = {
  */
 export const UnknownRecord: Story = {
   parameters: sandboxRouter({
-    route: screenRoutes(['/instruments', '$instrumentId'], ['/search']),
+    route: screenRoutes('/instruments/$instrumentId', ['/search']),
     path: '/instruments/$instrumentId',
     params: { instrumentId: MISSING_INSTRUMENT_ID },
   }),

@@ -28,10 +28,10 @@ const meta = {
     layout: 'fullscreen',
     tanstack: {
       router: {
-        route: screenRoutes(
-          ['/projects', '$projectId'],
-          [['/records', '$recordId']],
-        ),
+        route: screenRoutes('/projects', [
+          '/projects/$projectId',
+          '/records/$recordId',
+        ]),
         path: '/projects',
       },
     },

@@ -157,4 +157,19 @@ describe('protocols toolbar', () => {
 
     expect(ids()).toEqual(['PRT-0001', 'PRT-0002'])
   })
+
+  /**
+   * The grid's own empty state is a single line inside a full-height frame that
+   * leaves the screen's empty state — the one that offers the next action —
+   * below the fold. A search with no matches must therefore render the screen's
+   * EmptyState and no grid at all.
+   */
+  it('renders the empty state, not the grid, when nothing matches', async () => {
+    fixtures.protocols = []
+    search.value = { q: 'zzzz' }
+    renderRoute()
+
+    expect(await screen.findByText(/No protocols match/)).toBeTruthy()
+    expect(screen.queryByRole('table')).toBeNull()
+  })
 })

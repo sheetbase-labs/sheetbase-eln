@@ -221,17 +221,19 @@ function ProtocolsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-hidden px-4 py-3 max-lg:overflow-auto md:px-6">
-          <ProtocolsRegistryGrid
-            rows={visible}
-            total={counts[tab]}
-            scopeLabel={tabLabel[tab].toLowerCase()}
-            ownerLabel={names.userLabel}
-            isLoading={query.isLoading}
-            sorting={sorting}
-            onSortingChange={setSorting}
-            rowSelection={rowSelection}
-            onRowSelectionChange={setRowSelection}
-          />
+          {query.isLoading || visible.length > 0 ? (
+            <ProtocolsRegistryGrid
+              rows={visible}
+              total={counts[tab]}
+              scopeLabel={tabLabel[tab].toLowerCase()}
+              ownerLabel={names.userLabel}
+              isLoading={query.isLoading}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+            />
+          ) : null}
           <MobileList
             label="Protocols"
             items={visible.map((p) => {

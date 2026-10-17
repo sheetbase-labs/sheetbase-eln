@@ -23,14 +23,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '#/components/v3/ui/dropdown-menu'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { RegistryGrid, bandRow } from '#/components/v3/inventory/registry-grid'
+import type {
+  RegistryColumn,
+  RegistryRow,
+} from '#/components/v3/inventory/registry-grid'
 import { FilterMenu } from '#/components/v3/ui/filter-menu'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { ListHeader } from '#/components/v3/inventory/list'
@@ -225,6 +222,131 @@ function Experiments() {
   const setSearch = (patch: Partial<typeof search>) =>
     void navigate({ search: (s) => ({ ...s, ...patch }) })
 
+  const columns = useMemo<RegistryColumn<ExperimentListRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        meta: {
+          headerClassName: 'max-xl:hidden',
+          cellClassName: 'mono max-xl:hidden',
+        },
+        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+      },
+      {
+        id: 'title',
+        header: 'Experiment',
+        meta: {
+          headerClassName: stickyCol,
+          cellClassName: `${stickyCol} max-xl:h-auto max-xl:py-1`,
+        },
+        cell: ({ row }) => (
+          <>
+            <Link
+              to="/experiments/$expId"
+              params={{ expId: row.original.uuid }}
+              className="text-fg hover:text-link"
+            >
+              {row.original.title}
+            </Link>
+            <span className="mono block text-[11px] text-fg-muted xl:hidden">
+              {row.original.id}
+            </span>
+          </>
+        ),
+      },
+      {
+        id: 'project',
+        header: 'Project',
+        cell: ({ row }) =>
+          row.original.projectId ? (
+            <Link
+              to="/projects/$projectId"
+              params={{ projectId: row.original.projectId }}
+              className="text-fg hover:text-link"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {row.original.project}
+            </Link>
+          ) : (
+            <span className="text-fg-muted">—</span>
+          ),
+      },
+      {
+        id: 'owner',
+        header: 'Owner',
+        accessorFn: (e) => e.owner,
+      },
+      {
+        id: 'protocol',
+        header: 'Protocol',
+        cell: ({ row }) =>
+          row.original.protocolRecordId ? (
+            <Link
+              to="/protocols/$protocolId"
+              params={{ protocolId: row.original.protocolRecordId }}
+              className="text-fg hover:text-link"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {row.original.protocol}
+            </Link>
+          ) : (
+            row.original.protocol
+          ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <Status tone={row.original.status.tone}>
+            {row.original.status.label}
+          </Status>
+        ),
+      },
+      {
+        id: 'issues',
+        header: 'Open issues',
+        cell: ({ row }) => (
+          <span
+            className={
+              issueCount(row.original.uuid) > 0
+                ? 'text-warning-text'
+                : 'text-fg-muted'
+            }
+          >
+            {issueCount(row.original.uuid) > 0
+              ? issueCount(row.original.uuid)
+              : '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'created',
+        header: 'Created',
+        accessorFn: (e) => e.created,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="text-fg-muted">{row.original.created}</span>
+        ),
+      },
+      {
+        id: 'updated',
+        header: 'Updated',
+        accessorFn: (e) => e.updated,
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="text-fg-muted">{row.original.updated}</span>
+        ),
+      },
+    ],
+    [issueCount],
+  )
+
+  // A grouped list draws its groups as bands in the one table.
+  const gridRows: RegistryRow<ExperimentListRow>[] = groups.flatMap(
+    ([g, list]) => (g ? [bandRow(g, list.length), ...list] : list),
+  )
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
@@ -379,110 +501,19 @@ function Experiments() {
             link: { to: '/experiments/$expId', params: { expId: e.uuid } },
           }))}
         />
-        <Table aria-label="Experiments" className="max-md:hidden">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="max-xl:hidden">ID</TableHead>
-              <TableHead className={stickyCol}>Experiment</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Owner</TableHead>
-              <TableHead>Protocol</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Open issues</TableHead>
-              <TableHead align="right">Created</TableHead>
-              <TableHead align="right">Updated</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {groups.map(([g, list]) => [
-              g ? (
-                <TableRow key={`g-${g}`}>
-                  <TableCell
-                    colSpan={9}
-                    className="bg-surface-muted text-label font-medium text-fg-muted"
-                  >
-                    {g} <span className="font-normal">{list.length}</span>
-                  </TableCell>
-                </TableRow>
-              ) : null,
-              ...list.map((e) => (
-                <TableRow
-                  key={e.uuid}
-                  className="cursor-pointer"
-                  onClick={() =>
-                    void navigate({
-                      to: '/experiments/$expId',
-                      params: { expId: e.uuid },
-                    })
-                  }
-                >
-                  <TableCell className="mono max-xl:hidden">{e.id}</TableCell>
-                  <TableCell
-                    className={`${stickyCol} max-xl:h-auto max-xl:py-1`}
-                  >
-                    <Link
-                      to="/experiments/$expId"
-                      params={{ expId: e.uuid }}
-                      className="text-fg hover:text-link"
-                    >
-                      {e.title}
-                    </Link>
-                    <span className="mono block text-[11px] text-fg-muted xl:hidden">
-                      {e.id}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {e.projectId ? (
-                      <Link
-                        to="/projects/$projectId"
-                        params={{ projectId: e.projectId }}
-                        className="text-fg hover:text-link"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        {e.project}
-                      </Link>
-                    ) : (
-                      <span className="text-fg-muted">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{e.owner}</TableCell>
-                  <TableCell className="text-fg-muted">
-                    {e.protocolRecordId ? (
-                      <Link
-                        to="/protocols/$protocolId"
-                        params={{ protocolId: e.protocolRecordId }}
-                        className="text-fg hover:text-link"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        {e.protocol}
-                      </Link>
-                    ) : (
-                      e.protocol
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Status tone={e.status.tone}>{e.status.label}</Status>
-                  </TableCell>
-                  <TableCell
-                    className={
-                      issueCount(e.uuid) > 0
-                        ? 'text-warning-text'
-                        : 'text-fg-muted'
-                    }
-                  >
-                    {issueCount(e.uuid) > 0 ? issueCount(e.uuid) : '—'}
-                  </TableCell>
-                  <TableCell align="right" className="text-fg-muted">
-                    {e.created}
-                  </TableCell>
-                  <TableCell align="right" className="text-fg-muted">
-                    {e.updated}
-                  </TableCell>
-                </TableRow>
-              )),
-            ])}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label="Experiments"
+          rows={gridRows}
+          columns={columns}
+          getRowId={(e) => e.uuid}
+          selectable={false}
+          onRowClick={(e) =>
+            void navigate({
+              to: '/experiments/$expId',
+              params: { expId: e.uuid },
+            })
+          }
+        />
         {!visible.length ? (
           <div
             role="status"

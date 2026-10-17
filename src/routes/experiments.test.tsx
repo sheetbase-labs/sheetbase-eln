@@ -54,6 +54,29 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: dataClient }))
 
+/**
+ * jsdom has no layout: the grid's virtualiser measures a zero-height viewport
+ * and would render no rows, so the row this test clicks could not exist. The
+ * double returns the full row range, the same rows the browser renders; the
+ * real virtualiser is exercised in `tests/browser/registry-grid.test.ts`.
+ */
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        start: index * 33,
+        end: index * 33 + 33,
+        size: 33,
+      })),
+    getTotalSize: () => count * 33,
+    measureElement: () => {},
+    scrollToIndex: () => {},
+    scrollToOffset: () => {},
+  }),
+}))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id }),
 }))

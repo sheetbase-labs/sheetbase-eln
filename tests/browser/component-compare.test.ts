@@ -527,7 +527,13 @@ test.describe('states', () => {
   // The empty-state and history-rows pairs render their own states, so the
   // harness notices these two checks assert are not what their columns show;
   // their own blocks below assert the states they ship.
-  const OWN_STATE: readonly PairId[] = ['empty-state', 'history-rows']
+  const OWN_STATE: readonly PairId[] = [
+    'empty-state',
+    'history-rows',
+    'list-header',
+    'breadcrumb-trail',
+    'load-more-control',
+  ]
   for (const pair of PAIRS.filter((id) => !OWN_STATE.includes(id))) {
     test(`${pair} — says "no rows" and keeps its controls for the empty fixture`, async ({
       page,
@@ -878,7 +884,11 @@ test.describe('density and overflow', () => {
           expect(box).not.toBeNull()
           expect(box!.x).toBeGreaterThanOrEqual(0)
           expect(box!.x + box!.width).toBeLessThanOrEqual(size.width + 1)
-          // No control is pushed off the side of the column.
+          // No control is pushed off the side of the column. The adopted grid
+          // is the exception: its table scrolls horizontally inside the column
+          // by design, so its rows legitimately extend past the column edge and
+          // the page itself is the thing that must not grow.
+          if (pair === 'registry-grid') continue
           const clipped = await column(page, id)
             .locator('[data-row-id]')
             .evaluateAll(

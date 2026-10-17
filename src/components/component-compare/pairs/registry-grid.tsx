@@ -306,7 +306,7 @@ function ReuiDataGridColumn({ scenario }: ComparisonColumnProps) {
         disabled={scenario.state !== 'ready'}
       />
       {rows.length === 0 ? <ComparisonEmptyState /> : null}
-      <Frame spacing="sm">
+      <Frame spacing="sm" className="min-w-0 overflow-x-auto">
         <FramePanel className="p-0">
           <DataGrid
             table={table}

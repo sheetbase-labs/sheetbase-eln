@@ -24,7 +24,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
   3. The inspector offers "Mark out of range…" and "Request repeat" only (`value-actions:294-313`). Neither sets a unit. The `missing_unit` flag appears in the label map (`value-actions:51-56`) but no action creates a unit, and "Clear flag" would dismiss the rule rather than fix the cause.
   4. Nothing links to the model's Fields tab, to Edit model, or to Import.
 - **Blockers hit:** "“Dose” has no unit. Units are required before EXP-0012 can be submitted." (`datasets-data.ts:115-118`). The sentence names the blocker but not where the unit is set. The button label "Open and fix" promises a fix the destination cannot give.
-- **Verdict:** `dead-end` at step 2. The user is told to fix, and no fixing control exists on the screen.
+- **Verdict:** `dead-end` at step 2. The user is told to fix, and no fixing control exists on the screen. **Update: fixed in 78c8c3d8.**
 - **Fix:** Make `datasetIssueSummary` name the real fix, and link it. The unit is a model field property, so link to `/models/$modelId/edit?field=<key>` (the route already accepts `field`, `models/$modelId/edit.tsx:122-131`). Alternatively say "re-import with a unit column" with a link to `/import`. Rename the button to "Open dataset" when the flag cannot be cleared in place.
 - **Severity:** S1 (blocks experiment submission, a regulated step).
 
@@ -37,7 +37,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
   3. To correct the number itself there is no control. `rows.tsx:399` says "Select a value to act on it", and `rows.tsx:318` says values change only by import. `MarkOutOfRangeDialog` states the value "is excluded from criteria and analyses until you or a reviewer change that" (`value-actions:391-395`). No screen lets either person change it.
   4. A read-only user sees "You have read access to this dataset, so flag and repeat actions are unavailable. Ask a workspace writer." (`value-actions:224-229`). It names a role, not a person, and the buttons stay visible but disabled (`value-actions:297,304`).
 - **Blockers hit:** The "or a reviewer change that" copy implies an edit path that does not exist in the UI. "Mark out of range…" can also be clicked on a value that already carries an out-of-range flag (`value-actions:295-301` has no already-flagged guard).
-- **Verdict:** `partial`. Flag, override and repeat work. Correction does not: the path stops at "values change only by import" with no link to the import flow or to re-measurement.
+- **Verdict:** `partial`. Flag, override and repeat work. Correction does not: the path stops at "values change only by import" with no link to the import flow or to re-measurement. **Update: fixed in 78c8c3d8.**
 - **Fix:** Add a "Correct by re-import" link to `/import` (with `?dataset=`) beside the read-only line. Reword `value-actions:392-394` to say how the value would change. Disable "Mark out of range" when a manual flag already exists.
 - **Severity:** S1 (a regulated correction has no route).
 
@@ -107,7 +107,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
   4. If there are no samples, the only hint is plain text at the bottom: "Register a sample first; a reading is measured against one." (`readings/new:451-455`). It is not a link, and is below the fold on mobile.
   5. Samples, datasets and planned-row queries have no error branch (`readings/new:62-76`). A failed load looks the same as having none.
 - **Blockers hit:** The bench user gets a prerequisite from another screen, with no link to it and no explanation of a disabled Save.
-- **Verdict:** `dead-end` at step 2 for anyone who did not arrive from a repeat request.
+- **Verdict:** `dead-end` at step 2 for anyone who did not arrive from a repeat request. **Update: fixed in d79d015f.**
 - **Fix:** Give the notice an action "Open datasets" (`/datasets?tab=issues`) and make "Register a sample first" a link to `/samples`. Add query-error notices with Retry. Show a one-line reason under the disabled Save button.
 - **Severity:** S2.
 
@@ -120,7 +120,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
   3. "No sample field: …the reading will not be linked to the sample." (`readings/new:334-339`). The form still allows saving, so the evidence is unlinked from the sample the user selected. There is no confirmation that they accept this, and no fix link.
   4. The dilution and note controls appear only if the dataset happens to contain matching fields (`readings/new:124-133,375-391,413-417`), so a missing dilution field silently removes the control.
 - **Blockers hit:** Two warnings, neither with an action. The second lets a reading be saved with a known loss of traceability.
-- **Verdict:** `dead-end` for "No numeric fields"; `partial` for "No sample field".
+- **Verdict:** `dead-end` for "No numeric fields"; `partial` for "No sample field". **Update: fixed in d79d015f.**
 - **Fix:** In "No numeric fields", link to `/models/<modelId>/fields` for the dataset's model, and say a model owner or admin adds fields. In "No sample field", name the dataset, offer "Choose another dataset", or require an explicit tick before save.
 - **Severity:** S2 (the unlinked save is arguably S1 for evidence; see J-DAT-09 for the same pattern).
 
@@ -134,7 +134,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
   4. Negative numbers are rejected (`readings/new:149-150`), including legitimate negative readings (for example a baseline-corrected delta).
   5. Server refusals surface only as a toast. "The dataset changed. Reload and try again." (`lib/readings-data.ts:369`) has no reload action, and the dataset query is cached 30s (`readings/new:67-71`), so retrying likely resends the same stale revision. "This dataset is archived…" and "The value is outside the field's allowed range." (`lib/readings-data.ts:370,375`) give no next step.
 - **Blockers hit:** Hidden validation message; stale-revision loop; errors only in a transient toast.
-- **Verdict:** `partial`.
+- **Verdict:** `partial`. **Update: fixed in d79d015f (disabled-Save reason only).**
 - **Fix:** Show the field's range in the notice. Set `touched` on blur, or keep Save enabled and validate on submit. On `stale_dataset_revision`, refetch datasets and keep the entered value. Persist the failure in an inline `Notice`. Allow negatives where the field's rule permits them.
 - **Severity:** S2.
 
@@ -148,7 +148,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
   4. A failed `analysis_views` read on the home is not handled. It falls through to "No analyses yet … Pick how you want to start" (`routes/analysis/index.tsx:334-338,219-222`), so an outage reads as an empty workspace. The same happens on the read-only view, where a failed read becomes "This analysis does not exist" (`$analysisId.tsx:101-122`).
   5. If the `?view=` id is not in the loaded list, the studio silently opens blank (`studio:441-444`).
 - **Blockers hit:** Valid-shape invalid specs are recoverable. Malformed specs, and fetch errors, are not.
-- **Verdict:** `partial`. The documented repair journey works; the crash and error-as-empty cases do not.
+- **Verdict:** `partial`. The documented repair journey works; the crash and error-as-empty cases do not. **Update: fixed in 34623b5b (crash guard; error-as-empty not done).**
 - **Fix:** Guard `spec.datasets?.[0]`. Add `views.isError`, `viewQuery.isError` branches with Retry. When `?view=` is missing, show "That analysis was not found".
 - **Severity:** S2 (S1 if one malformed spec can break the shared list).
 
@@ -162,7 +162,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
   4. "A source dataset is no longer available; keep the pinned version or re-author the analysis" (`studio:1788-1792`) has no link to the dataset or to a recreate action.
   5. If the source check fails, both pages say so in the banner, and the studio says "the resolution actions are unavailable" with no retry (`studio:1799-1804`; `$analysisId.tsx:169-174`).
 - **Blockers hit:** The remedy is named but missing for cited analyses; no entry to the remedy from the page that raised the warning.
-- **Verdict:** `partial` (uncited analysis: complete in the studio; cited analysis: dead-end at step 3).
+- **Verdict:** `partial` (uncited analysis: complete in the studio; cited analysis: dead-end at step 3). **Update: fixed in 02e46e2f (Save as new).**
 - **Fix:** Add "Review in studio" to the read-only banner, deep-linking with `?view=`. Add "Save as new analysis" next to Update. Add Retry to the source-check failure.
 - **Severity:** S2.
 
@@ -177,7 +177,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
   5. "Model not found" has no action or link back (`$modelId.tsx:90-97`); a failed definition read does get Try again (`$modelId.tsx:68-89`).
   6. A user without `schema.edit` reaches Edit model and sees "View only. Only model owners and admins can change <name>." with a disabled Start draft (`edit.tsx:493-498,484,527`). That at least names the roles that can resolve it.
 - **Blockers hit:** Copy refers to a header control that does not exist.
-- **Verdict:** `partial`. The edit route is complete; the way there is not signposted.
+- **Verdict:** `partial`. The edit route is complete; the way there is not signposted. **Update: fixed in b54d425b.**
 - **Fix:** Add an action "Edit model" to the empty states in `fields.tsx` and `versions.tsx`, or add a real "Start version" header button. Add a back link to "Model not found".
 - **Severity:** S2.
 
@@ -233,7 +233,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
   3. A load failure shows only "This Sheet could not be loaded." (`sheet-ws:336-342`). It does not distinguish permission, not found or network, and offers no Retry or link back. The page header meanwhile still shows "Sheet" and "Loading…" (`routes/sheets/$sheetId.tsx:121-127`).
   4. On `/sheets/new`, "Create blank sheet" is disabled until a project is chosen, with the select's "Choose a project…" as the only cue (`routes/sheets/new.tsx:180-206`). With no projects the select is empty, with no "Create a project" link, and a failed project query is not handled (`new.tsx:86-89`). The four start cards do link out correctly (`new.tsx:137-174`).
 - **Blockers hit:** A named action that does not exist; a terse unexplained failure.
-- **Verdict:** `dead-end` for stale calculations at step 1; `partial` for the rest.
+- **Verdict:** `dead-end` for stale calculations at step 1; `partial` for the rest. **Update: fixed in 6a2e8604 (Recalculate only).**
 - **Fix:** Add a "Recalculate" button beside the stale message (reuse the handler behind `scientific-sheet-block.tsx:2098`). Show the load error text with Retry and a link to the project. Link "Choose a project…" to `/projects` when empty.
 - **Severity:** S2.
 

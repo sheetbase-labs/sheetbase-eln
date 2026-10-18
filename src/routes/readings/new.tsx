@@ -246,6 +246,19 @@ function NewReading() {
     !fieldsQuery.isLoading &&
     measurementOptions.length === 0
 
+  // Why Save is disabled, in the order the user can fix it.
+  const saveBlockedReason = (() => {
+    if (canSubmit || save.isPending) return null
+    if (!sample) return 'Choose a sample to record against.'
+    if (noPlans || !effectivePlannedKey)
+      return 'Save is unavailable until a dataset has a planned row to fill.'
+    if (!measurementField)
+      return 'Save is unavailable until the dataset has a numeric field.'
+    if (!valueValid) return 'Enter a number, 0 or more, in Value.'
+    if (!dilutionValid) return 'Enter a dilution factor greater than zero.'
+    return null
+  })()
+
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader trail={[{ label: 'Readings' }]} title="Record reading" />
@@ -280,9 +293,22 @@ function NewReading() {
         </Field>
 
         {noPlans ? (
-          <Notice tone="warn" title="No planned rows to fill">
+          <Notice
+            tone="warn"
+            title="No planned rows to fill"
+            action={
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link to="/datasets" search={{ tab: 'issues' }} />}
+              >
+                Open datasets
+              </Button>
+            }
+          >
             Readings are recorded into a planned dataset row. Request a repeat
-            in a dataset first, then return here.
+            in a dataset first (select a flagged value, then Request repeat),
+            then return here.
           </Notice>
         ) : (
           <>
@@ -326,15 +352,36 @@ function NewReading() {
         )}
 
         {noFields ? (
-          <Notice tone="warn" title="No numeric fields">
-            This dataset has no numeric field to record a reading against.
+          <Notice
+            tone="warn"
+            title="No numeric fields"
+            action={
+              dataset ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/datasets/$datasetId"
+                      params={{ datasetId: dataset.id }}
+                    />
+                  }
+                >
+                  Open dataset
+                </Button>
+              ) : undefined
+            }
+          >
+            {dataset?.name ?? 'This dataset'} has no numeric field to record a
+            reading against. A model owner or admin adds fields on the dataset’s
+            model; or choose another dataset.
           </Notice>
         ) : null}
 
         {dataset && !fieldsQuery.isLoading && !noFields && !sampleBinding ? (
           <Notice tone="warn" title="No sample field">
-            This dataset has no sample field, so the reading will not be linked
-            to the sample.
+            {dataset.name} has no sample field, so the reading will not be
+            linked to the sample. Choose another dataset if you need that link.
           </Notice>
         ) : null}
 
@@ -448,9 +495,18 @@ function NewReading() {
           </Button>
         </div>
 
+        {saveBlockedReason ? (
+          <p className="m-0 text-label text-fg-muted" role="status">
+            {saveBlockedReason}
+          </p>
+        ) : null}
+
         {sampleRows.length === 0 && !samples.isLoading ? (
           <p className="m-0 text-label text-fg-muted">
-            Register a sample first; a reading is measured against one.
+            <Link to="/samples" className="underline">
+              Register a sample
+            </Link>{' '}
+            first; a reading is measured against one.
           </p>
         ) : null}
       </form>

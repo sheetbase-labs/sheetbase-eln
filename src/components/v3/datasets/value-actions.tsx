@@ -390,8 +390,8 @@ export function MarkOutOfRangeDialog({
         <DialogBody>
           <Notice tone="warn" icon={false}>
             The value stays as recorded. It is flagged as out of range and
-            excluded from criteria and analyses until you or a reviewer change
-            that.
+            excluded from criteria and analyses until a corrected value is
+            imported into the dataset.
           </Notice>
           <form
             id={formId}

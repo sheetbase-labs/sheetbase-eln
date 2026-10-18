@@ -1,3 +1,4 @@
+import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -121,7 +122,7 @@ function AnalysisView() {
     )
   }
 
-  const datasetId = view.spec.datasets[0]?.datasetId
+  const datasetId = specSourceDatasetId(view.spec)
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">

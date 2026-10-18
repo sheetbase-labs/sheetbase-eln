@@ -61,7 +61,7 @@ const starts = [
   {
     icon: 'template' as const,
     title: 'From a template',
-    body: 'Start from a notebook template that already has its sheets and fields.',
+    body: 'Pick a notebook template, then choose Use template to start a notebook with its sheets and fields.',
     to: '/templates' as const,
   },
   {

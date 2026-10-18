@@ -17,7 +17,10 @@ import type { ComposedSheetSnapshot } from '#/lib/sheet-composition-data'
 import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
-import { mutateSheetLocalState } from '#/lib/sheet-local-data'
+import {
+  mutateSheetLocalState,
+  readSheetInstanceCalculationResults,
+} from '#/lib/sheet-local-data'
 
 import type {
   SheetbaseGridCellChange,
@@ -843,6 +846,42 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
       expect.not.arrayContaining([
         expect.objectContaining({ group: 'Derived' }),
       ]),
+    )
+  })
+
+  it('offers Recalculate beside the stale message and re-reads the results (J-DAT-16)', async () => {
+    const instance = await composedInstanceWithCalculation()
+    const resultsFor = (calculationStatus: string) => ({
+      results: [
+        {
+          calculationId: CALC,
+          rowKey: Object.keys(instance.state.localValues)[0],
+          calculatedValue: 1,
+          calculationStatus,
+        },
+      ],
+    })
+    vi.mocked(readSheetInstanceCalculationResults).mockResolvedValue(
+      resultsFor('stale'),
+    )
+    rpcMock.mockResolvedValue(twoDatasetWire())
+    renderWorkspace(
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+      />,
+    )
+
+    expect(
+      await screen.findByText(/Calculation results are stale/),
+    ).toBeTruthy()
+    vi.mocked(readSheetInstanceCalculationResults).mockResolvedValue(
+      resultsFor('current'),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Recalculate' }))
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Calculation results are stale/)).toBeNull(),
     )
   })
 

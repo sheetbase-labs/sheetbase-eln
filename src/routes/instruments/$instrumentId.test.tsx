@@ -39,6 +39,11 @@ const qualifications = vi.hoisted(() => ({
 }))
 
 const calibrations = vi.hoisted(() => ({ current: [] as unknown[] }))
+const intake = vi.hoisted(() => ({
+  method: 'none',
+  parsers: [] as unknown[],
+  lastImport: null as null | { status: string; createdAt: string },
+}))
 const search = vi.hoisted(() => ({ current: {} }))
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
@@ -116,7 +121,7 @@ vi.mock(
         location: 'Lab 2',
         ownerId: null,
         retiredAt: null,
-        intakeMethod: 'none',
+        intakeMethod: intake.method,
         position: 1,
         updatedAt: '2026-10-01T00:00:00Z',
       },
@@ -128,8 +133,11 @@ vi.mock(
       data: calibrations.current,
       isSuccess: true,
     }),
-    useInstrumentParsers: () => ({ data: [], isSuccess: true }),
-    useInstrumentLastImport: () => ({ data: null, isSuccess: true }),
+    useInstrumentParsers: () => ({ data: intake.parsers, isSuccess: true }),
+    useInstrumentLastImport: () => ({
+      data: intake.lastImport,
+      isSuccess: true,
+    }),
     useInstrumentNextBooking: () => ({
       data: { bookable: true, next: null },
       isSuccess: true,
@@ -152,6 +160,9 @@ beforeEach(() => {
   role.current = 'owner'
   calibrations.current = []
   search.current = {}
+  intake.method = 'none'
+  intake.parsers = []
+  intake.lastImport = null
   dataClient.list.mockImplementation(async (...args: unknown[]) =>
     String(args[0]) === 'projects'
       ? [{ id: 'p-1', title: 'Process development' }]
@@ -365,5 +376,41 @@ describe('J-INS-10 overdue calibration and its certificate', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+})
+
+describe('J-INS-09 an automated instrument that is not delivering', () => {
+  function automated(lastImport: { status: string; createdAt: string } | null) {
+    intake.method = 'filedrop'
+    intake.parsers = [{ id: 'p1', name: 'Plate export', validated: true }]
+    intake.lastImport = lastImport
+  }
+
+  it('turns "Last import failed" into a retry through the import page for this instrument', async () => {
+    automated({ status: 'failed', createdAt: new Date().toISOString() })
+    renderPage()
+
+    await screen.findByText('The last import failed.')
+    expect(
+      screen.getByRole('link', { name: 'Upload a file' }).getAttribute('href'),
+    ).toBe('/import?instrument=inst-1')
+  })
+
+  it('tells a first-time instrument how data is supposed to arrive', async () => {
+    automated(null)
+    renderPage()
+
+    expect(await screen.findByText('Waiting for first data.')).toBeTruthy()
+    expect(screen.getByText(/uploads one of its exports/)).toBeTruthy()
+  })
+
+  it('names who can upload when the viewer cannot', async () => {
+    role.current = 'viewer'
+    automated(null)
+    renderPage()
+
+    await screen.findByText('Waiting for first data.')
+    expect(screen.queryByRole('link', { name: 'Upload a file' })).toBeNull()
+    expect(screen.getByText(/any role except viewer/)).toBeTruthy()
   })
 })

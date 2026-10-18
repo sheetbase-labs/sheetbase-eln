@@ -34,6 +34,10 @@ import {
 } from '#/components/v3/ui/confirm-dialog'
 import { Select } from '#/components/v3/ui/select'
 import { FileDrop } from '#/components/v3/ui/file-drop'
+import {
+  IntakeDeliveryNotice,
+  intakeDeliveryProblem,
+} from '#/components/v3/instruments/intake-delivery-notice'
 import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
 import { uploadProjectFile } from '#/lib/file-attach'
 import { Textarea } from '#/components/v3/inventory/list'
@@ -435,6 +439,7 @@ function InstrumentPage() {
     parserReady: parsers.isSuccess ? parserReady : undefined,
     lastImport: lastImport.data ?? null,
   })
+  const deliveryProblem = intakeDeliveryProblem(health.label)
   const lastDataAt =
     lastImport.data?.status === 'committed' ? lastImport.data.createdAt : null
   const nextBooking = !booking.isSuccess
@@ -525,6 +530,13 @@ function InstrumentPage() {
               instrumentName={i.name}
               followUp={followUp}
               canEdit={hasCapability(context.workspace?.role, 'schema.edit')}
+            />
+          ) : deliveryProblem ? (
+            <IntakeDeliveryNotice
+              instrumentId={i.id}
+              instrumentName={i.name}
+              problem={deliveryProblem}
+              canImport={canRecord}
             />
           ) : (
             <Muted className="mt-1.5">

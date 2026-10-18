@@ -22,6 +22,10 @@ import { Choice } from '#/components/v3/ui/choice'
 import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Notice } from '#/components/v3/ui/alert'
 import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
+import {
+  IntakeDeliveryNotice,
+  intakeDeliveryProblem,
+} from '#/components/v3/instruments/intake-delivery-notice'
 import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
 import { hasCapability } from '#/lib/capability'
 import { Select } from '#/components/v3/ui/select'
@@ -698,6 +702,7 @@ export function InstrumentInspector({
     parserReady: parsers.isSuccess ? parserReady : undefined,
     lastImport: lastImport.data ?? null,
   })
+  const deliveryProblem = intakeDeliveryProblem(health.label)
   const lastDataAt =
     lastImport.data?.status === 'committed' ? lastImport.data.createdAt : null
   const nextBooking = !booking.isSuccess
@@ -811,6 +816,13 @@ export function InstrumentInspector({
             instrumentName={instrument.name}
             followUp={followUp}
             canEdit={canEditParsers}
+          />
+        ) : deliveryProblem ? (
+          <IntakeDeliveryNotice
+            instrumentId={instrument.id}
+            instrumentName={instrument.name}
+            problem={deliveryProblem}
+            canImport={canRecordCalibration}
           />
         ) : null}
         <RegistrySection title="How data gets in">

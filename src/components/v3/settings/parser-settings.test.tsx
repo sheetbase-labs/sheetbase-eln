@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ParserSettings } from './parser-settings'
 
 const state = vi.hoisted(() => ({
-  status: 'approved' as 'draft' | 'approved',
+  status: 'approved',
   requestedAt: undefined as string | undefined,
 }))
 

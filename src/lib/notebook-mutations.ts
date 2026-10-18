@@ -23,6 +23,23 @@ export interface UpdateBlockArgs {
   payloadSchemaVersion?: number
 }
 
+/**
+ * Restore an archived record (`restore_record`). The server clears
+ * `archived_at` under the same row-level rules as any other record edit, so a
+ * caller without edit rights on the project is refused with a permission
+ * error. `expectedMetadataVersion` is the version the caller last saw.
+ */
+export function restoreRecord(
+  client: DataClient,
+  recordId: string,
+  expectedMetadataVersion: number,
+): Promise<unknown> {
+  return client.rpc('restore_record', {
+    p_record_id: recordId,
+    p_expected_metadata_version: expectedMetadataVersion,
+  })
+}
+
 export async function updateBlockPayload(
   client: DataClient,
   args: UpdateBlockArgs,

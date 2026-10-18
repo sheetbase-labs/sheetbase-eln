@@ -218,6 +218,40 @@ describe('ArchivedBanner', () => {
     expect(status.textContent).toContain('archived')
     expect(status.textContent).toContain('read-only')
   })
+
+  it('J-NBK-17 restores the notebook and names who can when it is refused', async () => {
+    const user = userEvent.setup()
+    const onRestore = vi
+      .fn<() => Promise<unknown>>()
+      .mockRejectedValueOnce(new Error('permission denied for table records'))
+      .mockResolvedValueOnce({})
+    render(<ArchivedBanner onRestore={onRestore} />)
+    expect(screen.getByRole('status').textContent).toContain(
+      'anyone who can edit the project can restore it',
+    )
+    await user.click(screen.getByRole('button', { name: 'Restore notebook' }))
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'ask a project owner',
+    )
+    await user.click(screen.getByRole('button', { name: 'Restore notebook' }))
+    expect(onRestore).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('J-NBK-17 sends the reader to project settings when the project is archived', () => {
+    const onRestore = vi.fn()
+    render(
+      <ArchivedBanner projectId="p1" projectArchived onRestore={onRestore} />,
+    )
+    expect(
+      screen
+        .getByRole('link', { name: 'Open project settings' })
+        .getAttribute('href'),
+    ).toBe('/projects/p1/settings')
+    expect(
+      screen.queryByRole('button', { name: 'Restore notebook' }),
+    ).toBeNull()
+  })
 })
 
 const lockedRecord: NotebookRecord = {

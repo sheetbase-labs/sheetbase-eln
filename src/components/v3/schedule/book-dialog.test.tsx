@@ -16,6 +16,27 @@ import type * as NotebookData from '#/lib/notebook-data'
 import { BookDialog } from './book-dialog'
 import type { ScheduleBooking, ScheduleInstrument } from './schedule-data'
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    params,
+    search,
+    children,
+  }: {
+    to: string
+    params?: Record<string, string>
+    search?: Record<string, string>
+    children: React.ReactNode
+  }) => {
+    const path = Object.entries(params ?? {}).reduce(
+      (acc, [key, value]) => acc.replace(`$${key}`, value),
+      to,
+    )
+    const query = search ? `?${new URLSearchParams(search).toString()}` : ''
+    return <a href={`${path}${query}`}>{children}</a>
+  },
+}))
+
 // The dialog submits through the canonical create_booking RPC; mock only the
 // data client so the test can observe the RPC call and its params. `list`
 // answers the workspace settings read the dialog makes to learn the workspace
@@ -278,19 +299,56 @@ describe('BookDialog', () => {
     ])
   })
 
-  it("shows the server's reason when the booking is refused as unqualified", async () => {
-    const reason = 'a current qualification is required to book this instrument'
-    rpc.mockRejectedValueOnce(new DataClientError('SB115', reason, 400))
+  it('explains an unqualified refusal and links to the instrument', async () => {
+    rpc.mockRejectedValueOnce(
+      new DataClientError(
+        'SB115',
+        'a current qualification is required to book this instrument',
+        400,
+      ),
+    )
     const user = userEvent.setup()
     const { onBooked } = renderDialog()
 
     const dialog = await openAndFill(user)
     await user.click(within(dialog).getByRole('button', { name: 'Book' }))
 
-    expect((await screen.findByRole('alert')).textContent).toContain(reason)
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain(
+      'You are not qualified to run Plate reader PR-01',
+    )
+    expect(alert.textContent).toContain('A workspace owner can grant')
+    expect(
+      within(alert)
+        .getByRole('link', { name: 'Open the instrument' })
+        .getAttribute('href'),
+    ).toBe('/instruments/res-pr01')
     expect(onBooked).not.toHaveBeenCalled()
     // The refusal leaves the dialog open so the reason stays visible.
     expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it('explains an overdue-calibration refusal and links to recording it', async () => {
+    rpc.mockRejectedValueOnce(
+      new DataClientError(
+        'SB116',
+        'the instrument calibration is overdue',
+        400,
+      ),
+    )
+    const user = userEvent.setup()
+    renderDialog()
+
+    const dialog = await openAndFill(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Book' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('calibration is overdue')
+    expect(
+      within(alert)
+        .getByRole('link', { name: 'Record the calibration' })
+        .getAttribute('href'),
+    ).toBe('/instruments/res-pr01?record=1')
   })
 
   it('surfaces the overlap when the server refuses a clash', async () => {

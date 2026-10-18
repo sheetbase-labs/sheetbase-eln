@@ -38,7 +38,17 @@ import {
 } from '#/lib/notebook-experience'
 import { useUserNames } from '#/lib/user-names'
 import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
-import { requestSignatureStepUp } from '#/lib/signatures'
+import {
+  expiredSigningSignInSearch,
+  isExpiredSigningSession,
+  requestSignatureStepUp,
+} from '#/lib/signatures'
+import {
+  fetchWorkspaceCertifications,
+  isCurrentStatement,
+  signatureCertificationDataClient,
+  signatureCertificationQueryKeys,
+} from '#/lib/signature-certification'
 
 import { BlockPreview } from './block-preview'
 import { SubmissionReadinessGuide } from '#/components/assist/submission-readiness-guide'
@@ -167,6 +177,25 @@ export function SubmitNotebookDialog({
   const workflow = workflows.data?.find(
     (item) => `${item.definition_key}/${item.version}` === workflowId,
   )
+
+  // J-NBK-07: an Authored signature needs a current certification. Read the
+  // author's own attestation so the dialog says so before any password is typed.
+  const certifications = useQuery({
+    queryKey: signatureCertificationQueryKeys.workspace(workspaceId ?? 'none'),
+    queryFn: () =>
+      fetchWorkspaceCertifications(
+        signatureCertificationDataClient,
+        workspaceId!,
+      ),
+    enabled:
+      open && Boolean(workspaceId) && Boolean(workflow?.requires_signature),
+  })
+  const notCertified =
+    Boolean(workflow?.requires_signature) &&
+    certifications.isSuccess &&
+    !isCurrentStatement(
+      certifications.data.find((row) => row.userId === reviewerUserId),
+    )
 
   useEffect(() => {
     setAuthorPassword('')
@@ -325,7 +354,18 @@ export function SubmitNotebookDialog({
     // changed since the check snapshot) must invalidate the stale
     // snapshot, or the checklist keeps claiming the digest is verified
     // while Submit stays enabled against the same stale digest.
-    onError: () => setVerified(null),
+    onError: (error) => {
+      setVerified(null)
+      if (isExpiredSigningSession(error)) {
+        // The step-up saw no live session: a retry cannot succeed, so send the
+        // author to sign in and back to this notebook.
+        onOpenChange(false)
+        void navigate({
+          to: '/sign-in',
+          search: expiredSigningSignInSearch(window.location.pathname),
+        })
+      }
+    },
   })
 
   const previewErrorMessage =
@@ -334,8 +374,9 @@ export function SubmitNotebookDialog({
       : preview.error instanceof Error
         ? preview.error.message
         : null
-  const submitErrorMessage =
-    submit.error instanceof DataClientError
+  const submitErrorMessage = isExpiredSigningSession(submit.error)
+    ? 'Your session has expired. Sign in again, then submit; your notebook changes are kept.'
+    : submit.error instanceof DataClientError
       ? submit.error.message
       : submit.error instanceof Error
         ? submit.error.message
@@ -453,10 +494,33 @@ export function SubmitNotebookDialog({
           </Field>
 
           {workflow?.requires_signature ? (
-            <fieldset className="space-y-3" disabled={submit.isPending}>
+            <fieldset
+              className="space-y-3"
+              disabled={submit.isPending || notCertified}
+            >
               <legend className="text-sm font-medium">
                 Authored signature
               </legend>
+              {notCertified ? (
+                <Notice tone="warn">
+                  <p className="m-0">
+                    This workflow needs your Authored signature, and your
+                    electronic signature is not certified for this workspace.
+                    You cannot submit under it until you are.
+                  </p>
+                  <p className="m-0 mt-1.5 text-label">
+                    Certify in Settings → Electronic signatures: confirm your
+                    identity with an administrator, agree to the statement and
+                    set your signing password. Or choose an exploratory workflow
+                    above, which needs no signature.
+                  </p>
+                  <p className="m-0 mt-1.5">
+                    <Link to="/settings/signatures" className="underline">
+                      Open signature settings
+                    </Link>
+                  </p>
+                </Notice>
+              ) : null}
               <p className="text-xs text-fg-muted">
                 I authored the exact snapshot below and submit it for review.
                 Your independently verified identity, current certification and
@@ -656,7 +720,8 @@ export function SubmitNotebookDialog({
               !verified ||
               !workflow ||
               (workflow.requires_signature &&
-                (!workspaceId ||
+                (notCertified ||
+                  !workspaceId ||
                   !authorPassword ||
                   !authorConfirmation.trim())) ||
               selectedReviewerIds.length === 0

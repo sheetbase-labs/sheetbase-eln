@@ -11,6 +11,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/shell'
 import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
+import { AccessBlocked } from '#/components/v3/shell/access-blocked'
 import { Toaster } from '#/components/v3/ui/sonner'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
@@ -191,10 +192,12 @@ function RootRouteComponent() {
         workspace: auth.workspace
           ? { id: auth.workspace.id, name: auth.workspace.name }
           : null,
-        workspaces: auth.workspaces.map((workspace) => ({
-          id: workspace.id,
-          name: workspace.name,
-        })),
+        workspaces: auth.workspaces
+          .filter((workspace) => !workspace.suspended)
+          .map((workspace) => ({
+            id: workspace.id,
+            name: workspace.name,
+          })),
       }
     : {
         me: { id: '', name: '', initials: '', role: '' },
@@ -214,6 +217,19 @@ function RootRouteComponent() {
           <CollaborationProvider>
             {bareRoute ? (
               <Outlet />
+            ) : auth && (!auth.workspace || auth.workspace.suspended) ? (
+              // J-SET-03/04: no live membership. The shell and every
+              // workspace read would fail without saying why.
+              <AccessBlocked
+                user={auth.user}
+                suspendedWorkspace={
+                  auth.workspace ? { name: auth.workspace.name } : null
+                }
+                contacts={auth.accessContacts ?? []}
+                otherWorkspaces={auth.workspaces.filter(
+                  (w) => w.id !== auth.workspace?.id && !w.suspended,
+                )}
+              />
             ) : legacyShell ? (
               <ShellProvider>
                 <Outlet />

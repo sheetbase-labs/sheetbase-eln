@@ -1,3 +1,4 @@
+import { pickActiveMembership } from '#/lib/active-membership'
 import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 
@@ -41,13 +42,13 @@ const handler = ({
           where: eq(schema.workspaceMemberships.userId, userId),
         }),
       ])
-      const membership =
-        (preference?.activeWorkspaceId
-          ? memberships.find(
-              (item) => item.workspaceId === preference.activeWorkspaceId,
-            )
-          : undefined) ?? memberships.at(0)
-      return membership ? { id: membership.workspaceId } : null
+      const membership = pickActiveMembership(
+        memberships,
+        preference?.activeWorkspaceId,
+      )
+      return membership && !membership.suspendedAt
+        ? { id: membership.workspaceId }
+        : null
     },
     mintToken: (input) => mintPostgrestToken(env.PGRST_JWT_SECRET, input),
     resolveExternalToken: (token, method, path) =>

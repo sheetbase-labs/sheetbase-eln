@@ -491,8 +491,15 @@ function InstrumentPage() {
             />
           ) : (
             <Muted className="mt-1.5">
-              How data gets in is set on the registry inspector. Imports already
-              committed keep the provenance they arrived with.
+              How data gets in is set on the{' '}
+              <Link
+                to="/instruments"
+                search={{ selected: i.id }}
+                className="text-link hover:underline"
+              >
+                registry inspector
+              </Link>
+              . Imports already committed keep the provenance they arrived with.
             </Muted>
           )}
         </Section>

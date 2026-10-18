@@ -817,7 +817,7 @@ export function InstrumentInspector({
             <Link
               to="/settings/instruments"
               search={{ instrumentId: instrument.id }}
-              className="mt-1.5 inline-block text-label"
+              className="mt-1.5 inline-block text-label text-link hover:underline"
             >
               Parser and imports
             </Link>

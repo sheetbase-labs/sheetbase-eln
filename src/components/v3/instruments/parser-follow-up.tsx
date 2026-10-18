@@ -34,11 +34,15 @@ export function ParserFollowUpNotice({
 }) {
   const copy = COPY[followUp.kind]
   return (
-    <Notice
-      tone="warn"
-      title={copy.title}
-      action={
-        canEdit ? (
+    <Notice tone="warn" title={copy.title}>
+      <div className="flex flex-col items-start gap-2">
+        <span>
+          Readings from {instrumentName} {copy.body}
+          {canEdit
+            ? ''
+            : ' Ask a workspace admin or schema editor to set this up.'}
+        </span>
+        {canEdit ? (
           <Button
             size="sm"
             nativeButton={false}
@@ -48,11 +52,8 @@ export function ParserFollowUpNotice({
           >
             {copy.action}
           </Button>
-        ) : undefined
-      }
-    >
-      Readings from {instrumentName} {copy.body}
-      {canEdit ? '' : ' Ask a workspace admin or schema editor to set this up.'}
+        ) : null}
+      </div>
     </Notice>
   )
 }

@@ -10,24 +10,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Dot } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
 import {
-  DescriptionList,
-  Inspector,
-  Muted,
-} from '#/components/v3/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Choice } from '#/components/v3/ui/choice'
 import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Notice } from '#/components/v3/ui/alert'
+import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   Dialog,
@@ -43,11 +37,8 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
-  Select,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   CALIBRATION_DUE_SOON_DAYS,
   INTAKE_METHODS,
@@ -271,6 +262,128 @@ function InstrumentsList() {
         replace: true,
       })
 
+  const columns = useMemo<RegistryColumn<InstrumentRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        cell: ({ row }) => (
+          <span className="mono">
+            {row.original.displayId ?? row.original.id.slice(0, 8)}
+          </span>
+        ),
+      },
+      {
+        id: 'name',
+        header: 'Name and type',
+        // The grid zeroes a cell's own vertical padding, so a two-line cell
+        // carries its line height and padding on its content instead. The
+        // bespoke body's two-line rows were 46px, and stay 46px.
+        cell: ({ row }) => (
+          <span className="block py-1.5 leading-[17px]">
+            <span className="block">
+              <Link
+                to="/instruments/$instrumentId"
+                params={{ instrumentId: row.original.id }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {row.original.name}
+              </Link>
+            </span>
+            <span className="block text-label text-fg-muted">
+              {row.original.instrumentType}
+            </span>
+          </span>
+        ),
+      },
+      {
+        id: 'model',
+        header: 'Make and model',
+        meta: { cellClassName: 'max-w-[180px]' },
+        cell: ({ row }) => (
+          <span className="block py-1.5 leading-[17px]">
+            <span className="block truncate">{row.original.model ?? '—'}</span>
+            <span className="block truncate text-label text-fg-muted">
+              {row.original.vendor ?? '—'}
+            </span>
+          </span>
+        ),
+      },
+      {
+        id: 'location',
+        header: 'Location',
+        cell: ({ row }) => row.original.location ?? '—',
+      },
+      {
+        id: 'intake',
+        header: 'How data gets in',
+        cell: ({ row }) => {
+          const health = healthFor(row.original)
+          return (
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <Dot tone={health.tone} />
+              <span>{intakeMethodLabel(row.original.intakeMethod)}</span>
+              {health.tone === 'bad' || health.tone === 'warn' ? (
+                <span
+                  className={cn(
+                    'text-fg-muted',
+                    health.tone === 'bad' && 'text-danger-text',
+                    health.tone === 'warn' && 'text-warning-text',
+                  )}
+                >
+                  · {health.label}
+                </span>
+              ) : null}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'calibration',
+        header: 'Calibration due',
+        meta: { cellClassName: 'py-1.5 leading-[17px]' },
+        cell: ({ row }) => {
+          const c = calFor(row.original.id)
+          return (
+            <span
+              className={cn(
+                'whitespace-nowrap',
+                c.tone === 'bad' && 'text-danger-text',
+                c.tone === 'warn' && 'text-warning-text',
+              )}
+            >
+              {c.label}
+            </span>
+          )
+        },
+      },
+      {
+        id: 'owner',
+        header: 'Owner',
+        // The grid owns cell padding (`px-2.5` on every cell), so a column's
+        // own trailing space has to be requested explicitly — this column was
+        // the last one in the table before the swap and carried `pr-6`.
+        meta: { headerClassName: 'pr-6!', cellClassName: 'pr-6!' },
+        cell: ({ row }) =>
+          row.original.ownerId ? names.userLabel(row.original.ownerId) : '—',
+      },
+    ],
+    // Rebuilt with the evidence the cells read — the owner labels, and the
+    // calibration and intake maps — so a late arrival cannot leave a stale
+    // cell behind.
+    [names, latest, lastImports, readiness, parserReadiness.isSuccess],
+  )
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.id ?? null,
+    (id) =>
+      void navigate({
+        to: '/instruments',
+        search: (s) => ({ ...s, selected: id ?? undefined }),
+        replace: true,
+      }),
+  )
+
   if (search.state === 'denied') {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -279,12 +392,13 @@ function InstrumentsList() {
           <EmptyState
             icon="lock"
             title="You don’t have access to the instrument registry"
-            body="The registry is open to members of this workspace. Ask a workspace admin to add you."
-          >
-            <Button nativeButton={false} render={<Link to="/schedule" />}>
-              Book an instrument instead
-            </Button>
-          </EmptyState>
+            description="The registry is open to members of this workspace. Ask a workspace admin to add you."
+            action={
+              <Button nativeButton={false} render={<Link to="/schedule" />}>
+                Book an instrument instead
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -313,9 +427,10 @@ function InstrumentsList() {
             </>
           }
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Instrument lists"
-              current={tab}
+              value={tab}
               items={(
                 ['all', 'connected', 'calibration', 'retired'] as const
               ).map((key) => ({
@@ -449,120 +564,31 @@ function InstrumentsList() {
                   }
                 })}
               />
-              <div className="overflow-x-auto max-md:hidden">
-                <Table
-                  aria-label="Instruments"
-                  className="max-xl:min-w-[1080px]"
-                >
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className={stickyHead}>ID</TableHead>
-                      <TableHead>Name and type</TableHead>
-                      <TableHead>Make and model</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>How data gets in</TableHead>
-                      <TableHead>Calibration due</TableHead>
-                      <TableHead className="pr-6">Owner</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visible.map((i) => {
-                      const c = calFor(i.id)
-                      const health = healthFor(i)
-                      return (
-                        <TableRow
-                          key={i.id}
-                          selected={i.id === sel?.id}
-                          className="cursor-pointer"
-                          onClick={() =>
-                            void navigate({
-                              to: '/instruments',
-                              search: (s) => ({ ...s, selected: i.id }),
-                              replace: true,
-                            })
-                          }
-                        >
-                          <TableCell className={stickyCell}>
-                            <span className="mono">
-                              {i.displayId ?? i.id.slice(0, 8)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="py-1.5 leading-[17px]">
-                            <span className="block">
-                              <Link
-                                to="/instruments/$instrumentId"
-                                params={{ instrumentId: i.id }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {i.name}
-                              </Link>
-                            </span>
-                            <span className="block text-label text-fg-muted">
-                              {i.instrumentType}
-                            </span>
-                          </TableCell>
-                          <TableCell className="max-w-[180px] py-1.5 leading-[17px]">
-                            <span className="block truncate">
-                              {i.model ?? '—'}
-                            </span>
-                            <span className="block truncate text-label text-fg-muted">
-                              {i.vendor ?? '—'}
-                            </span>
-                          </TableCell>
-                          <TableCell>{i.location ?? '—'}</TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                              <Dot tone={health.tone} />
-                              <span>{intakeMethodLabel(i.intakeMethod)}</span>
-                              {health.tone === 'bad' ||
-                              health.tone === 'warn' ? (
-                                <span
-                                  className={cn(
-                                    'text-fg-muted',
-                                    health.tone === 'bad' && 'text-danger-text',
-                                    health.tone === 'warn' &&
-                                      'text-warning-text',
-                                  )}
-                                >
-                                  · {health.label}
-                                </span>
-                              ) : null}
-                            </span>
-                          </TableCell>
-                          <TableCell className="py-1.5 leading-[17px]">
-                            <span
-                              className={cn(
-                                'whitespace-nowrap',
-                                c.tone === 'bad' && 'text-danger-text',
-                                c.tone === 'warn' && 'text-warning-text',
-                              )}
-                            >
-                              {c.label}
-                            </span>
-                          </TableCell>
-                          <TableCell className="pr-6">
-                            {i.ownerId ? names.userLabel(i.ownerId) : '—'}
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <RegistryGrid
+                className="max-md:hidden"
+                label="Instruments"
+                rows={visible}
+                columns={columns}
+                getRowId={(i) => i.id}
+                rowSelection={rowSelection}
+                onRowSelectionChange={onRowSelectionChange}
+                isLoading={query.isLoading}
+              />
             </>
           ) : search.state === 'empty' || rows.length === 0 ? (
             <div className="px-4 md:px-6">
               <EmptyState
                 icon="plug"
                 title="No instruments registered yet"
-                body="Register an instrument to book it, cite it in records and bring its data in by webhook or file drop. Readings from unregistered instruments can only be typed in by hand."
-              >
-                <RegisterInstrument
-                  types={types}
-                  workspaceId={workspaceId}
-                  ownerId={context.user.id}
-                />
-              </EmptyState>
+                description="Register an instrument to book it, cite it in records and bring its data in by webhook or file drop. Readings from unregistered instruments can only be typed in by hand."
+                action={
+                  <RegisterInstrument
+                    types={types}
+                    workspaceId={workspaceId}
+                    ownerId={context.user.id}
+                  />
+                }
+              />
             </div>
           ) : (
             <div role="status" className="px-4 md:px-6">
@@ -573,25 +599,26 @@ function InstrumentsList() {
                     ? `No instruments match “${search.q}”`
                     : `No instruments in ${tabLabels[tab].toLowerCase()}`
                 }
-                body={
+                description={
                   filtered
                     ? 'Search looks at ID, name, type, make, model, serial, location and owner.'
                     : tab === 'retired'
                       ? 'Retired instruments stay here with their history so old records still resolve.'
                       : 'Nothing is in this list right now.'
                 }
-              >
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link to="/instruments" search={{ tab: search.tab }} />
-                  }
-                >
-                  {filtered
-                    ? 'Clear search and filters'
-                    : 'Show all instruments'}
-                </Button>
-              </EmptyState>
+                action={
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link to="/instruments" search={{ tab: search.tab }} />
+                    }
+                  >
+                    {filtered
+                      ? 'Clear search and filters'
+                      : 'Show all instruments'}
+                  </Button>
+                }
+              />
             </div>
           )}
         </div>
@@ -735,9 +762,7 @@ export function InstrumentInspector({
               // The Schedule opens its book dialog with this instrument already
               // chosen, so the registry does not send the person back to a list
               // to find the instrument they were just looking at.
-              render={
-                <Link to="/schedule" search={{ book: instrument.id }} />
-              }
+              render={<Link to="/schedule" search={{ book: instrument.id }} />}
             >
               Book
             </Button>

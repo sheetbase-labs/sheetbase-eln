@@ -22,21 +22,17 @@ import {
   InspectorSection,
 } from '#/components/v3/ui/layout'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
-import {
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
+import {
+  RegistryGrid,
+  rightAligned,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   datasetIssueSummary,
   datasetValidation,
@@ -156,6 +152,57 @@ function DatasetsList() {
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.dataset)) ?? defaultSel
 
+  const columns = useMemo<RegistryColumn<DatasetListRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+      },
+      {
+        id: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <Link
+            to="/datasets/$datasetId/rows"
+            params={{ datasetId: row.original.uuid }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      { id: 'model', header: 'Model', accessorFn: (d) => d.model },
+      {
+        id: 'experiment',
+        header: 'Experiment',
+        cell: ({ row }) => (
+          <span className="mono">{row.original.experimentId ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'rows',
+        header: 'Rows',
+        accessorFn: (d) => d.rows,
+        meta: rightAligned<DatasetListRow>().meta,
+      },
+      {
+        id: 'validation',
+        header: 'Validation',
+        cell: ({ row }) => {
+          const v = datasetValidation(row.original)
+          return <Status tone={v.tone}>{v.label}</Status>
+        },
+      },
+    ],
+    [],
+  )
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.uuid ?? null,
+    setSelected,
+  )
+
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -181,9 +228,10 @@ function DatasetsList() {
             </>
           }
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Dataset lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
@@ -214,56 +262,18 @@ function DatasetsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table aria-label="Datasets" className="max-md:hidden">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={stickyHead}>ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Model</TableHead>
-                <TableHead>Experiment</TableHead>
-                <TableHead align="right">Rows</TableHead>
-                <TableHead>Validation</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((d) => {
-                const v = datasetValidation(d)
-                return (
-                  <TableRow
-                    key={d.uuid}
-                    selected={d.uuid === sel?.uuid}
-                    className="cursor-pointer"
-                    onClick={() => setSelected(d.uuid)}
-                  >
-                    <TableCell className={stickyCell}>
-                      <span className="mono">{d.id}</span>
-                    </TableCell>
-                    <TableCell
-                      className={
-                        d.uuid === sel?.uuid ? 'font-medium' : undefined
-                      }
-                    >
-                      <Link
-                        to="/datasets/$datasetId/rows"
-                        params={{ datasetId: d.uuid }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {d.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{d.model}</TableCell>
-                    <TableCell className="mono">
-                      {d.experimentId ?? '—'}
-                    </TableCell>
-                    <TableCell align="right">{d.rows}</TableCell>
-                    <TableCell>
-                      <Status tone={v.tone}>{v.label}</Status>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          {query.isLoading || visible.length > 0 ? (
+            <RegistryGrid
+              className="max-md:hidden"
+              label="Datasets"
+              rows={visible}
+              columns={columns}
+              getRowId={(d) => d.uuid}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              isLoading={query.isLoading}
+            />
+          ) : null}
           <MobileList
             label="Datasets"
             items={visible.map((d) => {
@@ -295,12 +305,27 @@ function DatasetsList() {
                         ? 'No datasets have issues'
                         : `No datasets in ${tabLabel[tab].toLowerCase()}`
                 }
-                body={
+                description={
                   hasProjectAccess === false
                     ? NO_PROJECT_ACCESS_BODY
                     : q
                       ? 'Search looks at ID, name and model.'
                       : 'Datasets appear here when an import or a check puts them in this list.'
+                }
+                action={
+                  hasProjectAccess !== false && (q || tab !== 'all') ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link
+                          to="/datasets"
+                          search={{ q: undefined, tab: q ? tab : undefined }}
+                        />
+                      }
+                    >
+                      {q ? 'Clear search' : 'Show all datasets'}
+                    </Button>
+                  ) : undefined
                 }
               />
             </div>

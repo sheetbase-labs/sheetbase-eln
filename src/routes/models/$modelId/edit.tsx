@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
@@ -14,7 +14,7 @@ import { Status } from '#/components/v3/ui/status'
 import { Notice } from '#/components/v3/ui/alert'
 import { Field, Input } from '#/components/v3/ui/input'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { Textarea } from '#/components/v3/inventory/list'
 import {
   Table,
@@ -414,11 +414,7 @@ function ModelEditor() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/models" className="text-link">
-              Models
-            </Link>
-          }
+          trail={[{ label: 'Models', link: { to: '/models' } }]}
           title={definition.isLoading ? 'Loading model…' : 'Model not found'}
         />
       </div>
@@ -431,22 +427,14 @@ function ModelEditor() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
-          crumbs={
-            <>
-              <Link to="/models" className="text-link">
-                Models
-              </Link>{' '}
-              /{' '}
-              <Link
-                to="/models/$modelId"
-                params={{ modelId }}
-                className="text-link"
-              >
-                {model.name}
-              </Link>{' '}
-              / Draft
-            </>
-          }
+          trail={[
+            { label: 'Models', link: { to: '/models' } },
+            {
+              label: model.name,
+              link: { to: '/models/$modelId', params: { modelId } },
+            },
+            { label: 'Draft' },
+          ]}
           title={`Edit ${model.name}`}
           meta={
             <>
@@ -532,7 +520,16 @@ function ModelEditor() {
             <EmptyState
               icon="schema"
               title="No draft to edit"
-              body="Start a draft to change this model’s fields. The published version stays in use until the draft is published."
+              description="Start a draft to change this model’s fields. The published version stays in use until the draft is published."
+              action={
+                <Button
+                  variant="primary"
+                  disabled={denied || startDraft.isPending}
+                  onClick={() => startDraft.mutate()}
+                >
+                  Start draft
+                </Button>
+              }
             />
           </div>
         ) : (
@@ -621,7 +618,11 @@ function ModelEditor() {
                         <TableHead>Type</TableHead>
                         <TableHead>Required</TableHead>
                         <TableHead>Change</TableHead>
-                        <TableHead className="pr-3" align="right" aria-label="Actions" />
+                        <TableHead
+                          className="pr-3"
+                          align="right"
+                          aria-label="Actions"
+                        />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -659,7 +660,7 @@ function ModelEditor() {
                               />
                             </TableCell>
                             <TableCell>
-                              <NativeSelect
+                              <Select
                                 aria-label={`Field type ${field.key || 'new field'}`}
                                 disabled={locked}
                                 value={field.logicalType}
@@ -675,7 +676,7 @@ function ModelEditor() {
                                     {type}
                                   </option>
                                 ))}
-                              </NativeSelect>
+                              </Select>
                             </TableCell>
                             <TableCell>
                               <input
@@ -977,7 +978,7 @@ function FieldEditor({
             />
           </Field>
           <Field label="Type">
-            <NativeSelect
+            <Select
               aria-label="Field type"
               disabled={locked}
               value={field.logicalType}
@@ -988,7 +989,7 @@ function FieldEditor({
                   {type}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
           <Field
             label="Section"
@@ -1116,7 +1117,7 @@ function FieldEditor({
 
         {field.logicalType === 'boolean' ? (
           <Field label="Default for new datasets">
-            <NativeSelect
+            <Select
               aria-label="Default value"
               disabled={locked}
               value={
@@ -1136,7 +1137,7 @@ function FieldEditor({
               <option value="">No default</option>
               <option value="true">Yes</option>
               <option value="false">No</option>
-            </NativeSelect>
+            </Select>
           </Field>
         ) : null}
 
@@ -1145,7 +1146,7 @@ function FieldEditor({
             label="Cardinality"
             hint="The target model or schema is configured on the model’s Relationships tab."
           >
-            <NativeSelect
+            <Select
               aria-label="Cardinality"
               disabled={locked}
               value={field.cardinality ?? 'one'}
@@ -1157,7 +1158,7 @@ function FieldEditor({
             >
               <option value="one">Links to one record</option>
               <option value="many">Allows several records</option>
-            </NativeSelect>
+            </Select>
           </Field>
         ) : null}
 
@@ -1260,9 +1261,7 @@ function patternCompiles(pattern: string): boolean {
  * and bounds only, so the rest is named inline rather than after a round-trip.
  * Values here are only stops: the server stays authoritative.
  */
-function fieldContractIssues(
-  rows: readonly DraftField[],
-): Map<string, string> {
+function fieldContractIssues(rows: readonly DraftField[]): Map<string, string> {
   const issues = new Map<string, string>()
   for (const row of rows) {
     const key = row.key.trim()

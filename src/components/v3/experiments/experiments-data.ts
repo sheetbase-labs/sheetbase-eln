@@ -46,13 +46,7 @@ interface ExperimentWire {
 
 /** The list's tabs. `experiments.tsx` renders exactly these. */
 export type ExperimentTabKey =
-  | 'all'
-  | 'mine'
-  | 'inprogress'
-  | 'onhold'
-  | 'inreview'
-  | 'approved'
-  | 'drafts'
+  'all' | 'mine' | 'inprogress' | 'onhold' | 'inreview' | 'approved' | 'drafts'
 
 /** The tabs that group experiments by status. `all` is the whole workspace and
  * `mine` is the caller's own experiments, so neither is a status tab. */

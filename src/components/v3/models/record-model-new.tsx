@@ -6,7 +6,7 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Notice } from '#/components/v3/ui/alert'
 import { Input } from '#/components/v3/ui/input'
 import { Section } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { evaluateModelRules } from '#/lib/model-rules'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -118,16 +118,17 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         <EmptyState
           icon="table"
           title="Model not found"
-          body={`No workspace record model with the key “${modelKey}” is visible in this workspace.`}
-        >
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={<Link to="/models" />}
-          >
-            Back to Models
-          </Button>
-        </EmptyState>
+          description={`No workspace record model with the key “${modelKey}” is visible in this workspace.`}
+          action={
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<Link to="/models" />}
+            >
+              Back to Models
+            </Button>
+          }
+        />
       </div>
     )
   }
@@ -185,7 +186,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
             {projects.length > 1 ? (
               <label className="text-xs text-fg-muted">
                 Project *
-                <NativeSelect
+                <Select
                   className="mt-1 h-8 text-xs"
                   value={selectedProject}
                   onChange={(event) => setProjectId(event.target.value)}
@@ -196,7 +197,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                       {project.title}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </label>
             ) : projects.length === 1 ? (
               <div className="text-xs text-fg-muted">

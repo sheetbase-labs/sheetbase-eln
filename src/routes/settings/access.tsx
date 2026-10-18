@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Field } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import {
   Dialog,
@@ -14,14 +15,8 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/v3/ui/dialog'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   SettingsBody,
@@ -163,6 +158,110 @@ function Access() {
   const visibleProjects = (projects.data ?? []).filter(
     (p) => !projectFilter || p.id === projectFilter,
   )
+  const matrixColumns: RegistryColumn<(typeof visibleProjects)[number]>[] = [
+    {
+      id: 'project',
+      header: 'Project',
+      cell: ({ row }) => row.original.title,
+    },
+    ...columns.map(
+      (column): RegistryColumn<(typeof visibleProjects)[number]> => ({
+        id: column.key,
+        header: column.label,
+        cell: ({ row }) => {
+          const activeRules = (rules.data ?? []).filter(
+            (rule) =>
+              rule.project_id === row.original.id &&
+              rule[column.key] &&
+              (!groupFilter || rule.group_id === groupFilter),
+          )
+          if (!activeRules.length) return '—'
+          const editable = permissions.data?.get(row.original.id)?.can_manage
+          return activeRules.map((rule, index) => (
+            <span key={rule.id}>
+              {index ? ', ' : ''}
+              {editable ? (
+                <button
+                  className="text-left hover:underline focus-visible:outline focus-visible:outline-2"
+                  onClick={() => setDialog({ kind: 'edit', rule })}
+                >
+                  {rule.principal_name}
+                </button>
+              ) : (
+                rule.principal_name
+              )}
+            </span>
+          ))
+        },
+      }),
+    ),
+  ]
+  const requestColumns: RegistryColumn<(typeof requestRows)[number]>[] = [
+    {
+      id: 'person',
+      header: 'Person',
+      cell: ({ row }) => userLabel(row.original.user_id),
+    },
+    {
+      id: 'project',
+      header: 'Project',
+      cell: ({ row }) =>
+        projects.data?.find((p) => p.id === row.original.project_id)?.title ??
+        '—',
+    },
+    {
+      id: 'reason',
+      header: 'Reason',
+      cell: ({ row }) => row.original.reason,
+    },
+    {
+      id: 'decision',
+      header: 'Decision',
+      cell: ({ row }) => {
+        const request = row.original
+        const canDecide =
+          request.status === 'pending' &&
+          permissions.data?.get(request.project_id)?.can_manage === true
+        if (canDecide) {
+          return (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                disabled={decide.isPending}
+                onClick={() =>
+                  decide.mutate({ requestId: request.id, approve: true })
+                }
+              >
+                Approve edit access
+              </Button>
+              <Button
+                size="sm"
+                variant="quiet"
+                disabled={decide.isPending}
+                onClick={() =>
+                  decide.mutate({ requestId: request.id, approve: false })
+                }
+              >
+                Deny
+              </Button>
+            </div>
+          )
+        }
+        if (request.status === 'pending')
+          return <span>Waiting for approval</span>
+        return (
+          <span>
+            {request.status === 'approved' ? 'Approved' : 'Denied'}
+            {request.decided_by_user_id
+              ? ` by ${userLabel(request.decided_by_user_id)}`
+              : ''}
+            {' · '}
+            {formatDate(request.updated_at)}
+          </span>
+        )
+      },
+    },
+  ]
   return (
     <>
       <SettingsHeader
@@ -190,8 +289,9 @@ function Access() {
       <div className="flex gap-3 border-y border-border-subtle px-4 py-2 md:px-6">
         <label className="text-label">
           Project:{' '}
-          <select
+          <Select
             aria-label="Filter project"
+            className="inline-block text-label"
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
           >
@@ -201,12 +301,13 @@ function Access() {
                 {p.title}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="text-label">
           Group:{' '}
-          <select
+          <Select
             aria-label="Filter group"
+            className="inline-block text-label"
             value={groupFilter}
             onChange={(e) => setGroupFilter(e.target.value)}
           >
@@ -216,7 +317,7 @@ function Access() {
                 {g.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
@@ -239,56 +340,15 @@ function Access() {
           <SettingsBody>
             <Muted>Loading project access…</Muted>
           </SettingsBody>
-        ) : (
-          <Table aria-label="Project access matrix">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Project</TableHead>
-                {columns.map((c) => (
-                  <TableHead key={c.key}>{c.label}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleProjects.map((p) => {
-                const projectRules = rules.data.filter(
-                  (r) =>
-                    r.project_id === p.id &&
-                    (!groupFilter || r.group_id === groupFilter),
-                )
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell>{p.title}</TableCell>
-                    {columns.map((c) => (
-                      <TableCell key={c.key}>
-                        {projectRules
-                          .filter((r) => r[c.key])
-                          .map((r, index) => (
-                            <span key={r.id}>
-                              {index ? ', ' : ''}
-                              {permissions.data?.get(p.id)?.can_manage ? (
-                                <button
-                                  className="text-left hover:underline focus-visible:outline focus-visible:outline-2"
-                                  onClick={() =>
-                                    setDialog({ kind: 'edit', rule: r })
-                                  }
-                                >
-                                  {r.principal_name}
-                                </button>
-                              ) : (
-                                r.principal_name
-                              )}
-                            </span>
-                          ))}
-                        {!projectRules.some((r) => r[c.key]) ? '—' : null}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        )}
+        ) : visibleProjects.length ? (
+          <RegistryGrid
+            label="Project access matrix"
+            rows={visibleProjects}
+            columns={matrixColumns}
+            getRowId={(project) => project.id}
+            selectable={false}
+          />
+        ) : null}
         {!projects.isPending &&
         !projects.isError &&
         visibleProjects.length === 0 ? (
@@ -296,7 +356,7 @@ function Access() {
             <EmptyState
               icon="lock"
               title="No accessible projects"
-              body="An explicit project rule is required. Workspace roles do not grant project access."
+              description="An explicit project rule is required. Workspace roles do not grant project access."
             />
           </SettingsBody>
         ) : null}
@@ -314,75 +374,13 @@ function Access() {
         </Section>
         {requestRows.length ? (
           <Section title="Access requests" count={requestRows.length}>
-            <Table aria-label="Access requests">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Person</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Decision</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requestRows.map((r) => {
-                  const canDecide =
-                    r.status === 'pending' &&
-                    permissions.data?.get(r.project_id)?.can_manage === true
-                  return (
-                    <TableRow key={r.id}>
-                      <TableCell>{userLabel(r.user_id)}</TableCell>
-                      <TableCell>
-                        {projects.data?.find((p) => p.id === r.project_id)
-                          ?.title ?? '—'}
-                      </TableCell>
-                      <TableCell>{r.reason}</TableCell>
-                      <TableCell>
-                        {canDecide ? (
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              disabled={decide.isPending}
-                              onClick={() =>
-                                decide.mutate({
-                                  requestId: r.id,
-                                  approve: true,
-                                })
-                              }
-                            >
-                              Approve edit access
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="quiet"
-                              disabled={decide.isPending}
-                              onClick={() =>
-                                decide.mutate({
-                                  requestId: r.id,
-                                  approve: false,
-                                })
-                              }
-                            >
-                              Deny
-                            </Button>
-                          </div>
-                        ) : r.status === 'pending' ? (
-                          <span>Waiting for approval</span>
-                        ) : (
-                          <span>
-                            {r.status === 'approved' ? 'Approved' : 'Denied'}
-                            {r.decided_by_user_id
-                              ? ` by ${userLabel(r.decided_by_user_id)}`
-                              : ''}
-                            {' · '}
-                            {formatDate(r.updated_at)}
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Access requests"
+              rows={requestRows}
+              columns={requestColumns}
+              getRowId={(request) => request.id}
+              selectable={false}
+            />
           </Section>
         ) : null}
         {requests.isError ? (
@@ -455,7 +453,7 @@ function RuleDialog({
         />
         <DialogBody>
           <Field label="Project">
-            <select
+            <Select
               aria-label="Project"
               disabled={Boolean(rule)}
               value={projectId}
@@ -466,10 +464,10 @@ function RuleDialog({
                   {p.title}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
           <Field label="Principal type">
-            <select
+            <Select
               aria-label="Principal type"
               disabled={Boolean(rule)}
               value={kind}
@@ -480,10 +478,10 @@ function RuleDialog({
             >
               <option value="group">Group</option>
               <option value="user">Person</option>
-            </select>
+            </Select>
           </Field>
           <Field label={kind === 'group' ? 'Group' : 'Person'}>
-            <select
+            <Select
               aria-label={kind === 'group' ? 'Group' : 'Person'}
               disabled={Boolean(rule)}
               value={principalId}
@@ -501,7 +499,7 @@ function RuleDialog({
                       {p.name}
                     </option>
                   ))}
-            </select>
+            </Select>
           </Field>
           {[
             ...columns,

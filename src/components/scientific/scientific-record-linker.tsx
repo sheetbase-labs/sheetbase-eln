@@ -22,6 +22,7 @@ import { useState } from 'react'
 
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { RecordPicker } from './record-picker'
 import { ScientificRecordSummary } from './scientific-record-summary'
 import { DataClientError } from '#/lib/data-client'
@@ -213,24 +214,20 @@ export function ScientificRecordLinker({
           id="sci-001-linker-picker"
           className="space-y-2 rounded-md border bg-popover p-2"
         >
-          <div className="flex gap-1" role="tablist" aria-label="Record kind">
-            {allowedKinds.map((opt) => (
-              <Button
-                key={opt.kind}
-                type="button"
-                variant={activeKind === opt.kind ? 'primary' : 'quiet'}
-                size="sm"
-                role="tab"
-                aria-selected={activeKind === opt.kind}
-                onClick={() => {
-                  setKind(opt.kind)
-                  setQuery('')
-                }}
-              >
-                {opt.label}
-              </Button>
-            ))}
-          </div>
+          <Tabs
+            mode="state"
+            variant="segment"
+            label="Record kind"
+            value={activeKind}
+            onValueChange={(next) => {
+              setKind(next as (typeof allowedKinds)[number]['kind'])
+              setQuery('')
+            }}
+            items={allowedKinds.map((option) => ({
+              key: option.kind,
+              label: option.label,
+            }))}
+          />
           {restricted ? (
             <p className="px-2 text-[0.65rem] text-muted-foreground">
               This Model accepts{' '}

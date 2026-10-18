@@ -3,6 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
+import { copyText } from '#/components/v3/ui/copy-button'
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '#/components/v3/ui/collapsible'
 import {
   NO_PROJECT_ACCESS_BODY,
   noProjectAccessTitle,
@@ -53,10 +59,10 @@ import {
 } from '#/components/v3/ui/table'
 import { Icon } from '#/components/v3/icons'
 import { toast } from '#/components/v3/ui/sonner'
-import { SearchTabs } from './search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { MobileList, stickyCol } from './mobile-list'
-import { FilterChip } from './chip'
-import { NativeSelect } from './select'
+import { Select } from '#/components/v3/ui/select'
+import { Chip } from '#/components/v3/ui/chip'
 import { modalities, stages } from './options'
 import type { ProjectDetailsInput } from './project-data'
 import {
@@ -244,7 +250,8 @@ export function ProjectsPage({
       projects.filter(
         (p) =>
           inTab(p, t) &&
-          ((search.archived ?? archivedModeFor(t)) === 'include' || !p.archived),
+          ((search.archived ?? archivedModeFor(t)) === 'include' ||
+            !p.archived),
       ).length,
     ]),
   ) as Record<ProjectsTab, number>
@@ -391,14 +398,15 @@ export function ProjectsPage({
           </div>
           {projects.length ? (
             <>
-              <SearchTabs
+              <Tabs
+                mode="url"
+                value={tab}
                 className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0 max-lg:hidden"
                 label="Project views"
-                tabs={tabs.map((t) => ({
+                items={tabs.map((t) => ({
                   key: t,
                   label: tabLabel[t],
                   count: counts[t],
-                  active: t === tab,
                   link: {
                     to: '/projects',
                     search: {
@@ -412,13 +420,14 @@ export function ProjectsPage({
                   400 % zoom, and the row had no way to scroll, so "More" sat
                   past the viewport (QA4-zoom-projects). */}
               <div className="flex flex-wrap items-center gap-5 lg:hidden">
-                <SearchTabs
+                <Tabs
+                  mode="url"
+                  value={tab}
                   label="Project views"
-                  tabs={tabs.slice(0, 3).map((t) => ({
+                  items={tabs.slice(0, 3).map((t) => ({
                     key: t,
                     label: tabLabel[t],
                     count: counts[t],
-                    active: tab === t,
                     link: {
                       to: '/projects',
                       search: { ...search, tab: t === 'all' ? undefined : t },
@@ -655,10 +664,13 @@ export function ProjectsPage({
                 <DropdownMenuContent align="end" className="w-[220px]">
                   <DropdownMenuItem
                     icon="copy"
-                    onClick={() => {
-                      void navigator.clipboard.writeText(window.location.href)
-                      toast('Link to this view copied')
-                    }}
+                    onClick={() =>
+                      void copyText(window.location.href, {
+                        copiedMessage: 'Link to this view copied',
+                        failedMessage:
+                          'Could not copy the link. Copy it from the address bar.',
+                      })
+                    }
                   >
                     Copy link to this view
                   </DropdownMenuItem>
@@ -669,31 +681,34 @@ export function ProjectsPage({
             {filterCount ? (
               <div className="flex flex-wrap items-center gap-2 px-4 py-2 md:px-6">
                 {archived === 'exclude' ? (
-                  <FilterChip
+                  <Chip
+                    variant="remove"
                     removeLabel="Remove filter: status is not Archived"
                     onRemove={() => setSearch({ archived: 'include' })}
                   >
                     Status is not <b className="font-medium">Archived</b>
-                  </FilterChip>
+                  </Chip>
                 ) : null}
                 {search.stage ? (
-                  <FilterChip
+                  <Chip
+                    variant="remove"
                     removeLabel={`Remove filter: stage is ${search.stage}`}
                     onRemove={() => setSearch({ stage: undefined })}
                   >
                     Stage is <b className="font-medium">{search.stage}</b>
-                  </FilterChip>
+                  </Chip>
                 ) : null}
                 {(['client', 'modality'] as const).map((field) =>
                   search[field] ? (
-                    <FilterChip
+                    <Chip
+                      variant="remove"
                       key={field}
                       removeLabel={`Remove filter: ${field} is ${search[field]}`}
                       onRemove={() => setSearch({ [field]: undefined })}
                     >
                       {field === 'client' ? 'Client' : 'Modality'} is{' '}
                       <b className="font-medium">{search[field]}</b>
-                    </FilterChip>
+                    </Chip>
                   ) : null,
                 )}
               </div>
@@ -886,9 +901,7 @@ export function ProjectsPage({
               ) : null}
               {checked.size ? (
                 <span className="ml-auto flex items-center gap-2 text-fg">
-                  <span className="max-xl:hidden">
-                    {checked.size} selected
-                  </span>
+                  <span className="max-xl:hidden">{checked.size} selected</span>
                   {archivable.length ? (
                     <Button
                       size="sm"
@@ -943,8 +956,8 @@ export function ProjectsPage({
           <DialogBody>
             <p className="m-0 text-body leading-5">
               The projects leave the Projects list and the navigation. Signed
-              records, datasets and audit trails stay available, and an
-              archived project can be restored from the Archived tab.
+              records, datasets and audit trails stay available, and an archived
+              project can be restored from the Archived tab.
             </p>
           </DialogBody>
           <ConfirmDialogFooter>
@@ -1315,7 +1328,7 @@ function NewProjectDialog({
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Client">
-                <NativeSelect
+                <Select
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                 >
@@ -1325,10 +1338,10 @@ function NewProjectDialog({
                       {c.label}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               <Field label="Modality">
-                <NativeSelect
+                <Select
                   value={modality}
                   onChange={(e) => setModality(e.target.value)}
                 >
@@ -1338,10 +1351,10 @@ function NewProjectDialog({
                       {value}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               <Field label="Stage">
-                <NativeSelect
+                <Select
                   value={stage}
                   onChange={(e) => setStage(e.target.value)}
                 >
@@ -1351,27 +1364,24 @@ function NewProjectDialog({
                       {s}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               <Field label="Lead">
-                <NativeSelect
-                  value={lead}
-                  onChange={(e) => setLead(e.target.value)}
-                >
+                <Select value={lead} onChange={(e) => setLead(e.target.value)}>
                   <option value="">Not assigned</option>
                   {memberOptions.map((member) => (
                     <option key={member.id} value={member.id}>
                       {member.label}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
             </div>
             <Field
               label="Default reviewer"
               hint="Reviews and signatures go to this person unless an experiment names another."
             >
-              <NativeSelect
+              <Select
                 value={reviewer}
                 onChange={(e) => setReviewer(e.target.value)}
               >
@@ -1381,13 +1391,11 @@ function NewProjectDialog({
                     {member.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
-            <details>
-              <summary className="cursor-pointer text-label">
-                Agreement and start date
-              </summary>
-              <div className="mt-3 grid grid-cols-2 gap-3">
+            <Collapsible>
+              <CollapsibleTrigger>Agreement and start date</CollapsibleTrigger>
+              <CollapsiblePanel className="mt-3 grid grid-cols-2 gap-3">
                 <Field label="Agreement reference">
                   <Input
                     value={agreement}
@@ -1401,8 +1409,8 @@ function NewProjectDialog({
                     onChange={(e) => setStartedOn(e.target.value)}
                   />
                 </Field>
-              </div>
-            </details>
+              </CollapsiblePanel>
+            </Collapsible>
             {error ? (
               <p role="alert" className="m-0 text-label text-danger-text">
                 {error}

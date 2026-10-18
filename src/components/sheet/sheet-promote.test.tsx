@@ -145,7 +145,10 @@ describe('SheetPromote', () => {
     expect(
       within(reopened).getByRole('combobox', { name: /Where to/ }),
     ).toHaveProperty('value', '')
-    expect(within(reopened).getByLabelText(/Reason/)).toHaveProperty('value', '')
+    expect(within(reopened).getByLabelText(/Reason/)).toHaveProperty(
+      'value',
+      '',
+    )
   })
 
   it('surfaces the server refusal rather than a success when the field is incompatible', async () => {

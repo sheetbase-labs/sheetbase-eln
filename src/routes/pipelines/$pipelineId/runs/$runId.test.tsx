@@ -365,7 +365,10 @@ describe('stopping a run', () => {
   })
 
   it('offers no cancel control for a run that already ended', () => {
-    state.run = run({ status: 'succeeded', finished_at: '2026-10-10T10:13:00.000Z' })
+    state.run = run({
+      status: 'succeeded',
+      finished_at: '2026-10-10T10:13:00.000Z',
+    })
     const { queryByRole } = renderRun()
 
     expect(queryByRole('button', { name: 'Cancel run' })).toBeNull()

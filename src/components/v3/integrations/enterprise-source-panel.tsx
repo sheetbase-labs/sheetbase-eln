@@ -13,6 +13,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { LoadMore } from '#/components/v3/ui/load-more'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
@@ -25,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { createDataClient } from '#/lib/data-client'
 import {
   discoverConnectorSource,
@@ -119,7 +120,7 @@ function TargetControls({
   return (
     <div className="flex flex-col gap-3">
       <Field label="Target Schema Version">
-        <NativeSelect
+        <Select
           value={state.schemaVersionId}
           onChange={(event) =>
             onChange({
@@ -135,12 +136,12 @@ function TargetControls({
               {option.name} v{option.version}
             </option>
           ))}
-        </NativeSelect>
+        </Select>
       </Field>
       {state.schemaVersionId && (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Existing Dataset">
-            <NativeSelect
+            <Select
               value={state.datasetId}
               onChange={(event) =>
                 onChange({ ...state, datasetId: event.target.value })
@@ -152,7 +153,7 @@ function TargetControls({
                   {dataset.name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
           {!state.datasetId && (
             <Field label="New Dataset name">
@@ -433,21 +434,17 @@ function S3SourcePanel({
           >
             List objects
           </Button>
-          {continuationToken && (
-            <Button
-              size="sm"
-              variant="quiet"
-              disabled={discoverMutation.isPending}
-              onClick={() => discoverMutation.mutate(continuationToken)}
-            >
-              Load more
-            </Button>
-          )}
-          {discoverMutation.error instanceof Error && (
-            <span role="alert" className="text-label text-danger-text">
-              {discoverMutation.error.message}
-            </span>
-          )}
+          <LoadMore
+            label="Object storage objects"
+            hasMore={Boolean(continuationToken)}
+            loading={discoverMutation.isPending}
+            error={
+              discoverMutation.error instanceof Error
+                ? discoverMutation.error.message
+                : undefined
+            }
+            onLoadMore={() => discoverMutation.mutate(continuationToken)}
+          />
         </div>
 
         {objects.length > 0 && (
@@ -508,7 +505,7 @@ function S3SourcePanel({
               </div>
             )}
             <Field label="Retain raw object in project">
-              <NativeSelect
+              <Select
                 value={projectId}
                 onChange={(event) => setProjectId(event.target.value)}
               >
@@ -518,7 +515,7 @@ function S3SourcePanel({
                     {project.title}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <TargetControls state={target} onChange={setTarget} />
             <ImportButton
@@ -633,7 +630,7 @@ function PostgresSourcePanel({
         {discovery && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Schema">
-              <NativeSelect
+              <Select
                 value={schema}
                 onChange={(event) => {
                   setSchema(event.target.value)
@@ -647,11 +644,11 @@ function PostgresSourcePanel({
                     {name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             {schema && (
               <Field label="Table / view">
-                <NativeSelect
+                <Select
                   value={selectedTable}
                   onChange={(event) => setSelectedTable(event.target.value)}
                 >
@@ -661,7 +658,7 @@ function PostgresSourcePanel({
                       {table.name} ({table.kind})
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
             )}
           </div>

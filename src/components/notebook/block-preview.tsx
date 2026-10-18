@@ -4,11 +4,9 @@ import { Link } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
 import type { NotebookBlock } from '#/lib/notebook-data'
-import {
-  KNOWN_BLOCK_TYPES,
-  RichTextContent,
-  isRichTextPayload,
-} from '#/lib/blocks'
+import { RichTextContent, isRichTextPayload } from '#/lib/blocks'
+import { isBlockType } from '#/lib/blocks/registry'
+import { CALLOUT_STYLES } from './callout-styles'
 import {
   notebookDataClient,
   notebookQueryKeys,
@@ -328,35 +326,6 @@ function renderCallout(payload: unknown): React.ReactNode {
       <p className="min-w-0 flex-1">{text}</p>
     </div>
   )
-}
-
-interface CalloutStyle {
-  container: string
-  icon: IconName
-  iconClass: string
-}
-
-const CALLOUT_STYLES: Record<string, CalloutStyle> = {
-  info: {
-    container: 'bg-info/[0.07] text-fg',
-    icon: 'info',
-    iconClass: 'text-info',
-  },
-  warning: {
-    container: 'bg-warning/[0.09] text-fg',
-    icon: 'warn',
-    iconClass: 'text-warning-text',
-  },
-  danger: {
-    container: 'bg-destructive/[0.07] text-fg',
-    icon: 'warn',
-    iconClass: 'text-danger-text',
-  },
-  note: {
-    container: 'bg-success/[0.07] text-fg',
-    icon: 'comment',
-    iconClass: 'text-success-text',
-  },
 }
 
 function renderLinkedRecord(payload: unknown): React.ReactNode {
@@ -761,7 +730,7 @@ function CanonicalSheetBlockPreview({ instanceId }: { instanceId: string }) {
 }
 
 function renderUnsupported(type: string, payload: unknown): React.ReactNode {
-  const known = (KNOWN_BLOCK_TYPES as readonly string[]).includes(type)
+  const known = isBlockType(type)
   return (
     <div className="rounded-lg border border-dashed border-warning/30 bg-warning/10 p-3 text-xs">
       <p className="font-medium text-fg">

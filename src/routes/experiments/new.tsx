@@ -10,7 +10,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { PageHeader, Muted } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { toast } from '#/components/v3/ui/sonner'
 import {
@@ -204,8 +204,7 @@ function NewExperiment() {
   // so every project counts as usable: the create states its own refusal
   // inline, which beats an inert form.
   const canCreateIn = (project: ProjectOption) =>
-    !accessKnown ||
-    (writableProjectIds.has(project.id) && !isArchived(project))
+    !accessKnown || (writableProjectIds.has(project.id) && !isArchived(project))
   const projectNote = (project: ProjectOption) =>
     !accessKnown
       ? ''
@@ -289,26 +288,17 @@ function NewExperiment() {
 
   const submit = () => {
     setTouched(true)
-    if (
-      accessPending ||
-      title.trim().length < 5 ||
-      !effectiveProjectId
-    )
-      return
+    if (accessPending || title.trim().length < 5 || !effectiveProjectId) return
     create.mutate()
   }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/experiments" className="text-link">
-              Experiments
-            </Link>{' '}
-            / New
-          </>
-        }
+        trail={[
+          { label: 'Experiments', link: { to: '/experiments' } },
+          { label: 'New' },
+        ]}
         title="New experiment"
       />
       <form
@@ -328,12 +318,10 @@ function NewExperiment() {
               : undefined
           }
         >
-          <NativeSelect
+          <Select
             value={effectiveProjectId}
             onChange={(e) => setProjectId(e.target.value)}
-            disabled={
-              projects.isLoading || accessPending || rows.length === 0
-            }
+            disabled={projects.isLoading || accessPending || rows.length === 0}
           >
             {projects.isLoading ? (
               <option value="">Loading projects…</option>
@@ -350,7 +338,7 @@ function NewExperiment() {
                 {projectNote(p)}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Field
           label="Title"
@@ -369,7 +357,7 @@ function NewExperiment() {
           label="Reviewer"
           hint="Who reviews the submitted notebook. Optional."
         >
-          <NativeSelect
+          <Select
             value={reviewerId}
             onChange={(e) => setReviewerId(e.target.value)}
           >
@@ -379,7 +367,7 @@ function NewExperiment() {
                 {m.name}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Field
           label="Planned end"
@@ -399,7 +387,7 @@ function NewExperiment() {
               : 'Only effective versions can start an experiment. Optional.'
           }
         >
-          <NativeSelect
+          <Select
             value={protocolVersionId}
             onChange={(e) => {
               const value = e.target.value
@@ -424,7 +412,7 @@ function NewExperiment() {
                 </option>
               )
             })}
-          </NativeSelect>
+          </Select>
         </Field>
         <label className="flex cursor-pointer items-center gap-2 text-label">
           <Checkbox
@@ -437,7 +425,7 @@ function NewExperiment() {
           label="Copy materials from"
           hint="Links the same samples and materials as an earlier experiment. Optional."
         >
-          <NativeSelect
+          <Select
             value={copyFromId}
             onChange={(e) => setCopyFromId(e.target.value)}
           >
@@ -447,7 +435,7 @@ function NewExperiment() {
                 {x.identifier} · {x.title}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <div className="flex gap-2">
           <Button
@@ -490,8 +478,8 @@ function NewExperiment() {
           <span className="flex items-center gap-2">
             <Muted>
               Couldn’t check which projects you can write to, so every project
-              is listed. A create in a project you can only view is refused,
-              and the refusal is shown here.
+              is listed. A create in a project you can only view is refused, and
+              the refusal is shown here.
             </Muted>
             <Button
               size="sm"

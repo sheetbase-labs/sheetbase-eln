@@ -6,9 +6,10 @@ import {
   useMatchRoute,
 } from '@tanstack/react-router'
 
+import type { Crumb } from '#/components/v3/ui/breadcrumb'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -68,23 +69,20 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
       return (
         <div className="flex min-w-0 flex-1 flex-col">
           <PageHeader
-            crumbs={
-              <Link to="/models" className="text-link">
-                Models
-              </Link>
-            }
+            trail={[{ label: 'Models', link: { to: '/models' } }]}
             title="Model could not be loaded"
           />
           <div className="px-4 py-6 md:px-6">
             <EmptyState
               icon="warn"
               title="The model definition could not be read"
-              body="This model exists only if its read succeeds; a failed request cannot prove it is missing. Check the connection and try again."
-            >
-              <Button onClick={() => void definition.refetch()}>
-                Try again
-              </Button>
-            </EmptyState>
+              description="This model exists only if its read succeeds; a failed request cannot prove it is missing. Check the connection and try again."
+              action={
+                <Button onClick={() => void definition.refetch()}>
+                  Try again
+                </Button>
+              }
+            />
           </div>
         </div>
       )
@@ -92,11 +90,7 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/models" className="text-link">
-              Models
-            </Link>
-          }
+          trail={[{ label: 'Models', link: { to: '/models' } }]}
           title={definition.isLoading ? 'Loading model…' : 'Model not found'}
         />
       </div>
@@ -106,14 +100,10 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/models" className="text-link">
-              Models
-            </Link>{' '}
-            / <span className="mono">{m.key}</span>
-          </>
-        }
+        trail={[
+          { label: 'Models', link: { to: '/models' } },
+          { label: m.key, mono: true },
+        ]}
         title={m.name}
         meta={
           <>
@@ -139,8 +129,10 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
           </Button>
         }
         tabs={
-          <LinkTabs
-            tabs={[
+          <Tabs
+            mode="url"
+            label="Model sections"
+            items={[
               {
                 label: 'Fields',
                 count: fields.data?.length,
@@ -180,22 +172,14 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
   const model = useWorkspaceRecordModel(modelKey)
   const builtIn = useBuiltInModelKind(modelKey)
 
-  const crumbs = (
-    <Link to="/models" className="text-link">
-      Models
-    </Link>
-  )
+  const trail: Crumb[] = [{ label: 'Models', link: { to: '/models' } }]
   const m = model.data
   if (m) {
     const params = { modelId: m.key }
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <>
-              {crumbs} / <span className="mono">{m.key}</span>
-            </>
-          }
+          trail={[...trail, { label: m.key, mono: true }]}
           title={m.name}
           meta={
             <>
@@ -211,8 +195,10 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
             </>
           }
           tabs={
-            <LinkTabs
-              tabs={[
+            <Tabs
+              mode="url"
+              label="Model record sections"
+              items={[
                 {
                   label: 'Records',
                   link: {
@@ -262,7 +248,7 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
   if (model.isLoading || builtIn.isLoading) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader crumbs={crumbs} title="Loading model…" />
+        <PageHeader trail={trail} title="Loading model…" />
       </div>
     )
   }
@@ -273,7 +259,7 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={crumbs}
+          trail={trail}
           title={kind.label}
           meta={<span>Built-in model kind</span>}
         />
@@ -281,16 +267,17 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
           <EmptyState
             icon="table"
             title={`${kind.label} is a built-in model`}
-            body="Built-in kinds keep their own surface. Open it from the link below; workspace-defined models show their records here."
-          >
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={<Link to={surface?.to ?? '/models'} />}
-            >
-              {surface ? `Open ${surface.label}` : 'Back to Models'}
-            </Button>
-          </EmptyState>
+            description="Built-in kinds keep their own surface. Open it below; workspace-defined models show their records here."
+            action={
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={<Link to={surface?.to ?? '/models'} />}
+              >
+                {surface ? `Open ${surface.label}` : 'Back to Models'}
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -301,22 +288,23 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
   if (model.isError || builtIn.isError) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader crumbs={crumbs} title="Model could not be loaded" />
+        <PageHeader trail={trail} title="Model could not be loaded" />
         <div className="px-4 py-6 md:px-6">
           <EmptyState
             icon="warn"
             title={`Model “${modelKey}” could not be read`}
-            body="A failed request cannot prove the key is unused. Check the connection and try again."
-          >
-            <Button
-              onClick={() => {
-                void model.refetch()
-                void builtIn.refetch()
-              }}
-            >
-              Try again
-            </Button>
-          </EmptyState>
+            description="A failed request cannot prove the key is unused. Check the connection and try again."
+            action={
+              <Button
+                onClick={() => {
+                  void model.refetch()
+                  void builtIn.refetch()
+                }}
+              >
+                Try again
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -324,21 +312,22 @@ function RecordModelLayout({ modelKey }: { modelKey: string }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      <PageHeader crumbs={crumbs} title="Model not found" />
+      <PageHeader trail={trail} title="Model not found" />
       <div className="px-4 py-6 md:px-6">
         <EmptyState
           icon="table"
           title={`No model “${modelKey}”`}
-          body="This workspace has no record model with that key, and it is not a built-in kind."
-        >
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={<Link to="/models" />}
-          >
-            Back to Models
-          </Button>
-        </EmptyState>
+          description="This workspace has no record model with that key, and it is not a built-in kind."
+          action={
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<Link to="/models" />}
+            >
+              Back to Models
+            </Button>
+          }
+        />
       </div>
     </div>
   )

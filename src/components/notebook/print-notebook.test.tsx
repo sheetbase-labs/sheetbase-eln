@@ -1,72 +1,24 @@
-import { cleanup, render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+/**
+ * The notebook's print stylesheet. The buttons that used to sit beside it are
+ * items in the record header's overflow menu now, so only the stylesheet is
+ * tested here.
+ */
+import { cleanup, render } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import {
-  ExportEvidenceButton,
-  NotebookPrintStyles,
-  PrintNotebookButton,
-} from './print-notebook'
+import { NotebookPrintStyles } from './print-notebook'
 
-vi.mock('#/lib/notebook-experience', async (importOriginal) => ({
-  ...(await importOriginal()),
-  downloadRevisionEvidence: vi.fn(),
-}))
-
-afterEach(() => {
-  cleanup()
-  vi.clearAllMocks()
-})
-
-function renderWithQuery(ui: ReactNode) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
-}
-
-describe('PrintNotebookButton', () => {
-  it('prints the current window', async () => {
-    const print = vi.spyOn(window, 'print').mockImplementation(() => {})
-    const user = userEvent.setup()
-    render(<PrintNotebookButton />)
-    await user.click(screen.getByRole('button', { name: 'Print' }))
-    expect(print).toHaveBeenCalled()
-    print.mockRestore()
-  })
-})
+afterEach(() => cleanup())
 
 describe('NotebookPrintStyles', () => {
-  it('includes print rules that hide chrome', () => {
+  it('hides chrome on paper and keeps a block from splitting across pages', () => {
     const { container } = render(<NotebookPrintStyles />)
     const css = container.querySelector('style')?.textContent ?? ''
     expect(css).toContain('@media print')
-    expect(css).toContain('@page')
-    expect(css).toContain('[data-slot="sidebar"]')
+    // The inspector carries the record's provenance on screen, and print hides
+    // it, which is why the header prints its own copy.
     expect(css).toContain('[data-slot="inspector"]')
     expect(css).toContain('[data-print-hide]')
-    expect(css).toContain('[data-slot="block-toolbar"]')
-  })
-})
-
-describe('ExportEvidenceButton', () => {
-  it('is hidden when no revision is selected', () => {
-    renderWithQuery(<ExportEvidenceButton />)
-    expect(screen.queryByRole('link', { name: 'Export evidence' })).toBeNull()
-  })
-
-  it('links to the server-built evidence package for the revision', () => {
-    renderWithQuery(
-      <ExportEvidenceButton revisionId="aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" />,
-    )
-    // The control is the adopted Button rendered as an anchor, so it is found by
-    // its name and asserted on the destination it carries.
-    const control = screen.getByText('Export evidence').closest('a')
-    expect(control).not.toBeNull()
-    expect(control?.getAttribute('href')).toBe(
-      '/api/export/revision/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/package',
-    )
+    expect(css).toContain('break-inside: avoid')
   })
 })

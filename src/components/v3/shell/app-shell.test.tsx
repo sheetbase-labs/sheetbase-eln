@@ -271,9 +271,13 @@ describe('SHELL-01 one sidebar at every width', () => {
   it('minimises the sidebar to the rail with one control, and expands it again', async () => {
     const user = userEvent.setup()
     const { container } = renderShell()
-    expect(screen.getByRole('button', { name: 'Minimise navigation' })).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Minimise navigation' }),
+    ).toBeTruthy()
 
-    await user.click(screen.getByRole('button', { name: 'Minimise navigation' }))
+    await user.click(
+      screen.getByRole('button', { name: 'Minimise navigation' }),
+    )
     const rail = container.querySelector('nav[class*="w-12"]')!
     expect(rail.className).not.toContain('xl:hidden')
     expect(container.querySelector('nav[class*="w-nav"]')).toBeNull()
@@ -382,9 +386,9 @@ describe('SHELL-01 one sidebar at every width', () => {
     ).toBeTruthy()
     // The phone search control is `size-10`, so its container keeps room for it
     // rather than being squeezed until the icon paints over the brand link.
-    const search = within(header)
-      .getByRole('button', { name: 'Search' })
-      .parentElement!
+    const search = within(header).getByRole('button', {
+      name: 'Search',
+    }).parentElement!
     expect(search.className).toContain('max-md:min-w-10')
   })
 
@@ -452,7 +456,9 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
     // SHELL-02: the navigation's Inbox badge labels the inbox destination, not
     // the bell, so clearing notifications must not move it.
     const nav = document.querySelector<HTMLElement>('nav[class*="w-nav"]')!
-    expect(within(nav).getByRole('link', { name: /Inbox/ }).textContent).toContain('3')
+    expect(
+      within(nav).getByRole('link', { name: /Inbox/ }).textContent,
+    ).toContain('3')
   })
 
   it('opens a row on the record its target names and marks that row read', async () => {

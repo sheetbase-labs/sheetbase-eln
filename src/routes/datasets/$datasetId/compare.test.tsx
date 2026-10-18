@@ -104,7 +104,9 @@ describe('dataset compare route paging', () => {
     const loadMore = await screen.findByRole('button', {
       name: /Load more/,
     })
-    expect(loadMore.textContent).toContain('150 left')
+    // The count the button used to carry ("Load more (150 left)") is the
+    // control's own line now, and one format across every growing-window list.
+    expect(screen.getByText('Showing 100 of 250 changes')).toBeTruthy()
     expect(dataClient.rpc).toHaveBeenCalledWith(
       'compare_dataset_versions',
       expect.objectContaining({ p_limit: 100, p_offset: 0 }),
@@ -117,9 +119,11 @@ describe('dataset compare route paging', () => {
         expect.objectContaining({ p_limit: 100, p_offset: 100 }),
       ),
     )
-    await screen.findByRole('button', { name: /50 left/ })
+    await waitFor(() =>
+      expect(screen.getByText('Showing 200 of 250 changes')).toBeTruthy(),
+    )
 
-    await user.click(screen.getByRole('button', { name: /50 left/ }))
+    await user.click(screen.getByRole('button', { name: /Load more/ }))
     await waitFor(() =>
       expect(dataClient.rpc).toHaveBeenCalledWith(
         'compare_dataset_versions',
@@ -185,8 +189,7 @@ describe('dataset compare route paging', () => {
     expect([...toSelect.options].map((option) => option.value)).not.toContain(
       'v-1',
     )
-    const fromSelect =
-      screen.getByLabelText<HTMLSelectElement>('From snapshot')
+    const fromSelect = screen.getByLabelText<HTMLSelectElement>('From snapshot')
     expect([...fromSelect.options].map((option) => option.value)).not.toContain(
       'v-2',
     )

@@ -12,6 +12,19 @@ import { RelatedWorkList, RelatedWorkPanel } from './related-work-panel'
 import { useRelatedWork } from '#/lib/related-work'
 import type { RelatedWorkItem } from '#/lib/related-work'
 
+// Stub the router Link as a plain anchor so no route tree is required.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    to,
+    children,
+    ...props
+  }: { to: string; children: React.ReactNode } & Record<string, unknown>) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
+}))
+
 vi.mock('#/lib/related-work', async (importOriginal) => {
   const actual = await importOriginal<typeof RelatedWork>()
   return { ...actual, useRelatedWork: vi.fn() }

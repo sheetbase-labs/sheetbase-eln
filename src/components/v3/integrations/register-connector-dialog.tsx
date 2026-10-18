@@ -13,7 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/v3/ui/dialog'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { createDataClient } from '#/lib/data-client'
 import {
   describeConnectorsError,
@@ -103,7 +103,7 @@ export function RegisterConnectorDialog({
           </Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Type">
-              <NativeSelect
+              <Select
                 value={connectorType}
                 onChange={(event) =>
                   setConnectorType(event.target.value as ConnectorType)
@@ -114,10 +114,10 @@ export function RegisterConnectorDialog({
                     {type}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Field label="Direction">
-              <NativeSelect
+              <Select
                 value={direction}
                 onChange={(event) =>
                   setDirection(event.target.value as ConnectorDirection)
@@ -128,12 +128,12 @@ export function RegisterConnectorDialog({
                     {item}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
           </div>
           {connectorType === 'instrument' && (
             <Field label="Ingestion parser">
-              <NativeSelect
+              <Select
                 value={parserId}
                 onChange={(event) => setParserId(event.target.value)}
               >
@@ -142,7 +142,7 @@ export function RegisterConnectorDialog({
                     {parser.label} ({getParser(parser.parserId)?.version})
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
           )}
           {(connectorType === 'storage' || connectorType === 'database') && (
@@ -150,7 +150,7 @@ export function RegisterConnectorDialog({
               label="Source adapter"
               hint="Enterprise source adapters run server-side; non-secret settings (bucket/prefix or host/port/database) are configured on the connector after registration."
             >
-              <NativeSelect
+              <Select
                 value={adapter}
                 onChange={(event) => setAdapter(event.target.value)}
               >
@@ -163,7 +163,7 @@ export function RegisterConnectorDialog({
                   </option>
                 )}
                 <option value="">None (custom)</option>
-              </NativeSelect>
+              </Select>
             </Field>
           )}
           {error && <Notice tone="bad">{error}</Notice>}

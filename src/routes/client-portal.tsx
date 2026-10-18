@@ -11,17 +11,15 @@ import {
   Section,
 } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Textarea } from '#/components/v3/inventory/list'
 import { cn } from '#/lib/utils'
 import {
@@ -36,7 +34,12 @@ import {
   formatPortalDay,
   postClientPortalMessage,
 } from '#/lib/client-portal'
-import type { ClientPortalProject } from '#/lib/client-portal'
+import type {
+  ClientPortalMilestone,
+  ClientPortalProject,
+  ClientPortalRecord,
+  ClientPortalReport,
+} from '#/lib/client-portal'
 import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
 
 const tabs = ['projects', 'reports', 'messages'] as const
@@ -52,9 +55,7 @@ type PortalTab = (typeof tabs)[number]
  * Each section is a URL: `?tab=` selects it, so a portal section can be
  * linked, reloaded and reached with the browser's Back button. */
 export const Route = createFileRoute('/client-portal')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { tab?: PortalTab } => ({
+  validateSearch: (search: Record<string, unknown>): { tab?: PortalTab } => ({
     tab:
       typeof search.tab === 'string' &&
       (tabs as readonly string[]).includes(search.tab)
@@ -103,6 +104,120 @@ function withFallback(status: string): { tone: Tone; label: string } {
   return { tone: 'none', label: status.replace(/_/g, ' ') }
 }
 
+const portalMilestoneColumns: RegistryColumn<ClientPortalMilestone>[] = [
+  {
+    id: 'milestone',
+    header: 'Milestone',
+    meta: { headerClassName: 'pl-2.5!', cellClassName: 'pl-2.5!' },
+    cell: ({ row }) => row.original.title,
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: ({ row }) => {
+      const state =
+        MILESTONE_STATUS[row.original.status] ??
+        withFallback(row.original.status)
+      return (
+        <span
+          className={cn(
+            row.original.status === 'not_started' && 'text-fg-muted',
+          )}
+        >
+          <Status tone={state.tone}>{state.label}</Status>
+        </span>
+      )
+    },
+  },
+  {
+    id: 'target',
+    header: 'Target',
+    meta: { cellClassName: 'text-fg-muted' },
+    cell: ({ row }) => formatPortalDate(row.original.dueAt),
+  },
+]
+
+const portalRecordColumns: RegistryColumn<ClientPortalRecord>[] = [
+  {
+    id: 'record',
+    header: 'Record',
+    meta: {
+      headerClassName: 'pl-2.5!',
+      cellClassName: 'pl-2.5! mono',
+    },
+    cell: ({ row }) => row.original.identifier,
+  },
+  {
+    id: 'title',
+    header: 'Title',
+    cell: ({ row }) => row.original.title,
+  },
+  {
+    id: 'approved',
+    header: 'Approved',
+    cell: ({ row }) =>
+      row.original.approvedAt
+        ? `${formatPortalDate(row.original.approvedAt)}${
+            row.original.approvedByName
+              ? ` · ${row.original.approvedByName}`
+              : ''
+          }`
+        : '—',
+  },
+  {
+    id: 'shared',
+    header: 'Shared',
+    meta: { cellClassName: 'text-fg-muted' },
+    cell: ({ row }) => formatPortalDate(row.original.sharedAt),
+  },
+  {
+    id: 'actions',
+    header: '',
+    meta: rightAligned<ClientPortalRecord>().meta,
+    cell: ({ row }) => (
+      <a
+        className={buttonVariants({ size: 'sm' })}
+        href={`/api/client-portal/records/${row.original.recordId}/pdf`}
+      >
+        Open PDF
+      </a>
+    ),
+  },
+]
+
+const portalReportColumns: RegistryColumn<ClientPortalReport>[] = [
+  {
+    id: 'report',
+    header: 'Report',
+    meta: { headerClassName: 'pl-2.5!', cellClassName: 'pl-2.5!' },
+    cell: ({ row }) => row.original.title,
+  },
+  {
+    id: 'covers',
+    header: 'Covers',
+    cell: ({ row }) => row.original.covers ?? '—',
+  },
+  {
+    id: 'shared',
+    header: 'Shared',
+    meta: { cellClassName: 'text-fg-muted' },
+    cell: ({ row }) => formatPortalDate(row.original.sharedAt),
+  },
+  {
+    id: 'actions',
+    header: '',
+    meta: rightAligned<ClientPortalReport>().meta,
+    cell: ({ row }) => (
+      <a
+        className={buttonVariants({ size: 'sm' })}
+        href={`/api/client-portal/records/${row.original.recordId}/pdf`}
+      >
+        Open PDF
+      </a>
+    ),
+  },
+]
+
 function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
   const milestones = useQuery({
     queryKey: clientPortalQueryKeys.milestones(project.projectId),
@@ -143,40 +258,13 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
             <Muted>Loading…</Muted>
           ) : (milestones.data ?? []).length ? (
             <TableBox>
-              <Table aria-label="Project milestones">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="first:pl-2.5">Milestone</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Target</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(milestones.data ?? []).map((m) => {
-                    const state =
-                      MILESTONE_STATUS[m.status] ?? withFallback(m.status)
-                    return (
-                      <TableRow key={m.milestoneId}>
-                        <TableCell className="first:pl-2.5">
-                          {m.title}
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={cn(
-                              m.status === 'not_started' && 'text-fg-muted',
-                            )}
-                          >
-                            <Status tone={state.tone}>{state.label}</Status>
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-fg-muted">
-                          {formatPortalDate(m.dueAt)}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Project milestones"
+                rows={milestones.data ?? []}
+                columns={portalMilestoneColumns}
+                getRowId={(milestone) => milestone.milestoneId}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <Muted>No milestones yet.</Muted>
@@ -185,49 +273,19 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
         <Section title="Approved records" count={approved.length}>
           {approved.length ? (
             <TableBox>
-              <Table aria-label="Approved shared records">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="first:pl-2.5">Record</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Approved</TableHead>
-                    <TableHead>Shared</TableHead>
-                    <TableHead align="right" aria-label="Actions" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {approved.map((r) => (
-                    <TableRow key={r.recordId}>
-                      <TableCell className="mono first:pl-2.5">
-                        {r.identifier}
-                      </TableCell>
-                      <TableCell>{r.title}</TableCell>
-                      <TableCell>
-                        {r.approvedAt
-                          ? `${formatPortalDate(r.approvedAt)}${r.approvedByName ? ` · ${r.approvedByName}` : ''}`
-                          : '—'}
-                      </TableCell>
-                      <TableCell className="text-fg-muted">
-                        {formatPortalDate(r.sharedAt)}
-                      </TableCell>
-                      <TableCell align="right">
-                        <a
-                          className={buttonVariants({ size: 'sm' })}
-                          href={`/api/client-portal/records/${r.recordId}/pdf`}
-                        >
-                          Open PDF
-                        </a>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Approved shared records"
+                rows={approved}
+                columns={portalRecordColumns}
+                getRowId={(record) => record.recordId}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <EmptyState
               icon="table"
               title="No approved records yet"
-              body="Approved items appear here once your CDMO team shares them."
+              description="Approved items appear here once your CDMO team shares them."
             />
           )}
           <Muted className="text-[12px]">
@@ -252,41 +310,19 @@ function PortalReports() {
           <Muted>Loading…</Muted>
         ) : (reports.data ?? []).length ? (
           <TableBox>
-            <Table aria-label="Shared reports">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="first:pl-2.5">Report</TableHead>
-                  <TableHead>Covers</TableHead>
-                  <TableHead>Shared</TableHead>
-                  <TableHead align="right" aria-label="Actions" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(reports.data ?? []).map((r) => (
-                  <TableRow key={r.recordId}>
-                    <TableCell className="first:pl-2.5">{r.title}</TableCell>
-                    <TableCell>{r.covers ?? '—'}</TableCell>
-                    <TableCell className="text-fg-muted">
-                      {formatPortalDate(r.sharedAt)}
-                    </TableCell>
-                    <TableCell align="right">
-                      <a
-                        className={buttonVariants({ size: 'sm' })}
-                        href={`/api/client-portal/records/${r.recordId}/pdf`}
-                      >
-                        Open PDF
-                      </a>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Shared reports"
+              rows={reports.data ?? []}
+              columns={portalReportColumns}
+              getRowId={(report) => report.recordId}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <EmptyState
             icon="protocol"
             title="No shared reports yet"
-            body="Approved reports appear here once your CDMO team shares them."
+            description="Approved reports appear here once your CDMO team shares them."
           />
         )}
       </Section>
@@ -336,7 +372,7 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
           <EmptyState
             icon="inbox"
             title="No messages yet"
-            body="Send your CDMO team a message; the thread is shared with your project team only."
+            description="Send your CDMO team a message; the thread is shared with your project team only."
           />
         )}
       </Section>
@@ -499,26 +535,18 @@ function ClientPortal() {
             You see records only after your CDMO team approves and shares them.
           </Muted>
         </nav>
-        <nav
-          aria-label="Portal sections"
-          className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border px-4 py-2 [scrollbar-width:none] lg:hidden"
-        >
-          {tabs.map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-current={tab === t ? 'page' : undefined}
-              onClick={() => setTab(t)}
-              className={
-                tab === t
-                  ? 'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-selection-border bg-selection px-3.5 text-body font-medium text-fg'
-                  : 'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-transparent px-3.5 text-body text-fg'
-              }
-            >
-              {tabLabel[t]}
-            </button>
-          ))}
-        </nav>
+        <Tabs
+          mode="state"
+          variant="chip"
+          label="Portal sections"
+          className="shrink-0 border-b border-border px-4 py-2 lg:hidden"
+          value={tab}
+          onValueChange={(next) => setTab(next as PortalTab)}
+          items={tabs.map((key) => ({
+            key,
+            label: tabLabel[key],
+          }))}
+        />
 
         <main id="main" className="min-h-0 min-w-0 flex-1 overflow-auto">
           {tab === 'projects' ? (
@@ -538,7 +566,7 @@ function ClientPortal() {
                 <EmptyState
                   icon="folder"
                   title="No shared projects yet"
-                  body="Your CDMO team shares projects with your portal when they are ready."
+                  description="Your CDMO team shares projects with your portal when they are ready."
                 />
               </div>
             )
@@ -585,7 +613,10 @@ function ClientPortal() {
               <DescriptionList
                 items={[
                   ['Role', 'Client viewer'],
-                  ['Can', 'Read and download approved records, message the team'],
+                  [
+                    'Can',
+                    'Read and download approved records, message the team',
+                  ],
                   ["Can't", 'See drafts, raw data or other clients'],
                 ]}
               />

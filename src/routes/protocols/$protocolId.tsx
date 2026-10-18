@@ -1,28 +1,21 @@
 import { useState } from 'react'
-import {
-  createFileRoute,
-  Link,
-  redirect,
-  useNavigate,
-} from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ProtocolDocument } from '#/components/v3/protocols/protocol-document'
 import { ProtocolVersionTraining } from '#/components/v3/protocols/protocol-version-training'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   fetchBlocksForRecord,
   fetchRecord,
@@ -31,6 +24,7 @@ import {
   notebookQueryKeys,
 } from '#/lib/notebook-data'
 import type { RevisionWire } from '#/lib/notebook-data'
+
 import {
   acknowledgeProtocolVersion,
   fetchProtocolAcknowledgements,
@@ -38,7 +32,7 @@ import {
   fetchProtocolVersions,
 } from '#/lib/controlled-protocols'
 import { useUserNames } from '#/lib/user-names'
-import { protocolStatus } from '../protocols'
+import { protocolStatus } from '#/components/v3/protocols/protocols-registry-grid'
 
 const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -74,7 +68,6 @@ export const Route = createFileRoute('/protocols/$protocolId')({
 function ProtocolPage() {
   const { protocolId } = Route.useParams()
   const search = Route.useSearch()
-  const navigate = useNavigate({ from: Route.fullPath })
   const tab = search.section ?? 'document'
   const record = useQuery({
     queryKey: notebookQueryKeys.record(protocolId),
@@ -106,28 +99,114 @@ function ProtocolPage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/protocols" className="text-link">
-              Protocols
-            </Link>
-          }
+          trail={[{ label: 'Protocols', link: { to: '/protocols' } }]}
           title={record.isLoading ? 'Loading protocol…' : 'Protocol not found'}
         />
       </div>
     )
   }
   const status = protocolStatus(p.status)
+  type ProtocolBlock = NonNullable<typeof blocks.data>[number]
+  type ProtocolLink = NonNullable<typeof links.data>[number]
+  type ProtocolRevision = NonNullable<typeof revisions.data>[number]
+  const revisionList = revisions.data ?? []
+
+  const blockColumns: RegistryColumn<ProtocolBlock>[] = [
+    {
+      id: 'order',
+      header: 'Order',
+      cell: ({ row }) => row.original.order,
+      meta: {
+        ...rightAligned<ProtocolBlock>().meta,
+        cellClassName: 'num text-right',
+      },
+    },
+    { id: 'block', header: 'Block', cell: ({ row }) => row.original.type },
+    {
+      id: 'version',
+      header: 'Version',
+      cell: ({ row }) => `v${row.original.version}`,
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+  ]
+
+  const linkColumns: RegistryColumn<ProtocolLink>[] = [
+    {
+      id: 'record',
+      header: 'Record',
+      cell: ({ row }) => (
+        <span className="mono">{row.original.targetIdentifier}</span>
+      ),
+    },
+    {
+      id: 'kind',
+      header: 'Kind',
+      cell: ({ row }) => row.original.targetKind,
+    },
+    {
+      id: 'link',
+      header: 'Link',
+      cell: ({ row }) => row.original.linkType,
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+  ]
+
+  const revisionColumns: RegistryColumn<ProtocolRevision>[] = [
+    {
+      id: 'version',
+      header: 'Version',
+      cell: ({ row }) =>
+        `v${
+          revisionList.length -
+          revisionList.findIndex((r) => r.id === row.original.id)
+        }`,
+      meta: {
+        ...rightAligned<ProtocolRevision>().meta,
+        cellClassName: 'num text-right',
+      },
+    },
+    {
+      id: 'reason',
+      header: 'Reason',
+      cell: ({ row }) => row.original.reason,
+    },
+    {
+      id: 'author',
+      header: 'Author',
+      cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
+    },
+    {
+      id: 'created',
+      header: 'Created',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.created_at.slice(0, 16).replace('T', ' ')}
+        </span>
+      ),
+    },
+    {
+      id: 'evidence',
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <Link
+          to="/evidence/$revisionId"
+          params={{ revisionId: row.original.id }}
+          className="text-link"
+        >
+          Evidence
+        </Link>
+      ),
+      meta: rightAligned<ProtocolRevision>().meta,
+    },
+  ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/protocols" className="text-link">
-              Protocols
-            </Link>{' '}
-            / <span className="mono">{p.identifier}</span>
-          </>
-        }
+        trail={[
+          { label: 'Protocols', link: { to: '/protocols' } },
+          { label: p.identifier, mono: true },
+        ]}
         title={p.title}
         meta={
           <>
@@ -141,8 +220,11 @@ function ProtocolPage() {
           </>
         }
         tabs={
-          <nav aria-label="Protocol sections" className="flex gap-5">
-            {(
+          <Tabs
+            mode="url"
+            label="Protocol sections"
+            value={tab}
+            items={(
               [
                 ['document', 'Document', undefined],
                 ['template', 'Template', blocks.data?.length],
@@ -150,31 +232,15 @@ function ProtocolPage() {
                 ['versions', 'Versions', revisions.data?.length],
                 ['training', 'Training', undefined],
               ] as [ProtocolTab, string, number | undefined][]
-            ).map(([key, label, count]) => (
-              <button
-                key={key}
-                type="button"
-                aria-current={tab === key ? 'page' : undefined}
-                onClick={() =>
-                  void navigate({
-                    search: { section: key === 'document' ? undefined : key },
-                  })
-                }
-                className={
-                  tab === key
-                    ? 'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-link bg-transparent px-0.5 text-body font-medium text-fg'
-                    : 'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted hover:text-fg'
-                }
-              >
-                {label}
-                {count != null ? (
-                  <span className="text-label font-normal text-fg-muted">
-                    {count}
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </nav>
+            ).map(([key, label, count]) => ({
+              key,
+              label,
+              count,
+              link: {
+                search: { section: key === 'document' ? undefined : key },
+              },
+            }))}
+          />
         }
       />
       <div className="min-h-0 flex-1 overflow-auto">
@@ -199,28 +265,13 @@ function ProtocolPage() {
             <Section title="Template" count={blocks.data?.length ?? 0}>
               {blocks.data?.length ? (
                 <TableBox className="max-w-[900px]">
-                  <Table aria-label="Protocol template blocks">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead align="right">Order</TableHead>
-                        <TableHead>Block</TableHead>
-                        <TableHead>Version</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {blocks.data.map((b) => (
-                        <TableRow key={b.id}>
-                          <TableCell align="right" className="num">
-                            {b.order}
-                          </TableCell>
-                          <TableCell>{b.type}</TableCell>
-                          <TableCell className="text-fg-muted">
-                            v{b.version}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Protocol template blocks"
+                    rows={blocks.data}
+                    columns={blockColumns}
+                    getRowId={(b) => b.id}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <Muted>This protocol has no notebook structure yet.</Muted>
@@ -232,28 +283,13 @@ function ProtocolPage() {
             <Section title="Used by" count={links.data?.length ?? 0}>
               {links.data?.length ? (
                 <TableBox className="max-w-[900px]">
-                  <Table aria-label="Records linked to this protocol">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Record</TableHead>
-                        <TableHead>Kind</TableHead>
-                        <TableHead>Link</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {links.data.map((l) => (
-                        <TableRow key={l.id}>
-                          <TableCell className="mono">
-                            {l.targetIdentifier}
-                          </TableCell>
-                          <TableCell>{l.targetKind}</TableCell>
-                          <TableCell className="text-fg-muted">
-                            {l.linkType}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Records linked to this protocol"
+                    rows={links.data}
+                    columns={linkColumns}
+                    getRowId={(l) => l.id}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <Muted>
@@ -271,48 +307,19 @@ function ProtocolPage() {
             >
               {revisions.data?.length ? (
                 <TableBox className="max-w-[900px]">
-                  <Table aria-label="Protocol version history">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead align="right">Version</TableHead>
-                        <TableHead>Reason</TableHead>
-                        <TableHead>Author</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead aria-label="Actions" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {revisions.data.map((r, i) => (
-                        <TableRow key={r.id}>
-                          <TableCell align="right" className="num">
-                            v{revisions.data.length - i}
-                          </TableCell>
-                          <TableCell>{r.reason}</TableCell>
-                          <TableCell>
-                            {names.userLabel(r.created_by_user_id)}
-                          </TableCell>
-                          <TableCell className="text-fg-muted">
-                            {r.created_at.slice(0, 16).replace('T', ' ')}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Link
-                              to="/evidence/$revisionId"
-                              params={{ revisionId: r.id }}
-                              className="text-link"
-                            >
-                              Evidence
-                            </Link>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Protocol version history"
+                    rows={revisions.data}
+                    columns={revisionColumns}
+                    getRowId={(r) => r.id}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <EmptyState
                   icon="protocol"
                   title="No frozen versions yet"
-                  body="A version is frozen when the protocol is submitted for review. New experiments pin the version they start from."
+                  description="A version is frozen when the protocol is submitted for review. New experiments pin the version they start from."
                 />
               )}
             </Section>
@@ -392,7 +399,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       <EmptyState
         icon="protocol"
         title="No frozen versions yet"
-        body="A version is frozen when the protocol is submitted for review. Acknowledgement is recorded against the exact frozen version, and an experiment can only start from a version its operator has acknowledged."
+        description="A version is frozen when the protocol is submitted for review. Acknowledgement is recorded against the exact frozen version, and an experiment can only start from a version its operator has acknowledged."
       />
     )
   }
@@ -409,7 +416,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       {rows.length > 1 ? (
         <label className="flex items-center gap-2 text-label text-fg-muted">
           Version
-          <NativeSelect
+          <Select
             aria-label="Protocol version"
             value={version.id}
             onChange={(e) => setSelectedId(e.target.value)}
@@ -419,7 +426,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
                 v{v.version} · {v.status.replace(/_/g, ' ')}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </label>
       ) : null}
       <ProtocolVersionTraining

@@ -214,9 +214,7 @@ export function ExperimentOverview({
   // to use the same predicate — filtering on `targetRecordId` denied data the
   // same page counted.
   const datasetLinks = links.filter((link) => link.targetKind === 'dataset')
-  const analysisLinks = links.filter(
-    (link) => link.targetKind === 'analysis',
-  )
+  const analysisLinks = links.filter((link) => link.targetKind === 'analysis')
   const upstream = links.filter(
     (link) =>
       (link.linkType === 'upstream' || link.linkType === 'follows') &&

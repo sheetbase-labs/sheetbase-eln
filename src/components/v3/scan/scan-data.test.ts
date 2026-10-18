@@ -12,7 +12,9 @@ function stubClient(rows: {
   return {
     list: async (resource: string, query?: string) =>
       resource === 'records'
-        ? (rows.records ?? []).filter((r) => query?.includes(String(r.identifier)))
+        ? (rows.records ?? []).filter((r) =>
+            query?.includes(String(r.identifier)),
+          )
         : resource === 'instruments'
           ? (rows.instruments ?? []).filter((r) =>
               query?.includes(String(r.display_id)),

@@ -10,7 +10,7 @@ import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { Icon } from '#/components/v3/icons'
 import { createDataClient } from '#/lib/data-client'
 import { formatRelativeTime } from '#/lib/notebook-data'
@@ -229,7 +229,7 @@ export function PipelineOutputBlockEditor({
       ) : null}
 
       <Field label="Pipeline run">
-        <NativeSelect
+        <Select
           value={runId}
           onChange={(event) => void chooseRun(event.target.value)}
           aria-label="Pipeline run"
@@ -241,7 +241,7 @@ export function PipelineOutputBlockEditor({
               {run.id.slice(0, 8)} · {status(run)}
             </option>
           ))}
-        </NativeSelect>
+        </Select>
       </Field>
 
       {selected ? (

@@ -3,22 +3,19 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Badge } from '#/components/v3/ui/badge'
-import { Button } from '#/components/v3/ui/button'
+import { LoadMore } from '#/components/v3/ui/load-more'
 import { Diff } from '#/components/v3/ui/source'
 import { Muted } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
+import { Select } from '#/components/v3/ui/select'
 import { Icon } from '#/components/v3/icons'
-import { cn } from '#/lib/utils'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { stickyCell, stickyHead } from '#/components/v3/inventory/list'
 import { FLAG_KIND_LABELS } from '#/components/v3/datasets/value-actions'
 import {
@@ -87,6 +84,12 @@ interface DiffEntry {
   source?: string
   from: unknown
   to: unknown
+}
+
+/** One grid row: a compared row and one of its value or flag changes. */
+interface CompareGridRow {
+  row: ComparePayload['rows'][number]
+  entry: DiffEntry
 }
 
 /** Human label for a flag kind, falling back to the raw value if unknown. */
@@ -186,6 +189,68 @@ function Compare() {
       field.label || field.key,
     ]),
   )
+  // One grid row per diff entry: the bespoke table flattened each compared row's
+  // entries into its own rows.
+  const gridRows: CompareGridRow[] = entries.flatMap((r) =>
+    entriesForRow(r).map((entry) => ({ row: r, entry })),
+  )
+  const columns: RegistryColumn<CompareGridRow>[] = [
+    {
+      id: 'change',
+      header: 'Change',
+      cell: ({ row }) => (
+        <Badge variant={badgeVariant[row.original.row.kind]}>
+          {label[row.original.row.kind]}
+        </Badge>
+      ),
+      // The bespoke table inset this first column to 12px rather than the 24px
+      // every other table's first column takes.
+      meta: {
+        headerClassName: `pl-3! ${stickyHead}`,
+        cellClassName: `pl-3! ${stickyCell}`,
+      },
+    },
+    {
+      id: 'row',
+      header: 'Row',
+      cell: ({ row }) => rowNumber.get(row.original.row.rowId),
+      meta: { cellClassName: 'num text-fg-muted' },
+    },
+    {
+      id: 'field',
+      header: 'Field',
+      cell: ({ row }) => {
+        const entry = row.original.entry
+        if (entry.isFlag) {
+          return (
+            <span className="inline-flex items-center gap-1">
+              <Icon name="warn" size={12} />
+              {flagKindLabel(entry.kind ?? '')}
+              <span className="text-fg-muted">· {entry.source}</span>
+            </span>
+          )
+        }
+        return entry.fieldId ? fieldLabel(entry.fieldId) : '—'
+      },
+    },
+    {
+      id: 'values',
+      header: 'Change',
+      cell: ({ row }) => {
+        const entry = row.original.entry
+        return entry.isFlag || entry.fieldId ? (
+          <Diff
+            before={String(entry.from ?? '')}
+            after={String(entry.to ?? '')}
+          />
+        ) : (
+          '—'
+        )
+      },
+      meta: rightAligned<CompareGridRow>().meta,
+    },
+  ]
+
   const fieldLabel = (fieldId: string) =>
     labelByField.get(fieldId) ?? 'Unknown field'
 
@@ -232,8 +297,6 @@ function Compare() {
     )
   }
 
-  const sel =
-    'h-[30px] min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-body text-fg max-md:h-10 md:w-[240px] md:flex-none'
   const pick = (key: 'from' | 'to', value: string) =>
     void navigate({
       to: '/datasets/$datasetId/compare',
@@ -248,9 +311,9 @@ function Compare() {
         <label className="sr-only" htmlFor="from">
           From snapshot
         </label>
-        <select
+        <Select
           id="from"
-          className={sel}
+          className="min-w-0 flex-1 md:w-[240px] md:flex-none"
           value={from}
           onChange={(e) => pick('from', e.target.value)}
         >
@@ -261,14 +324,14 @@ function Compare() {
                 {v.label} · {v.createdAt.slice(0, 10)}
               </option>
             ))}
-        </select>
+        </Select>
         <Icon name="chevronRight" size={14} />
         <label className="sr-only" htmlFor="to">
           To snapshot
         </label>
-        <select
+        <Select
           id="to"
-          className={sel}
+          className="min-w-0 flex-1 md:w-[240px] md:flex-none"
           value={to}
           onChange={(e) => pick('to', e.target.value)}
         >
@@ -279,7 +342,7 @@ function Compare() {
                 {v.label} · {v.createdAt.slice(0, 10)}
               </option>
             ))}
-        </select>
+        </Select>
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:flex md:gap-4">
@@ -312,82 +375,33 @@ function Compare() {
         </Notice>
       ) : entries.length ? (
         <TableBox>
-          <Table className="max-lg:min-w-[640px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={cn('first:pl-3', stickyHead)}>
-                  Change
-                </TableHead>
-                <TableHead>Row</TableHead>
-                <TableHead>Field</TableHead>
-                <TableHead align="right">Change</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entries.map((r) =>
-                entriesForRow(r).map((entry) => (
-                  <TableRow key={`${r.rowId}-${entry.key}`}>
-                    <TableCell className={cn('first:pl-3', stickyCell)}>
-                      <Badge variant={badgeVariant[r.kind]}>
-                        {label[r.kind]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="num text-fg-muted">
-                      {rowNumber.get(r.rowId)}
-                    </TableCell>
-                    <TableCell>
-                      {entry.isFlag ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Icon name="warn" size={12} />
-                          {flagKindLabel(entry.kind ?? '')}
-                          <span className="text-fg-muted">
-                            · {entry.source}
-                          </span>
-                        </span>
-                      ) : entry.fieldId ? (
-                        fieldLabel(entry.fieldId)
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
-                    <TableCell align="right">
-                      {entry.isFlag || entry.fieldId ? (
-                        <Diff
-                          before={String(entry.from ?? '')}
-                          after={String(entry.to ?? '')}
-                        />
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )),
-              )}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label="Snapshot comparison"
+            rows={gridRows}
+            columns={columns}
+            getRowId={(r) => `${r.row.rowId}-${r.entry.key}`}
+            selectable={false}
+          />
         </TableBox>
       ) : (
         <Muted>No differences between these snapshots.</Muted>
       )}
 
-      {diff.hasNextPage ? (
-        <div>
-          <Button
-            onClick={() => void diff.fetchNextPage()}
-            disabled={diff.isFetchingNextPage}
-          >
-            {diff.isFetchingNextPage
-              ? 'Loading…'
-              : `Load more (${Math.max(totalChanges - entries.length, 0)} left)`}
-          </Button>
-        </div>
-      ) : null}
+      <LoadMore
+        label="Comparison changes"
+        loaded={entries.length}
+        total={totalChanges}
+        noun="changes"
+        hasMore={diff.hasNextPage}
+        loading={diff.isFetchingNextPage}
+        onLoadMore={() => void diff.fetchNextPage()}
+      />
 
       <Muted>
         Comparing {describeVersion(from)} with {describeVersion(to)}. Rows are
-        numbered by their position in this comparison — a snapshot stores no
-        row number. Flag changes list the flag kind, source and the reason
-        before and after.
+        numbered by their position in this comparison — a snapshot stores no row
+        number. Flag changes list the flag kind, source and the reason before
+        and after.
       </Muted>
     </div>
   )

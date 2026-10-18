@@ -2,15 +2,16 @@
  * FIND-03 — Related work panel.
  *
  * Dense contextual-discovery list: kind icon + label + transparent reason
- * line per item, reusing the canonical `LinkedRecordList` row language.
+ * line per item, as the canonical entity row (`RecordLink`) in a `RowList`.
  * The panel owns its `InspectorSection` chrome and stays completely silent
  * (renders null) when there is nothing to show — mounts never need an
  * empty-state branch.
  */
 import type { IconName } from '#/components/v3/icons'
 
-import { InspectorSection, LinkedRecordList } from '#/components/record'
-import type { LinkedRecordItem } from '#/components/record'
+import { InspectorSection } from '#/components/record'
+import { RecordLink } from '#/components/scientific/record-link'
+import { RowList } from '#/components/v3/ui/row'
 import { relatedKindLabel, useRelatedWork } from '#/lib/related-work'
 import type { RelatedWorkItem, RelatedWorkKind } from '#/lib/related-work'
 
@@ -34,18 +35,25 @@ const RECORD_KIND_ICON: Record<string, IconName> = {
 
 /** Pure render of resolved items — the unit under the component test. */
 export function RelatedWorkList({ items }: { items: RelatedWorkItem[] }) {
-  const linked: LinkedRecordItem[] = items.map((item) => ({
-    id: `${item.kind}:${item.id}`,
-    type: relatedKindLabel(item.kind, item.recordKind),
-    title: item.label,
-    meta: item.reason,
-    href: item.destination,
-    icon:
-      item.kind === 'record' && item.recordKind
-        ? (RECORD_KIND_ICON[item.recordKind] ?? KIND_ICON.record)
-        : KIND_ICON[item.kind],
-  }))
-  return <LinkedRecordList items={linked} />
+  return (
+    <RowList>
+      {items.map((item) => (
+        <RecordLink
+          key={`${item.kind}:${item.id}`}
+          density="list"
+          type={relatedKindLabel(item.kind, item.recordKind)}
+          title={item.label}
+          meta={item.reason}
+          to={item.destination}
+          icon={
+            item.kind === 'record' && item.recordKind
+              ? (RECORD_KIND_ICON[item.recordKind] ?? KIND_ICON.record)
+              : KIND_ICON[item.kind]
+          }
+        />
+      ))}
+    </RowList>
+  )
 }
 
 /**

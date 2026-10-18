@@ -1,7 +1,9 @@
 import * as React from 'react'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { Row, RowList } from '#/components/v3/ui/row'
 import { Icon } from '#/components/v3/icons'
+import { FileType, getFileType } from '#/components/reui/file-type'
 import type { IconName } from '#/components/v3/icons'
 import { cn } from '#/lib/utils'
 
@@ -11,6 +13,8 @@ import { cn } from '#/lib/utils'
  *
  * Inspector metadata is compact and flat: sections are divided rather than
  * carded, while statuses and linked records retain their semantic treatment.
+ * Every list here is a `RowList` of v3 `Row`s (JH-1), so a file row, a check
+ * row and the entity rows beside them share one chrome.
  */
 
 /** Owns the standard 16px cadence between inspector sections. */
@@ -52,64 +56,6 @@ export function InspectorSection({
   )
 }
 
-/** Linked-record row. UI-005 hardens this into the full RecordLink. */
-export interface LinkedRecordItem {
-  id: string
-  type: string
-  title: string
-  meta?: string
-  href?: string
-  icon?: IconName
-}
-
-export function LinkedRecordList({ items }: { items: LinkedRecordItem[] }) {
-  if (items.length === 0) return <EmptyHint>No linked records</EmptyHint>
-  return (
-    <ul className="space-y-1">
-      {items.map((item) => {
-        const iconName = item.icon ?? 'link'
-        const body = (
-          <>
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-selection text-fg">
-              <Icon name={iconName} size={12} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium text-fg">
-                {item.title}
-              </span>
-              {item.meta ? (
-                <span className="block truncate text-[0.65rem] text-fg-muted">
-                  {item.type} · {item.meta}
-                </span>
-              ) : (
-                <span className="block truncate text-[0.65rem] text-fg-muted">
-                  {item.type}
-                </span>
-              )}
-            </span>
-          </>
-        )
-        return (
-          <li key={item.id}>
-            {item.href ? (
-              <a
-                href={item.href}
-                className="flex items-center gap-2 rounded-md border border-border/80 bg-surface px-2 py-1.5 no-underline transition-colors hover:border-border hover:bg-surface-hover"
-              >
-                {body}
-              </a>
-            ) : (
-              <div className="flex items-center gap-2 rounded-md border border-border/80 bg-surface px-2 py-1.5">
-                {body}
-              </div>
-            )}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
 /** File row. */
 export interface FileItem {
   id: string
@@ -122,86 +68,47 @@ export interface FileItem {
   href?: string
 }
 
-/** Pick a file-type icon + accent colour from the media type. */
-function fileTypeIcon(mediaType?: string): {
-  icon: IconName
-  className: string
-} {
-  const mt = (mediaType ?? '').toLowerCase()
-  if (
-    mt.includes('spreadsheet') ||
-    mt.includes('excel') ||
-    mt.includes('csv') ||
-    mt.endsWith('.xlsx') ||
-    mt.endsWith('.csv') ||
-    mt.endsWith('.tsv')
-  ) {
-    return { icon: 'table', className: 'text-success-text' }
-  }
-  if (mt.includes('pdf') || mt.endsWith('.pdf')) {
-    return { icon: 'download', className: 'text-danger-text' }
-  }
-  if (
-    mt.includes('image') ||
-    mt.endsWith('.png') ||
-    mt.endsWith('.jpg') ||
-    mt.endsWith('.jpeg') ||
-    mt.endsWith('.gif') ||
-    mt.endsWith('.webp') ||
-    mt.endsWith('.svg')
-  ) {
-    return { icon: 'box', className: 'text-link' }
-  }
-  if (mt.includes('text') || mt.endsWith('.txt') || mt.endsWith('.md')) {
-    return { icon: 'download', className: 'text-fg-muted' }
-  }
-  return { icon: 'download', className: 'text-fg-muted' }
+/**
+ * Resolve a row's type: the file name first, because a stored MIME type of
+ * `application/octet-stream` says nothing about a name that ends `.xlsx`; the
+ * media type only decides for names with no type in them.
+ */
+function fileTypeFor(file: FileItem): string {
+  const fromName = getFileType(file.name)
+  if (fromName !== 'empty') return fromName
+  return getFileType(file.mediaType ?? file.meta ?? '')
 }
 
 export function FileList({ items }: { items: FileItem[] }) {
-  if (items.length === 0) return <EmptyHint>No attached files</EmptyHint>
   return (
-    <ul className="space-y-0.5">
+    <RowList
+      className="gap-0.5"
+      empty={<EmptyHint>No attached files</EmptyHint>}
+    >
       {items.map((f) => {
-        const { icon: iconName, className: iconCls } = fileTypeIcon(
-          f.mediaType ?? f.meta,
-        )
-        const body = (
-          <>
-            <Icon
-              name={iconName}
-              size={14}
-              className={cn('shrink-0', iconCls)}
-              aria-hidden="true"
-            />
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-fg">
-              {f.name}
-            </span>
-            {f.size ? (
-              <span className="shrink-0 text-[0.65rem] tabular-nums text-fg-muted">
-                {f.size}
-              </span>
-            ) : null}
-          </>
-        )
         return (
-          <li key={f.id}>
-            {f.href ? (
-              <a
-                href={f.href}
-                className="flex items-center gap-2 rounded-md px-1.5 py-1 no-underline hover:bg-surface-hover"
-              >
-                {body}
-              </a>
-            ) : (
-              <div className="flex items-center gap-2 rounded-md px-1.5 py-1">
-                {body}
-              </div>
-            )}
-          </li>
+          <Row
+            key={f.id}
+            href={f.href}
+            leading={
+              <FileType
+                type={fileTypeFor(f)}
+                size="mini"
+                className="shrink-0"
+              />
+            }
+            title={f.name}
+            trailing={
+              f.size ? (
+                <span className="text-[0.65rem] tabular-nums text-fg-muted">
+                  {f.size}
+                </span>
+              ) : null
+            }
+          />
         )
       })}
-    </ul>
+    </RowList>
   )
 }
 
@@ -226,35 +133,34 @@ const checkBadge: Record<
 }
 
 export function CheckList({ items }: { items: CheckItem[] }) {
-  if (items.length === 0) return <EmptyHint>No checks</EmptyHint>
   return (
-    <ul className="space-y-0.5">
+    <RowList className="gap-0.5" empty={<EmptyHint>No checks</EmptyHint>}>
       {items.map((c) => {
         const badge = checkBadge[c.state]
         return (
-          <li
+          <Row
             key={c.id}
-            className="flex items-center gap-2 rounded-md px-1 py-1"
-          >
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-fg">
-              {c.label}
-            </span>
-            {c.detail ? (
-              <span className="shrink-0 text-[0.65rem] text-fg-muted">
-                {c.detail}
-              </span>
-            ) : null}
-            <Badge
-              variant={badge.variant}
-              className="shrink-0 px-1.5 py-0 text-[0.65rem]"
-            >
-              {badge.label}
-            </Badge>
-            <span className="sr-only">{c.state}</span>
-          </li>
+            title={c.label}
+            trailing={
+              <>
+                {c.detail ? (
+                  <span className="text-[0.65rem] text-fg-muted">
+                    {c.detail}
+                  </span>
+                ) : null}
+                <Badge
+                  variant={badge.variant}
+                  className="px-1.5 py-0 text-[0.65rem]"
+                >
+                  {badge.label}
+                </Badge>
+                <span className="sr-only">{c.state}</span>
+              </>
+            }
+          />
         )
       })}
-    </ul>
+    </RowList>
   )
 }
 

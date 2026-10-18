@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 
+import type { Crumb } from '#/components/v3/ui/breadcrumb'
 import { PageHeader } from '#/components/v3/ui/layout'
-import { Button } from '#/components/v3/ui/button'
-import { toast } from '#/components/v3/ui/sonner'
+import { CopyButton } from '#/components/v3/ui/copy-button'
 import {
   CollaborationRoom,
   safeBuildRoomId,
@@ -52,19 +52,6 @@ export const Route = createFileRoute('/sheets/$sheetId')({
   component: ComposedSheetRoute,
 })
 
-/** NAV-02 Share: copies the sheet's deep link. Clipboard access can be denied
- * (no permission, insecure context), so the toast reports the actual outcome —
- * claiming "Link copied" when nothing reached the clipboard leaves the user
- * with an empty paste and no explanation. */
-async function copyShareLink() {
-  try {
-    await navigator.clipboard.writeText(window.location.href)
-    toast('Link copied')
-  } catch {
-    toast.error('Could not copy the link. Copy it from the address bar.')
-  }
-}
-
 export function ComposedSheetRoute() {
   const { sheetId } = Route.useParams()
   const { projectId: projectIdParam, commentId } = Route.useSearch()
@@ -104,38 +91,33 @@ export function ComposedSheetRoute() {
     ? safeBuildRoomId(context.workspace?.id, 'sheet', sheetId)
     : null
 
+  // The sheet's location: its project and the record that owns it, when it has
+  // them, then the sheet itself.
+  const trail: Crumb[] = []
+  if (instanceProjectId) {
+    trail.push({
+      label: projectQuery.data?.title ?? 'Project',
+      link: {
+        to: '/projects/$projectId',
+        params: { projectId: instanceProjectId },
+      },
+    })
+  }
+  if (owningRecordId && owningRecordQuery.data) {
+    trail.push({
+      label: owningRecordQuery.data.title,
+      link: {
+        to: '/records/$recordId/notebook',
+        params: { recordId: owningRecordId },
+      },
+    })
+  }
+  trail.push({ label: 'Sheet', mono: true })
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            {instanceProjectId ? (
-              <>
-                <Link
-                  to="/projects/$projectId"
-                  params={{ projectId: instanceProjectId }}
-                  className="text-link"
-                >
-                  {projectQuery.data?.title ?? 'Project'}
-                </Link>{' '}
-                /{' '}
-              </>
-            ) : null}
-            {owningRecordId && owningRecordQuery.data ? (
-              <>
-                <Link
-                  to="/records/$recordId/notebook"
-                  params={{ recordId: owningRecordId }}
-                  className="text-link"
-                >
-                  {owningRecordQuery.data.title}
-                </Link>{' '}
-                /{' '}
-              </>
-            ) : null}
-            <span className="mono">Sheet</span>
-          </>
-        }
+        trail={trail}
         title={instance?.name ?? 'Sheet'}
         meta={
           <>
@@ -153,13 +135,16 @@ export function ComposedSheetRoute() {
         actions={
           <>
             <FavouriteToggle kind="sheet" objectId={sheetId} />
-            <Button
-              onClick={() => {
-                void copyShareLink()
-              }}
+            {/* NAV-02 Share: the control reports the actual outcome — claiming
+                "Link copied" when nothing reached the clipboard would leave the
+                user with an empty paste and no explanation. */}
+            <CopyButton
+              value={window.location.href}
+              copiedMessage="Link copied"
+              failedMessage="Could not copy the link. Copy it from the address bar."
             >
               Share
-            </Button>
+            </CopyButton>
           </>
         }
       />

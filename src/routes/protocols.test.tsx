@@ -54,6 +54,31 @@ vi.mock('#/lib/templates', async (importOriginal) => {
   }
 })
 
+/**
+ * jsdom has no layout: the grid's virtualiser measures a zero-height viewport
+ * and would render no rows at all, so the order this test is about could not be
+ * observed. The double returns the full row range — the same rows the browser
+ * run renders — and only the five methods the grid calls. The real virtualiser
+ * is exercised in `tests/browser/registry-grid.test.ts`, which asserts the
+ * virtual renderer's own `data-index` attribute.
+ */
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        start: index * 33,
+        end: index * 33 + 33,
+        size: 33,
+      })),
+    getTotalSize: () => count * 33,
+    measureElement: () => {},
+    scrollToIndex: () => {},
+    scrollToOffset: () => {},
+  }),
+}))
+
 function makeProtocol(overrides: Partial<NotebookRecord> = {}): NotebookRecord {
   return {
     id: 'prt-1',
@@ -131,5 +156,20 @@ describe('protocols toolbar', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Protocol' }))
 
     expect(ids()).toEqual(['PRT-0001', 'PRT-0002'])
+  })
+
+  /**
+   * The grid's own empty state is a single line inside a full-height frame that
+   * leaves the screen's empty state — the one that offers the next action —
+   * below the fold. A search with no matches must therefore render the screen's
+   * EmptyState and no grid at all.
+   */
+  it('renders the empty state, not the grid, when nothing matches', async () => {
+    fixtures.protocols = []
+    search.value = { q: 'zzzz' }
+    renderRoute()
+
+    expect(await screen.findByText(/No protocols match/)).toBeTruthy()
+    expect(screen.queryByRole('table')).toBeNull()
   })
 })

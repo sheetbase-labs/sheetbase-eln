@@ -32,18 +32,20 @@ export function Notice({
   title,
   children,
   className,
-}: VariantProps<typeof noticeVariants> & {
-  icon?: IconName | false
-  action?: React.ReactNode
-  title?: React.ReactNode
-  children?: React.ReactNode
-  className?: string
-}) {
+  ...props
+}: Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> &
+  VariantProps<typeof noticeVariants> & {
+    icon?: IconName | false
+    action?: React.ReactNode
+    title?: React.ReactNode
+    children?: React.ReactNode
+  }) {
   const t = tone ?? 'info'
   return (
     <div
       role={t === 'bad' ? 'alert' : undefined}
       className={cn(noticeVariants({ tone }), className)}
+      {...props}
     >
       {icon !== false ? <Icon name={icon || defaultIcon[t]} size={14} /> : null}
       <div className="min-w-0 flex-1">
@@ -89,18 +91,20 @@ export function Banner({
   title,
   children,
   className,
-}: VariantProps<typeof bannerVariants> & {
-  icon?: IconName
-  action?: React.ReactNode
-  title?: React.ReactNode
-  children?: React.ReactNode
-  className?: string
-}) {
+  ...props
+}: Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> &
+  VariantProps<typeof bannerVariants> & {
+    icon?: IconName
+    action?: React.ReactNode
+    title?: React.ReactNode
+    children?: React.ReactNode
+  }) {
   const t = tone ?? 'info'
   return (
     <div
       role={t === 'bad' ? 'alert' : 'status'}
       className={cn(bannerVariants({ tone }), className)}
+      {...props}
     >
       <Icon name={icon || defaultIcon[t]} size={14} />
       <div className="min-w-0 flex-1">

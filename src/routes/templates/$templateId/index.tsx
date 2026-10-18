@@ -10,16 +10,13 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { toast } from '#/components/v3/ui/sonner'
 import { Status } from '#/components/v3/ui/status'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
-import { Select } from '#/components/v3/inventory/list'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { Select } from '#/components/v3/ui/select'
 import {
   publishedTemplateVersion,
   templateDataQueryKeys,
@@ -80,6 +77,140 @@ function parameterTypeName(parameter: Parameter): string {
   return parameter.type.kind === 'scalar'
     ? `scalar · ${parameter.type.valueType}`
     : parameter.type.kind
+}
+
+/** The Sections table's columns; the editing variant adds the reorder and
+ * remove controls in the actions column. */
+function sectionColumns(
+  count: number,
+  options: {
+    withActions?: boolean
+    disabled?: boolean
+    onMove?: (index: number, delta: number) => void
+    onRemove?: (id: string) => void
+  } = {},
+): RegistryColumn<NotebookTemplatePlacement>[] {
+  const columns: RegistryColumn<NotebookTemplatePlacement>[] = [
+    {
+      id: 'order',
+      header: 'Order',
+      meta: {
+        ...rightAligned<NotebookTemplatePlacement>().meta,
+        cellClassName: 'text-right num',
+      },
+      cell: ({ row }) => row.original.order,
+    },
+    {
+      id: 'section',
+      header: 'Section',
+      cell: ({ row }) => placementName(row.original),
+    },
+    {
+      id: 'kind',
+      header: 'Kind',
+      cell: ({ row }) => sectionKind(row.original),
+    },
+    {
+      id: 'source',
+      header: 'Built from',
+      meta: { cellClassName: 'mono text-fg-muted' },
+      cell: ({ row }) => placementSource(row.original),
+    },
+  ]
+  if (options.withActions) {
+    columns.push({
+      id: 'actions',
+      header: 'Actions',
+      meta: rightAligned<NotebookTemplatePlacement>().meta,
+      cell: ({ row }) => (
+        <span className="flex justify-end gap-1">
+          <Button
+            size="sm"
+            variant="quiet"
+            disabled={row.index === 0 || options.disabled}
+            aria-label={`Move ${placementName(row.original)} up`}
+            onClick={() => options.onMove?.(row.index, -1)}
+          >
+            Up
+          </Button>
+          <Button
+            size="sm"
+            variant="quiet"
+            disabled={row.index === count - 1 || options.disabled}
+            aria-label={`Move ${placementName(row.original)} down`}
+            onClick={() => options.onMove?.(row.index, 1)}
+          >
+            Down
+          </Button>
+          {row.original.kind === 'section_placeholder' ? (
+            <Button
+              size="sm"
+              variant="quiet"
+              disabled={options.disabled}
+              aria-label={`Remove ${row.original.label}`}
+              onClick={() => options.onRemove?.(row.original.id)}
+            >
+              Remove
+            </Button>
+          ) : null}
+        </span>
+      ),
+    })
+  }
+  return columns
+}
+
+/** The Parameters table's columns; the editing variant adds Required and the
+ * remove control. */
+function parameterColumns(options: {
+  withActions?: boolean
+  disabled?: boolean
+  onRemove?: (id: string) => void
+}): RegistryColumn<Parameter>[] {
+  const columns: RegistryColumn<Parameter>[] = [
+    {
+      id: 'key',
+      header: 'Key',
+      meta: { cellClassName: 'mono' },
+      cell: ({ row }) => row.original.key,
+    },
+    {
+      id: 'type',
+      header: 'Type',
+      cell: ({ row }) => parameterTypeName(row.original),
+    },
+    {
+      id: 'label',
+      header: 'Label',
+      cell: ({ row }) => row.original.label,
+    },
+  ]
+  if (options.withActions) {
+    columns.push(
+      {
+        id: 'required',
+        header: 'Required',
+        cell: ({ row }) => (row.original.required ? 'Yes' : '—'),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        meta: rightAligned<Parameter>().meta,
+        cell: ({ row }) => (
+          <Button
+            size="sm"
+            variant="quiet"
+            disabled={options.disabled}
+            aria-label={`Remove ${row.original.label}`}
+            onClick={() => options.onRemove?.(row.original.id)}
+          >
+            Remove
+          </Button>
+        ),
+      },
+    )
+  }
+  return columns
 }
 
 /** Orders are unique positive integers, so every add, remove and move rewrites
@@ -149,7 +280,7 @@ function TemplateSections() {
         <EmptyState
           icon="template"
           title="No version yet"
-          body="A template needs a version with sections and parameters before a notebook can be made from it."
+          description="A template needs a version with sections and parameters before a notebook can be made from it."
         />
       </div>
     )
@@ -305,73 +436,21 @@ function TemplateSections() {
             <>
               {editPlacements.length ? (
                 <TableBox>
-                  <Table aria-label="Template sections">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead align="right">Order</TableHead>
-                        <TableHead>Section</TableHead>
-                        <TableHead>Kind</TableHead>
-                        <TableHead>Built from</TableHead>
-                        <TableHead align="right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {editPlacements.map((placement, index) => (
-                        <TableRow key={placement.id}>
-                          <TableCell align="right" className="num">
-                            {placement.order}
-                          </TableCell>
-                          <TableCell>{placementName(placement)}</TableCell>
-                          <TableCell>{sectionKind(placement)}</TableCell>
-                          <TableCell className="mono text-fg-muted">
-                            {placementSource(placement)}
-                          </TableCell>
-                          <TableCell align="right">
-                            <span className="flex justify-end gap-1">
-                              <Button
-                                size="sm"
-                                variant="quiet"
-                                disabled={index === 0 || save.isPending}
-                                aria-label={`Move ${placementName(placement)} up`}
-                                onClick={() => movePlacement(index, -1)}
-                              >
-                                Up
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="quiet"
-                                disabled={
-                                  index === editPlacements.length - 1 ||
-                                  save.isPending
-                                }
-                                aria-label={`Move ${placementName(placement)} down`}
-                                onClick={() => movePlacement(index, 1)}
-                              >
-                                Down
-                              </Button>
-                              {placement.kind === 'section_placeholder' ? (
-                                <Button
-                                  size="sm"
-                                  variant="quiet"
-                                  disabled={save.isPending}
-                                  aria-label={`Remove ${placement.label}`}
-                                  onClick={() =>
-                                    applyPlacements(
-                                      editPlacements.filter(
-                                        (row) => row.id !== placement.id,
-                                      ),
-                                    )
-                                  }
-                                >
-                                  Remove
-                                </Button>
-                              ) : null}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Template sections"
+                    rows={editPlacements}
+                    columns={sectionColumns(editPlacements.length, {
+                      withActions: true,
+                      disabled: save.isPending,
+                      onMove: movePlacement,
+                      onRemove: (id) =>
+                        applyPlacements(
+                          editPlacements.filter((row) => row.id !== id),
+                        ),
+                    })}
+                    getRowId={(placement) => placement.id}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <Muted>No sections in this version.</Muted>
@@ -380,30 +459,13 @@ function TemplateSections() {
             </>
           ) : placements.length ? (
             <TableBox>
-              <Table aria-label="Template sections">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead align="right">Order</TableHead>
-                    <TableHead>Section</TableHead>
-                    <TableHead>Kind</TableHead>
-                    <TableHead>Built from</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {placements.map((placement) => (
-                    <TableRow key={placement.id}>
-                      <TableCell align="right" className="num">
-                        {placement.order}
-                      </TableCell>
-                      <TableCell>{placementName(placement)}</TableCell>
-                      <TableCell>{sectionKind(placement)}</TableCell>
-                      <TableCell className="mono text-fg-muted">
-                        {placementSource(placement)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Template sections"
+                rows={placements}
+                columns={sectionColumns(placements.length)}
+                getRowId={(placement) => placement.id}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <Muted>No sections in this version.</Muted>
@@ -418,42 +480,17 @@ function TemplateSections() {
             <>
               {draft.parameters.length ? (
                 <TableBox>
-                  <Table aria-label="Template parameters">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Key</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Label</TableHead>
-                        <TableHead>Required</TableHead>
-                        <TableHead align="right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {draft.parameters.map((parameter) => (
-                        <TableRow key={parameter.id}>
-                          <TableCell className="mono">
-                            {parameter.key}
-                          </TableCell>
-                          <TableCell>{parameterTypeName(parameter)}</TableCell>
-                          <TableCell>{parameter.label}</TableCell>
-                          <TableCell>
-                            {parameter.required ? 'Yes' : '—'}
-                          </TableCell>
-                          <TableCell align="right">
-                            <Button
-                              size="sm"
-                              variant="quiet"
-                              disabled={save.isPending}
-                              aria-label={`Remove ${parameter.label}`}
-                              onClick={() => removeParameter(parameter.id)}
-                            >
-                              Remove
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <RegistryGrid
+                    label="Template parameters"
+                    rows={draft.parameters}
+                    columns={parameterColumns({
+                      withActions: true,
+                      disabled: save.isPending,
+                      onRemove: removeParameter,
+                    })}
+                    getRowId={(parameter) => parameter.id}
+                    selectable={false}
+                  />
                 </TableBox>
               ) : (
                 <Muted>No parameters declared.</Muted>
@@ -465,24 +502,13 @@ function TemplateSections() {
             </>
           ) : config.parameters.length ? (
             <TableBox>
-              <Table aria-label="Template parameters">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Key</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Label</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {config.parameters.map((parameter) => (
-                    <TableRow key={parameter.id}>
-                      <TableCell className="mono">{parameter.key}</TableCell>
-                      <TableCell>{parameter.type.kind}</TableCell>
-                      <TableCell>{parameter.label}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Template parameters"
+                rows={config.parameters}
+                columns={parameterColumns({})}
+                getRowId={(parameter) => parameter.id}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <Muted>No parameters declared.</Muted>

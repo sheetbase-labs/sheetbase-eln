@@ -9,7 +9,7 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   draftVersion,
   usePipelineVersions,
@@ -298,7 +298,10 @@ function PipelineSteps() {
             icon="plus"
             disabled={inputs.length >= MAX_INPUTS}
             onClick={() =>
-              setInputs((current) => [...current, { name: '', required: false }])
+              setInputs((current) => [
+                ...current,
+                { name: '', required: false },
+              ])
             }
           >
             Add input
@@ -316,7 +319,7 @@ function PipelineSteps() {
             label="Mode"
             hint="What the run leaves behind. The dataset the output uses is configured on the version, not here."
           >
-            <NativeSelect
+            <Select
               aria-label="Output mode"
               value={outputMode}
               onChange={(event) =>
@@ -326,7 +329,7 @@ function PipelineSteps() {
               <option value="none">None — keep no dataset output</option>
               <option value="create">Create a new dataset</option>
               <option value="append">Append to an existing dataset</option>
-            </NativeSelect>
+            </Select>
           </Field>
           {outputMode === 'create' ? (
             <Field label="Dataset name">

@@ -26,13 +26,6 @@ import {
 } from './file-policy'
 import { formatFileSize } from './format-numbers'
 
-/**
- * File sizes for the attach flow, in the app's one unit set (the shared
- * `formatFileSize`), so a stored file reads the same in the block preview, the
- * import receipt and a limit-failure message.
- */
-export const formatBytes = formatFileSize
-
 export interface AttachFileArgs {
   blockId: string
   expectedBlockVersion: number
@@ -110,7 +103,7 @@ export function validateFileForUpload(
     return {
       ok: false,
       code: 'oversize',
-      message: `File is ${formatBytes(file.size)}; the limit is ${formatBytes(FILE_MAX_BYTES)}.`,
+      message: `File is ${formatFileSize(file.size)}; the limit is ${formatFileSize(FILE_MAX_BYTES)}.`,
     }
   }
   return { ok: true, mediaType }

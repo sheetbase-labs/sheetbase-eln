@@ -2,11 +2,11 @@ import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
-import { toast } from '#/components/v3/ui/sonner'
+import { CopyButton } from '#/components/v3/ui/copy-button'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
@@ -101,11 +101,7 @@ function ExperimentLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/experiments" className="text-link">
-              Experiments
-            </Link>
-          }
+          trail={[{ label: 'Experiments', link: { to: '/experiments' } }]}
           title={
             record.isLoading ? 'Loading experiment…' : 'Experiment not found'
           }
@@ -122,14 +118,10 @@ function ExperimentLayout() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/experiments" className="text-link">
-              Experiments
-            </Link>{' '}
-            / <span className="mono">{e.identifier}</span>
-          </>
-        }
+        trail={[
+          { label: 'Experiments', link: { to: '/experiments' } },
+          { label: e.identifier, mono: true },
+        ]}
         title={e.title}
         meta={
           <>
@@ -144,21 +136,14 @@ function ExperimentLayout() {
         }
         actions={
           <>
-            <Button
+            <CopyButton
+              value={window.location.href}
               className="max-lg:hidden"
-              onClick={() => {
-                const url = window.location.href
-                navigator.clipboard.writeText(url).then(
-                  () => toast('Link copied'),
-                  () =>
-                    toast('Copy this link', {
-                      description: url,
-                    }),
-                )
-              }}
+              copiedMessage="Link copied"
+              failedMessage="Could not copy the link. Copy it from the address bar."
             >
               Share
-            </Button>
+            </CopyButton>
             <Button
               variant="primary"
               nativeButton={false}
@@ -174,8 +159,10 @@ function ExperimentLayout() {
           </>
         }
         tabs={
-          <LinkTabs
-            tabs={[
+          <Tabs
+            mode="url"
+            label="Experiment sections"
+            items={[
               {
                 label: 'Overview',
                 link: {

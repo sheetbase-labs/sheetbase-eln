@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Banner } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Input } from '#/components/v3/ui/input'
 import { PageHeader, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -17,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { useExperimentRecords } from '#/components/v3/experiments/experiments-data'
 import {
   calibrationStatus,
@@ -262,8 +263,6 @@ export function ImportUploadFlow({
   const [newName, setNewName] = useState('')
   const [experimentId, setExperimentId] = useState('')
   const [instrumentId, setInstrumentId] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
 
   const datasetRows = datasets.data ?? []
   // With nothing to append to, the new-Dataset branch is the only path — it is
@@ -279,65 +278,53 @@ export function ImportUploadFlow({
     : undefined
   const calibration = calibrationStatus(latestCalibration?.dueAt ?? null)
 
+  /**
+   * Step 1 hands the picked file straight to the shared transport. The pick's
+   * own progress and failure belong to the file field, which is why this
+   * function no longer tracks them: it resolves when the file is stored and
+   * parsed, and a rejection becomes the row's message with its retry.
+   */
   async function start(file: File) {
-    setBusy(true)
-    setError('')
-    try {
-      const target = await resolveImportTarget(
-        client,
-        effectiveMode === 'new'
-          ? {
-              mode: 'new',
-              workspaceId,
-              schemaVersionId,
-              name: newName,
-              createdByUserId,
-            }
-          : { mode: 'append', datasetId },
-      )
-      const upload = await uploadImportFile({
-        file,
-        datasetId: target.datasetId,
-      })
-      if (target.created) {
-        void queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY })
-      }
-      await navigate({
-        to: '/import/$importId',
-        params: { importId: upload.fileId },
-        search: {
-          step: 'map',
-          dataset: target.datasetId,
-          experiment: experimentId || undefined,
-          instrument: instrumentId || undefined,
-        },
-      })
-    } catch (startError) {
-      setError(
-        startError instanceof Error
-          ? startError.message
-          : 'Could not start the import.',
-      )
-    } finally {
-      setBusy(false)
+    const target = await resolveImportTarget(
+      client,
+      effectiveMode === 'new'
+        ? {
+            mode: 'new',
+            workspaceId,
+            schemaVersionId,
+            name: newName,
+            createdByUserId,
+          }
+        : { mode: 'append', datasetId },
+    )
+    const upload = await uploadImportFile({
+      file,
+      datasetId: target.datasetId,
+    })
+    if (target.created) {
+      void queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY })
     }
+    await navigate({
+      to: '/import/$importId',
+      params: { importId: upload.fileId },
+      search: {
+        step: 'map',
+        dataset: target.datasetId,
+        experiment: experimentId || undefined,
+        instrument: instrumentId || undefined,
+      },
+    })
   }
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        crumbs="Datasets / Import data"
+        trail={[{ label: 'Datasets' }, { label: 'Import data' }]}
         title="Import data"
         meta="Store the file, check its columns, then see every row before importing."
       />
       <div className="px-4 py-4 md:px-6">
         <Stepper steps={STEPS} current={1} className="mb-4" />
-
-        {error ? (
-          <Banner tone="bad" title="Import error" className="mb-4">
-            {error}
-          </Banner>
-        ) : null}
 
         <div className="grid max-w-[900px] gap-4">
           <div className="grid max-w-[520px] gap-1 text-label text-fg-muted">
@@ -351,10 +338,7 @@ export function ImportUploadFlow({
               <Banner tone="bad" title="Your Datasets could not be read.">
                 The list did not load, so appending to a Dataset cannot be
                 offered yet.
-                <Button
-                  variant="quiet"
-                  onClick={() => void datasets.refetch()}
-                >
+                <Button variant="quiet" onClick={() => void datasets.refetch()}>
                   Retry
                 </Button>
               </Banner>
@@ -395,7 +379,7 @@ export function ImportUploadFlow({
           {effectiveMode === 'append' ? (
             <label className="grid max-w-[420px] gap-1 text-label text-fg-muted">
               Dataset
-              <NativeSelect
+              <Select
                 aria-label="Import into dataset"
                 value={datasetId}
                 onChange={(event) => setDatasetId(event.target.value)}
@@ -406,13 +390,13 @@ export function ImportUploadFlow({
                     {item.display_id ?? item.name} · {item.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
           ) : (
             <div className="grid max-w-[520px] gap-3 sm:grid-cols-2">
               <label className="grid gap-1 text-label text-fg-muted">
                 Model
-                <NativeSelect
+                <Select
                   aria-label="Model for the new dataset"
                   value={schemaVersionId}
                   onChange={(event) => setSchemaVersionId(event.target.value)}
@@ -426,7 +410,7 @@ export function ImportUploadFlow({
                       {schema.name} v{schema.version}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </label>
               <label className="grid gap-1 text-label text-fg-muted">
                 Dataset name
@@ -440,29 +424,20 @@ export function ImportUploadFlow({
             </div>
           )}
 
-          <label className="grid max-w-[420px] gap-1 text-label text-fg-muted">
-            Laboratory file
-            <Input
-              type="file"
-              disabled={!targetReady || busy}
-              accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file) void start(file)
-                event.target.value = ''
-              }}
-            />
-            {busy ? (
-              <span role="status" className="text-label">
-                Storing and reading the file…
-              </span>
-            ) : null}
-          </label>
+          <FileDrop
+            className="max-w-[420px]"
+            label="Laboratory file"
+            inputLabel="Laboratory file"
+            accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            disabled={!targetReady}
+            disabledReason="Choose where the file goes first."
+            onFile={(file) => (file ? start(file) : undefined)}
+          />
 
           <div className="grid max-w-[640px] gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-label text-fg-muted">
               Link to experiment
-              <NativeSelect
+              <Select
                 aria-label="Link to experiment"
                 value={experimentId}
                 onChange={(event) => setExperimentId(event.target.value)}
@@ -473,11 +448,11 @@ export function ImportUploadFlow({
                     {item.identifier || item.id.slice(0, 8)} · {item.title}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
             <label className="grid gap-1 text-label text-fg-muted">
               Instrument
-              <NativeSelect
+              <Select
                 aria-label="Instrument"
                 value={instrumentId}
                 onChange={(event) => setInstrumentId(event.target.value)}
@@ -488,7 +463,7 @@ export function ImportUploadFlow({
                     {item.displayId ?? item.name} · {item.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
               {instrumentId ? (
                 <Status tone={calibration.tone}>{calibration.label}</Status>
               ) : null}
@@ -777,21 +752,25 @@ export function ImportMapCheckFlow({
   if (notFound) {
     return (
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-        <PageHeader crumbs="Datasets / Import data" title="Import not found" />
+        <PageHeader
+          trail={[{ label: 'Datasets' }, { label: 'Import data' }]}
+          title="Import not found"
+        />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="upload"
             title="This import doesn’t exist"
-            body="It may have been cancelled, or it belongs to another workspace. Start again from the upload step."
-          >
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={<Link to="/import" />}
-            >
-              Import data
-            </Button>
-          </EmptyState>
+            description="It may have been cancelled, or it belongs to another workspace. Start again from the upload step."
+            action={
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={<Link to="/import" />}
+              >
+                Import data
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -800,7 +779,7 @@ export function ImportMapCheckFlow({
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        crumbs="Datasets / Import data"
+        trail={[{ label: 'Datasets' }, { label: 'Import data' }]}
         title="Import data"
         meta={
           <>
@@ -932,16 +911,17 @@ export function ImportMapCheckFlow({
           <EmptyState
             icon="table"
             title="This import has no target"
-            body="The file is stored but no Dataset is pinned. Start the import again to choose one."
-          >
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={<Link to="/import" />}
-            >
-              Import data
-            </Button>
-          </EmptyState>
+            description="The file is stored but no Dataset is pinned. Start the import again to choose one."
+            action={
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={<Link to="/import" />}
+              >
+                Import data
+              </Button>
+            }
+          />
         ) : null}
 
         {file.data && datasetId && !parsed ? (
@@ -1031,7 +1011,7 @@ export function ImportMapCheckFlow({
           <div className="grid gap-4">
             <div className="grid max-w-[420px] gap-1 text-label text-fg-muted">
               Parser
-              <NativeSelect
+              <Select
                 aria-label="Parser for this file"
                 value={activeParser?.key ?? ''}
                 onChange={(event) => {
@@ -1046,7 +1026,7 @@ export function ImportMapCheckFlow({
                     {option.label} v{option.version}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
               {suggestedParser ? (
                 <span className="text-label">
                   Suggested from the file name: {suggestedParser.label}. Change
@@ -1160,7 +1140,7 @@ function MapTable({
                 <TableRow key={header}>
                   <TableCell>{header}</TableCell>
                   <TableCell>
-                    <NativeSelect
+                    <Select
                       aria-label={`Map ${header}`}
                       value={fieldId}
                       onChange={(event) => onMap(header, event.target.value)}
@@ -1171,7 +1151,7 @@ function MapTable({
                           {item.label}
                         </option>
                       ))}
-                    </NativeSelect>
+                    </Select>
                   </TableCell>
                   <TableCell className="text-fg-muted">
                     {field?.unit ?? '—'}

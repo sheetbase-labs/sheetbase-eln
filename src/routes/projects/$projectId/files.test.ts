@@ -8,7 +8,10 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-import { fetchProjectFilesPage, toFileDisplayRows } from '#/routes/projects/$projectId/files'
+import {
+  fetchProjectFilesPage,
+  toFileDisplayRows,
+} from '#/routes/projects/$projectId/files'
 import type { DataClient } from '#/lib/data-client'
 
 const PROJECT = '00000000-0000-4000-8000-000000090010'

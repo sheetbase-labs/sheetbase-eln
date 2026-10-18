@@ -3,8 +3,9 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useShortcuts } from '#/components/shortcuts/shortcut-provider'
 import { ShortcutGroups } from '#/components/shortcuts/shortcuts-dialog'
 import { Button } from '#/components/v3/ui/button'
+import { Breadcrumb } from '#/components/v3/ui/breadcrumb'
 import { Kbd } from '#/components/v3/ui/kbd'
-import { SegmentLinks } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { requestShortcutsDialog } from '#/lib/shortcuts-dialog'
 
 import { ReleaseCard } from '../help'
@@ -26,19 +27,24 @@ function Shortcuts() {
     <div className="grid max-w-[1164px] grid-cols-1 gap-8 px-4 pb-10 pt-5 md:px-8 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="flex min-w-0 flex-col gap-5">
         <header className="flex flex-col gap-1.5">
-          <nav aria-label="Breadcrumb" className="text-label text-fg-muted">
-            <Link to="/help">Help</Link> / Keyboard shortcuts
-          </nav>
+          <Breadcrumb
+            trail={[
+              { label: 'Help', link: { to: '/help' } },
+              { label: 'Keyboard shortcuts' },
+            ]}
+          />
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <h1 className="flex-1 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6">
               Keyboard shortcuts
             </h1>
-            <SegmentLinks
+            <Tabs
+              mode="url"
+              variant="segment"
+              value={os}
               label="Keyboard"
               items={(['mac', 'windows'] as const).map((o) => ({
                 key: o,
                 label: o === 'mac' ? 'Mac' : 'Windows',
-                active: os === o,
                 link: {
                   to: '/help/shortcuts',
                   search: { os: o === 'mac' ? undefined : o },

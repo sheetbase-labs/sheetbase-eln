@@ -11,7 +11,6 @@ import {
   FileList,
   InspectorSection,
   InspectorSectionStack,
-  LinkedRecordList,
 } from './inspector-sections'
 import { Property, PropertyList } from '#/components/scientific/property-list'
 import type {
@@ -19,7 +18,6 @@ import type {
   CheckItem,
   CommentItem,
   FileItem,
-  LinkedRecordItem,
 } from './inspector-sections'
 
 afterEach(() => cleanup())
@@ -162,22 +160,6 @@ describe('Inspector sections', () => {
     expect(container.querySelectorAll('wbr').length).toBeGreaterThan(0)
   })
 
-  it('LinkedRecordList renders links and shows empty hint when empty', () => {
-    const items: LinkedRecordItem[] = [
-      {
-        id: '1',
-        type: 'Sample',
-        title: 'Sample 28',
-        meta: 'Cell line',
-        href: '/samples/28',
-      },
-    ]
-    const { rerender } = render(<LinkedRecordList items={items} />)
-    expect(screen.getByRole('link', { name: /Sample 28/ })).toBeTruthy()
-    rerender(<LinkedRecordList items={[]} />)
-    expect(screen.getByText('No linked records')).toBeTruthy()
-  })
-
   it('FileList renders rows and empty hint', () => {
     const items: FileItem[] = [
       { id: '1', name: 'protocol.pdf', meta: '120 KB' },
@@ -186,6 +168,24 @@ describe('Inspector sections', () => {
     expect(screen.getByText('protocol.pdf')).toBeTruthy()
     rerender(<FileList items={[]} />)
     expect(screen.getByText('No attached files')).toBeTruthy()
+  })
+
+  it('FileList names the file type, and trusts the name over a generic MIME', () => {
+    const items: FileItem[] = [
+      { id: '1', name: 'protocol.pdf', mediaType: 'application/pdf' },
+      // A stored octet-stream says nothing; the extension does.
+      {
+        id: '2',
+        name: 'stability-run07.xlsx',
+        mediaType: 'application/octet-stream',
+      },
+      // With no type in the name, the media type decides.
+      { id: '3', name: 'raw-payload', mediaType: 'image/x-unknown' },
+    ]
+    render(<FileList items={items} />)
+    expect(screen.getByRole('img', { name: 'PDF file' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'XLSX file' })).toBeTruthy()
+    expect(screen.getByRole('img', { name: 'Image' })).toBeTruthy()
   })
 
   it('CheckList communicates state by text, not just colour', () => {

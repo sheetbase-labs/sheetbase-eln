@@ -1,11 +1,10 @@
-import { FileCheck2, History, UserCheck } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { History } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import { Icon } from '#/components/icons'
+import { AUDIT_TYPE_ICONS, HistoryTimeline } from './history-timeline'
+import type { HistoryEntry, HistoryRetry } from './history-timeline'
 import type { IconName } from '#/components/icons'
-import { Button } from '#/components/v3/ui/button'
-import { Skeleton } from '#/components/v3/ui/skeleton'
-import { cn } from '#/lib/utils'
 
 /**
  * AuditTrail — a presentational timeline of typed audit events. It accepts
@@ -13,15 +12,14 @@ import { cn } from '#/lib/utils'
  * pagination/continuation, and never mutates anything (UI-007: display is
  * separate from the commands that change review state).
  *
- * Long histories are handled by a capped scroll region and a "Load more"
- * continuation control; the list stays usable inside an inspector.
- * Connector graphics are decorative; each event exposes a complete
- * sr-only sentence for screen readers.
+ * Icons, row layout, loading, empty and error rendering all live in
+ * `history-timeline.tsx`; this module is the mapping from typed audit events
+ * onto that surface, and the one place that composes the complete sr-only
+ * sentence for an event.
  */
 
 export interface AuditActor {
   name: string
-  initials?: string
   /** When the actor is unknown/anonymised, e.g. a deleted user. */
   unknown?: boolean
 }
@@ -42,6 +40,10 @@ export interface AuditEvent {
 export interface AuditTrailProps {
   events: AuditEvent[]
   loading?: boolean
+  /** A load or permission failure, rendered as its own state. */
+  error?: ReactNode
+  /** The retry a failed load offers, when one exists. */
+  retry?: HistoryRetry
   /** Total events known to exist, for "showing N of M". */
   totalCount?: number
   onLoadMore?: () => void
@@ -49,13 +51,6 @@ export interface AuditTrailProps {
   /** Max height before the list scrolls; keeps inspectors usable. */
   maxHeight?: string
   className?: string
-}
-
-const typeIcons: Partial<Record<string, IconName | LucideIcon>> = {
-  created: 'flask',
-  uploaded: 'upload',
-  'review-requested': FileCheck2,
-  'review-started': UserCheck,
 }
 
 function eventSentence(event: AuditEvent): string {
@@ -68,9 +63,25 @@ function eventSentence(event: AuditEvent): string {
   return `${actor} ${event.title.toLowerCase()}${target} at ${event.timestamp}.`
 }
 
+function toEntry(event: AuditEvent): HistoryEntry {
+  return {
+    id: event.id,
+    icon: event.icon ?? AUDIT_TYPE_ICONS[event.type] ?? History,
+    title: event.title,
+    actor: event.actor?.unknown
+      ? 'Unknown user'
+      : (event.actor?.name ?? 'System'),
+    time: event.timestamp,
+    detail: event.target,
+    sentence: eventSentence(event),
+  }
+}
+
 export function AuditTrail({
   events,
   loading = false,
+  error = null,
+  retry,
   totalCount,
   onLoadMore,
   loadingMore = false,
@@ -79,97 +90,31 @@ export function AuditTrail({
 }: AuditTrailProps) {
   const hasMore = totalCount !== undefined && events.length < totalCount
 
-  if (loading) {
-    return (
-      <div className="space-y-3" aria-busy="true" aria-live="polite">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex gap-3">
-            <Skeleton className="size-8 shrink-0 rounded-full" />
-            <div className="flex-1 space-y-1.5 pt-1">
-              <Skeleton className="h-3 w-2/3" />
-              <Skeleton className="h-3 w-1/3" />
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (events.length === 0) {
-    return (
-      <p className="rounded-md border border-dashed bg-surface-muted/30 px-3 py-2 text-xs text-fg-muted">
-        No activity yet
-      </p>
-    )
-  }
-
   return (
-    <div className={cn('space-y-0', className)}>
-      <ol
-        className={cn('space-y-0 overflow-y-auto pr-1')}
-        style={{ maxHeight }}
-        aria-label="Audit trail"
-      >
-        {events.map((event, i) => {
-          const EventIcon = event.icon ?? typeIcons[event.type] ?? History
-          const isLast = i === events.length - 1
-          const actor = event.actor
-          return (
-            <li
-              key={event.id}
-              className={cn('relative flex gap-3', isLast ? 'pb-0' : 'pb-4')}
-            >
-              {!isLast ? (
-                <span
-                  aria-hidden="true"
-                  className="absolute left-4 top-8 h-[calc(100%-1.5rem)] w-px bg-border"
-                />
-              ) : null}
-              <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border bg-surface text-fg-muted">
-                {typeof EventIcon === 'string' ? (
-                  <Icon
-                    name={EventIcon}
-                    className="size-3.5"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <EventIcon className="size-3.5" aria-hidden="true" />
-                )}
-              </span>
-              <div className="min-w-0 pt-1">
-                <p className="text-sm font-medium">{event.title}</p>
-                <p className="truncate text-xs text-fg-muted">
-                  {actor?.unknown ? 'Unknown user' : (actor?.name ?? 'System')}
-                  {' · '}
-                  {event.timestamp}
-                  {event.target ? ` · ${event.target}` : ''}
-                </p>
-              </div>
-              <span className="sr-only">{eventSentence(event)}</span>
-            </li>
-          )
-        })}
-      </ol>
-      {hasMore && onLoadMore ? (
-        <div className="pt-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onLoadMore}
-            disabled={loadingMore}
-          >
-            <Icon name="chevronRight" className="mr-1 size-3.5" />
-            {loadingMore
-              ? 'Loading…'
-              : `Load more (${totalCount - events.length} left)`}
-          </Button>
-        </div>
-      ) : null}
-      {totalCount !== undefined ? (
-        <p className="pt-2 text-xs text-fg-muted">
-          Showing {events.length} of {totalCount} events
-        </p>
-      ) : null}
-    </div>
+    <HistoryTimeline
+      entries={events.map(toEntry)}
+      ariaLabel="Audit trail"
+      emptyMessage="No activity yet"
+      emptyDescription="Events appear here as this object changes, newest first."
+      loading={loading}
+      error={error}
+      retry={retry}
+      maxHeight={maxHeight}
+      className={className}
+      loadMore={
+        hasMore && onLoadMore
+          ? {
+              onClick: onLoadMore,
+              busy: loadingMore,
+              label: `Load more (${totalCount - events.length} left)`,
+            }
+          : undefined
+      }
+      footer={
+        totalCount !== undefined
+          ? `Showing ${events.length} of ${totalCount} events`
+          : undefined
+      }
+    />
   )
 }

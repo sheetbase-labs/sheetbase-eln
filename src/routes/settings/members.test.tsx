@@ -7,14 +7,7 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './members'
 
@@ -212,7 +205,9 @@ describe('SET-02 members status', () => {
     routeRef.role = 'owner'
     renderMembers()
 
-    await user.click(await screen.findByRole('button', { name: 'Invite people' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Invite people' }),
+    )
     const email = await screen.findByRole('textbox', { name: /Email address/ })
     await user.type(email, 'not-an-email')
 

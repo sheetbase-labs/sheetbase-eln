@@ -1,5 +1,4 @@
 import {
-  Link,
   Outlet,
   createFileRoute,
   redirect,
@@ -9,7 +8,7 @@ import {
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { PageHeader } from '#/components/v3/ui/layout'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
   publishedTemplateVersion,
@@ -47,11 +46,7 @@ function TemplateLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/templates" className="text-link">
-              Templates
-            </Link>
-          }
+          trail={[{ label: 'Templates', link: { to: '/templates' } }]}
           title="Template could not be loaded"
         />
         <div className="px-4 py-4 md:px-6">
@@ -76,11 +71,7 @@ function TemplateLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/templates" className="text-link">
-              Templates
-            </Link>
-          }
+          trail={[{ label: 'Templates', link: { to: '/templates' } }]}
           title={
             template.isLoading ? 'Loading template…' : 'Template not found'
           }
@@ -98,14 +89,10 @@ function TemplateLayout() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/templates" className="text-link">
-              Templates
-            </Link>{' '}
-            / <span className="mono">{t.key}</span>
-          </>
-        }
+        trail={[
+          { label: 'Templates', link: { to: '/templates' } },
+          { label: t.key, mono: true },
+        ]}
         title={t.name}
         meta={
           <>
@@ -119,8 +106,10 @@ function TemplateLayout() {
           </>
         }
         tabs={
-          <LinkTabs
-            tabs={[
+          <Tabs
+            mode="url"
+            label="Template sections"
+            items={[
               {
                 label: 'Sections',
                 count: shown?.configuration.placements.length,

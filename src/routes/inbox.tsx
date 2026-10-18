@@ -19,6 +19,8 @@ import {
   DescriptionList,
 } from '#/components/v3/ui/layout'
 import { Kbd } from '#/components/v3/ui/kbd'
+import { Tabs } from '#/components/v3/ui/tabs'
+import { ListHeader } from '#/components/v3/inventory/list'
 import {
   useRegisterShortcuts,
   useShortcutScope,
@@ -215,7 +217,9 @@ function Inbox() {
   const laterHoldsEveryRow =
     visible.length > 0 && visible.every((i) => groups.later.includes(i))
   const laterExpanded = later ?? laterHoldsEveryRow
-  const shown = visible.filter((i) => laterExpanded || !groups.later.includes(i))
+  const shown = visible.filter(
+    (i) => laterExpanded || !groups.later.includes(i),
+  )
   const hiddenLater = groups.later.filter(
     (i) => itemTab(i, seen) === tab && (!type || workItemType(i.kind) === type),
   ).length
@@ -267,9 +271,7 @@ function Inbox() {
   // so marking the rest reported success for work the person could not see.
   const markableKeys = useMemo(
     () =>
-      visible
-        .filter((i) => itemTab(i, seen) === 'needs-action')
-        .map(itemKey),
+      visible.filter((i) => itemTab(i, seen) === 'needs-action').map(itemKey),
     [visible, seen],
   )
 
@@ -306,36 +308,6 @@ function Inbox() {
   const selectType = (next: InboxType | undefined) => {
     setType(next)
     updateSearch({ type: next })
-  }
-
-  // QA3-inbox-3 — the tabs announce `role="tab"`, so the arrow keys move
-  // between them and only the selected tab sits in the tab order, matching
-  // what a screen reader is told.
-  const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
-  const onTabKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const current = tabs.findIndex(([t]) => t === tab)
-    let next: number
-    switch (event.key) {
-      case 'ArrowRight':
-      case 'ArrowDown':
-        next = (current + 1) % tabs.length
-        break
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        next = (current - 1 + tabs.length) % tabs.length
-        break
-      case 'Home':
-        next = 0
-        break
-      case 'End':
-        next = tabs.length - 1
-        break
-      default:
-        return
-    }
-    event.preventDefault()
-    selectTab(tabs[next][0])
-    tabsRef.current[next]?.focus()
   }
 
   const filterRef = useRef<HTMLDivElement>(null)
@@ -403,64 +375,40 @@ function Inbox() {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex flex-col gap-1 border-b border-border px-4 pt-4 md:px-6">
-          {/* WCAG 1.4.10 — the phone reference header (PhoneInbox) is the
-              title alone; the two actions cannot share its line with it (at
-              390 they measured 408px and pushed Mark all seen outside the
-              viewport with no ancestor able to scroll to it). The row wraps,
-              exactly as the shell's own TopBar does below `md`, so both
-              controls reflow into view instead of being clipped or dropped.
-              There is nothing to fill here once they wrap, so the desktop
-              spacer goes with the row it spaced. */}
-          <div className="flex items-center gap-2 max-md:flex-wrap">
-            <h1 className="text-title">Inbox</h1>
-            <span className="ml-1 text-body text-fg-muted max-md:hidden">
-              Everything waiting on you, across projects
-            </span>
-            <span className="flex-1 max-md:hidden" />
-            <Button
-              nativeButton={false}
-              render={<Link to="/settings/notifications" />}
-            >
-              Notification settings
-            </Button>
-            <Button
-              disabled={markSeen.isPending || markableKeys.length === 0}
-              onClick={() => markSeen.mutate(markableKeys)}
-            >
-              Mark all seen
-            </Button>
-          </div>
-          <div
-            role="tablist"
-            aria-label="Inbox"
-            onKeyDown={onTabKeys}
-            className="mt-1 flex gap-5 overflow-x-auto [scrollbar-width:none]"
-          >
-            {tabs.map(([t, l], index) => (
-              <button
-                key={t}
-                ref={(el) => {
-                  tabsRef.current[index] = el
-                }}
-                type="button"
-                role="tab"
-                aria-selected={tab === t}
-                tabIndex={tab === t ? 0 : -1}
-                onClick={() => selectTab(t)}
-                className={cn(
-                  'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted hover:text-fg max-md:h-11',
-                  tab === t && 'border-link text-fg',
-                )}
+        <ListHeader
+          title="Inbox"
+          subtitle="Everything waiting on you, across projects"
+          actions={
+            <>
+              <Button
+                nativeButton={false}
+                render={<Link to="/settings/notifications" />}
               >
-                {l}
-                <span className="text-label font-normal text-fg-muted">
-                  {countsKnown ? tabCount(t) : '—'}
-                </span>
-              </button>
-            ))}
-          </div>
-        </header>
+                Notification settings
+              </Button>
+              <Button
+                disabled={markSeen.isPending || markableKeys.length === 0}
+                onClick={() => markSeen.mutate(markableKeys)}
+              >
+                Mark all seen
+              </Button>
+            </>
+          }
+          tabs={
+            <Tabs
+              mode="state"
+              label="Inbox"
+              value={tab}
+              onValueChange={(next) => selectTab(next as InboxTab)}
+              className="mt-1"
+              items={tabs.map(([key, label]) => ({
+                key,
+                label,
+                count: countsKnown ? tabCount(key) : '—',
+              }))}
+            />
+          }
+        />
 
         <div
           ref={filterRef}

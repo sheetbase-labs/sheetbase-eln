@@ -56,6 +56,13 @@ interface RichTextEditorProps {
   onChange: (payload: RichTextPayload) => void
   onBlur: () => void
   autoFocus?: boolean
+  /**
+   * Where the caret lands when this editor takes focus. Moving down into a row
+   * means the caret belongs at its start; moving up means its end. Without a
+   * hint the caret goes to the end, which is where a click into the row puts
+   * it.
+   */
+  caretHint?: 'start' | 'end'
   className?: string
   /**
    * NOTE-02: prefix for stable heading anchors (`<prefix>-h<index>`) added
@@ -74,12 +81,21 @@ interface RichTextEditorProps {
   onSlashCommand?: (type: string) => void
   /** Enter at end of the last paragraph → create a new text block below. */
   onEnterAtEnd?: () => void
-  /** Backspace at start of an empty block → delete and focus previous. */
+  /**
+   * Backspace at the start of the block's first paragraph. The owner decides
+   * what that means: inside a prose run it joins this row into the row above,
+   * on an empty row it deletes the row, and otherwise nothing happens.
+   */
   onBackspaceAtStart?: () => void
   /** ArrowUp at start of first paragraph → focus previous block. */
   onArrowUpFromStart?: () => void
   /** ArrowDown at end of last paragraph → focus next block. */
   onArrowDownFromEnd?: () => void
+  /**
+   * Shown as a widget decoration while the block is a single empty paragraph.
+   * A decoration never enters the document, so it cannot be saved.
+   */
+  placeholder?: string
 }
 
 interface SlashMenuState {
@@ -106,10 +122,45 @@ const SLASH_MENU_CLOSED: SlashMenuState = {
  */
 const HEADING_ANCHOR_PLUGIN_KEY = new PluginKey('notebookHeadingAnchors')
 const HIDDEN_NODES_PLUGIN_KEY = new PluginKey('notebookHiddenNodes')
+const PLACEHOLDER_PLUGIN_KEY = new PluginKey('notebookPlaceholder')
+
+/**
+ * A2: an empty prose row would otherwise be an invisible caret with no target,
+ * which is the single most obvious difference between an empty block and an
+ * empty document. The placeholder is a widget decoration, so it is never part
+ * of the document and can never be saved into a payload.
+ */
+function createPlaceholderPlugin(placeholderRef: React.RefObject<string>) {
+  return new Plugin({
+    key: PLACEHOLDER_PLUGIN_KEY,
+    props: {
+      decorations(state) {
+        const { doc } = state
+        if (doc.childCount !== 1) return DecorationSet.empty
+        const only = doc.firstChild
+        if (!only || only.type.name !== 'paragraph') return DecorationSet.empty
+        if (only.content.size > 0) return DecorationSet.empty
+        const widget = Decoration.widget(
+          1,
+          () => {
+            const span = document.createElement('span')
+            span.className = 'pointer-events-none select-none text-fg-muted/50'
+            span.setAttribute('aria-hidden', 'true')
+            span.textContent = placeholderRef.current
+            return span
+          },
+          { side: -1 },
+        )
+        return DecorationSet.create(doc, [widget])
+      },
+    },
+  })
+}
 
 function createDecorationPlugins(
   anchorPrefixRef: React.RefObject<string | undefined>,
   hiddenIndexesRef: React.RefObject<ReadonlySet<number> | undefined>,
+  placeholderRef: React.RefObject<string>,
 ) {
   const headingAnchors = new Plugin({
     key: HEADING_ANCHOR_PLUGIN_KEY,
@@ -150,7 +201,7 @@ function createDecorationPlugins(
       },
     },
   })
-  return [headingAnchors, hiddenNodes]
+  return [headingAnchors, hiddenNodes, createPlaceholderPlugin(placeholderRef)]
 }
 
 export function RichTextEditor({
@@ -158,6 +209,7 @@ export function RichTextEditor({
   onChange,
   onBlur,
   autoFocus,
+  caretHint,
   className,
   anchorPrefix,
   hiddenNodeIndexes,
@@ -166,6 +218,7 @@ export function RichTextEditor({
   onBackspaceAtStart,
   onArrowUpFromStart,
   onArrowDownFromEnd,
+  placeholder = 'Type / for blocks, or just start writing',
 }: RichTextEditorProps) {
   const [slashMenu, setSlashMenu] =
     React.useState<SlashMenuState>(SLASH_MENU_CLOSED)
@@ -185,10 +238,14 @@ export function RichTextEditor({
   anchorPrefixRef.current = anchorPrefix
   const hiddenIndexesRef = React.useRef(hiddenNodeIndexes)
   hiddenIndexesRef.current = hiddenNodeIndexes
+  // The placeholder text is read through a ref for the same reason: the plugin
+  // must stay stable, and the text is a prop with a default.
+  const placeholderRef = React.useRef(placeholder)
+  placeholderRef.current = placeholder
   // Created once — the plugin instances must stay stable for the editor's
   // lifetime or ProseMirror would tear down state on every render.
   const decorationPlugins = React.useRef(
-    createDecorationPlugins(anchorPrefixRef, hiddenIndexesRef),
+    createDecorationPlugins(anchorPrefixRef, hiddenIndexesRef, placeholderRef),
   ).current
   const extensions = React.useMemo(
     () => [
@@ -300,11 +357,15 @@ export function RichTextEditor({
             }
           }
 
-          // Backspace at start of an empty block → delete and focus previous
+          // Backspace at the start of the block's first paragraph. The owner
+          // decides what happens: inside a prose run this joins the row into
+          // the row above, on an empty row it deletes the row, and otherwise
+          // nothing changes. Intercepting only at index 0 leaves ProseMirror's
+          // own join (a paragraph after a heading) untouched.
           if (event.key === 'Backspace' && !hasModifier && isCollapsed) {
-            const isEmpty = doc.textContent.trim() === ''
             const $from = selection.$from
-            if (isEmpty && $from.parentOffset === 0) {
+            const isFirstTopLevel = $from.depth === 1 && $from.index(0) === 0
+            if (isFirstTopLevel && $from.parentOffset === 0) {
               event.preventDefault()
               cb.onBackspaceAtStart?.()
               return true
@@ -366,8 +427,9 @@ export function RichTextEditor({
   }, [editor, payload.doc, serializedPayload])
 
   React.useEffect(() => {
-    if (editor && autoFocus) editor.commands.focus('end')
-  }, [autoFocus, editor])
+    if (!editor || !autoFocus) return
+    editor.commands.focus(caretHint === 'start' ? 'start' : 'end')
+  }, [autoFocus, caretHint, editor])
 
   // NOTE-02: decoration inputs changed without a document transaction (e.g.
   // a section was collapsed or the block was renamed). Dispatch an empty

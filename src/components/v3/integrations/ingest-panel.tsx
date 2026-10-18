@@ -13,12 +13,13 @@
  *
  * Run provenance always carries a real fileRecordId and checksum for this flow.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
+import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
 import {
@@ -29,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { createDataClient } from '#/lib/data-client'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
@@ -127,7 +128,6 @@ export function IngestPanel({
   parserId: string
 }) {
   const queryClient = useQueryClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
 
   const schemasQuery = useQuery({
@@ -228,12 +228,6 @@ export function IngestPanel({
     },
   })
 
-  async function onFilePicked(fileList: FileList | null) {
-    const picked = fileList?.[0]
-    if (!picked) return
-    setFile(picked)
-  }
-
   return (
     <Section title="Ingest instrument output">
       <p className="m-0 max-w-3xl text-body text-fg-muted">
@@ -247,20 +241,22 @@ export function IngestPanel({
       </p>
 
       <div className="flex max-w-2xl flex-col gap-4">
-        <Field label="Instrument file">
-          <Input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.tsv,text/csv,text/tab-separated-values"
-            onChange={(event) => void onFilePicked(event.target.files)}
-          />
-        </Field>
+        {/* The pick is only the selection: the bytes are retained when the run
+            starts, so this row says "Selected" and the run reports on itself. */}
+        <FileDrop
+          label="Instrument file"
+          inputLabel="Instrument file"
+          hint="The raw file is retained, then read by the parser."
+          accept=".csv,.tsv,text/csv,text/tab-separated-values"
+          disabled={mutation.isPending}
+          onFile={(picked) => setFile(picked)}
+        />
 
         <Field
           label="Retain raw file in project"
           hint="The original bytes are retained as a file record; the run provenance carries its canonical fileRecordId and sha256 checksum."
         >
-          <NativeSelect
+          <Select
             value={projectId}
             onChange={(event) => setProjectId(event.target.value)}
           >
@@ -270,11 +266,11 @@ export function IngestPanel({
                 {project.title}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
 
         <Field label="Target Schema Version">
-          <NativeSelect
+          <Select
             value={schemaVersionId}
             onChange={(event) => {
               setSchemaVersionId(event.target.value)
@@ -290,7 +286,7 @@ export function IngestPanel({
                 {option.name} v{option.version}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
 
         {targetFields.length > 0 && file && parser && (
@@ -305,7 +301,7 @@ export function IngestPanel({
         {schemaVersionId && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Existing Dataset">
-              <NativeSelect
+              <Select
                 value={datasetId}
                 onChange={(event) => setDatasetId(event.target.value)}
               >
@@ -315,7 +311,7 @@ export function IngestPanel({
                     {dataset.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             {!datasetId && (
               <Field label="New Dataset name">

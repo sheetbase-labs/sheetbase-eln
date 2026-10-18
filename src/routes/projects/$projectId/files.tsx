@@ -15,6 +15,7 @@ import {
   ProjectListFailure,
   ProjectListOutOfRange,
 } from '#/components/v3/projects/project-list'
+import { Pager } from '#/components/v3/ui/pager'
 import {
   PROJECT_LIST_PAGE_SIZE,
   parseProjectPage,
@@ -258,8 +259,8 @@ function ProjectFilesTab() {
         title: file.name,
         meta: (
           <>
-            <span className="mono">{file.id}</span> · {file.kind} · {file.size} ·{' '}
-            {file.uploaded}
+            <span className="mono">{file.id}</span> · {file.kind} · {file.size}{' '}
+            · {file.uploaded}
           </>
         ),
         link: { to: '/records/$recordId', params: { recordId: file.key } },
@@ -271,31 +272,19 @@ function ProjectFilesTab() {
       }}
       footer={
         total > PROJECT_LIST_PAGE_SIZE ? (
-          <span className="flex flex-wrap items-center gap-3">
-            <span>
-              Showing {start}–{end} of {total} files
-            </span>
-            {page > 1 ? (
-              <Link
-                to="/projects/$projectId/files"
-                params={{ projectId }}
-                search={{ page: page - 1 }}
-                className="text-link"
-              >
-                Previous
-              </Link>
-            ) : null}
-            {page < pageCount ? (
-              <Link
-                to="/projects/$projectId/files"
-                params={{ projectId }}
-                search={{ page: page + 1 }}
-                className="text-link"
-              >
-                Next
-              </Link>
-            ) : null}
-          </span>
+          <Pager
+            page={page}
+            pageCount={pageCount}
+            start={start}
+            end={end}
+            total={total}
+            noun="files"
+            linkFor={(next) => ({
+              to: '/projects/$projectId/files',
+              params: { projectId },
+              search: { page: next },
+            })}
+          />
         ) : undefined
       }
     />

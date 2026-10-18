@@ -131,7 +131,8 @@ beforeEach(() => {
   })
   notebookCreate.applyExperimentSetup.mockResolvedValue(undefined)
   dataClient.list.mockImplementation(async (resource: string, query = '') => {
-    if (resource === 'projects') return [project(WRITABLE_PROJECT_ID, 'Project A')]
+    if (resource === 'projects')
+      return [project(WRITABLE_PROJECT_ID, 'Project A')]
     if (resource === 'protocol_versions') return [PROTOCOL_VERSION]
     if (resource === 'records') {
       if (query.includes('protocol_template')) return [PROTOCOL]
@@ -289,9 +290,7 @@ describe('new experiment', () => {
       })
 
       expect(screen.queryByText(/Loading the projects/)).toBeNull()
-      expect(
-        screen.getByText(/Couldn’t load the project list/),
-      ).toBeDefined()
+      expect(screen.getByText(/Couldn’t load the project list/)).toBeDefined()
       expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined()
       // Nothing to choose, so the create stays unavailable — and says so.
       expect(

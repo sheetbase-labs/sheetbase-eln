@@ -16,18 +16,13 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import {
-  DescriptionList,
-  Inspector,
-} from '#/components/v3/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
   Dialog,
@@ -38,16 +33,14 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   sampleListQueryKeys,
   toSampleListRow,
@@ -141,6 +134,57 @@ function SamplesList() {
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
 
+  const columns = useMemo<RegistryColumn<SampleListRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+      },
+      {
+        id: 'name',
+        header: 'Name',
+        cell: ({ row }) => (
+          <Link
+            to="/samples/$sampleId"
+            params={{ sampleId: row.original.uuid }}
+            onClick={(event) => event.stopPropagation()}
+            // The selected row is the one the inspector shows, and the
+            // bespoke body gave that row's name the medium weight.
+            className={
+              row.original.uuid === sel?.uuid ? 'font-medium' : undefined
+            }
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      { id: 'type', header: 'Type', accessorFn: (s) => s.type },
+      {
+        id: 'quantity',
+        header: 'Quantity',
+        accessorFn: (s) => s.quantity,
+        meta: rightAligned<SampleListRow>().meta,
+      },
+      { id: 'location', header: 'Location', accessorFn: (s) => s.location },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <Status tone={row.original.status.tone}>
+            {row.original.status.label}
+          </Status>
+        ),
+      },
+    ],
+    [sel?.uuid],
+  )
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.uuid ?? null,
+    setSelected,
+  )
+
   const create = useMutation({
     mutationFn: (input: {
       projectId: string
@@ -199,9 +243,10 @@ function SamplesList() {
             </>
           }
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Sample lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
@@ -231,49 +276,18 @@ function SamplesList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table aria-label="Samples" className="max-md:hidden">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={stickyHead}>ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead align="right">Quantity</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((s) => (
-                <TableRow
-                  key={s.uuid}
-                  selected={s.uuid === sel?.uuid}
-                  className="cursor-pointer"
-                  onClick={() => setSelected(s.uuid)}
-                >
-                  <TableCell className={stickyCell}>
-                    <span className="mono">{s.id}</span>
-                  </TableCell>
-                  <TableCell
-                    className={s.uuid === sel?.uuid ? 'font-medium' : undefined}
-                  >
-                    <Link
-                      to="/samples/$sampleId"
-                      params={{ sampleId: s.uuid }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {s.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{s.type}</TableCell>
-                  <TableCell align="right">{s.quantity}</TableCell>
-                  <TableCell>{s.location}</TableCell>
-                  <TableCell>
-                    <Status tone={s.status.tone}>{s.status.label}</Status>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {page.isLoading || visible.length > 0 ? (
+            <RegistryGrid
+              className="max-md:hidden"
+              label="Samples"
+              rows={visible}
+              columns={columns}
+              getRowId={(s) => s.uuid}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              isLoading={page.isLoading}
+            />
+          ) : null}
           <MobileList
             label="Samples"
             items={visible.map((s) => ({
@@ -298,26 +312,27 @@ function SamplesList() {
                       ? `No samples match “${search.q}”`
                       : `No samples in ${tabLabel[tab].toLowerCase()}`
                 }
-                body={
+                description={
                   hasProjectAccess === false
                     ? NO_PROJECT_ACCESS_BODY
                     : q
                       ? 'Search looks at ID, name, type and location.'
                       : 'Register a sample or import a plate map to start the registry.'
                 }
-              >
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/samples"
-                      search={{ tab: tab === 'instock' ? undefined : tab }}
-                    />
-                  }
-                >
-                  {q ? 'Clear search' : 'Back to in stock'}
-                </Button>
-              </EmptyState>
+                action={
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/samples"
+                        search={{ tab: tab === 'instock' ? undefined : tab }}
+                      />
+                    }
+                  >
+                    {q ? 'Clear search' : 'Back to in stock'}
+                  </Button>
+                }
+              />
             </div>
           ) : null}
         </div>
@@ -428,7 +443,7 @@ function RegisterSampleDialog({
         <DialogHeader title="Register sample" />
         <DialogBody>
           <Field label="Project" required>
-            <NativeSelect
+            <Select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
             >
@@ -438,7 +453,7 @@ function RegisterSampleDialog({
                   {p.title}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </Field>
           <Field label="Name" required>
             <Input
@@ -462,7 +477,7 @@ function RegisterSampleDialog({
               />
             </Field>
             <Field label="Unit">
-              <NativeSelect
+              <Select
                 value={quantityUnit}
                 onChange={(e) => setQuantityUnit(e.target.value)}
               >
@@ -471,7 +486,7 @@ function RegisterSampleDialog({
                     {u}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
           </div>
           <Field label="Storage location">

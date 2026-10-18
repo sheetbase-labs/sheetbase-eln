@@ -62,8 +62,10 @@ vi.mock('./models-data', () => ({
   useRecordModelUsedBy: () => ({ data: [], isLoading: false }),
   useRecordModelTimeline: () => ({ data: mocks.timeline, isLoading: false }),
   laterAddedModelFields: () => [],
-  recordFieldValue: (record: { custom_fields?: Record<string, unknown> | null }, fieldName: string) =>
-    record.custom_fields?.[fieldName],
+  recordFieldValue: (
+    record: { custom_fields?: Record<string, unknown> | null },
+    fieldName: string,
+  ) => record.custom_fields?.[fieldName],
 }))
 
 afterEach(() => {
@@ -80,9 +82,7 @@ function wrapperClasses(button: HTMLElement): string[] {
 
 /** The integrations note's text, which must follow the record's history. */
 function integrationsNote(): string {
-  return screen
-    .getByText(/integrations arrive as history/)
-    .textContent.trim()
+  return screen.getByText(/integrations arrive as history/).textContent.trim()
 }
 
 describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
@@ -117,7 +117,12 @@ describe('RecordModelRecord — phone actions (MOB-02.4)', () => {
   it('shows date fields in the same format as the record metadata', () => {
     mocks.record.custom_fields = { frozen_on: '2026-05-02' }
     mocks.fields = [
-      { id: 'f1', fieldName: 'frozen_on', label: 'Frozen on', logicalType: 'date' },
+      {
+        id: 'f1',
+        fieldName: 'frozen_on',
+        label: 'Frozen on',
+        logicalType: 'date',
+      },
     ]
     render(<RecordModelRecord modelKey="cell_bank" recordId="rec-1" />)
 

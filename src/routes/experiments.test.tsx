@@ -54,6 +54,29 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: dataClient }))
 
+/**
+ * jsdom has no layout: the grid's virtualiser measures a zero-height viewport
+ * and would render no rows, so the row this test clicks could not exist. The
+ * double returns the full row range, the same rows the browser renders; the
+ * real virtualiser is exercised in `tests/browser/registry-grid.test.ts`.
+ */
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        start: index * 33,
+        end: index * 33 + 33,
+        size: 33,
+      })),
+    getTotalSize: () => count * 33,
+    measureElement: () => {},
+    scrollToIndex: () => {},
+    scrollToOffset: () => {},
+  }),
+}))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id }),
 }))
@@ -165,7 +188,16 @@ describe('experiments header reflows at 400 % zoom (QA4-zoom-experiments)', () =
     const row = (await screen.findByText('Experiments', { selector: 'h1' }))
       .parentElement
     expect(row).not.toBeNull()
-    expect(row!.className).toContain('max-md:flex-wrap')
-    expect(row!.contains(screen.getByText('New experiment'))).toBe(true)
+    // The header is `ListHeader` now, so the wrap is the header's guarantee:
+    // the row wraps, and below `md` the actions take a line of their own
+    // rather than being pushed past the column edge.
+    expect(row!.className).toContain('flex-wrap')
+    const actions = row!.parentElement!.querySelector(
+      '[class*="max-md:w-full"]',
+    )
+    expect(actions).not.toBeNull()
+    expect(
+      row!.parentElement!.contains(screen.getByText('New experiment')),
+    ).toBe(true)
   })
 })

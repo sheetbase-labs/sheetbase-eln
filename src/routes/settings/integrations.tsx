@@ -11,14 +11,8 @@ import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   SettingsBody,
   SettingsHeader,
@@ -49,6 +43,48 @@ function IntegrationsRoute() {
   })
   return isIndex ? <IntegrationsList /> : <Outlet />
 }
+
+type ConnectorRow = Awaited<ReturnType<typeof listConnectors>>[number]
+
+const connectorColumns: RegistryColumn<ConnectorRow>[] = [
+  {
+    id: 'connector',
+    header: 'Connector',
+    cell: ({ row }) => (
+      <Link
+        to="/settings/integrations/$connectorId"
+        params={{ connectorId: row.original.id }}
+      >
+        {row.original.name}
+      </Link>
+    ),
+  },
+  {
+    id: 'key',
+    header: 'Key',
+    meta: { cellClassName: 'mono' },
+    cell: ({ row }) => row.original.key,
+  },
+  {
+    id: 'type',
+    header: 'Type',
+    cell: ({ row }) => row.original.connector_type,
+  },
+  {
+    id: 'direction',
+    header: 'Direction',
+    cell: ({ row }) => row.original.direction,
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: ({ row }) => (
+      <Status tone={row.original.status === 'active' ? 'ok' : 'stored'}>
+        {row.original.status}
+      </Status>
+    ),
+  },
+]
 
 function IntegrationsList() {
   const { context } = Route.useRouteContext()
@@ -95,39 +131,13 @@ function IntegrationsList() {
             {describeConnectorsError(connectorsQuery.error)}
           </p>
         ) : connectors.length ? (
-          <Table aria-label="Integrations">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Connector</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Direction</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {connectors.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <Link
-                      to="/settings/integrations/$connectorId"
-                      params={{ connectorId: c.id }}
-                    >
-                      {c.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="mono">{c.key}</TableCell>
-                  <TableCell>{c.connector_type}</TableCell>
-                  <TableCell>{c.direction}</TableCell>
-                  <TableCell>
-                    <Status tone={c.status === 'active' ? 'ok' : 'stored'}>
-                      {c.status}
-                    </Status>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label="Integrations"
+            rows={connectors}
+            columns={connectorColumns}
+            getRowId={(connector) => connector.id}
+            selectable={false}
+          />
         ) : connectorsQuery.isLoading ? (
           <Muted className="px-4 pt-4 md:px-6">Loading integrations…</Muted>
         ) : (
@@ -135,7 +145,18 @@ function IntegrationsList() {
             <EmptyState
               icon="pipeline"
               title="No connectors yet"
-              body="Register an instrument or storage connection to start importing data."
+              description="Register an instrument or storage connection to start importing data."
+              action={
+                canManage ? (
+                  <Button
+                    variant="primary"
+                    icon="plus"
+                    onClick={() => setRegisterOpen(true)}
+                  >
+                    Register connector
+                  </Button>
+                ) : undefined
+              }
             />
           </div>
         )}

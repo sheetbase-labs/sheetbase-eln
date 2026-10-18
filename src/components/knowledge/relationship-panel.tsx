@@ -13,10 +13,9 @@
  * and never as links. Historical revisions render the pinned outgoing
  * snapshot without actions.
  */
-import { useState } from 'react'
-
 import { InspectorSection } from '#/components/record'
 import { RecordLink } from '#/components/scientific/record-link'
+import { RowList } from '#/components/v3/ui/row'
 import { relationshipLabel } from '#/lib/lineage-data'
 import { recordKindLabel } from '#/lib/notebook-data'
 import type { NotebookLink } from '#/lib/notebook-data'
@@ -47,6 +46,7 @@ function RelationshipRowView({ row }: { row: RelationshipRow }) {
       title={row.title}
       meta={row.identifier ?? undefined}
       state={row.state}
+      detail={rowDetail(row)}
       actions={
         row.duplicateCount > 1 ? (
           <span
@@ -69,31 +69,15 @@ function DirectionSection({
   heading: string
   rows: RelationshipRow[]
 }) {
-  const [expanded, setExpanded] = useState(false)
   if (rows.length === 0) return null
-  const visible =
-    expanded || rows.length <= RELATIONSHIP_RENDER_LIMIT
-      ? rows
-      : rows.slice(0, RELATIONSHIP_RENDER_LIMIT)
   return (
     <div className="space-y-1">
       <h4 className="text-xs font-semibold text-fg">{heading}</h4>
-      <ul className="space-y-1">
-        {visible.map((row) => (
-          <li key={row.linkId} title={rowDetail(row)}>
-            <RelationshipRowView row={row} />
-          </li>
+      <RowList limit={RELATIONSHIP_RENDER_LIMIT}>
+        {rows.map((row) => (
+          <RelationshipRowView key={row.linkId} row={row} />
         ))}
-      </ul>
-      {!expanded && rows.length > RELATIONSHIP_RENDER_LIMIT ? (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="px-1 text-xs text-fg-muted hover:text-fg"
-        >
-          Show all {rows.length}
-        </button>
-      ) : null}
+      </RowList>
     </div>
   )
 }
@@ -167,17 +151,16 @@ export function PinnedRelationshipPanel({ links }: { links: NotebookLink[] }) {
   if (links.length === 0) return null
   return (
     <InspectorSection title="Relationships">
-      <ul className="space-y-1">
+      <RowList>
         {links.map((link) => (
-          <li key={link.id}>
-            <RecordLink
-              type={relationshipLabel(link.linkType)}
-              title={link.targetIdentifier}
-              meta={recordKindLabel(link.targetKind)}
-            />
-          </li>
+          <RecordLink
+            key={link.id}
+            type={relationshipLabel(link.linkType)}
+            title={link.targetIdentifier}
+            meta={recordKindLabel(link.targetKind)}
+          />
         ))}
-      </ul>
+      </RowList>
     </InspectorSection>
   )
 }

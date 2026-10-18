@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { Icon } from '#/components/v3/icons'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Muted } from '#/components/v3/ui/layout'
 import { cn } from '#/lib/utils'
 
@@ -8,93 +9,14 @@ import { cn } from '#/lib/utils'
  * R5-SHELL-06 — presentation of pipeline code, temporary stores and step
  * navigation for the pipeline Overview.
  *
- * **Highlighting is deferred, deliberately.** No syntax highlighter is a
- * dependency of this repository (checked 11 October 2026: no `shiki`,
- * `prismjs`, `highlight.js`, `refractor`, `lowlight` or
- * `react-syntax-highlighter` in `package.json`, and none installs
- * transitively), and the app-3 interface hand-rolled its own token colours
- * rather than using one. Adding a highlighter for its own sake would be new
- * weight, not new information, so a code block names its language and renders
- * the statement as plain text.
- *
- * **The code is text.** It is placed in the tree as a text node, never through
- * `dangerouslySetInnerHTML`, and nothing here executes, evaluates or
- * interprets it.
+ * **The code block belongs to the kit.** It began here, as the one deliberate
+ * payload renderer in an app that otherwise hand-rolled `<pre>` per screen; it
+ * now lives at `#/components/v3/ui/code-block` so the four other payload
+ * surfaces can use it too, and this module keeps only what is about pipelines.
+ * Its two standing decisions travelled with it: the code is text and is never
+ * interpreted, and highlighting stays deferred rather than becoming a
+ * dependency.
  */
-
-/**
- * Code is text (R5-SHELL-06). A statement that is not valid UTF-16 (lone
- * surrogates, as produced by truncated or mis-decoded bytes) or that carries a
- * NUL is shown with U+FFFD instead, so a corrupt statement renders as visibly
- * broken text rather than throwing or smuggling a control character into the
- * DOM. Valid characters, including astral pairs, pass through unchanged.
- */
-export function codeText(value: string): string {
-  let out = ''
-  for (const character of value) {
-    const codePoint = character.codePointAt(0) ?? 0
-    const loneSurrogate = codePoint >= 0xd800 && codePoint <= 0xdfff
-    out += loneSurrogate || codePoint === 0 ? '\uFFFD' : character
-  }
-  return out
-}
-
-export interface CodeBlockProps {
-  /** The statement exactly as stored. */
-  code: string
-  /** The stored language, e.g. `sql`; omitted when the config does not say. */
-  language?: string
-  /** Accessible name for the scrollable code region. */
-  label: string
-  className?: string
-}
-
-/**
- * A readable code block. Long statements scroll horizontally — the scroll
- * container is focusable so a keyboard user can reach the whole line — and an
- * empty statement says so instead of rendering an empty box.
- */
-export function CodeBlock({
-  code,
-  language,
-  label,
-  className,
-}: CodeBlockProps) {
-  const text = codeText(code)
-  return (
-    <div
-      data-slot="code-block"
-      className={cn('flex flex-col gap-1', className)}
-    >
-      {language ? (
-        <span
-          data-slot="code-language"
-          className="mono text-[10px] tracking-[.02em] text-fg-muted uppercase"
-        >
-          {language}
-        </span>
-      ) : null}
-      {text.trim().length === 0 ? (
-        <p
-          data-slot="code-block-empty"
-          className="m-0 rounded-md border border-dashed border-border-strong bg-surface p-3 text-caption text-fg-muted"
-        >
-          Empty statement.
-        </p>
-      ) : (
-        <pre
-          data-slot="code-block-pre"
-          tabIndex={0}
-          role="group"
-          aria-label={label}
-          className="m-0 overflow-auto rounded-md border border-border bg-surface p-3 text-caption whitespace-pre focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
-        >
-          <code className="mono">{text}</code>
-        </pre>
-      )}
-    </div>
-  )
-}
 
 /**
  * An artefact whose store is temporary (R5-SHELL-06). The badge names the

@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
-import { SearchTabs } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
   datasetValidation,
@@ -85,11 +85,7 @@ function DatasetLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/datasets" className="text-link">
-              Datasets
-            </Link>
-          }
+          trail={[{ label: 'Datasets', link: { to: '/datasets' } }]}
           title={summaries.isLoading ? 'Loading dataset…' : 'Dataset not found'}
         />
       </div>
@@ -111,14 +107,10 @@ function DatasetLayout() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/datasets" className="text-link">
-              Datasets
-            </Link>{' '}
-            / <span className="mono">{dataset.id}</span>
-          </>
-        }
+        trail={[
+          { label: 'Datasets', link: { to: '/datasets' } },
+          { label: dataset.id, mono: true },
+        ]}
         title={dataset.name}
         meta={
           <>
@@ -169,9 +161,10 @@ function DatasetLayout() {
           ) : undefined
         }
         tabs={
-          <SearchTabs
+          <Tabs
+            mode="url"
             label="Dataset sections"
-            current={current}
+            value={current}
             items={[
               {
                 key: 'overview',
@@ -240,4 +233,3 @@ function DatasetLayout() {
     </div>
   )
 }
-

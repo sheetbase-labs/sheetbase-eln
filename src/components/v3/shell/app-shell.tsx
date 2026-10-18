@@ -108,8 +108,9 @@ export function AppShell({
    * server snapshot, so the action has to be remembered here until the shell
    * re-resolves — otherwise the rows revert to unread on the next render.
    */
-  const [readNotifications, setReadNotifications] =
-    useState<ReadonlySet<string>>(() => new Set())
+  const [readNotifications, setReadNotifications] = useState<
+    ReadonlySet<string>
+  >(() => new Set())
 
   // SHELL-01.2: omit navigation a workspace role cannot open. Everyday
   // scientific items declare no `roles`/`capability`, so they stay visible.
@@ -521,13 +522,18 @@ function WorkspaceSwitcher({
           <Button
             variant="quiet"
             aria-label="Switch workspace"
-            className={cn('max-w-52 gap-1.5', className ?? 'flex min-w-16 shrink')}
+            className={cn(
+              'max-w-52 gap-1.5',
+              className ?? 'flex min-w-16 shrink',
+            )}
           />
         }
       >
         {/* `truncate` only ellipsizes a flex child that is allowed to shrink;
             without the floor the name forced the whole bar wider. */}
-        <span className="min-w-0 truncate">{workspace?.name ?? 'No workspace'}</span>
+        <span className="min-w-0 truncate">
+          {workspace?.name ?? 'No workspace'}
+        </span>
         <svg
           width="12"
           height="12"
@@ -583,13 +589,7 @@ function NewMenu({
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
-        render={
-          <Button
-            variant="primary"
-            icon="plus"
-            aria-label="New"
-          />
-        }
+        render={<Button variant="primary" icon="plus" aria-label="New" />}
       >
         <span className="max-md:hidden">New</span>
       </DropdownMenuTrigger>

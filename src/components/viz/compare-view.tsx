@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '#/components/v3/ui/table'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import { chartUsedFieldIds } from '#/lib/chart-data'
 import { filterRowsByFlags } from '#/lib/dataset-flags'
@@ -30,7 +30,11 @@ import {
   materialiseChart,
   formatScientific,
 } from '#/lib/chart-spec'
-import type { ChartColumn, ChartSpec, MaterialisedChart } from '#/lib/chart-spec'
+import type {
+  ChartColumn,
+  ChartSpec,
+  MaterialisedChart,
+} from '#/lib/chart-spec'
 import { createRepresentationHandle } from '#/lib/representations'
 import {
   COMPARATIVE_MATCH_MODES,
@@ -257,7 +261,7 @@ export function CompareView({
           >
             View type
           </label>
-          <NativeSelect
+          <Select
             id="compare-view-type"
             value={config.viewType}
             onChange={(event) =>
@@ -275,7 +279,7 @@ export function CompareView({
                   : 'Distribution'}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </div>
         {config.viewType === 'time_series' ? (
           <div className="space-y-1">
@@ -285,7 +289,7 @@ export function CompareView({
             >
               Time field
             </label>
-            <NativeSelect
+            <Select
               id="compare-time-field"
               value={config.timeField ?? ''}
               onChange={(event) =>
@@ -301,7 +305,7 @@ export function CompareView({
                   {column.label}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
         ) : null}
         <div className="space-y-1">
@@ -311,7 +315,7 @@ export function CompareView({
           >
             Value field
           </label>
-          <NativeSelect
+          <Select
             id="compare-value-field"
             value={config.valueField}
             onChange={(event) =>
@@ -323,7 +327,7 @@ export function CompareView({
                 {column.label}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </div>
         <div className="space-y-1">
           <label
@@ -332,7 +336,7 @@ export function CompareView({
           >
             Facet field
           </label>
-          <NativeSelect
+          <Select
             id="compare-facet-field"
             value={config.facetBy ?? ''}
             onChange={(event) =>
@@ -350,7 +354,7 @@ export function CompareView({
                   {column.label}
                 </option>
               ))}
-          </NativeSelect>
+          </Select>
         </div>
       </div>
       <fieldset>
@@ -394,7 +398,7 @@ export function CompareView({
             >
               Side A
             </label>
-            <NativeSelect
+            <Select
               id="compare-side-a"
               value={sides.a ?? ''}
               onChange={(event) =>
@@ -410,7 +414,7 @@ export function CompareView({
                   {group.label}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
           <div className="space-y-1">
             <label
@@ -419,7 +423,7 @@ export function CompareView({
             >
               Side B
             </label>
-            <NativeSelect
+            <Select
               id="compare-side-b"
               value={sides.b ?? ''}
               onChange={(event) =>
@@ -435,7 +439,7 @@ export function CompareView({
                   {group.label}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
           <div className="space-y-1">
             <label
@@ -444,7 +448,7 @@ export function CompareView({
             >
               Match rows by
             </label>
-            <NativeSelect
+            <Select
               id="compare-match-by"
               aria-label="Match rows by"
               value={matchBy}
@@ -457,7 +461,7 @@ export function CompareView({
                   {COMPARATIVE_MATCH_MODE_LABELS[mode]}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
         </div>
         {matchBy === 'field' ? (
@@ -468,7 +472,7 @@ export function CompareView({
             >
               Match field
             </label>
-            <NativeSelect
+            <Select
               id="compare-match-field"
               value={matchFieldId ?? ''}
               onChange={(event) => setMatchFieldId(event.target.value || null)}
@@ -479,7 +483,7 @@ export function CompareView({
                   {column.label}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
         ) : null}
         <div className="mt-2 flex flex-wrap items-center gap-2">

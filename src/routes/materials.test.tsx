@@ -68,6 +68,31 @@ vi.mock('#/lib/reagent-data', async (importOriginal) => {
   }
 })
 
+/**
+ * jsdom has no layout: the grid's virtualiser measures a zero-height viewport
+ * and would render no rows at all, so the order this test is about could not be
+ * observed. The double returns the full row range — the same rows the browser
+ * renders — and only the five methods the grid calls; the real virtualiser is
+ * covered by `tests/browser/registry-grid.test.ts`, which asserts its own
+ * `data-index` attribute. Same double as `protocols.test.tsx`.
+ */
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        start: index * 33,
+        end: index * 33 + 33,
+        size: 33,
+      })),
+    getTotalSize: () => count * 33,
+    measureElement: () => {},
+    scrollToIndex: () => {},
+    scrollToOffset: () => {},
+  }),
+}))
+
 function makeReagent(overrides: Partial<Reagent> = {}): Reagent {
   return {
     id: 'mat-1',
@@ -164,8 +189,16 @@ describe('materials toolbar', () => {
   it('reorders the lots the route fetched when a sort key is chosen', async () => {
     const user = userEvent.setup()
     fixtures.reagents = [
-      makeReagent({ id: 'mat-1', identifier: 'MAT-0001', expiry: '2027-05-01' }),
-      makeReagent({ id: 'mat-2', identifier: 'MAT-0002', expiry: '2026-11-01' }),
+      makeReagent({
+        id: 'mat-1',
+        identifier: 'MAT-0001',
+        expiry: '2027-05-01',
+      }),
+      makeReagent({
+        id: 'mat-2',
+        identifier: 'MAT-0002',
+        expiry: '2026-11-01',
+      }),
     ]
     renderRoute()
 
@@ -199,9 +232,9 @@ describe('receive lot dialog', () => {
     expect(
       screen.getByText('Enter the quantity received, greater than zero.'),
     ).toBeTruthy()
-    expect(
-      screen.getByLabelText(/Quantity/).getAttribute('aria-invalid'),
-    ).toBe('true')
+    expect(screen.getByLabelText(/Quantity/).getAttribute('aria-invalid')).toBe(
+      'true',
+    )
   })
 
   it('explains a refused receive of zero', async () => {

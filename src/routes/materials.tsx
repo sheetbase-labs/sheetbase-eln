@@ -5,18 +5,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
 import {
-  DescriptionList,
-  Inspector,
-} from '#/components/v3/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
   ConfirmDialog,
@@ -42,11 +37,9 @@ import {
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
   Textarea,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   materialListQueryKeys,
   toMaterialListRow,
@@ -198,6 +191,41 @@ function MaterialsList() {
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
 
+  const columns = useMemo<RegistryColumn<MaterialListRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        cell: ({ row }) => <span className="mono">{row.original.id}</span>,
+      },
+      { id: 'material', header: 'Material', accessorFn: (m) => m.name },
+      { id: 'supplier', header: 'Supplier', accessorFn: (m) => m.supplier },
+      { id: 'lot', header: 'Lot', accessorFn: (m) => m.lot },
+      {
+        id: 'stock',
+        header: 'Stock',
+        accessorFn: (m) => m.stock,
+        meta: rightAligned<MaterialListRow>().meta,
+      },
+      { id: 'location', header: 'Location', accessorFn: (m) => m.location },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <Status tone={row.original.status.tone}>
+            {row.original.status.label}
+          </Status>
+        ),
+      },
+    ],
+    [],
+  )
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.uuid ?? null,
+    setSelected,
+  )
+
   const usage = useQuery({
     queryKey: ['ui-port', 'materials', 'usage', sel?.id ?? ''],
     queryFn: () => fetchReagentUsage(notebookDataClient, sel!.id),
@@ -340,9 +368,10 @@ function MaterialsList() {
             </>
           }
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Material lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
@@ -375,41 +404,18 @@ function MaterialsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table aria-label="Material lots" className="max-md:hidden">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={stickyHead}>ID</TableHead>
-                <TableHead>Material</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Lot</TableHead>
-                <TableHead align="right">Stock</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((m) => (
-                <TableRow
-                  key={m.uuid}
-                  selected={m.uuid === sel?.uuid}
-                  className="cursor-pointer"
-                  onClick={() => setSelected(m.uuid)}
-                >
-                  <TableCell className={stickyCell}>
-                    <span className="mono">{m.id}</span>
-                  </TableCell>
-                  <TableCell>{m.name}</TableCell>
-                  <TableCell>{m.supplier}</TableCell>
-                  <TableCell>{m.lot}</TableCell>
-                  <TableCell align="right">{m.stock}</TableCell>
-                  <TableCell>{m.location}</TableCell>
-                  <TableCell>
-                    <Status tone={m.status.tone}>{m.status.label}</Status>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {page.isLoading || visible.length > 0 ? (
+            <RegistryGrid
+              className="max-md:hidden"
+              label="Material lots"
+              rows={visible}
+              columns={columns}
+              getRowId={(m) => m.uuid}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              isLoading={page.isLoading}
+            />
+          ) : null}
           <MobileList
             label="Material lots"
             items={visible.map((m) => ({
@@ -432,24 +438,25 @@ function MaterialsList() {
                     ? `No material lots match “${search.q}”`
                     : `No lots in ${tabLabel[tab].toLowerCase()}`
                 }
-                body={
+                description={
                   q
                     ? 'Search looks at ID, material, supplier, lot and location.'
                     : 'Lots appear here when their status or expiry puts them in this list.'
                 }
-              >
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/materials"
-                      search={{ tab: tab === 'instock' ? undefined : tab }}
-                    />
-                  }
-                >
-                  {q ? 'Clear search' : 'Back to in stock'}
-                </Button>
-              </EmptyState>
+                action={
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/materials"
+                        search={{ tab: tab === 'instock' ? undefined : tab }}
+                      />
+                    }
+                  >
+                    {q ? 'Clear search' : 'Back to in stock'}
+                  </Button>
+                }
+              />
             </div>
           ) : null}
         </div>
@@ -542,7 +549,9 @@ function MaterialsList() {
             </section>
             <section>
               <h2 className="mb-1.5 font-sans text-label font-semibold">
-                {replacementLink.data ? 'Replacement lot' : 'No replacement lot'}
+                {replacementLink.data
+                  ? 'Replacement lot'
+                  : 'No replacement lot'}
               </h2>
               <p className="text-label text-fg-muted">
                 {replacementLink.data

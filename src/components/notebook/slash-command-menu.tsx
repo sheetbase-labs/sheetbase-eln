@@ -1,7 +1,10 @@
 import * as React from 'react'
 
-import { BLOCK_PICKER_GROUPS, BLOCK_PICKER_OPTIONS } from './block-picker'
-import type { BlockPickerOption } from './block-picker'
+import {
+  BLOCK_PICKER_GROUPS,
+  BLOCK_PICKER_OPTIONS,
+} from '#/lib/blocks/registry'
+import type { BlockPickerOption } from '#/lib/blocks/registry'
 import { cn } from '#/lib/utils'
 import { Icon } from '#/components/v3/icons'
 import { Kbd } from '#/components/v3/ui/kbd'

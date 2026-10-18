@@ -16,16 +16,10 @@ import {
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { Select } from '#/components/v3/ui/select'
+import { TableBox } from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { isUuid } from '#/lib/field-value-validation'
 import { createModelRule, removeModelRule } from '#/lib/model-rules'
 import type { ModelRuleCondition, ModelRuleEffect } from '#/lib/model-rules'
@@ -90,7 +84,7 @@ function ModelRules() {
         <EmptyState
           icon="schema"
           title="Rules apply to record models"
-          body="This is a dataset schema. Model rules attach to a record model's fields, so author them from the model that defines those records."
+          description="This is a dataset schema. Model rules attach to a record model's fields, so author them from the model that defines those records."
         />
       </div>
     )
@@ -183,6 +177,59 @@ function RecordModelRules({
     }
   }
 
+  const columns: RegistryColumn<(typeof rows)[number]>[] = [
+    {
+      id: 'name',
+      header: 'Name',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name}</span>
+      ),
+    },
+    {
+      id: 'appliesTo',
+      header: 'Applies to',
+      cell: ({ row }) => row.original.fieldKeys.join(', '),
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'when',
+      header: 'When',
+      cell: ({ row }) => (
+        <span className="mono">
+          {describeCondition(row.original.condition)}
+        </span>
+      ),
+      meta: { cellClassName: 'mono text-fg-muted' },
+    },
+    {
+      id: 'effect',
+      header: 'Effect',
+      cell: ({ row }) => row.original.effect,
+    },
+    {
+      id: 'message',
+      header: 'Message',
+      cell: ({ row }) => row.original.message,
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <Button
+          variant="quiet"
+          size="sm"
+          disabled={busy}
+          onClick={() =>
+            setPendingRemove({ id: row.original.id, name: row.original.name })
+          }
+        >
+          Remove
+        </Button>
+      ),
+    },
+  ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
       <Section title="Rules" count={rows.length}>
@@ -198,53 +245,19 @@ function RecordModelRules({
         ) : null}
         {rows.length ? (
           <TableBox>
-            <Table aria-label="Model rules">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Applies to</TableHead>
-                  <TableHead>When</TableHead>
-                  <TableHead>Effect</TableHead>
-                  <TableHead>Message</TableHead>
-                  <TableHead aria-label="Actions" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((rule) => (
-                  <TableRow key={rule.id}>
-                    <TableCell className="font-medium">{rule.name}</TableCell>
-                    <TableCell className="text-fg-muted">
-                      {rule.fieldKeys.join(', ')}
-                    </TableCell>
-                    <TableCell className="mono text-fg-muted">
-                      {describeCondition(rule.condition)}
-                    </TableCell>
-                    <TableCell>{rule.effect}</TableCell>
-                    <TableCell className="text-fg-muted">
-                      {rule.message}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="quiet"
-                        size="sm"
-                        disabled={busy}
-                        onClick={() =>
-                          setPendingRemove({ id: rule.id, name: rule.name })
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Model rules"
+              rows={rows}
+              columns={columns}
+              getRowId={(rule) => rule.id}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <EmptyState
             icon="schema"
             title="No rules yet"
-            body="Add a rule to make the model enforce a condition in the write and submit paths."
+            description="Add a rule in the form below to make the model enforce a condition in the write and submit paths."
           />
         )}
       </Section>
@@ -263,7 +276,7 @@ function RecordModelRules({
             </label>
             <label className="text-xs text-fg-muted">
               Effect
-              <NativeSelect
+              <Select
                 className="mt-1 h-8 text-xs"
                 value={effect}
                 onChange={(event) =>
@@ -276,11 +289,11 @@ function RecordModelRules({
                     {entry.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
             <label className="text-xs text-fg-muted">
               Field
-              <NativeSelect
+              <Select
                 className="mt-1 h-8 text-xs"
                 value={conditionFieldName}
                 onChange={(event) => setConditionField(event.target.value)}
@@ -291,12 +304,12 @@ function RecordModelRules({
                     {field.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </label>
             <label className="text-xs text-fg-muted">
               Condition
               <div className="mt-1 flex gap-2">
-                <NativeSelect
+                <Select
                   className="h-8 text-xs"
                   value={op}
                   onChange={(event) => setOp(event.target.value as Op)}
@@ -307,7 +320,7 @@ function RecordModelRules({
                       {entry}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
                 <Input
                   className="h-8 text-xs"
                   value={value}

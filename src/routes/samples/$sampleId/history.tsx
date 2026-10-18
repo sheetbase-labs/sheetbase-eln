@@ -3,15 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 
 import { Section } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableBox,
-} from '#/components/v3/ui/table'
+import { TableBox } from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import type { SampleEvent } from '#/lib/samples'
 import {
   formatSampleEventTime,
   formatSampleEventTimestamp,
@@ -44,53 +39,63 @@ function SampleHistory() {
     rows.map((e) => e.actorUserId ?? '').filter(Boolean),
   )
 
+  const columns: RegistryColumn<SampleEvent>[] = [
+    {
+      id: 'when',
+      header: 'When',
+      cell: ({ row }) => (
+        <span
+          className="text-fg-muted"
+          title={formatSampleEventTimestamp(row.original.createdAt)}
+        >
+          {formatSampleEventTime(row.original.createdAt)}
+        </span>
+      ),
+    },
+    {
+      id: 'who',
+      header: 'Who',
+      cell: ({ row }) =>
+        row.original.actorUserId
+          ? names.userLabel(row.original.actorUserId)
+          : 'System',
+    },
+    {
+      id: 'action',
+      header: 'Action',
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {sampleEventAction(row.original.operation)}
+        </span>
+      ),
+    },
+    {
+      id: 'detail',
+      header: 'Detail',
+      cell: ({ row }) => sampleEventDetail(row.original) ?? '—',
+      meta: { cellClassName: 'max-w-[22rem] whitespace-normal leading-[17px]' },
+    },
+    {
+      id: 'change',
+      header: 'Change',
+      cell: ({ row }) => sampleEventChange(row.original) ?? '—',
+      meta: { cellClassName: 'num text-fg-muted' },
+    },
+  ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       <Section title="History" count={rows.length}>
         {rows.length ? (
           <>
             <TableBox>
-              <Table aria-label="Sample history">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>When</TableHead>
-                    <TableHead>Who</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Detail</TableHead>
-                    <TableHead>Change</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((e) => {
-                    const detail = sampleEventDetail(e)
-                    const change = sampleEventChange(e)
-                    return (
-                      <TableRow key={e.id}>
-                        <TableCell
-                          className="text-fg-muted"
-                          title={formatSampleEventTimestamp(e.createdAt)}
-                        >
-                          {formatSampleEventTime(e.createdAt)}
-                        </TableCell>
-                        <TableCell>
-                          {e.actorUserId
-                            ? names.userLabel(e.actorUserId)
-                            : 'System'}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {sampleEventAction(e.operation)}
-                        </TableCell>
-                        <TableCell className="max-w-[22rem] whitespace-normal leading-[17px]">
-                          {detail ?? '—'}
-                        </TableCell>
-                        <TableCell className="num text-fg-muted">
-                          {change ?? '—'}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Sample history"
+                rows={rows}
+                columns={columns}
+                getRowId={(e) => e.id}
+                selectable={false}
+              />
             </TableBox>
             <p className="m-0 text-label text-fg-muted">
               History is written by the system and can’t be edited or deleted.
@@ -101,7 +106,7 @@ function SampleHistory() {
             className="py-2"
             icon="clock"
             title="No history yet"
-            body="Receipts, withdrawals and moves appear here."
+            description="Receipts, withdrawals and moves appear here once the sample is used."
           />
         )}
       </Section>

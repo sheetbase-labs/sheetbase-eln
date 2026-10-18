@@ -26,6 +26,7 @@ import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { freezeAnalysisBlock } from '#/lib/analysis-definitions-data'
 import { toast } from '#/components/v3/ui/sonner'
+import { Spinner } from '#/components/v3/ui/spinner'
 import {
   Dialog,
   DialogBody,
@@ -58,10 +59,11 @@ import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   Table,
   TableBody,
@@ -131,7 +133,13 @@ import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
 export const Route = createFileRoute('/analysis/new')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { dataset?: string; x?: string; y?: string; mode?: string; view?: string } => {
+  ): {
+    dataset?: string
+    x?: string
+    y?: string
+    mode?: string
+    view?: string
+  } => {
     const next: {
       dataset?: string
       x?: string
@@ -164,6 +172,15 @@ export const Route = createFileRoute('/analysis/new')({
 // Route component
 // ---------------------------------------------------------------------------
 
+/** The studio modes, in tab order: the strip announces these as tabs. */
+const STUDIO_MODES = ['chart', 'analyse', 'compare'] as const
+type StudioMode = (typeof STUDIO_MODES)[number]
+const STUDIO_MODE_LABEL: Record<StudioMode, string> = {
+  chart: 'Chart builder',
+  analyse: 'Analyse',
+  compare: 'Compare',
+}
+
 function AnalysisStudio() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
@@ -195,7 +212,7 @@ function AnalysisStudio() {
   // definitions; the mode is session state, never persisted server-side.
   // VIEW-03 adds the compare mode: grouped time-series / distribution
   // inspection over the same live rows, promoting into the chart builder.
-  const [mode, setMode] = useState<'chart' | 'analyse' | 'compare'>(
+  const [mode, setMode] = useState<StudioMode>(
     search.mode === 'analyse' || search.mode === 'compare'
       ? search.mode
       : 'chart',
@@ -541,29 +558,17 @@ function AnalysisStudio() {
             selectedDatasetId={selectedDatasetId}
             onSelect={setSelectedDatasetId}
           />
-          <div
-            role="tablist"
-            aria-label="Studio mode"
-            className="flex items-center gap-1"
-          >
-            {(['chart', 'analyse', 'compare'] as const).map((value) => (
-              <Button
-                key={value}
-                type="button"
-                size="sm"
-                variant={mode === value ? 'primary' : 'secondary'}
-                role="tab"
-                aria-selected={mode === value}
-                onClick={() => setMode(value)}
-              >
-                {value === 'chart'
-                  ? 'Chart builder'
-                  : value === 'analyse'
-                    ? 'Analyse'
-                    : 'Compare'}
-              </Button>
-            ))}
-          </div>
+          <Tabs
+            mode="state"
+            variant="segment"
+            label="Studio mode"
+            value={mode}
+            onValueChange={(next) => setMode(next as StudioMode)}
+            items={STUDIO_MODES.map((value) => ({
+              key: value,
+              label: STUDIO_MODE_LABEL[value],
+            }))}
+          />
           {mode === 'chart' && selectedSource && spec ? (
             <Button
               type="button"
@@ -772,7 +777,7 @@ export function AnalysisStudioHeader({
             <label className="sr-only" htmlFor="analysis-data-source">
               Data source
             </label>
-            <NativeSelect
+            <Select
               id="analysis-data-source"
               aria-label="Select data source"
               value={selectedDatasetId ?? ''}
@@ -785,7 +790,7 @@ export function AnalysisStudioHeader({
                   {d.dataset_schema ? ` · ${d.dataset_schema.slug}` : ''}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
           </div>
         )}
       </div>
@@ -982,7 +987,7 @@ function AnalysisInspector({
               >
                 {axis.toUpperCase()}-axis scale
               </label>
-              <NativeSelect
+              <Select
                 id={`inspector-${axis}-scale`}
                 value={spec.display.axes[axis].scale}
                 onChange={(event) =>
@@ -994,7 +999,7 @@ function AnalysisInspector({
                     {scale === 'log' ? 'Logarithmic' : 'Linear'}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </div>
           ))}
         </div>
@@ -1181,11 +1186,7 @@ export function SavedViewsPanel({
           disabled={!canSave || saving}
           aria-label="Save analysis view"
         >
-          {saving ? (
-            <Icon name="clock" size={16} className="animate-spin" />
-          ) : (
-            <Save />
-          )}
+          {saving ? <Spinner size={16} /> : <Save />}
           {selectedViewId ? 'Update' : 'Save'}
         </Button>
       </div>
@@ -1414,7 +1415,7 @@ export function ExportPanel({
           >
             Format
           </label>
-          <NativeSelect
+          <Select
             id="analysis-export-format"
             aria-label="Export format"
             value={settings.format}
@@ -1427,7 +1428,7 @@ export function ExportPanel({
             <option value="csv">CSV (data table)</option>
             <option value="svg">SVG (chart image)</option>
             <option value="png">PNG (publication raster)</option>
-          </NativeSelect>
+          </Select>
         </div>
         <div>
           <label
@@ -1436,7 +1437,7 @@ export function ExportPanel({
           >
             Theme
           </label>
-          <NativeSelect
+          <Select
             id="analysis-export-theme"
             aria-label="Export theme"
             value={settings.theme}
@@ -1447,7 +1448,7 @@ export function ExportPanel({
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
-          </NativeSelect>
+          </Select>
         </div>
         <div>
           <label

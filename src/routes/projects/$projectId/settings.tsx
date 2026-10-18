@@ -15,7 +15,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { modalities, stages } from '#/components/v3/projects/options'
 import {
   projectDataClient,
@@ -193,7 +193,7 @@ function ProjectSettings() {
             </Field>
             <div className="grid grid-cols-1 gap-x-5 gap-y-3.5 md:grid-cols-[250px_250px]">
               <Field label="Client">
-                <NativeSelect
+                <Select
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                 >
@@ -203,10 +203,10 @@ function ProjectSettings() {
                       {c.code} · {c.name}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               <Field label="Stage">
-                <NativeSelect
+                <Select
                   value={stage}
                   onChange={(e) => setStage(e.target.value)}
                 >
@@ -216,10 +216,10 @@ function ProjectSettings() {
                       {s}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               <Field label="Modality">
-                <NativeSelect
+                <Select
                   value={modality}
                   onChange={(e) => setModality(e.target.value)}
                 >
@@ -234,23 +234,20 @@ function ProjectSettings() {
                       {value}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               <Field label="Lead">
-                <NativeSelect
-                  value={lead}
-                  onChange={(e) => setLead(e.target.value)}
-                >
+                <Select value={lead} onChange={(e) => setLead(e.target.value)}>
                   <option value="">Not assigned</option>
                   {(members.data ?? []).map((member) => (
                     <option key={member.user_id} value={member.user_id}>
                       {member.name}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               <Field label="Default reviewer">
-                <NativeSelect
+                <Select
                   value={reviewer}
                   onChange={(e) => setReviewer(e.target.value)}
                 >
@@ -260,7 +257,7 @@ function ProjectSettings() {
                       {member.name}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               <Field label="Start date">
                 <Input

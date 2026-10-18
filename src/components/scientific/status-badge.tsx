@@ -146,6 +146,21 @@ export interface StatusBadgeProps {
   className?: string
 }
 
+/**
+ * The label for a status key in a vocabulary. Badge keys are hyphenated while
+ * stored statuses are underscored, so both spellings are tried; a status the
+ * vocabulary does not know renders as itself rather than as a blank.
+ */
+export function statusLabel(
+  vocabulary: StatusVocabulary,
+  status: string,
+): string {
+  const hyphenated = status.replace(/_/g, '-')
+  if (Object.hasOwn(vocabulary, status)) return vocabulary[status].label
+  if (Object.hasOwn(vocabulary, hyphenated)) return vocabulary[hyphenated].label
+  return status
+}
+
 export function StatusBadge({
   status,
   domain,
@@ -158,7 +173,7 @@ export function StatusBadge({
   // vocabulary keys use `in-progress` (hyphen). Try both.
   const normalised = status.replace(/_/g, '-')
   const def = vocab?.[status] ?? vocab?.[normalised]
-  const label = def?.label ?? status
+  const label = vocab ? statusLabel(vocab, status) : status
   const iconName = def?.icon ?? fallbackIcon
   const variant = def ? toneToVariant[def.tone] : 'kind'
 

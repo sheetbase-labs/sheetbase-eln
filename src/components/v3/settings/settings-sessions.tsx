@@ -90,7 +90,7 @@ export function SettingsSessions() {
         <EmptyState
           icon="lock"
           title="No other sessions"
-          body="You are only signed in on this device."
+          description="You are only signed in on this device."
         />
       ) : (
         <ul className="m-0 max-w-2xl list-none divide-y divide-border rounded-lg border border-border p-0">

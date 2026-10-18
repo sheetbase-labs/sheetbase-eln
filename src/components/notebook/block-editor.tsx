@@ -19,13 +19,9 @@ import { useQuery } from '@tanstack/react-query'
 import { cn } from '#/lib/utils'
 import { explainBlockValidation } from '#/lib/assist-explain'
 import { ExplainPanel } from '#/components/assist/explain-panel'
-import {
-  RichTextContent,
-  isRichTextPayload,
-  richTextToPlainText,
-  validateBlock,
-} from '#/lib/blocks'
+import { RichTextContent, isRichTextPayload, validateBlock } from '#/lib/blocks'
 import type { BlockValidationError, RichTextPayload } from '#/lib/blocks'
+import { summarizeBlockPayload } from '#/lib/blocks/registry'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type {
   NotebookBlock,
@@ -37,10 +33,24 @@ import { datasetPath, recordDestination } from '#/lib/navigation'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
+import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Textarea } from '#/components/v3/inventory/list'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
+import {
+  CALLOUT_STYLES,
+  CALLOUT_VARIANT_LABELS,
+  CALLOUT_VARIANTS,
+  calloutVariantOf,
+} from './callout-styles'
+import type { CalloutVariant } from './callout-styles'
 import {
   Trash2,
   File as FileIcon,
@@ -75,11 +85,8 @@ import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
 import { OpenLink } from './block-preview'
 import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
-import {
-  AttachFileError,
-  formatBytes,
-  validateFileForUpload,
-} from '#/lib/file-attach'
+import { validateFileForUpload } from '#/lib/file-attach'
+import { formatFileSize } from '#/lib/format-numbers'
 import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
 import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type { AnalysisBlockPayload } from '#/lib/analysis-block'
@@ -142,6 +149,10 @@ export interface BlockEditorProps {
   onStatusChange?: (status: AutosaveStatus) => void
   readOnly?: boolean
   autoFocus?: boolean
+  /** Where the caret lands on focus. See `RichTextEditorProps.caretHint`. */
+  caretHint?: 'start' | 'end'
+  /** Empty-row invitation. `undefined` inside a prose run. See RichTextEditor. */
+  placeholder?: string
   className?: string
   /**
    * NOTE-02: when set (rich_text only), headings in the editable Tiptap DOM
@@ -201,6 +212,10 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <RichTextEditor {...props} />
     case 'checklist':
       return <ChecklistEditor {...props} />
+    case 'callout':
+      return <CalloutEditor {...props} />
+    case 'metric':
+      return <MetricEditor {...props} />
     case 'linked_record':
       return <LinkedRecordEditor {...props} />
     case 'protocol_reference':
@@ -290,54 +305,6 @@ function useBlockAutosave<T>(
   }, [autosave.status, onStatusChange])
 
   return { ...autosave, setTouched, structuredErrors }
-}
-
-/**
- * Readable one-line preview of a payload, used in the conflict banner so
- * the user can comprehend the server version without switching tabs.
- */
-function summarizePayload(
-  type: string,
-  payload: Record<string, unknown>,
-): string {
-  switch (type) {
-    case 'rich_text':
-      return isRichTextPayload(payload)
-        ? richTextToPlainText(payload) || '(empty)'
-        : '(empty)'
-    case 'checklist': {
-      const items = Array.isArray(payload.items) ? payload.items : []
-      if (items.length === 0) return '(no items)'
-      return items
-        .map(
-          (i) =>
-            `[${(i as { checked?: boolean }).checked ? 'x' : ' '}] ${
-              (i as { text?: string }).text ?? ''
-            }`,
-        )
-        .join('\n')
-    }
-    case 'linked_record':
-      return `${payload.linkType ?? 'general'}: ${payload.targetKind ?? ''} ${
-        payload.targetIdentifier ?? ''
-      }${payload.label ? ` — ${payload.label}` : ''}`
-    case 'plate_map': {
-      const title = typeof payload.title === 'string' ? payload.title : ''
-      const spec = payload.spec as { wells?: unknown[] } | undefined
-      const wells = Array.isArray(spec?.wells) ? spec.wells : []
-      return `${title || 'Plate map'} — ${wells.length} well(s)`
-    }
-    case 'analysis':
-      return `${payload.title || 'Analysis'}${
-        payload.frozen ? ' (frozen)' : ''
-      }`
-    case 'pipeline_output':
-      return `Pipeline output${
-        payload.runId ? ` — run ${String(payload.runId).slice(0, 8)}` : ''
-      }`
-    default:
-      return JSON.stringify(payload, null, 2)
-  }
 }
 
 export interface BlockExplainInput {
@@ -444,6 +411,8 @@ function RichTextEditor({
   onStatusChange,
   readOnly,
   autoFocus,
+  caretHint,
+  placeholder,
   className,
   headingAnchorPrefix,
   hiddenRichTextNodeIndexes,
@@ -472,6 +441,8 @@ function RichTextEditor({
       <TiptapRichTextEditor
         payload={a.draft}
         autoFocus={autoFocus}
+        caretHint={caretHint}
+        placeholder={placeholder}
         anchorPrefix={headingAnchorPrefix ?? `section-${block.id}`}
         hiddenNodeIndexes={hiddenRichTextNodeIndexes}
         onChange={(payload) => {
@@ -490,7 +461,7 @@ function RichTextEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        serverPreview={summarizeBlockPayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -574,7 +545,7 @@ function SignatureRequestEditor(props: BlockEditorProps) {
         </label>
         <label className="flex flex-col gap-1 text-label">
           <span className="text-fg-muted">Meaning</span>
-          <NativeSelect
+          <Select
             aria-label="Requested signature meaning"
             value={a.draft.meaning}
             onChange={(event) => {
@@ -591,7 +562,7 @@ function SignatureRequestEditor(props: BlockEditorProps) {
                 {SIGNATURE_MEANING_LABEL[value]}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </label>
       </div>
       <label className="flex flex-col gap-1 text-label">
@@ -711,7 +682,7 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
               onBlur={() => a.flush()}
             />
             <div className="flex items-center gap-1">
-              <NativeSelect
+              <Select
                 aria-label={`Status ${i + 1}`}
                 value={item.status}
                 onChange={(event) =>
@@ -726,7 +697,7 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
                     {CORRECTIVE_ACTION_STATUS_LABEL[status]}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
               <Button
                 type="button"
                 variant="quiet"
@@ -743,6 +714,288 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
       <Button type="button" variant="quiet" size="sm" onClick={add}>
         Add action
       </Button>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// A4: callout and metric. Both were stored, validated and rendered but had no
+// editor, so selecting one showed an unsupported-block placeholder: the content
+// was preserved and visible, but could not be changed. The static `table` block
+// is still in that state deliberately — whether it earns its keep now that the
+// Sheet is the tabular surface is a separate product decision.
+//
+// Both editors are drawn as the block they edit: a callout keeps its tone's
+// surface and icon while being written, and a metric keeps its eyebrow and
+// display number. Fields here are borderless for that reason — a bordered
+// input would put a form inside the document instead of editing the document.
+// ---------------------------------------------------------------------------
+
+interface CalloutDraft {
+  text: string
+  variant: CalloutVariant
+}
+
+function CalloutEditor({
+  block,
+  save,
+  offline,
+  onStatusChange,
+  className,
+  autoFocus,
+}: BlockEditorProps) {
+  const initialDraft = React.useMemo<CalloutDraft>(() => {
+    const payload = block.payload as { text?: unknown; variant?: unknown }
+    return {
+      text: typeof payload.text === 'string' ? payload.text : '',
+      variant: calloutVariantOf(payload.variant),
+    }
+  }, [block.payload])
+  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
+  const styles = CALLOUT_STYLES[a.draft.variant] ?? CALLOUT_STYLES.info
+
+  return (
+    <div className={className}>
+      <div
+        className={cn(
+          'flex items-start gap-3 rounded-md px-3.5 py-2 text-sm leading-6',
+          styles.container,
+        )}
+      >
+        <Icon
+          name={styles.icon}
+          size={16}
+          className={cn('mt-0.5 shrink-0', styles.iconClass)}
+          aria-hidden="true"
+        />
+        <label className="sr-only" htmlFor={`callout-text-${block.id}`}>
+          Callout text
+        </label>
+        <textarea
+          id={`callout-text-${block.id}`}
+          value={a.draft.text}
+          autoFocus={autoFocus}
+          rows={1}
+          placeholder="What the reader must not miss"
+          onChange={(event) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, text: event.target.value })
+          }}
+          onBlur={() => a.flush()}
+          className="min-w-0 flex-1 resize-none border-0 bg-transparent p-0 text-sm leading-6 text-fg outline-none field-sizing-content placeholder:text-fg-faint focus:ring-0"
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="quiet"
+                size="sm"
+                aria-label="Callout tone"
+                className="shrink-0 text-fg-muted"
+              />
+            }
+          >
+            {CALLOUT_VARIANT_LABELS[a.draft.variant]}
+            <Icon name="chevronDown" size={10} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {CALLOUT_VARIANTS.map((variant) => (
+              <DropdownMenuItem
+                key={variant}
+                icon={variant === a.draft.variant ? 'check' : undefined}
+                className={
+                  variant === a.draft.variant ? undefined : 'pl-[30px]'
+                }
+                onClick={() => {
+                  a.setTouched(true)
+                  a.setDraft({ ...a.draft, variant })
+                }}
+              >
+                {CALLOUT_VARIANT_LABELS[variant]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
+        serverPreview={summarizeBlockPayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+    </div>
+  )
+}
+
+interface MetricDraft {
+  label: string
+  /** Exactly what the user typed. Converting while typing would eat a decimal
+   * point or a space, because the converted value is written straight back
+   * into the controlled field. */
+  value: string
+  unit: string
+  provenance: string
+}
+
+/** A numeric reading is written back as a number so number formatting applies;
+ * anything else stays text. A blank reading stays blank. */
+function metricValueFromInput(raw: string): string | number {
+  const trimmed = raw.trim()
+  if (trimmed === '') return ''
+  const numeric = Number(trimmed)
+  return Number.isFinite(numeric) ? numeric : trimmed
+}
+
+/** The canonical payload for a metric draft: an optional field is omitted when
+ * blank rather than saved as an empty string. The draft arrives as the payload
+ * carrier the autosave hook passes around, so each field is narrowed. */
+function metricPayloadFromDraft(
+  draft: Record<string, unknown>,
+): Record<string, unknown> {
+  const label = typeof draft.label === 'string' ? draft.label : ''
+  const value = typeof draft.value === 'string' ? draft.value : ''
+  const unit = typeof draft.unit === 'string' ? draft.unit : ''
+  const provenance =
+    typeof draft.provenance === 'string' ? draft.provenance : ''
+  return {
+    label,
+    value: metricValueFromInput(value),
+    unit: unit.trim() === '' ? undefined : unit,
+    provenance: provenance.trim() === '' ? undefined : provenance,
+  }
+}
+
+function MetricEditor({
+  block,
+  save,
+  offline,
+  onStatusChange,
+  className,
+  autoFocus,
+}: BlockEditorProps) {
+  const initialDraft = React.useMemo<MetricDraft>(() => {
+    const payload = block.payload as {
+      label?: unknown
+      value?: unknown
+      unit?: unknown
+      provenance?: unknown
+    }
+    return {
+      label: typeof payload.label === 'string' ? payload.label : '',
+      // The stored reading may be a number or text; the field holds its text.
+      value:
+        typeof payload.value === 'number' || typeof payload.value === 'string'
+          ? String(payload.value)
+          : '',
+      unit: typeof payload.unit === 'string' ? payload.unit : '',
+      provenance:
+        typeof payload.provenance === 'string' ? payload.provenance : '',
+    }
+  }, [block.payload])
+  // The draft is the raw input; the payload is built from it at the boundary,
+  // so the autosave state machine and the conflict summary both see the
+  // canonical shape.
+  const saveDraft = React.useCallback(
+    async (payload: Record<string, unknown>) =>
+      save(metricPayloadFromDraft(payload)),
+    [save],
+  )
+  const a = useBlockAutosave(
+    block,
+    initialDraft,
+    saveDraft,
+    offline,
+    onStatusChange,
+  )
+
+  return (
+    <div className={cn('space-y-2', className)}>
+      <dl className="flex flex-col gap-0.5">
+        <dt>
+          <label className="sr-only" htmlFor={`metric-label-${block.id}`}>
+            Metric label
+          </label>
+          <input
+            id={`metric-label-${block.id}`}
+            value={a.draft.label}
+            autoFocus={autoFocus}
+            placeholder="Metric"
+            onChange={(event) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, label: event.target.value })
+            }}
+            onBlur={() => a.flush()}
+            className="w-full border-0 bg-transparent p-0 text-xs font-medium uppercase tracking-wide text-fg-muted outline-none placeholder:text-fg-faint focus:ring-0"
+          />
+        </dt>
+        <dd className="flex items-baseline gap-1.5 font-display text-2xl font-semibold leading-tight tabular-nums text-fg">
+          <label className="sr-only" htmlFor={`metric-value-${block.id}`}>
+            Metric value
+          </label>
+          <input
+            id={`metric-value-${block.id}`}
+            value={a.draft.value}
+            inputMode="decimal"
+            placeholder="0"
+            onChange={(event) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, value: event.target.value })
+            }}
+            onBlur={() => a.flush()}
+            className="w-[7ch] border-0 bg-transparent p-0 font-display text-2xl font-semibold tabular-nums text-fg outline-none placeholder:text-fg-faint focus:ring-0"
+          />
+          <label className="sr-only" htmlFor={`metric-unit-${block.id}`}>
+            Metric unit
+          </label>
+          <input
+            id={`metric-unit-${block.id}`}
+            value={a.draft.unit}
+            placeholder="unit"
+            onChange={(event) => {
+              a.setTouched(true)
+              a.setDraft({ ...a.draft, unit: event.target.value })
+            }}
+            onBlur={() => a.flush()}
+            className="w-[6ch] border-0 bg-transparent p-0 text-sm font-normal text-fg-muted outline-none placeholder:text-fg-faint focus:ring-0"
+          />
+        </dd>
+      </dl>
+      <div>
+        <label className="sr-only" htmlFor={`metric-provenance-${block.id}`}>
+          Where the number comes from
+        </label>
+        <input
+          id={`metric-provenance-${block.id}`}
+          value={a.draft.provenance}
+          placeholder="Where this number comes from"
+          onChange={(event) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, provenance: event.target.value })
+          }}
+          onBlur={() => a.flush()}
+          className="w-full border-0 bg-transparent p-0 text-xs text-fg-muted outline-none placeholder:text-fg-faint focus:ring-0"
+        />
+      </div>
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
+        serverPreview={summarizeBlockPayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
     </div>
   )
 }
@@ -860,7 +1113,7 @@ function ChecklistEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}
@@ -1072,7 +1325,7 @@ function LinkedRecordEditor({
     <div className={cn('space-y-3', className)}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Field label="Target kind" htmlFor={`lr-kind-${block.id}`}>
-          <NativeSelect
+          <Select
             id={`lr-kind-${block.id}`}
             value={a.draft.targetKind}
             onChange={(e) => {
@@ -1093,7 +1346,7 @@ function LinkedRecordEditor({
                 {TARGET_KIND_LABELS[k]}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Field label="Identifier" htmlFor={`lr-id-${block.id}`}>
           <Input
@@ -1118,7 +1371,7 @@ function LinkedRecordEditor({
           />
         </Field>
         <Field label="Link type" htmlFor={`lr-link-${block.id}`}>
-          <NativeSelect
+          <Select
             id={`lr-link-${block.id}`}
             value={a.draft.linkType}
             onChange={(e) => {
@@ -1131,7 +1384,7 @@ function LinkedRecordEditor({
                 {t}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
         </Field>
         <Field label="Label" htmlFor={`lr-label-${block.id}`}>
           <Input
@@ -1166,7 +1419,7 @@ function LinkedRecordEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}
@@ -1336,7 +1589,7 @@ function ProcedureStepEditor(props: BlockEditorProps) {
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        serverPreview={summarizeBlockPayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -1559,7 +1812,7 @@ function MaterialsEditor(props: BlockEditorProps) {
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(block.type, a.serverValue ?? {})}
+        serverPreview={summarizeBlockPayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -1597,19 +1850,19 @@ function UnsupportedEditor({
 }
 
 // ---------------------------------------------------------------------------
-// SCI-003 file block editor. Upload flow: a keyboard-accessible file input
-// validates type/size client-side (the server re-validates), then calls
-// `onAttachFile`, which authorizes + streams the bytes through the bounded
+// SCI-003 file block editor. The pick surface is the shared `FileDrop` field
+// (ADR-0055): a real drop target with a keyboard route to the same dialog, and
+// one row per pick carrying the attach call's progress and its retry. The type
+// and size policy is `validateFileForUpload`, which the field refuses a pick on
+// before anything leaves the browser, and the server re-validates again.
+// `onAttachFile` authorizes + streams the bytes through the bounded
 // `/api/files` routes and persists the file reference in the block payload.
-// Once attached, the block renders the file (read-only here; the preview
-// shows live status). Replacing a file is a later concern.
+// Once attached, the block renders the file (read-only here; the preview shows
+// live status). Replacing a file is a later concern.
 // ---------------------------------------------------------------------------
 
 function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
   const attached = Object.keys(block.payload).length > 0
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  const [pending, setPending] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
 
   if (attached) {
     // The preview renders the live file state; the editor just confirms it.
@@ -1631,7 +1884,7 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
           <div className="min-w-0 space-y-0.5">
             <p className="truncate text-sm font-medium">{name}</p>
             <p className="font-mono text-xs text-fg-muted tabular-nums">
-              {mediaType || 'unknown'} · {formatBytes(byteSize)}
+              {mediaType || 'unknown'} · {formatFileSize(byteSize)}
             </p>
           </div>
           <Badge variant="add" className="ml-auto shrink-0">
@@ -1649,69 +1902,28 @@ function FileBlockEditor({ block, onAttachFile, readOnly }: BlockEditorProps) {
     )
   }
 
-  async function handleFile(file: File) {
-    setError(null)
-    const checked = validateFileForUpload(file)
-    if (!checked.ok) {
-      setError(checked.message)
-      return
-    }
-    if (!onAttachFile) {
-      setError('File upload is not available in this context.')
-      return
-    }
-    setPending(true)
-    try {
-      await onAttachFile(file)
-    } catch (cause) {
-      setError(
-        cause instanceof AttachFileError
-          ? cause.message
-          : cause instanceof Error
-            ? cause.message
-            : 'Could not attach the file.',
-      )
-    } finally {
-      setPending(false)
-    }
-  }
-
   return (
-    <div className="space-y-3 rounded-md border border-dashed border-border bg-surface-muted/20 p-6 text-center">
-      <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-surface text-fg-muted shadow-xs">
-        <Icon name="protocol" className="size-5" />
-      </div>
-      <div className="space-y-1">
-        <p className="text-sm font-medium">Attach a file</p>
-        <p className="text-xs text-fg-muted">
+    <FileDrop
+      label="Attach a file"
+      inputLabel="Attach a file"
+      hint={
+        <>
           CSV, text, JSON, PDF, images &amp; Office formats · up to{' '}
-          {formatBytes(FILE_MAX_BYTES)}
-        </p>
-      </div>
-      <Input
-        ref={inputRef}
-        type="file"
-        aria-label="Attach a file"
-        disabled={pending || readOnly}
-        onChange={(event) => {
-          const file = event.target.files?.[0]
-          if (file) void handleFile(file)
-          // Reset so selecting the same file again re-triggers.
-          event.target.value = ''
-        }}
-        className="mx-auto h-auto w-full max-w-xs rounded-none border-0 bg-transparent p-0 text-xs shadow-none file:mr-3 file:rounded-md file:border file:border-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium hover:file:bg-accent"
-      />
-      {pending ? (
-        <p role="status" className="text-xs text-fg-muted">
-          Uploading…
-        </p>
-      ) : null}
-      {error ? (
-        <Notice tone="bad" className="mx-auto max-w-md text-left">
-          {error}
-        </Notice>
-      ) : null}
-    </div>
+          {formatFileSize(FILE_MAX_BYTES)}
+        </>
+      }
+      validate={validateFileForUpload}
+      disabled={!onAttachFile || readOnly}
+      disabledReason={
+        onAttachFile
+          ? 'This block is read-only.'
+          : 'File upload is not available in this context.'
+      }
+      onFile={(file) => {
+        if (file && onAttachFile) return onAttachFile(file)
+        return undefined
+      }}
+    />
   )
 }
 
@@ -1932,7 +2144,7 @@ function ChartBlockEditor({
           </ChartField>
 
           <ChartField label="Dataset">
-            <NativeSelect
+            <Select
               aria-label="Dataset"
               value={selectedDatasetId}
               onChange={(e) => chooseDataset(e.target.value)}
@@ -1949,7 +2161,7 @@ function ChartBlockEditor({
                   {d.name}
                 </option>
               ))}
-            </NativeSelect>
+            </Select>
             <p className="text-xs text-fg-muted">
               Charts plot canonical Dataset data (decision 0037).
             </p>
@@ -1957,7 +2169,7 @@ function ChartBlockEditor({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <ChartField label="Chart type">
-              <NativeSelect
+              <Select
                 aria-label="Chart type"
                 value={spec?.type ?? 'line'}
                 onChange={(e) => setChartType(e.target.value as ChartType)}
@@ -1969,7 +2181,7 @@ function ChartBlockEditor({
                     {t.charAt(0).toUpperCase() + t.slice(1)}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </ChartField>
             <ChartField label="Series field (optional)">
               {spec?.type === 'heatmap' ? (
@@ -1977,7 +2189,7 @@ function ChartBlockEditor({
                   Not used for heatmap charts.
                 </p>
               ) : (
-                <NativeSelect
+                <Select
                   aria-label="Series field"
                   value={bindingValue(spec?.fields.series)}
                   onChange={(e) =>
@@ -1988,7 +2200,7 @@ function ChartBlockEditor({
                 >
                   <option value="">(none)</option>
                   {fieldOptions}
-                </NativeSelect>
+                </Select>
               )}
             </ChartField>
             <ChartField label="X field">
@@ -1998,7 +2210,7 @@ function ChartBlockEditor({
                   field.
                 </p>
               ) : (
-                <NativeSelect
+                <Select
                   aria-label="X field"
                   value={bindingValue(spec?.fields.x)}
                   onChange={(e) =>
@@ -2009,11 +2221,11 @@ function ChartBlockEditor({
                 >
                   <option value="">(none)</option>
                   {fieldOptions}
-                </NativeSelect>
+                </Select>
               )}
             </ChartField>
             <ChartField label="Y field">
-              <NativeSelect
+              <Select
                 aria-label="Y field"
                 value={bindingValue(spec?.fields.y)}
                 onChange={(e) =>
@@ -2026,10 +2238,10 @@ function ChartBlockEditor({
               >
                 <option value="">(none)</option>
                 {fieldOptions}
-              </NativeSelect>
+              </Select>
             </ChartField>
             <ChartField label="X axis scale">
-              <NativeSelect
+              <Select
                 aria-label="X axis scale"
                 value={spec?.display.axes.x.scale ?? 'linear'}
                 onChange={(e) =>
@@ -2051,10 +2263,10 @@ function ChartBlockEditor({
                     {s}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </ChartField>
             <ChartField label="Y axis scale">
-              <NativeSelect
+              <Select
                 aria-label="Y axis scale"
                 value={spec?.display.axes.y.scale ?? 'linear'}
                 onChange={(e) =>
@@ -2076,7 +2288,7 @@ function ChartBlockEditor({
                     {s}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </ChartField>
           </div>
 
@@ -2104,7 +2316,7 @@ function ChartBlockEditor({
           ) : null}
           {spec?.type === 'heatmap' ? (
             <ChartField label="Cell value">
-              <NativeSelect
+              <Select
                 aria-label="Heatmap cell aggregation"
                 value={spec.typeParams.heatmap?.aggregate ?? 'count'}
                 onChange={(e) => {
@@ -2133,7 +2345,7 @@ function ChartBlockEditor({
                 <option value="median">Median of Y</option>
                 <option value="min">Min of Y</option>
                 <option value="max">Max of Y</option>
-              </NativeSelect>
+              </Select>
             </ChartField>
           ) : null}
 
@@ -2192,7 +2404,7 @@ function ChartBlockEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}
@@ -2507,7 +2719,7 @@ function PlateMapBlockEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}
@@ -2572,7 +2784,7 @@ function WellInspector({
 
       {/* Role selector */}
       <Field label="Role" htmlFor={`well-role-${wellCode}`}>
-        <NativeSelect
+        <Select
           id={`well-role-${wellCode}`}
           value={role}
           onChange={(e) => onAssignRole(e.target.value as AssignmentRole)}
@@ -2582,7 +2794,7 @@ function WellInspector({
               {ROLE_STYLES[r].label}
             </option>
           ))}
-        </NativeSelect>
+        </Select>
       </Field>
 
       {/* Sample link (for sample and control roles) */}
@@ -2863,7 +3075,7 @@ function AnalysisBlockEditor({
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
         <ChartField label="Saved analysis">
-          <NativeSelect
+          <Select
             aria-label="Saved analysis"
             value={draft.definitionId ?? ''}
             onChange={(e) => chooseDefinition(e.target.value)}
@@ -2882,7 +3094,7 @@ function AnalysisBlockEditor({
                 {`${d.name} · v${d.version}`}
               </option>
             ))}
-          </NativeSelect>
+          </Select>
           <p className="text-xs text-fg-muted">
             Analyses execute against live dataset rows. Freeze to pin the inputs
             as evidence.
@@ -2943,7 +3155,7 @@ function AnalysisBlockEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizePayload(
+        serverPreview={summarizeBlockPayload(
           block.type,
           (a.serverValue ?? {}) as Record<string, unknown>,
         )}

@@ -12,6 +12,15 @@ const mocks = vi.hoisted(() => ({
   setProjectMember: vi.fn(),
 }))
 
+// jsdom reports no layout, so the grid's virtualiser would render no rows: give
+// every element the viewport a browser would report for the list area.
+for (const prop of ['offsetHeight', 'clientHeight'] as const) {
+  Object.defineProperty(HTMLElement.prototype, prop, {
+    configurable: true,
+    get: () => 600,
+  })
+}
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: object) => ({
     options,
@@ -25,7 +34,8 @@ vi.mock('#/components/v3/projects/project-data', () => ({
     project: { id: 'project-1', leadUserId: 'gareth', leadName: 'Gareth P.' },
     query: { isLoading: false },
   }),
-  fetchProjectMembers: (...args: unknown[]) => mocks.fetchProjectMembers(...args),
+  fetchProjectMembers: (...args: unknown[]) =>
+    mocks.fetchProjectMembers(...args),
   fetchWorkspaceMemberIdentities: (...args: unknown[]) =>
     mocks.fetchWorkspaceMemberIdentities(...args),
   removeProjectMember: (...args: unknown[]) =>

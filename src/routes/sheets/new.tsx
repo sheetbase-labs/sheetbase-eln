@@ -10,6 +10,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { PageHeader, Muted } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { toast } from '#/components/v3/ui/sonner'
 import { Icon } from '#/components/v3/icons'
@@ -118,7 +119,7 @@ function NewSheet() {
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader
-        crumbs="New"
+        trail={[{ label: 'New' }]}
         title="New sheet"
         meta={
           <span>Sheets are private to a project and are never evidence.</span>
@@ -129,7 +130,7 @@ function NewSheet() {
           <EmptyState
             icon="table"
             title="This sheet is empty"
-            body="A working sheet is for trying things. Bring in data you want to look at, then add local columns to explore it."
+            description="A working sheet is for trying things. Bring in data you want to look at, then add local columns to explore it."
             className="py-0"
           />
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -177,8 +178,7 @@ function NewSheet() {
             className="mt-2 flex flex-col gap-3 rounded-md border border-border p-3"
           >
             <Field label="Project" required>
-              <select
-                className="h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg"
+              <Select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
               >
@@ -188,7 +188,7 @@ function NewSheet() {
                     {p.displayId ? `${p.displayId} · ${p.title}` : p.title}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="Name">
               <Input

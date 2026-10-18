@@ -335,7 +335,9 @@ describe('saved-view writes', () => {
     version: 2,
   } as AnalysisViewWire
 
-  function client(overrides: Partial<Record<keyof DataClient, unknown>> = {}): DataClient {
+  function client(
+    overrides: Partial<Record<keyof DataClient, unknown>> = {},
+  ): DataClient {
     return {
       list: async () => [],
       count: async () => 0,
@@ -348,9 +350,9 @@ describe('saved-view writes', () => {
   }
 
   it('returns the row the update wrote', async () => {
-    await expect(
-      updateAnalysisView(client(), 'v-1', input),
-    ).resolves.toBe(saved)
+    await expect(updateAnalysisView(client(), 'v-1', input)).resolves.toBe(
+      saved,
+    )
   })
 
   it('reports an update that matched no row as a failure', async () => {
@@ -432,7 +434,11 @@ describe('export helpers', () => {
     // version: a placeholder would read as a version that exists.
     const materialised = materialiseAnalysisChart(spec(), columns, rows)
     const stored = buildExportProvenance(
-      { name: 'pH view', id: 'abcdef12-3456-4789-8abc-000000000000', version: 3 },
+      {
+        name: 'pH view',
+        id: 'abcdef12-3456-4789-8abc-000000000000',
+        version: 3,
+      },
       { id: 'u-1', name: 'Alice' },
       [{ datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 }],
       spec(),

@@ -8,9 +8,11 @@ import {
   useRouterState,
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import type { SortingState } from '@tanstack/react-table'
 
-import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Status } from '#/components/v3/ui/status'
 import {
   DescriptionList,
   Inspector,
@@ -18,27 +20,20 @@ import {
   Muted,
 } from '#/components/v3/ui/layout'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
-import {
   ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
+import {
+  ProtocolsRegistryGrid,
+  protocolStatus,
+} from '#/components/v3/protocols/protocols-registry-grid'
+import { useRowFocus } from '#/components/v3/inventory/registry-grid'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
-import type { NotebookRecord } from '#/lib/notebook-data'
-import type { Tone } from '#/components/v3/ui/status'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -54,6 +49,28 @@ const tabLabel: Record<ProtocolTab, string> = {
   inreview: 'In review',
   reviewdue: 'Review due',
   archived: 'Archived',
+}
+
+/** The orderings the toolbar offers, as the grid's sorting state. The route
+ * owns the menu; the table owns the order, so a header click and a menu pick
+ * are the same single source. */
+const SORTS: Record<ProtocolSort, SortingState> = {
+  Updated: [{ id: 'updatedAt', desc: true }],
+  ID: [{ id: 'identifier', desc: false }],
+  Protocol: [{ id: 'title', desc: false }],
+}
+
+/** The menu key a sorting state came from, or undefined when the user sorted
+ * by a column the menu does not list. */
+function sortKeyOf(sorting: SortingState): ProtocolSort | undefined {
+  const first = sorting.at(0)
+  if (!first) return undefined
+  return (Object.keys(SORTS) as ProtocolSort[]).find((key) => {
+    const entry = SORTS[key].at(0)
+    return (
+      entry !== undefined && entry.id === first.id && entry.desc === first.desc
+    )
+  })
 }
 
 /** UI port (roadmap-4/ui-app3): the Protocols list on protocol-template
@@ -86,25 +103,6 @@ function ProtocolsRoute() {
   return isIndex ? <ProtocolsList /> : <Outlet />
 }
 
-export function protocolStatus(status: string): { tone: Tone; label: string } {
-  switch (status) {
-    case 'active':
-      return { tone: 'ok', label: 'Active' }
-    case 'under_review':
-      return { tone: 'review', label: 'In review' }
-    case 'draft':
-      return { tone: 'draft', label: 'Draft' }
-    case 'archived':
-      return { tone: 'stored', label: 'Archived' }
-    default:
-      return {
-        tone: 'none',
-        label:
-          status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '),
-      }
-  }
-}
-
 interface ProtocolTabInput {
   status: string
   ownerId: string
@@ -132,8 +130,14 @@ function ProtocolsList() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const [selected, setSelected] = useState<string | null>(null)
-  const [sort, setSort] = useState<ProtocolSort>('Updated')
+  const [sorting, setSorting] = useState<SortingState>(SORTS.Updated)
+  const [selectedId, setSelectedId] = useState<string | null>(
+    search.selected ?? null,
+  )
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    selectedId,
+    setSelectedId,
+  )
   const query = useQuery({
     queryKey: ['ui-port', 'protocols'],
     queryFn: () =>
@@ -164,25 +168,21 @@ function ProtocolsList() {
     [tabInput, currentUserId],
   )
   const q = (search.q ?? '').trim().toLowerCase()
-  const compare = useMemo(() => {
-    // Most recently updated first; the other keys read A–Z, with numbers in
-    // identifiers in their numeric order (PRT-9 before PRT-10).
-    const field =
-      sort === 'Updated' ? 'updatedAt' : sort === 'ID' ? 'identifier' : 'title'
-    const direction = sort === 'Updated' ? -1 : 1
-    return (a: NotebookRecord, b: NotebookRecord) =>
-      direction * a[field].localeCompare(b[field], 'en-GB', { numeric: true })
-  }, [sort])
+  // The table orders the rows; the tab and the search decide which ones.
   const visible = rows
     .map((r, i) => ({ r, input: tabInput[i] }))
     .filter(({ input }) => inTab(input, tab, currentUserId))
     .filter(
       ({ r }) => !q || `${r.identifier} ${r.title}`.toLowerCase().includes(q),
     )
-    .sort((x, y) => compare(x.r, y.r))
     .map(({ r }) => r)
+
+  // One row drives the inspector: the checkbox selects it, and with nothing
+  // checked the screen falls back to the URL's row or the first one.
   const sel =
-    visible.find((r) => r.id === (selected ?? search.selected)) ?? visible.at(0)
+    visible.find((r) => r.id === selectedId) ??
+    visible.find((r) => r.id === search.selected) ??
+    visible.at(0)
 
   return (
     <div className="flex min-w-0 flex-1">
@@ -191,9 +191,10 @@ function ProtocolsList() {
           title="Protocols"
           total={rows.length}
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Protocol lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
@@ -215,8 +216,8 @@ function ProtocolsList() {
           placeholder="Search protocols"
           views={{
             sorts: [...sorts],
-            sort,
-            onSort: (s) => setSort(s as ProtocolSort),
+            sort: sortKeyOf(sorting),
+            onSort: (s) => setSorting(SORTS[s as ProtocolSort]),
             showSortValue: false,
             groupLabel: '',
           }}
@@ -229,54 +230,17 @@ function ProtocolsList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table aria-label="Protocols" className="max-lg:hidden">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={stickyHead}>ID</TableHead>
-                <TableHead>Protocol</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead align="right">Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((p) => {
-                const status = protocolStatus(p.status)
-                return (
-                  <TableRow
-                    key={p.id}
-                    selected={p.id === sel?.id}
-                    className="cursor-pointer"
-                    onClick={() => setSelected(p.id)}
-                  >
-                    <TableCell className={stickyCell}>
-                      <span className="mono">{p.identifier}</span>
-                    </TableCell>
-                    <TableCell
-                      className={p.id === sel?.id ? 'font-medium' : undefined}
-                    >
-                      <Link
-                        to="/protocols/$protocolId"
-                        params={{ protocolId: p.id }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {p.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={status.tone}>{status.label}</Status>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {names.userLabel(p.createdByUserId)}
-                    </TableCell>
-                    <TableCell align="right" className="text-fg-muted">
-                      {p.updatedAt.slice(0, 10)}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          {query.isLoading || visible.length > 0 ? (
+            <ProtocolsRegistryGrid
+              rows={visible}
+              ownerLabel={names.userLabel}
+              isLoading={query.isLoading}
+              sorting={sorting}
+              onSortingChange={setSorting}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+            />
+          ) : null}
           <MobileList
             label="Protocols"
             items={visible.map((p) => {
@@ -304,12 +268,24 @@ function ProtocolsList() {
                     ? `No protocols match “${search.q}”`
                     : `No protocols in ${tabLabel[tab].toLowerCase()}`
                 }
-                body="Search looks at protocol identifiers and titles."
+                description="Search looks at protocol identifiers and titles."
+                action={
+                  q ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/protocols" search={{ tab: search.tab }} />
+                      }
+                    >
+                      Clear search
+                    </Button>
+                  ) : undefined
+                }
               />
             </div>
           ) : null}
         </div>
-        <ListFooter right={sel ? '1 selected' : undefined}>
+        <ListFooter right={selectedId ? '1 selected' : undefined}>
           {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
         </ListFooter>
       </div>

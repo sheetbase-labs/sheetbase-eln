@@ -1,19 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-  Empty,
-  EmptyActions,
-  EmptyDescription,
-  EmptyIcon,
-  EmptyTitle,
-  Progress,
-  Skeleton,
-  Spinner,
-} from '#/components/ui'
+import { Progress } from '#/components/v3/ui/progress'
+import { Spinner } from '#/components/v3/ui/spinner'
+import { Alert, AlertDescription, AlertTitle, Skeleton } from '#/components/ui'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 
 const meta = { title: 'UI/Feedback', tags: ['autodocs'] } satisfies Meta
 export default meta
@@ -40,24 +31,18 @@ export const Loading: Story = {
         <Spinner />
         Calculating curve fit…
       </div>
-      <Progress value={68} />
+      <Progress label="Fitting the curve" value={68} />
       <Skeleton className="h-24 w-full" />
     </div>
   ),
 }
-export const EmptyState: Story = {
+export const Empty: Story = {
   render: () => (
-    <Empty>
-      <EmptyIcon>
-        <Icon name="flask" />
-      </EmptyIcon>
-      <EmptyTitle>No experiments yet</EmptyTitle>
-      <EmptyDescription>
-        Create an experiment or import an existing protocol.
-      </EmptyDescription>
-      <EmptyActions>
-        <Button>Create experiment</Button>
-      </EmptyActions>
-    </Empty>
+    <EmptyState
+      icon="flask"
+      title="No experiments yet"
+      description="Create an experiment or import an existing protocol."
+      action={<Button>Create experiment</Button>}
+    />
   ),
 }

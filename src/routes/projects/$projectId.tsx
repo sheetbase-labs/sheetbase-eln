@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
-import { LinkTabs } from '#/components/v3/projects/search-tabs'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
   fetchProjectFolders,
@@ -64,11 +64,7 @@ function ProjectLayout() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/projects" className="text-link">
-              Projects
-            </Link>
-          }
+          trail={[{ label: 'Projects', link: { to: '/projects' } }]}
           title={query.isLoading ? 'Loading project…' : 'Project not found'}
         />
       </div>
@@ -79,14 +75,10 @@ function ProjectLayout() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/projects" className="text-link">
-              Projects
-            </Link>{' '}
-            / <span className="mono">{project.displayId ?? project.key}</span>
-          </>
-        }
+        trail={[
+          { label: 'Projects', link: { to: '/projects' } },
+          { label: project.displayId ?? project.key, mono: true },
+        ]}
         title={project.title}
         meta={
           <>
@@ -125,8 +117,10 @@ function ProjectLayout() {
           </>
         }
         tabs={
-          <LinkTabs
-            tabs={[
+          <Tabs
+            mode="url"
+            label="Project sections"
+            items={[
               {
                 label: 'Overview',
                 link: {

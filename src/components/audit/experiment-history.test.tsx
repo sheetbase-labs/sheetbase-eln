@@ -106,12 +106,12 @@ it('counts the selected actor/category and sends exactly that immutable prefix t
       timeZone="Europe/London"
     />,
   )
-  expect(screen.getByRole('button', { name: 'all 2' })).toBeTruthy()
+  expect(screen.getByRole('tab', { name: 'all 2' })).toBeTruthy()
   fireEvent.change(screen.getByRole('combobox', { name: 'History actor' }), {
     target: { value: 'priya' },
   })
-  expect(screen.getByRole('button', { name: 'all 1' })).toBeTruthy()
-  fireEvent.click(screen.getByRole('button', { name: 'text 1' }))
+  expect(screen.getByRole('tab', { name: 'all 1' })).toBeTruthy()
+  fireEvent.click(screen.getByRole('tab', { name: 'text 1' }))
   expect(
     screen
       .getByRole('link', { name: 'Export audit trail' })
@@ -122,7 +122,7 @@ it('counts the selected actor/category and sends exactly that immutable prefix t
   expect(
     screen.queryByRole('button', { name: /Inspect audit entry 12/ }),
   ).toBeNull()
-  fireEvent.click(screen.getByRole('button', { name: 'signatures 0' }))
+  fireEvent.click(screen.getByRole('tab', { name: 'signatures 0' }))
   expect(screen.getByText('No signatures in this selection.')).toBeTruthy()
 })
 

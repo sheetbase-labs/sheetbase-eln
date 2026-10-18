@@ -233,6 +233,21 @@ shell lands; until then they render in the new frame unchanged.
   scripts (menus, tabs, toasts, dialogs, keyboard) with browser tests.
 - **No exceptions list.** A screen with a visual difference is not done. If the
   design is wrong or impossible, the design is changed and re-vendored first.
+- **One difference is known and is not yet an exception, nor an acceptance.**
+  The app draws notebook _authoring_ affordances that the `Nb*` and `Notebook`
+  canvases do not: a grip on every block row, and a drop preview. The canvases
+  draw the document's content, not how it is authored, so the grip is a
+  deliberate addition — and the drop preview changed with the ReUI sortable
+  adoption (B2 of
+  [`plans/notebook-editor-and-reui.html`](../../../plans/notebook-editor-and-reui.html)):
+  the dragged row dims while the rows around it shift, in place of the insertion
+  line the hand-rolled HTML5 drag drew. Those screens stay pending in
+  [`tests/visual/design-states.ts`](../../../tests/visual/design-states.ts)
+  until the difference is settled by re-vendoring the canvases with the
+  affordances drawn or by an owner decision recorded against them; the move is
+  measured and recorded in
+  [`component-comparison-record.md`](../../design/component-comparison-record.md)
+  row 1a.
 - **Existing gates stay.** Contrast tests, component tests, Storybook and the
   `/foundations` review page remain the authority for tokens and primitives.
 

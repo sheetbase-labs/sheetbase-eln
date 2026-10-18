@@ -136,7 +136,13 @@ describe('project experiments tab (R5-SURF-02)', () => {
 
     expect(await screen.findByRole('link', { name: 'Next' })).toBeTruthy()
     expect(container.textContent).toContain('Showing 1–25 of 60 experiments')
-    expect(screen.queryByRole('link', { name: 'Previous' })).toBeNull()
+    // On the first page "Previous" is present and disabled, not absent: a
+    // control that vanishes moves the row and reads as a missing control rather
+    // than a first page. (The router's `Link` is mocked in this suite, so the
+    // `aria-disabled` and the dropped `href` it adds are asserted in the
+    // component's story and in the browser check.)
+    const previous = screen.getByRole('link', { name: 'Previous' })
+    expect(previous.getAttribute('disabled')).not.toBeNull()
   })
 
   it('says a hand-edited page past the end is out of range, not empty', async () => {

@@ -15,7 +15,7 @@ import type { DragEvent } from 'react'
 
 import { Icon } from '#/components/v3/icons'
 import { Button } from '#/components/v3/ui/button'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +53,8 @@ type Notice = { tone: 'info' | 'refused'; message: string }
 function unitLabel(unit: unknown): string | null {
   if (typeof unit === 'string' && unit.trim() !== '') return unit
   if (unit && typeof unit === 'object' && 'symbol' in unit) {
-    if (typeof unit.symbol === 'string' && unit.symbol !== '') return unit.symbol
+    if (typeof unit.symbol === 'string' && unit.symbol !== '')
+      return unit.symbol
   }
   return null
 }
@@ -95,12 +96,15 @@ export function ChartEncodingEditor({
 
   return (
     <section aria-labelledby={`${idPrefix}-title`} className="space-y-2">
-      <h3 id={`${idPrefix}-title`} className="text-xs font-medium text-fg-muted">
+      <h3
+        id={`${idPrefix}-title`}
+        className="text-xs font-medium text-fg-muted"
+      >
         Fields and roles
       </h3>
       <p className="text-xs text-fg-muted">
-        Drag a field onto a role, or assign it from the field’s menu or the
-        role dropdown.
+        Drag a field onto a role, or assign it from the field’s menu or the role
+        dropdown.
       </p>
       {notice ? (
         <p
@@ -154,7 +158,8 @@ export function ChartEncodingEditor({
                         dragging === column.id
                           ? 'bg-selection'
                           : 'hover:bg-surface-hover',
-                        assignable.length > 0 && 'cursor-grab active:cursor-grabbing',
+                        assignable.length > 0 &&
+                          'cursor-grab active:cursor-grabbing',
                       )}
                     >
                       <span
@@ -175,7 +180,8 @@ export function ChartEncodingEditor({
                         {filled.length > 0 ? (
                           <span className="font-medium text-fg">
                             {' '}
-                            · {filled.map((role) => ROLE_LABEL[role]).join(', ')}
+                            ·{' '}
+                            {filled.map((role) => ROLE_LABEL[role]).join(', ')}
                           </span>
                         ) : null}
                       </span>
@@ -192,7 +198,10 @@ export function ChartEncodingEditor({
                               />
                             }
                           />
-                          <DropdownMenuContent align="end" className="w-[190px]">
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-[190px]"
+                          >
                             <DropdownMenuGroup>
                               <DropdownMenuLabel>
                                 Assign {column.label} to
@@ -269,7 +278,7 @@ export function ChartEncodingEditor({
                 >
                   {ROLE_LABEL[role]}
                 </label>
-                <NativeSelect
+                <Select
                   id={`${idPrefix}-${role}`}
                   aria-label={`${ROLE_LABEL[role]} field`}
                   value={value}
@@ -284,7 +293,7 @@ export function ChartEncodingEditor({
                       {column.label}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </div>
             )
           })}

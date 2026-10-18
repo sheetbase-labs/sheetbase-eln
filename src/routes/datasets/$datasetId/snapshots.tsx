@@ -11,15 +11,13 @@ import {
   InspectorSection,
   Muted,
 } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import {
   Dialog,
@@ -30,6 +28,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { stickyCell, stickyHead } from '#/components/v3/inventory/list'
 import {
@@ -64,9 +63,6 @@ export const Route = createFileRoute('/datasets/$datasetId/snapshots')({
   component: Snapshots,
 })
 
-const selectClass =
-  'h-[30px] min-w-0 flex-1 rounded-md border border-border bg-surface px-2 text-body text-fg max-md:h-10'
-
 function Snapshots() {
   const { datasetId } = Route.useParams()
   const { context } = Route.useRouteContext()
@@ -74,6 +70,60 @@ function Snapshots() {
   const versions = useDatasetVersions(datasetId)
   const rows = (versions.data ?? []) as unknown as SnapshotVersion[]
   const [selected, setSelected] = useState<string | null>(null)
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    selected,
+    setSelected,
+  )
+  const columns: RegistryColumn<SnapshotVersion>[] = [
+    {
+      id: 'snapshot',
+      header: 'Snapshot',
+      cell: ({ row }) => (
+        <span
+          className={cn(
+            'mono',
+            row.original.id === current?.id && 'font-semibold',
+          )}
+        >
+          {row.original.label}
+        </span>
+      ),
+      meta: {
+        headerClassName: stickyHead,
+        cellClassName: stickyCell,
+      },
+    },
+    {
+      id: 'saved',
+      header: 'Saved',
+      cell: ({ row }) => row.original.createdAt.slice(0, 16).replace('T', ' '),
+    },
+    {
+      id: 'rows',
+      header: 'Rows',
+      cell: ({ row }) =>
+        isSnapshotTombstone(row.original) ? (
+          <span className="text-fg-muted">Removed</span>
+        ) : (
+          row.original.rowCount
+        ),
+      meta: rightAligned<SnapshotVersion>().meta,
+    },
+    {
+      id: 'revision',
+      header: 'Source revision',
+      cell: ({ row }) => row.original.sourceDatasetRevision,
+      meta: { cellClassName: 'num' },
+    },
+    {
+      id: 'retention',
+      header: 'Retention',
+      cell: ({ row }) => {
+        const view = describeSnapshotKeeping(row.original)
+        return view ? <Status tone={view.tone}>{view.label}</Status> : null
+      },
+    },
+  ]
   const [dialogOpen, setDialogOpen] = useState(false)
   const [compareWith, setCompareWith] = useState<string | null>(null)
   const [keepTarget, setKeepTarget] = useState<SnapshotVersion | null>(null)
@@ -243,58 +293,16 @@ function Snapshots() {
         </div>
         {rows.length ? (
           <TableBox>
-            <Table className="max-lg:min-w-[680px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className={stickyHead}>Snapshot</TableHead>
-                  <TableHead>Saved</TableHead>
-                  <TableHead align="right">Rows</TableHead>
-                  <TableHead>Source revision</TableHead>
-                  <TableHead>Retention</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((v) => {
-                  const view = describeSnapshotKeeping(v)
-                  const removed = isSnapshotTombstone(v)
-                  return (
-                    <TableRow
-                      key={v.id}
-                      selected={v.id === current?.id}
-                      className="cursor-pointer"
-                      onClick={() => setSelected(v.id)}
-                    >
-                      <TableCell
-                        className={cn(
-                          stickyCell,
-                          v.id === current?.id && 'font-semibold',
-                        )}
-                      >
-                        <span className="mono">{v.label}</span>
-                      </TableCell>
-                      <TableCell>
-                        {v.createdAt.slice(0, 16).replace('T', ' ')}
-                      </TableCell>
-                      <TableCell align="right">
-                        {removed ? (
-                          <span className="text-fg-muted">Removed</span>
-                        ) : (
-                          v.rowCount
-                        )}
-                      </TableCell>
-                      <TableCell className="num">
-                        {v.sourceDatasetRevision}
-                      </TableCell>
-                      <TableCell>
-                        {view ? (
-                          <Status tone={view.tone}>{view.label}</Status>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Dataset snapshots"
+              rows={rows}
+              columns={columns}
+              getRowId={(v) => v.id}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              onRowClick={(v) => setSelected(v.id)}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <Muted>
@@ -414,9 +422,9 @@ function Snapshots() {
                 <label className="sr-only" htmlFor="compare-with">
                   Compare with
                 </label>
-                <select
+                <Select
                   id="compare-with"
-                  className={selectClass}
+                  className="min-w-0"
                   value={compareTarget}
                   onChange={(e) => setCompareWith(e.target.value)}
                 >
@@ -425,7 +433,7 @@ function Snapshots() {
                       {v.label} · {v.createdAt.slice(0, 10)}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <Link
                   to="/datasets/$datasetId/compare"
                   params={{ datasetId }}

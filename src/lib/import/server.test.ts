@@ -184,7 +184,10 @@ it('reports the cause the commit RPC raised, not a canned regulated sentence', a
     ok: false,
     committed: 0,
     errors: [
-      { code: 'commit_failed', message: 'import key belongs to another request' },
+      {
+        code: 'commit_failed',
+        message: 'import key belongs to another request',
+      },
     ],
   })
   expect(parserFailure).not.toHaveBeenCalled()

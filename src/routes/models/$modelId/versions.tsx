@@ -9,21 +9,15 @@ import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import { publishDatasetSchemaVersion } from '#/lib/dataset-schema-definition-rpc'
-import type {
-  CanonicalDatasetSchemaField,
-  CanonicalDatasetSchemaVersion,
-} from '#/lib/dataset-schema-definition-rpc'
+import type { CanonicalDatasetSchemaField } from '#/lib/dataset-schema-definition-rpc'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { hasCapability } from '#/lib/capability'
 import {
@@ -165,11 +159,129 @@ function DatasetModelVersions() {
         <EmptyState
           icon="table"
           title="No versions yet"
-          body="Start a version from the header, add fields, then publish it."
+          description="Start a version from the header, add fields, then publish it."
         />
       </div>
     )
   }
+
+  const columns: RegistryColumn<(typeof impacts)[number]>[] = [
+    {
+      id: 'version',
+      header: 'Version',
+      cell: ({ row }) => (
+        <span className="font-medium">v{row.original.version.version}</span>
+      ),
+      meta: { cellClassName: 'align-top!' },
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const status = modelStatus(row.original.version.lifecycle)
+        return <Status tone={status.tone}>{status.label}</Status>
+      },
+      meta: { cellClassName: 'align-top!' },
+    },
+    {
+      id: 'approval',
+      header: 'Approval',
+      cell: ({ row }) => {
+        if (approval.isLoading) return <span className="text-fg-muted">…</span>
+        const status = approvalStatus(
+          requestsFor(row.original.version.id),
+          row.original.version.revision,
+        )
+        return <Status tone={status.tone}>{status.label}</Status>
+      },
+      meta: { cellClassName: 'align-top!' },
+    },
+    {
+      id: 'published',
+      header: 'Published',
+      cell: ({ row }) =>
+        row.original.version.published_at
+          ? row.original.version.published_at.slice(0, 10)
+          : '—',
+      meta: { cellClassName: 'align-top! text-fg-muted' },
+    },
+    {
+      id: 'changes',
+      header: 'Changes since previous',
+      cell: ({ row }) => (
+        <VersionChanges
+          diff={row.original.diff}
+          loading={loading}
+          isFirstVersion={
+            impacts[impacts.length - 1]?.version.id === row.original.version.id
+          }
+        />
+      ),
+      meta: {
+        cellClassName:
+          'min-w-[260px] max-w-[420px] whitespace-normal align-top!',
+      },
+    },
+    {
+      id: 'records',
+      header: 'Records',
+      cell: ({ row }) => (loading ? '…' : row.original.recordCount),
+      meta: {
+        ...rightAligned<(typeof impacts)[number]>().meta,
+        cellClassName: 'align-top! tabular-nums text-right',
+      },
+    },
+    {
+      id: 'impact',
+      header: 'Record impact',
+      cell: ({ row }) => {
+        const outcome = OUTCOME[row.original.outcome]
+        return (
+          <div className="flex flex-col gap-0.5">
+            <Status tone={outcome.tone}>{outcome.label}</Status>
+            <span className="text-label text-fg-muted">
+              {row.original.outcome === 'new-records-only'
+                ? `${row.original.olderRecordCount} older ${
+                    row.original.olderRecordCount === 1 ? 'record' : 'records'
+                  } unchanged`
+                : outcome.detail}
+            </span>
+          </div>
+        )
+      },
+      meta: { cellClassName: 'whitespace-normal align-top!' },
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => {
+        const v = row.original.version
+        return v.lifecycle === 'draft' &&
+          hasCapability(role, 'schema.publish') &&
+          policy.isSuccess &&
+          !approval.isLoading &&
+          !approval.isError &&
+          canPublishDraft(
+            requestsFor(v.id),
+            policy.data?.publicationApprovalRequired ?? false,
+            v.revision,
+          ) ? (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={publish.isPending}
+            onClick={() => publish.mutate(v.id)}
+          >
+            Publish
+          </Button>
+        ) : null
+      },
+      meta: {
+        ...rightAligned<(typeof impacts)[number]>().meta,
+        cellClassName: 'align-top! text-right',
+      },
+    },
+  ]
 
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
@@ -202,99 +314,13 @@ function DatasetModelVersions() {
         />
       ) : null}
       <TableBox>
-        <Table aria-label="Model versions">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Version</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Approval</TableHead>
-              <TableHead>Published</TableHead>
-              <TableHead>Changes since previous</TableHead>
-              <TableHead align="right">Records</TableHead>
-              <TableHead>Record impact</TableHead>
-              <TableHead align="right" aria-label="Actions" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {impacts.map((row) => {
-              const v: CanonicalDatasetSchemaVersion = row.version
-              const outcome = OUTCOME[row.outcome]
-              return (
-                <TableRow key={v.id}>
-                  <TableCell className="font-medium align-top">
-                    v{v.version}
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <Status tone={modelStatus(v.lifecycle).tone}>
-                      {modelStatus(v.lifecycle).label}
-                    </Status>
-                  </TableCell>
-                  <TableCell className="align-top">
-                    {approval.isLoading ? (
-                      <span className="text-fg-muted">…</span>
-                    ) : (
-                      <Status
-                        tone={
-                          approvalStatus(requestsFor(v.id), v.revision).tone
-                        }
-                      >
-                        {approvalStatus(requestsFor(v.id), v.revision).label}
-                      </Status>
-                    )}
-                  </TableCell>
-                  <TableCell className="align-top text-fg-muted">
-                    {v.published_at ? v.published_at.slice(0, 10) : '—'}
-                  </TableCell>
-                  <TableCell className="min-w-[260px] max-w-[420px] whitespace-normal align-top">
-                    <VersionChanges
-                      diff={row.diff}
-                      loading={loading}
-                      isFirstVersion={
-                        impacts[impacts.length - 1]?.version.id === v.id
-                      }
-                    />
-                  </TableCell>
-                  <TableCell align="right" className="align-top tabular-nums">
-                    {loading ? '…' : row.recordCount}
-                  </TableCell>
-                  <TableCell className="whitespace-normal align-top">
-                    <div className="flex flex-col gap-0.5">
-                      <Status tone={outcome.tone}>{outcome.label}</Status>
-                      <span className="text-label text-fg-muted">
-                        {row.outcome === 'new-records-only'
-                          ? `${row.olderRecordCount} older ${
-                              row.olderRecordCount === 1 ? 'record' : 'records'
-                            } unchanged`
-                          : outcome.detail}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell align="right" className="align-top">
-                    {v.lifecycle === 'draft' &&
-                    hasCapability(role, 'schema.publish') &&
-                    policy.isSuccess &&
-                    !approval.isLoading &&
-                    !approval.isError &&
-                    canPublishDraft(
-                      requestsFor(v.id),
-                      policy.data?.publicationApprovalRequired ?? false,
-                      v.revision,
-                    ) ? (
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        disabled={publish.isPending}
-                        onClick={() => publish.mutate(v.id)}
-                      >
-                        Publish
-                      </Button>
-                    ) : null}
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+        <RegistryGrid
+          label="Model versions"
+          rows={impacts}
+          columns={columns}
+          getRowId={(row) => row.version.id}
+          selectable={false}
+        />
       </TableBox>
       <Muted className="mt-3">
         Publishing forks a new version; existing datasets stay on the version

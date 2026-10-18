@@ -8,6 +8,7 @@ import {
   Muted,
   Section,
 } from '#/components/v3/ui/layout'
+import { Progress } from '#/components/v3/ui/progress'
 import { Status } from '#/components/v3/ui/status'
 import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -31,17 +32,15 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
-import { Select, Textarea } from '#/components/v3/inventory/list'
+import { Select } from '#/components/v3/ui/select'
+import { Textarea } from '#/components/v3/inventory/list'
 import { toast } from '#/components/v3/ui/sonner'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { hasCapability } from '#/lib/capability'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
@@ -118,7 +117,9 @@ function InstrumentPage() {
   const [grantUser, setGrantUser] = useState('')
   const [grantUntil, setGrantUntil] = useState(isoDay(365))
   const [grantScope, setGrantScope] = useState('')
-  const [revokeTarget, setRevokeTarget] = useState<QualificationRow | null>(null)
+  const [revokeTarget, setRevokeTarget] = useState<QualificationRow | null>(
+    null,
+  )
   const i = instrument.data
   const rows = runs.data ?? []
   const calibrationRows = calibrations.data ?? []
@@ -139,6 +140,144 @@ function InstrumentPage() {
     staleTime: 15_000,
   })
   const qualificationRows = qualifications.data ?? []
+
+  const calibrationColumns: RegistryColumn<(typeof calibrationRows)[number]>[] =
+    [
+      {
+        id: 'performed',
+        header: 'Performed',
+        cell: ({ row }) => (
+          <span className="mono">
+            {formatInstrumentDay(row.original.performedAt)}
+          </span>
+        ),
+      },
+      {
+        id: 'due',
+        header: 'Due',
+        cell: ({ row }) => (
+          <span className="mono">
+            {formatInstrumentDay(row.original.dueAt)}
+          </span>
+        ),
+      },
+      {
+        id: 'by',
+        header: 'By',
+        cell: ({ row }) =>
+          row.original.performedByUserId
+            ? names.userLabel(row.original.performedByUserId)
+            : '—',
+      },
+      {
+        id: 'notes',
+        header: 'Notes',
+        cell: ({ row }) => row.original.notes ?? '—',
+        meta: { cellClassName: 'text-fg-muted' },
+      },
+    ]
+
+  const runColumns: RegistryColumn<(typeof rows)[number]>[] = [
+    {
+      id: 'run',
+      header: 'Run',
+      cell: ({ row }) => (
+        <span className="font-medium">{row.original.name}</span>
+      ),
+    },
+    {
+      id: 'identifier',
+      header: 'Identifier',
+      cell: ({ row }) => (
+        <span className="mono">{row.original.runIdentifier}</span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const run = runStatus(row.original.status)
+        return <Status tone={run.tone}>{run.label}</Status>
+      },
+    },
+    {
+      id: 'progress',
+      header: 'Progress',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Progress
+            label={`Progress for ${row.original.name}`}
+            value={row.original.progressPercent}
+            valueText={`${row.original.progressPercent}%`}
+            className="w-20"
+          />
+          <span className="text-label text-fg-muted">
+            {row.original.progressPercent}%
+          </span>
+        </div>
+      ),
+      meta: rightAligned<(typeof rows)[number]>().meta,
+    },
+    {
+      id: 'started',
+      header: 'Started',
+      cell: ({ row }) =>
+        row.original.startedAt
+          ? row.original.startedAt.slice(0, 16).replace('T', ' ')
+          : '—',
+      meta: { cellClassName: 'text-fg-muted' },
+    },
+  ]
+
+  const qualificationColumns: RegistryColumn<
+    (typeof qualificationRows)[number]
+  >[] = [
+    {
+      id: 'person',
+      header: 'Person',
+      cell: ({ row }) => personLabel(row.original),
+    },
+    {
+      id: 'validUntil',
+      header: 'Valid until',
+      cell: ({ row }) => (
+        <span className="mono">
+          {formatInstrumentDay(row.original.valid_until)}
+        </span>
+      ),
+    },
+    {
+      id: 'state',
+      header: 'State',
+      cell: ({ row }) => (
+        <Status tone={row.original.current ? 'ok' : 'bad'}>
+          {row.original.current ? 'Current' : 'Expired'}
+        </Status>
+      ),
+    },
+    ...(canQualify
+      ? [
+          {
+            id: 'actions',
+            header: () => <span className="sr-only">Actions</span>,
+            cell: ({
+              row,
+            }: {
+              row: { original: (typeof qualificationRows)[number] }
+            }) => (
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => setRevokeTarget(row.original)}
+              >
+                Revoke
+              </Button>
+            ),
+            meta: rightAligned<(typeof qualificationRows)[number]>().meta,
+          } satisfies RegistryColumn<(typeof qualificationRows)[number]>,
+        ]
+      : []),
+  ]
   // The scope lives on the instrument; the read model reports it on each row.
   const scope =
     qualificationRows.find((row) => row.qualified_for)?.qualified_for ?? null
@@ -238,11 +377,7 @@ function InstrumentPage() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/instruments" className="text-link">
-              Instruments
-            </Link>
-          }
+          trail={[{ label: 'Instruments', link: { to: '/instruments' } }]}
           title={
             instrument.isLoading
               ? 'Loading instrument…'
@@ -284,14 +419,10 @@ function InstrumentPage() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/instruments" className="text-link">
-              Instruments
-            </Link>{' '}
-            / <span className="mono">{i.displayId ?? i.id.slice(0, 8)}</span>
-          </>
-        }
+        trail={[
+          { label: 'Instruments', link: { to: '/instruments' } },
+          { label: i.displayId ?? i.id.slice(0, 8), mono: true },
+        ]}
         title={i.name}
         meta={
           <>
@@ -378,36 +509,13 @@ function InstrumentPage() {
           />
           {calibrationRows.length ? (
             <TableBox>
-              <Table aria-label="Calibration history">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Performed</TableHead>
-                    <TableHead>Due</TableHead>
-                    <TableHead>By</TableHead>
-                    <TableHead>Notes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {calibrationRows.map((c) => (
-                    <TableRow key={c.id}>
-                      <TableCell className="mono">
-                        {formatInstrumentDay(c.performedAt)}
-                      </TableCell>
-                      <TableCell className="mono">
-                        {formatInstrumentDay(c.dueAt)}
-                      </TableCell>
-                      <TableCell>
-                        {c.performedByUserId
-                          ? names.userLabel(c.performedByUserId)
-                          : '—'}
-                      </TableCell>
-                      <TableCell className="text-fg-muted">
-                        {c.notes ?? '—'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Calibration history"
+                rows={calibrationRows}
+                columns={calibrationColumns}
+                getRowId={(c) => c.id}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <Muted>
@@ -419,7 +527,9 @@ function InstrumentPage() {
 
         <Section
           title="Qualification"
-          count={qualifications.isSuccess ? qualificationRows.length : undefined}
+          count={
+            qualifications.isSuccess ? qualificationRows.length : undefined
+          }
         >
           {qualifications.isPending ? (
             <Muted>Loading qualifications…</Muted>
@@ -436,42 +546,13 @@ function InstrumentPage() {
                 items={[['Qualified for', scope ?? 'Not set']]}
               />
               <TableBox>
-                <Table aria-label="Qualified operators">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Person</TableHead>
-                      <TableHead>Valid until</TableHead>
-                      <TableHead>State</TableHead>
-                      {canQualify ? <TableHead aria-label="Actions" /> : null}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {qualificationRows.map((row) => (
-                      <TableRow key={row.user_id}>
-                        <TableCell>{personLabel(row)}</TableCell>
-                        <TableCell className="mono">
-                          {formatInstrumentDay(row.valid_until)}
-                        </TableCell>
-                        <TableCell>
-                          <Status tone={row.current ? 'ok' : 'bad'}>
-                            {row.current ? 'Current' : 'Expired'}
-                          </Status>
-                        </TableCell>
-                        {canQualify ? (
-                          <TableCell align="right">
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              onClick={() => setRevokeTarget(row)}
-                            >
-                              Revoke
-                            </Button>
-                          </TableCell>
-                        ) : null}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <RegistryGrid
+                  label="Qualified operators"
+                  rows={qualificationRows}
+                  columns={qualificationColumns}
+                  getRowId={(row) => row.user_id}
+                  selectable={false}
+                />
               </TableBox>
             </>
           ) : (
@@ -504,47 +585,19 @@ function InstrumentPage() {
         <Section title="Runs" count={rows.length}>
           {rows.length ? (
             <TableBox>
-              <Table aria-label="Instrument runs">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Run</TableHead>
-                    <TableHead>Identifier</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead align="right">Progress</TableHead>
-                    <TableHead>Started</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r) => {
-                    const run = runStatus(r.status)
-                    return (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-medium">{r.name}</TableCell>
-                        <TableCell className="mono">
-                          {r.runIdentifier}
-                        </TableCell>
-                        <TableCell>
-                          <Status tone={run.tone}>{run.label}</Status>
-                        </TableCell>
-                        <TableCell align="right">
-                          {r.progressPercent}%
-                        </TableCell>
-                        <TableCell className="text-fg-muted">
-                          {r.startedAt
-                            ? r.startedAt.slice(0, 16).replace('T', ' ')
-                            : '—'}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+              <RegistryGrid
+                label="Instrument runs"
+                rows={rows}
+                columns={runColumns}
+                getRowId={(r) => r.id}
+                selectable={false}
+              />
             </TableBox>
           ) : (
             <EmptyState
               icon="pipeline"
               title="No runs yet"
-              body="Runs appear here when the instrument is used."
+              description="Runs arrive from the instrument when it is used; this tab is read-only."
               className="py-4"
             />
           )}

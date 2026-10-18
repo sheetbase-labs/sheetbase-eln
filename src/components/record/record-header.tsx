@@ -3,6 +3,7 @@ import { Star } from 'lucide-react'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 
 import { cn } from '#/lib/utils'
+import { Avatar, AvatarStack } from '#/components/v3/ui/avatar'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import { Icon } from '#/components/v3/icons'
@@ -50,30 +51,6 @@ export interface RecordHeaderProps {
   /** Overflow menu node rendered after actions. */
   menu?: React.ReactNode
   className?: string
-}
-
-function Avatar({
-  name,
-  initials,
-  size = 'sm',
-}: {
-  name: string
-  initials?: string
-  size?: 'sm' | 'md'
-}) {
-  const text = (initials ?? name.slice(0, 2)).toUpperCase()
-  return (
-    <span
-      title={name}
-      aria-label={name}
-      className={cn(
-        'inline-flex items-center justify-center rounded-full bg-selection text-label font-semibold text-fg ring-2 ring-surface',
-        size === 'sm' ? 'size-6 text-xs' : 'size-8 text-xs',
-      )}
-    >
-      {text}
-    </span>
-  )
 }
 
 export function RecordHeader({
@@ -146,7 +123,12 @@ export function RecordHeader({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-fg-muted">
             {owner ? (
               <span className="inline-flex items-center gap-2">
-                <Avatar name={owner.name} initials={owner.initials} size="sm" />
+                <Avatar
+                  name={owner.name}
+                  initials={owner.initials}
+                  size="sm"
+                  className="ring-2 ring-surface"
+                />
                 <span className="text-fg">{owner.name}</span>
               </span>
             ) : null}
@@ -156,20 +138,14 @@ export function RecordHeader({
               </span>
             ) : null}
             {contributors && contributors.length > 0 ? (
-              <span className="inline-flex -space-x-1.5">
-                {contributors.slice(0, 5).map((c, i) => (
-                  <Avatar
-                    key={`${c.name}-${i}`}
-                    name={c.name}
-                    initials={c.initials}
-                  />
-                ))}
-                {contributors.length > 5 ? (
-                  <span className="inline-flex size-6 items-center justify-center rounded-full bg-surface-muted text-xs font-medium ring-2 ring-surface">
-                    +{contributors.length - 5}
-                  </span>
-                ) : null}
-              </span>
+              <AvatarStack
+                people={contributors.map((contributor) => ({
+                  id: contributor.href,
+                  name: contributor.name,
+                  initials: contributor.initials,
+                }))}
+                max={5}
+              />
             ) : null}
             {tags ? (
               <span className="inline-flex flex-wrap gap-1">{tags}</span>
@@ -181,4 +157,4 @@ export function RecordHeader({
   )
 }
 
-export { Avatar as RecordHeaderAvatar, Badge as RecordHeaderBadge }
+export { Badge as RecordHeaderBadge }

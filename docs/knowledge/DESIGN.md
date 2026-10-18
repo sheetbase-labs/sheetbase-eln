@@ -281,7 +281,7 @@ Notebook blocks may gain a slight shadow on hover to reveal block-level manipula
 
 ## 5. Components
 
-All components are repository-owned shadcn-style components built on Radix primitives. shadcn supplies architecture and accessibility patterns; Sheetbase owns the visible language. New screens must compose existing components before introducing new primitives.
+All components are repository-owned shadcn-style components built on Base UI primitives, following the shadcn architecture and accessibility patterns; the legacy Radix kit under `src/components/ui/` is retained only for the internal `/foundations` and `/docs/$name` routes. shadcn supplies architecture, Sheetbase owns the visible language. New screens must compose existing components before introducing new primitives (ADR-0055).
 
 ### Buttons
 

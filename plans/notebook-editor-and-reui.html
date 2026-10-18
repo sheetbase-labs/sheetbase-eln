@@ -1,0 +1,998 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheetbase ELN — Notion-like notebook editor &amp; ReUI component adoption</title>
+<style>
+  :root{
+    --surface:#ffffff; --sunken:#f6f7f9; --raised:#fbfcfd;
+    --fg:#0f141c; --muted:#5d646f; --faint:#8b929c;
+    --border:#dee1e7; --border-strong:#c8cdd6;
+    --accent:#1f5fa8; --accent-soft:#eaf1f9;
+    --success:#00734a; --success-soft:#e6f4ee;
+    --warning:#8a5300; --warning-soft:#fdf1dc;
+    --error:#a11b1b; --error-soft:#fbecec;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --surface:#0f1319; --sunken:#151a22; --raised:#12171e;
+      --fg:#e8ecf2; --muted:#a3acb9; --faint:#78818e;
+      --border:#252c37; --border-strong:#39424f;
+      --accent:#7fb2ea; --accent-soft:#16243a;
+      --success:#4fd39a; --success-soft:#0f2a21;
+      --warning:#e6b25c; --warning-soft:#2c2313;
+      --error:#f08b8b; --error-soft:#2e1618;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--sunken); color:var(--fg);
+    font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  .page{max-width:1040px;margin:0 auto;padding:40px 28px 96px}
+  h1{font-size:27px;line-height:1.25;margin:0 0 6px;letter-spacing:-.01em}
+  h2{font-size:19px;margin:44px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border);letter-spacing:-.005em}
+  h3{font-size:16px;margin:28px 0 8px}
+  h4{font-size:14px;margin:20px 0 6px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  p{margin:10px 0}
+  ul,ol{margin:10px 0;padding-left:22px}
+  li{margin:4px 0}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--raised);border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+  a{color:var(--accent)}
+  .sub{color:var(--muted);margin:0 0 20px}
+  .meta{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;font-size:13px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:18px 0 26px}
+  .meta dt{color:var(--muted)}
+  .meta dd{margin:0}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px 18px;margin:16px 0}
+  .card.tight{padding:12px 14px}
+  .card h3:first-child,.card h4:first-child{margin-top:0}
+  .callout{border-left:3px solid var(--border-strong);background:var(--surface);border-radius:0 8px 8px 0;padding:12px 16px;margin:16px 0}
+  .callout.risk{border-left-color:var(--error)}
+  .callout.decide{border-left-color:var(--warning)}
+  .callout.ok{border-left-color:var(--success)}
+  .callout.info{border-left-color:var(--accent)}
+  .callout .label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px;background:var(--surface)}
+  caption{caption-side:top;text-align:left;font-size:12px;color:var(--muted);padding:0 0 6px}
+  th,td{text-align:left;vertical-align:top;padding:8px 10px;border:1px solid var(--border)}
+  th{background:var(--raised);font-weight:600;font-size:12.5px;color:var(--muted);white-space:nowrap}
+  tbody tr:nth-child(even) td{background:var(--raised)}
+  td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .chip{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;border:1px solid var(--border-strong);color:var(--muted);white-space:nowrap}
+  .chip.now{background:var(--error-soft);border-color:transparent;color:var(--error)}
+  .chip.next{background:var(--warning-soft);border-color:transparent;color:var(--warning)}
+  .chip.later{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+  .chip.ok{background:var(--success-soft);border-color:transparent;color:var(--success)}
+  .chip.no{background:var(--sunken);border-color:var(--border-strong);color:var(--muted)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+  .stat .n{font-size:23px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .stat .k{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .toc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 18px;font-size:13.5px}
+  .toc ol{columns:2;column-gap:32px;margin:6px 0 0;padding-left:20px}
+  .toc a{text-decoration:none}
+  .toc a:hover{text-decoration:underline}
+  figure{margin:20px 0}
+  figure svg{display:block;width:100%;height:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px}
+  figcaption{font-size:12px;color:var(--muted);margin-top:6px}
+  .legend{font-size:12.5px;color:var(--muted);display:flex;gap:18px;flex-wrap:wrap;margin-top:6px}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--faint)}
+  .legend .a::before{background:var(--accent)}
+  .legend .b::before{background:var(--success)}
+  .legend .c::before{background:var(--warning)}
+  .legend .d::before{background:var(--border-strong)}
+  hr{border:0;border-top:1px solid var(--border);margin:34px 0}
+  .foot{font-size:12.5px;color:var(--muted)}
+  .ev{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  details{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin:12px 0}
+  summary{cursor:pointer;font-weight:600;font-size:13.5px}
+  @media print{
+    body{background:#fff;color:#000}
+    .page{max-width:none;padding:0}
+    .card,.callout,table,.stat,.toc,details{break-inside:avoid}
+    h2{break-after:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Notion-like notebook editing and ReUI component adoption</h1>
+<p class="sub">A proposal in two parts, with the evidence it is built on, the architecture it recommends, and the decisions it needs from you.</p>
+
+<dl class="meta">
+  <dt>Status</dt><dd><span class="chip ok">Adopted in part</span> — A1, A2, A4 and B0 are implemented and verified; A3, A6 and every Part B adoption are not started. Part B re-verified against the tree in <a href="#verify">revision 5</a></dd>
+  <dt>Audited revision</dt><dd><code>00052727</code> on <code>GWP/notebook-document-surface</code>, clean working tree, 2026-10-16; revisions 1–4 audited <code>66e550f2</code> on <code>main</code></dd>
+  <dt>Scope</dt><dd>Part A: the experiment notebook authoring surface. Part B: which hand-rolled UI components ReUI should replace</dd>
+  <dt>Not in scope</dt><dd>Sheet/formula engine, Datasets, Models, evidence semantics, permissions, Liveblocks collaboration</dd>
+  <dt>Evidence base</dt><dd>Current source at the audited revision, canonical ADRs and product docs, plus the Tiptap and ReUI documentation as published on 2026-10-15</dd>
+  <dt>Revision</dt><dd><strong>5</strong> — 2026-10-16. Part B re-verified against the tree: nine claims corrected, four findings, decisions 7–9 recorded, and the sequence fixed in <a href="#proposal">§11.6</a></dd>
+  <dt>Decisions</dt><dd>Nine settled — the original six in <a href="#decisions">Decisions needed</a>, and 7–9 in <a href="#decisions-5">revision 5’s decisions</a></dd>
+</dl>
+
+<div class="callout ok">
+  <span class="label">What changed in revisions 2 and 3</span>
+  <ul>
+    <li><strong>Part A’s target is Notion’s document mechanics with Word’s typing feel.</strong> The owner’s statement of the problem: the editor is janky and blocky, it does not feel like one document, the blocks must stay because they carry the information, and a caret should go anywhere and type. That promotes the run-scoped editor (A3) from “optional” to “the point”, and it names Notion as the comparison — while <code>PRODUCT.md:159</code> still rules out a Notion <em>clone</em>, so the boundary is now stated explicitly rather than implied.</li>
+    <li><strong>Part A’s acceptance is now testable:</strong> eight named criteria, D1–D8 (§3.2), each observable, none requiring canonical state to move.</li>
+    <li><strong>Part B’s default is a sweep, not a shortlist:</strong> where ReUI has a component for the job, we evaluate it, with an A/B harness as the evidence rather than an opinion. Tables and data grids are called out; the sheet grid and the figure renderers are explicitly excluded.</li>
+    <li><strong>Settled:</strong> primitive base <code>base-nova</code> (1); run-scoped editor (2); free and open-source only (3); the prose payload contract stays closed (4); build the callout and metric editors (5); TanStack Table v9 in scope (6).</li>
+    <li><strong>Two of these have already been executed</strong> — see §10.</li>
+  </ul>
+</div>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#headline">Headline</a></li>
+    <li><a href="#today">What is actually there today</a></li>
+    <li><a href="#parta">Part A — the notebook editor</a></li>
+    <li><a href="#notion">What “one document” means</a></li>
+    <li><a href="#options">Three architecture options</a></li>
+    <li><a href="#target">Recommended target architecture</a></li>
+    <li><a href="#awork">Part A workstreams</a></li>
+    <li><a href="#partb">Part B — ReUI</a></li>
+    <li><a href="#reui-status">ReUI’s status in this repo</a></li>
+    <li><a href="#candidates">Adoption candidates, ranked</a></li>
+    <li><a href="#ab">The A/B harness</a></li>
+    <li><a href="#bwork">Part B workstreams</a></li>
+    <li><a href="#sequence">Sequencing</a></li>
+    <li><a href="#risks">Risks</a></li>
+    <li><a href="#decisions">Decisions needed</a></li>
+    <li><a href="#evidence">Evidence index</a></li>
+    <li><a href="#limits">Verification limits</a></li>
+    <li><a href="#executed">Executed so far</a></li>
+    <li><a href="#verify">Revision 5 — Part B verified</a></li>
+    <li><a href="#corrections">Corrections to Part B</a></li>
+    <li><a href="#findings">Four findings</a></li>
+    <li><a href="#tier1">Tier 1, verified</a></li>
+    <li><a href="#gates">What an adoption must clear</a></li>
+    <li><a href="#proposal">The proposal</a></li>
+    <li><a href="#decisions-5">Decisions 7–9</a></li>
+  </ol>
+</nav>
+
+<h2 id="headline">1. Headline</h2>
+
+<div class="grid3">
+  <div class="stat"><div class="n">Tiptap 3.28</div><div class="k">already a dependency; already the prose engine</div></div>
+  <div class="stat"><div class="n">1 surface</div><div class="k">of 17 block types is Tiptap today: <code>rich_text</code></div></div>
+  <div class="stat"><div class="n">≈11,200 lines</div><div class="k">hand-rolled notebook UI across 10 files</div></div>
+  <div class="stat"><div class="n">13 / 17</div><div class="k">block types have an editor; 3 render but cannot be edited</div></div>
+</div>
+
+<ol>
+  <li><strong>The benchmark is Notion, and the requirement is that the notebook behaves like one document.</strong> Stated plainly by the owner: the editor is janky and blocky, it does not feel like one document, the blocks must stay because they carry the information, and it should feel like Word — put a caret anywhere and type. Notion is the right example, because Notion <em>is</em> a block document whose text reads continuously. That splits Part A cleanly: first make the surface <em>behave</em> continuously (A2), then make prose genuinely one text flow (A3). Both are additive; neither moves canonical state. Prose already <em>is</em> Tiptap, and the slash menu already calls itself Notion-style <span class="ev">(<code>slash-command-menu.tsx:10</code>, <code>notebook-document.tsx:754</code>)</span>, so this is finishing a surface, not replacing an engine. One boundary is stated rather than implied, because it is a standing product rule: <code>PRODUCT.md:159</code> rules out “a Notion clone with scientific icons added afterwards”. Adopting Notion’s document mechanics is decided; copying its visual identity — its greys, its rounded hover cards, its generic page tree — is not, and the tokens plus the design-parity gate are what hold that line.</li>
+  <li><strong>The load-bearing decision is to keep the rows canonical and give one editor a <em>run</em> of them, rather than replacing the rows.</strong> Block identity is what comments, signatures, protocol pins, revision diffs, frozen sheet evidence and the submit digest hang off. A single ProseMirror document as source of truth would either move canonical state out of the row model — against the explicit no-shadow-persistence rule — or require a bidirectional projection over it. The measured middle is a run-scoped editor: one Tiptap instance spans each maximal run of consecutive prose blocks, nodes carry their originating row identity, and the editor writes per-row updates. Caret, selection and Cmd+Z then behave as one document <em>within prose</em>, which is exactly the behaviour asked for, at a fraction of the risk. Across a non-prose block (a sheet, a chart, a plate map) traversal stays block-to-block, as it must — no editor can put a caret inside a gel image.</li>
+  <li><strong>The Tiptap Notion-like template is a reference, not a dependency.</strong> Its production use requires a paid Start plan; its collaboration is Tiptap Cloud over Yjs, which contradicts two written decisions here (PostgreSQL is the only authority for scientific state; Liveblocks is the realtime substrate with no canonical content in rooms); its node set (maths, emoji, mentions, images, AI) exceeds the closed <code>rich_text</code> payload contract; and Tiptap’s own docs still recommend React 18 while this repo is on React 19.2. Copy the free MIT pieces that fit; do not import the template.</li>
+  <li><strong>The genuine extensibility problem is not the editor — it is that one block type is declared in eight places.</strong> Adding a type today means touching the <code>BlockType</code> union, <code>KNOWN_BLOCK_TYPES</code>, the <code>chk_blocks_type</code> migration, the validator map, the picker catalogue, two <code>switch</code> statements, <code>defaultPayloadFor</code>, and the editable/wide sets. A single block registry is the change that makes Part A and every future block cheap. <span class="chip ok">Do this first</span></li>
+  <li><strong>ReUI was already adopted here once, and then deleted.</strong> The registry alias is configured, an ESLint exception is still reserved for it, and <code>src/components/reui/**</code> no longer exists — it was removed alongside the retirement of the legacy-shell routes <span class="ev">(<code>38b9e47a</code>-era work; <code>UI_PORT.md:189-191</code>)</span>. So Part B is not “should we adopt ReUI”, it is “what is the bar for the second attempt”.</li>
+  <li><strong>ReUI’s best fit is generic UI, and its worst fit is this repo’s scientific surfaces — so the sweep needs a comparative method, not a preference.</strong> The agreed default is: if ReUI has a component for the job, evaluate it. An A/B harness (§4.5) renders ours and theirs on identical data with a fixed behavioural checklist, so “theirs is better” becomes evidence. Two exclusions are already decided: the sheet grid stays <code>@sheetbase-labs/sheetbase-table</code> (ADR-0048), and the figure renderers stay in-house. Data grids and table framing are the first targets, and both need TanStack Table <strong>v9</strong> — decided in scope — against the current <strong>v8.21.3</strong>.</li>
+</ol>
+
+<h2 id="today">2. What is actually there today</h2>
+
+<h3>2.1 The notebook is a typed, ordered block list</h3>
+
+<table>
+  <caption>Canonical model, with evidence</caption>
+  <thead><tr><th>Concern</th><th>Current authority</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td>The notebook</td><td>Not a table: a record’s notebook <em>is</em> its ordered <code>api.blocks</code> rows</td><td class="ev">ADR-0015:171-177; <code>src/db/schema.ts:1007-1046</code></td></tr>
+    <tr><td>Payload</td><td>JSONB, validated at the application boundary per <code>(type, payload_schema_version)</code>; the DB stores opaque JSONB plus <code>chk_blocks_type</code> and per-type triggers</td><td class="ev"><code>src/lib/blocks/index.ts</code>; <code>drizzle/0024</code>, <code>0098</code>, <code>0120</code></td></tr>
+    <tr><td>Ordering</td><td>Fractional <code>order</code> (real), server-authoritative via <code>move_block</code>, with rebalance when the gap closes</td><td class="ev"><code>src/lib/notebook-mutations.ts:188-217</code></td></tr>
+    <tr><td>Concurrency</td><td>Three independent version counters: block content (<code>blocks.version</code>), block structure (<code>records.structure_version</code>), metadata (<code>metadata_version</code>); stale writes fail closed as <code>SB001</code></td><td class="ev">ADR-0015:179-190; <code>drizzle/0010</code>, <code>0011</code></td></tr>
+    <tr><td>Evidence</td><td>Submit writes one immutable revision: <code>metadata_snapshot</code> + <code>block_snapshot</code> + <code>canonical_snapshot</code>, SHA-256 digest over a canonicalised envelope</td><td class="ev"><code>src/db/schema.ts:1248-1290</code>; <code>drizzle/0289</code>, <code>0037</code></td></tr>
+    <tr><td>Frozen read</td><td>Replays JSON from the snapshot; never a live read; rendered React, never HTML</td><td class="ev"><code>src/lib/revision-document.ts</code>; ADR-0025:52-55</td></tr>
+    <tr><td>Realtime</td><td>Liveblocks: presence, threaded comments, notifications. No CRDT, no canonical content in rooms</td><td class="ev"><code>src/lib/collaboration/liveblocks.config.ts:1-12</code>; <code>docs/subsystems/collaboration.md:3-5</code></td></tr>
+  </tbody>
+</table>
+
+<h3>2.2 Tiptap is used for one block type, and only for prose</h3>
+
+<p><code>rich-text-editor.tsx</code> is the only file in <code>src</code> that imports <code>@tiptap/*</code>. It runs StarterKit with blockquote, code block, hard break, horizontal rule, link, strike and trailing-node disabled, headings restricted to levels 2–3, plus Link, Subscript and Superscript, plus two hand-written ProseMirror plugins that project outline anchors and section-collapse classes into the DOM without ever writing them to the payload. SSR is deliberately deferred (<code>immediatelyRender:false</code>) and the server renders the validated JSON as React elements instead.</p>
+
+<p>The payload contract is not Tiptap’s: ADR-0025 fixes exactly one shape (<code>{ doc: { type: "doc", content: [...] } }</code>), exactly the node and mark set above, and states that adding a node, mark or attribute requires an explicit payload-schema contract change rather than accepting arbitrary Tiptap JSON.</p>
+
+<h3>2.3 The block list is hand-rolled, and it is large</h3>
+
+<table>
+  <caption>Notebook authoring surface by file, at <code>66e550f2</code></caption>
+  <thead><tr><th>File</th><th class="num">Lines</th><th>What it owns</th></tr></thead>
+  <tbody>
+    <tr><td><code>routes/records/$recordId/notebook.tsx</code></td><td class="num">3,102</td><td>Route, blocks query, mutations, inspector tabs, viewer/editable branch</td></tr>
+    <tr><td><code>notebook/block-editor.tsx</code></td><td class="num">2,961</td><td>15-way per-type editor switch, per-block autosave, autosave footer</td></tr>
+    <tr><td><code>notebook/block-preview.tsx</code></td><td class="num">1,859</td><td>Read-only renderer per type, frozen mode</td></tr>
+    <tr><td><code>notebook/notebook-document.tsx</code></td><td class="num">1,537</td><td>Ordered render, selection, insert/duplicate/delete/undo, DnD reorder, menus, slash dispatch, keyboard model, section collapse</td></tr>
+    <tr><td><code>notebook/rich-text-editor.tsx</code></td><td class="num">625</td><td>Tiptap instance, floating toolbar, slash detection, block-boundary keys</td></tr>
+    <tr><td><code>notebook/use-autosave.ts</code></td><td class="num">439</td><td>Debounce/retry/offline/conflict state machine</td></tr>
+    <tr><td><code>notebook/notebook-block.tsx</code></td><td class="num">248</td><td>Block frame: hover drag handle doubling as menu trigger, hover toolbar</td></tr>
+    <tr><td><code>notebook/block-picker.tsx</code></td><td class="num">162</td><td>The block catalogue (4 groups)</td></tr>
+    <tr><td><code>notebook/slash-command-menu.tsx</code></td><td class="num">152</td><td>Slash listbox</td></tr>
+    <tr><td><code>notebook/add-block-menu.tsx</code></td><td class="num">152</td><td><code>+</code> command palette</td></tr>
+  </tbody>
+</table>
+
+<p>Everything in that table is ours: no library provides block composition, ordering, drag-and-drop, insertion, block focus, the slash menu, the floating toolbar, collapse or autosave. Drag-and-drop is native HTML5 DnD with custom drop indicators, edge auto-scroll and optimistic rollback.</p>
+
+<h3>2.4 Three things the audit turned up that matter more than they look</h3>
+
+<div class="callout risk">
+  <span class="label">Defect-class finding</span>
+  <p><strong>Three block types can be inserted but not edited.</strong> <code>callout</code>, <code>table</code> and <code>metric</code> are offered by the picker and rendered by the preview, but have no <code>BlockEditor</code> case and fall through to <code>UnsupportedEditor</code> <span class="ev">(<code>block-editor.tsx:192-236</code>, <code>:1576-1605</code>)</span>. <code>sheet</code> bypasses the switch entirely and is rendered by the document. A Notion-like authoring surface makes this contradiction visible to the user on day one — you can type <code>/table</code>, get a table, and then not be able to put anything in it.</p>
+</div>
+
+<div class="callout decide">
+  <span class="label">Contract drift</span>
+  <p><strong>The sheet payload has two contracts.</strong> The application validator accepts only <code>{ instanceId, presentation? }</code> <span class="ev">(<code>src/lib/blocks/index.ts:271-310</code>)</span>, while the database trigger additionally permits <code>tableId</code> and <code>templatePlacementId</code> <span class="ev">(<code>drizzle/0120:120-131</code>)</span>. Two writers with two answers is exactly the kind of divergence a registry removes.</p>
+</div>
+
+<div class="callout decide">
+  <span class="label">Evolution gap</span>
+  <p><strong><code>payload_schema_version</code> exists but cannot advance.</strong> The column is real and the validator reads it, but every type accepts version <code>1</code> and only <code>1</code> <span class="ev">(<code>src/lib/blocks/index.ts:137</code>, <code>:944-981</code>)</span>. There is no version-keyed reader and no upcaster, so any payload change is a flag day rather than a migration. If the plan is to be “future-proof”, this is the mechanism that has to exist first.</p>
+</div>
+
+<h3>2.5 A second sheet path still exists</h3>
+
+<p>The notebook’s <code>sheet</code> block embeds a canonical Sheet Instance and renders <code>CanonicalSheetWorkspace</code> over <code>@sheetbase-labs/sheetbase-table</code> (ADR-0048). Separately, the older <code>ScientificSheetBlock</code> and <code>ScientificWorkbookProvider</code> against <code>scientific_tables</code> are still present in <code>src/components/sheet/</code>. The product rules say one canonical path per concept and no shadow persistence <span class="ev">(<code>system-overview.md:114-117</code>, <code>non-goals.md</code>)</span>. This is not Part A’s job, but Part A’s shell must not deepen it, and the plan should name it as pre-existing debt.</p>
+
+<h2 id="parta">3. Part A — replacing the notebook’s editing surface</h2>
+
+<h3 id="brief">3.1 Shape brief</h3>
+
+<table>
+  <tbody>
+    <tr><th>User</th><td>A bench or process-development scientist authoring an experiment record; a reviewer reading a frozen revision</td></tr>
+    <tr><th>Job</th><td>Write the narrative of a run and attach the structured evidence it refers to, in one document, without thinking about block types, versions or save state</td></tr>
+    <tr><th>Object</th><td>The record’s notebook: an ordered set of typed blocks, with <code>rich_text</code> as the prose carrier</td></tr>
+    <tr><th>Desired outcome</th><td>Authoring that feels like one document, where every block the picker offers is fully editable, and where structure changes are as cheap as typing</td></tr>
+    <tr><th>Primary action</th><td>Type. <code>/</code> inserts, the gutter reorders, Enter continues the flow</td></tr>
+    <tr><th>Consequence</th><td>Each keystroke region saves through the existing per-block optimistic path; nothing about evidence, submission or locks changes</td></tr>
+    <tr><th>Non-goals</th><td>Nested pages; arbitrary block nesting; a second document model; replacing the sheet grid; CRDT text co-editing; a Notion visual identity</td></tr>
+    <tr><th>Reachable states</th><td>Empty, drafting, saving, conflict, offline, validation error, read-only viewer, locked, archived, frozen revision</td></tr>
+  </tbody>
+</table>
+
+<h3 id="notion">3.2 What “one document” means, concretely</h3>
+
+<p>The owner’s statement of the problem: the editor is janky and does not feel like one document; it is blocky; the blocks must stay because they carry the information; and from the user’s point of view it should feel like Word — put the caret anywhere and type. That is a testable specification, so here it is as one.</p>
+
+<table>
+  <caption>Acceptance criteria for the document feel. Each is observable; none of them requires moving canonical state.</caption>
+  <thead><tr><th>#</th><th>Behaviour</th><th>Today</th><th>Required</th></tr></thead>
+  <tbody>
+    <tr><td>D1</td><td>Click anywhere in the prose and type; the caret lands where clicked</td><td>True inside one prose block; near a block boundary the click lands in the wrong block or in nothing</td><td>True across the whole prose run, including the boundary line between two rows</td></tr>
+    <tr><td>D2</td><td>↑ / ↓ move the caret line by line across block boundaries</td><td>Arrow at a boundary is intercepted by the shell and moves <em>focus</em> to the next block</td><td>Arrow moves the caret continuously, as if the rows were one text</td></tr>
+    <tr><td>D3</td><td>Backspace at the start of a paragraph joins it to the one above</td><td>At a row boundary, Backspace deletes the block (after a confirmation)</td><td>Joins the text; the row boundary disappears only when it is safe to remove (see A3’s rules)</td></tr>
+    <tr><td>D4</td><td>Selection and copy can span paragraphs in different rows</td><td>Selection cannot cross a row</td><td>Selection spans the run</td></tr>
+    <tr><td>D5</td><td>One Cmd/Ctrl+Z undoes the last edit, wherever it was</td><td>Undo is per block; the stack resets when focus moves between rows</td><td>One undo stack per run; structural operations undo through the shell</td></tr>
+    <tr><td>D6</td><td>No card chrome, title row or gap between two adjacent prose paragraphs</td><td>Every <code>rich_text</code> row renders as its own framed card</td><td>Continuous column; chrome only where a block genuinely is a distinct object</td></tr>
+    <tr><td>D7</td><td>Paste text with newlines across a run</td><td>Paste is contained within one block</td><td>Paste flows across the run, creating rows only when a boundary is needed</td></tr>
+    <tr><td>D8</td><td>Across a non-prose block (sheet, chart, plate map), traversal is block-to-block</td><td>Already block-to-block</td><td>Unchanged — a caret cannot live inside a chart, and Notion has the same behaviour around tables and images</td></tr>
+  </tbody>
+</table>
+
+<p>D1–D7 are the difference between “blocky” and “one document”, and all seven are achievable while the rows stay canonical — D1–D5 need the run-scoped editor (A3), D6–D7 need the shell (A2). D8 is the honest boundary of the promise: the notebook is a document <em>with</em> objects embedded in it, not a text file.</p>
+
+<h4>Behaviour-by-behaviour, with what exists and what is missing</h4>
+
+<table>
+  <caption>Against the Notion vocabulary, which is where the current surface was aiming</caption>
+  <thead><tr><th>Notion behaviour</th><th>Here today</th><th>Gap</th></tr></thead>
+  <tbody>
+    <tr><td>One continuously scrolling document</td><td>Adjacent <code>rich_text</code> blocks each render an independent card with a title row and chrome</td><td><span class="chip now">Real</span> prose runs read as a stack of cards, not one page</td></tr>
+    <tr><td>Gutter drag handle on every block, visible on hover</td><td>One handle per block frame; click also opens the block menu</td><td><span class="chip next">Partial</span> exists, but sits outside the text flow and is per-<em>block</em>, not per-paragraph</td></tr>
+    <tr><td>Slash menu to insert anything</td><td>Exists, grouped, with aliases and keyboard selection</td><td><span class="chip ok">Done</span></td></tr>
+    <tr><td>Floating format toolbar on selection</td><td>Exists, hand-positioned from selection rects (not Tiptap’s BubbleMenu)</td><td><span class="chip ok">Done</span></td></tr>
+    <tr><td>Placeholder text in an empty block</td><td>No Placeholder extension; only a min-height and a document-level empty CTA</td><td><span class="chip now">Real</span> small, cheap, high perceived value</td></tr>
+    <tr><td>Markdown input rules (<code>#</code>, <code>-</code>, <code>&gt;</code>, <code>```</code>)</td><td>StarterKit input rules are active for the nodes that survive its disabled list</td><td><span class="chip later">Mostly there</span> constrained by the closed schema</td></tr>
+    <tr><td>Select text across blocks</td><td>DOM focus only; no cross-block selection</td><td><span class="chip next">Target</span> within a prose run, via the run-scoped editor (A3)</td></tr>
+    <tr><td>Undo across edits</td><td>Tiptap history inside one block; delete is undoable through the document’s own affordance</td><td><span class="chip next">Target</span> one undo stack per prose run (A3); structural undo in the shell (A2)</td></tr>
+    <tr><td>Keyboard-centric block manipulation</td><td>Alt+↑/↓ reorder, Ctrl/Cmd+↑/↓ move focus, Alt+Enter insert below, Enter/Backspace at boundaries</td><td><span class="chip ok">Done</span> genuinely good, and must be preserved</td></tr>
+    <tr><td>Toggles, dividers, quotes, code, callouts in the flow</td><td><code>callout</code> is a separate block type rendered read-only; dividers and quotes are excluded by ADR-0025</td><td><span class="chip no">Decision</span> schema widening is an explicit contract change</td></tr>
+    <tr><td>Drag-and-drop reorder</td><td>Native HTML5 DnD, custom indicators, auto-scroll, optimistic reorder with rollback</td><td><span class="chip next">Replaceable</span> dnd-kit via ReUI Sortable is better and is Part B’s first tie-in</td></tr>
+  </tbody>
+</table>
+
+<h3 id="options">3.3 Three architecture options</h3>
+
+<div class="card">
+  <h4>Option A1 — Shell plus run-scoped editor, rows kept canonical <span class="chip ok">Chosen</span></h4>
+  <p>Keep <code>api.blocks</code> canonical and per-block optimistic versions exactly as they are. Build the missing <em>document</em> behaviour on top in two steps: (1) a shell that makes the surface continuous — unified gutter rail, one reorder mechanism (dnd-kit), placeholders, block-to-block traversal that reads as one page; then (2) a <strong>run-scoped editor</strong>, where one Tiptap instance covers a maximal run of consecutive prose blocks, so caret, selection and undo span the run as one text flow while the rows underneath stay individually versioned and individually addressable.</p>
+  <p><strong>Cost:</strong> moderate for step 1, moderate-to-large for step 2. <strong>Buys:</strong> the felt difference between “a form with blocks” and “a document”, without a model change. Step 1 is a strict prerequisite of step 2, so nothing is discarded.</p>
+</div>
+
+<div class="card">
+  <h4>Option A2 — One root ProseMirror document as the source of truth</h4>
+  <p>Every block becomes a node in a single Tiptap document, and the ordered list is derived from the document rather than the reverse. This is what Notion actually is, and what the Tiptap template assumes.</p>
+  <p><strong>What it breaks unless re-architected:</strong> canonical row identity for comments and signatures; per-block optimistic concurrency; per-block revision diff; frozen sheet-evidence pinning; digest canonicalisation of <code>payload.frozen.revisionId</code>; unknown-type preservation as readable placeholders; per-block offline drafts. Persisting root PM JSON as canonical would also violate the explicit “no second model / no shadow persistence” rules. The alternative — a bidirectional projection with per-block reconciliation — is correct but is a rewrite of the save path, the diff engine and the anchor model.</p>
+  <p><strong>Verdict:</strong> <span class="chip no">Reject</span> — A1 step 2 delivers the same user-visible result for prose, which is where the requirement actually lives.</p>
+</div>
+
+<div class="card">
+  <h4>Option A3 — Adopt Tiptap’s Notion-like template</h4>
+  <p>A prebuilt block editor with slash commands, drag-and-drop, floating toolbar, emoji, mentions, maths, image upload and AI.</p>
+  <ul>
+    <li><strong>Licence:</strong> production use requires at least Tiptap’s Start plan; it is not an open-source drop-in.</li>
+    <li><strong>Collaboration:</strong> Tiptap Cloud over Yjs, requiring <code>TIPTAP_COLLAB_*</code> JWTs. That contradicts ADR-level decisions here: PostgreSQL is the only authority for scientific state, and Liveblocks already holds presence and comments with no canonical content.</li>
+    <li><strong>Runtime risk:</strong> Tiptap’s own docs say the UI components “work best with React 18” and React 19 support is in progress; this repo is React 19.2.</li>
+    <li><strong>Fit:</strong> its node set exceeds the closed <code>rich_text</code> contract and its visual language would have to be rebuilt against this repo’s tokens and design-parity gate anyway.</li>
+  </ul>
+  <p><strong>Verdict:</strong> use as a feature reference and copy specific MIT-licensed extensions and UI components; do not import the template.</p>
+</div>
+
+<table>
+  <caption>Option comparison on the constraints that decide it</caption>
+  <thead><tr><th>Constraint</th><th>A1 shell</th><th>A2 root doc</th><th>A3 template</th></tr></thead>
+  <tbody>
+    <tr><td>Preserves block identity for anchors, diffs, signatures</td><td><span class="chip ok">Yes</span></td><td><span class="chip no">No</span></td><td><span class="chip no">No</span></td></tr>
+    <tr><td>Preserves per-block optimistic concurrency</td><td><span class="chip ok">Yes</span></td><td><span class="chip no">No</span></td><td><span class="chip no">No</span></td></tr>
+    <tr><td>Keeps Postgres as the only authority</td><td><span class="chip ok">Yes</span></td><td><span class="chip ok">Yes</span></td><td><span class="chip no">No</span></td></tr>
+    <tr><td>Respects the closed rich-text payload contract</td><td><span class="chip ok">Yes</span></td><td><span class="chip no">No</span></td><td><span class="chip no">No</span></td></tr>
+    <tr><td>Reuses the existing 11k-line surface rather than discarding it</td><td><span class="chip next">Mostly</span></td><td><span class="chip no">No</span></td><td><span class="chip no">No</span></td></tr>
+    <tr><td>Cross-block selection and unified undo</td><td><span class="chip ok">Within prose runs</span></td><td><span class="chip ok">Yes</span></td><td><span class="chip ok">Yes</span></td></tr>
+    <tr><td>Licence and vendor cost</td><td><span class="chip ok">None</span></td><td><span class="chip ok">None</span></td><td><span class="chip no">Paid plan</span></td></tr>
+    <tr><td>Effort</td><td>Moderate</td><td>Very large</td><td>Large plus unknown</td></tr>
+  </tbody>
+</table>
+
+<h3 id="target">3.4 Recommended target architecture</h3>
+
+<figure>
+<svg viewBox="0 0 940 430" role="img" aria-label="Layered architecture: document shell and block registry above the unchanged canonical block model and evidence layer">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="var(--faint)"/>
+    </marker>
+  </defs>
+  <style>
+    .bx{fill:var(--surface);stroke:var(--border-strong);stroke-width:1.2;rx:6}
+    .new{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.2}
+    .keep{fill:var(--success-soft);stroke:var(--success);stroke-width:1.2}
+    .t{fill:var(--fg);font:600 12.5px ui-sans-serif,system-ui,sans-serif}
+    .s{fill:var(--muted);font:11px ui-sans-serif,system-ui,sans-serif}
+    .l{stroke:var(--faint);stroke-width:1.2;fill:none;marker-end:url(#ar)}
+    .ln{fill:var(--muted);font:10.5px ui-sans-serif,system-ui,sans-serif}
+  </style>
+
+  <rect class="new" x="20" y="18" width="420" height="92" rx="6"/>
+  <text class="t" x="36" y="42">Document shell (new)</text>
+  <text class="s" x="36" y="62">Gutter rail · continuous prose run · placeholder ·</text>
+  <text class="s" x="36" y="78">structural undo · dnd-kit reorder · selection/focus model</text>
+  <text class="s" x="36" y="98">Owns presentation order only — never canonical order</text>
+
+  <rect class="new" x="480" y="18" width="440" height="92" rx="6"/>
+  <text class="t" x="496" y="42">Block registry (new, single source of truth per type)</text>
+  <text class="s" x="496" y="62">type · picker metadata · default payload · validator ·</text>
+  <text class="s" x="496" y="78">version readers · editor · preview · measure · capability flags</text>
+  <text class="s" x="496" y="98">Replaces 8 scattered declarations of the same type</text>
+
+  <rect class="bx" x="20" y="146" width="900" height="70" rx="6"/>
+  <text class="t" x="36" y="170">Existing authoring components (kept, re-pointed through the registry)</text>
+  <text class="s" x="36" y="190">rich-text-editor.tsx (Tiptap) · per-type editors · per-type previews · slash menu · floating toolbar · autosave state machine · conflict banner</text>
+
+  <rect class="keep" x="20" y="252" width="900" height="72" rx="6"/>
+  <text class="t" x="36" y="276">Canonical model (unchanged)</text>
+  <text class="s" x="36" y="296">api.blocks rows · payload JSONB · payload_schema_version · fractional order · per-block version · records.structure_version</text>
+  <text class="s" x="36" y="314">validateBlock at the boundary · chk_blocks_type + per-type DB triggers · insert/move/delete/update RPCs</text>
+
+  <rect class="keep" x="20" y="360" width="900" height="56" rx="6"/>
+  <text class="t" x="36" y="384">Evidence and interaction layer (unchanged)</text>
+  <text class="s" x="36" y="402">revisions + digest envelope · frozen reconstruction · signature/lock/amendment · comments and presence (Liveblocks) · offline drafts</text>
+
+  <path class="l" d="M230 110 L230 146"/>
+  <path class="l" d="M700 110 L700 146"/>
+  <path class="l" d="M230 216 L230 252"/>
+  <path class="l" d="M700 216 L700 252"/>
+  <path class="l" d="M470 324 L470 360"/>
+  <text class="ln" x="240" y="134">renders through</text>
+  <text class="ln" x="710" y="134">resolves types via</text>
+  <text class="ln" x="240" y="240">per-block mutations only</text>
+  <text class="ln" x="710" y="240">validates before save</text>
+  <text class="ln" x="480" y="348">submit / freeze / sign / comment</text>
+</svg>
+<figcaption>The new layers are additive: the shell and the registry sit above a canonical model and an evidence layer that do not change. Arrows are the only coupling points, which is what keeps the work reversible.</figcaption>
+</figure>
+
+<h4>Why a registry is the highest-value change</h4>
+
+<p>One descriptor per block type replaces eight independent declaration sites. The invariant is enforceable by test: every value in <code>chk_blocks_type</code> has exactly one registry entry, and every registry entry has a migration.</p>
+
+<table>
+  <caption>Registry descriptor fields and the sites they absorb</caption>
+  <thead><tr><th>Field</th><th>Replaces</th></tr></thead>
+  <tbody>
+    <tr><td><code>type</code>, <code>label</code>, <code>description</code>, <code>icon</code>, <code>aliases</code>, <code>group</code></td><td><code>block-picker.tsx</code> catalogue; slash menu and <code>+</code> palette read the same source</td></tr>
+    <tr><td><code>validate(payload, version)</code></td><td><code>src/lib/blocks/index.ts</code> validator map; becomes version-keyed so a payload can evolve</td></tr>
+    <tr><td><code>defaultPayload()</code></td><td><code>defaultPayloadFor</code> in <code>notebook-mutations.ts</code></td></tr>
+    <tr><td><code>Editor</code>, <code>Preview</code></td><td><code>BlockEditorBody</code> switch; <code>renderPayload</code> switch</td></tr>
+    <tr><td><code>measure</code> (<code>prose</code> | <code>wide</code>)</td><td><code>WIDE_BLOCK_TYPES</code> and <code>blockMeasure</code></td></tr>
+    <tr><td><code>capabilities</code> (<code>editable</code>, <code>draggable</code>, <code>offlineWritable</code>, <code>collapsible</code>)</td><td><code>EDITABLE_TYPES</code>, the ad-hoc <code>editable</code> checks, and the sheet/action-block special cases in the document</td></tr>
+    <tr><td><code>summary(payload)</code></td><td><code>summarizePayload</code> in <code>block-editor.tsx</code></td></tr>
+    <tr><td><code>tiptapNode?</code> (reserved)</td><td>Nothing yet. Present so a future node-backed block has one place to declare serialisation rather than a new mechanism.</td></tr>
+  </tbody>
+</table>
+
+<h4>A2 — Making the surface continuous</h4>
+
+<p>The visible gap is that consecutive prose blocks read as separate cards. Treat a maximal run of consecutive <code>rich_text</code> blocks as one <em>prose run</em>: one continuous column, no per-block chrome for interior members, no gap between paragraphs, insertion and traversal that behave as though the rows were not there. This is rendering and keyboard-model work with no payload, migration or evidence consequence, and it is the highest-yield item in Part A. It satisfies D6–D7 and most of the perceived jank on its own.</p>
+
+<h4>A3 — The run-scoped editor, and why it is the part that actually feels like Word</h4>
+
+<p>Continuity of <em>appearance</em> does not give continuity of <em>text</em>. As long as each row is its own Tiptap instance, the caret cannot cross a boundary, selection cannot span rows, and undo resets between them — which is precisely the jank being reported. The fix is to give one Tiptap instance a whole run, while the rows remain the storage:</p>
+
+<table>
+  <caption>The run-scoped editor contract</caption>
+  <thead><tr><th>Concern</th><th>Contract</th></tr></thead>
+  <tbody>
+    <tr><td>Editor scope</td><td>One Tiptap instance per maximal run of consecutive <code>rich_text</code> rows. A non-prose block, a heading of another block type, or any structural break ends the run.</td></tr>
+    <tr><td>Row identity inside the document</td><td>Each node carries the id of the row it came from (a node attribute, set by a plugin on load and on edit — the same technique already used here to project outline anchors). Identity lives in the editor, never in the payload, exactly as ADR-0025 requires.</td></tr>
+    <tr><td>Loading</td><td>Concatenate the runs’ payload docs in <code>order</code>, stamping each node with its source row id.</td></tr>
+    <tr><td>Writing</td><td>On change, group nodes by their row id and write <strong>only the rows whose content changed</strong>, each with its own <code>p_expected_version</code>. Rows are still updated through <code>update_block_payload</code>; no new write path, no bulk endpoint.</td></tr>
+    <tr><td>New nodes</td><td>Text typed at the end of a row joins that row. A new node created by Enter attaches to the current row unless the writer decides the row is over its size guidance, in which case it becomes a new row after it (a structural insert, as today).</td></tr>
+    <tr><td>Boundary removal</td><td>Backspace-join may remove a row boundary. The row is deleted through <code>delete_block</code> only when it carries <strong>no anchors that would be orphaned</strong> — no comment thread, no signature-relevant reference. Otherwise the row is kept and reduced to an empty paragraph. This is the rule that keeps D3 from silently destroying evidence.</td></tr>
+    <tr><td>Conflicts</td><td>Unchanged in principle, finer in practice: a stale row inside a run fails its own version check and surfaces the existing conflict banner for that row, rather than the whole run failing.</td></tr>
+    <tr><td>Offline</td><td>Drafts remain per row in the device store; the run is assembled from drafts plus server state on load.</td></tr>
+    <tr><td>Frozen revisions</td><td>Untouched. The frozen path reads row snapshots and never mounts an editor.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout risk">
+  <span class="label">The one genuinely hard part</span>
+  <p>Split boundaries must be stable enough that a run can be re-split into the same rows it came from. The design above makes identity explicit (node attributes) rather than positional, which is what makes D3, D4 and D7 tractable — but it is the part of this plan most likely to hide surprises, and it deserves its own spike before A3 is estimated with confidence. If the spike fails, A2 still ships the appearance and the plan stops there without waste.</p>
+</div>
+
+<h3 id="awork">3.5 Part A workstreams</h3>
+
+<table>
+  <caption>Each workstream has one observable exit. Bands are S/M/L, not dates.</caption>
+  <thead><tr><th>#</th><th>Workstream</th><th>Band</th><th>Exit criterion (observable)</th></tr></thead>
+  <tbody>
+    <tr><td>A1</td><td><strong>Block registry</strong> — one descriptor per type; all eight declaration sites re-pointed; registry↔<code>chk_blocks_type</code> parity test; version-keyed validators</td><td>M</td><td>Adding a hypothetical block type requires one descriptor plus one migration, demonstrated by a test that fails if any type is declared outside the registry</td></tr>
+    <tr><td>A2</td><td><strong>Continuous surface</strong> — prose runs render as one column with no interior chrome; unified gutter rail; one reorder mechanism (dnd-kit); placeholders; block-to-block traversal; structural undo</td><td>M–L</td><td>Criteria D6–D7 pass; the existing authoring browser test still passes; drag, keyboard and menu routes to reorder all still work; delete-then-undo restores a block at its exact neighbours</td></tr>
+    <tr><td>A3</td><td><strong>Run-scoped editor</strong> — one Tiptap instance per prose run; node-level row identity; per-row writer with expected versions; boundary-removal rules that never orphan an anchor. Starts with a spike</td><td>L</td><td>Criteria D1–D5 pass in a browser test: caret and arrow keys cross row boundaries, selection spans rows, Backspace joins two paragraphs and one Cmd/Ctrl+Z restores them, and after the edit exactly the changed rows have new versions</td></tr>
+    <tr><td>A4</td><td><strong>Editor closure</strong> — every picker entry is editable end-to-end (<code>callout</code>, <code>table</code>, <code>metric</code> given editors, or removed from the picker); sheet editor path folded into the registry</td><td>M</td><td>A test walks the picker: for each entry, insert then edit then reload, and the payload round-trips; no entry resolves to <code>UnsupportedEditor</code></td></tr>
+    <tr><td>A5</td><td><strong>Optional prose schema v2</strong> — divider, blockquote, code block and/or in-flow callout, via an explicit ADR-0025 amendment and <code>payload_schema_version</code> 2 with readers</td><td>M</td><td>A version-1 payload still validates and renders after the change; a version-2 payload renders in the frozen-revision path from the snapshot alone <span class="chip next">Open — decision 4</span></td></tr>
+    <tr><td>A6</td><td><strong>Invariant harness</strong> — browser tests for anchors, freeze, submit, lock, comment anchor survival after reorder; print output</td><td>S–M</td><td>Reorder a commented block, then confirm the comment anchor, outline link and printed document all still resolve</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Order:</strong> A1 first — A2 and A4 both consume it. A2 before A3, which is a strict extension of it. A6 runs alongside A2 so the continuity work cannot quietly break an anchor. A5 stays last and only if decision 4 says yes.</p>
+
+<h2 id="partb">4. Part B — ReUI as a component supplier</h2>
+
+<div class="callout info">
+  <span class="label">Read with §11</span>
+  <p>Revision 5 (<a href="#verify">below</a>) re-checked every claim in this part against the current tree and corrected nine of them — the registry pin, the ESLint line range, the catalogue counts, the size of the TanStack v9 migration, four file sizes, the Empty row and §10’s commit note — and added four findings that change the order of work. Where this part and <a href="#corrections">§11.1</a> disagree, §11 is the authority. The policy, the bar and the exclusions below are unchanged.</p>
+</div>
+
+<h3 id="reui-status">4.1 ReUI’s status in this repo</h3>
+
+<table>
+  <thead><tr><th>Fact</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td>The registry alias is configured as <code>@reui → https://reui.io/r/radix-nova/{name}.json</code></td><td class="ev"><code>components.json:21-23</code></td></tr>
+    <tr><td>An ESLint exception is still reserved for “the reui Event Calendar … a copy-and-own third-party component”</td><td class="ev"><code>eslint.config.js:19-36</code></td></tr>
+    <tr><td>No ReUI component exists in the tree; <code>src/components/reui/**</code> is gone, so that exception now matches nothing</td><td class="ev">verified by glob at <code>66e550f2</code></td></tr>
+    <tr><td>ReUI was adopted and then deleted: “the unused <code>reui</code> kit are deleted” alongside the retirement of <code>/admin</code>, <code>/configure</code> and <code>/planner</code></td><td class="ev"><code>UI_PORT.md:189-193</code>; deletion commit <code>9ced9f6d</code></td></tr>
+    <tr><td>Prior adoption commits exist: “replace custom calendar grid with reui.io Event Calendar” and “add virtualised grid and shared filters”</td><td class="ev"><code>3b0951fd</code>, <code>1b915579</code></td></tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  <span class="label">Read this correctly</span>
+  <p>The earlier removal was a <em>route-retirement</em> consequence, not a quality verdict. ReUI’s event calendar went out with the legacy-shell screens it was used on. There is no recorded decision that ReUI was unsuitable, and there is no recorded decision that it worked well either. The second attempt needs a stated bar, which is what §4.4 provides.</p>
+</div>
+
+<h3>4.2 What ReUI is, and how it installs here</h3>
+
+<ul>
+  <li><strong>Not an npm package.</strong> Items are installed with the shadcn CLI from a registry namespace: <code>npx shadcn@latest add @reui/&lt;name&gt;</code>. You own the source afterwards.</li>
+  <li><strong>Two primitive builds.</strong> Every item ships as Base UI and as Radix UI; the style token is <code>{base}-{variant}</code>, so <code>radix-nova</code> (current pin) and <code>base-nova</code> are both valid.</li>
+  <li><strong>Scale.</strong> 27 custom primitives and 1,264 free examples across 87 categories; 648 Pro blocks requiring a licence key; 667 icons in 4 styles under an Ultimate licence.</li>
+  <li><strong>Class merging.</strong> Newer items import <code>cn</code> from the <code>cn</code> package rather than the repo’s local <code>#/lib/utils</code> helper, so an adoption introduces that dependency.</li>
+  <li><strong>Relevant to the notebook:</strong> the free Sortable primitive is dnd-kit based, which is exactly the replacement for the hand-rolled HTML5 drag in <code>notebook-document.tsx</code>.</li>
+</ul>
+
+<h3>4.3 The variant decision this repo has to make</h3>
+
+<p>There are two UI generations in the tree, with a test enforcing the direction of travel:</p>
+
+<table>
+  <thead><tr><th>Kit</th><th>Primitives</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td><code>#/components/ui/**</code></td><td>Radix (<code>radix-ui</code>), plus <code>cmdk</code>, <code>sonner</code>, <code>react-day-picker</code></td><td>Legacy; now backs <code>/foundations</code> and <code>/docs/$name</code> only</td></tr>
+    <tr><td><code>#/components/v3/ui/**</code></td><td>Base UI (<code>@base-ui/react</code>)</td><td>Forward; the app-3 ported shell and every ported screen compose it</td></tr>
+  </tbody>
+</table>
+
+<p>An adoption guard blocks app code from importing the legacy kit wherever a v3 twin exists. But the written law still says the opposite: DESIGN.md states that all components are “repository-owned shadcn-style components built on Radix primitives”, and ADR-0047 describes re-implementation “on the existing shadcn/Radix/Tailwind stack”.</p>
+
+<div class="callout decide">
+  <span class="label">Decision</span>
+  <p>Pinning <code>@reui</code> to <code>radix-nova</code> would entrench the kit the repo is migrating away from. Pinning it to <code>base-nova</code> matches shipped reality but contradicts two written documents. Either way the written law must be corrected in the same PR — a one-line DESIGN.md/ADR-0047 amendment — because leaving the contradiction in place guarantees inconsistent future choices. <strong>Recommendation:</strong> <code>base-nova</code> (or <code>base-mira</code> for compact density), plus the amendment. See decision 1.</p>
+</div>
+
+<h3>4.4 The bar for adopting a ReUI component</h3>
+
+<p><strong>Agreed policy (owner, 2026-10-15): where ReUI has a component for a job we hand-rolled, we evaluate it.</strong> The catalogue is the starting list, not a shortlist; tables and data grids are called out as the first targets, and anything scientific is excluded up front. What follows is how “evaluate” stays honest rather than becoming a preference.</p>
+
+<p>Two repo rules make this more than a taste question: new screens must compose existing components before introducing new primitives, and the design-parity gate accepts a screen only when it matches its design render. So an adoption is an exception, and each one must carry a reason. Proposed bar — all five must hold:</p>
+
+<ol>
+  <li>The component serves a <strong>generic UI job</strong> (grid, sort, upload, steps, dates, empty, tree), never a scientific or domain surface.</li>
+  <li>The hand-rolled version it replaces is <strong>materially worse</strong>, not merely different: a named behaviour is missing, or the maintenance burden is demonstrably ours.</li>
+  <li>It is <strong>restyled to Sheetbase tokens</strong> — no palette classes, no hex, no second design language — and passes the colour check, axe and the adoption guard.</li>
+  <li>It <strong>replaces</strong> the old component in the same change. No parallel implementations.</li>
+  <li>Where the screen is in the design set, its parity row is updated; where it is not, a story plus a browser test stands in.</li>
+</ol>
+
+<h3 id="candidates">4.5 Adoption candidates, ranked</h3>
+
+<table>
+  <caption>Tier 1 = do these. Tier 2 = worth doing opportunistically. Tier 3 = no. Sizes are the bespoke surface being replaced, not the adoption cost.</caption>
+  <thead><tr><th>ReUI item</th><th>Replaces here</th><th>Size of what goes</th><th>Why it is better</th><th>Tier</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Sortable</strong> (dnd-kit)</td><td>Hand-rolled HTML5 DnD in <code>notebook-document.tsx</code>; also list reordering</td><td>~90 lines of drag plumbing inside a 1,537-line file</td><td>Pointer and keyboard sensors, touch, vertical/nested layouts, maintained library rather than bespoke indicator and auto-scroll logic</td><td><span class="chip ok">1</span></td></tr>
+    <tr><td><strong>Data Grid</strong></td><td><code>scientific/data-table.tsx</code> (308), <code>v3/inventory/list.tsx</code> (500), <code>v3/models/record-model-records.tsx</code> (248), and the dataset rows/tables that re-implement the same chrome</td><td>≈1,100+ lines across four surfaces</td><td>Sorting, filters, pagination, column controls, pinning, virtualisation, infinite scroll, cell selection with clipboard, inline editing, tree rows, footer aggregates — all of it currently rebuilt locally per screen</td><td><span class="chip ok">1</span><span class="chip next">needs v9</span></td></tr>
+    <tr><td><strong>Frame</strong> — <span class="chip ok">called out by owner</span></td><td>Table framing and preview framing: the wrappers around tabular and embedded content, including the notebook’s own <code>RepresentationFrame</code> chrome and the per-screen table cards</td><td>repeated per screen</td><td>A defined content frame with a title/description/action slot, instead of each table and preview inventing its own header row. Pair it with the Data Grid so a table screen is Frame + Data Grid + Pagination rather than three bespoke pieces</td><td><span class="chip ok">1</span></td></tr>
+    <tr><td><strong>File Upload</strong></td><td>Upload and attachment affordances inside <code>import-flow.tsx</code> (1,312) and the file block</td><td>part of 1,312</td><td>Drag-drop, multi-file, progress states, error recovery. Note: transport, validation and storage policy stay ours</td><td><span class="chip ok">1</span></td></tr>
+    <tr><td><strong>Timeline</strong></td><td>History and audit rows across record/sample/dataset history panels</td><td>repeated per panel</td><td>One chronological primitive with a defined data shape instead of per-screen row layouts</td><td><span class="chip ok">1</span></td></tr>
+    <tr><td><strong>Stepper</strong></td><td>Multi-step flows: import mapping, wizard-style dialogs</td><td>part of <code>import-flow.tsx</code></td><td>44 examples of step machinery; the flow’s <em>steps</em> stay ours, the chrome stops being</td><td><span class="chip ok">1</span></td></tr>
+    <tr><td><strong>Empty</strong></td><td><code>ui/empty.tsx</code> (42), <code>v3/ui/empty-state.tsx</code> (37), plus per-screen ad-hoc empty states</td><td>small each, many times</td><td>20 documented empty patterns; consistency is the win, not code volume</td><td><span class="chip ok">1</span></td></tr>
+    <tr><td><strong>Event Calendar</strong></td><td>Bespoke schedule grid and booking UI</td><td><code>book-dialog.tsx</code> (294) plus grid</td><td>Month/week/day/agenda, external CRUD contract, time zones. Previously adopted here and removed only with route retirement</td><td><span class="chip next">2</span></td></tr>
+    <tr><td><strong>Date Selector / Time Picker</strong></td><td><code>react-day-picker</code> wrapper plus bespoke date+time inputs</td><td><code>ui/calendar.tsx</code> (69) plus parts of <code>book-dialog.tsx</code></td><td>Range/period semantics, i18n labels, timezone-aware display in one primitive</td><td><span class="chip next">2</span></td></tr>
+    <tr><td><strong>Combobox / Autocomplete / Cascader</strong></td><td><code>ui/searchable-select.tsx</code> (142), <code>v3/record-picker/record-picker.tsx</code> (333), <code>scientific/record-picker.tsx</code> (229)</td><td>≈700 lines, three implementations of one job</td><td>Async lookup, grouping, drill-down. Careful: the record picker carries scientific pick semantics that must be preserved, not replaced</td><td><span class="chip next">2</span></td></tr>
+    <tr><td><strong>Tree</strong></td><td>Project folder navigation; <code>ui/tree.tsx</code></td><td>small</td><td>Hierarchy primitive with keyboard semantics fixed</td><td><span class="chip next">2</span></td></tr>
+    <tr><td><strong>Number Field</strong></td><td>Quantity/volume inputs in materials, plate maps, parameters</td><td>repeated</td><td>Steppers, scrub area, consistent validation display</td><td><span class="chip next">2</span></td></tr>
+    <tr><td><strong>Signature Pad</strong></td><td>Drawing surface in <code>e-sign-dialog.tsx</code> (261)</td><td>small</td><td>Pressure/speed ink, undo, export formats. <strong>UI only</strong> — signing authority, step-up and the audit chain stay exactly where they are</td><td><span class="chip next">2</span></td></tr>
+    <tr><td><strong>Frame / Icon Tile / Marker / Trace / Kbd</strong></td><td>Small bespoke presentation pieces across pipelines, agents, help</td><td>small each</td><td>Cheap consistency wins</td><td><span class="chip next">2</span></td></tr>
+    <tr><td>Gantt</td><td><code>v3/projects/milestone-timeline.tsx</code> (407)</td><td>407</td><td>Only if milestones are meant to become interactive (drag/resize). The current one is a read-only projection with tested pure functions; replacing it for style alone would not meet the bar</td><td><span class="chip later">3</span></td></tr>
+    <tr><td>Charts</td><td><code>viz/chart-renderer.tsx</code> (1,045), <code>analysis-panel.tsx</code> (1,299), <code>chart-configurator.tsx</code> (979)</td><td>~4,500</td><td><span class="chip no">No</span> Figures come from <code>@sheetbase-labs/sheetbase-explorer</code> and are pinned by frozen-evidence and parity acceptance. Replaced only by a deliberate product decision, never opportunistically</td><td><span class="chip no">No</span></td></tr>
+    <tr><td>Data Grid as the <em>sheet</em></td><td><code>sheetbase-table-grid-client.tsx</code> (1,047), <code>sheetbase-grid.tsx</code> (506), <code>canonical-sheet-workspace.tsx</code> (2,506)</td><td>~4,000</td><td><span class="chip no">No</span> ADR-0048 makes <code>@sheetbase-labs/sheetbase-table</code> the grid and formula engine. A generic data grid cannot host formulas, write-back, or evidence pinning</td><td><span class="chip no">No</span></td></tr>
+    <tr><td>Filters</td><td>Overlaps <code>@sheetbase-labs/sheetbase-advanced-search</code> <code>FilterBuilder</code></td><td>—</td><td><span class="chip no">Reconcile first</span> Two filter models in one product is the failure mode the non-goals forbid. Decide which is canonical <em>before</em> adopting anything</td><td><span class="chip no">No</span></td></tr>
+    <tr><td>Status / Badge vocabulary</td><td><code>scientific/status-badge.tsx</code> (180)</td><td>180</td><td><span class="chip no">No</span> The status vocabulary is a product decision with its own ADR and design rules (text plus icon, never colour alone). ReUI badges are presentation only</td><td><span class="chip no">No</span></td></tr>
+    <tr><td>Notebook blocks and block chrome</td><td>Part A’s surface</td><td>—</td><td><span class="chip no">No</span> Domain semantics, versions, anchors and evidence live there. Part B supplies the <em>reorder</em> mechanism, nothing else</td><td><span class="chip no">No</span></td></tr>
+  </tbody>
+</table>
+
+<div class="callout risk">
+  <span class="label">Hard prerequisite</span>
+  <p><strong>TanStack Table v9.</strong> ReUI’s data grid is built on TanStack Table v9, which removed <code>useReactTable</code> and requires explicit feature bundles; this repo is on <code>@tanstack/react-table ^8.21.3</code>. ReUI publishes a migration prompt covering the rename set (<code>useReactTable</code> → <code>useTable({ features: dataGridFeatures })</code>, <code>table.getState()</code> → <code>table.state</code>, <code>sortingFn</code> → <code>sortFn</code>, column pinning left/right → start/end, <code>declare module</code> augmentation removed in favour of exported <code>DataGridColumnMeta</code>). This is the largest single-risk item in Part B and should be its own workstream with its own verification, ahead of any grid adoption.</p>
+</div>
+
+<h3 id="ab">4.6 The A/B harness — how “theirs is better” becomes evidence</h3>
+
+<p>A side-by-side comparison is the right instinct, but a screenshot comparison only settles appearance. The harness should settle behaviour, on identical data, with the result written down per component.</p>
+
+<table>
+  <caption>A/B harness specification</caption>
+  <thead><tr><th>Part</th><th>Design</th></tr></thead>
+  <tbody>
+    <tr><td>Surface</td><td>A dev-only route following the existing <code>/sheetbase-components</code> precedent: it redirects away in production, carries no business data, and is documented under <code>docs/development/</code>. Two columns — ours and theirs — driven by one shared scenario and one shared data fixture, with a toggle for ours / theirs / both.</td></tr>
+    <tr><td>Data fixtures</td><td>Fixed and hostile: 0 rows, 1 row, 5,000 rows, very long scientific names and units, mixed types, a null column, and a column of high-precision values. Both sides must render the same fixture object.</td></tr>
+    <tr><td>Behaviour checklist</td><td>Keyboard: reach every control by Tab, operate sort/filter/select/pagination without a mouse, visible focus. Mouse: sort, filter, select a row, resize, reorder. States: empty, loading, error, permission-restricted, dark mode. Density and overflow at 1440×900 and 390×844.</td></tr>
+    <tr><td>Automated checks</td><td>axe with violations expected empty, run on both columns; the repo’s existing Playwright + a11y pattern is the model. A screenshot of each column at both themes, attached to the comparison record — visual evidence, not the verdict.</td></tr>
+    <tr><td>Record</td><td>One row per component: what we use now, what ReUI offers, the checklist result for each, the decision, and the reason. This is what the adoption bar in §4.4 is checked against, and what stops the same comparison being redone in six months.</td></tr>
+    <tr><td>Cost control</td><td>Build the harness once, generic over a pair of components, then add pairs as screens are touched. Do not build a bespoke comparator per component.</td></tr>
+  </tbody>
+</table>
+
+<div class="callout info">
+  <span class="label">Why this matters more than it sounds</span>
+  <p>The last ReUI adoption here left no comparison record, which is why this document had to reconstruct from git history that the event calendar was removed with its routes rather than on merit. A one-row-per-component record is the difference between a decision and an archaeology exercise.</p>
+</div>
+
+<h3 id="bwork">4.7 Part B workstreams</h3>
+
+<table>
+  <thead><tr><th>#</th><th>Workstream</th><th>Band</th><th>Exit criterion</th></tr></thead>
+  <tbody>
+    <tr><td>B0</td><td><strong>Registry and law hygiene</strong> — pin <code>base-nova</code> (decided); amend DESIGN.md/ADR-0047 so the written rule matches; delete or re-scope the dead ESLint exception; record the adoption bar in §4.4 <span class="chip ok">decided</span></td><td>S</td><td>One <code>components.json</code> registry URL, one written rule, one ESLint scope that matches real files, and a documented bar</td></tr>
+    <tr><td>B1</td><td><strong>A/B harness</strong> — the dev-only side-by-side surface, the fixtures, the checklist and the record; first pair installed and measured</td><td>M</td><td>One component compared end to end with a written verdict, reproducible by anyone from the repository alone</td></tr>
+    <tr><td>B2</td><td><strong>Sortable</strong> — replace the notebook’s HTML5 drag; keep the keyboard and menu reorder routes. Lands with A2</td><td>S–M</td><td>Drag reorder works with mouse, touch and keyboard sensor; the authoring browser test passes; no keyboard route is removed (DESIGN.md forbids drag-only actions)</td></tr>
+    <tr><td>B3</td><td><strong>TanStack Table v9</strong> — migrate every table, then confirm no v8 usage remains <span class="chip ok">decided, in scope</span></td><td>M–L</td><td><code>useReactTable</code>, <code>getCoreRowModel</code>, <code>data-pinned="left"</code>, <code>table.getState(</code> and <code>declare module "@tanstack/react-table"</code> return zero hits; typecheck and every grid’s sorting, paging, visibility, pinning, selection and resizing verified by hand</td></tr>
+    <tr><td>B4</td><td><strong>Frame + Data Grid, one screen at a time</strong> — highest-traffic table first; delete the bespoke chrome per screen</td><td>M</td><td>For the first screen: old bespoke table and frame code deleted, story and browser test pass, parity row (if mapped) updated</td></tr>
+    <tr><td>B5</td><td><strong>Remaining Tier 1, then the sweep</strong> — File Upload, Timeline, Stepper, Empty, then the rest of the catalogue via the harness, including the Tier 2 items</td><td>M + varies</td><td>Each adoption: old implementation deleted in the same change, tokens respected, axe clean, comparison row written</td></tr>
+  </tbody>
+</table>
+
+<h2 id="sequence">5. Sequencing</h2>
+
+<figure>
+<svg viewBox="0 0 940 360" role="img" aria-label="Sequencing: Part A registry, continuous surface, run-scoped editor, editor closure; Part B hygiene, A/B harness, sortable, TanStack v9, then frame, grid and the sweep">
+  <style>
+    .bx{fill:var(--surface);stroke:var(--border-strong);stroke-width:1.2}
+    .pa{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.2}
+    .pb{fill:var(--success-soft);stroke:var(--success);stroke-width:1.2}
+    .t{fill:var(--fg);font:600 12px ui-sans-serif,system-ui,sans-serif}
+    .s{fill:var(--muted);font:10.5px ui-sans-serif,system-ui,sans-serif}
+    .l{stroke:var(--faint);stroke-width:1.2;fill:none;marker-end:url(#ar2)}
+    .d{stroke:var(--warning);stroke-width:1.2;stroke-dasharray:4 3;fill:none;marker-end:url(#ar3)}
+  </style>
+  <defs>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--faint)"/></marker>
+    <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--warning)"/></marker>
+  </defs>
+
+  <text class="t" x="20" y="26">Part A — notebook</text>
+  <rect class="pa" x="20" y="40" width="200" height="54" rx="6"/>
+  <text class="t" x="34" y="62">A1 Registry</text><text class="s" x="34" y="80">one descriptor per type</text>
+  <rect class="pa" x="240" y="40" width="200" height="54" rx="6"/>
+  <text class="t" x="254" y="62">A2 Continuous surface</text><text class="s" x="254" y="80">no cards · gutter · dnd-kit</text>
+  <rect class="pa" x="460" y="40" width="200" height="54" rx="6"/>
+  <text class="t" x="474" y="62">A3 Run-scoped editor</text><text class="s" x="474" y="80">one Tiptap per prose run</text>
+  <rect class="pa" x="680" y="40" width="240" height="54" rx="6"/>
+  <text class="t" x="694" y="62">A4 Editor closure</text><text class="s" x="694" y="80">every picker entry editable</text>
+  <path class="l" d="M220 67 L240 67"/><path class="l" d="M440 67 L460 67"/><path class="l" d="M660 67 L680 67"/>
+
+  <rect class="pa" x="680" y="118" width="240" height="54" rx="6" stroke-dasharray="4 3"/>
+  <text class="t" x="694" y="140">A5 Prose schema v2</text><text class="s" x="694" y="158">open — decision 4</text>
+  <path class="d" d="M800 94 L800 118"/>
+
+  <rect class="pa" x="240" y="118" width="200" height="54" rx="6"/>
+  <text class="t" x="254" y="140">A6 Invariants</text><text class="s" x="254" y="158">anchors · freeze · print</text>
+  <path class="d" d="M340 94 L340 118"/>
+
+  <text class="t" x="20" y="222">Part B — components</text>
+  <rect class="pb" x="20" y="236" width="168" height="54" rx="6"/>
+  <text class="t" x="32" y="258">B0 Hygiene</text><text class="s" x="32" y="276">base-nova · the bar</text>
+  <rect class="pb" x="203" y="236" width="168" height="54" rx="6"/>
+  <text class="t" x="215" y="258">B1 A/B harness</text><text class="s" x="215" y="276">ours vs theirs</text>
+  <rect class="pb" x="386" y="236" width="168" height="54" rx="6"/>
+  <text class="t" x="398" y="258">B2 Sortable</text><text class="s" x="398" y="276">replaces bespoke DnD</text>
+  <rect class="pb" x="569" y="236" width="168" height="54" rx="6"/>
+  <text class="t" x="581" y="258">B3 TanStack v9</text><text class="s" x="581" y="276">decided, in scope</text>
+  <rect class="pb" x="752" y="236" width="168" height="54" rx="6"/>
+  <text class="t" x="764" y="258">B4–B5 Frame, grid,</text><text class="s" x="764" y="276">then the sweep</text>
+  <path class="l" d="M188 263 L203 263"/><path class="l" d="M371 263 L386 263"/><path class="l" d="M554 263 L569 263"/><path class="l" d="M737 263 L752 263"/>
+
+  <path class="d" d="M340 94 L340 200 L470 200 L470 236"/>
+  <text class="s" x="348" y="192">B2 Sortable lands inside A2’s shell</text>
+  <text class="s" x="20" y="330">Dashed = dependency. A1 unblocks A2 and A4. A2 before A3, which extends it. A4 before A5. B3 gates the grid, not the other components.</text>
+  <text class="s" x="20" y="348">A5 is the one gate still awaiting an owner decision; B2 is the only point where the two parts meet.</text>
+</svg>
+<figcaption>Part B’s first hands-on item (Sortable) meets Part A inside its shell, so B2 lands after A2. The A/B harness is built once and reused for every later comparison.</figcaption>
+</figure>
+
+<h2 id="risks">6. Risks</h2>
+
+<table>
+  <thead><tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr></thead>
+  <tbody>
+    <tr><td>Part A silently changes evidence behaviour while re-pointing code through a registry</td><td>Loss of trust in submitted revisions; the exact failure the architecture docs guard against</td><td>A1 changes no user-visible behaviour and must keep every existing test green untouched; A6 adds anchor-survives-reorder coverage <em>before</em> A2 lands</td></tr>
+    <tr><td>Adopting Notion’s mechanics slips into building a Notion clone</td><td>Contradicts the standing non-goal and the design-parity bar; a rewrite of every screen’s look</td><td>The line is stated: take the document mechanics (continuous prose, gutter, slash, placeholders, drag), never the visual identity. Tokens, density and restraint stay Sheetbase, and the parity gate is the enforcement point</td></tr>
+    <tr><td>ReUI adoption grows into a second design system</td><td>Two visual languages, the failure the design rules were written to prevent</td><td>§4.4’s five-part bar, copy-and-own restyle, one component replaces one component, adopt opportunistically</td></tr>
+    <tr><td>Variant choice entrenches the legacy Radix kit against the migration guard</td><td>New code lands in the deprecated kit; the guard’s premise erodes</td><td>Decide in B0 and correct DESIGN.md/ADR-0047 in the same change</td></tr>
+    <tr><td>TanStack Table v9 migration destabilises many screens at once</td><td>Broad regression surface, hard to bisect</td><td>Own workstream, migrate then verify per grid by hand as ReUI prescribes, no grid adoption until it is clean</td></tr>
+    <tr><td>The run-scoped editor’s row boundaries behave unpredictably under real editing</td><td>The document feel regresses, or content lands in the wrong row</td><td>A3 starts with a spike on split/merge against real payloads; A2 ships the appearance and the plan stops there without waste if the spike fails</td></tr>
+    <tr><td>An A/B comparison becomes a screenshot and a preference</td><td>Adoptions justified by taste, then regretted; the second ReUI retreat</td><td>§4.6: fixed hostile fixtures, a behavioural checklist, axe on both sides, and one written row per component. No row, no adoption</td></tr>
+    <tr><td>“Evaluate everything” becomes forty adoptions</td><td>Maintenance load and a second design language arriving in bulk</td><td>Bar items 2 and 4 in §4.4: material improvement and one-for-one replacement, adopted one screen at a time</td></tr>
+    <tr><td>Adopted components are copy-and-own, so their bugs are ours</td><td>Maintenance load arrives later, invisibly</td><td>Cap the count (Tier 1 first), keep the ESLint scope honest, prefer items with real upstream momentum</td></tr>
+    <tr><td>The dead ESLint exception and stale docs mislead the next agent</td><td>Wasted work; wrong assumptions about what is installed</td><td>B0 deletes or re-scopes it; correct <code>UI_PORT.md</code>/<code>WORK.md</code> references to <code>src/components/reui/**</code></td></tr>
+    <tr><td>A4 reveals more unusable block types than the three known</td><td>Scope growth inside Part A</td><td>A4’s exit is the picker walk; anything that fails is either given an editor or removed from the picker in the same change</td></tr>
+  </tbody>
+</table>
+
+<h2 id="decisions">7. Decisions needed</h2>
+
+<p>All six are settled. Decisions 4 and 5 were held open in revision 2 because the explanation was unclear; they now say what they actually mean in plain terms, what changes either way, and the answer.</p>
+
+<table>
+  <thead><tr><th>#</th><th>Decision</th><th>What it actually means</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>ReUI primitive variant</td>
+      <td>ReUI ships every component twice: built on Base UI, or built on Radix. The repo contains both kits today — the legacy <code>ui/**</code> is Radix, the forward <code>v3/ui/**</code> is Base UI — and the registry was pinned to the Radix build while the code migrated to Base UI. Deciding means one URL in <code>components.json</code> and correcting the two documents that still say “Radix”.</td>
+      <td><span class="chip ok">Decided</span> — <code>base-nova</code>, with the DESIGN.md/ADR-0047 correction in the same change</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>How far the notebook rebuild goes <span class="ev">(previously “depth”)</span></td>
+      <td>Two different amounts of work, and they stack. <strong>Step 1:</strong> make the page <em>look and move</em> like one document — no cards between paragraphs, one gutter, drag anywhere — but each block is still its own mini-editor underneath, so you cannot select a sentence that crosses a block boundary and undo resets when the caret moves between blocks. <strong>Step 2:</strong> give one editor a whole run of consecutive prose blocks, so caret, selection and undo genuinely ignore where the rows begin and end, while the rows stay the storage and each keeps its own version. Step 2 is what “feels like Word” actually requires. Step 1 is not wasted work — it is the prerequisite, and it alone removes most of the jank.</td>
+      <td><span class="chip ok">Resolved by your requirement</span> — do step 1 (A2), then step 2 (A3). No further decision needed; the only question left is whether to stop after A2 if A3’s spike goes badly</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Licences</td>
+      <td>Whether we are willing to buy anything: Tiptap’s Start plan for their Notion-like template, or ReUI’s Pro blocks. Nothing in this plan needs either.</td>
+      <td><span class="chip ok">Decided</span> — free and open-source only</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Widening what a prose block may contain</td>
+      <td>A prose block’s saved content is a closed whitelist: headings level 2–3, paragraphs, bulleted and numbered lists, with bold, italic, link, subscript, superscript and inline code. Anything outside it — a horizontal rule, a quote, a fenced code block, a to-do checkbox, a shaded callout inside the text — is <em>rejected when the block is saved</em>, and the editor is not configured to offer it in the first place. The decision is whether to widen that whitelist. Widening is not a feature toggle: every reader has to understand both the old and new shape — the frozen-revision renderer that replays historical submissions, the search text extractor, and the API contract. That is why it is a decision rather than a task.</td>
+      <td><span class="chip ok">Decided</span> — the contract stays closed (recommendation accepted). You lose dividers and in-text callouts for now; you keep a contract that cannot rot, and widening becomes one small step once A1’s version-aware readers exist. Revisit after A1</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>The three block types with no editor</td>
+      <td>You can insert a <strong>callout</strong>, a <strong>table</strong> or a <strong>metric</strong> from the slash menu or the <code>+</code> menu, and they display correctly. But there is no editor behind them: select one and you get an “unsupported block” placeholder. You cannot change the callout text, or the metric’s value, or put anything in the table — the content is preserved and shown, but frozen. The choice is to build the three editors, or to remove those three entries from the insert menu so nobody creates something they cannot edit. Existing blocks keep rendering either way; nothing already saved is lost or hidden.</td>
+      <td><span class="chip ok">Decided</span> — build editors for <strong>callout</strong> and <strong>metric</strong>, and decide the static <strong>table</strong> block separately now that the sheet is the real tabular surface. Workstream A4; arguably a bug fix regardless of the editor work</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>TanStack Table v9</td>
+      <td>ReUI’s data grid is written against TanStack Table v9. This repo is on v8, and v9 renamed and restructured the API, so the grid cannot be used until every existing table is migrated. The decision is whether that migration is in scope — it is the price of the data grid.</td>
+      <td><span class="chip ok">Decided</span> — in scope, as B3, ahead of any grid adoption</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="evidence">8. Evidence index</h2>
+
+<details>
+<summary>Source files read for this proposal (44 anchors)</summary>
+<table>
+  <thead><tr><th>Area</th><th>Anchors</th></tr></thead>
+  <tbody>
+    <tr><td>Block model and validation</td><td class="ev"><code>src/db/schema.ts:855-953,1007-1046,1248-1333</code>; <code>src/lib/blocks/index.ts</code>; <code>src/lib/blocks/rich-text.tsx</code>; <code>src/lib/notebook-mutations.ts:30-225</code>; <code>src/lib/sheet-block.ts:8-16</code></td></tr>
+    <tr><td>Migrations cited</td><td class="ev"><code>drizzle/0010</code>, <code>0011</code>, <code>0021</code>, <code>0024</code>, <code>0037</code>, <code>0038</code>, <code>0045</code>, <code>0098</code>, <code>0101</code>, <code>0105</code>, <code>0120</code>, <code>0126</code>, <code>0140</code>, <code>0289</code>, <code>0317</code>, <code>0427</code></td></tr>
+    <tr><td>Notebook UI</td><td class="ev"><code>src/components/notebook/*.tsx</code> (line counts in §2.3); <code>src/routes/records/$recordId/notebook.tsx</code></td></tr>
+    <tr><td>Collaboration and realtime</td><td class="ev"><code>src/lib/collaboration/liveblocks.config.ts:1-12</code>, <code>types.ts</code>; <code>docs/subsystems/collaboration.md:3-5,20-21</code></td></tr>
+    <tr><td>Sheet and formula</td><td class="ev"><code>src/lib/formula-profile.ts:4-34</code>; <code>src/lib/scientific-workbook.ts</code>; <code>src/components/sheet/sheetbase-table-grid-client.tsx</code>; ADR-0048</td></tr>
+    <tr><td>ADRs</td><td class="ev">0012, 0015, 0018, 0025, 0026, 0027, 0036, 0047, 0048, 0050, 0051 under <code>docs/knowledge/decisions/</code></td></tr>
+    <tr><td>Product and design law</td><td class="ev"><code>docs/knowledge/DESIGN.md:284,338,344-348,402,421-423</code>; <code>docs/knowledge/PRODUCT.md:158-161,203-215</code>; <code>docs/knowledge/product/non-goals.md</code>; <code>docs/knowledge/architecture/system-overview.md:114-117</code></td></tr>
+    <tr><td>UI substrate</td><td class="ev"><code>components.json:21-23</code>; <code>eslint.config.js:19-36</code>; <code>src/components/v3/ui/component-adoption.test.ts</code>; <code>src/components/ui/README.md:3-4,12-43</code>; <code>scripts/check-colours.mts</code></td></tr>
+    <tr><td>ReUI history</td><td class="ev"><code>docs/knowledge/roadmap-4/UI_PORT.md:189-193,335-338</code>; git <code>3b0951fd</code>, <code>1b915579</code>, <code>9ced9f6d</code></td></tr>
+    <tr><td>Parts and licence context</td><td class="ev"><code>docs/knowledge/roadmap-2/tasks/COLLAB.md:13</code>; <code>docs/knowledge/roadmap-3/tasks/NOTE.md:47-112</code>; <code>package.json</code> (Tiptap 3.28, TanStack Table 8.21.3, Base UI, Radix, React 19.2, Tailwind 4)</td></tr>
+  </tbody>
+</table>
+</details>
+
+<details>
+<summary>External sources consulted on 2026-10-15</summary>
+<ul>
+  <li>Tiptap — Notion-like editor template (feature list, Start-plan requirement, Cloud collaboration variables), UI Components overview (licence follows the underlying extension; MIT for open-source extensions; components are CLI-copied source, not an npm package; React 18 recommendation), Node API and extensions overview.</li>
+  <li>ReUI — registry documentation (<code>@reui</code> namespace, <code>{base}-{variant}</code> styles, no npm scope, <code>cn</code> package, Pro licence key), <code>llms.txt</code> catalogue (27 primitives, 1,264 free examples, 648 Pro blocks), Data Grid documentation (TanStack Table v9 feature bundle, dnd-kit v6, virtualisation, cell selection, the v9 migration prompt).</li>
+</ul>
+</details>
+
+<h2 id="limits">9. Verification limits</h2>
+
+<ul>
+  <li>This is a document assessment at <code>66e550f2</code>. Nothing here was built, typechecked or run; no test suite was executed for this proposal. Every claim about current behaviour is a source reading, cited above.</li>
+  <li>The notebook’s browser suites (authoring, review document, keyboard, sheet comments) were not executed. Their existence and scope are recorded from the test tree, not from a run.</li>
+  <li>Vendor facts (licences, versions, component inventories, React support) come from the publishers’ documentation on 2026-10-15 and can change without notice; confirm before purchase or adoption.</li>
+  <li>Two documentation statements are already stale against the tree and are quoted only as evidence of drift: the sheet payload description in the roadmap-1 evidence audit, and the <code>src/components/reui/event-calendar</code> reference in the roadmap-4 work task.</li>
+  <li>Line counts are file totals at the audited revision and will drift.</li>
+</ul>
+
+<h2 id="executed">10. Executed so far (2026-10-15)</h2>
+
+<p>Three decisions were settled and two workstreams were small and unblocked, so they are done. This section records exactly what changed, what was deliberately left alone, and what was verified. Everything below is committed to the working tree, not to git.</p>
+
+<h3>A1 — block registry</h3>
+
+<table>
+  <thead><tr><th>Was</th><th>Now</th></tr></thead>
+  <tbody>
+    <tr><td>The <code>BlockType</code> union and <code>KNOWN_BLOCK_TYPES</code> allow-list in <code>src/lib/blocks/index.ts</code></td><td><code>src/lib/blocks/registry.ts</code> owns both as <code>BlockType</code> and <code>BLOCK_TYPES</code>; <code>index.ts</code> keeps the validators and imports the allow-list</td></tr>
+    <tr><td>Allow-list membership tested by <code>KNOWN_BLOCK_TYPES.includes(input.type as BlockType)</code></td><td>The <code>isBlockType</code> type guard — same failure, no unchecked cast</td></tr>
+    <tr><td>Insert catalogue declared in <code>block-picker.tsx</code></td><td>The registry owns <code>BLOCK_PICKER_GROUPS</code>, <code>BLOCK_PICKER_OPTIONS</code> and <code>BlockPickerOption</code>; <code>block-picker.tsx</code> is <strong>deleted</strong>, and the four consumers read the registry</td></tr>
+    <tr><td><code>defaultPayloadFor</code> switch in <code>src/lib/notebook-mutations.ts</code></td><td>A <code>defaultPayload</code> field per descriptor; the switch and its three now-unused imports are gone, and the three consumers read the registry</td></tr>
+    <tr><td><code>EDITABLE_TYPES</code>, <code>WIDE_BLOCK_TYPES</code> and a local <code>blockMeasure</code> in <code>notebook-document.tsx</code></td><td>An <code>editable</code> flag and a <code>measure</code> per descriptor; the document reads <code>isEditableBlockType</code> and <code>blockMeasure</code></td></tr>
+    <tr><td><code>summarizePayload</code> switch in <code>block-editor.tsx</code></td><td>A <code>summary</code> per descriptor, read through <code>summarizeBlockPayload</code> at the same eight call sites</td></tr>
+    <tr><td><code>block-preview.tsx</code> casting the allow-list to <code>readonly string[]</code> to distinguish an unknown type from an unsupported payload version</td><td>The <code>isBlockType</code> guard</td></tr>
+  </tbody>
+</table>
+
+<p><strong>What was deliberately not changed.</strong> This was a re-point, not an improvement pass, so anything that would have altered observable behaviour was reverted or left out:</p>
+
+<ul>
+  <li><code>table</code> blocks still render at the prose measure. The registry first gave them the wide measure, which would have silently widened every static table; corrected, and pinned by test.</li>
+  <li>Types whose old default was <code>{}</code> still return <code>{}</code> — including <code>callout</code>, <code>table</code>, <code>metric</code> and <code>sheet</code>, where a richer default would have been tempting and wrong.</li>
+  <li>The six conflict-banner summaries are byte-identical, and every other type still falls through to the JSON dump as before. No summary was made “nicer”.</li>
+  <li>The editor and preview bodies did not move. They are 2,900 and 1,860 lines of feature components, and moving them into the registry would create a library-to-component dependency cycle for no benefit. The <code>editable</code> flag is the contract between them, and it is pinned by test.</li>
+  <li>Per-type mentions that remain are the validator dispatch in <code>lib/blocks/index.ts</code>, the two component switches, and prose-specific document behaviour (Enter inserting a new prose block). Each is a genuinely different concern, not a duplicate declaration.</li>
+</ul>
+
+<h3>A1 — the regression net</h3>
+
+<p>New <code>src/lib/blocks/registry.test.ts</code>, 18 tests: the allow-list recognises the declared types and rejects an unknown one; the editable set is pinned (callout, table, metric and sheet are <em>not</em> editable — the A4 gap, pinned so an editor arriving for one of them has to be acknowledged); the wide measure is exactly sheet, chart and plate map; every catalogue entry resolves to a real block type apart from <code>sheet_shared</code>, and every group id is declared; the default payloads are asserted, moved from the test that was deleted with <code>defaultPayloadFor</code>; the summaries are asserted including the JSON fallback; and a default payload hands back a fresh object each call.</p>
+
+<h3>B0 — registry and law hygiene</h3>
+
+<table>
+  <thead><tr><th>Change</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td><code>components.json</code> pinned to the Base UI build: <code>@reui → https://reui.io/r/base-nova/{name}.json</code></td><td><code>components.json:22</code></td></tr>
+    <tr><td><strong>ADR-0055</strong> written: new components use Base UI; ReUI is a supplier for generic UI jobs only, free tier only, with a five-part adoption bar and a recorded comparison per component; the sheet grid, figure renderers, status vocabulary and filter builder are named as excluded</td><td><code>docs/knowledge/decisions/0055-component-primitives-and-reui-registry.md</code></td></tr>
+    <tr><td><code>DESIGN.md</code> §5 corrected: Base UI primitives, with the legacy Radix kit’s remaining scope named, and the standing “compose existing components first” rule kept</td><td><code>docs/knowledge/DESIGN.md:284</code></td></tr>
+    <tr><td>The scoped lint relaxation re-described as copy-and-own registry sources generally, rather than one component that no longer exists. The scope is kept because ReUI items will land there</td><td><code>eslint.config.js:20-25</code></td></tr>
+  </tbody>
+</table>
+
+<p><strong>ADR-0047 was not edited.</strong> ADR-0001 says a reversal supersedes rather than rewrites history, so ADR-0055 supersedes its stack clause explicitly instead.</p>
+
+<h3>Verification</h3>
+
+<table>
+  <thead><tr><th>Check</th><th>Result</th></tr></thead>
+  <tbody>
+    <tr><td><code>pnpm typecheck</code></td><td>Clean. One unused import left by the move was removed.</td></tr>
+    <tr><td><code>pnpm test</code> (unit suite)</td><td><strong>477 files, 4,781 tests, all passing</strong> — including every notebook component test, the extracted-payload validator suite and the 18 new registry tests</td></tr>
+    <tr><td>Consolidation measured</td><td><code>KNOWN_BLOCK_TYPES</code> has zero occurrences in <code>src</code> and <code>drizzle</code>; the insert catalogue, defaults, measure, editable set and summaries have one owner each</td></tr>
+    <tr><td>Not verified</td><td>No browser session was run against the notebook, and no database or API suite was run — this work changes no persistence, RPC or rendering path, and the unit suite is the layer that covers it. The visual surface is unchanged by construction, and A2 is where the visual work begins anyway.</td></tr>
+  </tbody>
+</table>
+
+<h3>A2 — prose reads as one document <span class="chip ok">done</span></h3>
+
+<table>
+  <thead><tr><th>Change</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Consecutive prose rows form a <em>prose run</em> and render continuously: no state ring, no vertical padding, no title row</td><td>The frame was the seam. Inside a run there is nothing to frame, so the run reads as one column. The hover gutter handle and the overflow menu stay, because they are how a row is reordered and commented.</td></tr>
+    <tr><td>Backspace at the start of a paragraph joins the row into the row above</td><td>This is what Word and Notion do, and it was doing nothing here. The row boundary disappears and the text order is preserved. The join saves the row above <em>first</em>, so a rejected save leaves both rows untouched, and undo restores the row above as well as re-inserting the row. An empty row still deletes, as before.</td></tr>
+    <tr><td>An empty prose row shows a placeholder</td><td>An empty row was an invisible caret with no target — the most obvious difference between an empty block and an empty document. The placeholder is a widget decoration, so it can never enter a payload.</td></tr>
+    <tr><td>The document reads the full width of the working surface</td><td>Owner decision, 2026-10-15: “I don’t like it being width constrained and centered.” This is a deliberate <em>deviation</em> from the design reference — the <code>Nb*</code> canvases under <code>ui-system-v3</code> (NbEditing, NbNew, NbLoading, NbOffline) put prose in a 680px centred measure — so the deviation and its reason are recorded at the row in the code. If the design is ever re-pinned, either the canvases move to full width or this decision is revisited; what must not happen is a silent drift back.</td></tr>
+    <tr><td>The “Add block” button under the document and the assist “Draft summary” affordance are gone</td><td>Both were parked under the work and read as debris. Because the button was also the only way to append, the insert affordance now appears below the <em>last</em> block too: hovering the end of the document offers the same <code>+</code> the gaps between blocks already offered, at no layout cost. With no layout consumer left, the per-type <code>measure</code> concept was deleted rather than left declared.</td></tr>
+    <tr><td>The record header is the title, the identifier and the actions</td><td>Owner review, 2026-10-15, of four bands of chrome above the work. The identifier sits beside the title — it was meant to, but the title input carried <code>w-full</code> and wrapped it, which is a bug rather than a preference. The kind label, the record status and the notebook lifecycle are off the screen header: status and lifecycle are different axes (the experiment’s progress versus whether this notebook has been submitted) and read as a contradiction beside a title however they are labelled. All of them are in the inspector, whose rows are named, and all of them are in a print-only provenance line, because print hides the inspector. Print, Export evidence, Link records… and Duplicate move into an overflow menu; Submit and Sign stay. Measured result: the header is 62px in one line.</td></tr>
+    <tr><td>Two answers that are open, not closed</td><td><strong>Duplicate</strong> is in the overflow because no Duplicate action exists on any list surface to move it to — adding one to the experiments registry is a separate small task. <strong>Print</strong> is in the overflow rather than deleted: Ctrl+P and the print stylesheet remain, so it costs a line. <strong>Link records…</strong> is in the overflow for now; the inspector already offers “+ Link record”, so it can go once that is confirmed to cover the flow.</td></tr>
+  </tbody>
+</table>
+
+<p>Pulling a line of prose out of the row below and onto the row above is <strong>not</strong> done: that needs one editor spanning both rows. So it remains true that the caret belongs to whichever row is being edited, and selection across two rows and one undo stack across them are still impossible — those are A3.</p>
+
+<h3>A4 — callout and metric editors <span class="chip ok">done</span></h3>
+
+<p>Both kinds were stored, validated and rendered but had no editor, so selecting one showed an unsupported-block placeholder: visible, preserved, and frozen. Callout now edits its text and one of the four contract tones; metric edits its label, reading, unit and provenance. The metric draft holds exactly what was typed and the canonical payload is built at the save boundary — converting while typing silently ate a decimal point or a space, because the converted value is written straight back into the controlled field. The static <code>table</code> block stays read-only on purpose: whether it earns its keep now that the Sheet is the tabular surface is still a product decision, and the registry's editable set is pinned by test so it has to be made explicitly.</p>
+
+<h3>What is next</h3>
+
+<ul>
+  <li><strong>A3 (run-scoped editor)</strong> is now the whole of the remaining document work: one editor spanning a run, so the caret, selection and undo stop at nothing inside prose. It starts with the split/merge spike, which is the only part of this plan likely to hide surprises.</li>
+  <li><strong>A6 (invariant harness)</strong> — the browser-level tests for anchors, freeze and print surviving a reorder. The unit suite covers the new helpers, but nothing yet exercises a reorder in a real browser.</li>
+  <li><strong>B1 (A/B harness)</strong> comes before any adoption, because the agreed bar is that a comparison is recorded before a component is swapped. <strong>B3 (TanStack Table v9)</strong> is the prerequisite for the data grid; both are independent of the notebook work, which is why they are not in the same change.</li>
+  <li><strong>B2 (Sortable)</strong> was planned to land inside A2. It did not, on purpose: it is an adoption, so it waits for the harness rather than arriving as a dependency change hidden inside a notebook refactor.</li>
+  <li><strong>Not done, and still proposed:</strong> nothing else in Part A. The prose payload contract stays closed and there is no work for it.</li>
+</ul>
+
+<h2 id="verify">11. Revision 5 — Part B verified against the tree</h2>
+
+<p>The owner asked, on 2026-10-16, for a coordinated investigation into replacing further parts of the app with ReUI components, and for a proposal. This revision is the result. Part B was re-checked at <code>00052727</code> on <code>GWP/notebook-document-surface</code> by four passes that did not read each other first: this document's own claims, the ReUI catalogue read from the registry itself, an inventory of what was hand-rolled for each candidate, and the gates an adoption has to clear. It corrects nine claims, records four findings that change the order of work, and fixes the sequence now that the owner has answered the three questions the investigation raised.</p>
+
+<div class="callout info">
+  <span class="label">What this revision does not re-open</span>
+  <p>ADR-0055's policy, its five-part adoption bar and its exclusions stand, and so do all six of the decisions recorded in §7. Revision 5 changes sizing, order and method — not policy. Where a claim below is corrected, §4's text is left in place as the record of what was believed at <code>66e550f2</code>; the correction is the authority.</p>
+</div>
+
+<h3 id="corrections">11.1 Corrections to Part B</h3>
+
+<table>
+  <caption>What this document said, what the tree says now, and what to do about it.</caption>
+  <thead><tr><th>§</th><th>Claim</th><th>Current evidence</th><th>Correction</th></tr></thead>
+  <tbody>
+    <tr><td>4.1</td><td>The registry alias is <code>radix-nova</code></td><td class="ev"><code>components.json:22</code> — <code>base-nova</code></td><td>Stale by design: §4.1 describes the state B0 corrected. Decision 1 holds; no action.</td></tr>
+    <tr><td>4.1</td><td>The ESLint exception is <code>eslint.config.js:19-36</code> and names the Event Calendar</td><td class="ev"><code>eslint.config.js:20-33</code>, re-described as copy-and-own registry sources generally</td><td>The line range over-reached even at the audit commit. The scope currently matches no file, which is correct until an item is installed.</td></tr>
+    <tr><td>4.2</td><td>“1,264 free examples across 87 categories”</td><td class="ev">the vendor's own pages disagree: <code>reui.io/components</code> says 1,105+, <code>llms.txt</code> says 1,264 across 87 categories, <code>reui.io/blocks</code> says 648 Pro blocks across 7 groups</td><td>Cite no counts. The catalogue page is the index; the numbers are marketing.</td></tr>
+    <tr><td>4.5</td><td>Data Grid row: ≈1,100 lines across four surfaces, and B3 as “migrate every table”</td><td class="ev">only <code>src/components/scientific/data-table.tsx</code> uses TanStack Table — <code>useReactTable</code> at <code>:7,:83</code>, <code>getCoreRowModel</code> at <code>:4,:97</code>, <code>table.getState(</code> at <code>:268,:282</code>, <code>declare module</code> at <code>data-grid-types.ts:9</code> and <code>data-table.tsx:37</code>; zero <code>sortingFn</code> and zero <code>data-pinned</code> in <code>src</code></td><td>B3 is a one-file migration, not a repo-wide one. The other table screens are bespoke markup, so the grid <em>replaces</em> code rather than migrating it.</td></tr>
+    <tr><td>4.5</td><td>File sizes: <code>notebook-document.tsx</code> 1,537; <code>status-badge.tsx</code> 180; Charts ≈4,500</td><td class="ev">1,605; 195; 3,323 across the three cited chart files</td><td>19 of the 21 cited files are still exact. Sizes drift — re-measure at the change, not from here.</td></tr>
+    <tr><td>4.5</td><td>Empty is a ReUI item <span class="chip ok">1</span></td><td class="ev"><code>reui.io/components/empty</code> is typed “shadcn/ui component” with docs at ui.shadcn.com; <code>/r/base-nova/empty.json</code> 404s</td><td>Stock shadcn, installed by bare name — and out of this programme by owner decision. See §11.6.</td></tr>
+    <tr><td>4.5</td><td>Stepper: “44 examples of step machinery”</td><td class="ev">ReUI's <code>stepper</code> family does carry 44 examples; in-house there are 8 distinct step-chrome renderers</td><td>That figure is ReUI's, not ours. Our own count is the 8.</td></tr>
+    <tr><td>4.5</td><td>Timeline, Combobox, Tree, Number Field, Signature Pad, Date Selector, File Upload, Frame as ReUI items</td><td class="ev">all present in the base-nova registry, except that combobox, kbd, marker, trace and pagination are stock shadcn items on the same index</td><td>Every row is adopted by reading its own install command first — see §11.3.4.</td></tr>
+    <tr><td>§10</td><td>“Committed to the working tree, not to git”</td><td class="ev">clean tree, 23 commits ahead of <code>main</code></td><td>The shipped work is committed. Every row of §10's B0 table holds under re-check.</td></tr>
+  </tbody>
+</table>
+
+<p>Three things held under re-check and are worth recording as verified: ADRs 0008, 0011, 0047, 0048 and 0055 all remain <span class="chip ok">accepted</span>; <code>src/components/reui/**</code> is still absent, so the reserved lint scope is still honest; and <code>/sheetbase-components</code> is still the dev-route precedent, production-gated at <code>src/routes/sheetbase-components.tsx:22-26</code> and pinned by its own test.</p>
+
+<h3 id="inventory">11.2 What the inventory found, in numbers</h3>
+
+<p>The bespoke surface that would go, counted in the current tree rather than estimated.</p>
+
+<table>
+  <thead><tr><th>Target</th><th>What is actually there</th><th>Consequence</th></tr></thead>
+  <tbody>
+    <tr><td>Notebook reorder</td><td>114 lines of drag code (124 with comments) inside a 1,605-line file; keyboard reorder exists twice — <code>Alt+↑/↓</code> at <code>notebook-document.tsx:935-941</code> and the block menu at <code>:1225-1240</code>; no touch path at all, the handle being <code>hidden … lg:flex</code>; optimistic order with rollback at <code>:668-718</code>; print hides the toolbars but not the handle</td><td>The smallest and best-evidenced swap in the programme. Touch and a real sensor set are the gain; the two keyboard routes and the print rule are the constraints.</td></tr>
+    <tr><td>Data tables</td><td><code>v3/inventory/list.tsx</code> (500) renders no <code>&lt;table&gt;</code> at all; eight copies of the registry body; five copies of the dataset chrome with three spellings of “first column”; the 200 ms debounce copied line-for-line (<code>list.tsx:265-290</code> ≈ <code>rows.tsx:99-128</code>); one <code>aria-sort</code> in the whole app; no virtualisation; row selection is click-only everywhere</td><td>The duplication is the case for the grid — and the first screen should be the one with eight copies, not the one file already on TanStack.</td></tr>
+    <tr><td>Framing</td><td><code>RepresentationFrame</code> is a near character-identical twin of <code>ChartFrame</code>; eight “title + action + body” chromes; <code>ListFooter</code> carries <code>max-xl:mr-28</code> to dodge the Inspector button</td><td>Frame is the cheapest consolidation in Tier 1, and it pairs with the grid as Frame + Data Grid + Pagination.</td></tr>
+    <tr><td>File upload</td><td>Drag-and-drop is absent app-wide; three upload transports; one hand-rolled inline copy at <code>ingest-panel.tsx:67-96</code>; progress is a boolean string; two drop-zone-looking boxes with no drop handler</td><td>A real gain, but transport, validation and storage policy stay ours — ReUI's own note says no example sends a picked file to a server.</td></tr>
+    <tr><td>History rows</td><td>A triple-duplicated loading skeleton, three relative-time formatters, two <code>OPERATION_ICONS</code> maps, seven row layouts, two history tables</td><td>Timeline is a consolidation, not a feature. Adopt when a history panel is next touched.</td></tr>
+    <tr><td>Steppers</td><td>Eight distinct step-chrome renderers</td><td>Adopt inside <code>import-flow.tsx</code> when that flow is next worked on.</td></tr>
+    <tr><td>Empty states</td><td>91 <code>EmptyState</code> sites, of which 73 cannot satisfy <code>DESIGN.md:383</code> (67 are self-closing); legacy <code>ui/empty.tsx</code> has zero product call sites; ≈88 further sites roll their own</td><td><span class="chip no">Out of scope</span> by owner decision. Recorded here so the next reader knows it was decided, not missed.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="findings">11.3 Four findings that change the shape of Part B</h3>
+
+<h4>11.3.1 A plain install would re-introduce the deprecated kit</h4>
+
+<p><code>@reui/data-grid</code> declares bare registry dependencies — <code>button</code>, <code>checkbox</code>, <code>input</code>, <code>popover</code>, <code>select</code>, <code>separator</code>, <code>skeleton</code>, <code>spinner</code>, <code>dropdown-menu</code> — and the shadcn CLI resolves a bare name into <code>aliases.ui</code>, which here is <code>#/components/ui</code>: the legacy Radix kit that ADR-0055 decision 1 says is not extended. Nine of those files already exist in that directory, and <code>select</code>, <code>separator</code> and <code>spinner</code> have no v3 twin at all, so an install would write fresh Radix primitives into the kit the app migrated away from. The adoption guard would not object: it is import-graph only.</p>
+
+<p><strong>Method:</strong> install into a scratch directory, read the item there, and place the files by hand under <code>src/components/reui/**</code>, wiring the v3 twins that already exist. This is a step in every adoption below, not a one-off for the grid.</p>
+
+<h4>11.3.2 Every copied item's class merge must be re-pointed to ours</h4>
+
+<p>ReUI items import <code>cn</code> from the <code>cn</code> package. This repository's helper is <code>src/lib/utils.ts:15</code> — a <code>cn</code> that teaches <code>tailwind-merge</code> the Sheetbase type scale precisely so <code>text-body</code> and <code>text-fg</code> are not treated as one utility group, and all 27 v3 primitives import it. Left alone, a copied item silently loses that and the class-merge bug returns. Re-pointing the import is exactly the “import-path fix” ADR-0055 decision 2 permits, and it means <code>cn</code> is never added as a dependency.</p>
+
+<p>Two facts verified from the registry itself, which go with it: items carry <code>files[].target</code> — <code>sortable</code> lands at <code>components/reui/sortable.tsx</code> — so the destination needs no CLI flag; and the free items are MIT and key-free, so decision 3 is undisturbed.</p>
+
+<h4>11.3.3 TanStack Table v9 is real, and it is one file</h4>
+
+<p>The grid is written against v9 exactly, and the v8 <code>declare module</code> augmentation is ignored by any table built with <code>dataGridFeatures</code>. That is the prerequisite this plan named — but the repository has one v8 table, not many, so the migration stops being Part B's largest risk. It still comes first, because no grid can be evaluated before it.</p>
+
+<h4>11.3.4 Install names are not page slugs</h4>
+
+<p>File upload's registry item is <code>@reui/use-file-upload</code> while its page is <code>/components/file-upload</code>. <code>empty</code>, <code>combobox</code>, <code>kbd</code>, <code>marker</code>, <code>trace</code>, <code>chart</code>, <code>table</code> and <code>pagination</code> are stock shadcn items on the same index and install by bare name. Every adoption therefore starts by reading the install command from the item's own page — <code>https://reui.io/docs/components/base/&lt;name&gt;.md</code> — or by asking the ReUI MCP server for the component, rather than guessing a name from a slug.</p>
+
+<h3 id="tier1">11.4 Tier 1, with the facts an adoption needs</h3>
+
+<table>
+  <caption>Read from the base-nova registry items; free tier only, as decision 3 requires.</caption>
+  <thead><tr><th>Item</th><th>Install</th><th>Pulls</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>Sortable</td><td class="ev">@reui/sortable</td><td class="ev">@base-ui/react, @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities</td><td>One file. No drag library is installed today.</td></tr>
+    <tr><td>Data Grid</td><td class="ev">@reui/data-grid</td><td class="ev">@base-ui/react, @dnd-kit/{core,modifiers,sortable,utilities}, @tanstack/react-table, @tanstack/react-virtual, plus 12 registry items</td><td>Twelve files. Virtualisation, column pinning, row pinning and cell selection are in the free build; row grouping is not — the consumer adds <code>columnGroupingFeature</code> and a grouped row model. <code>@tanstack/react-virtual</code> 3.14.10 is already a dependency and currently unused.</td></tr>
+    <tr><td>Frame</td><td class="ev">@reui/frame</td><td class="ev">class-variance-authority</td><td>One file; the whole cost of the framing consolidation.</td></tr>
+    <tr><td>File Upload</td><td class="ev">@reui/use-file-upload</td><td class="ev">hook plus components</td><td>No example sends a picked file anywhere: transport stays ours, as it already effectively is.</td></tr>
+    <tr><td>Timeline</td><td class="ev">@reui/timeline</td><td class="ev">@base-ui/react</td><td>One file.</td></tr>
+    <tr><td>Stepper</td><td class="ev">@reui/stepper</td><td class="ev">@base-ui/react</td><td>One file; the flow's steps stay ours.</td></tr>
+    <tr><td>Event Calendar <span class="chip next">2</span></td><td class="ev">@reui/event-calendar</td><td class="ev">@base-ui/react, date-fns, @date-fns/tz, plus 13 registry items</td><td>Both date libraries are already dependencies at the required major. Adopted here once before, and removed only with its routes.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="gates">11.5 What an adoption must clear</h3>
+
+<p>In order, with the command. The proof is the run, not the workflow file: Roadmap 5's own notes record that hosted CI has never executed on this repository (PLAT-03), so CI is the gate as written rather than as observed.</p>
+
+<ol>
+  <li><code>pnpm check</code> — prettier, plus <code>scripts/check-colours.mts</code>: no palette class, no hex and no <code>rgb()</code> in <code>src/**/*.{ts,tsx}</code> outside a three-file allowlist. <em>This</em> is the colour check ADR-0055 means; the design submodule's <code>check-design.py</code> is not one.</li>
+  <li><code>pnpm lint</code> — <code>src/components/reui/**</code> is the only relaxed path.</li>
+  <li><code>pnpm typecheck</code>.</li>
+  <li><code>pnpm test</code> — includes the adoption guard (<code>src/components/v3/ui/component-adoption.test.ts</code>), the component axe gate, the contrast pairs and the token-mapping pin.</li>
+  <li><code>pnpm build</code>; and <code>pnpm generate-routes</code> when a route is added.</li>
+  <li>The Playwright browser suite — where the stand-in for a screen with no design row lives.</li>
+</ol>
+
+<p>Two caveats make that last step load-bearing rather than mop-up. The parity suite compares 45 screens across two themes, but <code>parity.spec.ts:126-131</code> fails while <code>DESIGN_PENDING</code> is non-empty and 81 of 126 boards are still pending, so <code>pnpm test:parity</code> is red today by construction and cannot be the evidence that an adoption is clean. And Storybook is checked nowhere — 77 stories, absent from <code>pnpm validate</code> and from CI, with the adoption guard skipping them — so “a story stands in” is documentation, not verification. Only four of the seven Tier-1 targets touch a screen in the parity set; for the rest, the browser test is the whole proof.</p>
+
+<p>Two further traps: <code>src/styles.css</code> carries two token vocabularies — the ELN semantic set at <code>:336</code> and the app-3 bridge at <code>:683-707</code> that the v3 kit actually writes — so a copied component using <code>bg-card</code> will render, look wrong beside every neighbour, and pass the colour check; and the guard's replacement rule is keyed on a basename collision with a v3 twin, so an adopted component that keeps a ReUI-internal name is invisible to it.</p>
+
+<h3 id="proposal">11.6 The proposal</h3>
+
+<p>The order is fixed by the answers recorded in §11.7. Each wave ends in something observable, and nothing is adopted without a recorded comparison.</p>
+
+<table>
+  <thead><tr><th>Wave</th><th>Work</th><th>Exit criterion</th></tr></thead>
+  <tbody>
+    <tr><td><strong>W1</strong> <span class="chip ok">start here</span></td><td><strong>B1 — the A/B harness.</strong> A dev-only route on the <code>/sheetbase-components</code> precedent (production redirect, its own route test, documented under <code>docs/development/</code>): one hostile fixture set (0, 1 and 5,000 rows; long scientific names and units; mixed types; a null column; high-precision values), one behavioural checklist (Tab to every control, sort/filter/select/page without a mouse, visible focus; empty, loading, error, restricted and dark states; 1440×900 and 390×844), axe on both columns, and a record template. Built once, generic over a pair of components.</td><td>One component compared end to end with a written verdict, reproducible from the repository alone.</td></tr>
+    <tr><td><strong>W2</strong></td><td><strong>B2 — Sortable in the notebook.</strong> Replace the 114 lines of HTML5 drag; re-point <code>cn</code>; place the item by hand under <code>src/components/reui/**</code>.</td><td>Drag reorders by mouse, touch and keyboard sensor; <code>Alt+↑/↓</code> and the block menu still work; the handle joins the print-hide set; the authoring browser test passes.</td></tr>
+    <tr><td><strong>W3</strong></td><td><strong>B3 — TanStack Table v9</strong> on <code>scientific/data-table.tsx</code> and <code>data-grid-types.ts</code>; then <strong>B4 — Frame + Data Grid</strong> on <code>v3/inventory/list.tsx</code>, the screen with eight copied table bodies.</td><td>No v8 API remains in <code>src</code>; the migrated grid's sorting, paging, visibility and selection verified by hand; then the first screen's bespoke chrome and its eight copies deleted in the same change.</td></tr>
+    <tr><td><strong>W4</strong></td><td><strong>B5 — the rest, opportunistically:</strong> File Upload, Timeline, Stepper, then Tier 2 — each as its screen is next touched.</td><td>Per item: the old implementation deleted in the same change, tokens respected, axe clean, and a comparison row written.</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Non-goals for this programme:</strong> empty states (owner decision, §11.2); the sheet grid (ADR-0048); the figure renderers; the status vocabulary (ADR-0011); anything the <code>sheetbase-advanced-search</code> filter builder owns, until the filter model is reconciled; and notebook blocks and their chrome, which Part A owns. Nothing here authorises work on a scientific surface.</p>
+
+<h3 id="decisions-5">11.7 Decisions taken in revision 5</h3>
+
+<table>
+  <thead><tr><th>#</th><th>Question</th><th>Answer</th><th>Effect</th></tr></thead>
+  <tbody>
+    <tr><td>7</td><td>Where does Part B start?</td><td><span class="chip ok">The harness, then Sortable</span></td><td>B1 precedes every adoption, as the bar requires; B2 is the first swap, and lands after W1 rather than inside a notebook refactor.</td></tr>
+    <tr><td>8</td><td>How are the 91 empty-state sites handled?</td><td><span class="chip ok">Out of this programme</span></td><td>Tier 1 loses a row. The finding stands recorded, and nothing in W1–W4 fixes it.</td></tr>
+    <tr><td>9</td><td>Where does the workstream live?</td><td><span class="chip ok">In this document</span></td><td>No Roadmap 4 stream and no tracker entry; this revision is the record.</td></tr>
+  </tbody>
+</table>
+
+<h3 id="limits-5">11.8 Limits of this revision</h3>
+
+<ul>
+  <li>Nothing was built, typechecked or run for this revision. Every statement about the tree is a source read at <code>00052727</code>; every statement about ReUI is its own published registry, read on 2026-10-15 and 2026-10-16.</li>
+  <li>The catalogue's shape can change between readings, and already has: the vendor's own pages disagree on how many free examples exist.</li>
+  <li>Line counts drift. 1,605 and 195 are today's numbers for the only two files that had moved since revision 4.</li>
+  <li>Parity is red and the browser suite is deferred, so no adoption in this programme can be proved by the acceptance harness as it stands. That is the reason W1 exists.</li>
+</ul>
+
+<hr>
+<p class="foot">Revision 5, 2026-10-16, against <code>00052727</code> on <code>GWP/notebook-document-surface</code>. Revision 1 proposed; revision 2 recorded the owner’s answers; revision 3 settled all six decisions and named Notion as the benchmark; revision 4 recorded the work already shipped — the block registry (A1), prose reading as one document (A2), the callout and metric editors (A4) and the component-primitive decision (B0) — with its verification; revision 5 verifies Part B against the current tree, corrects nine of its claims, adds four findings, records decisions 7–9 (§11.7) and fixes the sequence in §11.6. A3, A6 and every Part B adoption remain.</p>
+
+</div>
+</body>
+</html>

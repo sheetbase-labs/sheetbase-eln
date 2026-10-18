@@ -4,6 +4,11 @@ import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '#/components/v3/ui/collapsible'
 import { Status } from '#/components/v3/ui/status'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import {
@@ -19,15 +24,9 @@ import {
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { TableBox } from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   CheckRow,
@@ -79,6 +78,28 @@ const MEANING_ROWS = [
     usedFor: 'Releasing the record as evidence',
   },
 ] as const
+
+const signatureMeaningColumns: RegistryColumn<(typeof MEANING_ROWS)[number]>[] =
+  [
+    {
+      id: 'meaning',
+      header: 'Meaning',
+      meta: { cellClassName: 'font-medium' },
+      cell: ({ row }) => row.original.meaning,
+    },
+    {
+      id: 'who',
+      header: 'Who can sign',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) => row.original.who,
+    },
+    {
+      id: 'usedFor',
+      header: 'Used for',
+      meta: { cellClassName: 'text-fg-muted' },
+      cell: ({ row }) => row.original.usedFor,
+    },
+  ]
 
 /**
  * Regulated signing always re-establishes the account session, and the step-up
@@ -390,24 +411,13 @@ function Signatures() {
 
         <Section title="Signature meanings" count={MEANING_ROWS.length}>
           <TableBox className="max-w-[760px]">
-            <Table aria-label="Signature meanings">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Meaning</TableHead>
-                  <TableHead>Who can sign</TableHead>
-                  <TableHead>Used for</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {MEANING_ROWS.map((m) => (
-                  <TableRow key={m.meaning}>
-                    <TableCell className="font-medium">{m.meaning}</TableCell>
-                    <TableCell className="text-fg-muted">{m.who}</TableCell>
-                    <TableCell className="text-fg-muted">{m.usedFor}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Signature meanings"
+              rows={[...MEANING_ROWS]}
+              columns={signatureMeaningColumns}
+              getRowId={(meaning) => meaning.meaning}
+              selectable={false}
+            />
           </TableBox>
         </Section>
 
@@ -575,11 +585,9 @@ function IdentityVerification({
     onSuccess: onVerified,
   })
   return (
-    <details className="w-full">
-      <summary className="cursor-pointer text-label">
-        Verify {name} independently
-      </summary>
-      <div className="mt-2 flex max-w-[480px] flex-col gap-2">
+    <Collapsible className="w-full">
+      <CollapsibleTrigger>Verify {name} independently</CollapsibleTrigger>
+      <CollapsiblePanel className="mt-2 flex max-w-[480px] flex-col gap-2">
         <Field label="Independently verified email">
           <Input
             type="email"
@@ -603,8 +611,8 @@ function IdentityVerification({
         {verify.error ? (
           <Notice tone="bad">{verify.error.message}</Notice>
         ) : null}
-      </div>
-    </details>
+      </CollapsiblePanel>
+    </Collapsible>
   )
 }
 
@@ -657,11 +665,11 @@ function CredentialEnrollment({
   })
   return (
     <Section title="Your signing password">
-      <details>
-        <summary className="cursor-pointer text-body">
+      <Collapsible>
+        <CollapsibleTrigger className="text-body">
           Set up or recover a local signing password
-        </summary>
-        <div className="mt-2 flex max-w-[480px] flex-col gap-2">
+        </CollapsibleTrigger>
+        <CollapsiblePanel className="mt-2 flex max-w-[480px] flex-col gap-2">
           <Muted>
             Fresh independent verification must authorize this current session.
             Email is sent immediately over certificate-validated TLS; there is
@@ -710,7 +718,11 @@ function CredentialEnrollment({
           </Field>
           <Button
             disabled={
-              !available || !verified || !secret || !password || enroll.isPending
+              !available ||
+              !verified ||
+              !secret ||
+              !password ||
+              enroll.isPending
             }
             onClick={() => enroll.mutate()}
           >
@@ -722,8 +734,8 @@ function CredentialEnrollment({
           {send.error || enroll.error ? (
             <Notice tone="bad">{(send.error ?? enroll.error)?.message}</Notice>
           ) : null}
-        </div>
-      </details>
+        </CollapsiblePanel>
+      </Collapsible>
     </Section>
   )
 }

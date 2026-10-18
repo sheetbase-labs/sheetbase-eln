@@ -27,15 +27,12 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Textarea } from '#/components/v3/inventory/list'
 import { toast } from '#/components/v3/ui/sonner'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { downloadTextFile } from '#/lib/download'
 import {
@@ -69,6 +66,42 @@ function textSummary(payload: Record<string, unknown>): string {
   const keys = Object.keys(payload)
   return keys.length ? keys.slice(0, 4).join(', ') : '—'
 }
+
+/** The frozen blocks as the shared grid's rows; the table is read-only, so it
+ * takes no selection column. */
+interface FrozenBlock {
+  id: string
+  order: number
+  type: string
+  payload: Record<string, unknown>
+}
+
+const frozenBlockColumns: RegistryColumn<FrozenBlock>[] = [
+  {
+    id: 'order',
+    header: 'Order',
+    meta: {
+      ...rightAligned<FrozenBlock>().meta,
+      cellClassName: 'text-right num',
+    },
+    cell: ({ row }) => row.original.order,
+  },
+  {
+    id: 'block',
+    header: 'Block',
+    cell: ({ row }) => row.original.type,
+  },
+  {
+    id: 'content',
+    header: 'Content',
+    meta: { cellClassName: 'max-w-[520px] text-fg-muted' },
+    cell: ({ row }) => (
+      <span className="block truncate">
+        {textSummary(row.original.payload)}
+      </span>
+    ),
+  },
+]
 
 export function EvidencePage() {
   const { revisionId } = Route.useParams()
@@ -130,24 +163,28 @@ export function EvidencePage() {
   if (revisionQuery.isLoading) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader crumbs="Evidence" title="Loading evidence…" />
+        <PageHeader trail={[{ label: 'Evidence' }]} title="Loading evidence…" />
       </div>
     )
   }
   if (!revision) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader crumbs="Evidence" title="Evidence not found" />
+        <PageHeader
+          trail={[{ label: 'Evidence' }]}
+          title="Evidence not found"
+        />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="protocol"
             title="No revision has this id"
-            body="Evidence is a frozen revision of a record; it may have been superseded or belong to another workspace."
-          >
-            <Button nativeButton={false} render={<Link to="/inbox" />}>
-              Back to inbox
-            </Button>
-          </EmptyState>
+            description="Evidence is a frozen revision of a record; it may have been superseded or belong to another workspace."
+            action={
+              <Button nativeButton={false} render={<Link to="/inbox" />}>
+                Back to inbox
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -197,14 +234,10 @@ export function EvidencePage() {
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
-          crumbs={
-            <>
-              <Link to="/inbox" className="text-link">
-                Inbox
-              </Link>{' '}
-              / <span className="mono">{identifier}</span>
-            </>
-          }
+          trail={[
+            { label: 'Inbox', link: { to: '/inbox' } },
+            { label: identifier, mono: true },
+          ]}
           title={title}
           meta={
             <>
@@ -271,28 +304,13 @@ export function EvidencePage() {
             </Muted>
           </div>
           <TableBox className="max-w-[900px] max-md:hidden">
-            <Table aria-label="Frozen revision content">
-              <TableHeader>
-                <TableRow>
-                  <TableHead align="right">Order</TableHead>
-                  <TableHead>Block</TableHead>
-                  <TableHead>Content</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {blocks.map((b) => (
-                  <TableRow key={b.id}>
-                    <TableCell align="right" className="num">
-                      {b.order}
-                    </TableCell>
-                    <TableCell>{b.type}</TableCell>
-                    <TableCell className="max-w-[520px] truncate text-fg-muted">
-                      {textSummary(b.payload)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Frozen revision content"
+              rows={blocks}
+              columns={frozenBlockColumns}
+              getRowId={(block) => block.id}
+              selectable={false}
+            />
           </TableBox>
           {/* MOB-02.4: the same frozen blocks as the desktop table, one
               readable column, with the content wrapping in full rather than

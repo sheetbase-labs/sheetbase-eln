@@ -4,6 +4,7 @@
  * is presentation state owned by the route, never persisted block data.
  */
 import { Button } from '#/components/v3/ui/button'
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import { InspectorSection } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -89,10 +90,12 @@ export function NotebookOutlinePanel({
         </div>
       ) : null}
       {entries.length === 0 ? (
-        <p className="text-xs leading-5 text-fg-muted" role="status">
-          No sections yet. Use Heading 2 / Heading 3 in a text block to build an
-          outline; sections appear here for jumping and collapsing.
-        </p>
+        <EmptyState
+          icon="schema"
+          className="py-2"
+          title="No sections yet"
+          description="Use Heading 2 / Heading 3 in a text block to build an outline; sections appear here for jumping and collapsing."
+        />
       ) : (
         <nav aria-label="Notebook outline">
           <ul className="space-y-0.5">

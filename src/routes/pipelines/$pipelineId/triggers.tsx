@@ -10,7 +10,7 @@ import { Notice } from '#/components/v3/ui/alert'
 import { Choice } from '#/components/v3/ui/choice'
 import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import {
   Dialog,
   DialogBody,
@@ -31,15 +31,12 @@ import {
   ConfirmDialogTitle,
   ConfirmDialogTrigger,
 } from '#/components/v3/ui/confirm-dialog'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   createPipelineSchedule,
@@ -176,6 +173,94 @@ function PipelineTriggers() {
       scheduleSpecLabel(s.kind, s.spec, datasetNames) === '—',
   )
 
+  const columns: RegistryColumn<(typeof rows)[number]>[] = [
+    { id: 'kind', header: 'Kind', cell: ({ row }) => row.original.kind },
+    {
+      id: 'spec',
+      header: 'Spec',
+      cell: ({ row }) => (
+        <span className="text-caption">
+          {scheduleSpecLabel(
+            row.original.kind,
+            row.original.spec,
+            datasetNames,
+          )}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => (
+        <Status tone={row.original.enabled ? 'ok' : 'stored'}>
+          {row.original.enabled ? 'Enabled' : 'Paused'}
+        </Status>
+      ),
+    },
+    {
+      id: 'nextRun',
+      header: 'Next run',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {hasPublishedVersion === false
+            ? 'No published version'
+            : row.original.next_run_at
+              ? row.original.next_run_at.slice(0, 16).replace('T', ' ')
+              : row.original.kind === 'event'
+                ? 'On its event'
+                : 'Never fires'}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: () => <span className="sr-only">Actions</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-end gap-1.5">
+          <Button
+            size="sm"
+            disabled={toggle.isPending}
+            onClick={() =>
+              toggle.mutate({
+                scheduleId: row.original.id,
+                enabled: !row.original.enabled,
+              })
+            }
+          >
+            {row.original.enabled ? 'Pause' : 'Enable'}
+          </Button>
+          <ConfirmDialog>
+            <ConfirmDialogTrigger>
+              <Button size="sm" variant="quiet" disabled={remove.isPending}>
+                Delete
+              </Button>
+            </ConfirmDialogTrigger>
+            <ConfirmDialogContent>
+              <ConfirmDialogHeader>
+                <ConfirmDialogTitle>Delete this trigger?</ConfirmDialogTitle>
+                <ConfirmDialogDescription>
+                  Runs it would have started will not happen, and deleting
+                  cannot be undone. Add a new trigger if the pipeline should
+                  still run on a schedule or an event.
+                </ConfirmDialogDescription>
+              </ConfirmDialogHeader>
+              <ConfirmDialogFooter>
+                <ConfirmDialogCancel />
+                <ConfirmDialogAction
+                  variant="danger-fill"
+                  onClick={() => remove.mutate(row.original.id)}
+                >
+                  Delete trigger
+                </ConfirmDialogAction>
+              </ConfirmDialogFooter>
+            </ConfirmDialogContent>
+          </ConfirmDialog>
+        </div>
+      ),
+      meta: rightAligned<(typeof rows)[number]>().meta,
+    },
+  ]
+
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <Section
@@ -200,97 +285,23 @@ function PipelineTriggers() {
         ) : null}
         {rows.length ? (
           <TableBox>
-            <Table aria-label="Pipeline triggers">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Kind</TableHead>
-                  <TableHead>Spec</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Next run</TableHead>
-                  <TableHead align="right" aria-label="Actions" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell>{s.kind}</TableCell>
-                    <TableCell className="text-caption">
-                      {scheduleSpecLabel(s.kind, s.spec, datasetNames)}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={s.enabled ? 'ok' : 'stored'}>
-                        {s.enabled ? 'Enabled' : 'Paused'}
-                      </Status>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {hasPublishedVersion === false
-                        ? 'No published version'
-                        : s.next_run_at
-                          ? s.next_run_at.slice(0, 16).replace('T', ' ')
-                          : s.kind === 'event'
-                            ? 'On its event'
-                            : 'Never fires'}
-                    </TableCell>
-                    <TableCell align="right">
-                      <div className="flex justify-end gap-1.5">
-                        <Button
-                          size="sm"
-                          disabled={toggle.isPending}
-                          onClick={() =>
-                            toggle.mutate({
-                              scheduleId: s.id,
-                              enabled: !s.enabled,
-                            })
-                          }
-                        >
-                          {s.enabled ? 'Pause' : 'Enable'}
-                        </Button>
-                        <ConfirmDialog>
-                          <ConfirmDialogTrigger>
-                            <Button
-                              size="sm"
-                              variant="quiet"
-                              disabled={remove.isPending}
-                            >
-                              Delete
-                            </Button>
-                          </ConfirmDialogTrigger>
-                          <ConfirmDialogContent>
-                            <ConfirmDialogHeader>
-                              <ConfirmDialogTitle>
-                                Delete this trigger?
-                              </ConfirmDialogTitle>
-                              <ConfirmDialogDescription>
-                                Runs it would have started will not happen, and
-                                deleting cannot be undone. Add a new trigger if
-                                the pipeline should still run on a schedule or
-                                an event.
-                              </ConfirmDialogDescription>
-                            </ConfirmDialogHeader>
-                            <ConfirmDialogFooter>
-                              <ConfirmDialogCancel />
-                              <ConfirmDialogAction
-                                variant="danger-fill"
-                                onClick={() => remove.mutate(s.id)}
-                              >
-                                Delete trigger
-                              </ConfirmDialogAction>
-                            </ConfirmDialogFooter>
-                          </ConfirmDialogContent>
-                        </ConfirmDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Pipeline triggers"
+              rows={rows}
+              columns={columns}
+              getRowId={(s) => s.id}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <EmptyState
             icon="calendar"
             title="No triggers"
-            body="A pipeline runs when someone presses Run now until a trigger is added."
+            description="A pipeline runs when someone presses Run now until a trigger is added."
             className="py-4"
+            action={
+              <NewTrigger definitionId={pipelineId} workspaceId={workspaceId} />
+            }
           />
         )}
       </Section>
@@ -463,7 +474,7 @@ function NewTrigger({
           {f.kind === 'event' ? (
             <>
               <Field label="Event" required>
-                <NativeSelect
+                <Select
                   value={f.eventType}
                   aria-invalid={tried && specErrorMessage ? true : undefined}
                   onChange={(e) => setF({ ...f, eventType: e.target.value })}
@@ -473,14 +484,14 @@ function NewTrigger({
                       {name}
                     </option>
                   ))}
-                </NativeSelect>
+                </Select>
               </Field>
               {f.eventType === 'dataset.versioned' ? (
                 <Field
                   label="Dataset filter"
                   hint="Only this Dataset's new versions start the run. Optional."
                 >
-                  <NativeSelect
+                  <Select
                     value={f.datasetId}
                     onChange={(e) => setF({ ...f, datasetId: e.target.value })}
                   >
@@ -490,7 +501,7 @@ function NewTrigger({
                         {name}
                       </option>
                     ))}
-                  </NativeSelect>
+                  </Select>
                 </Field>
               ) : null}
             </>

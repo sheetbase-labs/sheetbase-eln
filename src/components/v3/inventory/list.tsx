@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
@@ -10,64 +10,25 @@ import {
 } from '#/components/v3/ui/dropdown-menu'
 import { Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
+import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
 import { cn } from '#/lib/utils'
 
 // Pieces shared by the registry lists (samples, materials, protocols, datasets): a header with the total and actions,
-// tabs that live in the `tab` search param, a toolbar with the `q` search box, and a footer count.
-
-const tabCls =
-  'inline-flex h-9 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:-outline-offset-2'
-
-/** How long the search box waits after the last keystroke before it tells the
- * route. The field keeps the typed text itself, so a burst faster than a router
- * round-trip — a hardware barcode scanner, or a paste — is never rendered back
- * from stale state. */
-const SEARCH_SETTLE_MS = 200
-
-export function SearchTabs({
-  items,
-  current,
-  label = 'Filter',
-}: {
-  items: {
-    key: string
-    label: string
-    count?: React.ReactNode
-    link: LinkProps
-  }[]
-  current: string
-  label?: string
-}) {
-  return (
-    <nav aria-label={label} className="flex gap-5 whitespace-nowrap">
-      {items.map((t) => (
-        <Link
-          key={t.key}
-          {...t.link}
-          className={cn(tabCls, t.key === current && 'border-link text-fg')}
-          aria-current={t.key === current ? 'page' : undefined}
-          activeOptions={{ exact: true, includeSearch: true }}
-        >
-          {t.label}
-          {t.count != null ? (
-            <span className="num text-label font-normal text-fg-muted">
-              {t.count}
-            </span>
-          ) : null}
-        </Link>
-      ))}
-    </nav>
-  )
-}
+// a toolbar with the `q` search box, and a footer count. The tab strip that used to live here is now
+// `#/components/v3/ui/tabs` (`mode="url"`), the one tab component the app has.
 
 export function ListHeader({
   title,
   total,
+  subtitle,
   actions,
   tabs,
 }: {
   title: string
   total?: number
+  /** What this list is, beside its name. Hidden on phones, where the title is
+   * the whole reference header. */
+  subtitle?: React.ReactNode
   actions?: React.ReactNode
   tabs?: React.ReactNode
 }) {
@@ -77,6 +38,11 @@ export function ListHeader({
         <h1 className="text-title max-md:text-[18px] max-md:leading-6">
           {title}
         </h1>
+        {subtitle ? (
+          <span className="text-body text-fg-muted max-md:hidden">
+            {subtitle}
+          </span>
+        ) : null}
         {total != null ? (
           <span className="num text-body text-fg-muted">
             {total.toLocaleString('en-GB')}
@@ -262,32 +228,14 @@ export function ListToolbar({
   // straight from the route's `q` lost characters: each keystroke navigated, and
   // a re-render with the still-stale param wrote an older value back into the
   // field before the router had caught up.
-  const [query, setQuery] = useState(q ?? '')
-  // The last value this box handed to the route, so a `q` that arrives from
-  // somewhere else (a tab, "Clear search") can be told apart from the echo of
-  // our own search and adopted without clobbering pending typing.
-  const sent = useRef(q ?? '')
-  const timer = useRef<number | null>(null)
-  useEffect(() => {
-    const next = q ?? ''
-    if (next === sent.current) return
-    // The route changed the query itself (a tab, "Clear search"): drop anything
-    // still queued from typing and adopt what the route now shows.
-    clearTimeout(timer.current ?? undefined)
-    timer.current = null
-    sent.current = next
-    setQuery(next)
-  }, [q])
-  useEffect(() => () => clearTimeout(timer.current ?? undefined), [])
-  const search = (next: string) => {
-    setQuery(next)
-    clearTimeout(timer.current ?? undefined)
-    timer.current = window.setTimeout(() => {
-      timer.current = null
-      sent.current = next
-      onSearch(next)
-    }, SEARCH_SETTLE_MS)
-  }
+  // The box holds what was typed and reports the settled value up; the
+  // two-nature rule it used to spell out here — adopt a value that changed
+  // somewhere else, drop anything still queued from typing — lives in the hook.
+  const { value: query, setValue: search } = useSettledValue(
+    q ?? '',
+    SEARCH_SETTLE_MS,
+    onSearch,
+  )
   return (
     <div className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6">
       {lead}
@@ -322,7 +270,10 @@ export function ListFooter({
   right?: React.ReactNode
 }) {
   return (
-    <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted max-md:hidden md:px-6">
+    <div
+      data-slot="table-footer"
+      className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted max-md:hidden md:px-6"
+    >
       <span className="num">{children}</span>
       {right ? (
         <span className="ml-auto text-fg max-xl:mr-28">{right}</span>
@@ -381,24 +332,6 @@ export function ListSkeleton({
         </div>
       ) : null}
     </div>
-  )
-}
-
-/** A native select in the input's style. Native keeps keyboard and screen reader behaviour for free. */
-export function Select({
-  className,
-  invalid,
-  ...props
-}: React.ComponentProps<'select'> & { invalid?: boolean }) {
-  return (
-    <select
-      aria-invalid={invalid || undefined}
-      className={cn(
-        'h-[30px] max-md:h-10 w-full cursor-pointer rounded-md border border-border bg-surface px-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus aria-invalid:border-danger aria-invalid:shadow-[0_0_0_1px_var(--danger)]',
-        className,
-      )}
-      {...props}
-    />
   )
 }
 

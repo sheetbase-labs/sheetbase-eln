@@ -3,20 +3,15 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { CopyButton } from '#/components/v3/ui/copy-button'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Muted, Section } from '#/components/v3/ui/layout'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { CapabilityGap } from '#/components/v3/ui/capability-gap'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import {
   SettingsBody,
@@ -118,7 +113,7 @@ function Diagnostics() {
           <EmptyState
             icon="lock"
             title="Only workspace admins can see diagnostics"
-            body="Diagnostics show system checks and error details across every project. Ask a workspace admin if something isn’t working; they can send a support bundle to Sheetbase."
+            description="Diagnostics show system checks and error details across every project. Ask a workspace admin if something isn’t working; they can send a support bundle to Sheetbase."
           />
         </div>
       </>
@@ -152,7 +147,18 @@ function Diagnostics() {
           <EmptyState
             icon="warn"
             title="Diagnostics could not be loaded"
-            body="Check the connection and try again."
+            description="Check the connection and try again."
+            action={
+              <Button
+                onClick={() => {
+                  void diagnostics.refetch()
+                  void runHealth.refetch()
+                  void connectors.refetch()
+                }}
+              >
+                Retry
+              </Button>
+            }
           />
         </SettingsBody>
       </>
@@ -185,6 +191,38 @@ function Diagnostics() {
           requestId: run.id,
           time: formatTime(run.finishedAt ?? run.startedAt),
         }))
+  const failureColumns: RegistryColumn<(typeof failures)[number]>[] = [
+    {
+      id: 'time',
+      header: 'Time',
+      meta: { headerClassName: 'pl-3!', cellClassName: 'pl-3!' },
+      cell: ({ row }) => row.original.time,
+    },
+    {
+      id: 'area',
+      header: 'Area',
+      cell: ({ row }) => row.original.area,
+    },
+    {
+      id: 'message',
+      header: 'Message',
+      meta: {
+        cellClassName: 'min-w-[260px] whitespace-normal py-1.5! leading-[17px]',
+      },
+      cell: ({ row }) => row.original.message,
+    },
+    {
+      id: 'record',
+      header: 'Record',
+      meta: { cellClassName: 'mono' },
+      cell: ({ row }) => row.original.record ?? '—',
+    },
+    {
+      id: 'requestId',
+      header: 'Request ID',
+      cell: ({ row }) => <RequestIdCell id={row.original.requestId} />,
+    },
+  ]
 
   async function runAll() {
     setRunning(true)
@@ -288,36 +326,13 @@ function Diagnostics() {
                 ))}
               </ul>
               <div className="overflow-x-auto rounded-md border border-border max-md:hidden">
-                <Table className="max-xl:min-w-[880px]">
-                  <TableHeader>
-                    <TableRow>
-                      {['Time', 'Area', 'Message', 'Record', 'Request ID'].map(
-                        (h) => (
-                          <TableHead key={h} className="first:pl-3">
-                            {h}
-                          </TableHead>
-                        ),
-                      )}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {failures.map((e) => (
-                      <TableRow key={e.id}>
-                        <TableCell className="first:pl-3">{e.time}</TableCell>
-                        <TableCell>{e.area}</TableCell>
-                        <TableCell className="min-w-[260px] whitespace-normal py-1.5 leading-[17px]">
-                          {e.message}
-                        </TableCell>
-                        <TableCell className="mono">
-                          {e.record ?? '—'}
-                        </TableCell>
-                        <TableCell>
-                          <RequestIdCell id={e.requestId} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <RegistryGrid
+                  label="Recent failures"
+                  rows={failures}
+                  columns={failureColumns}
+                  getRowId={(failure) => failure.id}
+                  selectable={false}
+                />
               </div>
               <Muted>
                 Failures from recent pipeline and connector runs. Messages never
@@ -329,7 +344,7 @@ function Diagnostics() {
             <EmptyState
               icon="check"
               title="No recent failures"
-              body="Anything that fails, from an import to a delivery, shows here with a request ID you can give to support."
+              description="Anything that fails, from an import to a delivery, shows here with a request ID you can give to support."
               className="py-4"
             />
           )}
@@ -591,15 +606,11 @@ function RequestIdCell({ id }: { id: string }) {
   return (
     <span className="flex items-center gap-1">
       <span className="mono text-label">{id}</span>
-      <Button
+      <CopyButton
+        value={id}
         size="icon"
-        variant="quiet"
-        icon="copy"
         aria-label={`Copy request ID ${id}`}
-        onClick={() => {
-          void navigator.clipboard.writeText(id)
-          toast(`Copied ${id}`)
-        }}
+        copiedMessage={`Copied ${id}`}
       />
     </span>
   )

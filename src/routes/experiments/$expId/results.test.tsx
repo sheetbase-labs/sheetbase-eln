@@ -16,6 +16,15 @@ const ResultsRoute = Route.options.component as React.ComponentType
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
 const sonner = vi.hoisted(() => ({ toast: vi.fn() }))
 
+// jsdom reports no layout, so the grid's virtualiser would render no rows: give
+// every element the viewport a browser would report for the list area.
+for (const prop of ['offsetHeight', 'clientHeight'] as const) {
+  Object.defineProperty(HTMLElement.prototype, prop, {
+    configurable: true,
+    get: () => 600,
+  })
+}
+
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ expId: 'exp-1' }),
@@ -101,22 +110,21 @@ function renderResults() {
 }
 
 beforeEach(() => {
-  dataClient.list.mockImplementation(
-    async (resource: string, query = '') => {
-      if (resource === 'record_links') return LINKS
-      if (resource === 'records') return [{ decision: null, decision_notes: null }]
-      if (resource === 'analysis_views') {
-        return [{ id: 'an-7', display_id: 'AN-0007', name: 'VCD by day' }]
-      }
-      if (resource === 'rpc/dataset_list_summary') {
-        const wanted = DATASET_ROWS.filter((row) =>
-          query.includes(row.display_id),
-        )
-        return wanted
-      }
-      return []
-    },
-  )
+  dataClient.list.mockImplementation(async (resource: string, query = '') => {
+    if (resource === 'record_links') return LINKS
+    if (resource === 'records')
+      return [{ decision: null, decision_notes: null }]
+    if (resource === 'analysis_views') {
+      return [{ id: 'an-7', display_id: 'AN-0007', name: 'VCD by day' }]
+    }
+    if (resource === 'rpc/dataset_list_summary') {
+      const wanted = DATASET_ROWS.filter((row) =>
+        query.includes(row.display_id),
+      )
+      return wanted
+    }
+    return []
+  })
 })
 
 afterEach(() => {
@@ -146,9 +154,7 @@ describe('experiment results', () => {
 
     const analyses = (await screen.findByText('Analyses')).closest('section')!
     const datasets = screen.getByText('Datasets').closest('section')!
-    expect(
-      await within(analyses).findByText('VCD by day'),
-    ).toBeTruthy()
+    expect(await within(analyses).findByText('VCD by day')).toBeTruthy()
     expect(await within(datasets).findByText('Ambr 250 harvest')).toBeTruthy()
   })
 })

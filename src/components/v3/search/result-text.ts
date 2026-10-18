@@ -45,7 +45,10 @@ export function searchResultContext(
     segment.text.includes(ownId)
       ? {
           ...segment,
-          text: segment.text.split(ownId).join('').replace(/\s{2,}/g, ' '),
+          text: segment.text
+            .split(ownId)
+            .join('')
+            .replace(/\s{2,}/g, ' '),
         }
       : segment,
   )

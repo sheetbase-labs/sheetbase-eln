@@ -18,7 +18,7 @@ table current: a design component with no implementation is a parity gap.
 | `Choice`         | `ui/choice.tsx`                                  |
 | `Diff`           | `scientific/diff.tsx`                            |
 | `Dot`            | `ui/dot.tsx`                                     |
-| `EmptyState`     | `ui/empty.tsx`                                   |
+| `EmptyState`     | `v3/ui/empty-state.tsx` (`EmptyState`)           |
 | `Icon`           | `components/icons/index.tsx`                     |
 | `Kbd`            | `ui/kbd.tsx`                                     |
 | `Menu`           | `ui/dropdown-menu.tsx` (`DropdownMenu`)          |
@@ -31,7 +31,7 @@ table current: a design component with no implementation is a parity gap.
 | `Skeleton`       | `ui/skeleton.tsx`                                |
 | `Source`         | `scientific/source.tsx`                          |
 | `Status`         | `scientific/status-badge.tsx` (`StatusBadge`)    |
-| `Stepper`        | `ui/stepper.tsx`                                 |
+| `Stepper`        | `v3/ui/stepper.tsx`                              |
 | `Tag`            | `ui/tag.tsx`                                     |
 | `Toast`          | `ui/sonner.tsx` (`Toaster`)                      |
 | `Tooltip`        | `ui/tooltip.tsx`                                 |

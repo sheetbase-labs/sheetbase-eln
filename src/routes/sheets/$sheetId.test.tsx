@@ -5,7 +5,13 @@
  * handed the workspace no project *and* forced `readOnly`, which meant the
  * Sheet opened read-only with no way to write it.
  */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { toast } from '#/components/v3/ui/sonner'

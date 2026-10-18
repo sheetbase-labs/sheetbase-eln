@@ -1,4 +1,5 @@
 import { Section } from '#/components/v3/ui/layout'
+import { Progress } from '#/components/v3/ui/progress'
 import { Status } from '#/components/v3/ui/status'
 import type { SampleQuantityBalances } from '#/lib/samples'
 import { formatQuantityAmount } from './withdraw-dialog'
@@ -57,20 +58,14 @@ export function UsageBalanceBar({
   return (
     <Section title="Volume" className={className}>
       <div className="max-w-[640px]">
-        <div
-          role="img"
-          aria-label={label}
-          className="flex h-2.5 overflow-hidden rounded-sm bg-skeleton"
-        >
-          <div
-            style={{ width: `${segments.usedPct}%` }}
-            className="bg-fg-muted"
-          />
-          <div
-            style={{ width: `${segments.reservedPct}%` }}
-            className="bg-selection-border"
-          />
-        </div>
+        <Progress
+          label={label}
+          size="md"
+          segments={[
+            { value: segments.usedPct, className: 'bg-fg-muted' },
+            { value: segments.reservedPct, className: 'bg-selection-border' },
+          ]}
+        />
         <div className="num mt-2 flex flex-wrap items-center gap-x-[18px] gap-y-1 text-label">
           <Status tone="stored">
             Used {formatQuantityAmount(segments.used)}

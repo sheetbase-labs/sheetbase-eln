@@ -658,12 +658,8 @@ describe('ImportMapCheckFlow', () => {
     )
 
     // The map step is where how to read the file is the open question.
-    expect(
-      await screen.findByText('Choose how to read this file'),
-    ).toBeTruthy()
-    expect(
-      screen.queryByRole('table', { name: 'Rows to import' }),
-    ).toBeNull()
+    expect(await screen.findByText('Choose how to read this file')).toBeTruthy()
+    expect(screen.queryByRole('table', { name: 'Rows to import' })).toBeNull()
 
     unmount()
     renderFlow(

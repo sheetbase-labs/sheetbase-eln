@@ -3,15 +3,12 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted, Section } from '#/components/v3/ui/layout'
+import { TableBox } from '#/components/v3/ui/table'
 import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+  RegistryGrid,
+  rightAligned,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
   runDuration,
   runStatus,
@@ -36,56 +33,72 @@ function PipelineRuns() {
     return v ? `v${v.version}` : '—'
   }
 
+  const columns: RegistryColumn<(typeof rows)[number]>[] = [
+    {
+      id: 'run',
+      header: 'Run',
+      cell: ({ row }) => (
+        <Link
+          to="/pipelines/$pipelineId/runs/$runId"
+          params={{ pipelineId, runId: row.original.id }}
+        >
+          <span className="mono">{row.original.id.slice(0, 8)}</span>
+        </Link>
+      ),
+    },
+    {
+      id: 'version',
+      header: 'Version',
+      cell: ({ row }) => versionLabel(row.original.definition_version_id),
+    },
+    {
+      id: 'trigger',
+      header: 'Trigger',
+      cell: ({ row }) => row.original.trigger_kind,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => {
+        const status = runStatus(row.original.status)
+        return <Status tone={status.tone}>{status.label}</Status>
+      },
+    },
+    {
+      id: 'started',
+      header: 'Started',
+      cell: ({ row }) => (
+        <span className="text-fg-muted">
+          {row.original.started_at.slice(0, 16).replace('T', ' ')}
+        </span>
+      ),
+    },
+    {
+      id: 'took',
+      header: 'Took',
+      cell: ({ row }) => runDuration(row.original),
+      meta: rightAligned<(typeof rows)[number]>().meta,
+    },
+  ]
+
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-[18px] md:px-6">
       <Section title="Runs" count={rows.length}>
         {rows.length ? (
           <TableBox>
-            <Table aria-label="Pipeline runs">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Run</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Trigger</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead align="right">Took</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="mono">
-                      <Link
-                        to="/pipelines/$pipelineId/runs/$runId"
-                        params={{ pipelineId, runId: r.id }}
-                      >
-                        {r.id.slice(0, 8)}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {versionLabel(r.definition_version_id)}
-                    </TableCell>
-                    <TableCell>{r.trigger_kind}</TableCell>
-                    <TableCell>
-                      <Status tone={runStatus(r.status).tone}>
-                        {runStatus(r.status).label}
-                      </Status>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {r.started_at.slice(0, 16).replace('T', ' ')}
-                    </TableCell>
-                    <TableCell align="right">{runDuration(r)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Pipeline runs"
+              rows={rows}
+              columns={columns}
+              getRowId={(r) => r.id}
+              selectable={false}
+            />
           </TableBox>
         ) : (
           <EmptyState
             icon="play"
             title="No runs yet"
-            body="Press Run now, or turn on a trigger in Triggers."
+            description="Press Run now, or turn on a trigger in Triggers."
             className="py-4"
           />
         )}

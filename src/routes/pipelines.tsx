@@ -30,24 +30,23 @@ import {
   Muted,
 } from '#/components/v3/ui/layout'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
-import {
   ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
+import {
+  RegistryGrid,
+  rightAligned,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { Tabs } from '#/components/v3/ui/tabs'
 import { toast } from '#/components/v3/ui/sonner'
-import { createPipelineDefinition, startPipelineRun } from '#/lib/pipelines/data'
+import {
+  createPipelineDefinition,
+  startPipelineRun,
+} from '#/lib/pipelines/data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   pipelineDataQueryKeys,
@@ -160,6 +159,85 @@ function PipelinesList() {
   // The footer claims a selection only when the URL names one that is on screen.
   const selectedRow = visible.find((p) => p.id === selectedId)
 
+  const columns = useMemo<RegistryColumn<PipelineListRow>[]>(
+    () => [
+      {
+        id: 'key',
+        header: 'Key',
+        cell: ({ row }) => <span className="mono">{row.original.key}</span>,
+      },
+      {
+        id: 'name',
+        header: 'Pipeline',
+        cell: ({ row }) => (
+          <Link
+            to="/pipelines/$pipelineId"
+            params={{ pipelineId: row.original.id }}
+            onClick={(event) => event.stopPropagation()}
+            className={row.getIsSelected() ? 'font-medium' : undefined}
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      {
+        id: 'version',
+        header: 'Version',
+        cell: ({ row }) => (
+          <>
+            {row.original.current ? `v${row.original.current.version}` : '—'}
+            {row.original.draft &&
+            row.original.current?.lifecycle === 'published' ? (
+              <span className="text-fg-muted">
+                {' '}
+                · v{row.original.draft.version} draft
+              </span>
+            ) : null}
+          </>
+        ),
+      },
+      {
+        id: 'runs',
+        header: 'Runs',
+        accessorFn: (p) => p.runCount,
+        meta: rightAligned<PipelineListRow>().meta,
+      },
+      {
+        id: 'lastRun',
+        header: 'Last run',
+        cell: ({ row }) => {
+          const last = row.original.lastRun
+          const lastStatus = last ? runStatus(last.status) : null
+          return lastStatus ? (
+            <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
+          ) : (
+            <Status tone="draft">Never run</Status>
+          )
+        },
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <Status tone={row.original.lifecycle === 'active' ? 'ok' : 'stored'}>
+            {row.original.lifecycle === 'active' ? 'Active' : 'Retired'}
+          </Status>
+        ),
+      },
+    ],
+    [],
+  )
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.id ?? null,
+    (id) =>
+      void navigate({
+        to: '/pipelines',
+        search: (s) => ({ ...s, selected: id ?? undefined }),
+        replace: true,
+      }),
+  )
+
   const run = useMutation({
     mutationFn: (row: PipelineListRow) => {
       const version = row.current
@@ -207,9 +285,10 @@ function PipelinesList() {
             </>
           }
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Pipeline lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
@@ -235,77 +314,18 @@ function PipelinesList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table aria-label="Pipelines" className="max-lg:hidden">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={stickyHead}>Key</TableHead>
-                <TableHead>Pipeline</TableHead>
-                <TableHead>Version</TableHead>
-                <TableHead align="right">Runs</TableHead>
-                <TableHead>Last run</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((p) => {
-                const last = p.lastRun
-                const lastStatus = last ? runStatus(last.status) : null
-                return (
-                  <TableRow
-                    key={p.id}
-                    selected={p.id === sel?.id}
-                    className="cursor-pointer"
-                    onClick={() =>
-                      void navigate({
-                        to: '/pipelines',
-                        search: (s) => ({ ...s, selected: p.id }),
-                        replace: true,
-                      })
-                    }
-                  >
-                    <TableCell className={stickyCell}>
-                      <span className="mono">{p.key}</span>
-                    </TableCell>
-                    <TableCell
-                      className={p.id === sel?.id ? 'font-medium' : undefined}
-                    >
-                      <Link
-                        to="/pipelines/$pipelineId"
-                        params={{ pipelineId: p.id }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {p.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {p.current ? `v${p.current.version}` : '—'}
-                      {p.draft && p.current?.lifecycle === 'published' ? (
-                        <span className="text-fg-muted">
-                          {' '}
-                          · v{p.draft.version} draft
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell align="right">{p.runCount}</TableCell>
-                    <TableCell>
-                      {lastStatus ? (
-                        <Status tone={lastStatus.tone}>
-                          {lastStatus.label}
-                        </Status>
-                      ) : (
-                        <Status tone="draft">Never run</Status>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={p.lifecycle === 'active' ? 'ok' : 'stored'}>
-                        {p.lifecycle === 'active' ? 'Active' : 'Retired'}
-                      </Status>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          {query.isLoading || visible.length > 0 ? (
+            <RegistryGrid
+              className="max-md:hidden"
+              label="Pipelines"
+              rows={visible}
+              columns={columns}
+              getRowId={(p) => p.id}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              isLoading={query.isLoading}
+            />
+          ) : null}
           <MobileList
             label="Pipelines"
             items={visible.map((p) => {
@@ -337,7 +357,19 @@ function PipelinesList() {
                     ? `No pipelines match “${search.q}”`
                     : `No pipelines in ${tabLabel[tab].toLowerCase()}`
                 }
-                body="Search looks at pipeline keys and names."
+                description="Search looks at pipeline keys and names."
+                action={
+                  q ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/pipelines" search={{ tab: search.tab }} />
+                      }
+                    >
+                      Clear search
+                    </Button>
+                  ) : undefined
+                }
               />
             </div>
           ) : null}

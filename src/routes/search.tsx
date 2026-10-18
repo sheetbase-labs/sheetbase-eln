@@ -3,6 +3,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { LoadMore } from '#/components/v3/ui/load-more'
 import { Notice } from '#/components/v3/ui/alert'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
@@ -81,9 +82,7 @@ export function searchMatchCount(
   shownCount: number,
   total: number | undefined,
 ): number {
-  return total !== undefined && loadedCount === shownCount
-    ? total
-    : shownCount
+  return total !== undefined && loadedCount === shownCount ? total : shownCount
 }
 
 function statusTone(status: string): Tone {
@@ -157,11 +156,7 @@ function SearchPage() {
     project: search.project,
     updated: search.updated,
   })
-  const matchCount = searchMatchCount(
-    loaded.length,
-    results.length,
-    totalCount,
-  )
+  const matchCount = searchMatchCount(loaded.length, results.length, totalCount)
 
   const suggestionQuery = useQuery({
     queryKey: ['did-you-mean', q],
@@ -221,9 +216,7 @@ function SearchPage() {
   // not make the empty state blame filters (nor offer a Clear filters button
   // that resets facets which are already unset).
   const facetFilterCount =
-    typeFilter.length +
-    projectFilter.length +
-    (updatedFilter === '7d' ? 1 : 0)
+    typeFilter.length + projectFilter.length + (updatedFilter === '7d' ? 1 : 0)
   const activeFilters = facetFilterCount + (search.archived ? 1 : 0)
 
   const facetsEl = q ? (
@@ -352,7 +345,7 @@ function SearchPage() {
             <EmptyState
               icon="search"
               title="Search names, IDs, cell values, comments and files"
-              body="Type an ID like EXP-0142 or a value like C-150. Press ⌘K anywhere to search without leaving the page."
+              description="Type an ID like EXP-0142 or a value like C-150. Press ⌘K anywhere to search without leaving the page."
             />
           </>
         ) : (
@@ -361,9 +354,7 @@ function SearchPage() {
               <h1 className="text-title max-md:text-[18px] max-md:leading-6">
                 Results for “{q}”
               </h1>
-              <span className="num text-body text-fg-muted">
-                {matchCount}
-              </span>
+              <span className="num text-body text-fg-muted">{matchCount}</span>
               <span className="flex-1" />
               {/* The `search` RPC ranks by relevance and takes no sort
                   parameter, so the page states the ordering instead of
@@ -445,16 +436,13 @@ function SearchPage() {
               )
             })}
 
-            {query.hasNextPage ? (
-              <div className="mt-4">
-                <Button
-                  onClick={() => void query.fetchNextPage()}
-                  disabled={query.isFetchingNextPage}
-                >
-                  {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
-                </Button>
-              </div>
-            ) : null}
+            <LoadMore
+              label="Search results"
+              className="mt-4"
+              hasMore={query.hasNextPage}
+              loading={query.isFetchingNextPage}
+              onLoadMore={() => void query.fetchNextPage()}
+            />
           </>
         )}
       </div>

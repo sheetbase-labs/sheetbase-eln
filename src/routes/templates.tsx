@@ -31,23 +31,19 @@ import {
   Muted,
 } from '#/components/v3/ui/layout'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
-import {
   ListFooter,
   ListHeader,
   ListToolbar,
   MobileList,
-  SearchTabs,
   Textarea,
-  stickyCell,
-  stickyHead,
 } from '#/components/v3/inventory/list'
+import {
+  RegistryGrid,
+  rightAligned,
+  useRowFocus,
+} from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { Tabs } from '#/components/v3/ui/tabs'
 import {
   templateDataQueryKeys,
   templateLifecycle,
@@ -143,6 +139,92 @@ function TemplatesList() {
   const sel =
     visible.find((t) => t.id === (selected ?? wanted)) ?? visible.at(0)
 
+  const columns = useMemo<RegistryColumn<TemplateRow>[]>(
+    () => [
+      {
+        id: 'identifier',
+        header: 'ID',
+        cell: ({ row }) => (
+          <span className="mono">{row.original.displayId ?? '—'}</span>
+        ),
+      },
+      {
+        id: 'key',
+        header: 'Key',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => <span className="mono">{row.original.key}</span>,
+      },
+      {
+        id: 'template',
+        header: 'Template',
+        cell: ({ row }) => (
+          <Link
+            to="/templates/$templateId"
+            params={{ templateId: row.original.id }}
+            onClick={(event) => event.stopPropagation()}
+            className={row.getIsSelected() ? 'font-medium' : undefined}
+          >
+            {row.original.name}
+          </Link>
+        ),
+      },
+      {
+        id: 'kind',
+        header: 'Kind',
+        cell: () => <Badge variant="kind">Notebook</Badge>,
+      },
+      {
+        id: 'version',
+        header: 'Version',
+        meta: rightAligned<TemplateRow>().meta,
+        cell: ({ row }) =>
+          row.original.published
+            ? `v${row.original.published.version}`
+            : row.original.latest
+              ? `v${row.original.latest.version} draft`
+              : '—',
+      },
+      {
+        id: 'sections',
+        header: 'Sections',
+        accessorFn: (t) => t.sectionCount,
+        meta: rightAligned<TemplateRow>().meta,
+      },
+      {
+        id: 'inUse',
+        header: 'In use',
+        meta: rightAligned<TemplateRow>().meta,
+        cell: ({ row }) => (
+          <span
+            className={row.original.inUse === 0 ? 'text-fg-muted' : undefined}
+          >
+            {row.original.inUse}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        cell: ({ row }) => {
+          const status = templateLifecycle(row.original.lifecycle)
+          return <Status tone={status.tone}>{status.label}</Status>
+        },
+      },
+      {
+        id: 'owner',
+        header: 'Owner',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => ownerName(row.original.createdByUserId),
+      },
+    ],
+    [members.data],
+  )
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.id ?? null,
+    setSelected,
+  )
+
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -151,9 +233,10 @@ function TemplatesList() {
           total={rows.length}
           actions={<NewTemplateDialog />}
           tabs={
-            <SearchTabs
+            <Tabs
+              mode="url"
               label="Template lists"
-              current={tab}
+              value={tab}
               items={tabs.map((t) => ({
                 key: t,
                 label: tabLabel[t],
@@ -179,75 +262,18 @@ function TemplatesList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          <Table aria-label="Templates" className="max-lg:hidden">
-            <TableHeader>
-              <TableRow>
-                <TableHead className={stickyHead}>ID</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>Template</TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead align="right">Version</TableHead>
-                <TableHead align="right">Sections</TableHead>
-                <TableHead align="right">In use</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Owner</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visible.map((t) => {
-                const status = templateLifecycle(t.lifecycle)
-                return (
-                  <TableRow
-                    key={t.id}
-                    selected={t.id === sel?.id}
-                    className="cursor-pointer"
-                    onClick={() => setSelected(t.id)}
-                  >
-                    <TableCell className={stickyCell}>
-                      <span className="mono">{t.displayId ?? '—'}</span>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      <span className="mono">{t.key}</span>
-                    </TableCell>
-                    <TableCell
-                      className={t.id === sel?.id ? 'font-medium' : undefined}
-                    >
-                      <Link
-                        to="/templates/$templateId"
-                        params={{ templateId: t.id }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {t.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="kind">Notebook</Badge>
-                    </TableCell>
-                    <TableCell align="right">
-                      {t.published
-                        ? `v${t.published.version}`
-                        : t.latest
-                          ? `v${t.latest.version} draft`
-                          : '—'}
-                    </TableCell>
-                    <TableCell align="right">{t.sectionCount}</TableCell>
-                    <TableCell
-                      align="right"
-                      className={t.inUse === 0 ? 'text-fg-muted' : undefined}
-                    >
-                      {t.inUse}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={status.tone}>{status.label}</Status>
-                    </TableCell>
-                    <TableCell className="text-fg-muted">
-                      {ownerName(t.createdByUserId)}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          {query.isLoading || visible.length > 0 ? (
+            <RegistryGrid
+              className="max-md:hidden"
+              label="Templates"
+              rows={visible}
+              columns={columns}
+              getRowId={(t) => t.id}
+              rowSelection={rowSelection}
+              onRowSelectionChange={onRowSelectionChange}
+              isLoading={query.isLoading}
+            />
+          ) : null}
           <MobileList
             label="Templates"
             items={visible.map((t) => {
@@ -275,7 +301,25 @@ function TemplatesList() {
                     ? `No templates match “${search.q}”`
                     : `No templates in ${tabLabel[tab].toLowerCase()}`
                 }
-                body="Search looks at template keys and names."
+                description={
+                  q
+                    ? 'Search looks at template keys and names.'
+                    : 'A template holds the sections and parameters a notebook is made from.'
+                }
+                action={
+                  q ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/templates" search={{ tab: search.tab }} />
+                      }
+                    >
+                      Clear search
+                    </Button>
+                  ) : (
+                    <NewTemplateDialog />
+                  )
+                }
               />
             </div>
           ) : null}

@@ -111,6 +111,18 @@ const archivedRecord: NotebookRecord = {
   archivedAt: '2026-07-19T00:00:00.000Z',
 }
 
+/**
+ * The header's print-only provenance line. On screen the record's kind, status,
+ * notebook lifecycle, project and dates live in the inspector, where each is
+ * labelled; the header itself is the title, the identifier and the actions.
+ */
+function provenance(): string {
+  return (
+    document.querySelector('[data-testid="record-provenance"]')?.textContent ??
+    ''
+  )
+}
+
 function renderWithQuery(ui: React.ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -130,15 +142,40 @@ describe('StickyRecordHeader', () => {
         currentUserId="u1"
       />,
     )
-    expect(screen.getByText('Experiment')).toBeTruthy()
+    expect(provenance()).toContain('Experiment')
     expect(screen.getByText('EXP-2025-0001')).toBeTruthy()
     expect(screen.getByLabelText('Notebook title')).toBeTruthy()
-    expect(screen.getByText('Stability Programme')).toBeTruthy()
-    expect(screen.getByText('In progress')).toBeTruthy()
-    expect(screen.getByText('Working')).toBeTruthy()
+    expect(provenance()).toContain('Stability Programme')
+    expect(provenance()).toContain('In progress')
+    expect(provenance()).toContain('Working')
     expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Print' })).toBeTruthy()
+    // The rare record actions live behind the overflow: a row of bordered
+    // buttons above the work is chrome.
+    expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
+    expect(
+      screen.getByRole('button', { name: 'More record actions' }),
+    ).toBeTruthy()
+  })
+
+  it('offers the rare record actions from the overflow', async () => {
+    const user = userEvent.setup()
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'More record actions' }),
+    )
+    const items = (await screen.findAllByRole('menuitem')).map((item) =>
+      item.textContent.trim(),
+    )
+    expect(items).toContain('Print')
+    expect(items).toContain('Duplicate')
+    expect(items).toContain('Link records…')
   })
 
   it('keeps tags in the properties inspector instead of the document header', () => {
@@ -224,7 +261,7 @@ describe('StickyRecordHeader — lock state', () => {
         currentUserName="Ada Lovelace"
       />,
     )
-    expect(screen.getByText('Submitted')).toBeTruthy()
+    expect(provenance()).toContain('Submitted')
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Sign' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
@@ -249,7 +286,7 @@ describe('StickyRecordHeader — lock state', () => {
       screen.getByRole('heading', { name: 'Submitted title' }),
     ).toBeTruthy()
     expect(screen.queryByLabelText('Notebook title')).toBeNull()
-    expect(screen.getByText('Submitted')).toBeTruthy()
+    expect(provenance()).toContain('Submitted')
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
@@ -279,7 +316,7 @@ describe('StickyRecordHeader — lock state', () => {
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Duplicate' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
-    expect(screen.getByText('Submitted')).toBeTruthy()
+    expect(provenance()).toContain('Submitted')
   })
 
   it('keeps Duplicate on the working Notebook after amendment', () => {
@@ -297,8 +334,10 @@ describe('StickyRecordHeader — lock state', () => {
       />,
     )
     expect(screen.getByLabelText('Notebook title')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Duplicate' })).toBeTruthy()
-    expect(screen.getByText('Working')).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'More record actions' }),
+    ).toBeTruthy()
+    expect(provenance()).toContain('Working')
   })
 
   it('shows Open review but not Sign while the submission is unsigned', () => {
@@ -332,8 +371,8 @@ describe('StickyRecordHeader — lock state', () => {
         }}
       />,
     )
-    expect(screen.getByText('In review')).toBeTruthy()
-    expect(screen.queryByText('Working')).toBeNull()
+    expect(provenance()).toContain('In review')
+    expect(provenance()).not.toContain('Working')
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
     expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
@@ -373,7 +412,7 @@ describe('StickyRecordHeader — lock state', () => {
         }}
       />,
     )
-    expect(screen.getByText('In review')).toBeTruthy()
+    expect(provenance()).toContain('In review')
     expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Sign' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Open review' })).toBeTruthy()
@@ -555,7 +594,7 @@ describe('NotebookCanvas', () => {
       {
         id: 'bX',
         recordId: 'r1',
-        type: 'quantum_state', // not in KNOWN_BLOCK_TYPES
+        type: 'quantum_state', // not in BLOCK_TYPES
         payload: { foo: 'bar' },
         payloadSchemaVersion: 1,
         order: 1,
@@ -978,7 +1017,6 @@ describe('NotebookCanvas — editable path', () => {
         />
       </QueryClientProvider>,
     )
-    expect(screen.getByRole('button', { name: /Add block/ })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Editable' })).toBeTruthy()
     expect(screen.queryByRole('textbox')).toBeNull()
   })

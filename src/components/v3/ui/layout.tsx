@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Icon } from '#/components/v3/icons'
+import { Breadcrumb } from './breadcrumb'
+import type { Crumb } from './breadcrumb'
 import { Button } from './button'
 import { Sheet, SheetContent } from './sheet'
 import { cn } from '#/lib/utils'
 
 // Page structure: header plane, content, inspector (right = properties and provenance).
 export function PageHeader({
-  crumbs,
+  trail,
   title,
   meta,
   actions,
@@ -14,7 +16,12 @@ export function PageHeader({
   titleLevel = 1,
   className,
 }: {
-  crumbs?: React.ReactNode
+  /**
+   * The page's location as data, rendered by `Breadcrumb`: `ol`/`li`, a
+   * separator the accessibility tree does not read, and `aria-current="page"`
+   * on the crumb you are on.
+   */
+  trail?: readonly Crumb[]
   title: React.ReactNode
   meta?: React.ReactNode
   actions?: React.ReactNode
@@ -36,14 +43,7 @@ export function PageHeader({
         className,
       )}
     >
-      {crumbs ? (
-        <nav
-          aria-label="Breadcrumb"
-          className="truncate text-label text-fg-muted"
-        >
-          {crumbs}
-        </nav>
-      ) : null}
+      {trail?.length ? <Breadcrumb trail={trail} /> : null}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
         <Title className="min-w-0 flex-1 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6 md:truncate">
           {title}

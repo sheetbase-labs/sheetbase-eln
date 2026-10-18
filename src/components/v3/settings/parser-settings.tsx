@@ -2,9 +2,16 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 import { Button } from '#/components/v3/ui/button'
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '#/components/v3/ui/collapsible'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Field, Input } from '#/components/v3/ui/input'
+import { FileDrop } from '#/components/v3/ui/file-drop'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { useInstruments } from '#/components/v3/instruments/instruments-data'
 import { createDataClient } from '#/lib/data-client'
 import { hasCapability } from '#/lib/capability'
@@ -119,7 +126,9 @@ export function ParserSettings({
       await refresh()
     },
   })
-  const error = action.error ?? upload.error ?? parsers.error ?? files.error
+  // A refused test-file upload is reported by the file field, on the file's own
+  // row, with the retry beside it — so this line carries the other four sources.
+  const error = action.error ?? parsers.error ?? files.error
   return (
     <div className="flex min-w-0 flex-col gap-6">
       <Section title="Canonical parser versions">
@@ -153,7 +162,7 @@ export function ParserSettings({
         >
           <div className="grid max-w-[720px] gap-3 md:grid-cols-2">
             <Field label="Retained test file">
-              <NativeSelect
+              <Select
                 value={testFileId}
                 onChange={(e) => setTestFileId(e.target.value)}
               >
@@ -163,20 +172,14 @@ export function ParserSettings({
                     {file.filename} · {file.id.slice(0, 8)}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             {canEdit ? (
-              <Field label="Upload a new test file">
-                <input
-                  type="file"
-                  aria-label="Upload a new test file"
-                  disabled={upload.isPending}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) upload.mutate(file)
-                  }}
-                />
-              </Field>
+              <FileDrop
+                label="Upload a new test file"
+                inputLabel="Upload a new test file"
+                onFile={(file) => (file ? upload.mutateAsync(file) : undefined)}
+              />
             ) : null}
           </div>
           {testFile ? (
@@ -235,14 +238,19 @@ export function ParserSettings({
                   : 'unknown'}{' '}
                 rows · {selected.validated_at}
               </p>
-              <details>
-                <summary className="cursor-pointer text-label">
+              <Collapsible>
+                <CollapsibleTrigger>
                   Full validation evidence
-                </summary>
-                <pre className="max-h-[240px] overflow-auto whitespace-pre-wrap break-words text-label">
-                  {JSON.stringify(selected.test_result, null, 2)}
-                </pre>
-              </details>
+                </CollapsibleTrigger>
+                <CollapsiblePanel className="mt-1">
+                  <CodeBlock
+                    code={JSON.stringify(selected.test_result, null, 2)}
+                    language="json"
+                    label="Full validation evidence"
+                    maxHeight="lg"
+                  />
+                </CollapsiblePanel>
+              </Collapsible>
             </div>
           ) : (
             <Muted>No retained-file validation result yet.</Muted>
@@ -278,7 +286,7 @@ export function ParserSettings({
               />
             </Field>
             <Field label="Format">
-              <NativeSelect
+              <Select
                 value={format}
                 onChange={(e) => setFormat(e.target.value)}
               >
@@ -287,10 +295,10 @@ export function ParserSettings({
                     {value.toUpperCase()}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Field label="Instrument">
-              <NativeSelect
+              <Select
                 value={instrumentId}
                 onChange={(e) => setInstrumentId(e.target.value)}
               >
@@ -300,7 +308,7 @@ export function ParserSettings({
                     {i.name}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Field label="Structural signature (JSON)">
               <textarea

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { Badge } from '#/components/v3/ui/badge'
@@ -13,6 +13,7 @@ import {
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { EmptyState } from '#/components/v3/ui/empty-state'
@@ -35,7 +36,7 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { Textarea } from '#/components/v3/inventory/list'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { agentOperationLabel } from '#/lib/agent-operations'
 import type {
   AgentOperationEvent,
@@ -118,9 +119,13 @@ function JsonValue({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="min-w-0">
       <div className="text-label font-medium text-fg-muted">{label}</div>
-      <pre className="m-0 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md bg-surface-muted p-2 text-[11px] leading-4">
-        {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
-      </pre>
+      <CodeBlock
+        code={
+          typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+        }
+        label={label}
+        maxHeight="sm"
+      />
     </div>
   )
 }
@@ -182,7 +187,7 @@ export function AgentProposalsPanel({
       <EmptyState
         icon="pipeline"
         title="No operation proposals"
-        body="Agent tools submit typed proposals through the Sheetbase API. Each appears here with its exact impact before any mutation."
+        description="Agent tools submit typed proposals through the Sheetbase API. Each appears here with its exact impact before any mutation."
       />
     )
   }
@@ -435,7 +440,7 @@ export function AgentWorkflowsPanel({
       <EmptyState
         icon="pipeline"
         title="No agent workflows"
-        body="Agent workflows appear here with their plan, step outcomes and budget as they run."
+        description="A workflow appears here when an agent client starts one through the Sheetbase API, showing its plan, step outcomes and budget as it runs."
       />
     )
   }
@@ -683,6 +688,8 @@ export function AgentPoliciesPanel({
   onDisable: (policy: AgentOperationPolicy) => void
 }) {
   const [name, setName] = useState('')
+  /** The empty state's one action puts the cursor in the field that starts it. */
+  const nameRef = useRef<HTMLInputElement>(null)
   const [credentialId, setCredentialId] = useState(credentials[0]?.id ?? '')
   const [targetType, setTargetType] =
     useState<AgentOperationPolicyTargetType>('dataset')
@@ -759,13 +766,14 @@ export function AgentPoliciesPanel({
           >
             <Field label="Policy name" required>
               <Input
+                ref={nameRef}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Assay import rows"
               />
             </Field>
             <Field label="Credential" required>
-              <NativeSelect
+              <Select
                 value={credentialId}
                 onChange={(e) => setCredentialId(e.target.value)}
               >
@@ -777,10 +785,10 @@ export function AgentPoliciesPanel({
                     {c.name} ({c.displayPrefix})
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Field label="Target">
-              <NativeSelect
+              <Select
                 value={targetType}
                 onChange={(e) =>
                   setTargetType(
@@ -793,7 +801,7 @@ export function AgentPoliciesPanel({
                     {t.label}
                   </option>
                 ))}
-              </NativeSelect>
+              </Select>
             </Field>
             <Field label="Target id">
               <Input
@@ -915,7 +923,21 @@ export function AgentPoliciesPanel({
             className="py-2"
             icon="pipeline"
             title="No execution policies"
-            body="Every dataset row commit requires a human until a policy delegates it."
+            description={
+              canManage
+                ? 'Every dataset row commit requires a human until a policy delegates it. The form above delegates one credential’s create and append writes.'
+                : 'Every dataset row commit requires a human until a policy delegates it. Ask a workspace owner or Data Steward to delegate one.'
+            }
+            action={
+              canManage ? (
+                <Button
+                  variant="primary"
+                  onClick={() => nameRef.current?.focus()}
+                >
+                  Create the first policy
+                </Button>
+              ) : undefined
+            }
           />
         )}
       </Section>

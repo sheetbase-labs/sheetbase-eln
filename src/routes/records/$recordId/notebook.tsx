@@ -36,11 +36,7 @@ import { DuplicateNotebookDialog } from '#/components/notebook/duplicate-noteboo
 import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-panel'
 import { NotebookTemplateUpgradeBanner } from '#/components/notebook/notebook-template-upgrade-banner'
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
-import {
-  ExportEvidenceButton,
-  NotebookPrintStyles,
-  PrintNotebookButton,
-} from '#/components/notebook/print-notebook'
+import { NotebookPrintStyles } from '#/components/notebook/print-notebook'
 import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { NotebookDocument } from '#/components/notebook'
@@ -77,16 +73,25 @@ import {
   TagPills,
   EmptyHint,
 } from '#/components/record'
+import { formatFileSize } from '#/lib/format-numbers'
 import {
   Property,
   PropertyList,
   ScientificRecordLinker,
   StatusBadge,
+  experimentStatusVocabulary,
+  statusLabel,
 } from '#/components/scientific'
 import type { InspectorTab } from '#/components/record'
 import { SignaturesTable } from '#/components/review/signatures-table'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '#/components/v3/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
@@ -94,7 +99,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
-import { NativeSelect } from '#/components/v3/projects/select'
+import { Select } from '#/components/v3/ui/select'
 import { Inspector as InspectorPanel, Muted } from '#/components/v3/ui/layout'
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
@@ -129,16 +134,9 @@ import type {
 import { useUserNames } from '#/lib/user-names'
 import { fetchSignaturesForRecord, signatureQueryKeys } from '#/lib/signatures'
 import type { SignatureWire } from '#/lib/signatures'
+import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
+import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
-import {
-  defaultPayloadFor,
   deleteBlock,
   duplicateBlock,
   insertBlock,
@@ -146,8 +144,7 @@ import {
   moveBlock,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
-import { acceptTextDraft } from '#/lib/assist-drafts'
-import type { AssistTextDraftProposal } from '#/lib/assist-drafts'
+import { defaultPayloadFor } from '#/lib/blocks/registry'
 import {
   fetchNotebookTemplate,
   fetchNotebookTemplateVersion,
@@ -1023,50 +1020,108 @@ export function StickyRecordHeader({
   }, [record.title])
 
   return (
-    <div className="pb-3 pt-4">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-        <span className="font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {recordKindLabel(record.kind)}
-        </span>
-        <StatusBadge domain="experiment" status={record.status} />
-        <span
-          className={
-            lifecycle === 'Submitted'
-              ? 'inline-flex items-center gap-1 rounded-full border border-success bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text'
-              : lifecycle === 'In review'
+    <div className="flex flex-col pb-1.5 pt-2">
+      {/* The title and the record's own actions share a line. Giving the
+          actions a line of their own left a band of empty space above the
+          properties and pushed the title down the page. */}
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
+          {canEditTitle ? (
+            <>
+              {/* The title is editable, so the document heading is kept for
+              assistive tech and the page-level h1 contract. */}
+              <h1 className="sr-only">{record.title}</h1>
+              <Input
+                className="h-auto w-auto min-w-0 flex-1 border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
+                value={titleDraft}
+                aria-label="Notebook title"
+                onChange={(event) => setTitleDraft(event.target.value)}
+                onBlur={() => {
+                  const next = titleDraft.trim()
+                  if (!next || next === record.title) {
+                    setTitleDraft(record.title)
+                    return
+                  }
+                  saveTitle.mutate(next)
+                }}
+              />
+            </>
+          ) : (
+            <h1 className="font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
+              {record.title}
+            </h1>
+          )}
+          {/* The identifier belongs beside the title: it is how the record is
+              named in a conversation, and it was previously buried in a line of
+              dates. The status badge sits with them, because the two states the
+              header used to show side by side — the experiment's status and the
+              notebook's evidence lifecycle — read as a contradiction when
+              neither is labelled. The lifecycle lives in the inspector, where
+              it is labelled. */}
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {record.identifier}
+          </span>
+          {/* The notebook's evidence lifecycle, and only it: Working means you
+              are editing a live draft, Submitted or In review means the
+              evidence is frozen. The record's own status lives in the
+              inspector, where the row is named. */}
+          <span
+            className={
+              lifecycle === 'Submitted' || lifecycle === 'In review'
                 ? 'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text'
-                : 'inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
-          }
-        >
-          {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
-            <Icon name="lock" className="size-3" aria-hidden />
-          ) : null}
-          {lifecycle}
-        </span>
-        <span className="font-mono tabular-nums text-muted-foreground">
-          {record.identifier}
-        </span>
-        <div
-          className="ml-auto flex flex-wrap items-center gap-2"
-          data-print-hide
-        >
+                : 'inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
+            }
+          >
+            {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
+              <Icon name="lock" className="size-3" aria-hidden />
+            ) : null}
+            {lifecycle}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 pt-1" data-print-hide>
           {/* COLLAB-01: who else is in this record's room. Self-gates on
               room readiness, so SSR and pre-hydration output are stable. */}
           <PresenceStack />
           {/* FIND-02: deliberate pin for fast return; optimistic, never blocking. */}
           <FavouriteToggle kind="record" objectId={record.id} />
-          <PrintNotebookButton />
-          <ExportEvidenceButton revisionId={evidenceRevisionId} />
-          {!historicalRevisionId && !lockedAt ? (
-            <Button type="button" onClick={() => setLinkOpen(true)}>
-              Link records…
-            </Button>
-          ) : null}
-          {projectId && !historicalRevisionId ? (
-            <Button type="button" onClick={() => setDuplicateOpen(true)}>
-              Duplicate
-            </Button>
-          ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="quiet"
+                  size="icon"
+                  aria-label="More record actions"
+                  icon="more"
+                />
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => window.print()}>
+                Print
+              </DropdownMenuItem>
+              {evidenceRevisionId ? (
+                <DropdownMenuItem
+                  render={
+                    <a
+                      href={`/api/export/revision/${evidenceRevisionId}/package`}
+                    />
+                  }
+                >
+                  Export evidence
+                </DropdownMenuItem>
+              ) : null}
+              {!historicalRevisionId && !lockedAt ? (
+                <DropdownMenuItem onClick={() => setLinkOpen(true)}>
+                  Link records…
+                </DropdownMenuItem>
+              ) : null}
+              {projectId && !historicalRevisionId ? (
+                <DropdownMenuItem onClick={() => setDuplicateOpen(true)}>
+                  Duplicate
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
           {canSubmit ? (
             <ConnectionRequired
               online={online}
@@ -1122,54 +1177,20 @@ export function StickyRecordHeader({
           ) : null}
         </div>
       </div>
-
-      {canEditTitle ? (
-        <>
-          {/* The title is editable, so the document heading is kept for
-              assistive tech and the page-level h1 contract. */}
-          <h1 className="sr-only">{record.title}</h1>
-          <Input
-            className="mt-1.5 h-auto border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
-            value={titleDraft}
-            aria-label="Notebook title"
-            onChange={(event) => setTitleDraft(event.target.value)}
-            onBlur={() => {
-              const next = titleDraft.trim()
-              if (!next || next === record.title) {
-                setTitleDraft(record.title)
-                return
-              }
-              saveTitle.mutate(next)
-            }}
-          />
-        </>
-      ) : (
-        <h1 className="mt-1.5 font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
-          {record.title}
-        </h1>
-      )}
-
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-        <span>
-          Created{' '}
-          <span className="text-foreground">
-            {formatDate(record.createdAt)}
-          </span>
-        </span>
-        <span className="text-muted-foreground/50">·</span>
-        <span>
-          Updated{' '}
-          <span className="text-foreground">
-            {formatDate(record.updatedAt)}
-          </span>
-        </span>
-        {projectName ? (
-          <>
-            <span className="text-muted-foreground/50">·</span>
-            <span className="text-foreground">{projectName}</span>
-          </>
-        ) : null}
-      </div>
+      {/* Everything about the record except its title, its identifier and the
+          state of its notebook lives in the inspector, where each fact is
+          labelled. Print hides the inspector, so the printed page carries the
+          whole record itself. */}
+      <p
+        className="mt-1 hidden text-xs text-muted-foreground print:block"
+        data-testid="record-provenance"
+      >
+        {recordKindLabel(record.kind)} ·{' '}
+        {statusLabel(experimentStatusVocabulary, record.status)} · Notebook{' '}
+        {lifecycle}
+        {projectName ? ` · Project ${projectName}` : ''} · Created{' '}
+        {formatDate(record.createdAt)} · Updated {formatDate(record.updatedAt)}
+      </p>
       {extensionError ? (
         <p role="alert" className="mt-2 text-xs text-destructive">
           {extensionError}
@@ -1273,7 +1294,7 @@ function RecordNotebookTabs({
   return (
     <nav
       aria-label="Notebook sections"
-      className="mt-3 flex gap-5 border-b border-border"
+      className="mt-1.5 flex gap-5 border-b border-border"
       data-print-hide
     >
       {NOTEBOOK_TABS.map((t) => (
@@ -1321,37 +1342,85 @@ function RecordNotebookPanel({
       ...revisions.map((r) => r.created_by_user_id),
     ].filter(Boolean),
   )
+  const linkColumns = useMemo<RegistryColumn<NotebookLink>[]>(
+    () => [
+      {
+        id: 'kind',
+        header: 'Kind',
+        meta: {
+          headerClassName: 'pl-3!',
+          cellClassName: 'capitalize pl-3!',
+        },
+        cell: ({ row }) => row.original.targetKind.replace(/_/g, ' '),
+      },
+      {
+        id: 'identifier',
+        header: 'Identifier',
+        meta: { cellClassName: 'mono' },
+        cell: ({ row }) => row.original.targetIdentifier,
+      },
+      {
+        id: 'relation',
+        header: 'Relation',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => row.original.linkType,
+      },
+      {
+        id: 'linked',
+        header: 'Linked',
+        meta: {
+          headerClassName: 'pr-3!',
+          cellClassName: 'pr-3! text-fg-muted',
+        },
+        cell: ({ row }) => row.original.createdAt.slice(0, 10),
+      },
+    ],
+    [],
+  )
+  const revisionColumns = useMemo<RegistryColumn<RevisionWire>[]>(
+    () => [
+      {
+        id: 'revision',
+        header: 'Revision',
+        meta: { headerClassName: 'pl-3!', cellClassName: 'mono pl-3!' },
+        cell: ({ row }) => `v${row.original.structure_version}`,
+      },
+      {
+        id: 'reason',
+        header: 'Reason',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => row.original.reason,
+      },
+      {
+        id: 'by',
+        header: 'By',
+        cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
+      },
+      {
+        id: 'when',
+        header: 'When',
+        meta: {
+          headerClassName: 'pr-3!',
+          cellClassName: 'pr-3! text-fg-muted',
+        },
+        cell: ({ row }) =>
+          row.original.created_at.slice(0, 16).replace('T', ' '),
+      },
+    ],
+    [names],
+  )
   if (tab === 'links') {
     return (
       <section aria-label="Links" className="py-4">
         {links.length ? (
           <div className="overflow-hidden rounded-md border border-border">
-            <Table aria-label="Linked records">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="first:pl-3">Kind</TableHead>
-                  <TableHead>Identifier</TableHead>
-                  <TableHead>Relation</TableHead>
-                  <TableHead className="pr-3">Linked</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {links.map((l) => (
-                  <TableRow key={l.id}>
-                    <TableCell className="first:pl-3 capitalize">
-                      {l.targetKind.replace(/_/g, ' ')}
-                    </TableCell>
-                    <TableCell className="mono">{l.targetIdentifier}</TableCell>
-                    <TableCell className="text-fg-muted">
-                      {l.linkType}
-                    </TableCell>
-                    <TableCell className="pr-3 text-fg-muted">
-                      {l.createdAt.slice(0, 10)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <RegistryGrid
+              label="Linked records"
+              rows={links}
+              columns={linkColumns}
+              getRowId={(link) => link.id}
+              selectable={false}
+            />
           </div>
         ) : (
           <Muted>Nothing is linked to this record yet.</Muted>
@@ -1379,30 +1448,13 @@ function RecordNotebookPanel({
     <section aria-label={tab} className="py-4">
       {rows.length ? (
         <div className="overflow-hidden rounded-md border border-border">
-          <Table aria-label="Revisions">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="first:pl-3">Revision</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>By</TableHead>
-                <TableHead className="pr-3">When</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="first:pl-3 mono">
-                    v{r.structure_version}
-                  </TableCell>
-                  <TableCell className="text-fg-muted">{r.reason}</TableCell>
-                  <TableCell>{names.userLabel(r.created_by_user_id)}</TableCell>
-                  <TableCell className="pr-3 text-fg-muted">
-                    {r.created_at.slice(0, 16).replace('T', ' ')}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <RegistryGrid
+            label="Revisions"
+            rows={rows}
+            columns={revisionColumns}
+            getRowId={(revision) => revision.id}
+            selectable={false}
+          />
         </div>
       ) : (
         <Muted>No revisions yet.</Muted>
@@ -1796,29 +1848,6 @@ function EditableNotebook({
       }
     },
   })
-  // --- ASSIST-02 accepted text draft (ordinary insert_block, same cache
-  // reconciliation as a manual insert) ------------------------------------
-  const draftAcceptMutation = useMutation({
-    mutationFn: async (proposal: AssistTextDraftProposal) => {
-      const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
-      return acceptTextDraft(client, {
-        recordId: record.id,
-        proposal,
-        expectedStructureVersion:
-          current?.structureVersion ?? record.structureVersion,
-      })
-    },
-    onSuccess: (res) => {
-      upsertBlock(res.block)
-      setRecordStructureVersion(res.structureVersion)
-    },
-    onError: async (error) => {
-      if (error instanceof DataClientError && error.code === 'stale_version') {
-        await refreshStructure()
-      }
-    },
-  })
-
   // --- Duplicate ---------------------------------------------------------
   const duplicateMutation = useMutation({
     mutationFn: async (block: NotebookBlockDomain) => {
@@ -2006,11 +2035,6 @@ function EditableNotebook({
     }
   }
   // ASSIST-02: insert an accepted text draft; the document owns the
-  // preview, this route owns the canonical mutation + cache update.
-  async function handleAcceptDraft(proposal: AssistTextDraftProposal) {
-    await draftAcceptMutation.mutateAsync(proposal)
-  }
-
   async function handleInsert(
     type: string,
     afterBlockId?: string,
@@ -2199,7 +2223,6 @@ function EditableNotebook({
           onUnsavedWorkChange?.(value)
         }}
         onInsertBlock={handleInsert}
-        onAcceptDraft={handleAcceptDraft}
         onPinProtocol={handlePinProtocol}
         onAttachFile={handleAttachFile}
         onFreezeChart={handleFreezeChart}
@@ -2224,7 +2247,7 @@ function EditableNotebook({
             description="This Notebook will show the same live Sheet. Editing it here changes it everywhere it is used."
           />
           <Field label="Sheet">
-            <NativeSelect
+            <Select
               id="link-sheet-instance"
               value={embedInstanceId}
               onChange={(event) => setEmbedInstanceId(event.target.value)}
@@ -2240,7 +2263,7 @@ function EditableNotebook({
                       : ' (ad hoc Sheet)'}
                   </option>
                 ))}
-            </NativeSelect>
+            </Select>
           </Field>
           <DialogFooter>
             <Button
@@ -2501,16 +2524,6 @@ const ENTITY_LABELS: Record<string, string> = {
   folder: 'a folder',
 }
 
-function formatBytes(bytes: number): string {
-  if (!bytes) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  const i = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(1024)),
-    units.length - 1,
-  )
-  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
-}
-
 /** Build file-list items from file block payloads (no extra fetch needed). */
 function fileItemsFromBlocks(
   blocks: NotebookBlockDomain[],
@@ -2537,7 +2550,7 @@ function fileItemsFromBlocks(
       name: displayName,
       meta: mediaType || 'unknown',
       mediaType,
-      size: formatBytes(byteSize),
+      size: formatFileSize(byteSize),
       href:
         includeDownloadHref && fileRecordId
           ? `/api/files/${fileRecordId}/download`

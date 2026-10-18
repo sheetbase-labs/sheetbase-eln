@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -148,9 +149,9 @@ describe('Inbox needs-action predicate (QA2-Inbox-1)', () => {
     const { getByRole, queryByRole } = renderInbox()
     // The seen read is async, so the counts settle after it answers.
     await waitFor(() =>
-      expect(
-        getByRole('tab', { name: /^Needs action/ }).textContent,
-      ).toMatch(/1$/),
+      expect(getByRole('tab', { name: /^Needs action/ }).textContent).toMatch(
+        /1$/,
+      ),
     )
     expect(getByRole('tab', { name: /^Done today/ }).textContent).toMatch(/1$/)
     expect(queryByRole('button', { name: /First review/ })).toBeNull()
@@ -442,20 +443,17 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
   it('keeps Later behind its button while a due-dated group is on the tab', () => {
     const base = items.slice(0, 2)
     items.length = 0
-    items.push(
-      ...base,
-      {
-        kind: 'data_issue',
-        recordId: null,
-        identifier: 'DS-0323',
-        title: 'Undated flag',
-        projectId: 'project-1',
-        reason: 'Flagged value',
-        dueAt: null,
-        state: 'needs_action',
-        createdAt: null,
-      },
-    )
+    items.push(...base, {
+      kind: 'data_issue',
+      recordId: null,
+      identifier: 'DS-0323',
+      title: 'Undated flag',
+      projectId: 'project-1',
+      reason: 'Flagged value',
+      dueAt: null,
+      state: 'needs_action',
+      createdAt: null,
+    })
     try {
       const { getByRole } = renderInbox()
       // Today holds the due-dated pair; the undated flag stays behind the
@@ -496,9 +494,7 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
         document.querySelector('[role="list"] [role="presentation"]')
           ?.textContent,
       ).toBe('Done today7')
-      expect(
-        getByRole('button', { name: /^Later · 5 items$/ }),
-      ).toBeTruthy()
+      expect(getByRole('button', { name: /^Later · 5 items$/ })).toBeTruthy()
     } finally {
       items.length = 0
       items.push(...base)
@@ -569,21 +565,22 @@ describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
     expect(typeCall.search({ type: undefined })).toEqual({ type: 'reviews' })
   })
 
-  it('moves between tabs with the arrow keys and roves the tab stop', () => {
+  it('moves between tabs with the arrow keys and roves the tab stop', async () => {
+    const user = userEvent.setup()
     const { getByRole } = renderInbox()
     const needs = getByRole('tab', { name: /^Needs action/ })
     needs.focus()
-    fireEvent.keyDown(needs, { key: 'ArrowRight' })
+    await user.keyboard('{ArrowRight}')
     const following = getByRole('tab', { name: /^Following/ })
     expect(following.getAttribute('aria-selected')).toBe('true')
     expect(document.activeElement).toBe(following)
     expect(needs.getAttribute('tabindex')).toBe('-1')
     expect(following.getAttribute('tabindex')).toBe('0')
 
-    fireEvent.keyDown(following, { key: 'End' })
+    await user.keyboard('{End}')
     const done = getByRole('tab', { name: /^Done today/ })
     expect(done.getAttribute('aria-selected')).toBe('true')
-    fireEvent.keyDown(done, { key: 'ArrowRight' })
+    await user.keyboard('{ArrowRight}')
     expect(needs.getAttribute('aria-selected')).toBe('true')
   })
 })
@@ -595,16 +592,26 @@ describe('Inbox header fits the phone width (QA4-inbox-phone)', () => {
     expect(row).not.toBeNull()
     // On one non-wrapping row the title and the two actions could not share a
     // 390px viewport (Mark all seen ended at 408), which clipped the action
-    // with no ancestor able to scroll to it. The row wraps instead, so both
-    // controls stay on the page rather than being dropped from the affordance
-    // set the reference's desktop header shows.
-    expect(row!.className).toContain('max-md:flex-wrap')
-    // Both actions stay in the wrapping row: "Mark all seen" is a real button,
+    // with no ancestor able to scroll to it. `ListHeader` wraps instead — and
+    // below `md` the actions take a line of their own — so both controls stay
+    // on the page rather than being dropped from the affordance set the
+    // reference's desktop header shows. The header is the shared one now, so
+    // the wrap is the header's guarantee rather than this screen's.
+    expect(row!.className).toContain('flex-wrap')
+    const actions = row!.parentElement!.querySelector(
+      '[class*="max-md:w-full"]',
+    )
+    expect(actions).not.toBeNull()
+    // Both actions stay in the header: "Mark all seen" is a real button,
     // "Notification settings" is a Link-based button (its role comes from Base
     // UI, so the shared Link mock leaves it roleless here).
-    expect(row!.contains(getByText('Notification settings'))).toBe(true)
     expect(
-      row!.contains(getByRole('button', { name: 'Mark all seen' })),
+      row!.parentElement!.contains(getByText('Notification settings')),
+    ).toBe(true)
+    expect(
+      row!.parentElement!.contains(
+        getByRole('button', { name: 'Mark all seen' }),
+      ),
     ).toBe(true)
   })
 })

@@ -3,8 +3,11 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
-import { SettingsApiTokens } from '#/components/v3/settings/settings-api-tokens'
-import { SettingsServiceCredentials } from '#/components/v3/settings/settings-service-credentials'
+import {
+  SettingsCredentials,
+  personalTokensCopy,
+  serviceCredentialsCopy,
+} from '#/components/v3/settings/settings-credentials'
 import {
   SettingsBody,
   SettingsHeader,
@@ -155,7 +158,12 @@ function ApiSettings() {
         {query.isLoading ? (
           <Muted>Loading…</Muted>
         ) : (
-          <SettingsApiTokens
+          <SettingsCredentials
+            copy={personalTokensCopy}
+            // The panel's own spacing: the two sections read and render as
+            // they did before the consolidation (personal tokens 24px, service
+            // credentials the Section default).
+            className="gap-6"
             tokens={query.data ?? []}
             revealed={revealed}
             onCreate={(name, scopes, expiresAt) =>
@@ -175,7 +183,8 @@ function ApiSettings() {
           serviceQuery.isLoading ? (
             <Muted>Loading service credentials…</Muted>
           ) : (
-            <SettingsServiceCredentials
+            <SettingsCredentials
+              copy={serviceCredentialsCopy}
               tokens={serviceQuery.data ?? []}
               revealed={revealedService}
               onCreate={(name, scopes, expiresAt) =>

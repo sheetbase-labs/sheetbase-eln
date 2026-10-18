@@ -5,8 +5,10 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Status } from '#/components/v3/ui/status'
 import { DataTable } from '#/components/scientific/data-table'
+import type { DataTableFeatures } from '#/components/scientific/data-table'
 import { pickerStatus } from '#/components/v3/record-picker/record-picker-data'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import { downloadTextFile } from '#/lib/download'
@@ -54,8 +56,10 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
     [records, fields, q, status, fieldName, fieldValue],
   )
 
-  const columns = useMemo<ColumnDef<RecordModelRecord, unknown>[]>(() => {
-    const base: ColumnDef<RecordModelRecord, unknown>[] = [
+  const columns = useMemo<
+    ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[]
+  >(() => {
+    const base: ColumnDef<DataTableFeatures, RecordModelRecord, unknown>[] = [
       {
         id: 'identifier',
         header: 'ID',
@@ -92,21 +96,23 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
     ]
     return [
       ...base,
-      ...fields.map<ColumnDef<RecordModelRecord, unknown>>((field) => ({
-        id: `field:${field.fieldName}`,
-        header: field.label,
-        accessorFn: (record) =>
-          displayModelFieldValue(
-            field,
-            recordFieldValue(record, field.fieldName),
+      ...fields.map<ColumnDef<DataTableFeatures, RecordModelRecord, unknown>>(
+        (field) => ({
+          id: `field:${field.fieldName}`,
+          header: field.label,
+          accessorFn: (record) =>
+            displayModelFieldValue(
+              field,
+              recordFieldValue(record, field.fieldName),
+            ),
+          cell: ({ getValue }) => (
+            <span className="block max-w-[240px] truncate">
+              {String(getValue() ?? '')}
+            </span>
           ),
-        cell: ({ getValue }) => (
-          <span className="block max-w-[240px] truncate">
-            {String(getValue() ?? '')}
-          </span>
-        ),
-        meta: { className: 'max-w-[240px]' },
-      })),
+          meta: { className: 'max-w-[240px]' },
+        }),
+      ),
     ]
   }, [fields, modelKey])
 
@@ -141,11 +147,12 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
           className="h-8 text-body"
         />
       </label>
-      <select
+      <Select
         aria-label="Filter by status"
+        size="sm"
+        className="h-8"
         value={status}
         onChange={(event) => setStatus(event.target.value)}
-        className="h-8 cursor-pointer rounded-md border border-border bg-surface px-2 text-label text-fg"
       >
         <option value="">All statuses</option>
         {statuses.map((option) => (
@@ -153,12 +160,13 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
             {option}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         aria-label="Filter by field"
+        size="sm"
+        className="h-8"
         value={fieldName}
         onChange={(event) => setFieldName(event.target.value)}
-        className="h-8 cursor-pointer rounded-md border border-border bg-surface px-2 text-label text-fg"
       >
         <option value="">Any field</option>
         {fields.map((field) => (
@@ -166,7 +174,7 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
             {field.label}
           </option>
         ))}
-      </select>
+      </Select>
       <Input
         value={fieldValue}
         disabled={!fieldName}
@@ -206,16 +214,17 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
         <EmptyState
           icon="table"
           title="Model not found"
-          body={`No workspace record model with the key “${modelKey}” is visible in this workspace.`}
-        >
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={<Link to="/models" />}
-          >
-            Back to Models
-          </Button>
-        </EmptyState>
+          description={`No workspace record model with the key “${modelKey}” is visible in this workspace.`}
+          action={
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<Link to="/models" />}
+            >
+              Back to Models
+            </Button>
+          }
+        />
       </div>
     )
   }

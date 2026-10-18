@@ -425,9 +425,8 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
     // Static imports of `*.server.*` are denied in the client bundle, and this
     // module is reached from the settings routes; read them here instead.
     const { env, getDeploymentConfig } = await import('#/env.server')
-    const { DATASET_RETENTION_INTERVAL_MS } = await import(
-      '#/lib/dataset-retention-scheduler.server'
-    )
+    const { DATASET_RETENTION_INTERVAL_MS } =
+      await import('#/lib/dataset-retention-scheduler.server')
     const deployment = getDeploymentConfig()
     // R5-CONFIG-01 — the timestamp the live probes below are evaluated at, so
     // each probe-backed check can show when it was last checked.

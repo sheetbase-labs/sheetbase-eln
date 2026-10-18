@@ -10,6 +10,7 @@ import {
   statusVocabularies,
 } from '#/components/scientific'
 import type { StatusDomain } from '#/components/scientific'
+import { RowList } from '#/components/v3/ui/row'
 import { NotebookBlock } from '#/components/notebook/notebook-block'
 import { ChartFrame, PlateMap } from '#/components/viz'
 import type { PlateWell } from '#/components/viz'
@@ -18,7 +19,6 @@ import type { AuditEvent, ApprovalStepDef } from '#/components/audit'
 import {
   RecordHeader,
   Inspector,
-  LinkedRecordList,
   FileList,
   CheckList,
   ActivityFeed,
@@ -623,31 +623,40 @@ function RecordPreview() {
               label: 'Links',
               badge: 3,
               content: (
-                <LinkedRecordList
-                  items={[
+                <RowList>
+                  {[
                     {
                       id: '1',
                       type: 'Sample',
                       title: 'Sample 28',
                       meta: 'Cell line',
-                      icon: 'flask',
+                      icon: 'flask' as const,
                     },
                     {
                       id: '2',
                       type: 'Protocol',
                       title: 'Stability assay SOP',
                       meta: 'v3',
-                      icon: 'folder',
+                      icon: 'folder' as const,
                     },
                     {
                       id: '3',
                       type: 'Dataset',
                       title: 'Raw qPCR',
                       meta: '12 wells',
-                      icon: 'table',
+                      icon: 'table' as const,
                     },
-                  ]}
-                />
+                  ].map((item) => (
+                    <RecordLink
+                      key={item.id}
+                      density="list"
+                      type={item.type}
+                      title={item.title}
+                      meta={item.meta}
+                      icon={item.icon}
+                    />
+                  ))}
+                </RowList>
               ),
             },
             {

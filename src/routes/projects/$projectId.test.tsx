@@ -52,7 +52,9 @@ vi.mock('#/components/v3/projects/project-data', () => ({
   fetchProjectFolders: async () =>
     Array.from({ length: state.folders }, (_, i) => ({ id: `folder-${i}` })),
   useProjectMilestones: () => ({
-    data: Array.from({ length: state.milestones }, (_, i) => ({ id: `m-${i}` })),
+    data: Array.from({ length: state.milestones }, (_, i) => ({
+      id: `m-${i}`,
+    })),
   }),
   useProjectSummary: () => ({ project: state.project, query: {} }),
 }))
@@ -128,9 +130,13 @@ describe('project header (R5-SURF-02)', () => {
     expect(screen.getByRole('link', { name: /^Samples\s*12$/ })).toBeTruthy()
     expect(screen.getByRole('link', { name: /^Datasets\s*3$/ })).toBeTruthy()
     // Folders and Members come from reads, so their counts settle a tick later.
-    expect(await screen.findByRole('link', { name: /^Folders\s*1$/ })).toBeTruthy()
+    expect(
+      await screen.findByRole('link', { name: /^Folders\s*1$/ }),
+    ).toBeTruthy()
     expect(screen.getByRole('link', { name: /^Files\s*—$/ })).toBeTruthy()
-    expect(await screen.findByRole('link', { name: /^Members\s*0$/ })).toBeTruthy()
+    expect(
+      await screen.findByRole('link', { name: /^Members\s*0$/ }),
+    ).toBeTruthy()
     expect(screen.getByRole('link', { name: /^Overview$/ })).toBeTruthy()
     expect(screen.getByRole('link', { name: /^Settings$/ })).toBeTruthy()
 

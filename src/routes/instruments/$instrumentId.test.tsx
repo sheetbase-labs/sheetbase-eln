@@ -5,7 +5,13 @@
  * calibration needs the workspace writer the RPC requires.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -33,6 +39,15 @@ const qualifications = vi.hoisted(() => ({
 }))
 
 const calibrations = vi.hoisted(() => ({ current: [] as unknown[] }))
+
+// jsdom reports no layout, so the grid's virtualiser would render no rows: give
+// every element the viewport a browser would report for the list area.
+for (const prop of ['offsetHeight', 'clientHeight'] as const) {
+  Object.defineProperty(HTMLElement.prototype, prop, {
+    configurable: true,
+    get: () => 600,
+  })
+}
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
@@ -155,9 +170,12 @@ describe('instrument qualification', () => {
     expect(screen.getByText('11 Oct 2027')).toBeTruthy()
     expect(screen.getByText('Current')).toBeTruthy()
     expect(screen.getByText('cell culture only')).toBeTruthy()
-    expect(dataClient.rpc).toHaveBeenCalledWith('instrument_qualification_list', {
-      p_instrument_id: 'inst-1',
-    })
+    expect(dataClient.rpc).toHaveBeenCalledWith(
+      'instrument_qualification_list',
+      {
+        p_instrument_id: 'inst-1',
+      },
+    )
   })
 
   it('revokes a qualification only after the confirmation', async () => {
@@ -219,8 +237,12 @@ describe('instrument qualification', () => {
     renderPage()
 
     await screen.findByText('Priya Raman')
-    expect(screen.queryByRole('button', { name: 'Record calibration' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Grant qualification' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Record calibration' }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Grant qualification' }),
+    ).toBeNull()
     expect(screen.queryByRole('button', { name: 'Revoke' })).toBeNull()
     expect(screen.getByText(/A workspace owner grants/)).toBeTruthy()
   })

@@ -10,6 +10,7 @@
  * case are stated in words.
  */
 
+import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
 import {
   Table,
@@ -93,7 +94,11 @@ export function SignaturesTable({
   if (ordered.length === 0) {
     return (
       <section aria-label="Signatures" className="py-4">
-        <Muted>No signatures have been recorded against this record yet.</Muted>
+        <EmptyState
+          icon="edit"
+          title="No signatures yet"
+          description="Signatures appear here once a frozen revision of this record has been signed."
+        />
       </section>
     )
   }

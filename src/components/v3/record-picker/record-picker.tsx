@@ -12,6 +12,7 @@ import {
   CommandLoading,
 } from '#/components/v3/ui/command'
 import { Button } from '#/components/v3/ui/button'
+import { Chip } from '#/components/v3/ui/chip'
 import { Status } from '#/components/v3/ui/status'
 import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
@@ -139,13 +140,18 @@ export function RecordPicker({
           aria-label="Record type"
           className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border-subtle px-3.5 py-2 [scrollbar-width:none]"
         >
-          <Chip on={kinds.length === 0} onClick={() => toggleKind(null)}>
+          <Chip
+            variant="toggle"
+            pressed={kinds.length === 0}
+            onClick={() => toggleKind(null)}
+          >
             All
           </Chip>
           {allowed.map((k) => (
             <Chip
               key={k}
-              on={kinds.length === 1 && kinds[0] === k}
+              variant="toggle"
+              pressed={kinds.length === 1 && kinds[0] === k}
               onClick={() => toggleKind(k)}
               icon={kindIcon[k]}
               count={res && !res.recent ? res.counts[k] : undefined}
@@ -261,39 +267,6 @@ export function RecordPicker({
         ) : null}
       </CommandFooter>
     </Command>
-  )
-}
-
-function Chip({
-  on,
-  onClick,
-  icon,
-  count,
-  children,
-}: {
-  on: boolean
-  onClick: () => void
-  icon?: IconName
-  count?: number
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={cn(
-        'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-label text-fg hover:bg-surface-hover max-md:h-9 [&_svg]:text-fg-muted',
-        on &&
-          'border-selection-border bg-selection font-medium hover:bg-selection',
-      )}
-    >
-      {icon ? <Icon name={icon} size={12} /> : null}
-      {children}
-      {count != null ? (
-        <span className="num font-normal text-fg-muted">{count}</span>
-      ) : null}
-    </button>
   )
 }
 

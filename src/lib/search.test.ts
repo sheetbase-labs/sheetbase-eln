@@ -518,9 +518,9 @@ describe('searchQueryKeys', () => {
 
   it('produces distinct keys for the archived scope', () => {
     const base: SearchFilters = { query: 'virus' }
-    expect(searchQueryKeys.search({ ...base, includeArchived: true })).not.toEqual(
-      searchQueryKeys.search({ ...base, includeArchived: false }),
-    )
+    expect(
+      searchQueryKeys.search({ ...base, includeArchived: true }),
+    ).not.toEqual(searchQueryKeys.search({ ...base, includeArchived: false }))
   })
 })
 

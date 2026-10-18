@@ -92,11 +92,7 @@ function AnalysisView() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/analysis" className="text-link">
-              Analysis
-            </Link>
-          }
+          trail={[{ label: 'Analysis', link: { to: '/analysis' } }]}
           title="Loading analysis…"
         />
       </div>
@@ -106,23 +102,20 @@ function AnalysisView() {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
-          crumbs={
-            <Link to="/analysis" className="text-link">
-              Analysis
-            </Link>
-          }
+          trail={[{ label: 'Analysis', link: { to: '/analysis' } }]}
           title="Analysis not found"
         />
         <div className="px-4 py-4 md:px-6">
           <EmptyState
             icon="chart"
             title="This analysis does not exist"
-            body="It may have been deleted, or it belongs to another workspace."
-          >
-            <Button nativeButton={false} render={<Link to="/analysis/new" />}>
-              Open the studio
-            </Button>
-          </EmptyState>
+            description="It may have been deleted, or it belongs to another workspace."
+            action={
+              <Button nativeButton={false} render={<Link to="/analysis/new" />}>
+                Open the studio
+              </Button>
+            }
+          />
         </div>
       </div>
     )
@@ -133,17 +126,10 @@ function AnalysisView() {
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
-          crumbs={
-            <>
-              <Link to="/analysis" className="text-link">
-                Analysis
-              </Link>{' '}
-              /{' '}
-              <span className="mono">
-                {view.display_id ?? `v${view.version}`}
-              </span>
-            </>
-          }
+          trail={[
+            { label: 'Analysis', link: { to: '/analysis' } },
+            { label: view.display_id ?? `v${view.version}`, mono: true },
+          ]}
           title={view.name}
           meta={
             <>

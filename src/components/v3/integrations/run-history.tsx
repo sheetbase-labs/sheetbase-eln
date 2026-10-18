@@ -3,6 +3,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from '#/components/v3/ui/collapsible'
+import { CodeBlock } from '#/components/v3/ui/code-block'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
@@ -72,15 +78,15 @@ export function RunHistory({ connectorId }: { connectorId: string }) {
           <TableHead>Detail</TableHead>
         </TableRow>
       </TableHeader>
-      <TableBody>
-        <ConnectedRunRows
-          connectorId={connectorId}
-          expandedRun={expandedRun}
-          onToggle={(runId) =>
-            setExpandedRun((current) => (current === runId ? null : runId))
-          }
-        />
-      </TableBody>
+      {/* The rows own their row groups: an expanded run's detail row is a
+          sibling of its trigger row, and only a row group can hold both. */}
+      <ConnectedRunRows
+        connectorId={connectorId}
+        expandedRun={expandedRun}
+        onToggle={(runId) =>
+          setExpandedRun((current) => (current === runId ? null : runId))
+        }
+      />
     </Table>
   )
 }
@@ -102,11 +108,13 @@ function ConnectedRunRows({
   if (!query.data) return null
   if (query.data.length === 0) {
     return (
-      <TableRow>
-        <TableCell colSpan={6} className="text-body text-fg-muted">
-          No runs yet.
-        </TableCell>
-      </TableRow>
+      <TableBody>
+        <TableRow>
+          <TableCell colSpan={6} className="text-body text-fg-muted">
+            No runs yet.
+          </TableCell>
+        </TableRow>
+      </TableBody>
     )
   }
   return (
@@ -134,7 +142,17 @@ function RunRowWithLogs({
 }) {
   const status = runTone(run.status)
   return (
-    <>
+    // The disclosure wraps the trigger row and its detail row, so the control
+    // carries aria-expanded and aria-controls. A row group is the only element
+    // that can contain both rows, so each run is its own <tbody> — which the
+    // table element allows and renders no differently.
+    <Collapsible
+      open={expanded}
+      onOpenChange={(open) => {
+        if (open !== expanded) onToggle()
+      }}
+      render={<tbody />}
+    >
       <TableRow>
         <TableCell className="text-body">
           {new Date(run.started_at).toLocaleString()}
@@ -148,13 +166,15 @@ function RunRowWithLogs({
           {run.request_digest ? `${run.request_digest.slice(0, 10)}…` : '—'}
         </TableCell>
         <TableCell>
-          <Button size="sm" variant="quiet" onClick={onToggle}>
+          <CollapsibleTrigger render={<Button size="sm" variant="quiet" />}>
             {expanded ? 'Hide' : 'Show'}
-          </Button>
+          </CollapsibleTrigger>
         </TableCell>
       </TableRow>
-      {expanded && <ExpandedRunRow runId={run.id} run={run} />}
-    </>
+      <CollapsiblePanel render={<tr />} className="bg-surface-muted">
+        <ExpandedRunRow runId={run.id} run={run} />
+      </CollapsiblePanel>
+    </Collapsible>
   )
 }
 
@@ -170,56 +190,58 @@ function ExpandedRunRow({
     queryFn: () => listRunLogs(dataClient, runId),
   })
   return (
-    <TableRow>
-      <TableCell colSpan={6} className="bg-surface-muted">
-        {run.status === 'failed' && (
-          <p role="alert" className="m-0 mb-2 text-body text-danger-text">
-            {run.error_code}: {run.error_message ?? 'No error message.'}
-          </p>
-        )}
-        {run.status === 'succeeded' && Object.keys(run.result).length > 0 && (
-          <div className="mb-2">
-            <p className="m-0 text-label">{runSummary(run)}</p>
-            {typeof run.result['datasetId'] === 'string' && (
-              <p className="m-0 text-label text-fg-muted">
-                Dataset{' '}
-                <span className="mono">{String(run.result['datasetId'])}</span>
-                {run.result['datasetRevision']
-                  ? ` · revision ${String(run.result['datasetRevision'])}`
-                  : ''}
-                {typeof run.result['fileRecordId'] === 'string' ? (
-                  <>
-                    {' '}
-                    · raw file{' '}
-                    <span className="mono">
-                      {String(run.result['fileRecordId'])}
-                    </span>
-                  </>
-                ) : null}
-              </p>
-            )}
-            <details className="mt-1">
-              <summary className="cursor-pointer text-label text-fg-muted">
-                Technical result payload
-              </summary>
-              <pre className="mt-1 max-h-40 overflow-auto rounded bg-surface p-2 text-label">
-                {JSON.stringify(run.result, null, 2)}
-              </pre>
-            </details>
-          </div>
-        )}
-        {logsQuery.error instanceof Error && (
-          <p role="alert" className="m-0 text-body text-danger-text">
-            {describeConnectorsError(logsQuery.error)}
-          </p>
-        )}
-        {(logsQuery.data ?? []).map((log) => (
-          <p key={log.id} className="m-0 mono text-label text-fg-muted">
-            [{new Date(log.at).toLocaleTimeString()}] {log.level} {log.stage}:{' '}
-            {log.message}
-          </p>
-        ))}
-      </TableCell>
-    </TableRow>
+    <TableCell colSpan={6}>
+      {run.status === 'failed' && (
+        <p role="alert" className="m-0 mb-2 text-body text-danger-text">
+          {run.error_code}: {run.error_message ?? 'No error message.'}
+        </p>
+      )}
+      {run.status === 'succeeded' && Object.keys(run.result).length > 0 && (
+        <div className="mb-2">
+          <p className="m-0 text-label">{runSummary(run)}</p>
+          {typeof run.result['datasetId'] === 'string' && (
+            <p className="m-0 text-label text-fg-muted">
+              Dataset{' '}
+              <span className="mono">{String(run.result['datasetId'])}</span>
+              {run.result['datasetRevision']
+                ? ` · revision ${String(run.result['datasetRevision'])}`
+                : ''}
+              {typeof run.result['fileRecordId'] === 'string' ? (
+                <>
+                  {' '}
+                  · raw file{' '}
+                  <span className="mono">
+                    {String(run.result['fileRecordId'])}
+                  </span>
+                </>
+              ) : null}
+            </p>
+          )}
+          <Collapsible className="mt-1">
+            <CollapsibleTrigger className="text-label text-fg-muted">
+              Technical result payload
+            </CollapsibleTrigger>
+            <CollapsiblePanel className="mt-1">
+              <CodeBlock
+                code={JSON.stringify(run.result, null, 2)}
+                label="Technical result payload"
+                maxHeight="sm"
+              />
+            </CollapsiblePanel>
+          </Collapsible>
+        </div>
+      )}
+      {logsQuery.error instanceof Error && (
+        <p role="alert" className="m-0 text-body text-danger-text">
+          {describeConnectorsError(logsQuery.error)}
+        </p>
+      )}
+      {(logsQuery.data ?? []).map((log) => (
+        <p key={log.id} className="m-0 mono text-label text-fg-muted">
+          [{new Date(log.at).toLocaleTimeString()}] {log.level} {log.stage}:{' '}
+          {log.message}
+        </p>
+      ))}
+    </TableCell>
   )
 }

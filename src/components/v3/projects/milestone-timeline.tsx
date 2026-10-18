@@ -337,9 +337,7 @@ export function MilestoneTimeline({
                   className={cn(
                     'absolute top-1/2 h-2 -translate-y-1/2 rounded-full',
                     band.end < now
-                      ? band.milestones.every(
-                          (m) => m.status === 'completed',
-                        )
+                      ? band.milestones.every((m) => m.status === 'completed')
                         ? 'bg-success-wash'
                         : 'bg-danger-wash'
                       : band.start <= now && now <= band.end

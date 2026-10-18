@@ -2,8 +2,11 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { BLOCK_PICKER_GROUPS, BLOCK_PICKER_OPTIONS } from './block-picker'
-import type { BlockPickerOption } from './block-picker'
+import {
+  BLOCK_PICKER_GROUPS,
+  BLOCK_PICKER_OPTIONS,
+} from '#/lib/blocks/registry'
+import type { BlockPickerOption } from '#/lib/blocks/registry'
 import {
   SlashCommandMenu,
   slashCommandFilterCount,

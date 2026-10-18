@@ -31,11 +31,14 @@ import { UnsyncedChangesList } from './unsynced-changes'
 export interface OfflineStatusBannerProps {
   className?: string
   capabilitiesClassName?: string
+  /** The workspace allows offline editing (default). When false the banner says edits are not kept. */
+  offlineEditingAllowed?: boolean
 }
 
 export function OfflineStatusBanner({
   className,
   capabilitiesClassName,
+  offlineEditingAllowed = true,
 }: OfflineStatusBannerProps) {
   const status = useLiveStatus()
   const coordinator = useLiveCoordinator()
@@ -71,6 +74,7 @@ export function OfflineStatusBanner({
         offline
         lastSyncedAt={lastSyncedAt}
         unsyncedCount={unsyncedCount}
+        offlineEditingAllowed={offlineEditingAllowed}
         retrying={retrying}
         onRetry={() => {
           setRetrying(true)
@@ -78,7 +82,9 @@ export function OfflineStatusBanner({
         }}
         className={className}
       />
-      <OfflineCapabilitiesNote className={capabilitiesClassName} />
+      {offlineEditingAllowed ? (
+        <OfflineCapabilitiesNote className={capabilitiesClassName} />
+      ) : null}
     </>
   )
 }

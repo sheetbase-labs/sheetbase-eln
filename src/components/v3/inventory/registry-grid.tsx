@@ -24,7 +24,7 @@
  * (`pr-6!`); a plain `pr-6` in `meta.cellClassName` loses to the component's
  * own cell rules and is silently ignored.
  */
-import { useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useTable } from '@tanstack/react-table'
 import type {
@@ -41,7 +41,6 @@ import {
 } from '#/components/reui/data-grid/data-grid'
 import type { DataGridFeatures } from '#/components/reui/data-grid/data-grid'
 import { DataGridScrollArea } from '#/components/reui/data-grid/data-grid-scroll-area'
-import { DataGridTableRowSelect } from '#/components/reui/data-grid/data-grid-table'
 import { DataGridTableVirtual } from '#/components/reui/data-grid/data-grid-table-virtual'
 import { cn } from '#/lib/utils'
 
@@ -131,8 +130,8 @@ export interface RegistryGridProps<T extends RowData> {
   /** The single row the inspector shows; clicking a row selects it. */
   onRowClick?: (row: T) => void
   /**
-   * Whether rows carry the selection checkbox. A screen whose rows are links
-   * rather than a selection passes false.
+   * Whether a row can be selected (click or keyboard) to drive the screen's
+   * inspector. A detail table whose rows are not a selection passes false.
    */
   selectable?: boolean
   /** Ordering the route owns and writes into the grid (the sort toolbar). */
@@ -163,32 +162,62 @@ export function RegistryGrid<T extends RowData>({
   onSortingChange,
   isLoading = false,
 }: RegistryGridProps<T>) {
+  const gridRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * The row is the control. A selectable row takes focus (one tab stop, on the
+   * selected row or the first), Enter or Space selects it, and the arrow keys
+   * walk the rows — the keyboard path the old click-only table never had, with
+   * no checkbox column duplicating the click.
+   */
+  useEffect(() => {
+    const root = gridRef.current
+    if (!root || !selectable) return
+    const rowOf = (target: EventTarget | null) =>
+      target instanceof Element
+        ? target.closest<HTMLTableRowElement>('tbody tr[data-index]')
+        : null
+    const sync = () => {
+      const rows = [
+        ...root.querySelectorAll<HTMLTableRowElement>('tbody tr[data-index]'),
+      ]
+      const selected = rows.find((tr) => tr.dataset.state === 'selected')
+      for (const tr of rows) {
+        tr.tabIndex = tr === (selected ?? rows[0]) ? 0 : -1
+      }
+    }
+    const observer = new MutationObserver(sync)
+    observer.observe(root, { childList: true, subtree: true })
+    const onKeyDown = (event: KeyboardEvent) => {
+      const tr = rowOf(event.target)
+      if (!tr) return
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        tr.click()
+        return
+      }
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        const next =
+          event.key === 'ArrowDown'
+            ? tr.nextElementSibling
+            : tr.previousElementSibling
+        if (next instanceof HTMLTableRowElement && next.dataset.index) {
+          event.preventDefault()
+          next.focus()
+        }
+      }
+    }
+    root.addEventListener('keydown', onKeyDown)
+    sync()
+    return () => {
+      observer.disconnect()
+      root.removeEventListener('keydown', onKeyDown)
+    }
+  }, [selectable, rows])
+
   const allColumns = useMemo<RegistryColumn<RegistryRow<T>>[]>(() => {
     const body = columns as unknown as RegistryColumn<RegistryRow<T>>[]
-    if (!selectable) return body
-    return [
-      {
-        id: 'select',
-        // The checkbox sits in the first column's own inset rather than in a
-        // column of its own: a 40px column would push a table that already
-        // fills the list area into a horizontal scroll, which is a change to
-        // the screen, not an extra row control.
-        // No select-all: the app's selection is one row for the inspector, so
-        // a control that says "select every row" would be a promise the screen
-        // cannot keep — measured: clicking it left one row selected.
-        header: () => null,
-        cell: ({ row }) =>
-          isBand(row.original) ? null : (
-            <span className="absolute inset-y-0 left-1.5 flex items-center">
-              <DataGridTableRowSelect row={row} />
-            </span>
-          ),
-        enableSorting: false,
-        enableHiding: false,
-        size: 0,
-      },
-      ...body,
-    ]
+    return body
   }, [columns, selectable])
 
   /**
@@ -212,7 +241,7 @@ export function RegistryGrid<T extends RowData>({
           // Every cell paints the strip, so it reads as one band across the
           // row; the first data column carries the label.
           const paint = 'block h-[33px] bg-surface-muted -mx-2.5'
-          const first = selectable ? 1 : 0
+          const first = 0
           if (index === first) {
             return (
               <span
@@ -252,6 +281,7 @@ export function RegistryGrid<T extends RowData>({
     // its rows, which on a short list leaves the horizontal scrollbar floating
     // under the last row instead of at the list area's edge.
     <div
+      ref={gridRef}
       className={cn(
         'flex h-full min-h-0 flex-col [&>*]:min-h-0 [&>*]:flex-1',
         className,
@@ -282,15 +312,10 @@ export function RegistryGrid<T extends RowData>({
           headerRow: 'bg-surface-muted',
           // The th carries its own font and colour, so the header's own
           // classes have to reach it: `text-label` (12px, medium) in
-          // `text-fg-muted`, as the v3 table head renders. With the select
-          // column collapsed to zero width, the first *data* cell carries the
-          // 24px inset the first column always had.
-          header: selectable
-            ? '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:nth-child(2)]:pl-6 [&_th:first-child]:relative [&_th:first-child]:w-0 [&_th:first-child]:p-0 [&_th]:text-label [&_th]:text-fg-muted'
-            : '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th]:text-label [&_th]:text-fg-muted',
-          body: selectable
-            ? '[&_td]:h-[33px] [&_td]:py-0 [&_td]:px-2.5 [&_td:nth-child(2)]:pl-6 [&_td:first-child]:relative [&_td:first-child]:w-0 [&_td:first-child]:p-0'
-            : '[&_td]:h-[33px] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6',
+          // `text-fg-muted`, as the v3 table head renders.
+          header:
+            '[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th]:text-label [&_th]:text-fg-muted',
+          body: '[&_td]:h-[33px] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6',
         }}
       >
         <DataGridScrollArea orientation="both" className="h-full">

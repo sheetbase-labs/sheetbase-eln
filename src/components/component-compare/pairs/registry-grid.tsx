@@ -56,7 +56,7 @@ import {
  * Theirs: `@reui/data-grid` from the pinned base-nova registry, placed under
  * `src/components/reui/` and wrapped in `@reui/frame`. The grid replaces the
  * body and carries virtualised rows, a pinned identifier column and a row
- * checkbox that a keyboard can reach; the frame carries the footer count the
+ * row that a keyboard can select; the frame carries the footer count the
  * screen's `ListFooter` used to.
  *
  * Both columns render the same toolbar control (the shipped `Select`-based

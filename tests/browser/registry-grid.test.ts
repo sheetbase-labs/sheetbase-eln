@@ -107,21 +107,23 @@ test('the protocols registry renders, sorts, selects and links on the grid', asy
   )
   await expect(page.getByRole('complementary')).toContainText('PRT-012')
 
-  // Keyboard selection: the row checkbox is a real control and Space takes the
-  // selection to that row. The bespoke body had no keyboard path at all.
-  // Selection is one row — the inspector's — so the second one replaces the
-  // first rather than joining it, and the header carries no select-all.
-  const rowBox = grid(page)
-    .getByRole('checkbox', { name: /select/i })
-    .nth(5)
-  await rowBox.focus()
-  await expect(rowBox).toBeFocused()
+  // Keyboard selection: the row itself is the control. One row carries the tab
+  // stop — the selected one — and Enter or Space takes the selection to it.
+  // The bespoke body had no keyboard path at all, and there is no checkbox
+  // column duplicating the click.
+  await expect(grid(page).getByRole('checkbox')).toHaveCount(0)
+  const rows = grid(page).locator('tbody tr[data-index]')
+  await expect(
+    grid(page).locator('tbody tr[data-index][tabindex="0"]'),
+  ).toHaveCount(1)
+  const target = rows.nth(5)
+  await target.focus()
   await page.keyboard.press('Space')
   await expect(footer(page)).toContainText('1 selected')
   await expect(grid(page).locator('tbody tr[data-state=selected]')).toHaveCount(
     1,
   )
-  await expect(grid(page).locator('thead').getByRole('checkbox')).toHaveCount(0)
+  await expect(target).toHaveAttribute('data-state', 'selected')
 
   // The name cell is still a router link to the record.
   const link = grid(page).getByRole('link', { name: 'HEK293 transfection' })

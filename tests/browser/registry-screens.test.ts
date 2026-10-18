@@ -7,7 +7,7 @@
  * on the design seed and asserts what the consolidation promises: the grid is
  * the table (`data-slot=data-grid-table`), it renders the tab's rows, it
  * carries the screen's accessible name, and a screen whose rows drive an
- * inspector offers the row checkbox that the bespoke body never had. A screen
+ * inspector gives its rows a keyboard control the bespoke body never had. A screen
  * left on the old markup fails here rather than in review.
  *
  * Geometry is deliberately not asserted per screen: it was measured against the
@@ -61,17 +61,19 @@ test('every registry list screen renders the shared grid', async ({ page }) => {
       timeout: 20_000,
     })
 
-    const checkboxes = grid.getByRole('checkbox')
-    if (screen.selectable && (await firstRow.count()) > 0) {
-      expect(
-        await checkboxes.count(),
-        `${screen.path} offers the row checkbox`,
-      ).toBeGreaterThan(1)
-    } else if (!screen.selectable) {
-      // `experiments` rows navigate; a selection there would select nothing.
-      expect(await checkboxes.count(), `${screen.path} has no selection`).toBe(
-        0,
-      )
+    // A selectable row is its own keyboard control; there is no checkbox
+    // column, and a screen whose rows navigate has no tab stop on them.
+    const stops = page.locator('tbody tr[data-index][tabindex="0"]')
+    if (!screen.selectable) {
+      await expect(
+        stops,
+        `${screen.path} has no row keyboard control`,
+      ).toHaveCount(0)
+    } else if ((await firstRow.count()) > 0) {
+      await expect(
+        stops,
+        `${screen.path} offers row keyboard control`,
+      ).toHaveCount(1)
     }
   }
 })

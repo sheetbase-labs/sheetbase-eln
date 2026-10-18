@@ -21,9 +21,10 @@ import {
   CONNECTOR_CONFIG_FIELDS,
   buildConnectorConfig,
   configFormValues,
-  missingConfigLabels,
-  type ConnectorConfigValues,
+  missingConfigLabels
+  
 } from '#/lib/connectors/enterprise/config-form'
+import type {ConnectorConfigValues} from '#/lib/connectors/enterprise/config-form';
 import type { EnterpriseAdapterId } from '#/lib/connectors/enterprise/types'
 import type { ConnectorWire } from '#/lib/connectors/types'
 

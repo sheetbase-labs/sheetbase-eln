@@ -52,9 +52,7 @@ export function ParserFollowUpNotice({
       }
     >
       Readings from {instrumentName} {copy.body}
-      {canEdit
-        ? ''
-        : ' Ask a workspace admin or schema editor to set this up.'}
+      {canEdit ? '' : ' Ask a workspace admin or schema editor to set this up.'}
     </Notice>
   )
 }

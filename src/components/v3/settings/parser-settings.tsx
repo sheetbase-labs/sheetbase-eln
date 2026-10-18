@@ -96,7 +96,10 @@ export function ParserSettings({
     setPrefilled(true)
     setName(`${forInstrument.name} export`)
     setKey(
-      `${forInstrument.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}-export`,
+      `${forInstrument.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')}-export`,
     )
   }
   const canEdit = hasCapability(role, 'schema.edit')

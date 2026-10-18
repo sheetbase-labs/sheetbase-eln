@@ -84,6 +84,7 @@ const CALIBRATION = { state: 'ok' as const, label: '12 Feb 2027', tone: 'ok' }
 function renderInspector(
   overrides: Partial<InstrumentRow> = {},
   canManage = true,
+  canEditParsers = true,
 ) {
   render(
     <QueryClientProvider
@@ -96,6 +97,7 @@ function renderInspector(
         calibration={CALIBRATION}
         ownerLabel="Gareth P."
         canManage={canManage}
+        canEditParsers={canEditParsers}
       />
     </QueryClientProvider>,
   )
@@ -336,9 +338,39 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     renderInspector()
 
     expect(await screen.findByText('Parser not validated')).toBeTruthy()
-    expect(screen.getByText('Parser not validated.')).toBeTruthy()
+    expect(screen.getByText('No parser yet.')).toBeTruthy()
     expect(screen.getByText('Nothing received')).toBeTruthy()
     expect(screen.getByText('Not bookable')).toBeTruthy()
+    // The warning carries the one step that fixes it, with the instrument already chosen.
+    expect(
+      screen.getByRole('link', { name: 'Add a parser' }).getAttribute('href'),
+    ).toBe('/settings/instruments?instrumentId=ins-1')
+  })
+
+  it('sends an untested draft to its own validation step', async () => {
+    wireRows({
+      parsers: [{ id: 'parser-1', name: 'Turbidimeter v2' }],
+      parser_versions: [
+        { id: 'ver-9', parser_id: 'parser-1', status: 'draft' },
+      ],
+    })
+    renderInspector()
+
+    expect(await screen.findByText('Parser not validated.')).toBeTruthy()
+    expect(
+      screen
+        .getByRole('link', { name: 'Validate the parser' })
+        .getAttribute('href'),
+    ).toBe('/settings/instruments?instrumentId=ins-1&versionId=ver-9')
+  })
+
+  it('names a person, not a button, when the viewer cannot edit parsers', async () => {
+    wireRows({ parsers: [], parser_versions: [] })
+    renderInspector({}, true, false)
+
+    expect(await screen.findByText('No parser yet.')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Add a parser' })).toBeNull()
+    expect(screen.getByText(/Ask a workspace admin/)).toBeTruthy()
   })
 
   it('reports manual and unconnected instruments as such, not as healthy', async () => {

@@ -409,7 +409,9 @@ export function useInstrumentParsers(
         `?select=id,parser_id,status&parser_id=in.(${ids})&status=in.(draft,validated,approved)&order=version.desc&limit=200`,
       )
       return parsers.map((parser) => {
-        const own = versions.filter((version) => version.parser_id === parser.id)
+        const own = versions.filter(
+          (version) => version.parser_id === parser.id,
+        )
         return {
           name: parser.name,
           validated: own.some((version) => version.status !== 'draft'),

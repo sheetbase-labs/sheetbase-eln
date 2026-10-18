@@ -178,6 +178,42 @@ export function ParserSettings({
           . {instrumentGuidance(selected?.status, canEdit)}
         </Notice>
       ) : null}
+      {fileId && !forInstrument ? (
+        <Notice tone={testFile?.parser_failure ? 'warn' : 'info'}>
+          {testFile
+            ? `${testFile.filename} could not be read by an approved parser.`
+            : 'This page was opened from a failed import.'}{' '}
+          {canEdit
+            ? 'Create, test and approve a parser below, then resume the import from here.'
+            : `You can’t change parsers with the ${role ?? 'current'} role. Ask a workspace admin or schema editor to approve one; ${
+                testFile?.parser_failure?.requestedAt
+                  ? 'a request is already with them in their Inbox.'
+                  : 'use “Ask an admin to update the parser” on the import page to put the request in their Inbox.'
+              } Meanwhile you can map the columns by hand.`}{' '}
+          <Link
+            to="/import/$importId"
+            params={{ importId: fileId }}
+            search={{ step: 'map' }}
+            className="font-semibold"
+          >
+            Back to the import
+          </Link>
+        </Notice>
+      ) : null}
+      {fileId && selected?.status === 'approved' ? (
+        <Notice tone="info" title="Parser approved.">
+          The retained file is still stored.{' '}
+          <Link
+            to="/import/$importId"
+            params={{ importId: fileId }}
+            search={{ step: 'map', parser: selectedParser?.key }}
+            className="font-semibold"
+          >
+            Resume the import
+          </Link>{' '}
+          to read it with this version.
+        </Notice>
+      ) : null}
       <Section title="Canonical parser versions">
         <Muted>
           Definitions and approval belong to this workspace. A regulated-record

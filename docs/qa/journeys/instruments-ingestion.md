@@ -56,7 +56,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
   3. `ParserSettings` shows the "Setting up the parser for…" guidance only when `instrumentId` is present (`parser-settings.tsx:168-180`). That param is not set on this path.
   4. A member without `schema.edit` sees no Validate, Upload, Approve or Create controls (`:224`, `:247`, `:259`, `:307`). The retained file's `parser_failure.message` and "Admin update requested" are shown (`:238-245`).
 - **Blockers hit:** a page of read-only tables. It does not say what to do, who can fix the parser, or whether an admin has already been asked (it shows that only if the file is in the list).
-- **Verdict:** `dead-end` for a non-governed role. The failure is named but there is no next action and no person.
+- **Verdict:** `dead-end` for a non-governed role. The failure is named but there is no next action and no person. **Status: fixed in 96098c5c.**
 - **Fix:** when `fileId` is present and `!canEdit`, show the same `instrumentGuidance` notice ("Ask a workspace admin or schema editor…", plus the `requestedAt` state). Name the admins' inbox as the place the request lands.
 - **Severity:** S2
 
@@ -80,7 +80,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
   2. The resume route exists (`import.$importId.tsx:50-61`) and the dataset Imports tab links to it (`dataset-imports-tab.tsx:163-171`). Nothing on the settings page or in the inbox uses it.
   3. The failure work item clears only when an import commits (`0311…sql:124-136`).
 - **Blockers hit:** the page instructs "Retry the retained import" with no control. The admin has to find the file, or ask the scientist, to reopen it.
-- **Verdict:** `dead-end` at the final step. The instruction exists but the action does not.
+- **Verdict:** `dead-end` at the final step. The instruction exists but the action does not. **Status: fixed in 96098c5c.**
 - **Fix:** when `fileId` is set, render "Resume the import" linking to `/import/$fileId?step=map&parser=<key>`. Also add a "Retry" link on the Inbox item for the creator once the parser is approved.
 - **Severity:** S2
 
@@ -118,7 +118,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
   2. The inspector and record page show the label in a description list and badge (`instruments.tsx:795-815`, `$instrumentId.tsx:465-485`). There is no Notice and no link for these states. Only the parser follow-up has one.
   3. For `filedrop` and `webhook` nothing on the instrument says where to drop files or post. The registration toast says "before its posts can import" (`instruments.tsx:970-979`). No ingest route is under `src/routes/api` (only `import`, `connectors.source`, `files`, `pipelines`). Browser upload at `/import` is the only intake I found. The upload page cannot be opened with the instrument preselected (`import.index.tsx`, no `validateSearch`).
 - **Blockers hit:** the state is named but no cause, owner or action. For "waiting for first data" the user is not told how data is supposed to arrive.
-- **Verdict:** `dead-end`. This is an inference from the code read. If an external agent posts to `/api/db`, it is not documented in the UI.
+- **Verdict:** `dead-end`. This is an inference from the code read. If an external agent posts to `/api/db`, it is not documented in the UI. **Status: fixed in 5740cc40.**
 - **Fix:** for `failed`, link the last import (file id and dataset) and offer retry. For stale or waiting, link to `/import?instrument=<id>` and state the intake endpoint, or say plainly that this deployment imports by upload. Add `instrument` to the `/import/` search.
 - **Severity:** S2
 
@@ -133,7 +133,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
   5. The record page shows no overdue notice at all. A user with no create right sees "No calibration recorded…" (`:525-528`) and no one named.
   6. The Calibration tab lists only overdue or soon instruments. A never-calibrated instrument ("Not calibrated") is excluded (`instruments.tsx:146-149`, `:205-214`, `:226-231`).
 - **Blockers hit:** the notice promises a certificate that the UI cannot attach. The fix path is two clicks away with no signpost, and a viewer is not told who to ask.
-- **Verdict:** `dead-end` at "attach a certificate".
+- **Verdict:** `dead-end` at "attach a certificate". **Status: fixed in 98a92cb4.**
 - **Fix:** add an action "Record calibration" in the notice (deep link `?record=1`), a certificate upload in the dialog bound to `certificateFileId`, and an overdue notice on the record page. For non-recorders, name the roles that can record. Include `na` instruments in the Calibration tab.
 - **Severity:** S1
 
@@ -146,7 +146,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
   3. There is no link to the instrument record and no person named. Only a workspace owner can grant a qualification (`$instrumentId.tsx:130-131`, `:582-585`), and that fact is written on the record page, not in the dialog.
   4. The instrument picker offers every non-retired instrument, including ones already overdue (`schedule-data.ts:78-92`).
 - **Blockers hit:** the cause is named, but there is no owner and no action.
-- **Verdict:** `dead-end`. The user must know to open the instrument record and ask a workspace owner.
+- **Verdict:** `dead-end`. The user must know to open the instrument record and ask a workspace owner. **Status: fixed in ccb6a1fe.**
 - **Fix:** map SB115 to "You are not qualified to run <instrument>. A workspace owner can grant this on the instrument record." with a link. Map SB116 to "<instrument>'s calibration is overdue." with a link to Record calibration. Keep the server as the authority.
 - **Severity:** S1
 
@@ -158,7 +158,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
   2. The booking guard checks `EXISTS (… c.due_at IS NOT NULL AND c.due_at < now())` over every calibration row for the instrument (`drizzle/0430_booking_subject_is_the_instrument.sql:217-222`, and the same guard at `:246-252`). It does not restrict to the latest row.
   3. The DB test named "refuses … when the latest calibration is overdue" updates the only calibration row, so it cannot show the difference (`tests/db/booking-instrument-checks.test.ts:220-232`).
 - **Blockers hit:** if the SQL is as written, any instrument with a past calibration whose due date has lapsed stays unbookable after recalibration. The UI and the booking dialog then disagree, and nothing on screen explains it.
-- **Verdict:** `dead-end` (suspected). Not reproduced. Confirm with a two-row DB test before treating it as fact.
+- **Verdict:** `dead-end` (suspected). Not reproduced. Confirm with a two-row DB test before treating it as fact. **Status: confirmed by a two-row DB test (`it.fails` in `tests/db/booking-instrument-checks.test.ts`, SB116 raised). Needs backend: a migration restricting the guard in `internal.assert_instrument_bookable` to the latest calibration by `performed_at`; then change `it.fails` to `it`.**
 - **Fix:** restrict the guard to the latest row by `performed_at`, to match `latestCalibrationByInstrument`. Add a two-calibration test.
 - **Severity:** S1 if confirmed
 
@@ -171,7 +171,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
   3. With adapter `s3` or `postgres`, "Test connection" and "List objects" fail with "Configure a valid bucket name on this connector." or "Configure the source host on this connector." (`config-validation.ts:22-25`, `:70-73`).
   4. Missing credentials fail with "…missing required credentials: …. A steward must set them." (`secrets.server.ts:54-56`). The Credentials card shows "Missing required: …" but only to managers (`credentials-card.tsx:75-92`, `:77-79`). Delete has no confirmation or error display (`:60-70`, `:107-115`).
 - **Blockers hit:** the error tells the user to configure something the UI offers no way to configure.
-- **Verdict:** `dead-end` at configuration.
+- **Verdict:** `dead-end` at configuration. **Status: fixed in 4be60557.**
 - **Fix:** add a config form (bucket, prefix, host, port, database, sslMode) bound to `updateConnector({config})`, with "Configure" linked from the validation error. Prefill the credential names from `Missing required`.
 - **Severity:** S1
 

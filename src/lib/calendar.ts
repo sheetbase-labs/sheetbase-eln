@@ -548,6 +548,10 @@ export function describeCalendarError(error: unknown): string {
     SB005: 'The booking input is invalid. Check the details and try again.',
     SB009: 'The linked record is not the expected type.',
     SB016: 'The selected item belongs to a different workspace.',
+    SB115:
+      'You are not qualified to book this instrument. A workspace owner can grant a qualification on the instrument record.',
+    SB116:
+      'This instrument’s calibration is overdue. Record a new calibration on the instrument record before booking.',
     SB020: 'This time overlaps with an existing booking for that resource.',
     SB021: 'The resource was not found in this workspace.',
     SB022: 'The booking was not found in this workspace.',

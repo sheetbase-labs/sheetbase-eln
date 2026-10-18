@@ -233,6 +233,34 @@ describe('ADR-0054 the instrument owns its calendar resource', () => {
     )
   })
 
+  // J-INS-12, CONFIRMED: the guard in 0430 checks every calibration row, not the
+  // latest, so a lapsed historical row keeps an in-date instrument unbookable. Fixing
+  // it needs a migration (restrict to the newest row by performed_at). `it.fails`
+  // keeps the suite green until then and goes red the moment the guard is fixed:
+  // change it to `it` when that happens.
+  it.fails(
+    'allows a booking once a newer calibration supersedes an old past-due one (J-INS-12)',
+    async () => {
+      await qualify(QUALIFIED, new Date(Date.now() + 30 * 86_400_000))
+      await migrator.query(
+        `insert into api.instrument_calibrations(instrument_id,workspace_id,performed_at,due_at)
+       values ($1,$2, now() - interval '400 days', now() - interval '200 days')`,
+        [instrumentId, WS],
+      )
+      try {
+        const qualified = await actor(QUALIFIED)
+        const booked = await book(qualified, instrumentId, 15)
+        expect(booked.rows).toHaveLength(1)
+      } finally {
+        await migrator.query(
+          `delete from api.instrument_calibrations
+          where instrument_id=$1 and due_at < now()`,
+          [instrumentId],
+        )
+      }
+    },
+  )
+
   it('refuses a new booking for a retired instrument and keeps its history', async () => {
     const admin = await actor(ADMIN)
     await admin.query('select * from api.set_instrument_retired($1,true)', [

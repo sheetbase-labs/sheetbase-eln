@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { Link } from '@tanstack/react-router'
+
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
@@ -12,6 +14,7 @@ import {
 } from '#/components/v3/ui/dialog'
 import { Select } from '#/components/v3/ui/select'
 import { describeCalendarError } from '#/lib/calendar'
+import { DataClientError } from '#/lib/data-client'
 import { fetchWorkspaceGeneral } from '#/lib/workspace-general'
 import { bookInstrument } from './schedule-data'
 import type { ScheduleBooking, ScheduleInstrument } from './schedule-data'
@@ -123,6 +126,11 @@ export function BookDialog({
   const [end, setEnd] = useState(DEFAULT_END)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // SB115/SB116 name an instrument the person can act on, so they carry a link.
+  const [refusal, setRefusal] = useState<{
+    code: 'SB115' | 'SB116'
+    instrument: ScheduleInstrument
+  } | null>(null)
   // The zone a booking's wall clock means. Resolved once per opening and shown
   // in the dialog so the person can see which clock From/To are read against;
   // the same promise is what submit awaits, so the label cannot disagree with
@@ -205,7 +213,15 @@ export function BookDialog({
     } catch (e) {
       // The server owns clash, qualification and calibration decisions; show
       // its reason rather than guessing at availability in the dialog.
-      setError(describeCalendarError(e))
+      const code = e instanceof DataClientError ? e.code : null
+      const instrument = instruments.find((item) => item.id === resourceId)
+      if (instrument && (code === 'SB115' || code === 'SB116')) {
+        setRefusal({ code, instrument })
+        setError(null)
+      } else {
+        setRefusal(null)
+        setError(describeCalendarError(e))
+      }
     } finally {
       setBusy(false)
     }
@@ -281,6 +297,7 @@ export function BookDialog({
               {error}
             </p>
           ) : null}
+          {refusal ? <BookingRefusal {...refusal} /> : null}
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>Cancel</DialogClose>
@@ -290,5 +307,35 @@ export function BookDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * The two instrument rules the server enforces at booking time, in plain words,
+ * with the one place each is resolved. The server stays the authority; this only
+ * says what its refusal means and where to go.
+ */
+function BookingRefusal({
+  code,
+  instrument,
+}: {
+  code: 'SB115' | 'SB116'
+  instrument: ScheduleInstrument
+}) {
+  const qualification = code === 'SB115'
+  return (
+    <p role="alert" className="m-0 text-label text-danger-text">
+      {qualification
+        ? `You are not qualified to run ${instrument.name}. A workspace owner can grant that on the instrument record.`
+        : `${instrument.name}’s calibration is overdue, so it can’t be booked until a new calibration is recorded.`}{' '}
+      <Link
+        to="/instruments/$instrumentId"
+        params={{ instrumentId: instrument.id }}
+        search={qualification ? undefined : { record: '1' }}
+        className="underline"
+      >
+        {qualification ? 'Open the instrument' : 'Record the calibration'}
+      </Link>
+    </p>
   )
 }

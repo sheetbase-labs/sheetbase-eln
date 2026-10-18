@@ -21,6 +21,11 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Choice } from '#/components/v3/ui/choice'
 import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Notice } from '#/components/v3/ui/alert'
+import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
+import {
+  IntakeDeliveryNotice,
+  intakeDeliveryProblem,
+} from '#/components/v3/instruments/intake-delivery-notice'
 import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
 import { hasCapability } from '#/lib/capability'
 import { Select } from '#/components/v3/ui/select'
@@ -216,7 +221,7 @@ function InstrumentsList() {
     calibration: rows.filter((i) => {
       if (i.retiredAt) return false
       const c = calFor(i.id).state
-      return c === 'overdue' || c === 'soon'
+      return c === 'overdue' || c === 'soon' || c === 'na'
     }).length,
     retired: rows.filter((i) => i.retiredAt).length,
   }
@@ -231,7 +236,8 @@ function InstrumentsList() {
       return false
     if (tab === 'calibration') {
       const c = calFor(i.id).state
-      if (i.retiredAt || (c !== 'overdue' && c !== 'soon')) return false
+      if (i.retiredAt || (c !== 'overdue' && c !== 'soon' && c !== 'na'))
+        return false
     }
     if (tab === 'retired' && !i.retiredAt) return false
     if (tab === 'all' && i.retiredAt) return false
@@ -637,6 +643,7 @@ function InstrumentsList() {
           ownerLabel={sel.ownerId ? names.userLabel(sel.ownerId) : '—'}
           canManage={role === 'owner' || role === 'admin' || role === 'member'}
           canEditParsers={hasCapability(role, 'schema.edit')}
+          canRecordCalibration={hasCapability(role, 'record.create')}
         />
       ) : null}
     </div>
@@ -669,12 +676,14 @@ export function InstrumentInspector({
   ownerLabel,
   canManage,
   canEditParsers,
+  canRecordCalibration = false,
 }: {
   instrument: InstrumentRow
   calibration: { state: CalibrationState; label: string; tone: string }
   ownerLabel: string
   canManage: boolean
   canEditParsers: boolean
+  canRecordCalibration?: boolean
 }) {
   const queryClient = useQueryClient()
   const parsers = useInstrumentParsers(instrument.id)
@@ -693,6 +702,7 @@ export function InstrumentInspector({
     parserReady: parsers.isSuccess ? parserReady : undefined,
     lastImport: lastImport.data ?? null,
   })
+  const deliveryProblem = intakeDeliveryProblem(health.label)
   const lastDataAt =
     lastImport.data?.status === 'committed' ? lastImport.data.createdAt : null
   const nextBooking = !booking.isSuccess
@@ -781,15 +791,38 @@ export function InstrumentInspector({
       </div>
       <div className="flex flex-col gap-5 px-4 py-3.5">
         {calibration.state === 'overdue' ? (
-          <Notice tone="bad" title="Calibration overdue.">
-            Data from {instrument.name} is flagged and can’t be cited in GxP
-            records until a new certificate is attached.
-          </Notice>
+          <CalibrationOverdueNotice
+            instrumentName={instrument.name}
+            action={
+              canRecordCalibration ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/instruments/$instrumentId"
+                      params={{ instrumentId: instrument.id }}
+                      search={{ record: '1' }}
+                    />
+                  }
+                >
+                  Record calibration
+                </Button>
+              ) : undefined
+            }
+          />
         ) : followUp ? (
           <ParserFollowUpNotice
             instrumentName={instrument.name}
             followUp={followUp}
             canEdit={canEditParsers}
+          />
+        ) : deliveryProblem ? (
+          <IntakeDeliveryNotice
+            instrumentId={instrument.id}
+            instrumentName={instrument.name}
+            problem={deliveryProblem}
+            canImport={canRecordCalibration}
           />
         ) : null}
         <RegistrySection title="How data gets in">

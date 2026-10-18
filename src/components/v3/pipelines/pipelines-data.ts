@@ -176,6 +176,52 @@ export function usePipelineRows(client: DataClient = notebookDataClient) {
   })
 }
 
+export interface PipelineOutputTargets {
+  datasets: Array<{ id: string; name: string; displayId: string | null }>
+  schemaVersions: Array<{ id: string; label: string }>
+}
+
+/** What a pipeline output can write to: the active Datasets it can append to
+ * and the published Dataset Schema Versions it can create one from. */
+export function usePipelineOutputTargets(
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'output-targets'] as const,
+    queryFn: async (): Promise<PipelineOutputTargets> => {
+      const [datasets, versions, definitions] = await Promise.all([
+        client.list<{ id: string; name: string; display_id: string | null }>(
+          'datasets',
+          '?select=id,name,display_id&lifecycle=eq.active&order=name.asc',
+        ),
+        client.list<{ id: string; schema_id: string; version: number }>(
+          'dataset_schema_versions',
+          '?select=id,schema_id,version&lifecycle=eq.published&order=version.desc',
+        ),
+        client.list<{ id: string; name: string }>(
+          'dataset_schema_definitions',
+          '?select=id,name&order=name.asc',
+        ),
+      ])
+      const nameById = new Map(definitions.map((d) => [d.id, d.name]))
+      return {
+        datasets: datasets.map((d) => ({
+          id: d.id,
+          name: d.name,
+          displayId: d.display_id,
+        })),
+        schemaVersions: versions
+          .map((v) => ({
+            id: v.id,
+            label: `${nameById.get(v.schema_id) ?? 'Schema'} v${v.version}`,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+      }
+    },
+    staleTime: 60_000,
+  })
+}
+
 export function usePipelineDefinition(
   definitionId: string,
   client: DataClient = notebookDataClient,

@@ -41,6 +41,7 @@ import {
   useRowFocus,
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { toast } from '#/components/v3/ui/sonner'
 import { createPipelineDefinition } from '#/lib/pipelines/data'
@@ -101,7 +102,8 @@ function inTab(
 ): boolean {
   if (tab === 'all') return true
   if (tab === 'mine') return p.created_by_user_id === currentUserId
-  if (tab === 'needsattention') return p.lastRun?.status === 'failed'
+  if (tab === 'needsattention')
+    return p.lastRun?.status === 'failed' || p.lastRun?.status === 'waiting'
   if (tab === 'scheduled') return scheduledIds.has(p.id)
   return Boolean(p.draft)
 }
@@ -242,7 +244,7 @@ function PipelinesList() {
       <div className="flex min-w-0 flex-1 flex-col">
         <ListHeader
           title="Pipelines"
-          total={rows.length}
+          total={query.isError ? undefined : rows.length}
           actions={
             <>
               <NewPipeline workspaceId={workspaceId} />
@@ -285,7 +287,16 @@ function PipelinesList() {
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">
-          {query.isLoading || visible.length > 0 ? (
+          {query.isError ? (
+            <div className="px-4 py-4">
+              <ProjectListFailure
+                error={query.error}
+                what="pipelines"
+                onRetry={() => void query.refetch()}
+              />
+            </div>
+          ) : null}
+          {!query.isError && (query.isLoading || visible.length > 0) ? (
             <RegistryGrid
               className="max-md:hidden"
               label="Pipelines"
@@ -318,7 +329,7 @@ function PipelinesList() {
               }
             })}
           />
-          {!query.isLoading && visible.length === 0 ? (
+          {!query.isLoading && !query.isError && visible.length === 0 ? (
             <div role="status" className="flex justify-center px-6">
               <EmptyState
                 icon="pipeline"
@@ -328,9 +339,15 @@ function PipelinesList() {
                     ? `No pipelines match “${search.q}”`
                     : `No pipelines in ${tabLabel[tab].toLowerCase()}`
                 }
-                description="Search looks at pipeline keys and names."
+                description={
+                  rows.length === 0
+                    ? 'A pipeline turns dataset versions into a result on a schedule or on demand. Register one, then add its steps.'
+                    : 'Search looks at pipeline keys and names.'
+                }
                 action={
-                  q ? (
+                  rows.length === 0 && !q ? (
+                    <NewPipeline workspaceId={workspaceId} />
+                  ) : q ? (
                     <Button
                       nativeButton={false}
                       render={

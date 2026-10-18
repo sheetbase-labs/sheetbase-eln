@@ -77,7 +77,7 @@ export function useRunLauncher(
 
   const launch = (next: Target) => {
     const retried = next.retryOf
-    if (runNeedsDetails(next.version) && !retried) {
+    if (!retried && runNeedsDetails(next.version)) {
       setTarget(next)
       return
     }

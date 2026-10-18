@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
@@ -26,6 +26,9 @@ import { TableBox } from '#/components/v3/ui/table'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
+import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
+import { ProjectListFailure } from '#/components/v3/projects/project-list'
+import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
 import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
 import {
@@ -57,6 +60,7 @@ export const Route = createFileRoute('/pipelines/$pipelineId/runs/$runId')({
 
 function RunPage() {
   const { pipelineId, runId } = Route.useParams()
+  const navigate = useNavigate()
   const run = usePipelineRun(runId)
   const logs = useRunLogs(runId)
   const outputs = useRunOutputs(runId)
@@ -126,6 +130,14 @@ function RunPage() {
   const prompt = promptList.length
     ? promptList[promptList.length - 1]
     : undefined
+  const launcher = useRunLauncher(
+    r?.workspace_id ?? '',
+    (started) =>
+      void navigate({
+        to: '/pipelines/$pipelineId/runs/$runId',
+        params: { pipelineId, runId: started.id },
+      }),
+  )
   const nameOf = (userId: string) => members.data?.[userId] ?? userId
   // A running run is stopped through api.cancel_pipeline_run; a waiting run is
   // moved on by answering its prompt (a Stop decision cancels it there).
@@ -163,8 +175,41 @@ function RunPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
           trail={[{ label: 'Pipelines', link: { to: '/pipelines' } }]}
-          title={run.isLoading ? 'Loading run…' : 'Run not found'}
+          title={
+            run.isLoading
+              ? 'Loading run…'
+              : run.isError
+                ? 'Run could not be loaded'
+                : 'Run not found'
+          }
         />
+        <div className="px-4 py-4 md:px-6">
+          {run.isError ? (
+            <ProjectListFailure
+              error={run.error}
+              what="this run"
+              onRetry={() => void run.refetch()}
+            />
+          ) : run.isLoading ? null : (
+            <NotFoundNotice
+              what="run"
+              action={
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/pipelines/$pipelineId/runs"
+                      params={{ pipelineId }}
+                    />
+                  }
+                >
+                  Back to runs
+                </Button>
+              }
+            />
+          )}
+        </div>
       </div>
     )
   }
@@ -196,7 +241,23 @@ function RunPage() {
           </>
         }
         actions={
-          r.status === 'running' ? (
+          r.status === 'failed' || r.status === 'cancelled' ? (
+            <Button
+              size="sm"
+              icon="play"
+              disabled={!version || launcher.pending}
+              onClick={() =>
+                version &&
+                launcher.launch({
+                  pipelineKey: `run ${r.id.slice(0, 8)}`,
+                  version,
+                  retryOf: r,
+                })
+              }
+            >
+              Retry this run
+            </Button>
+          ) : r.status === 'running' ? (
             <ConfirmDialog>
               <ConfirmDialogTrigger>
                 <Button size="sm" variant="quiet" disabled={cancel.isPending}>
@@ -227,9 +288,14 @@ function RunPage() {
         }
       />
 
-      {r.status === 'failed' && r.error_message ? (
+      {r.status === 'failed' ? (
         <Banner tone="bad" icon="warn" title={r.error_code ?? 'Run failed'}>
-          {r.error_message}
+          {r.error_message ??
+            'No error message was recorded for this run. The log below shows how far it got.'}{' '}
+          <a href="#run-log" className="underline">
+            See the log
+          </a>
+          . Retry runs it again on the same version with the same inputs.
         </Banner>
       ) : null}
 
@@ -298,7 +364,7 @@ function RunPage() {
             isLoading={deliveries.isLoading && deliveryIds.length > 0}
           />
 
-          <section>
+          <section id="run-log">
             <h2 className="mb-1.5 font-sans text-label font-semibold">Log</h2>
             {logs.data?.length ? (
               <ol className="m-0 flex list-none flex-col gap-1 rounded-md border border-border bg-surface p-3 font-mono text-caption">
@@ -388,6 +454,7 @@ function RunPage() {
           </InspectorSection>
         </Inspector>
       </div>
+      {launcher.dialog}
     </div>
   )
 }

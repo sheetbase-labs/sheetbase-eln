@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Button } from '#/components/v3/ui/button'
+import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
+import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import {
@@ -65,8 +67,36 @@ function ProjectLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
           trail={[{ label: 'Projects', link: { to: '/projects' } }]}
-          title={query.isLoading ? 'Loading project…' : 'Project not found'}
+          title={
+            query.isLoading
+              ? 'Loading project…'
+              : query.isError
+                ? 'Project could not be loaded'
+                : 'Project not found'
+          }
         />
+        <div className="px-4 py-4 md:px-6">
+          {query.isError ? (
+            <ProjectListFailure
+              error={query.error}
+              what="this project"
+              onRetry={() => void query.refetch()}
+            />
+          ) : query.isLoading ? null : (
+            <NotFoundNotice
+              what="project"
+              action={
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to="/projects" />}
+                >
+                  Back to Projects
+                </Button>
+              }
+            />
+          )}
+        </div>
       </div>
     )
   }

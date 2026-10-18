@@ -1,4 +1,5 @@
 import {
+  Link,
   Outlet,
   createFileRoute,
   redirect,
@@ -21,6 +22,8 @@ import {
   usePipelineVersions,
   versionStatus,
 } from '#/components/v3/pipelines/pipelines-data'
+import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
+import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 
@@ -92,9 +95,35 @@ function PipelineLayout() {
         <PageHeader
           trail={[{ label: 'Pipelines', link: { to: '/pipelines' } }]}
           title={
-            definition.isLoading ? 'Loading pipeline…' : 'Pipeline not found'
+            definition.isLoading
+              ? 'Loading pipeline…'
+              : definition.isError
+                ? 'Pipeline could not be loaded'
+                : 'Pipeline not found'
           }
         />
+        <div className="px-4 py-4 md:px-6">
+          {definition.isError ? (
+            <ProjectListFailure
+              error={definition.error}
+              what="this pipeline"
+              onRetry={() => void definition.refetch()}
+            />
+          ) : definition.isLoading ? null : (
+            <NotFoundNotice
+              what="pipeline"
+              action={
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to="/pipelines" />}
+                >
+                  Back to Pipelines
+                </Button>
+              }
+            />
+          )}
+        </div>
       </div>
     )
   }

@@ -18,7 +18,7 @@ const { suspendMock, inviteMock, routeRef } = vi.hoisted(() => ({
     role: 'viewer',
     members: null as null | unknown[],
     gate: null as null | Promise<void>,
-    search: {} as { invite?: 'admin' },
+    search: {},
   },
 }))
 

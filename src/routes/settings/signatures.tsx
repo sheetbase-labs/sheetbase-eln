@@ -56,8 +56,7 @@ import {
 } from '#/lib/signature-certification'
 import type { SignaturePolicy } from '#/lib/signature-certification'
 import { requestSignatureCredential } from '#/lib/signatures'
-import { getWorkspaceAdmins, workspaceAdminsKey } from '#/lib/workspace-admins'
-import { formatAdminNames } from '#/lib/workspace-admins'
+import { getWorkspaceAdmins, workspaceAdminsKey, formatAdminNames  } from '#/lib/workspace-admins'
 
 /** UI port (roadmap-4/ui-app3): electronic signatures. You certify your own
  * signature for the workspace; owners and admins set the workspace policy.

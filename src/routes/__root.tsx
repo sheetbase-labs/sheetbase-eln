@@ -11,6 +11,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/shell'
 import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
+import { SessionExpiredBanner } from '#/components/v3/shell/session-expired-banner'
 import { AccessBlocked } from '#/components/v3/shell/access-blocked'
 import { Toaster } from '#/components/v3/ui/sonner'
 
@@ -215,6 +216,7 @@ function RootRouteComponent() {
           value={auth?.collaborationEnabled ?? false}
         >
           <CollaborationProvider>
+            {auth && !bareRoute ? <SessionExpiredBanner /> : null}
             {bareRoute ? (
               <Outlet />
             ) : auth && (!auth.workspace || auth.workspace.suspended) ? (

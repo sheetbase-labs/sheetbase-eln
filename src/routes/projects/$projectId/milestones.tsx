@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   useMutation,
   useQueries,
@@ -48,11 +48,13 @@ import {
   PROJECTS_KEY,
   workspaceMemberQueryKeys,
 } from '#/components/v3/projects/project-data'
+import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchProjectPermissions } from '#/lib/workspace-access'
 import {
   createPlanFromProject,
+  createStudyDeliverable,
   createStudyTask,
   describePlannerError,
   editStudyTask,
@@ -62,7 +64,9 @@ import {
   fetchStudyTaskDueChanges,
   fetchStudyTasks,
   fetchStudyWorkstreams,
+  linkStudyDeliverableEvidence,
   moveStudyTaskDue,
+  setStudyDeliverableStatus,
   setStudyTaskClientVisible,
   toStudyTask,
 } from '#/lib/planner'
@@ -489,6 +493,30 @@ function Milestones() {
     },
     onError: (error) => reportWriteError(error, 'mark it done'),
   })
+  const addCondition = useMutation({
+    mutationFn: (input: { taskId: string; name: string }) =>
+      createStudyDeliverable(notebookDataClient, input),
+    onSuccess: () => {
+      void invalidate()
+      toast('Condition added')
+    },
+    onError: (error) => reportWriteError(error, 'add the condition'),
+  })
+  const setConditionStatus = useMutation({
+    mutationFn: (input: { id: string; status: 'delivered' | 'planned' }) =>
+      setStudyDeliverableStatus(notebookDataClient, input),
+    onSuccess: () => void invalidate(),
+    onError: (error) => reportWriteError(error, 'update the condition'),
+  })
+  const linkCondition = useMutation({
+    mutationFn: (input: { id: string; recordIdentifier: string }) =>
+      linkStudyDeliverableEvidence(notebookDataClient, input),
+    onSuccess: () => {
+      void invalidate()
+      toast('Record linked')
+    },
+    onError: (error) => reportWriteError(error, 'link the record'),
+  })
   const applyTemplate = useMutation({
     mutationFn: (input: { sourceProjectId: string; startDate: string }) =>
       createPlanFromProject(notebookDataClient, {
@@ -552,6 +580,34 @@ function Milestones() {
     (userId &&
       members.data?.find((member) => member.user_id === userId)?.name) ||
     'Someone'
+
+  // Shown in both the empty and the populated plan, so a disabled add or
+  // template button always has its reason beside it.
+  const deniedNotice = permissions.isLoading ? (
+    <Muted className="mb-3 block">
+      Checking whether you can edit this plan…
+    </Muted>
+  ) : denied ? (
+    <Notice tone="info" className="mb-3" icon="lock">
+      You can view this plan but not change it. Only project editors can add
+      milestones, move dates or mark them done.
+      {project?.leadName
+        ? ` ${project.leadName} leads this project: ask them to add you as an editor.`
+        : ' Ask the project lead to add you as an editor.'}
+    </Notice>
+  ) : null
+
+  if (tasks.isError) {
+    return (
+      <div className="px-4 py-5 md:px-6">
+        <ProjectListFailure
+          error={tasks.error}
+          what="this plan"
+          onRetry={() => void tasks.refetch()}
+        />
+      </div>
+    )
+  }
 
   if (tasks.isLoading) {
     return (
@@ -617,6 +673,7 @@ function Milestones() {
       <div className="flex min-w-0 flex-1 flex-col">
         {staleBanner}
         <div className="px-4 py-5 md:px-6">
+          {deniedNotice}
           <EmptyState
             icon="calendar"
             title="No milestones yet"
@@ -661,12 +718,7 @@ function Milestones() {
       {staleBanner}
       <div className="flex min-w-0 flex-1 flex-col overflow-auto xl:flex-row xl:overflow-hidden">
         <div className="min-w-0 flex-1 px-4 py-4 md:px-6 xl:overflow-auto">
-          {denied ? (
-            <Notice tone="info" className="mb-3" icon="lock">
-              You can view this plan but not change it. Only project editors can
-              add milestones, move dates or mark them done.
-            </Notice>
-          ) : null}
+          {deniedNotice}
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <Muted>
               {milestones.filter((t) => t.status === 'completed').length} of{' '}
@@ -809,18 +861,43 @@ function Milestones() {
           <div className="flex flex-col gap-2">
             <h3 className="text-label font-medium text-fg-muted">Done when</h3>
             {deliverablesFor(selected.id).length ? (
-              <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {deliverablesFor(selected.id).map((d) => (
-                  <li key={d.id} className="flex items-start gap-2 text-body">
-                    <Status tone={d.status === 'delivered' ? 'ok' : 'none'}>
-                      {d.status === 'delivered' ? 'Met' : 'Open'}
-                    </Status>
-                    <span>{d.name}</span>
-                  </li>
+                  <ConditionItem
+                    key={d.id}
+                    condition={d}
+                    denied={denied}
+                    busy={
+                      setConditionStatus.isPending || linkCondition.isPending
+                    }
+                    onToggle={() =>
+                      setConditionStatus.mutate({
+                        id: d.id,
+                        status:
+                          d.status === 'delivered' ? 'planned' : 'delivered',
+                      })
+                    }
+                    onLink={(recordIdentifier) =>
+                      linkCondition.mutate({ id: d.id, recordIdentifier })
+                    }
+                  />
                 ))}
               </ul>
             ) : (
-              <Muted>No conditions recorded for this milestone.</Muted>
+              <Muted>
+                No conditions recorded for this milestone.{' '}
+                {denied
+                  ? 'Mark done is unavailable until a project editor adds one.'
+                  : 'Add a condition to enable Mark done.'}
+              </Muted>
+            )}
+            {denied ? null : (
+              <AddConditionForm
+                busy={addCondition.isPending}
+                onAdd={(name) =>
+                  addCondition.mutate({ taskId: selected.id, name })
+                }
+              />
             )}
           </div>
 
@@ -1155,6 +1232,114 @@ function AddMilestoneDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ConditionItem({
+  condition,
+  denied,
+  busy,
+  onToggle,
+  onLink,
+}: {
+  condition: {
+    name: string
+    status: string
+    linkedRecordId: string | null
+    linkedRecordIdentifier: string | null
+  }
+  denied: boolean
+  busy: boolean
+  onToggle: () => void
+  onLink: (recordIdentifier: string) => void
+}) {
+  const met = condition.status === 'delivered'
+  const [linking, setLinking] = useState(false)
+  const [identifier, setIdentifier] = useState('')
+  return (
+    <li className="flex flex-col gap-1 text-body">
+      <div className="flex items-start gap-2">
+        <Status tone={met ? 'ok' : 'none'}>{met ? 'Met' : 'Open'}</Status>
+        <span>{condition.name}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 pl-1 text-label text-fg-muted">
+        {condition.linkedRecordId ? (
+          <Link
+            to="/records/$recordId"
+            params={{ recordId: condition.linkedRecordId }}
+            className="text-accent-text underline"
+          >
+            {condition.linkedRecordIdentifier ?? 'Linked record'}
+          </Link>
+        ) : (
+          <span>No record linked</span>
+        )}
+        {denied ? null : (
+          <>
+            <Button size="sm" disabled={busy} onClick={onToggle}>
+              {met ? 'Reopen' : 'Mark met'}
+            </Button>
+            <Button size="sm" onClick={() => setLinking((on) => !on)}>
+              {condition.linkedRecordId ? 'Change record' : 'Link record'}
+            </Button>
+          </>
+        )}
+      </div>
+      {linking && !denied ? (
+        <div className="flex items-center gap-1.5">
+          <Input
+            aria-label={`Record identifier for ${condition.name}`}
+            className="h-8 text-xs"
+            placeholder="e.g. EXP-0012"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+          />
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={busy || identifier.trim().length === 0}
+            onClick={() => {
+              onLink(identifier.trim())
+              setLinking(false)
+              setIdentifier('')
+            }}
+          >
+            Link
+          </Button>
+        </div>
+      ) : null}
+    </li>
+  )
+}
+
+function AddConditionForm({
+  busy,
+  onAdd,
+}: {
+  busy: boolean
+  onAdd: (name: string) => void
+}) {
+  const [name, setName] = useState('')
+  return (
+    <div className="flex items-center gap-1.5">
+      <Input
+        aria-label="New condition"
+        className="h-8 text-xs"
+        placeholder="e.g. Release report signed"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+      <Button
+        size="sm"
+        disabled={busy || name.trim().length === 0}
+        onClick={() => {
+          onAdd(name.trim())
+          setName('')
+        }}
+      >
+        Add condition
+      </Button>
+    </div>
   )
 }
 

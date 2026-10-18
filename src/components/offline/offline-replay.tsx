@@ -24,12 +24,14 @@ import {
   shouldReplayOfflineEdits,
 } from '#/lib/offline/replay'
 import type {
+  OfflineReplayOutcome,
   OfflineReplayPort,
   OfflineReplayReport,
 } from '#/lib/offline/replay'
 import type { OfflineEditScope, OfflineEditStore } from '#/lib/offline/store'
 import type { LiveStatus } from '#/lib/live-events'
-import { useOfflineEdits } from './offline-edits'
+import { Button } from '#/components/v3/ui/button'
+import { describeOfflineEdit, useOfflineEdits } from './offline-edits'
 
 export interface OfflineReplayRunnerProps {
   store: OfflineEditStore
@@ -66,10 +68,12 @@ export function OfflineReplayRunner({
 }: OfflineReplayRunnerProps) {
   const liveStatus = useLiveStatus()
   const status = statusOverride ?? liveStatus
-  const { refresh } = useOfflineEdits()
+  const { refresh, edits } = useOfflineEdits()
   const [report, setReport] = React.useState<OfflineReplayReport | null>(null)
   const previousStatus = React.useRef<string | null>(null)
   const running = React.useRef(false)
+  const [retrying, setRetrying] = React.useState(false)
+  const [confirming, setConfirming] = React.useState<string | null>(null)
   const mounted = React.useRef(true)
   const { userId, recordId } = scope
 
@@ -85,6 +89,28 @@ export function OfflineReplayRunner({
     [port, userId],
   )
 
+  const runReplay = React.useCallback(async () => {
+    if (running.current) return
+    running.current = true
+    setRetrying(true)
+    try {
+      const next = await replayOfflineEdits({
+        scope: { userId, recordId },
+        store,
+        port: writer,
+      })
+      if (!mounted.current) return
+      setReport(next)
+      onReport?.(next)
+      // A retry or an earlier discard changes what the list shows even when
+      // nothing committed, so always re-read the store.
+      refresh()
+    } finally {
+      running.current = false
+      if (mounted.current) setRetrying(false)
+    }
+  }, [store, userId, recordId, writer, refresh, onReport])
+
   React.useEffect(() => {
     const previous = previousStatus.current
     previousStatus.current = status.status
@@ -97,33 +123,46 @@ export function OfflineReplayRunner({
       return
     }
     if (previous === null && status.status !== 'live') return
-    if (running.current) return
-    running.current = true
-    void (async () => {
-      try {
-        const next = await replayOfflineEdits({
-          scope: { userId, recordId },
-          store,
-          port: writer,
-        })
-        if (!mounted.current) return
-        setReport(next)
-        onReport?.(next)
-        if (next.committedEditIds.length > 0) refresh()
-      } finally {
-        running.current = false
-      }
-    })()
-  }, [status.status, store, userId, recordId, writer, refresh, onReport])
+    void runReplay()
+  }, [status.status, runReplay])
+
+  const discard = React.useCallback(
+    async (editId: string) => {
+      await store.removeEdits({ userId, recordId }, [editId])
+      setConfirming(null)
+      setReport((current) =>
+        current
+          ? {
+              ...current,
+              conflicts: current.conflicts.filter((o) => o.editId !== editId),
+              held: current.held.filter((o) => o.editId !== editId),
+              failed: current.failed.filter((o) => o.editId !== editId),
+            }
+          : current,
+      )
+      refresh()
+    },
+    [store, userId, recordId, refresh],
+  )
 
   if (!report || !unresolved(report)) return null
 
   const conflictCount = report.conflicts.length + report.held.length
+  const unresolvedOutcomes: OfflineReplayOutcome[] = [
+    ...report.conflicts,
+    ...report.held,
+    ...report.failed,
+  ].sort((a, b) => a.sequence - b.sequence)
   return (
     <Notice
       tone={noticeTone(report)}
       className={className}
       title="Some edits could not sync"
+      action={
+        <Button size="sm" disabled={retrying} onClick={() => void runReplay()}>
+          {retrying ? 'Trying…' : 'Try again now'}
+        </Button>
+      }
     >
       {conflictCount > 0 ? (
         <span>
@@ -143,6 +182,59 @@ export function OfflineReplayRunner({
             : `${report.failed.length} edits were refused and stay queued.`}
         </span>
       ) : null}
+      <ul className="m-0 mt-2 flex list-none flex-col gap-2 p-0">
+        {unresolvedOutcomes.map((outcome) => {
+          const edit = edits.find((e) => e.id === outcome.editId)
+          const description = edit ? describeOfflineEdit(edit) : null
+          return (
+            <li
+              key={outcome.editId}
+              data-offline-unresolved-edit
+              className="flex flex-col gap-1 text-label"
+            >
+              <span className="font-medium">
+                {description
+                  ? `${description.title}: ${description.detail}`
+                  : 'An edit made offline'}
+              </span>
+              <span>{outcome.message}</span>
+              <span className="flex flex-wrap gap-1.5">
+                {edit?.kind === 'block_text' ? (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      void navigator.clipboard.writeText(edit.text)
+                    }
+                  >
+                    Copy text
+                  </Button>
+                ) : null}
+                {confirming === outcome.editId ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => void discard(outcome.editId)}
+                    >
+                      Discard this edit for good
+                    </Button>
+                    <Button size="sm" onClick={() => setConfirming(null)}>
+                      Keep it
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => setConfirming(outcome.editId)}
+                  >
+                    Discard
+                  </Button>
+                )}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
     </Notice>
   )
 }

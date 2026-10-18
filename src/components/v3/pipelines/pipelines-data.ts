@@ -5,6 +5,7 @@ import type { WorkspaceMemberIdentity } from '#/components/v3/projects/project-d
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
+  executePipelineRun,
   getPipelineDefinition,
   listPipelineDefinitionVersions,
   listPipelineDefinitions,
@@ -12,7 +13,10 @@ import {
   listPipelineRunOutputs,
   listPipelineRunPrompts,
   listPipelineSchedules,
+  startPipelineRun,
 } from '#/lib/pipelines/data'
+import type { StartPipelineRunInput } from '#/lib/pipelines/data'
+import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
 import type {
   PipelineDefinitionVersionWire,
   PipelineDefinitionWire,
@@ -173,6 +177,103 @@ export function usePipelineRows(client: DataClient = notebookDataClient) {
       return buildPipelineRows(definitions, versions, runs)
     },
     staleTime: 15_000,
+  })
+}
+
+/** The inputs and parameters a version declares, which a run must be given. */
+export function declaredRunInputs(version: PipelineDefinitionVersionWire): {
+  inputs: PipelineInput[]
+  parameters: PipelineParameter[]
+} {
+  const config = version.configuration as {
+    inputs?: PipelineInput[]
+    parameters?: PipelineParameter[]
+  }
+  return {
+    inputs: Array.isArray(config.inputs) ? config.inputs : [],
+    parameters: Array.isArray(config.parameters) ? config.parameters : [],
+  }
+}
+
+/** A manual run needs the person to choose something first. */
+export function runNeedsDetails(
+  version: PipelineDefinitionVersionWire,
+): boolean {
+  const { inputs, parameters } = declaredRunInputs(version)
+  return inputs.length > 0 || parameters.length > 0
+}
+
+/**
+ * Start a run and execute it. `api.start_pipeline_run` only records the run as
+ * `running`: nothing else executes a manual or retried run (the scheduler
+ * sweep drives only runs its own schedules start), so the app asks the
+ * same-origin execute route to run it. Execution continues after this returns;
+ * `onSettled` reports how it ended.
+ */
+export async function startAndExecuteRun(
+  input: StartPipelineRunInput,
+  onSettled: (outcome: { error?: Error }) => void,
+  client: DataClient = notebookDataClient,
+): Promise<PipelineRunWire> {
+  const started = await startPipelineRun(client, input)
+  void executePipelineRun(started.id).then(
+    () => onSettled({}),
+    (error: unknown) =>
+      onSettled({
+        error: error instanceof Error ? error : new Error('Execution failed.'),
+      }),
+  )
+  return started
+}
+
+export interface DatasetVersionChoice {
+  id: string
+  label: string
+}
+
+/** Dataset Versions a run input can be pinned to, newest first per dataset. */
+export function useDatasetVersionChoices(
+  enabled: boolean,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'dataset-version-choices'] as const,
+    queryFn: async (): Promise<DatasetVersionChoice[]> => {
+      const [versions, datasets] = await Promise.all([
+        client.list<{
+          id: string
+          dataset_id: string
+          label: string
+          created_at: string
+        }>(
+          'dataset_versions',
+          '?select=id,dataset_id,label,created_at&order=created_at.desc&limit=500',
+        ),
+        client.list<{ id: string; name: string; display_id: string | null }>(
+          'datasets',
+          '?select=id,name,display_id&order=name.asc',
+        ),
+      ])
+      const byId = new Map(datasets.map((d) => [d.id, d]))
+      return versions
+        .map((v) => {
+          const dataset = byId.get(v.dataset_id)
+          const name = dataset
+            ? dataset.display_id
+              ? `${dataset.display_id} · ${dataset.name}`
+              : dataset.name
+            : 'Dataset'
+          return {
+            id: v.id,
+            label: `${name} — ${v.label} (${v.created_at.slice(0, 10)})`,
+            sort: name,
+          }
+        })
+        .sort((a, b) => a.sort.localeCompare(b.sort))
+        .map(({ id, label }) => ({ id, label }))
+    },
+    enabled,
+    staleTime: 30_000,
   })
 }
 

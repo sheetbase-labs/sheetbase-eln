@@ -43,10 +43,7 @@ import {
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { toast } from '#/components/v3/ui/sonner'
-import {
-  createPipelineDefinition,
-  startPipelineRun,
-} from '#/lib/pipelines/data'
+import { createPipelineDefinition } from '#/lib/pipelines/data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   pipelineDataQueryKeys,
@@ -55,6 +52,7 @@ import {
   versionStatus,
 } from '#/components/v3/pipelines/pipelines-data'
 import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
+import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 
 const tabs = ['all', 'mine', 'needsattention', 'scheduled', 'drafts'] as const
 type PipelineTab = (typeof tabs)[number]
@@ -113,7 +111,6 @@ function PipelinesList() {
   const workspaceId = context.workspace?.id ?? ''
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const queryClient = useQueryClient()
   const query = usePipelineRows()
   const rows = query.data ?? []
   const tab: PipelineTab = search.tab ?? 'all'
@@ -238,33 +235,7 @@ function PipelinesList() {
       }),
   )
 
-  const run = useMutation({
-    mutationFn: (row: PipelineListRow) => {
-      const version = row.current
-      if (!version) throw new Error('This pipeline has no version to run.')
-      return startPipelineRun(notebookDataClient, {
-        workspaceId,
-        definitionVersionId: version.id,
-        triggerKind: 'manual',
-      })
-    },
-    onSuccess: (started, row) => {
-      void queryClient.invalidateQueries({
-        queryKey: pipelineDataQueryKeys.list,
-      })
-      toast(`Run of ${row.key} started`, {
-        description:
-          'Inputs are pinned to the latest snapshots. It keeps nothing unless its outputs say so.',
-      })
-      void started
-    },
-    onError: (error: unknown) => {
-      toast('Could not start the run', {
-        description:
-          error instanceof Error ? error.message : 'The database refused it.',
-      })
-    },
-  })
+  const run = useRunLauncher(workspaceId)
 
   return (
     <div className="flex min-w-0 flex-1">
@@ -404,9 +375,12 @@ function PipelinesList() {
                 disabled={
                   !sel.current ||
                   sel.current.lifecycle === 'draft' ||
-                  run.isPending
+                  run.pending
                 }
-                onClick={() => run.mutate(sel)}
+                onClick={() =>
+                  sel.current &&
+                  run.launch({ pipelineKey: sel.key, version: sel.current })
+                }
               >
                 Run now
               </Button>
@@ -467,6 +441,7 @@ function PipelinesList() {
           </div>
         </Inspector>
       ) : null}
+      {run.dialog}
     </div>
   )
 }

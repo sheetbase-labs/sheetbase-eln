@@ -58,6 +58,8 @@ import {
   adminQueryKeys,
   changeMemberRole,
   createInvitation,
+  describeAdminError,
+  invitationLink,
   fetchClients,
   fetchInvitations,
   fetchWorkspaceMembers,
@@ -116,6 +118,7 @@ function Members() {
   const [dialog, setDialog] = useState<
     | { kind: 'invite' }
     | { kind: 'groups' }
+    | { kind: 'invite-link'; email: string; link: string }
     | {
         kind: 'role'
         userId: string
@@ -240,16 +243,18 @@ function Members() {
         expiresAfterDays: 7,
         clientId: input.clientId,
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       invalidate()
-      setDialog(null)
-      toast('Invitation sent')
+      // No email is sent: the link is the invitation. It is shown once, as the
+      // database keeps only a hash of the token.
+      setDialog({
+        kind: 'invite-link',
+        email: result.invitation.email,
+        link: invitationLink(window.location.origin, result.token),
+      })
     },
     onError: (error: unknown) =>
-      toast('Could not invite', {
-        description:
-          error instanceof Error ? error.message : 'The database refused it.',
-      }),
+      toast('Could not invite', { description: describeAdminError(error) }),
   })
 
   const revoke = useMutation({
@@ -608,6 +613,12 @@ function Members() {
             .map((m) => ({ id: m.userId, name: names.userLabel(m.userId) }))}
           onClose={() => setDialog(null)}
         />
+      ) : dialog?.kind === 'invite-link' ? (
+        <InviteLinkDialog
+          email={dialog.email}
+          link={dialog.link}
+          onClose={() => setDialog(null)}
+        />
       ) : dialog?.kind === 'invite' ? (
         <InviteDialog
           clients={clients.data ?? []}
@@ -681,7 +692,7 @@ function Members() {
                 Revoke the invitation to {dialog.email}?
               </ConfirmDialogTitle>
               <ConfirmDialogDescription>
-                The sign-in link stops working immediately. They cannot join
+                The invitation link stops working immediately. They cannot join
                 until you invite them again.
               </ConfirmDialogDescription>
             </ConfirmDialogHeader>
@@ -780,7 +791,7 @@ function InviteDialog({
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
           title="Invite someone"
-          description="They get a sign-in link from your company sign-in. Access is decided by role and project membership."
+          description="You get a one-time link to send them. It signs them in and adds them to this workspace with the role you choose."
         />
         <DialogBody>
           <Field
@@ -842,8 +853,48 @@ function InviteDialog({
               )
             }
           >
-            Send invitation
+            Create invitation link
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** The one-time link for a new invitation, with a Copy control. */
+function InviteLinkDialog({
+  email,
+  link,
+  onClose,
+}: {
+  email: string
+  link: string
+  onClose: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
+      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+        <DialogHeader
+          title="Send this link to the invitee"
+          description={`Sheetbase does not email invitations. Send ${email} this link yourself. It works once, for 7 days, and cannot be shown again, so copy it now.`}
+        />
+        <DialogBody>
+          <Field label="Invitation link">
+            <Input readOnly value={link} onFocus={(e) => e.target.select()} />
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            onClick={() => {
+              void navigator.clipboard.writeText(link).then(() => {
+                setCopied(true)
+              })
+            }}
+          >
+            {copied ? 'Copied' : 'Copy link'}
+          </Button>
+          <DialogClose render={<Button variant="primary" />}>Done</DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

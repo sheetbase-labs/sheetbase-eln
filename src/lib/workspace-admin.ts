@@ -333,6 +333,11 @@ export async function createInvitation(
   return { invitation: toWorkspaceInvitation(result), token: result.token }
 }
 
+/** The link an inviter sends: it carries the one-time token to the accept route. */
+export function invitationLink(origin: string, token: string): string {
+  return `${origin}/accept-invitation?token=${encodeURIComponent(token)}`
+}
+
 export async function revokeInvitation(
   c: DataClient,
   input: { workspaceId: string; invitationId: string },

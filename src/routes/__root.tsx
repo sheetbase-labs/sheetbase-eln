@@ -169,7 +169,7 @@ function RootRouteComponent() {
   ]
   // Routes with their own chrome (the client portal, ADR-0049) render without
   // either shell: no internal navigation and no workspace data.
-  const bareRouteIds = ['/client-portal', '/sign-in']
+  const bareRouteIds = ['/client-portal', '/sign-in', '/accept-invitation']
   const matches = useMatches()
   const bareRoute = matches.some((match) =>
     bareRouteIds.includes(match.routeId),

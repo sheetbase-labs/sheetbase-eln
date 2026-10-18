@@ -11,8 +11,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './members'
 
-const { suspendMock, routeRef } = vi.hoisted(() => ({
+const { suspendMock, inviteMock, routeRef } = vi.hoisted(() => ({
   suspendMock: vi.fn(),
+  inviteMock: vi.fn(),
   routeRef: {
     role: 'viewer',
     members: null as null | unknown[],
@@ -38,6 +39,7 @@ vi.mock('#/lib/user-names', () => ({
 vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
   ...(await importOriginal()),
   suspendMember: (...args: unknown[]) => suspendMock(...args),
+  createInvitation: (...args: unknown[]) => inviteMock(...args),
   fetchWorkspaceMembers: async () => {
     if (routeRef.gate) await routeRef.gate
     if (routeRef.members) return routeRef.members
@@ -186,7 +188,7 @@ describe('SET-02 members status', () => {
     expect(email.hasAttribute('aria-describedby')).toBe(false)
     expect(screen.queryByText('Enter an email address.')).toBeNull()
     const send = screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Send invitation',
+      name: 'Create invitation link',
     })
     expect(send.disabled).toBe(true)
 
@@ -217,8 +219,37 @@ describe('SET-02 members status', () => {
     expect(message?.textContent).toBe('Enter an email address.')
     expect(email.getAttribute('aria-invalid')).toBe('true')
     const send = screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Send invitation',
+      name: 'Create invitation link',
     })
     expect(send.disabled).toBe(true)
+  })
+
+  it('shows the one-time invitation link after inviting, since nothing is emailed', async () => {
+    const user = userEvent.setup()
+    routeRef.role = 'owner'
+    inviteMock.mockResolvedValue({
+      invitation: { email: 'qa@cdmo.example' },
+      token: 'tok 123',
+    })
+    renderMembers()
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Invite people' }),
+    )
+    await user.type(
+      await screen.findByRole('textbox', { name: /Email address/ }),
+      'qa@cdmo.example',
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Create invitation link' }),
+    )
+
+    const link = await screen.findByRole<HTMLInputElement>('textbox', {
+      name: 'Invitation link',
+    })
+    expect(link.value).toBe(
+      `${window.location.origin}/accept-invitation?token=tok%20123`,
+    )
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
   })
 })

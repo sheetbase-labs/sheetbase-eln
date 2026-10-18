@@ -17,6 +17,7 @@
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
+import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { RecordPicker } from '#/components/v3/record-picker/record-picker'
 import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
@@ -414,7 +415,7 @@ function AnalysisStudio() {
   })
 
   function loadView(view: AnalysisViewWire) {
-    const datasetId = view.spec.datasets[0]?.datasetId ?? null
+    const datasetId = specSourceDatasetId(view.spec) ?? null
     const targetId =
       datasetId && datasets.some((d) => d.id === datasetId) ? datasetId : null
     if (targetId && targetId !== selectedDatasetId) {
@@ -441,7 +442,7 @@ function AnalysisStudio() {
     requestedViewRef.current = null
     const view = views.find((candidate) => candidate.id === requested)
     if (!view) return
-    const datasetId = view.spec.datasets[0]?.datasetId ?? null
+    const datasetId = specSourceDatasetId(view.spec) ?? null
     const targetId =
       datasetId && datasets.some((d) => d.id === datasetId) ? datasetId : null
     if (targetId && targetId !== selectedDatasetId) {

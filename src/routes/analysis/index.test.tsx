@@ -169,6 +169,27 @@ describe('Analysis list — cited in records tab', () => {
   })
 })
 
+describe('Analysis list — malformed saved spec (J-DAT-10)', () => {
+  it('still lists every analysis when one stored spec has no datasets', async () => {
+    mocks.search = { q: 'a' }
+    mocks.views = [
+      ...DEFAULT_VIEWS,
+      {
+        ...DEFAULT_VIEWS[0],
+        id: 'view-3',
+        display_id: 'AN-0003',
+        name: 'Broken spec',
+        spec: { type: 'chart' } as unknown as AnalysisViewWire['spec'],
+      },
+    ]
+
+    renderHome([])
+
+    expect(await screen.findByText('AN-0003')).toBeTruthy()
+    expect(screen.getByText('AN-0001')).toBeTruthy()
+  })
+})
+
 describe('analysis list tab strip reflows at 400 % zoom (QA4-zoom-analysis)', () => {
   // At 400 % zoom the column is 312 px wide and "All / Mine / Cited in
   // records / Drafts" is wider than that. The strip had no scroll of its own,

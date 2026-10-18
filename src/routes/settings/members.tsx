@@ -76,6 +76,9 @@ import type { WorkspaceRole } from '#/lib/workspace-admin'
  * workspace_invitations. Roles decide what people can do; the role change,
  * suspend, reinstate, remove and invite RPCs hold the rules server-side. */
 export const Route = createFileRoute('/settings/members')({
+  validateSearch: (search: Record<string, unknown>): { invite?: 'admin' } => ({
+    invite: search.invite === 'admin' ? 'admin' : undefined,
+  }),
   component: Members,
 })
 
@@ -84,6 +87,7 @@ const roles = Object.keys(WORKSPACE_ROLE_LABELS) as WorkspaceRole[]
 
 function Members() {
   const { context } = Route.useRouteContext()
+  const search = Route.useSearch()
   const workspaceId = context.workspace?.id ?? ''
   // ADR-0049: a client account is not an internal member, so
   // `workspace_members_list` and the invitation list are refused to it. An
@@ -131,7 +135,11 @@ function Members() {
     | { kind: 'reinstate'; userId: string; name: string }
     | { kind: 'revoke'; invitationId: string; email: string }
     | null
-  >(null)
+  >(
+    // J-SET-02: "invite another administrator" deep-links here with the dialog
+    // already open on the Administrator role.
+    search.invite === 'admin' && canManage ? { kind: 'invite' } : null,
+  )
 
   const members = useQuery({
     queryKey: adminQueryKeys.members(workspaceId),
@@ -621,6 +629,7 @@ function Members() {
         />
       ) : dialog?.kind === 'invite' ? (
         <InviteDialog
+          initialRole={search.invite === 'admin' ? 'admin' : 'viewer'}
           clients={clients.data ?? []}
           busy={invite.isPending}
           onClose={() => setDialog(null)}
@@ -759,11 +768,13 @@ function MembershipConfirmDialog({
 }
 
 function InviteDialog({
+  initialRole,
   clients,
   busy,
   onClose,
   onSubmit,
 }: {
+  initialRole: WorkspaceRole
   clients: { id: string; code: string; name: string }[]
   busy: boolean
   onClose: () => void
@@ -774,7 +785,7 @@ function InviteDialog({
   ) => void
 }) {
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<WorkspaceRole>('viewer')
+  const [role, setRole] = useState<WorkspaceRole>(initialRole)
   const [clientId, setClientId] = useState(clients.at(0)?.id ?? '')
   // The empty address is invalid from the first paint, but the dialog opens
   // before anyone has used the field, so the message waits for the first

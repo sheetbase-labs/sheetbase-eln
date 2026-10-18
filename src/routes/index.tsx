@@ -141,7 +141,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
     },
     {
       label: 'Set up your electronic signature',
-      hint: 'Required before you can author, review or approve records. Takes about 2 minutes.',
+      hint: 'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so a new workspace needs a second administrator.',
       done: input.signatureCertified,
       actionLabel: 'Set up signature',
       actionTo: '/settings/signatures',

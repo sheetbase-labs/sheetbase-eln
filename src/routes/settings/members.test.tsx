@@ -18,12 +18,14 @@ const { suspendMock, inviteMock, routeRef } = vi.hoisted(() => ({
     role: 'viewer',
     members: null as null | unknown[],
     gate: null as null | Promise<void>,
+    search: {} as { invite?: 'admin' },
   },
 }))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: object) => ({
     options,
+    useSearch: () => routeRef.search,
     useRouteContext: () => ({
       context: {
         user: { id: 'viewer', name: 'Reader', email: 'reader@sheetbase.test' },
@@ -88,6 +90,7 @@ beforeEach(() => {
   routeRef.role = 'viewer'
   routeRef.members = null
   routeRef.gate = null
+  routeRef.search = {}
   suspendMock.mockReset()
   suspendMock.mockResolvedValue(undefined)
 })
@@ -251,5 +254,16 @@ describe('SET-02 members status', () => {
       `${window.location.origin}/accept-invitation?token=tok%20123`,
     )
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy()
+  })
+
+  it('opens the invite dialog on Administrator for the signature-certification deep link', async () => {
+    routeRef.role = 'owner'
+    routeRef.search = { invite: 'admin' }
+    renderMembers()
+
+    const role = await screen.findByRole<HTMLSelectElement>('combobox', {
+      name: 'Role',
+    })
+    expect(role.value).toBe('admin')
   })
 })

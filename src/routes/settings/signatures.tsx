@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -56,6 +56,8 @@ import {
 } from '#/lib/signature-certification'
 import type { SignaturePolicy } from '#/lib/signature-certification'
 import { requestSignatureCredential } from '#/lib/signatures'
+import { getWorkspaceAdmins, workspaceAdminsKey } from '#/lib/workspace-admins'
+import { formatAdminNames } from '#/lib/workspace-admins'
 
 /** UI port (roadmap-4/ui-app3): electronic signatures. You certify your own
  * signature for the workspace; owners and admins set the workspace policy.
@@ -121,6 +123,74 @@ export const Route = createFileRoute('/settings/signatures')({
 
 const dataClient = createDataClient()
 
+/**
+ * J-SET-02: nobody can verify their own identity, so a sole owner needs a
+ * second administrator before they can certify. Say who that could be now, or
+ * how to get one.
+ */
+export function VerificationPath({
+  requested,
+  canInvite,
+  admins,
+  loaded,
+}: {
+  requested: boolean
+  canInvite: boolean
+  admins: readonly { name: string }[]
+  loaded: boolean
+}) {
+  if (requested) {
+    const names = formatAdminNames(admins)
+    return (
+      <Muted>
+        <span>Awaiting independent administrator verification.</span>
+        {names ? (
+          <span>
+            {' '}
+            Ask {names} to open this page, find your name and confirm your
+            identity.
+          </span>
+        ) : null}
+      </Muted>
+    )
+  }
+  if (loaded && admins.length === 0) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Muted>
+          Nobody can verify you yet. A workspace owner cannot verify their own
+          identity, so this workspace needs a second owner or administrator
+          first.{' '}
+          {canInvite
+            ? 'Invite one, and once they have joined, request verification below.'
+            : 'Ask an owner to invite one.'}
+        </Muted>
+        {canInvite ? (
+          <div>
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link to="/settings/members" search={{ invite: 'admin' }} />
+              }
+            >
+              Invite another administrator
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+  const names = formatAdminNames(admins)
+  return (
+    <Muted>
+      Ask a different active owner or administrator
+      {names ? ` (${names})` : ''} to independently confirm your identity and
+      email. A workspace owner cannot verify their own identity.
+    </Muted>
+  )
+}
+
 function Signatures() {
   const { context } = Route.useRouteContext()
   const { signInAvailable } = Route.useLoaderData()
@@ -149,6 +219,15 @@ function Signatures() {
     enabled: Boolean(workspaceId),
   })
 
+  // Who could verify me: the other active owners and administrators.
+  const otherAdmins = useQuery({
+    queryKey: workspaceAdminsKey(workspaceId),
+    queryFn: async () =>
+      (await getWorkspaceAdmins()).filter(
+        (a) => a.email !== context.user.email,
+      ),
+    enabled: Boolean(workspaceId),
+  })
   const mine = (certifications.data ?? []).find(
     (c) => c.userId === context.user.id,
   )
@@ -258,11 +337,12 @@ function Signatures() {
               on {mine.identityVerifiedAt.slice(0, 10)} · {mine.verifiedEmail}.
             </p>
           ) : (
-            <Muted>
-              {mine?.verificationRequested
-                ? 'Awaiting independent administrator verification.'
-                : 'Ask a different active owner or administrator to independently confirm your identity and email. A workspace owner cannot verify their own identity.'}
-            </Muted>
+            <VerificationPath
+              requested={Boolean(mine?.verificationRequested)}
+              canInvite={canManage}
+              admins={otherAdmins.data ?? []}
+              loaded={otherAdmins.isSuccess}
+            />
           )}
           <Button
             size="sm"

@@ -265,8 +265,9 @@ export function SignInSurface({
                   </p>
                 </div>
                 <p className="m-0 border-t border-border-subtle pt-3 text-label text-fg-muted">
-                  Sheetbase only allows company sign-in. If you don’t have a
-                  company account, ask your workspace admin.
+                  Invited to a workspace? Sign in, then open the invitation link
+                  you were sent. If you have no link, ask the person who manages
+                  your workspace to send one.
                 </p>
               </>
             ) : (

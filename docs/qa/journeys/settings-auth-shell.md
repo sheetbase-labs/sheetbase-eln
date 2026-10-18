@@ -31,7 +31,7 @@ Role facts used throughout:
   5. `acceptInvitation` (`lib/workspace-admin.ts:346-351`) has no caller in `src/` outside tests. The only caller of `api.accept_invitation` is the seed (`db/seed/design.ts:6431`).
   6. The invitee signs in with GitHub. The sign-up hook creates a personal workspace with the invitee as owner (`lib/auth.ts:84-96`, `lib/bootstrap.ts:28-74`). They never join the inviter's workspace.
 - **Blockers hit:** "Invitation sent" (false), "They get a sign-in link from your company sign-in." The pending row stays on the Members page until it expires (`members.tsx:497`). The invitee lands in an empty workspace where Home says "You joined <their own workspace>" (`routes/index.tsx:586-591`).
-- **Verdict:** `dead-end` at step 2. The invitation can never be redeemed from the product.
+- **Verdict:** `dead-end` at step 2. The invitation can never be redeemed from the product. **Fixed in c1d28a44.**
 - **Fix:** Show the one-time invite link (token) in the success state with a Copy control, as the credential panel does for secrets. Add an `/accept-invitation?token=` route that calls `accept_invitation` after sign-in. Change the toast and dialog copy to match what is delivered.
 - **Severity:** S1. Every multi-person workspace, and every client-portal account (see J-SET-14), depends on it.
 
@@ -44,7 +44,7 @@ Role facts used throughout:
   3. Docs say: "An initial workspace owner receives no self-verification exemption: invite another administrator first." (`docs/operations/authentication.md:76`).
   4. "Invite another administrator" runs into J-SET-01: the invitation cannot be redeemed.
 - **Blockers hit:** Home says "about 2 minutes". The page names the requirement but not a way to meet it. The owner is the only member of their personal workspace (`lib/bootstrap.ts:28-74`).
-- **Verdict:** `dead-end`. A normal first-run owner can never reach "Certified", so cannot author, review or approve a record.
+- **Verdict:** `dead-end`. A normal first-run owner can never reach "Certified", so cannot author, review or approve a record. **Fixed in 11eba5f6.**
 - **Fix:** Fix J-SET-01. Until then, link "Ask a different active owner or administrator" to Members and roles with the invite dialog preselected to Admin, and change the Home hint to say a second admin is needed first.
 - **Severity:** S1 (blocks regulated work).
 
@@ -57,7 +57,7 @@ Role facts used throughout:
   3. Home reads `workspaceId = undefined`. Every home query has `enabled: Boolean(workspaceId)` (`routes/index.tsx:293-304`, 315, ...).
   4. A disabled React Query v5 query stays `isPending`. The page returns `Loading your home…` forever (`routes/index.tsx:667-671`). The error branch (`651`) is never reached.
 - **Blockers hit:** `Loading your home…` with no timeout, no cause and no action. Other routes use `context.workspace?.id ?? ''` and show empty lists.
-- **Verdict:** `dead-end` at step 4.
+- **Verdict:** `dead-end` at step 4. **Fixed in a4142585.**
 - **Fix:** In the root or Home, when `auth` is set and `auth.workspace === null`, render an explicit state: "You are not a member of any workspace. Ask an owner to invite you, or sign out", with a Sign out button.
 - **Severity:** S1 (user cannot do anything and is not told why).
 
@@ -71,7 +71,7 @@ Role facts used throughout:
   4. Home shows "Home could not be loaded / Some workspace information is unavailable. Try again…" with Try again (`routes/index.tsx:649-664`). Other screens show their own generic load errors.
   5. Grep of `src/` for `suspended` in UI code finds only the Members page and server credential checks. No user-facing message names it.
 - **Blockers hit:** "Home could not be loaded", "Try again". Retrying never succeeds. Nothing says the account is suspended or who can reinstate it.
-- **Verdict:** `dead-end` at step 4.
+- **Verdict:** `dead-end` at step 4. **Fixed in a4142585.**
 - **Fix:** Return `suspendedAt` in `CurrentContext` and render a full-page "Your access to <workspace> is suspended. Contact <owner names> to be reinstated" state with Sign out and a workspace switcher.
 - **Severity:** S1 for a regulated tool (user cannot tell a suspension from an outage).
 
@@ -85,7 +85,7 @@ Role facts used throughout:
   4. Data calls throw `DataClientError` on 401. The client has no 401 handling (`lib/data-client.ts:108-123`). Each screen shows its own generic error, for example "Could not load comments." (`components/comments/comment-panel.tsx:220`).
   5. Retry cannot work: the session is gone. No screen links to sign-in. Only the signing dialog handles `session_expired` (`lib/signatures.ts:392-416`, `routes/sign-in.tsx:222-227`).
 - **Blockers hit:** A false "offline, keep working" message. The user keeps typing. Edits are queued, but replay needs a session.
-- **Verdict:** `dead-end` at step 2. The banner misdiagnoses the cause and offers a Retry that cannot succeed.
+- **Verdict:** `dead-end` at step 2. The banner misdiagnoses the cause and offers a Retry that cannot succeed. **Fixed in f72287ce.**
 - **Fix:** Pass `lastResetReason === 'session_expired'` into the banner and show "Your session ended. Sign in to sync N changes" with a sign-in link carrying `next=<current path>` (see J-SET-06). Add a global 401 handler in the data client.
 - **Severity:** S1 (data-loss risk and wrong guidance).
 
@@ -100,7 +100,7 @@ Role facts used throughout:
   5. The footer says "Sheetbase only allows company sign-in. If you don’t have a company account, ask your workspace admin." (`sign-in.tsx:287-289`). Any GitHub account that signs in gets its own workspace as owner (`lib/auth.ts:84-96`), so nothing restricts sign-in to company accounts. The copy overstates the control.
   6. After a user signs in with no admin to ask, there is no name or contact on the page.
 - **Blockers hit:** Deep link lost. "Ask your workspace admin" with no name.
-- **Verdict:** `partial`. Error recovery is good (steps 3, 4). The deep link is dropped (step 2).
+- **Verdict:** `partial`. Error recovery is good (steps 3, 4). The deep link is dropped (step 2). **Partly fixed in 3aa482c8 (guards keep `next`); sign-in footer reworded.**
 - **Fix:** Add a helper that builds `redirect({ to: '/sign-in', search: { next: location.href } })` and use it in all `beforeLoad` guards. Reword the footer to match the actual policy.
 - **Severity:** S3 for step 2, S2 for step 5.
 
@@ -126,7 +126,7 @@ Role facts used throughout:
   2. Nothing reads it. Grep of `src/` for `offlineEditingAllowed` and `allow_offline_editing` outside the settings form and its data module finds only a comment in `lib/offline/store.ts:20-27` that says the value is not wired.
   3. `OfflineBanner` and the replay runner mount unconditionally (`routes/records/$recordId/notebook.tsx:741-751`) and still say "Keep working: edits are saved on this device".
 - **Blockers hit:** The control saves and confirms ("Settings saved") yet changes no behaviour. I found no server-side enforcement in `src/`.
-- **Verdict:** `dead-end`. The setting is a control with no effect.
+- **Verdict:** `dead-end`. The setting is a control with no effect. **Fixed in 753250bc.**
 - **Fix:** Read the flag in the notebook and suppress queuing, replace the banner copy with "Offline editing is turned off for this workspace. Reconnect to save", and disable edits offline. Or remove the switch until it works.
 - **Severity:** S1 (a compliance setting that does nothing).
 
@@ -140,7 +140,7 @@ Role facts used throughout:
   4. On the Notifications page, the preference reads fall back to defaults when a read fails. `preferencesQuery.isError` is never shown, so defaults look like saved choices (`components/v3/settings/settings-notifications.tsx:39-48`, `77-90`). Saving then overwrites the stored choices.
   5. "Email" is offered for every event, but the email worker runs only when `SMTP_HOST` is set (`lib/email-delivery.server.ts:82-98`). Diagnostics has no email check (`routes/settings/diagnostics.tsx`: no SMTP row), so nobody is told email is off.
 - **Blockers hit:** Wrong link target; silent default fallback; email channel that may never send.
-- **Verdict:** `partial`. The page works once reached (steps 3 onward).
+- **Verdict:** `partial`. The page works once reached (steps 3 onward). **Fixed in a4142585.**
 - **Fix:** Point the link to `/settings/notifications`. Show a load error with Retry. Add an "Email delivery" row to Diagnostics and a note on the Email column when it is off.
 - **Severity:** S2.
 

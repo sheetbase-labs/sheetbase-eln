@@ -61,7 +61,7 @@ describe('R5-SHELL-05 sign-in states', () => {
     expect(
       screen.getByRole('button', { name: /Continue with GitHub/ }),
     ).toBeTruthy()
-    expect(screen.getByText(/only allows company sign-in/i)).toBeTruthy()
+    expect(screen.getByText(/open the invitation link you were sent/i)).toBeTruthy()
     expect(credentialInputs()).toHaveLength(0)
   })
 
@@ -122,7 +122,7 @@ describe('R5-SHELL-05 sign-in states', () => {
     expect(
       screen.getByRole('button', { name: /Continue with GitHub/ }),
     ).toBeTruthy()
-    expect(screen.getByText(/only allows company sign-in/i)).toBeTruthy()
+    expect(screen.getByText(/open the invitation link you were sent/i)).toBeTruthy()
     expect(credentialInputs()).toHaveLength(0)
   })
 

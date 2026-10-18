@@ -106,6 +106,7 @@ const preview: NotebookUpgradePreview = {
 
 function renderView(
   onApply: (decisions: NotebookUpgradeDecision[]) => Promise<void>,
+  lockedNotice?: React.ReactNode,
 ) {
   return render(
     <NotebookTemplateUpdateView
@@ -116,6 +117,7 @@ function renderView(
       preview={preview}
       isLoading={false}
       onApply={onApply}
+      lockedNotice={lockedNotice}
       backLink={<a href="/experiments/EXP-0142">Back to notebook</a>}
     />,
   )
@@ -138,6 +140,21 @@ describe('NotebookTemplateUpdateView', () => {
     // Both conflicts state their permitted outcomes.
     expect(screen.getAllByText('Keep as it is')).toHaveLength(2)
     expect(screen.getByText('Take the new definition')).toBeDefined()
+  })
+
+  it('J-NBK-02 turns Apply off for a signed notebook and says to amend first', () => {
+    renderView(
+      vi.fn(async () => {}),
+      <a href="/experiments/r/notebook">Open the notebook</a>,
+    )
+    expect(screen.getByText('This notebook is signed')).toBeDefined()
+    expect(
+      screen.getByRole('link', { name: 'Open the notebook' }),
+    ).toBeDefined()
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Apply v4' })
+        .disabled,
+    ).toBe(true)
   })
 
   it('produces the decision payload the apply RPC expects', async () => {

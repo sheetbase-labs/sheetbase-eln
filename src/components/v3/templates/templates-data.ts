@@ -261,6 +261,7 @@ export interface TemplateNotebook {
   title: string
   structure_version: number
   source_notebook_template_version_id: string | null
+  locked_at: string | null
 }
 
 export function useTemplateNotebook(
@@ -273,7 +274,7 @@ export function useTemplateNotebook(
       client
         .list<TemplateNotebook>(
           'records',
-          `?id=eq.${recordId}&select=id,identifier,title,structure_version,source_notebook_template_version_id`,
+          `?id=eq.${recordId}&select=id,identifier,title,structure_version,source_notebook_template_version_id,locked_at`,
         )
         .then((rows) => rows[0] ?? null),
     enabled: Boolean(recordId),

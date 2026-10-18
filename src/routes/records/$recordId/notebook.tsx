@@ -802,9 +802,10 @@ function ExperimentNotebookRoute() {
             ) : null}
             {isArchived ? <ArchivedBanner /> : null}
             {/* EXP-04.1: the template-version state of the working notebook.
-              Frozen evidence and archived records are read-only, so an
-              update banner would only dangle there. */}
-            {!historicalRevisionId && !isArchived ? (
+              Frozen evidence, archived and signed records are read-only, so an
+              update banner would only dangle there; the signed banner below
+              points at Amend, after which the update is offered. */}
+            {!historicalRevisionId && !isArchived && !record.lockedAt ? (
               <NotebookTemplateUpgradeBanner
                 recordId={record.id}
                 pinnedVersionId={record.sourceNotebookTemplateVersionId}

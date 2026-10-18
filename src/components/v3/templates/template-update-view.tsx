@@ -109,6 +109,7 @@ export function NotebookTemplateUpdateView({
   isLoading,
   onApply,
   backLink,
+  lockedNotice,
 }: {
   targetVersion: number
   sourceVersion?: number | null
@@ -118,6 +119,8 @@ export function NotebookTemplateUpdateView({
   isLoading: boolean
   onApply: (decisions: NotebookUpgradeDecision[]) => Promise<void>
   backLink: React.ReactNode
+  /** Set when the notebook is signed: Apply is off and this says what to do. */
+  lockedNotice?: React.ReactNode
 }) {
   const [choices, setChoices] = useState<
     Record<string, NotebookUpgradeDecisionDraft | undefined>
@@ -263,6 +266,12 @@ export function NotebookTemplateUpdateView({
           the owner has written.
         </Notice>
       )}
+
+      {lockedNotice && !done ? (
+        <Notice tone="warn" title="This notebook is signed">
+          {lockedNotice}
+        </Notice>
+      ) : null}
 
       {error ? (
         <Notice tone="bad" title="Could not update the notebook">
@@ -436,7 +445,9 @@ export function NotebookTemplateUpdateView({
         <div className="flex gap-2 max-md:flex-col">
           <Button
             variant="primary"
-            disabled={applying || built.problem != null}
+            disabled={
+              applying || built.problem != null || Boolean(lockedNotice)
+            }
             onClick={() => void submit()}
           >
             {applying ? 'Applying…' : `Apply v${targetVersion}`}

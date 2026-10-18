@@ -226,6 +226,18 @@ function TemplateUpdate() {
         preview={preview.data}
         isLoading={preview.isLoading}
         onApply={apply}
+        lockedNotice={
+          nb?.locked_at ? (
+            <>
+              Signed notebooks cannot take a template update. Open the notebook,
+              choose Amend to unlock it, then come back and apply v
+              {target.version}.{' '}
+              <Link to="/experiments/$expId/notebook" params={{ expId: nb.id }}>
+                Open the notebook
+              </Link>
+            </>
+          ) : undefined
+        }
         backLink={
           <Button
             nativeButton={false}

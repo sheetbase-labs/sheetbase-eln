@@ -9,7 +9,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ConnectorConfigCard } from './config-card'
 import type { ConnectorWire } from '#/lib/connectors/types'
 
-const update = vi.hoisted(() => vi.fn(async () => ({})))
+const update = vi.hoisted(() =>
+  vi.fn(async (_client: unknown, _input: unknown) => ({})),
+)
 
 vi.mock('#/lib/connectors/client', () => ({
   connectorQueryKeys: { connector: (id: string) => ['connector', id] },

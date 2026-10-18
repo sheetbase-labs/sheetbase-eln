@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -33,6 +33,9 @@ import {
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
 import { Select } from '#/components/v3/ui/select'
+import { FileDrop } from '#/components/v3/ui/file-drop'
+import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
+import { uploadProjectFile } from '#/lib/file-attach'
 import { Textarea } from '#/components/v3/inventory/list'
 import { toast } from '#/components/v3/ui/sonner'
 import { TableBox } from '#/components/v3/ui/table'
@@ -79,6 +82,9 @@ export const Route = createFileRoute('/instruments/$instrumentId')({
     })
     return { context }
   },
+  validateSearch: (search: Record<string, unknown>): { record?: '1' } => ({
+    record: search.record === '1' || search.record === 1 ? '1' : undefined,
+  }),
   component: InstrumentPage,
 })
 
@@ -115,6 +121,11 @@ function InstrumentPage() {
   const [performed, setPerformed] = useState(isoDay())
   const [due, setDue] = useState(isoDay(182))
   const [notes, setNotes] = useState('')
+  const [certificate, setCertificate] = useState<{
+    fileObjectId: string
+    displayName: string
+  } | null>(null)
+  const [certificateProject, setCertificateProject] = useState('')
   const [grantOpen, setGrantOpen] = useState(false)
   const [grantUser, setGrantUser] = useState('')
   const [grantUntil, setGrantUntil] = useState(isoDay(365))
@@ -130,6 +141,23 @@ function InstrumentPage() {
   // The qualification RPCs are workspace-admin (owner) actions.
   const canQualify = hasCapability(context.workspace?.role, 'workspace.admin')
   const workspaceId = context.workspace?.id ?? ''
+  const { record: recordParam } = Route.useSearch()
+  // The registry's overdue notice deep-links here with ?record=1.
+  useEffect(() => {
+    if (recordParam === '1' && canRecord) setRecordOpen(true)
+  }, [recordParam, canRecord])
+  const projects = useQuery({
+    queryKey: ['ui-port', 'instrument-certificate-projects'],
+    enabled: canRecord && recordOpen,
+    queryFn: () =>
+      notebookDataClient.list<{ id: string; title: string }>(
+        'projects',
+        '?select=id,title&order=title.asc',
+      ),
+    staleTime: 60_000,
+  })
+  const projectOptions = projects.data ?? []
+  const certificateProjectId = certificateProject || projectOptions[0]?.id || ''
 
   const qualifications = useQuery({
     queryKey: qualificationQueryKey(instrumentId),
@@ -170,6 +198,13 @@ function InstrumentPage() {
           row.original.performedByUserId
             ? names.userLabel(row.original.performedByUserId)
             : '—',
+      },
+      {
+        id: 'certificate',
+        header: 'Certificate',
+        cell: ({ row }) =>
+          row.original.certificateFileId ? 'Attached' : 'None attached',
+        meta: { cellClassName: 'text-fg-muted' },
       },
       {
         id: 'notes',
@@ -309,6 +344,7 @@ function InstrumentPage() {
         instrumentId,
         performedAt: `${performed}T00:00:00.000Z`,
         dueAt: `${due}T00:00:00.000Z`,
+        certificateFileId: certificate?.fileObjectId ?? null,
         notes: notes.trim() || null,
       }),
     onSuccess: () => {
@@ -317,6 +353,7 @@ function InstrumentPage() {
       })
       setRecordOpen(false)
       setNotes('')
+      setCertificate(null)
       toast('Calibration recorded')
     },
     onError: (error: unknown) => {
@@ -498,6 +535,18 @@ function InstrumentPage() {
         </Section>
 
         <Section title="Calibration">
+          {status.label === 'Overdue' ? (
+            <CalibrationOverdueNotice
+              instrumentName={i.name}
+              action={
+                canRecord ? (
+                  <Button size="sm" onClick={() => setRecordOpen(true)}>
+                    Record calibration
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : null}
           <DescriptionList
             labelWidth={130}
             items={[
@@ -627,6 +676,58 @@ function InstrumentPage() {
                   onChange={(e) => setDue(e.target.value)}
                 />
               </Field>
+              <Field
+                label="Certificate project"
+                hint="The certificate is kept as a file record in this project."
+              >
+                <Select
+                  value={certificateProjectId}
+                  onChange={(e) => setCertificateProject(e.target.value)}
+                  disabled={projectOptions.length === 0}
+                >
+                  {projectOptions.length === 0 ? (
+                    <option value="">No projects available</option>
+                  ) : null}
+                  {projectOptions.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.title}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {certificate ? (
+                <div className="flex items-center justify-between gap-2 text-label">
+                  <span>Certificate: {certificate.displayName}</span>
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    onClick={() => setCertificate(null)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ) : projectOptions.length ? (
+                <FileDrop
+                  label="Attach the calibration certificate"
+                  inputLabel="Calibration certificate"
+                  hint="Optional, but GxP use needs the certificate on file."
+                  onFile={async (file) => {
+                    if (!file) return
+                    setCertificate(
+                      await uploadProjectFile({
+                        projectId: certificateProjectId,
+                        file,
+                      }),
+                    )
+                  }}
+                />
+              ) : (
+                <Muted>
+                  Certificates are stored in a project, and you can’t see any
+                  yet. Ask a project owner to add you, then record the
+                  calibration with its certificate.
+                </Muted>
+              )}
               <Field label="Notes" hint="Optional.">
                 <Textarea
                   value={notes}

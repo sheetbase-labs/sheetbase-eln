@@ -15,6 +15,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  createReagent,
   recordReagentMovement,
   registerReplacementLot,
 } from '#/lib/reagent-data'
@@ -23,12 +24,16 @@ import type { Reagent } from '#/lib/reagent-data'
 import { Route } from './materials'
 
 const fixtures = vi.hoisted(() => ({ reagents: [] as unknown[] }))
-const search = vi.hoisted(() => ({ value: {} }))
+const search = vi.hoisted(() => {
+  const state: { value: Record<string, unknown> } = { value: {} }
+  return state
+})
+const navigate = vi.hoisted(() => ({ fn: (_options: unknown) => {} }))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useSearch: () => search.value,
-    useNavigate: () => vi.fn(),
+    useNavigate: () => (options: unknown) => navigate.fn(options),
     options: config,
   }),
   redirect: (options: unknown) => options,
@@ -50,7 +55,11 @@ vi.mock('#/components/v3/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+vi.mock('#/lib/notebook-data', () => ({
+  notebookDataClient: {
+    list: async () => [{ id: 'p-1', title: 'Project A', project_id: 'p-1' }],
+  },
+}))
 
 // The registry read and every write go through the domain library; mock only
 // those, so the tests observe what the screen asks the boundary to do.
@@ -62,6 +71,7 @@ vi.mock('#/lib/reagent-data', async (importOriginal) => {
     fetchReagentsCount: vi.fn(async () => fixtures.reagents.length),
     recordReagentMovement: vi.fn(async () => undefined),
     registerReplacementLot: vi.fn(async () => undefined),
+    createReagent: vi.fn(),
     fetchReagentUsage: vi.fn(async () => []),
     fetchReplacementLot: vi.fn(async () => null),
     fetchCertificateFile: vi.fn(async () => null),
@@ -330,5 +340,90 @@ describe('replacement lot dialog', () => {
         }),
       ),
     )
+  })
+})
+
+describe('registering a first lot', () => {
+  it('offers Register lot on an empty registry and creates the lot', async () => {
+    fixtures.reagents = []
+    vi.mocked(createReagent).mockResolvedValue(
+      makeReagent({ id: 'mat-9', identifier: 'MAT-0009' }),
+    )
+    const user = userEvent.setup()
+    renderRoute()
+
+    expect(await screen.findByText('No lots in stock')).toBeTruthy()
+    // Receive needs a selected lot; Register does not.
+    expect(
+      screen
+        .getByRole('button', { name: 'Receive lot' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    await user.click(screen.getAllByRole('button', { name: 'Register lot' })[0])
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() =>
+      expect(
+        within(dialog).getByRole('option', { name: 'Project A' }),
+      ).toBeTruthy(),
+    )
+    await user.selectOptions(within(dialog).getByLabelText(/Project/), 'p-1')
+    await user.type(within(dialog).getByLabelText(/Material/), 'Sodium acetate')
+    await user.type(within(dialog).getByLabelText(/Quantity/), '250')
+    await user.type(within(dialog).getByLabelText(/Unit/), 'g')
+    await user.click(within(dialog).getByRole('button', { name: 'Register' }))
+
+    await waitFor(() =>
+      expect(createReagent).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          projectId: 'p-1',
+          title: 'Sodium acetate',
+          properties: expect.objectContaining({ quantity: 250, unit: 'g' }),
+        }),
+      ),
+    )
+  })
+
+  it('says why a lot cannot be registered without a name or quantity', async () => {
+    fixtures.reagents = []
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText('No lots in stock')
+    await user.click(screen.getAllByRole('button', { name: 'Register lot' })[0])
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Register' }))
+
+    expect(createReagent).not.toHaveBeenCalled()
+    expect(within(dialog).getByText('Enter the material name.')).toBeTruthy()
+    expect(
+      within(dialog).getByText('Enter a quantity greater than zero.'),
+    ).toBeTruthy()
+  })
+})
+
+describe('?selected= across tabs', () => {
+  it('switches to the tab that holds the linked lot', async () => {
+    fixtures.reagents = [
+      makeReagent(),
+      makeReagent({
+        id: 'mat-2',
+        identifier: 'MAT-0002',
+        status: 'quarantined',
+      }),
+    ]
+    search.value = { selected: 'mat-2' }
+    const calls: unknown[] = []
+    navigate.fn = (options) => calls.push(options)
+    renderRoute()
+
+    await waitFor(() => expect(calls).toHaveLength(1))
+    const options = calls[0] as {
+      search: (s: Record<string, unknown>) => Record<string, unknown>
+    }
+    expect(options.search({ selected: 'mat-2' })).toMatchObject({
+      tab: 'quarantine',
+      selected: 'mat-2',
+    })
   })
 })

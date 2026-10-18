@@ -137,7 +137,7 @@ Standing observations that several journeys rely on:
   2. Search and tab filtering run in memory on those rows (`samples.tsx:122-132`). Tab counts and the footer "x of y" are also computed from the 200 (`samples.tsx:119-121,339-341`), while the header total is the server count (`samples.tsx:222`).
   3. Sample 201 onward is invisible; searching for it yields "No samples match “…”" and "Search looks at ID, name, type and location." (`samples.tsx:312-319`).
 - **Blockers hit:** False negative on search in a regulated registry, with a header total that contradicts the footer. The only escape is Scan or the project Samples tab.
-- **Verdict:** `fixed` (registry reads every page; fixed in SHA10).
+- **Verdict:** `fixed` (registry reads every page; fixed in 974c3c16).
 - **Fix:** Page through all rows like materials, or move search and tab predicates server-side. Until then show "Showing first 200 of N" with a link to the project tab.
 - **Severity:** S1
 
@@ -188,7 +188,7 @@ Standing observations that several journeys rely on:
   3. A consumed or disposed sample lives on the Consumed tab (`samples-data.ts:64-69`); an expired or quarantined lot lives on its own tab (`materials-data.ts:153-158`). `selected` does not carry a tab.
   4. Inbox sends `/materials` with no `selected` at all.
 - **Blockers hit:** The user lands on the wrong item's inspector with no sign the link failed. For an expired lot, the exact case the notification is about, the lot is not visible.
-- **Verdict:** `dead-end` (step 3: silent mis-selection).
+- **Verdict:** `fixed` (sample links open the sample page; registries switch to the linked item's tab; inbox passes recordId; fixed in this-commit).
 - **Fix:** Send samples to `/samples/$sampleId`. In the registries, when `selected` is outside the active tab, switch to the tab that contains it. Pass `recordId` in the inbox link.
 - **Severity:** S2
 
@@ -200,7 +200,7 @@ Standing observations that several journeys rely on:
   2. Receive adds stock to the selected lot (`materials.tsx:325-344`); there is no "Register material" or import anywhere in the route.
   3. Empty state: "No lots in in stock" and "Lots appear here when their status or expiry puts them in this list." with a "Back to in stock" button that is a self-link on that tab (`materials.tsx:433-458`). Unlike samples it has no `useHasProjectAccess` branch, so a user who cannot see any project gets the same text.
 - **Blockers hit:** A new workspace cannot create its first lot from this page. Title grammar ("No lots in in stock"). No access explanation.
-- **Verdict:** `dead-end` (step 1-2).
+- **Verdict:** `fixed` (Register lot works without a selection; empty state fixed, access-aware; fixed in this-commit).
 - **Fix:** Add a "Register material lot" primary action that does not depend on selection, reuse the project-access empty state, and fix the copy.
 - **Severity:** S1
 

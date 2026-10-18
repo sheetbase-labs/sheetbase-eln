@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -133,6 +133,28 @@ function SamplesList() {
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
+
+  // `?selected=<sample>` names a sample, not a tab: move to the tab that holds
+  // it rather than selecting the first row of the wrong list.
+  const linked = search.selected
+    ? rows.find((r) => r.uuid === search.selected)
+    : undefined
+  const linkedTab =
+    linked && !inTab(linked, tab)
+      ? tabs.find((t) => inTab(linked, t))
+      : undefined
+  useEffect(() => {
+    if (!linkedTab) return
+    void navigate({
+      to: '/samples',
+      search: (s) => ({
+        ...s,
+        tab: linkedTab === 'instock' ? undefined : linkedTab,
+        q: undefined,
+      }),
+      replace: true,
+    })
+  }, [linkedTab, navigate])
 
   const columns = useMemo<RegistryColumn<SampleListRow>[]>(
     () => [

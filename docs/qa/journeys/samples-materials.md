@@ -30,7 +30,7 @@ Standing observations that several journeys rely on:
   2. The button is `<Link to="/samples/$sampleId" params={params}>`, the page the user is already on. Nothing changes.
   3. The only real "release basis" is the Details tab row `Release basis` (`routes/samples/$sampleId/index.tsx:376`), which reads `—` unless a release has already happened, because `releaseChecks` is only written by `api.release_sample` on success. The Measurements tab is where the checks draw their data (`measurements.tsx`), but nothing links there.
 - **Blockers hit:** A control that promises the basis and navigates nowhere. The banner body also gives no check names, thresholds or missing measurements.
-- **Verdict:** `fixed` (button opens Measurements; fixed in SHA).
+- **Verdict:** `fixed` (button opens Measurements; fixed in db323d8e).
 - **Fix:** Point the button at the Measurements tab (`/samples/$sampleId/measurements`), and show the evaluated rule list with pass/fail per rule there. If no rules apply, say so.
 - **Severity:** S1
 
@@ -42,7 +42,7 @@ Standing observations that several journeys rely on:
   2. `onError` shows a toast from `describeSampleError` (`$sampleId.tsx:190-192`). SB093 is mapped to the fixed text "The release, quarantine or disposal could not be recorded. Check the required details." (`lib/samples.tsx:1571-1572`).
   3. The dialog has a single optional Notes field, so there are no "required details" to check. The failed labels in the SQL message are discarded.
 - **Blockers hit:** The refusal never names which check failed, which measurement is missing or where to record it. The same SB093 text is also used for quarantine and disposal.
-- **Verdict:** `fixed` (failed checks listed in the release dialog with a link to Measurements; fixed in SHA).
+- **Verdict:** `fixed` (failed checks listed in the release dialog with a link to Measurements; fixed in db323d8e).
 - **Fix:** Parse `failedLabels` from the error message, render them in the dialog (or as a banner under the sample header) and link each to the Measurements tab. Split SB093 copy by operation.
 - **Severity:** S1
 
@@ -66,7 +66,7 @@ Standing observations that several journeys rely on:
   3. The only action is "Record disposal", shown only for owner, admin, steward, scientist (`$sampleId.tsx:318-320,357-360`). Quarantine is also hidden in these states (`$sampleId.tsx:414-416`).
   4. `release_sample` accepts any non-terminal status, but the UI offers Release only for `quarantined` (`$sampleId.tsx:317`).
 - **Blockers hit:** The allowed-experiments exception is described but cannot be edited anywhere in the UI. No way to extend the hold, record a retest, or release after re-qualification. Reviewers and other non-disposing roles get no action at all and no owner named. The hold meter shows "N of N days used" with no word "exceeded" (`sample-hold-meter.tsx:176-183`).
-- **Verdict:** `fixed` (Extend hold, editable allowed experiments, Re-qualify; fixed in SHA).
+- **Verdict:** `fixed` (Extend hold, editable allowed experiments, Re-qualify; fixed in db323d8e).
 - **Fix:** Offer "Extend hold / re-qualify" (edit hold fields with a reason), expose the allowed-use list as an editable field for authorised roles, and for others name who can act.
 - **Severity:** S1
 
@@ -137,7 +137,7 @@ Standing observations that several journeys rely on:
   2. Search and tab filtering run in memory on those rows (`samples.tsx:122-132`). Tab counts and the footer "x of y" are also computed from the 200 (`samples.tsx:119-121,339-341`), while the header total is the server count (`samples.tsx:222`).
   3. Sample 201 onward is invisible; searching for it yields "No samples match “…”" and "Search looks at ID, name, type and location." (`samples.tsx:312-319`).
 - **Blockers hit:** False negative on search in a regulated registry, with a header total that contradicts the footer. The only escape is Scan or the project Samples tab.
-- **Verdict:** `dead-end` (step 3).
+- **Verdict:** `fixed` (registry reads every page; fixed in SHA10).
 - **Fix:** Page through all rows like materials, or move search and tab predicates server-side. Until then show "Showing first 200 of N" with a link to the project tab.
 - **Severity:** S1
 
@@ -175,7 +175,7 @@ Standing observations that several journeys rely on:
   2. `records/$recordId/index.tsx:6-13` redirects to `/records/$recordId/notebook`. For a sample that is the generic notebook page with a sample side-panel whose only status line is the raw `status` string (`routes/records/$recordId/notebook.tsx:457-480`).
   3. No route redirects a sample record to `/samples/$sampleId`.
 - **Blockers hit:** The page header comment promises landing "on the object the label names"; for a sample the user misses the quarantine / hold banner, the withdraw action and the hold meter, and gets no link to the sample page. The scan-time warning that matters most is absent where the label sends people.
-- **Verdict:** `fixed` (QR route now sends samples to `/samples/<id>`; fixed in SHA_J13).
+- **Verdict:** `fixed` (QR route now sends samples to `/samples/<id>`; fixed in 68dab8c4).
 - **Fix:** In the `/r` route use `recordDestination(kind, id)` (`lib/navigation.ts:42`) or add a record-layout redirect for `kind = sample | material`.
 - **Severity:** S1
 

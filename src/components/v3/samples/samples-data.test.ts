@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { SampleRecord } from '#/lib/samples'
 
-import { sampleStatus, toSampleListRow } from './samples-data'
+import type { DataClient } from '#/lib/data-client'
+
+import { fetchAllSamples, sampleStatus, toSampleListRow } from './samples-data'
 
 function row(overrides: Partial<SampleRecord>): SampleRecord {
   return {
@@ -70,5 +72,36 @@ describe('toSampleListRow status tabs', () => {
     )
     expect(mapped.tabs).toEqual(['instock'])
     expect(mapped.status.label).toBe('Hold exceeded')
+  })
+})
+
+describe('fetchAllSamples', () => {
+  it('pages past the first 200 samples and reports the server total', async () => {
+    const wire = (n: number) => ({
+      id: `s-${n}`,
+      identifier: `SMP-${n}`,
+      title: `Sample ${n}`,
+      kind: 'sample',
+      status: 'available',
+      properties: {},
+      custom_fields: {},
+      tags: [],
+    })
+    const list = vi.fn(async (_table: string, query: string) => {
+      const offset = Number(/offset=(\d+)/.exec(query)?.[1] ?? 0)
+      const count = Math.min(200, 250 - offset)
+      return Array.from({ length: count }, (_, i) => wire(offset + i))
+    })
+    const client = {
+      list,
+      count: vi.fn(async () => 250),
+    } as unknown as DataClient
+
+    const result = await fetchAllSamples(client)
+
+    expect(result.rows).toHaveLength(250)
+    expect(result.rows.at(-1)?.identifier).toBe('SMP-249')
+    expect(result.totalCount).toBe(250)
+    expect(list).toHaveBeenCalledTimes(2)
   })
 })

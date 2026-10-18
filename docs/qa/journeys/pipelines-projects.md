@@ -50,7 +50,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
   3. Choose "Append": it needs `datasetId` (`config.ts:569-576`). The page only prints "Appends to the dataset this version is configured with" (`PS:343-345`). That is empty for a new pipeline.
   4. The Notice lists "create output requires a valid Dataset Schema Version id" and "output requires a Dataset Version label". Save and Publish are disabled by `canSave` (`PS:140`, `PS:364`, `PS:377`).
 - **Blockers hit:** the error names fields that are not editable anywhere in the UI. The hint says "configured on the version, not here" (`PS:320`) but no place configures it. For a new pipeline only `none` is saveable, so no pipeline can keep a dataset via the UI.
-- **Verdict:** dead-end (step 4).
+- **Verdict:** dead-end (step 4). Fixed in 3e4165ee.
 - **Fix:** hide Create/Append until the page can supply the target (or add a schema-version picker, dataset picker and label field). Until then render the Notice with the action "Choose Keep nothing, or configure the output through the API" and a docs link.
 - **Severity:** S1
 
@@ -64,7 +64,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
   4. The toast shows the raw message or "The database refused it." (`P:261-266`). There is no dataset-version picker or parameter form anywhere in `src/routes/pipelines*`; `grep inputVersions` in those routes finds nothing.
   5. Separately, no UI code calls `executePipelineRun` (only server libs and `data.ts:166`), so a run that does start depends on a server-side sweep that this audit did not find for manual runs. Treat as an unverified risk.
 - **Blockers hit:** the user is told an input is missing and given no way to supply it.
-- **Verdict:** dead-end (step 4) for any pipeline with at least one declared input.
+- **Verdict:** dead-end (step 4) for any pipeline with at least one declared input. Fixed in 499371d3. Confirmed nothing executed a manual run (start_pipeline_run only inserts a running row; the scheduler sweep only drives its own schedules), so Run now now also calls the execute route.
 - **Fix:** a "Run with…" dialog listing each input (dataset-version picker, defaulting to the latest) and each parameter; disable Run now with that dialog as the action when inputs are declared.
 - **Severity:** S1
 
@@ -90,7 +90,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
   4. If a run fails with no `error_message`, the Banner is not rendered at all (`PR:230`). The user sees only a red status chip and log lines.
   5. The user can go back and press Run now, which makes an unlinked run (and see J-PIP-04 for pipelines with inputs).
 - **Blockers hit:** an error with no next action; retry lineage exists in the data model but not the UI.
-- **Verdict:** dead-end (step 2).
+- **Verdict:** dead-end (step 2). Fixed in 47f844cc.
 - **Fix:** "Retry this run" in the header for `failed`/`cancelled` calling `startPipelineRun({ retryOfRunId, inputVersions: r.input_versions, parameters: r.parameters })`; render the Banner for any failed run with a fallback message and a "See the log" anchor.
 - **Severity:** S2
 
@@ -118,7 +118,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
   3. The row identity is only the pipeline key and name (`pd.key, pd.name`). On the list the user must find that pipeline, select it, and open "Recent runs".
   4. The Pipelines "Needs attention" tab counts only `lastRun.status === 'failed'` (`P:106`). A waiting run is not in it, so the one filter built for this job hides the hand-off the Inbox just sent.
 - **Blockers hit:** a "Needs your decision" item lands on a list where the decision is two clicks away and not highlighted. An expiring prompt (`p.expires_at` is the due date) can lapse in between.
-- **Verdict:** partial (steps 1-4).
+- **Verdict:** partial (steps 1-4). Fixed in 86fecd6c (run resolved client-side from the prompt id or pipeline key; the view should expose the run id).
 - **Fix:** have the view expose `pr.id` and `pd.id`; link to `/pipelines/$pipelineId/runs/$runId` (`/pipelines/runs/$runId` already redirects, `src/routes/pipelines/runs/$runId.tsx:21-31`); include `waiting` in `needsattention`.
 - **Severity:** S2
 
@@ -132,7 +132,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
   4. Project: header only "Project not found" (`projects/$projectId.tsx:62-70`), and `ProjectOverview` returns `null` when the project is missing (`projects/$projectId/index.tsx:94`).
   5. Contrast: the projects list handles load failure well, with a deadline, a message and "Try again" (`projects.tsx:154-177`, `projects-page.tsx:457-464`); the project tabs use `ProjectListFailure` (`experiments.tsx:66-75`).
 - **Blockers hit:** the user cannot tell "missing" from "forbidden" from "network"; no retry or way back beyond the breadcrumb.
-- **Verdict:** dead-end (steps 1-4).
+- **Verdict:** dead-end (steps 1-4). Fixed in 47f844cc (pipelines list, pipeline, run, project).
 - **Fix:** a shared `NotFound` / `LoadFailed` block (cause, "Try again", "Back to Pipelines", owner/admin to ask for access); add the list-level error branch and the "New pipeline" action to the empty state.
 - **Severity:** S2
 
@@ -201,7 +201,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
   4. Open conditions are plain text chips (`MS:811-818`). There is no link to the record that would deliver them. The page says "A milestone only counts as done once its linked records are delivered." (`MS:744-746`) and the Add dialog says "A milestone names the records that prove it’s done." (`MS:1101`).
   5. No UI creates a condition or links a record. `planner.ts` exports only `fetchStudyDeliverables` (`planner.ts:445`) and `createStudyTask` takes no conditions (`MS:420-433`). A milestone made in this UI therefore has zero conditions and can never be marked done here. Late stays late; the only exit is Move date.
 - **Blockers hit:** Late/At risk plus a permanently disabled Mark done.
-- **Verdict:** dead-end (steps 3-5).
+- **Verdict:** dead-end (steps 3-5). Fixed in 04fd82ea.
 - **Fix:** "Add condition" and "Link record" actions in "Done when"; make each open condition a link to its record; state "Add a condition to enable Mark done" for the zero-conditions case.
 - **Severity:** S1
 
@@ -215,7 +215,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
   4. The project Overview's "Add a milestone" link (`projects/$projectId/index.tsx:222-234`) sends everyone to this page regardless of rights.
   5. Template path works for editors: "No other project in this workspace has milestones to start from yet. Add milestones one by one." (`MS:608-612`).
 - **Blockers hit:** a disabled primary action with no cause; a load failure presented as an empty plan.
-- **Verdict:** partial (steps 2-3).
+- **Verdict:** partial (steps 2-3). Fixed in 04fd82ea.
 - **Fix:** hoist the denied Notice above both branches and name the project lead (as `members.tsx:191-195` does: "Ask them to add people"); add a `tasks.isError` branch with retry.
 - **Severity:** S2
 

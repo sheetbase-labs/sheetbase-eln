@@ -453,6 +453,52 @@ export async function fetchStudyDeliverables(
   return rows.map(toStudyDeliverable)
 }
 
+/** Add a "done when" condition to a milestone (a study deliverable). */
+export async function createStudyDeliverable(
+  client: DataClient,
+  input: { taskId: string; name: string; dueAt?: string | null },
+): Promise<{ id: string }> {
+  return client.rpc('create_study_deliverable', {
+    p_task_id: input.taskId,
+    p_name: input.name,
+    p_due_at: input.dueAt ?? null,
+  })
+}
+
+/** Mark a condition met (`delivered`) or reopen it (`planned`). */
+export async function setStudyDeliverableStatus(
+  client: DataClient,
+  input: { id: string; status: StudyDeliverableStatus },
+): Promise<{ id: string }> {
+  return client.rpc('update_study_deliverable', {
+    p_id: input.id,
+    p_status: input.status,
+  })
+}
+
+/** Link a condition to the record that is its evidence, by record identifier. */
+export async function linkStudyDeliverableEvidence(
+  client: DataClient,
+  input: { id: string; recordIdentifier: string },
+): Promise<{ linkedRecordIdentifier: string }> {
+  const found = await client.list<{ id: string }>(
+    'records',
+    `?identifier=eq.${encodeURIComponent(input.recordIdentifier.trim())}&select=id&limit=1`,
+  )
+  const record = found.at(0)
+  if (!record) {
+    throw new DataClientError(
+      'SB036',
+      `No record is identified as ${input.recordIdentifier.trim()}. Check the identifier, for example EXP-0012.`,
+      404,
+    )
+  }
+  return client.rpc('link_study_deliverable_evidence', {
+    p_id: input.id,
+    p_record_id: record.id,
+  })
+}
+
 export async function fetchStudyDependencies(
   client: DataClient,
   workspaceId: string,

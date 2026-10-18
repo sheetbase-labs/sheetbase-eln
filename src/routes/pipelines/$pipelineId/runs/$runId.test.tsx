@@ -31,6 +31,8 @@ interface RunPageState {
   promptsLoading?: boolean
   memberNames: Record<string, string>
   deliveries: PipelineRunDeliveryWire[]
+  runError: boolean
+  refetch: () => void
 }
 
 const state = vi.hoisted((): RunPageState => ({
@@ -38,10 +40,13 @@ const state = vi.hoisted((): RunPageState => ({
   prompts: [],
   memberNames: {},
   deliveries: [],
+  runError: false,
+  refetch: () => {},
 }))
 const dataLayer = vi.hoisted(() => ({
   answer: vi.fn(),
   cancel: vi.fn(),
+  launch: vi.fn(),
 }))
 const notifications = vi.hoisted(() => ({
   toast: vi.fn(),
@@ -56,6 +61,15 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => (
     <a href="#">{children}</a>
   ),
+  useNavigate: () => vi.fn(),
+}))
+
+vi.mock('#/components/v3/pipelines/use-run-launcher', () => ({
+  useRunLauncher: () => ({
+    launch: dataLayer.launch,
+    pending: false,
+    dialog: null,
+  }),
 }))
 
 vi.mock('#/components/v3/ui/sonner', () => ({
@@ -70,7 +84,13 @@ vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
 
 vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
   ...(await importOriginal<typeof pipelineDataModule>()),
-  usePipelineRun: () => ({ data: state.run }),
+  usePipelineRun: () => ({
+    data: state.run,
+    isLoading: false,
+    isError: state.runError,
+    error: state.runError ? new Error('network') : null,
+    refetch: state.refetch,
+  }),
   useRunLogs: () => ({ data: [] }),
   useRunOutputs: () => ({ data: [] }),
   useRunPrompts: () => ({
@@ -197,6 +217,8 @@ afterEach(() => {
   state.promptsLoading = undefined
   state.memberNames = {}
   state.deliveries = []
+  state.runError = false
+  dataLayer.launch.mockReset()
 })
 
 describe('a waiting run', () => {
@@ -427,5 +449,53 @@ describe('the run’s notification deliveries', () => {
     expect(
       queryByRole('table', { name: 'Run notification deliveries' }),
     ).toBeNull()
+  })
+
+  it('retries a failed run as a linked run on the same version and inputs', () => {
+    state.run = run({
+      status: 'failed',
+      error_code: 'missing_input',
+      error_message: 'missing input: readings',
+      input_versions: { readings: 'dv-1' },
+    })
+    renderRun()
+    expect(screen.getByText(/missing input: readings/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry this run' }))
+    expect(dataLayer.launch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: { id: 'v-1', version: 5 },
+        retryOf: expect.objectContaining({
+          id: 'run-1',
+          input_versions: { readings: 'dv-1' },
+        }),
+      }),
+    )
+  })
+
+  it('still explains a failed run that recorded no error message', () => {
+    state.run = run({ status: 'failed' })
+    renderRun()
+    expect(screen.getByText('Run failed')).toBeTruthy()
+    expect(screen.getByText(/No error message was recorded/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'See the log' })).toBeTruthy()
+  })
+
+  it('offers no retry for a succeeded run', () => {
+    state.run = run({ status: 'succeeded' })
+    renderRun()
+    expect(screen.queryByRole('button', { name: 'Retry this run' })).toBeNull()
+  })
+
+  it('says a missing run was not found, and a failed read can be retried', () => {
+    renderRun()
+    expect(screen.getByText('This run was not found.')).toBeTruthy()
+    cleanup()
+    state.runError = true
+    const refetch = vi.fn()
+    state.refetch = refetch
+    renderRun()
+    expect(screen.queryByText('This run was not found.')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(refetch).toHaveBeenCalled()
   })
 })

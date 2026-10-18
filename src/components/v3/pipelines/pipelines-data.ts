@@ -5,6 +5,7 @@ import type { WorkspaceMemberIdentity } from '#/components/v3/projects/project-d
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
+  executePipelineRun,
   getPipelineDefinition,
   listPipelineDefinitionVersions,
   listPipelineDefinitions,
@@ -12,7 +13,10 @@ import {
   listPipelineRunOutputs,
   listPipelineRunPrompts,
   listPipelineSchedules,
+  startPipelineRun,
 } from '#/lib/pipelines/data'
+import type { StartPipelineRunInput } from '#/lib/pipelines/data'
+import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
 import type {
   PipelineDefinitionVersionWire,
   PipelineDefinitionWire,
@@ -173,6 +177,186 @@ export function usePipelineRows(client: DataClient = notebookDataClient) {
       return buildPipelineRows(definitions, versions, runs)
     },
     staleTime: 15_000,
+  })
+}
+
+/** The inputs and parameters a version declares, which a run must be given. */
+export function declaredRunInputs(version: PipelineDefinitionVersionWire): {
+  inputs: PipelineInput[]
+  parameters: PipelineParameter[]
+} {
+  const config = version.configuration as {
+    inputs?: PipelineInput[]
+    parameters?: PipelineParameter[]
+  }
+  return {
+    inputs: Array.isArray(config.inputs) ? config.inputs : [],
+    parameters: Array.isArray(config.parameters) ? config.parameters : [],
+  }
+}
+
+/** A manual run needs the person to choose something first. */
+export function runNeedsDetails(
+  version: PipelineDefinitionVersionWire,
+): boolean {
+  const { inputs, parameters } = declaredRunInputs(version)
+  return inputs.length > 0 || parameters.length > 0
+}
+
+/**
+ * Start a run and execute it. `api.start_pipeline_run` only records the run as
+ * `running`: nothing else executes a manual or retried run (the scheduler
+ * sweep drives only runs its own schedules start), so the app asks the
+ * same-origin execute route to run it. Execution continues after this returns;
+ * `onSettled` reports how it ended.
+ */
+export async function startAndExecuteRun(
+  input: StartPipelineRunInput,
+  onSettled: (outcome: { error?: Error }) => void,
+  client: DataClient = notebookDataClient,
+): Promise<PipelineRunWire> {
+  const started = await startPipelineRun(client, input)
+  void executePipelineRun(started.id).then(
+    () => onSettled({}),
+    (error: unknown) =>
+      onSettled({
+        error: error instanceof Error ? error : new Error('Execution failed.'),
+      }),
+  )
+  return started
+}
+
+/**
+ * The run an Inbox item is about. `my_work_items` carries the prompt id for a
+ * waiting run and nothing but the pipeline key for a failed one, so the run is
+ * read from there: the prompt's run, or the pipeline's newest failed run.
+ */
+export async function resolveRunForWorkItem(
+  item: { kind: string; sourceId?: string | null; identifier: string | null },
+  client: DataClient = notebookDataClient,
+): Promise<string | null> {
+  if (item.kind === 'run_waiting' && item.sourceId) {
+    const prompts = await client.list<{ run_id: string }>(
+      'pipeline_run_prompts',
+      `?id=eq.${encodeURIComponent(item.sourceId)}&select=run_id`,
+    )
+    return prompts.at(0)?.run_id ?? null
+  }
+  if (item.kind === 'run_failed' && item.identifier) {
+    const definitions = await client.list<{ id: string }>(
+      'pipeline_definitions',
+      `?key=eq.${encodeURIComponent(item.identifier)}&select=id`,
+    )
+    const definitionId = definitions.at(0)?.id
+    if (!definitionId) return null
+    const versions = await client.list<{ id: string }>(
+      'pipeline_definition_versions',
+      `?definition_id=eq.${encodeURIComponent(definitionId)}&select=id`,
+    )
+    if (versions.length === 0) return null
+    const runs = await client.list<{ id: string }>(
+      'pipeline_runs',
+      `?definition_version_id=in.(${versions.map((v) => v.id).join(',')})&status=eq.failed&order=finished_at.desc&limit=1&select=id`,
+    )
+    return runs.at(0)?.id ?? null
+  }
+  return null
+}
+
+export interface DatasetVersionChoice {
+  id: string
+  label: string
+}
+
+/** Dataset Versions a run input can be pinned to, newest first per dataset. */
+export function useDatasetVersionChoices(
+  enabled: boolean,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'dataset-version-choices'] as const,
+    queryFn: async (): Promise<DatasetVersionChoice[]> => {
+      const [versions, datasets] = await Promise.all([
+        client.list<{
+          id: string
+          dataset_id: string
+          label: string
+          created_at: string
+        }>(
+          'dataset_versions',
+          '?select=id,dataset_id,label,created_at&order=created_at.desc&limit=500',
+        ),
+        client.list<{ id: string; name: string; display_id: string | null }>(
+          'datasets',
+          '?select=id,name,display_id&order=name.asc',
+        ),
+      ])
+      const byId = new Map(datasets.map((d) => [d.id, d]))
+      return versions
+        .map((v) => {
+          const dataset = byId.get(v.dataset_id)
+          const name = dataset
+            ? dataset.display_id
+              ? `${dataset.display_id} · ${dataset.name}`
+              : dataset.name
+            : 'Dataset'
+          return {
+            id: v.id,
+            label: `${name} — ${v.label} (${v.created_at.slice(0, 10)})`,
+            sort: name,
+          }
+        })
+        .sort((a, b) => a.sort.localeCompare(b.sort))
+        .map(({ id, label }) => ({ id, label }))
+    },
+    enabled,
+    staleTime: 30_000,
+  })
+}
+
+export interface PipelineOutputTargets {
+  datasets: Array<{ id: string; name: string; displayId: string | null }>
+  schemaVersions: Array<{ id: string; label: string }>
+}
+
+/** What a pipeline output can write to: the active Datasets it can append to
+ * and the published Dataset Schema Versions it can create one from. */
+export function usePipelineOutputTargets(
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'output-targets'] as const,
+    queryFn: async (): Promise<PipelineOutputTargets> => {
+      const [datasets, versions, definitions] = await Promise.all([
+        client.list<{ id: string; name: string; display_id: string | null }>(
+          'datasets',
+          '?select=id,name,display_id&lifecycle=eq.active&order=name.asc',
+        ),
+        client.list<{ id: string; schema_id: string; version: number }>(
+          'dataset_schema_versions',
+          '?select=id,schema_id,version&lifecycle=eq.published&order=version.desc',
+        ),
+        client.list<{ id: string; name: string }>(
+          'dataset_schema_definitions',
+          '?select=id,name&order=name.asc',
+        ),
+      ])
+      const nameById = new Map(definitions.map((d) => [d.id, d.name]))
+      return {
+        datasets: datasets.map((d) => ({
+          id: d.id,
+          name: d.name,
+          displayId: d.display_id,
+        })),
+        schemaVersions: versions
+          .map((v) => ({
+            id: v.id,
+            label: `${nameById.get(v.schema_id) ?? 'Schema'} v${v.version}`,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+      }
+    },
+    staleTime: 60_000,
   })
 }
 

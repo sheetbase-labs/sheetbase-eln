@@ -28,9 +28,15 @@ import {
 } from '#/components/v3/samples/sample-label-print'
 import { SampleHoldMeter } from '#/components/v3/samples/sample-hold-meter'
 import { SampleRecentHistory } from '#/components/v3/samples/sample-recent-history'
+import {
+  EditDetailsDialog,
+  EditHoldDialog,
+  ReceiveStockDialog,
+} from '#/components/v3/samples/sample-edit-dialogs'
 import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
 import {
   canDisposeSample,
+  canEditSample,
   canQuarantineSample,
   canReleaseSample,
   canWithdrawSample,
@@ -38,16 +44,21 @@ import {
   sampleStateKind,
 } from '#/components/v3/samples/sample-state'
 import {
+  archiveSample,
   createSampleReservation,
   describeSampleError,
   disposeSample,
+  editSample,
   fetchSample,
   fetchSampleDerivedSamples,
   fetchSampleEvents,
   fetchSampleMeasurements,
   fetchSampleReservations,
   quarantineSample,
+  receiveSample,
+  releaseFailedChecks,
   releaseSample,
+  restoreSample,
   sampleDerivedQueryKey,
   sampleQueryKeys,
   transferSample,
@@ -133,7 +144,18 @@ export function downloadLineageCsv(
 }
 
 type SampleDialog =
-  null | 'withdraw' | 'reserve' | 'move' | 'release' | 'quarantine' | 'dispose'
+  | null
+  | 'withdraw'
+  | 'reserve'
+  | 'move'
+  | 'release'
+  | 'quarantine'
+  | 'dispose'
+  | 'edit'
+  | 'hold'
+  | 'receive'
+  | 'archive'
+  | 'restore'
 
 function SampleLayout() {
   const { sampleId } = Route.useParams()
@@ -142,6 +164,9 @@ function SampleLayout() {
   const query = useSampleRecord(sampleId)
   const sample = query.data
   const [dialog, setDialog] = useState<SampleDialog>(null)
+  // Labels of the release checks the last release attempt failed, shown in the
+  // release dialog with a way to the measurements they read.
+  const [releaseFailure, setReleaseFailure] = useState<string[] | null>(null)
 
   const events = useQuery({
     queryKey: sampleEventsQueryKey(sampleId),
@@ -257,6 +282,82 @@ function SampleLayout() {
     onSuccess: () => {
       invalidate()
       toast('Sample released')
+      setReleaseFailure(null)
+      setDialog(null)
+    },
+    onError: (error) => {
+      const failed = releaseFailedChecks(error)
+      if (failed) setReleaseFailure(failed)
+      else onError(error)
+    },
+  })
+  const edit = useMutation({
+    mutationFn: (input: {
+      title?: string
+      properties?: Parameters<typeof editSample>[1]['properties']
+      tags?: string[]
+      reason: string
+    }) =>
+      editSample(notebookDataClient, {
+        recordId: sampleId,
+        expectedMetadataVersion: sample!.metadataVersion,
+        title: input.title,
+        properties: input.properties,
+        tags: input.tags,
+        notes: input.reason,
+      }),
+    onSuccess: () => {
+      invalidate()
+      toast('Sample updated')
+      setDialog(null)
+    },
+    onError,
+  })
+  const receive = useMutation({
+    mutationFn: (input: {
+      quantity: number
+      location?: string
+      notes?: string
+    }) =>
+      receiveSample(notebookDataClient, {
+        recordId: sampleId,
+        quantity: input.quantity,
+        unit: sample?.quantityUnit ?? undefined,
+        location: input.location,
+        notes: input.notes,
+        expectedMetadataVersion: sample!.metadataVersion,
+      }),
+    onSuccess: () => {
+      invalidate()
+      toast('Stock received')
+      setDialog(null)
+    },
+    onError,
+  })
+  const archive = useMutation({
+    mutationFn: (input: { notes?: string }) =>
+      archiveSample(notebookDataClient, {
+        recordId: sampleId,
+        expectedMetadataVersion: sample!.metadataVersion,
+        notes: input.notes,
+      }),
+    onSuccess: () => {
+      invalidate()
+      toast('Sample archived')
+      setDialog(null)
+    },
+    onError,
+  })
+  const restore = useMutation({
+    mutationFn: (input: { notes?: string }) =>
+      restoreSample(notebookDataClient, {
+        recordId: sampleId,
+        expectedMetadataVersion: sample!.metadataVersion,
+        notes: input.notes,
+      }),
+    onSuccess: () => {
+      invalidate()
+      toast('Sample restored')
       setDialog(null)
     },
     onError,
@@ -312,9 +413,16 @@ function SampleLayout() {
   const allowRelease = canReleaseSample(role)
   const allowQuarantine = canQuarantineSample(role)
   const allowDispose = canDisposeSample(role)
-  // Release is the design's quarantine exit; hold_exceeded/expired exit through
-  // disposal, matching SampleExpired.
-  const showRelease = state === 'quarantined' && allowRelease
+  const allowEdit = canEditSample(role)
+  const archived = Boolean(sample.archivedAt)
+  // Release is the quarantine exit. A past-hold or expired sample exits through
+  // disposal, or through release as a re-qualification once the hold has been
+  // extended (the server evaluates the same release checks).
+  const showRelease =
+    (state === 'quarantined' ||
+      state === 'hold_exceeded' ||
+      state === 'expired') &&
+    allowRelease
   const showDispose =
     (state === 'hold_exceeded' || state === 'expired') && allowDispose
   // QA-121: the tab badge counts live usage — consumptions plus reservations
@@ -350,14 +458,23 @@ function SampleLayout() {
       <Button
         size="sm"
         nativeButton={false}
-        render={<Link to="/samples/$sampleId" params={params} />}
+        render={<Link to="/samples/$sampleId/measurements" params={params} />}
       >
         View release basis
       </Button>
-    ) : showDispose ? (
-      <Button size="sm" onClick={() => setDialog('dispose')}>
-        Record disposal
-      </Button>
+    ) : state === 'hold_exceeded' || state === 'expired' ? (
+      <span className="flex gap-2">
+        {allowEdit ? (
+          <Button size="sm" onClick={() => setDialog('hold')}>
+            Extend hold…
+          </Button>
+        ) : null}
+        {showDispose ? (
+          <Button size="sm" onClick={() => setDialog('dispose')}>
+            Record disposal
+          </Button>
+        ) : null}
+      </span>
     ) : undefined
 
   return (
@@ -389,7 +506,16 @@ function SampleLayout() {
           }
           actions={
             <span className="flex gap-2 max-md:hidden">
-              {terminal ? (
+              {archived ? (
+                allowEdit ? (
+                  <Button
+                    variant="primary"
+                    onClick={() => setDialog('restore')}
+                  >
+                    Restore sample…
+                  </Button>
+                ) : null
+              ) : terminal ? (
                 <Button onClick={exportLineage}>Export lineage</Button>
               ) : (
                 <>
@@ -408,7 +534,7 @@ function SampleLayout() {
                       variant="primary"
                       onClick={() => setDialog('release')}
                     >
-                      Release…
+                      {state === 'quarantined' ? 'Release…' : 'Re-qualify…'}
                     </Button>
                   ) : null}
                   {allowQuarantine &&
@@ -479,14 +605,38 @@ function SampleLayout() {
         </SampleActionsProvider>
       </div>
 
-      {!terminal ? (
+      {!terminal && !archived ? (
         <Inspector aria-label="Sample context" className="w-[300px]">
           <InspectorSection title="Label">
             <SampleLabelCard record={sample} />
           </InspectorSection>
           <InspectorSection title="Hold time">
             <SampleHoldMeter record={sample} />
+            {allowEdit ? (
+              <Button
+                size="sm"
+                className="mt-2"
+                onClick={() => setDialog('hold')}
+              >
+                Edit hold…
+              </Button>
+            ) : null}
           </InspectorSection>
+          {allowEdit ? (
+            <InspectorSection title="Manage">
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => setDialog('edit')}>
+                  Edit details…
+                </Button>
+                <Button size="sm" onClick={() => setDialog('receive')}>
+                  Receive stock…
+                </Button>
+                <Button size="sm" onClick={() => setDialog('archive')}>
+                  Archive…
+                </Button>
+              </div>
+            </InspectorSection>
+          ) : null}
           <InspectorSection title="Recent history">
             <SampleRecentHistory
               events={events.data ?? []}
@@ -526,10 +676,90 @@ function SampleLayout() {
         busy={move.isPending}
         onSubmit={(value) => move.mutate({ toLocation: value })}
       />
+      {dialog === 'edit' ? (
+        <EditDetailsDialog
+          sample={sample}
+          busy={edit.isPending}
+          onClose={() => setDialog(null)}
+          onSubmit={(value) =>
+            edit.mutate({
+              title: value.title,
+              tags: value.tags,
+              properties: { notes: value.notes },
+              reason: value.reason,
+            })
+          }
+        />
+      ) : null}
+      {dialog === 'hold' ? (
+        <EditHoldDialog
+          sample={sample}
+          busy={edit.isPending}
+          onClose={() => setDialog(null)}
+          onSubmit={({ reason, ...hold }) =>
+            edit.mutate({ properties: hold, reason })
+          }
+        />
+      ) : null}
+      {dialog === 'receive' ? (
+        <ReceiveStockDialog
+          sample={sample}
+          busy={receive.isPending}
+          onClose={() => setDialog(null)}
+          onSubmit={(value) => receive.mutate(value)}
+        />
+      ) : null}
+      <ReasonDialog
+        open={dialog === 'archive'}
+        onOpenChange={(o) => setDialog(o ? 'archive' : null)}
+        title={`Archive ${sample.identifier}`}
+        label="Reason (optional)"
+        required={false}
+        busy={archive.isPending}
+        onSubmit={(value) => archive.mutate({ notes: value || undefined })}
+      />
+      <ReasonDialog
+        open={dialog === 'restore'}
+        onOpenChange={(o) => setDialog(o ? 'restore' : null)}
+        title={`Restore ${sample.identifier}`}
+        label="Reason (optional)"
+        required={false}
+        busy={restore.isPending}
+        onSubmit={(value) => restore.mutate({ notes: value || undefined })}
+      />
       <ReasonDialog
         open={dialog === 'release'}
-        onOpenChange={(o) => setDialog(o ? 'release' : null)}
-        title={`Release ${sample.identifier}`}
+        onOpenChange={(o) => {
+          setDialog(o ? 'release' : null)
+          if (!o) setReleaseFailure(null)
+        }}
+        title={`${state === 'quarantined' ? 'Release' : 'Re-qualify'} ${sample.identifier}`}
+        notice={
+          releaseFailure ? (
+            <div role="alert" className="text-label text-danger-text">
+              <p className="m-0 font-medium">
+                Not released. These release checks failed:
+              </p>
+              <ul className="m-0 mt-1 pl-4">
+                {releaseFailure.map((label) => (
+                  <li key={label}>{label}</li>
+                ))}
+              </ul>
+              <p className="m-0 mt-1">
+                <Link
+                  to="/samples/$sampleId/measurements"
+                  params={params}
+                  className="text-link"
+                  onClick={() => setDialog(null)}
+                >
+                  Open measurements
+                </Link>{' '}
+                to see the values these checks read, record the missing ones in
+                a dataset or QC run, then try again.
+              </p>
+            </div>
+          ) : null
+        }
         label="Notes (optional)"
         required={false}
         busy={release.isPending}
@@ -616,6 +846,7 @@ function ReasonDialog({
   label,
   required,
   busy,
+  notice,
   onSubmit,
 }: {
   open: boolean
@@ -624,6 +855,7 @@ function ReasonDialog({
   label: string
   required: boolean
   busy: boolean
+  notice?: React.ReactNode
   onSubmit: (value: string) => void
 }) {
   const [value, setValue] = useState('')
@@ -633,6 +865,7 @@ function ReasonDialog({
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">
         <DialogHeader title={title} />
         <DialogBody>
+          {notice}
           <Field label={label} required={required}>
             <Input
               value={value}

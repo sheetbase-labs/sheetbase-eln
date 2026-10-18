@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -23,6 +24,10 @@ const samples = vi.hoisted(() => ({
   quarantineSample: vi.fn(),
   disposeSample: vi.fn(),
   withdrawSample: vi.fn(),
+  editSample: vi.fn(),
+  receiveSample: vi.fn(),
+  archiveSample: vi.fn(),
+  restoreSample: vi.fn(),
   createSampleReservation: vi.fn(),
   cancelSampleReservation: vi.fn(),
   fetchSampleQuantityBalances: vi.fn(),
@@ -79,8 +84,11 @@ vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: { list: data.list },
 }))
 
-vi.mock('#/lib/samples', () => ({
+vi.mock('#/lib/samples', async () => ({
   ...samples,
+  releaseFailedChecks: (
+    await vi.importActual<{ releaseFailedChecks: unknown }>('#/lib/samples')
+  ).releaseFailedChecks,
   deriveSampleVolumeSummary: (
     record: { quantity: number | null; quantityUnit: string | null },
     events: Array<{
@@ -293,13 +301,13 @@ describe('sample detail state banner', () => {
 
     await screen.findByText('In quarantine since 16 Sep 2026.')
     expect(screen.getByText(/Endotoxin result pending from QC/)).toBeTruthy()
-    // The release basis is the Details tab's "Release basis" row, so the banner
-    // action says so and goes there — not to Measurements, which shows none.
+    // The checks read the Measurements tab, so the banner goes there rather
+    // than back to the page the user is already on.
     expect(
       screen
         .getByRole('button', { name: 'View release basis' })
         .getAttribute('href'),
-    ).toBe('/samples/s-1')
+    ).toBe('/samples/s-1/measurements')
 
     await user.click(screen.getByRole('button', { name: 'Release…' }))
     const dialog = await screen.findByRole('dialog')
@@ -378,6 +386,36 @@ describe('sample detail state banner', () => {
     await waitFor(() =>
       expect(sonner.toast.error).toHaveBeenCalledWith('release checks failed'),
     )
+  })
+
+  it('names the failed release checks in the dialog and links to measurements', async () => {
+    samples.fetchSample.mockResolvedValue(
+      sample({ status: 'quarantined', quarantineReason: 'Awaiting QC' }),
+    )
+    samples.releaseSample.mockRejectedValueOnce(
+      new DataClientError(
+        'SB093',
+        'release checks failed: ["Purity above 95%", "Endotoxin below 5 EU/mL"]',
+        400,
+      ),
+    )
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText(/Awaiting QC/)
+    await user.click(screen.getByRole('button', { name: 'Release…' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+
+    const alert = await within(dialog).findByRole('alert')
+    expect(within(alert).getByText('Purity above 95%')).toBeTruthy()
+    expect(within(alert).getByText('Endotoxin below 5 EU/mL')).toBeTruthy()
+    expect(
+      within(alert)
+        .getByRole('link', { name: 'Open measurements' })
+        .getAttribute('href'),
+    ).toBe('/samples/s-1/measurements')
+    expect(sonner.toast.error).not.toHaveBeenCalled()
   })
 
   it('states the consumed date and actor from the event stream', async () => {
@@ -548,5 +586,120 @@ describe('sample lineage export', () => {
       URL.createObjectURL = originalCreate
       URL.revokeObjectURL = originalRevoke
     }
+  })
+})
+
+describe('sample hold, edit, receive and archive controls', () => {
+  it('extends a passed hold and keeps the allowed experiments', async () => {
+    samples.fetchSample.mockResolvedValue(
+      sample({
+        status: 'hold_exceeded',
+        holdDurationDays: 7,
+        holdCondition: '2–8 °C',
+        allowedUseExperimentIds: ['exp-1'],
+      }),
+    )
+    samples.editSample.mockResolvedValue(sample())
+    const user = userEvent.setup()
+    renderRoute()
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Extend hold…' }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText(/Hold until/), {
+      target: { value: '2026-12-01' },
+    })
+    await user.type(
+      within(dialog).getByLabelText(/Reason for the change/),
+      'Retested stable',
+    )
+    await user.click(within(dialog).getByRole('button', { name: 'Save hold' }))
+
+    await waitFor(() =>
+      expect(samples.editSample).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          recordId: 's-1',
+          expectedMetadataVersion: 7,
+          notes: 'Retested stable',
+          properties: expect.objectContaining({
+            holdUntil: '2026-12-01T00:00:00.000Z',
+            holdDurationDays: 7,
+            allowedUseExperimentIds: ['exp-1'],
+          }),
+        }),
+      ),
+    )
+  })
+
+  it('offers re-qualification for a past-hold sample to a releasing role', async () => {
+    samples.fetchSample.mockResolvedValue(sample({ status: 'hold_exceeded' }))
+    renderRoute()
+    expect(
+      await screen.findByRole('button', { name: 'Re-qualify…' }),
+    ).toBeTruthy()
+  })
+
+  it('receives stock with the sample unit', async () => {
+    samples.receiveSample.mockResolvedValue(sample())
+    const user = userEvent.setup()
+    renderRoute()
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Receive stock…' }),
+    )
+    const dialog = await screen.findByRole('dialog')
+    await user.type(within(dialog).getByLabelText(/Quantity received/), '5')
+    await user.click(within(dialog).getByRole('button', { name: 'Receive' }))
+
+    await waitFor(() =>
+      expect(samples.receiveSample).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ recordId: 's-1', quantity: 5, unit: 'mg' }),
+      ),
+    )
+  })
+
+  it('archives a sample, and an archived sample offers restore', async () => {
+    samples.archiveSample.mockResolvedValue(sample())
+    const user = userEvent.setup()
+    renderRoute()
+
+    await user.click(await screen.findByRole('button', { name: 'Archive…' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Confirm' }))
+    await waitFor(() => expect(samples.archiveSample).toHaveBeenCalled())
+
+    cleanup()
+    samples.fetchSample.mockResolvedValue(
+      sample({ archivedAt: '2026-09-20T00:00:00.000Z' }),
+    )
+    samples.restoreSample.mockResolvedValue(sample())
+    renderRoute()
+    await user.click(
+      await screen.findByRole('button', { name: 'Restore sample…' }),
+    )
+    const restoreDialog = await screen.findByRole('dialog')
+    await user.click(
+      within(restoreDialog).getByRole('button', { name: 'Confirm' }),
+    )
+    await waitFor(() =>
+      expect(samples.restoreSample).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          recordId: 's-1',
+          expectedMetadataVersion: 7,
+        }),
+      ),
+    )
+  })
+
+  it('does not offer edit controls to a read-only role', async () => {
+    routeContext.value = { workspace: { role: 'viewer' } }
+    renderRoute()
+    await screen.findByText('pAAV9-RC, lot P-117')
+    expect(screen.queryByRole('button', { name: 'Edit hold…' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Archive…' })).toBeNull()
   })
 })

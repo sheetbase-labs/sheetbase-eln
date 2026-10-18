@@ -21,6 +21,8 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Choice } from '#/components/v3/ui/choice'
 import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Notice } from '#/components/v3/ui/alert'
+import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
+import { hasCapability } from '#/lib/capability'
 import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import {
@@ -47,6 +49,7 @@ import {
   intakeHealth,
   intakeMethodLabel,
   intakeMethodNeedsParser,
+  parserFollowUp,
   setInstrumentIntakeMethod,
   setInstrumentRetired,
   useInstrumentLastImport,
@@ -633,6 +636,7 @@ function InstrumentsList() {
           calibration={calFor(sel.id)}
           ownerLabel={sel.ownerId ? names.userLabel(sel.ownerId) : '—'}
           canManage={role === 'owner' || role === 'admin' || role === 'member'}
+          canEditParsers={hasCapability(role, 'schema.edit')}
         />
       ) : null}
     </div>
@@ -664,11 +668,13 @@ export function InstrumentInspector({
   calibration,
   ownerLabel,
   canManage,
+  canEditParsers,
 }: {
   instrument: InstrumentRow
   calibration: { state: CalibrationState; label: string; tone: string }
   ownerLabel: string
   canManage: boolean
+  canEditParsers: boolean
 }) {
   const queryClient = useQueryClient()
   const parsers = useInstrumentParsers(instrument.id)
@@ -678,7 +684,11 @@ export function InstrumentInspector({
   const parserReady =
     parserRows.length > 0 && parserRows.some((parser) => parser.validated)
   const needsParser = intakeMethodNeedsParser(instrument.intakeMethod)
-  const parserFollowUp = needsParser && parsers.isSuccess && !parserReady
+  const followUp = parserFollowUp(
+    instrument.id,
+    instrument.intakeMethod,
+    parsers.data,
+  )
   const health = intakeHealth(instrument.intakeMethod, {
     parserReady: parsers.isSuccess ? parserReady : undefined,
     lastImport: lastImport.data ?? null,
@@ -775,11 +785,12 @@ export function InstrumentInspector({
             Data from {instrument.name} is flagged and can’t be cited in GxP
             records until a new certificate is attached.
           </Notice>
-        ) : parserFollowUp ? (
-          <Notice tone="warn" title="Parser not validated.">
-            Readings from {instrument.name} can’t be imported into a GxP dataset
-            until a validated parser is attached to it.
-          </Notice>
+        ) : followUp ? (
+          <ParserFollowUpNotice
+            instrumentName={instrument.name}
+            followUp={followUp}
+            canEdit={canEditParsers}
+          />
         ) : null}
         <RegistrySection title="How data gets in">
           <DescriptionList
@@ -805,6 +816,7 @@ export function InstrumentInspector({
           {needsParser ? (
             <Link
               to="/settings/instruments"
+              search={{ instrumentId: instrument.id }}
               className="mt-1.5 inline-block text-label"
             >
               Parser and imports

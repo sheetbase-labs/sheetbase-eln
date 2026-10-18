@@ -287,11 +287,47 @@ export interface InstrumentParserRow {
   name: string
   /** A validated or approved version exists, so the parser may import GxP data. */
   validated: boolean
+  /** The newest draft version, which still has to be tested against a file. */
+  draftVersionId?: string
+}
+
+export type ParserFollowUpKind = 'missing' | 'draft'
+
+export interface ParserFollowUp {
+  kind: ParserFollowUpKind
+  /** Search for `/settings/instruments`, so the next step opens with its context. */
+  search: { instrumentId: string; versionId?: string }
+}
+
+/**
+ * What stands between an automated instrument and importing data: no parser at all, or a
+ * draft nobody has tested yet. `null` when a parser may already import or the method
+ * needs none. The caller says whether the parsers have loaded, so a pending query never
+ * reads as "no parser".
+ */
+export function parserFollowUp(
+  instrumentId: string,
+  method: string,
+  parsers: readonly InstrumentParserRow[] | undefined,
+): ParserFollowUp | null {
+  if (!intakeMethodNeedsParser(method) || !parsers) return null
+  if (parsers.some((parser) => parser.validated)) return null
+  const draft = parsers.find((parser) => parser.draftVersionId)
+  return draft
+    ? {
+        kind: 'draft',
+        search: { instrumentId, versionId: draft.draftVersionId },
+      }
+    : { kind: 'missing', search: { instrumentId } }
 }
 
 interface ParserWire {
   id: string
   name: string
+}
+
+interface ParserVersionIdWire extends ParserVersionWire {
+  id: string
 }
 
 interface InstrumentParserWire {
@@ -368,15 +404,18 @@ export function useInstrumentParsers(
       )
       if (!parsers.length) return []
       const ids = parsers.map((parser) => parser.id).join(',')
-      const versions = await client.list<ParserVersionWire>(
+      const versions = await client.list<ParserVersionIdWire>(
         'parser_versions',
-        `?select=parser_id,status&parser_id=in.(${ids})&status=in.(validated,approved)&limit=200`,
+        `?select=id,parser_id,status&parser_id=in.(${ids})&status=in.(draft,validated,approved)&order=version.desc&limit=200`,
       )
-      const validated = new Set(versions.map((version) => version.parser_id))
-      return parsers.map((parser) => ({
-        name: parser.name,
-        validated: validated.has(parser.id),
-      }))
+      return parsers.map((parser) => {
+        const own = versions.filter((version) => version.parser_id === parser.id)
+        return {
+          name: parser.name,
+          validated: own.some((version) => version.status !== 'draft'),
+          draftVersionId: own.find((version) => version.status === 'draft')?.id,
+        }
+      })
     },
     staleTime: 15_000,
   })

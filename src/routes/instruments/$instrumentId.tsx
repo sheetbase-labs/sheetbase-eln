@@ -42,6 +42,7 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { hasCapability } from '#/lib/capability'
+import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import {
@@ -50,6 +51,7 @@ import {
   intakeHealth,
   intakeMethodLabel,
   intakeMethodNeedsParser,
+  parserFollowUp,
   instrumentQueryKeys,
   recordInstrumentCalibration,
   runStatus,
@@ -391,6 +393,7 @@ function InstrumentPage() {
   const parserReady =
     parserRows.length > 0 && parserRows.some((parser) => parser.validated)
   const needsParser = intakeMethodNeedsParser(i.intakeMethod)
+  const followUp = parserFollowUp(i.id, i.intakeMethod, parsers.data)
   const health = intakeHealth(i.intakeMethod, {
     parserReady: parsers.isSuccess ? parserReady : undefined,
     lastImport: lastImport.data ?? null,
@@ -480,11 +483,12 @@ function InstrumentPage() {
               ['Parser', parserLabel],
             ]}
           />
-          {needsParser && parsers.isSuccess && !parserReady ? (
-            <Notice tone="warn" title="Parser not validated.">
-              Readings from {i.name} can’t be imported into a GxP dataset until
-              a validated parser is attached to it.
-            </Notice>
+          {followUp ? (
+            <ParserFollowUpNotice
+              instrumentName={i.name}
+              followUp={followUp}
+              canEdit={hasCapability(context.workspace?.role, 'schema.edit')}
+            />
           ) : (
             <Muted className="mt-1.5">
               How data gets in is set on the registry inspector. Imports already

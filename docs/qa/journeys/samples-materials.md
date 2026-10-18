@@ -188,7 +188,7 @@ Standing observations that several journeys rely on:
   3. A consumed or disposed sample lives on the Consumed tab (`samples-data.ts:64-69`); an expired or quarantined lot lives on its own tab (`materials-data.ts:153-158`). `selected` does not carry a tab.
   4. Inbox sends `/materials` with no `selected` at all.
 - **Blockers hit:** The user lands on the wrong item's inspector with no sign the link failed. For an expired lot, the exact case the notification is about, the lot is not visible.
-- **Verdict:** `fixed` (sample links open the sample page; registries switch to the linked item's tab; inbox passes recordId; fixed in this-commit).
+- **Verdict:** `fixed` (sample links open the sample page; registries switch to the linked item's tab; inbox passes recordId; fixed in de4e9c86).
 - **Fix:** Send samples to `/samples/$sampleId`. In the registries, when `selected` is outside the active tab, switch to the tab that contains it. Pass `recordId` in the inbox link.
 - **Severity:** S2
 
@@ -200,7 +200,7 @@ Standing observations that several journeys rely on:
   2. Receive adds stock to the selected lot (`materials.tsx:325-344`); there is no "Register material" or import anywhere in the route.
   3. Empty state: "No lots in in stock" and "Lots appear here when their status or expiry puts them in this list." with a "Back to in stock" button that is a self-link on that tab (`materials.tsx:433-458`). Unlike samples it has no `useHasProjectAccess` branch, so a user who cannot see any project gets the same text.
 - **Blockers hit:** A new workspace cannot create its first lot from this page. Title grammar ("No lots in in stock"). No access explanation.
-- **Verdict:** `fixed` (Register lot works without a selection; empty state fixed, access-aware; fixed in this-commit).
+- **Verdict:** `fixed` (Register lot works without a selection; empty state fixed, access-aware; fixed in de4e9c86).
 - **Fix:** Add a "Register material lot" primary action that does not depend on selection, reuse the project-access empty state, and fix the copy.
 - **Severity:** S1
 

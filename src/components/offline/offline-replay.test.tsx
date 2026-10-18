@@ -5,7 +5,7 @@
  * once the stream is live again, and must say so when an edit conflicts or is
  * held behind an unresolved conflict rather than looking synced.
  */
-import { cleanup, render, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type { LiveStatus } from '#/lib/live-events'
@@ -125,5 +125,83 @@ describe('OfflineReplayRunner', () => {
     expect(
       await findByText(/conflicts with a change on the server/),
     ).toBeTruthy()
+  })
+
+  it('J-NBK-14 names each stuck edit, retries on request and clears the notice once it commits', async () => {
+    const store = createOfflineEditStore(createInMemoryStorage())
+    await store.putEdit(SCOPE, {
+      kind: 'block_text',
+      blockId: 'block-1',
+      text: 'my offline note',
+      expectedRevision: 1,
+    })
+    let refuse = true
+    const commits: string[] = []
+    const port: OfflineReplayPort = {
+      async commit(edit) {
+        commits.push(edit.id)
+        if (refuse) throw new Error('permission denied')
+      },
+      async raiseCellConflict() {
+        return null
+      },
+    }
+    const { findByText, getByRole, queryByText } = render(
+      <OfflineEditsProvider store={store} scope={SCOPE}>
+        <OfflineReplayRunner
+          store={store}
+          scope={SCOPE}
+          port={port}
+          status={statusSnapshot('live')}
+        />
+      </OfflineEditsProvider>,
+    )
+
+    await findByText(/Edited text: my offline note/)
+    expect(await findByText(/permission denied/)).toBeTruthy()
+
+    refuse = false
+    fireEvent.click(getByRole('button', { name: 'Try again now' }))
+    await waitFor(async () => {
+      expect(commits).toHaveLength(2)
+      expect(await store.listEdits(SCOPE)).toHaveLength(0)
+    })
+    await waitFor(() => expect(queryByText(/could not sync/)).toBeNull())
+  })
+
+  it('J-NBK-14 discard needs a second click and removes the edit from the device', async () => {
+    const store = createOfflineEditStore(createInMemoryStorage())
+    await store.putEdit(SCOPE, {
+      kind: 'block_text',
+      blockId: 'block-1',
+      text: 'unwanted',
+      expectedRevision: 1,
+    })
+    const port: OfflineReplayPort = {
+      async commit() {
+        throw new Error('permission denied')
+      },
+      async raiseCellConflict() {
+        return null
+      },
+    }
+    const { findByText, getByRole, queryByText } = render(
+      <OfflineEditsProvider store={store} scope={SCOPE}>
+        <OfflineReplayRunner
+          store={store}
+          scope={SCOPE}
+          port={port}
+          status={statusSnapshot('live')}
+        />
+      </OfflineEditsProvider>,
+    )
+    await findByText(/Edited text: unwanted/)
+    fireEvent.click(getByRole('button', { name: 'Discard' }))
+    expect(await store.listEdits(SCOPE)).toHaveLength(1)
+    fireEvent.click(getByRole('button', { name: 'Discard this edit for good' }))
+    await waitFor(async () => {
+      expect(await store.listEdits(SCOPE)).toHaveLength(0)
+    })
+    await waitFor(() => expect(queryByText(/could not sync/)).toBeNull())
   })
 })

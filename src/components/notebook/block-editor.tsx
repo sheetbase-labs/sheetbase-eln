@@ -396,6 +396,20 @@ function AutosaveFooter({
       {status === 'failed' && validationErrors.length > 0 ? (
         <ValidationErrors errors={validationErrors} explain={explainBlock} />
       ) : null}
+      {/* J-NBK-16: a save that failed after its automatic retries, with
+          nothing wrong in the content, is a connection or server problem and
+          trying again can succeed. `onKeepLocal` is the hook's retry(). */}
+      {status === 'failed' && validationErrors.length === 0 ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={retrying}
+          onClick={onKeepLocal}
+        >
+          {retrying ? 'Saving…' : 'Try again'}
+        </Button>
+      ) : null}
     </div>
   )
 }

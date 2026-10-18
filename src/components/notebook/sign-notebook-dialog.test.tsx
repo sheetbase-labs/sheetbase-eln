@@ -13,6 +13,8 @@ const fetchRevisionRow = vi.fn()
 const fetchSignaturesForSubmission = vi.fn()
 const fetchSignatureEligibility = vi.fn()
 const fetchWorkspaceCertifications = vi.fn()
+const fetchReviewCheckResults = vi.fn()
+const runDefaultRevisionChecks = vi.fn()
 const signRevision = vi.fn()
 const requestSignatureStepUp = vi.fn()
 
@@ -35,6 +37,14 @@ vi.mock('#/lib/signature-certification', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchWorkspaceCertifications: (...args: unknown[]) =>
     fetchWorkspaceCertifications(...args),
+}))
+
+vi.mock('#/lib/review-checks', async (importOriginal) => ({
+  ...(await importOriginal()),
+  fetchReviewCheckResults: (...args: unknown[]) =>
+    fetchReviewCheckResults(...args),
+  runDefaultRevisionChecks: (...args: unknown[]) =>
+    runDefaultRevisionChecks(...args),
 }))
 
 vi.mock('#/lib/review-workspace', async (importOriginal) => ({
@@ -71,6 +81,7 @@ function certifiedCertification(userId: string) {
 }
 
 beforeEach(() => {
+  fetchReviewCheckResults.mockRejectedValue(new Error('checks unavailable'))
   fetchSignatureEligibility.mockResolvedValue({ writer: true, requests: [] })
   fetchWorkspaceCertifications.mockResolvedValue([certifiedCertification('u1')])
   requestSignatureStepUp.mockResolvedValue({
@@ -513,6 +524,31 @@ describe('SignNotebookDialog', () => {
     expect(screen.queryByLabelText('Signing password')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
     expect(signRevision).not.toHaveBeenCalled()
+  })
+
+  it('J-NBK-09 offers to run missing checks and links to the checks tab', async () => {
+    mockSignableSubmission()
+    fetchReviewCheckResults.mockResolvedValue([])
+    runDefaultRevisionChecks.mockResolvedValue({})
+    const user = userEvent.setup()
+    renderSignDialog()
+
+    await screen.findByText(/No checks have been run yet/)
+    expect(
+      screen.getByText(/author, a witness or an assigned reviewer/),
+    ).toBeTruthy()
+    expect(
+      screen
+        .getByRole('link', { name: 'Open the checks' })
+        .getAttribute('href'),
+    ).toBe('/review/$revisionId')
+    await user.click(screen.getByRole('button', { name: 'Run checks' }))
+    await waitFor(() =>
+      expect(runDefaultRevisionChecks).toHaveBeenCalledWith(
+        expect.anything(),
+        'rev1',
+      ),
+    )
   })
 
   it('REV-03.3 does not treat a revoked certification as current before signing', async () => {

@@ -110,7 +110,7 @@ import { formatDate } from '#/lib/notebook-data'
 import {
   fetchReviewCheckResults,
   reviewCheckQueryKeys,
-  runRevisionChecks,
+  runDefaultRevisionChecks,
 } from '#/lib/review-checks'
 import type { ReviewCheckResultWire } from '#/lib/review-checks'
 import {
@@ -328,9 +328,6 @@ export function canCommentOnRevision({
 }): boolean {
   return canReview || canWithdraw || state === 'returned'
 }
-
-const DEFAULT_CHECK_DEFINITION_KEY = 'default-scientific-checks'
-const DEFAULT_CHECK_DEFINITION_VERSION = 1
 
 // ---------------------------------------------------------------------------
 // Route component.
@@ -847,9 +844,10 @@ export function ReviewWorkspaceRoute() {
                 revisionId={revisionId}
                 results={checkResults}
                 loading={checksQuery.isLoading}
-                canRun={
-                  permission?.canReview === true && integrityDigest !== null
-                }
+                // run_revision_checks accepts any workspace member who can read
+                // the revision, so the author and a witness can run them too:
+                // otherwise a signer is told to run checks with no button.
+                canRun={integrityDigest !== null}
                 onRefresh={() => void checksQuery.refetch()}
               />
             </TabsPanel>
@@ -1444,12 +1442,7 @@ function ChecksPanel({
     setRunning(true)
     setError(null)
     try {
-      await runRevisionChecks(reviewsDataClient, {
-        revisionId,
-        checkDefinitionKey: DEFAULT_CHECK_DEFINITION_KEY,
-        checkDefinitionVersion: DEFAULT_CHECK_DEFINITION_VERSION,
-        idempotencyKey: `workspace-${revisionId}-${Date.now()}`,
-      })
+      await runDefaultRevisionChecks(reviewsDataClient, revisionId)
       await queryClient.invalidateQueries({
         queryKey: reviewCheckQueryKeys.resultsForRevision(revisionId),
       })

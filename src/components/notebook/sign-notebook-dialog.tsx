@@ -5,9 +5,11 @@ import { Notice } from '#/components/v3/ui/alert'
 import { DataClientError } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { notebookQueryKeysAfterSignature } from '#/lib/notebook-experience'
+import { Button } from '#/components/v3/ui/button'
 import {
   fetchReviewCheckResults,
   reviewCheckQueryKeys,
+  runDefaultRevisionChecks,
 } from '#/lib/review-checks'
 import {
   fetchReviewSubmissionByRevision,
@@ -111,6 +113,13 @@ export function SignNotebookDialog({
   const checksPassed = checksQuery.isSuccess
     ? signatureChecksPassed(checksQuery.data, integrityDigest)
     : true
+  const runChecks = useMutation({
+    mutationFn: () => runDefaultRevisionChecks(notebookDataClient, revisionId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: reviewCheckQueryKeys.resultsForRevision(revisionId),
+      }),
+  })
   const meanings = availableSignatureMeanings({
     currentUserId,
     submission,
@@ -185,10 +194,45 @@ export function SignNotebookDialog({
         Checking your signature certification…
       </p>
     ) : checksQuery.isSuccess && !checksPassed ? (
-      <p className="m-0 text-body text-fg-muted">
-        Signing requires the revision's review checks to have passed for this
-        digest. Run the checks and resolve any blocking failures before signing.
-      </p>
+      <Notice tone="warn">
+        <p className="m-0">
+          Signing requires the revision's review checks to have passed for this
+          digest.{' '}
+          {checksQuery.data.length === 0
+            ? 'No checks have been run yet.'
+            : 'The latest run did not pass for this digest.'}
+        </p>
+        <p className="m-0 mt-1.5 text-label">
+          The author, a witness or an assigned reviewer can run them. Blocking
+          failures are resolved by correcting the notebook and submitting a new
+          revision.
+        </p>
+        {runChecks.isError ? (
+          <p className="m-0 mt-1.5 text-label">
+            Could not run the checks:{' '}
+            {runChecks.error instanceof Error
+              ? runChecks.error.message
+              : 'the request failed.'}
+          </p>
+        ) : null}
+        <p className="m-0 mt-1.5 flex items-center gap-3">
+          <Button
+            size="sm"
+            disabled={runChecks.isPending || !integrityDigest}
+            onClick={() => runChecks.mutate()}
+          >
+            {runChecks.isPending ? 'Running…' : 'Run checks'}
+          </Button>
+          <Link
+            to="/review/$revisionId"
+            params={{ revisionId }}
+            search={{ tab: 'checks' }}
+            className="underline"
+          >
+            Open the checks
+          </Link>
+        </p>
+      </Notice>
     ) : certificationCurrent ? (
       <p className="m-0 text-body text-fg-muted">
         No eligible signature meaning is available. Signing requires an active

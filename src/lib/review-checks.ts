@@ -148,6 +148,26 @@ export function runRevisionChecks(
   })
 }
 
+export const DEFAULT_CHECK_DEFINITION_KEY = 'default-scientific-checks'
+export const DEFAULT_CHECK_DEFINITION_VERSION = 1
+
+/**
+ * Run the default check definition for a frozen revision. The RPC accepts any
+ * workspace member who can read the revision, so the author, a witness and an
+ * assigned reviewer can each run it.
+ */
+export function runDefaultRevisionChecks(
+  client: DataClient,
+  revisionId: string,
+): Promise<RunRevisionChecksResult> {
+  return runRevisionChecks(client, {
+    revisionId,
+    checkDefinitionKey: DEFAULT_CHECK_DEFINITION_KEY,
+    checkDefinitionVersion: DEFAULT_CHECK_DEFINITION_VERSION,
+    idempotencyKey: `workspace-${revisionId}-${Date.now()}`,
+  })
+}
+
 /** Fetch all immutable check results for a revision. */
 export function fetchReviewCheckResults(
   client: DataClient,

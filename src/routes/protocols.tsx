@@ -31,6 +31,7 @@ import {
 } from '#/components/v3/protocols/protocols-registry-grid'
 import { useRowFocus } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
+import { NewProtocolDialog } from '#/components/v3/protocols/new-protocol-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
@@ -190,6 +191,7 @@ function ProtocolsList() {
         <ListHeader
           title="Protocols"
           total={rows.length}
+          actions={<NewProtocolDialog />}
           tabs={
             <Tabs
               mode="url"
@@ -279,7 +281,9 @@ function ProtocolsList() {
                     >
                       Clear search
                     </Button>
-                  ) : undefined
+                  ) : (
+                    <NewProtocolDialog />
+                  )
                 }
               />
             </div>

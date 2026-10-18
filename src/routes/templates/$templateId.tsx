@@ -10,6 +10,7 @@ import { Button } from '#/components/v3/ui/button'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
+import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog'
 import {
   publishedTemplateVersion,
   templateLifecycle,
@@ -94,6 +95,12 @@ function TemplateLayout() {
           { label: t.key, mono: true },
         ]}
         title={t.name}
+        actions={
+          <UseTemplateDialog
+            templateName={t.name}
+            version={publishedTemplateVersion(list) ?? null}
+          />
+        }
         meta={
           <>
             <span className="text-fg">

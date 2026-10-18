@@ -142,6 +142,7 @@ import {
   insertBlock,
   insertSheetInstanceBlock,
   moveBlock,
+  restoreRecord,
   updateBlockPayload,
 } from '#/lib/notebook-mutations'
 import { defaultPayloadFor } from '#/lib/blocks/registry'
@@ -800,11 +801,32 @@ function ExperimentNotebookRoute() {
             {historicalRevisionId ? (
               <HistoricalEvidenceBanner recordId={record.id} />
             ) : null}
-            {isArchived ? <ArchivedBanner /> : null}
+            {isArchived ? (
+              <ArchivedBanner
+                projectId={projectId}
+                projectArchived={Boolean(project?.archivedAt)}
+                onRestore={async () => {
+                  await restoreRecord(
+                    notebookDataClient,
+                    record.id,
+                    record.metadataVersion,
+                  )
+                  await Promise.all([
+                    queryClient.invalidateQueries({
+                      queryKey: notebookQueryKeys.record(record.id),
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: notebookQueryKeys.blocks(record.id),
+                    }),
+                  ])
+                }}
+              />
+            ) : null}
             {/* EXP-04.1: the template-version state of the working notebook.
-              Frozen evidence and archived records are read-only, so an
-              update banner would only dangle there. */}
-            {!historicalRevisionId && !isArchived ? (
+              Frozen evidence, archived and signed records are read-only, so an
+              update banner would only dangle there; the signed banner below
+              points at Amend, after which the update is offered. */}
+            {!historicalRevisionId && !isArchived && !record.lockedAt ? (
               <NotebookTemplateUpgradeBanner
                 recordId={record.id}
                 pinnedVersionId={record.sourceNotebookTemplateVersionId}
@@ -1483,11 +1505,49 @@ export function HistoricalEvidenceBanner({ recordId }: { recordId: string }) {
   )
 }
 
-export function ArchivedBanner() {
+/** Why a restore attempt failed, in words that name who can fix it. */
+function restoreErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : ''
+  if (
+    /row-level security|permission_denied|permission denied|42501/i.test(
+      message,
+    )
+  )
+    return 'You can’t restore this notebook. Anyone who can edit its project can; ask a project owner.'
+  if (/metadata version mismatch|stale/i.test(message))
+    return 'This notebook changed since you opened it. Reload the page and try again.'
+  return message || 'Could not restore the notebook.'
+}
+
+export function ArchivedBanner({
+  projectId,
+  projectArchived = false,
+  onRestore,
+}: {
+  projectId?: string | null
+  /** True when the whole project is archived: restoring the project comes first. */
+  projectArchived?: boolean
+  /** Restores the notebook; rejects with the server's reason. */
+  onRestore?: () => Promise<unknown>
+}) {
+  const [restoring, setRestoring] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function restore() {
+    if (!onRestore) return
+    setRestoring(true)
+    setError(null)
+    try {
+      await onRestore()
+    } catch (err) {
+      setError(restoreErrorMessage(err))
+    } finally {
+      setRestoring(false)
+    }
+  }
   return (
     <div
       role="status"
-      className="flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs"
+      className="flex flex-wrap items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs"
     >
       <Icon
         name="archive"
@@ -1495,8 +1555,36 @@ export function ArchivedBanner() {
         aria-hidden="true"
       />
       <span className="text-foreground">
-        This notebook is archived. It is read-only until restored.
+        {projectArchived
+          ? 'This notebook is read-only because its project is archived. Restore the project first; the project lead can do that from its settings.'
+          : 'This notebook is archived. It is read-only until restored; anyone who can edit the project can restore it.'}
       </span>
+      {projectArchived && projectId ? (
+        <Link
+          to="/projects/$projectId/settings"
+          params={{ projectId }}
+          className="ml-auto underline"
+          data-print-hide
+        >
+          Open project settings
+        </Link>
+      ) : onRestore ? (
+        <Button
+          type="button"
+          variant="secondary"
+          className="ml-auto"
+          data-print-hide
+          disabled={restoring}
+          onClick={() => void restore()}
+        >
+          {restoring ? 'Restoring…' : 'Restore notebook'}
+        </Button>
+      ) : null}
+      {error ? (
+        <span role="alert" className="basis-full text-danger-text">
+          {error}
+        </span>
+      ) : null}
     </div>
   )
 }

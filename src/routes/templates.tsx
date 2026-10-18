@@ -51,6 +51,7 @@ import {
 } from '#/components/v3/templates/templates-data'
 import type { TemplateRow } from '#/components/v3/templates/templates-data'
 import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
+import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog'
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
 
 const tabs = ['all', 'active', 'retired'] as const
@@ -363,7 +364,19 @@ function TemplatesList() {
               >
                 Open
               </Button>
+              <UseTemplateDialog
+                size="sm"
+                variant="secondary"
+                templateName={sel.name}
+                version={sel.published}
+              />
             </div>
+            {sel.published ? null : (
+              <Muted className="mt-1">
+                No published version yet. Publish one from Versions, then you
+                can start a notebook from it.
+              </Muted>
+            )}
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
             <InspectorSection title="Details">

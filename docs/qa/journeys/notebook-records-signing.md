@@ -23,7 +23,7 @@ of the findings below are that gap.
   4. `/experiments/new` (the only create-notebook form) calls `createBlankExperiment` and has no template field (`routes/experiments/new.tsx:235-241`, `lib/notebook-create.ts:9`).
   5. `instantiateNotebookTemplateVersion` exists (`lib/notebook-template-data.ts:283`) but has no caller outside tests and stories (grep of `src/`).
 - **Blockers hit:** none shown. The user is simply sent to a page where the next step does not exist. Publishing toast says "New notebooks can start from it; existing ones are not changed." (`routes/templates/$templateId/versions.tsx:607`), promising a path the UI lacks.
-- **Verdict:** `dead-end` (step 2: the card's destination has no instantiate action).
+- **Verdict:** `dead-end` (step 2: the card's destination has no instantiate action). Fixed in 6676e2b4.
 - **Fix:** add "New notebook from v{n}" to the template inspector and detail header (project picker + title, call `instantiateNotebookTemplateVersion`), and add the same template select to `/experiments/new`. Until then, change the `/sheets/new` card copy so it does not promise this.
 - **Severity:** S1 (a core reuse feature, and the product's template-versioning story, has no entry point).
 
@@ -36,7 +36,7 @@ of the findings below are that gap.
   3. The update page loads a preview and enables "Apply v2" without checking `locked_at` (`routes/templates/$templateId/update.tsx:117-130`; `components/v3/templates/template-update-view.tsx:437-441`).
   4. Apply is refused by the RPC with `record is locked` (SB011) (`drizzle/0119_core_065_template_placement_data_boundary.sql:328`), shown as a bare "Could not update the notebook" notice (`template-update-view.tsx:268-270`).
 - **Blockers hit:** raw `record is locked`. The only mention of the real rule is a static footnote, "Signed records cannot be updated; use an amendment." (`template-update-view.tsx:453-454`), with no link to amend. The notebook already carries the Amend button (`notebook.tsx:1538-1548`) but the update page does not point back to it.
-- **Verdict:** `dead-end` (step 3: the user does a full preview and conflict-decision pass before the refusal).
+- **Verdict:** `dead-end` (step 3: the user does a full preview and conflict-decision pass before the refusal). Fixed in 70e79353.
 - **Fix:** suppress the banner when `lockedAt` is set, or swap it for "Amend first to take v2". On the update page, read `locked_at` (already fetched at `components/v3/templates/templates-data.ts:172`), disable Apply, and show "This notebook is signed. Amend it, then update" with a link back to the notebook.
 - **Severity:** S2.
 
@@ -61,7 +61,7 @@ of the findings below are that gap.
   3. The "Training" tab empty state repeats the "frozen when submitted" rule with no action (`:399-403`).
   4. A non-record or unreadable protocol shows only a header "Protocol not found" with no body and no way back except the breadcrumb (`:98-108`).
 - **Blockers hit:** the page explains the rule that creates a version but supplies no route to satisfy it; no protocol-creation UI exists anywhere (grep for `protocol_template` shows only list/pickers).
-- **Verdict:** `dead-end` (step 2).
+- **Verdict:** `dead-end` (step 2). Fixed in f259b2da.
 - **Fix:** add "Open working document" (`/records/$protocolId/notebook`) and a Submit-for-review action on the detail header, a "New protocol" action on the list, and an `EmptyState` body for "not found".
 - **Severity:** S2 (protocol versions gate experiment starts, see J-NBK-05).
 
@@ -100,7 +100,7 @@ of the findings below are that gap.
   3. No link to `/settings/signatures`, and no mention that identity verification needs another administrator.
   4. Session expiry mid-submit is not handled either: `isExpiredSigningSession` is used only in the review route (`routes/review/$revisionId.tsx:2432`).
 - **Blockers hit:** raw message after the work is done.
-- **Verdict:** `partial` (steps 1-3; the cause is named, the action is not).
+- **Verdict:** `partial` (steps 1-3; the cause is named, the action is not). Fixed in d8cb198a.
 - **Fix:** reuse the certification lookup from `SignNotebookDialog`, show the same warn Notice with "Open signature settings" before the password field, and disable the fieldset with that reason. Handle expired sessions as the review route does.
 - **Severity:** S1 (blocks submission in the regulated workflow).
 
@@ -126,7 +126,7 @@ of the findings below are that gap.
   2. On the review page the "Run checks" button renders only when `permission.canReview === true && integrityDigest !== null` (`routes/review/$revisionId.tsx:850-852`, `:1487`). A witness signer (`signatureMeaning=witnessed`, an explicit witness request) is not an assigned reviewer, so they are told to run checks they have no button for, and the message names nobody who can.
   3. The author likewise cannot run them, and is told only the same sentence.
 - **Blockers hit:** exact copy above.
-- **Verdict:** `dead-end` for witnesses (step 2); `partial` for reviewers (step 1).
+- **Verdict:** `dead-end` for witnesses (step 2); `partial` for reviewers (step 1). Fixed in b495a21b.
 - **Fix:** add a link to the review checks tab in the notebook dialog; when the viewer cannot run checks, say "Ask {assigned reviewers} to run the checks" and list them from `assigned_reviewer_user_ids`; or let signers with `canSign` run checks.
 - **Severity:** S1 (a witnessed signature cannot be completed without out-of-band help).
 
@@ -192,7 +192,7 @@ of the findings below are that gap.
   4. A refused or failed edit "stays queued" (`replay.ts:176-181`). The notice says "N edits were refused and stay queued." and stops (`offline-replay.tsx:139-145`).
   5. The notice has no action. The inspector's Unsynced changes list shows time, kind and a snippet per edit with no Keep / Discard / Retry (`components/offline/unsynced-changes.tsx:233-250`). `removeEdits` is called only on a successful commit (`replay.ts:371`), so a refused edit is never removable by the user and replay never re-runs until the next live transition.
 - **Blockers hit:** "1 edit conflicts with a change on the server" / "N edits were refused and stay queued." Neither says which edit, where, or what to do.
-- **Verdict:** `dead-end` (steps 3-5) for text, rows, comments and refused edits; `complete` for cell conflicts.
+- **Verdict:** `dead-end` (steps 3-5) for text, rows, comments and refused edits; `complete` for cell conflicts. Fixed in 9c95f156.
 - **Fix:** add per-edit actions in the Unsynced list (Retry now, Copy text, Discard) and a "Review" link on the notice that scrolls to the block or opens the cell conflict; for stale block text, raise the same two-sided conflict banner as autosave.
 - **Severity:** S1 (user-authored scientific data stuck on the device indefinitely, with held calculations).
 
@@ -218,7 +218,7 @@ of the findings below are that gap.
   3. Transient failure after the retry limit (default 3): status goes to `failed` with the message "Save failed after several attempts." (`components/notebook/use-autosave.ts:350-355`). `AutosaveFooter` renders only the status text in that case; the hook's `retry()` is exposed (`use-autosave.ts:111-114`) but wired only to "Keep my edit" inside the conflict banner (`block-editor.tsx:380-394`). There is no "Try again" and the footer is absolutely positioned over the block corner (`:381`).
   4. The unsaved-work guard then blocks leaving the page and blocks Submit (J-NBK-06 step 3), so the user is pinned with no control to resolve it.
 - **Blockers hit:** "Save failed after several attempts."
-- **Verdict:** `partial` (conflict: complete; exhausted-retry failure: dead-end at step 3).
+- **Verdict:** `partial` (conflict: complete; exhausted-retry failure: dead-end at step 3). Fixed in f3604cc0.
 - **Fix:** render a "Try again" button when `status === 'failed'` and there are no validation errors, calling the same `retry()`; show the connection state alongside.
 - **Severity:** S2.
 
@@ -231,7 +231,7 @@ of the findings below are that gap.
   3. If the archive came from the project, the banner does not link to the project settings Archived tab (the path that does exist).
   4. Header Submit and Sign are hidden without explanation (`notebook.tsx:953-966`), the template banner is suppressed (`:806`), and comments are disabled (`:3085`).
 - **Blockers hit:** exact copy above.
-- **Verdict:** `dead-end` (step 1).
+- **Verdict:** `dead-end` (step 1). Fixed in ad48b377.
 - **Fix:** name the cause (archived by whom, via project or record), link to the project's Archived tab when the project is archived, and add a Restore action for roles with `projects:write`; otherwise say "Ask a project owner to restore it".
 - **Severity:** S2.
 

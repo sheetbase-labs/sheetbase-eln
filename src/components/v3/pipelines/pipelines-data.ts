@@ -226,6 +226,43 @@ export async function startAndExecuteRun(
   return started
 }
 
+/**
+ * The run an Inbox item is about. `my_work_items` carries the prompt id for a
+ * waiting run and nothing but the pipeline key for a failed one, so the run is
+ * read from there: the prompt's run, or the pipeline's newest failed run.
+ */
+export async function resolveRunForWorkItem(
+  item: { kind: string; sourceId?: string | null; identifier: string | null },
+  client: DataClient = notebookDataClient,
+): Promise<string | null> {
+  if (item.kind === 'run_waiting' && item.sourceId) {
+    const prompts = await client.list<{ run_id: string }>(
+      'pipeline_run_prompts',
+      `?id=eq.${encodeURIComponent(item.sourceId)}&select=run_id`,
+    )
+    return prompts.at(0)?.run_id ?? null
+  }
+  if (item.kind === 'run_failed' && item.identifier) {
+    const definitions = await client.list<{ id: string }>(
+      'pipeline_definitions',
+      `?key=eq.${encodeURIComponent(item.identifier)}&select=id`,
+    )
+    const definitionId = definitions.at(0)?.id
+    if (!definitionId) return null
+    const versions = await client.list<{ id: string }>(
+      'pipeline_definition_versions',
+      `?definition_id=eq.${encodeURIComponent(definitionId)}&select=id`,
+    )
+    if (versions.length === 0) return null
+    const runs = await client.list<{ id: string }>(
+      'pipeline_runs',
+      `?definition_version_id=in.(${versions.map((v) => v.id).join(',')})&status=eq.failed&order=finished_at.desc&limit=1&select=id`,
+    )
+    return runs.at(0)?.id ?? null
+  }
+  return null
+}
+
 export interface DatasetVersionChoice {
   id: string
   label: string

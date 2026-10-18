@@ -7,6 +7,7 @@ import {
   itemLink,
   recordLink,
   reviewNeedsLargerScreen,
+  runLink,
   Route,
   rowKey,
 } from './inbox'
@@ -259,6 +260,23 @@ describe('Inbox list shortcuts (SHELL-03.3)', () => {
     ).toEqual({
       to: '/settings/integrations/$connectorId',
       params: { connectorId: 'connector-one' },
+    })
+  })
+
+  it('sends a failed or waiting run to the run, or at least to its pipeline', () => {
+    expect(runLink('run-7')).toEqual({
+      to: '/pipelines/runs/$runId',
+      params: { runId: 'run-7' },
+    })
+    const failed: WorkItem = {
+      ...items[1],
+      kind: 'run_failed',
+      recordId: null,
+      identifier: 'glucose_trend',
+    }
+    expect(itemLink(failed)).toEqual({
+      to: '/pipelines',
+      search: { q: 'glucose_trend' },
     })
   })
 

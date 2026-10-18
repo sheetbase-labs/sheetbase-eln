@@ -11,11 +11,11 @@
  * they hold when the strip moves onto the shared tab component.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { Route } from './new'
+import { Route, SavedViewsPanel } from './new'
 import type * as router from '@tanstack/react-router'
 import type * as studioData from '#/lib/analysis-studio-data'
 
@@ -118,5 +118,43 @@ describe('Analysis Studio mode switch', () => {
     await user.keyboard('{Home}')
     expect(document.activeElement).toBe(tabs[0])
     expect(tabs[0].getAttribute('aria-selected')).toBe('true')
+  })
+})
+
+describe('saved views panel — Save as new (J-DAT-11)', () => {
+  const panel = (selectedViewId: string | null, onSave = vi.fn()) =>
+    render(
+      <SavedViewsPanel
+        views={[]}
+        selectedViewId={selectedViewId}
+        viewName="Cited analysis"
+        onViewNameChange={vi.fn()}
+        onLoad={vi.fn()}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        saving={false}
+        canSave
+      />,
+    )
+
+  it('offers Save as new beside Update once a view is loaded', async () => {
+    const onSave = vi.fn()
+    panel('view-1', onSave)
+    const user = userEvent.setup()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Save as new analysis view' }),
+    )
+    expect(onSave).toHaveBeenLastCalledWith(true)
+
+    await user.click(screen.getByRole('button', { name: 'Save analysis view' }))
+    expect(onSave).toHaveBeenLastCalledWith(false)
+  })
+
+  it('does not offer it for a view that has not been saved yet', () => {
+    panel(null)
+    expect(
+      screen.queryByRole('button', { name: 'Save as new analysis view' }),
+    ).toBeNull()
   })
 })

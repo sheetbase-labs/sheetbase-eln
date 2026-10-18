@@ -352,13 +352,13 @@ function AnalysisStudio() {
   const queryClient = useQueryClient()
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (options?: { asNew?: boolean }) => {
       if (!spec || !viewName.trim()) return
       const sourceRevisions = captureSourceRevisions(sources, spec)
       return saveAnalysisView(
         analysisStudioDataClient,
         {
-          id: selectedViewId ?? undefined,
+          id: options?.asNew ? undefined : (selectedViewId ?? undefined),
           name: viewName.trim(),
           spec,
           source_revisions: sourceRevisions,
@@ -368,7 +368,8 @@ function AnalysisStudio() {
         userId,
       )
     },
-    onSuccess: (view) => {
+    onSuccess: (view, options) => {
+      if (view && options?.asNew) setSelectedViewId(view.id)
       if (view) {
         toast('Analysis view saved', {
           description: `${view.name} v${view.version}`,
@@ -529,7 +530,7 @@ function AnalysisStudio() {
         viewName={viewName}
         onViewNameChange={setViewName}
         onLoad={loadView}
-        onSave={() => saveMutation.mutate()}
+        onSave={(asNew) => saveMutation.mutate({ asNew })}
         onDelete={(view) => setDeleteTarget(view)}
         saving={saveMutation.isPending}
         exportSettings={exportSettings}
@@ -948,7 +949,7 @@ function AnalysisInspector({
   viewName: string
   onViewNameChange: (name: string) => void
   onLoad: (view: AnalysisViewWire) => void
-  onSave: () => void
+  onSave: (asNew?: boolean) => void
   onDelete: (view: AnalysisViewWire) => void
   saving: boolean
   exportSettings: ExportSettings
@@ -1137,7 +1138,7 @@ interface SavedViewsPanelProps {
   viewName: string
   onViewNameChange: (name: string) => void
   onLoad: (view: AnalysisViewWire) => void
-  onSave: () => void
+  onSave: (asNew?: boolean) => void
   onDelete: (view: AnalysisViewWire) => void
   saving: boolean
   canSave: boolean
@@ -1163,7 +1164,7 @@ export function SavedViewsPanel({
         Save a named configuration with its source revisions so others can
         reproduce the chart.
       </p>
-      <div className="flex items-end gap-1.5">
+      <div className="flex flex-wrap items-end gap-1.5">
         <div className="flex-1">
           <label
             className="text-label text-fg-muted"
@@ -1183,13 +1184,24 @@ export function SavedViewsPanel({
         <Button
           variant="secondary"
           size="sm"
-          onClick={onSave}
+          onClick={() => onSave(false)}
           disabled={!canSave || saving}
           aria-label="Save analysis view"
         >
           {saving ? <Spinner size={16} /> : <Save />}
           {selectedViewId ? 'Update' : 'Save'}
         </Button>
+        {selectedViewId ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onSave(true)}
+            disabled={!canSave || saving}
+            aria-label="Save as new analysis view"
+          >
+            Save as new
+          </Button>
+        ) : null}
       </div>
       {views.length === 0 ? (
         <p className="py-2 text-center text-xs text-fg-muted">

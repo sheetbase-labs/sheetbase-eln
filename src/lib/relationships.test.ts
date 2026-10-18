@@ -472,7 +472,7 @@ describe('buildRelationshipRows', () => {
       title: 'Cell line',
       identifier: 'SMP-2',
       state: 'available',
-      destination: '/samples?selected=rec-2',
+      destination: '/samples/rec-2',
     })
     expect(byId.get('out-arch')).toMatchObject({
       state: 'archived',

@@ -220,7 +220,7 @@ describe('lineageNodeDestination', () => {
       lineageNodeDestination(
         makeNode({ kind: 'sample', entityType: 'sample', recordId: 's-1' }),
       ),
-    ).toBe('/samples?selected=s-1')
+    ).toBe('/samples/s-1')
   })
 
   it('links submitted/frozen evidence nodes to the review workspace', () => {

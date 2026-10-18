@@ -21,7 +21,7 @@ describe('canonical navigation destinations', () => {
 
   it('routes workspace catalogue records to their owning surface', () => {
     expect(recordDestination('sample', 'sample-id')).toBe(
-      '/samples?selected=sample-id',
+      '/samples/sample-id',
     )
     expect(recordDestination('material', 'material-id')).toBe(
       '/materials?selected=material-id',

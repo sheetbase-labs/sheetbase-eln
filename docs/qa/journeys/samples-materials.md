@@ -175,7 +175,7 @@ Standing observations that several journeys rely on:
   2. `records/$recordId/index.tsx:6-13` redirects to `/records/$recordId/notebook`. For a sample that is the generic notebook page with a sample side-panel whose only status line is the raw `status` string (`routes/records/$recordId/notebook.tsx:457-480`).
   3. No route redirects a sample record to `/samples/$sampleId`.
 - **Blockers hit:** The page header comment promises landing "on the object the label names"; for a sample the user misses the quarantine / hold banner, the withdraw action and the hold meter, and gets no link to the sample page. The scan-time warning that matters most is absent where the label sends people.
-- **Verdict:** `dead-end` (step 3: no hop to the sample surface).
+- **Verdict:** `fixed` (QR route now sends samples to `/samples/<id>`; fixed in SHA_J13).
 - **Fix:** In the `/r` route use `recordDestination(kind, id)` (`lib/navigation.ts:42`) or add a record-layout redirect for `kind = sample | material`.
 - **Severity:** S1
 

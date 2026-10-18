@@ -26,13 +26,14 @@ import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
 import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the pipeline detail frame. */
 export const Route = createFileRoute('/pipelines/$pipelineId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     await resolveIdentifierParam({
       entity: 'pipeline',

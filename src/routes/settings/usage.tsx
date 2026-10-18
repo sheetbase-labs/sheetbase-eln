@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
 import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -127,7 +128,13 @@ function Usage() {
           <EmptyState
             icon="lock"
             title="Only workspace admins can see usage"
-            description="Usage shows seats, storage and activity for the whole workspace. Ask a workspace admin for the numbers you need."
+            description={
+              <>
+                Usage shows seats, storage and activity for the whole workspace.
+                Ask a workspace admin for the numbers you need.
+                <WorkspaceAdminsLine workspaceId={workspaceId} />
+              </>
+            }
           />
         </div>
       </>

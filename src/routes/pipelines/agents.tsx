@@ -34,6 +34,7 @@ import type { AgentWorkflow } from '#/lib/agent-workflows'
 import { listApiCredentialsFn } from '#/lib/api-credential-admin'
 import { hasCapability } from '#/lib/capability'
 import { createDataClient } from '#/lib/data-client'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * UI port (roadmap-4/ui-app3): the agent surface, folded from the retired
@@ -57,10 +58,10 @@ export const Route = createFileRoute('/pipelines/agents')({
     proposal: typeof search.proposal === 'string' ? search.proposal : undefined,
     workflow: typeof search.workflow === 'string' ? search.workflow : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

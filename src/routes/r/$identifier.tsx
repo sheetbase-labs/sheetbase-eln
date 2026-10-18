@@ -20,11 +20,12 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { recordDestination } from '#/lib/navigation'
 import { resolveRecordByIdentifier } from '#/lib/record-resolver'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 export const Route = createFileRoute('/r/$identifier')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
   component: ResolveIdentifierRoute,

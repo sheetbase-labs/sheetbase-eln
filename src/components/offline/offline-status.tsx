@@ -25,16 +25,20 @@ import {
   useLastSyncedAt,
   useOfflineEdits,
 } from './offline-edits'
+import { useSessionExpired } from '#/lib/session-expiry'
 import { UnsyncedChangesList } from './unsynced-changes'
 
 export interface OfflineStatusBannerProps {
   className?: string
   capabilitiesClassName?: string
+  /** The workspace allows offline editing (default). When false the banner says edits are not kept. */
+  offlineEditingAllowed?: boolean
 }
 
 export function OfflineStatusBanner({
   className,
   capabilitiesClassName,
+  offlineEditingAllowed = true,
 }: OfflineStatusBannerProps) {
   const status = useLiveStatus()
   const coordinator = useLiveCoordinator()
@@ -42,7 +46,11 @@ export function OfflineStatusBanner({
   const { unsyncedCount, refresh } = useOfflineEdits()
   const [mounted, setMounted] = React.useState(false)
   const [retrying, setRetrying] = React.useState(false)
-  const offline = isConnectionDown(status.status)
+  // The global session banner owns the "session ended" message; this one
+  // would wrongly say "keep working" and offer a Retry that cannot succeed.
+  const sessionExpired =
+    useSessionExpired() || status.lastResetReason === 'session_expired'
+  const offline = isConnectionDown(status.status) && !sessionExpired
 
   React.useEffect(() => {
     setMounted(true)
@@ -66,6 +74,7 @@ export function OfflineStatusBanner({
         offline
         lastSyncedAt={lastSyncedAt}
         unsyncedCount={unsyncedCount}
+        offlineEditingAllowed={offlineEditingAllowed}
         retrying={retrying}
         onRetry={() => {
           setRetrying(true)
@@ -73,7 +82,9 @@ export function OfflineStatusBanner({
         }}
         className={className}
       />
-      <OfflineCapabilitiesNote className={capabilitiesClassName} />
+      {offlineEditingAllowed ? (
+        <OfflineCapabilitiesNote className={capabilitiesClassName} />
+      ) : null}
     </>
   )
 }

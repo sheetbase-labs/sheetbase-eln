@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -113,7 +114,13 @@ function Diagnostics() {
           <EmptyState
             icon="lock"
             title="Only workspace admins can see diagnostics"
-            description="Diagnostics show system checks and error details across every project. Ask a workspace admin if something isn’t working; they can send a support bundle to Sheetbase."
+            description={
+              <>
+                Diagnostics show system checks and error details across every
+                project. Ask a workspace admin if something isn’t working.
+                <WorkspaceAdminsLine workspaceId={workspaceId} />
+              </>
+            }
           />
         </div>
       </>

@@ -23,15 +23,16 @@ import {
   useWorkspaceRecordModel,
 } from '#/components/v3/models/models-data'
 import { isUuid } from '#/lib/field-value-validation'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the model detail frame. A dataset-schema model
  * (uuid) opens on Fields; a workspace-defined record model (ADR-0051, key)
  * opens on its Records list. Built-in kinds link to their existing surface. */
 export const Route = createFileRoute('/models/$modelId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

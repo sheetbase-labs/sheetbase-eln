@@ -1,5 +1,6 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { marked } from 'marked'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 // The rendered documents live in the repository's docs tree; map each stable
 // name to its file so the surface renders the document it names.
@@ -13,9 +14,9 @@ const DOC_PATHS: Record<string, string> = {
 }
 
 export const Route = createFileRoute('/docs/$name')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     if (!context.workspace) throw redirect({ to: '/' })
     return { context }
   },

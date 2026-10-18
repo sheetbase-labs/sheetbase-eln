@@ -10,16 +10,17 @@ import { cn } from '#/lib/utils'
 import { settingsNavForRole } from '#/components/v3/settings/settings-nav'
 import { Tabs } from '#/components/v3/ui/tabs'
 import type { SettingsNavItem } from '#/components/v3/settings/settings-nav'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the settings shell. Sections are grouped
  * workspace / account exactly as app-3, and the nav lists only routes that
  * exist so no link 404s. SHELL-01.2: workspace administration sections are
  * omitted for a role that cannot open them (see `settings-nav.ts`). */
 export const Route = createFileRoute('/settings')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

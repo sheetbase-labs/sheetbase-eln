@@ -47,6 +47,7 @@ import { toast } from '#/components/v3/ui/sonner'
 import { hasCapability } from '#/lib/capability'
 import { createDatasetSchemaDefinition } from '#/lib/dataset-schema-definition-rpc'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'published', 'drafts', 'retired'] as const
 type ModelTab = (typeof tabs)[number]
@@ -86,10 +87,10 @@ export const Route = createFileRoute('/models')({
         ? search.tab
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

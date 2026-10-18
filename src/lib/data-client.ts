@@ -8,6 +8,7 @@
  * with the raw wire shape. Domain mappers belong at the call site, not here.
  */
 
+import { markSessionExpired } from './session-expiry'
 import { CLIENT_ID_HEADER, getOrCreateClientId } from './client-identity'
 
 export interface DataError {
@@ -117,6 +118,9 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       headers,
     })
     if (!response.ok) {
+      // J-SET-05: a 401 here means the session ended; say so once, centrally.
+      if (response.status === 401 && typeof window !== 'undefined')
+        markSessionExpired()
       throw await parseError(response)
     }
     return response

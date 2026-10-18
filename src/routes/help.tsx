@@ -4,6 +4,7 @@ import { Status } from '#/components/v3/ui/status'
 import { DescriptionList, Muted } from '#/components/v3/ui/layout'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { useHelp } from '#/lib/help'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * Help centre frame: /help (index), /help/records, /help/shortcuts. Help
@@ -11,10 +12,10 @@ import { useHelp } from '#/lib/help'
  * varies per deployment.
  */
 export const Route = createFileRoute('/help')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as ClientPortalRouteImport } from './routes/client-portal'
 import { Route as ComponentCompareRouteImport } from './routes/component-compare'
@@ -169,6 +170,11 @@ const IndexRoute = IndexRouteImport.update({
 const SplatRoute = SplatRouteImport.update({
   id: '/$',
   path: '/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
+  id: '/accept-invitation',
+  path: '/accept-invitation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalysisRoute = AnalysisRouteImport.update({
@@ -954,6 +960,7 @@ const ApiExportRevisionIdPackageRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/component-compare': typeof ComponentCompareRoute
@@ -1107,6 +1114,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
   '/client-portal': typeof ClientPortalRoute
   '/component-compare': typeof ComponentCompareRoute
   '/datasets': typeof DatasetsRouteWithChildren
@@ -1248,6 +1256,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
   '/analysis': typeof AnalysisRouteWithChildren
   '/client-portal': typeof ClientPortalRoute
   '/component-compare': typeof ComponentCompareRoute
@@ -1403,6 +1412,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$'
+    | '/accept-invitation'
     | '/analysis'
     | '/client-portal'
     | '/component-compare'
@@ -1556,6 +1566,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/$'
+    | '/accept-invitation'
     | '/client-portal'
     | '/component-compare'
     | '/datasets'
@@ -1696,6 +1707,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/$'
+    | '/accept-invitation'
     | '/analysis'
     | '/client-portal'
     | '/component-compare'
@@ -1850,6 +1862,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  AcceptInvitationRoute: typeof AcceptInvitationRoute
   AnalysisRoute: typeof AnalysisRouteWithChildren
   ClientPortalRoute: typeof ClientPortalRoute
   ComponentCompareRoute: typeof ComponentCompareRoute
@@ -1930,6 +1943,13 @@ declare module '@tanstack/react-router' {
       path: '/$'
       fullPath: '/$'
       preLoaderRoute: typeof SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accept-invitation': {
+      id: '/accept-invitation'
+      path: '/accept-invitation'
+      fullPath: '/accept-invitation'
+      preLoaderRoute: typeof AcceptInvitationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analysis': {
@@ -3379,6 +3399,7 @@ const ApiExportRecordIdRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  AcceptInvitationRoute: AcceptInvitationRoute,
   AnalysisRoute: AnalysisRouteWithChildren,
   ClientPortalRoute: ClientPortalRoute,
   ComponentCompareRoute: ComponentCompareRoute,

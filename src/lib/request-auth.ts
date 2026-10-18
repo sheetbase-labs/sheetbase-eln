@@ -6,6 +6,7 @@
  * mutation goes through the same RLS + change-event + audit path as the rest
  * of the application.
  */
+import { pickActiveMembership } from '#/lib/active-membership'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { eq } from 'drizzle-orm'
 
@@ -84,13 +85,13 @@ export const realSessionAuthDeps: SessionAuthDeps = {
       }),
     ])
     // SHELL-01.4: prefer the chosen workspace while the user is a member.
-    const membership =
-      (preference?.activeWorkspaceId
-        ? memberships.find(
-            (item) => item.workspaceId === preference.activeWorkspaceId,
-          )
-        : undefined) ?? memberships.at(0)
-    return membership ? { id: membership.workspaceId } : null
+    const membership = pickActiveMembership(
+      memberships,
+      preference?.activeWorkspaceId,
+    )
+    return membership && !membership.suspendedAt
+      ? { id: membership.workspaceId }
+      : null
   },
   mintToken: (input) => mintPostgrestToken(env.PGRST_JWT_SECRET, input),
 }

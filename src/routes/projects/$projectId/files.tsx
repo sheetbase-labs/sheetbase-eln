@@ -25,15 +25,16 @@ import {
 import { useUserNames } from '#/lib/user-names'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 export const Route = createFileRoute('/projects/$projectId/files')({
   validateSearch: (search: Record<string, unknown>): { page?: number } => {
     const page = parseProjectPage(search.page)
     return page > 1 ? { page } : {}
   },
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
   component: ProjectFilesTab,

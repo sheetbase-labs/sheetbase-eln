@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
 import {
   Link,
   Outlet,
@@ -71,6 +72,7 @@ import type {
 } from '#/components/v3/instruments/instruments-data'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the Instruments area (LAB-06). Reads the real
  * instrument registry with its calibration standing; registering and retiring
@@ -105,10 +107,10 @@ export const Route = createFileRoute('/instruments')({
         ? search.state
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -401,7 +403,13 @@ function InstrumentsList() {
           <EmptyState
             icon="lock"
             title="You don’t have access to the instrument registry"
-            description="The registry is open to members of this workspace. Ask a workspace admin to add you."
+            description={
+              <>
+                The registry is open to members of this workspace. Ask a
+                workspace admin to add you.
+                <WorkspaceAdminsLine workspaceId={workspaceId} />
+              </>
+            }
             action={
               <Button nativeButton={false} render={<Link to="/schedule" />}>
                 Book an instrument instead

@@ -103,8 +103,13 @@ describe('NotFound — unmatched URL', () => {
 
   it('redirects a signed-out visitor to sign-in', async () => {
     await expect(
-      SplatRoute.options.beforeLoad?.({ context: { auth: null } } as never),
-    ).rejects.toBeInstanceOf(Response)
+      SplatRoute.options.beforeLoad?.({
+        context: { auth: null },
+        location: { href: '/nowhere/deep?x=1' },
+      } as never),
+    ).rejects.toMatchObject({
+      options: { to: '/sign-in', search: { next: '/nowhere/deep?x=1' } },
+    })
   })
 
   it('renders for a signed-in visitor', async () => {

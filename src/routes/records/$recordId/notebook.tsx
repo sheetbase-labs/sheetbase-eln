@@ -54,11 +54,8 @@ import {
   OfflineEditsProvider,
   useIsOnline,
 } from '#/components/offline/offline-edits'
-import {
-  OfflineStatusBanner,
-  UnsyncedChangesSection,
-} from '#/components/offline/offline-status'
-import { OfflineReplayRunner } from '#/components/offline/offline-replay'
+import { UnsyncedChangesSection } from '#/components/offline/offline-status'
+import { NotebookOfflineSurfaces } from '#/components/offline/notebook-offline-surfaces'
 import {
   CONNECTION_REQUIRED_REASONS,
   ConnectionRequired,
@@ -204,6 +201,7 @@ import type { NotebookOutlineControls } from '#/components/notebook/notebook-out
 import { RecordPickerDialog } from '#/components/v3/record-picker/record-picker'
 import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
 import { toast } from '#/components/v3/ui/sonner'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * UI port (roadmap-4/ui-app3): the notebook renders inside app-3's shell, so
@@ -242,9 +240,9 @@ function RouteShell({
  */
 
 export const Route = createFileRoute('/records/$recordId/notebook')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
   component: ExperimentNotebookRoute,
@@ -739,16 +737,12 @@ function ExperimentNotebookRoute() {
           <div className="flex-1 overflow-y-auto px-4 pb-16 md:px-6">
             {/* EXP-05.2: the offline banner, full-bleed over the column's
               padding, plus the offline-capabilities note below it. */}
-            <OfflineStatusBanner
-              className="-mx-4 md:-mx-6"
-              capabilitiesClassName="my-3"
-            />
-            {/* EXP-05.3: when the connection returns, the drafts this device
-              held are replayed through their canonical write paths. */}
-            <OfflineReplayRunner
+            <NotebookOfflineSurfaces
               store={deviceOfflineEditStore()}
               scope={{ userId: context.user.id, recordId: record.id }}
-              className="my-3"
+              className="-mx-4 md:-mx-6"
+              capabilitiesClassName="my-3"
+              replayClassName="my-3"
             />
             <NotebookPrintStyles />
             <StickyRecordHeader

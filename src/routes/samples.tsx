@@ -50,6 +50,7 @@ import {
 import type { SampleListRow } from '#/components/v3/samples/samples-data'
 import { createSample } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['instock', 'mine', 'awaiting', 'quarantine', 'consumed'] as const
 type SampleTab = (typeof tabs)[number]
@@ -79,10 +80,10 @@ export const Route = createFileRoute('/samples')({
         : undefined,
     new: search.new === true || search.new === 'true' || undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

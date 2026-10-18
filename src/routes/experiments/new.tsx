@@ -19,6 +19,7 @@ import {
 } from '#/lib/notebook-create'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** One project as the picker needs it: its access is resolved separately. */
 interface ProjectOption {
@@ -83,10 +84,10 @@ export const Route = createFileRoute('/experiments/new')({
   validateSearch: (search: Record<string, unknown>): { project?: string } => ({
     project: typeof search.project === 'string' ? search.project : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

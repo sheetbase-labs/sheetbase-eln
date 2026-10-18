@@ -321,7 +321,7 @@ export function SettingsGeneral({ workspaceId }: { workspaceId: string }) {
         </ul>
         <CheckRow
           title="Allow offline editing on this workspace’s devices"
-          body="Edits sync when the device reconnects. Conflicts are shown to both people."
+          body="When on, a notebook that loses its connection keeps edits on the device and syncs them on reconnect. When off, the notebook says editing needs a connection and keeps and replays nothing."
           checked={form.offlineEditingAllowed}
           disabled={query.isLoading || query.isError || save.isPending}
           onCheckedChange={(checked) =>

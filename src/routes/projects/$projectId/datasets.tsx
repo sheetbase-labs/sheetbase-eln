@@ -14,6 +14,7 @@ import {
   PROJECT_LIST_PAGE_SIZE,
 } from '#/components/v3/projects/project-lists'
 import { datasetValidation } from '#/components/v3/datasets/datasets-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * R5-SURF-02 — the project's Datasets tab.
@@ -29,9 +30,9 @@ export const Route = createFileRoute('/projects/$projectId/datasets')({
     const page = parseProjectPage(search.page)
     return page > 1 ? { page } : {}
   },
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
   component: ProjectDatasetsTab,

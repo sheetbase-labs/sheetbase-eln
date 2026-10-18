@@ -1,4 +1,5 @@
 import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * UI port (roadmap-4/ui-app3): the analysis area frame. The list lives at
@@ -6,9 +7,9 @@ import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
  * `/analysis/$analysisId`.
  */
 export const Route = createFileRoute('/analysis')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
   component: AnalysisLayout,

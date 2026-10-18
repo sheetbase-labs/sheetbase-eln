@@ -19,6 +19,7 @@ import {
 } from '#/components/v3/projects/project-lists'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { useRecentViewTracking } from '#/lib/recents'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the project detail frame. Overview and
  * Settings are ported; Folders and Members tabs land with theirs. */
@@ -26,7 +27,7 @@ export const Route = createFileRoute('/projects/$projectId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     await resolveIdentifierParam({
       entity: 'project',

@@ -22,6 +22,7 @@ import {
 } from '#/lib/pipelines/config'
 import type { PipelineInput } from '#/lib/pipelines/config'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (RM-125): the pipeline Steps editor. Edits the stored configuration
  * — description, declared inputs, the transform and the output — saves it as
@@ -30,10 +31,10 @@ import { notebookDataClient } from '#/lib/notebook-data'
  * output extends) are chosen here from what the workspace has, with the Dataset
  * Version label every kept output needs. */
 export const Route = createFileRoute('/pipelines/$pipelineId/steps')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

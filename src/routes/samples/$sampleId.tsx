@@ -79,6 +79,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { downloadTextFile } from '#/lib/download'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the sample detail frame, wired to real sample
  * records; Withdraw and Move use the canonical custody RPCs. LAB-02 step 3 adds
@@ -88,7 +89,7 @@ export const Route = createFileRoute('/samples/$sampleId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     await resolveIdentifierParam({
       entity: 'sample',

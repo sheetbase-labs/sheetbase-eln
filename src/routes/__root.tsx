@@ -11,6 +11,8 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/shell'
 import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
+import { SessionExpiredBanner } from '#/components/v3/shell/session-expired-banner'
+import { AccessBlocked } from '#/components/v3/shell/access-blocked'
 import { Toaster } from '#/components/v3/ui/sonner'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
@@ -169,7 +171,7 @@ function RootRouteComponent() {
   ]
   // Routes with their own chrome (the client portal, ADR-0049) render without
   // either shell: no internal navigation and no workspace data.
-  const bareRouteIds = ['/client-portal', '/sign-in']
+  const bareRouteIds = ['/client-portal', '/sign-in', '/accept-invitation']
   const matches = useMatches()
   const bareRoute = matches.some((match) =>
     bareRouteIds.includes(match.routeId),
@@ -191,10 +193,12 @@ function RootRouteComponent() {
         workspace: auth.workspace
           ? { id: auth.workspace.id, name: auth.workspace.name }
           : null,
-        workspaces: auth.workspaces.map((workspace) => ({
-          id: workspace.id,
-          name: workspace.name,
-        })),
+        workspaces: auth.workspaces
+          .filter((workspace) => !workspace.suspended)
+          .map((workspace) => ({
+            id: workspace.id,
+            name: workspace.name,
+          })),
       }
     : {
         me: { id: '', name: '', initials: '', role: '' },
@@ -212,8 +216,22 @@ function RootRouteComponent() {
           value={auth?.collaborationEnabled ?? false}
         >
           <CollaborationProvider>
+            {auth && !bareRoute ? <SessionExpiredBanner /> : null}
             {bareRoute ? (
               <Outlet />
+            ) : auth && (!auth.workspace || auth.workspace.suspended) ? (
+              // J-SET-03/04: no live membership. The shell and every
+              // workspace read would fail without saying why.
+              <AccessBlocked
+                user={auth.user}
+                suspendedWorkspace={
+                  auth.workspace ? { name: auth.workspace.name } : null
+                }
+                contacts={auth.accessContacts ?? []}
+                otherWorkspaces={auth.workspaces.filter(
+                  (w) => w.id !== auth.workspace?.id && !w.suspended,
+                )}
+              />
             ) : legacyShell ? (
               <ShellProvider>
                 <Outlet />

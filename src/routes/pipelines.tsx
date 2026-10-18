@@ -54,6 +54,7 @@ import {
 } from '#/components/v3/pipelines/pipelines-data'
 import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
 import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'mine', 'needsattention', 'scheduled', 'drafts'] as const
 type PipelineTab = (typeof tabs)[number]
@@ -77,10 +78,10 @@ export const Route = createFileRoute('/pipelines')({
       ? (search.tab as PipelineTab)
       : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

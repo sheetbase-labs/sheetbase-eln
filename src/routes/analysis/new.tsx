@@ -130,6 +130,7 @@ import { formatCount } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 import { rasteriseSvgToPng } from '#/lib/visualisation-export'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 export const Route = createFileRoute('/analysis/new')({
   validateSearch: (
@@ -161,9 +162,9 @@ export const Route = createFileRoute('/analysis/new')({
     }
     return next
   },
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
   component: AnalysisStudio,

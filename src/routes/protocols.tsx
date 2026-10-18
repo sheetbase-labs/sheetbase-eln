@@ -35,6 +35,7 @@ import { NewProtocolDialog } from '#/components/v3/protocols/new-protocol-dialog
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -87,10 +88,10 @@ export const Route = createFileRoute('/protocols')({
       ? (search.tab as ProtocolTab)
       : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

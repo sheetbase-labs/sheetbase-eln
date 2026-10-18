@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 
+import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { SettingsGeneral } from '#/components/v3/settings/settings-general'
@@ -35,7 +36,14 @@ function General() {
           <EmptyState
             icon="lock"
             title="Only workspace admins can see workspace settings"
-            description="The workspace name, time zone, display formats and identifier prefixes apply to everyone in the workspace. Ask a workspace admin to change them."
+            description={
+              <>
+                The workspace name, time zone, display formats and identifier
+                prefixes apply to everyone in the workspace. Ask a workspace
+                admin to change them.
+                <WorkspaceAdminsLine workspaceId={workspaceId} />
+              </>
+            }
             action={
               <Button
                 nativeButton={false}

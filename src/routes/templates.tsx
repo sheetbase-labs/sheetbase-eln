@@ -53,6 +53,7 @@ import type { TemplateRow } from '#/components/v3/templates/templates-data'
 import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog'
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'active', 'retired'] as const
 type TemplateTab = (typeof tabs)[number]
@@ -89,10 +90,10 @@ export const Route = createFileRoute('/templates')({
         ? search.tab
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

@@ -47,6 +47,7 @@ import type {
   ExperimentTabKey,
 } from '#/components/v3/experiments/experiments-data'
 import { useUserNames } from '#/lib/user-names'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = [
   'all',
@@ -100,10 +101,10 @@ export const Route = createFileRoute('/experiments')({
         ? search.group
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

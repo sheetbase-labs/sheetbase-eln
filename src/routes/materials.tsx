@@ -63,6 +63,7 @@ import {
 } from '#/lib/reagent-data'
 import type { Reagent } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['instock', 'expiring', 'quarantine', 'expired'] as const
 
@@ -140,10 +141,10 @@ export const Route = createFileRoute('/materials')({
         ? search.tab
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

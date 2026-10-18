@@ -203,6 +203,7 @@ import type { NotebookOutlineControls } from '#/components/notebook/notebook-out
 import { RecordPickerDialog } from '#/components/v3/record-picker/record-picker'
 import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
 import { toast } from '#/components/v3/ui/sonner'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * UI port (roadmap-4/ui-app3): the notebook renders inside app-3's shell, so
@@ -241,9 +242,9 @@ function RouteShell({
  */
 
 export const Route = createFileRoute('/records/$recordId/notebook')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
   component: ExperimentNotebookRoute,

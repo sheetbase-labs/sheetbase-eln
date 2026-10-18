@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * EXP-01.1 — the record page is a layout: the header and tabs live in the
@@ -10,7 +11,7 @@ import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 export const Route = createFileRoute('/records/$recordId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     await resolveIdentifierParam({
       entity: 'record',
       ref: params.recordId,

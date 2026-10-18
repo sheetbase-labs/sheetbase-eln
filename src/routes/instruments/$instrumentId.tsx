@@ -63,6 +63,7 @@ import {
   useInstrumentRuns,
 } from '#/components/v3/instruments/instruments-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): an instrument's record, calibration and run
  * queue (LAB-06). */
@@ -70,7 +71,7 @@ export const Route = createFileRoute('/instruments/$instrumentId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     await resolveIdentifierParam({
       entity: 'instrument',

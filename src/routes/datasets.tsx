@@ -39,6 +39,7 @@ import {
   useDatasetSummaries,
 } from '#/components/v3/datasets/datasets-data'
 import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'mine', 'issues', 'locked'] as const
 type DatasetTab = (typeof tabs)[number]
@@ -77,10 +78,10 @@ export const Route = createFileRoute('/datasets')({
         ? search.tab
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

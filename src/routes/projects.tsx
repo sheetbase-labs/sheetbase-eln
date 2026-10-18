@@ -22,6 +22,7 @@ import {
   workspaceMemberQueryKeys,
 } from '#/components/v3/projects/project-data'
 import { hasCapability } from '#/lib/capability'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the Projects list from sheetbase-app-3, wired
  * to the real `project_list_summary` / `create_project` RPCs. The old ELN list
@@ -128,10 +129,10 @@ export const Route = createFileRoute('/projects')({
       new: search.new === true || search.new === 'true' || undefined,
     }
   },
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

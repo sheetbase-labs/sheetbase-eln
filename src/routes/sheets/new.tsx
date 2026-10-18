@@ -17,15 +17,16 @@ import { Icon } from '#/components/v3/icons'
 import { createAdHocSheetInstance } from '#/lib/sheet-instance-data'
 import type { SheetInstanceState } from '#/lib/sheet-instance'
 import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): a new, empty working sheet. A sheet lives in a
  * project, so the flow picks one; the blank sheet is created through the
  * canonical create RPC and opened at /sheets/$sheetId. */
 export const Route = createFileRoute('/sheets/new')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

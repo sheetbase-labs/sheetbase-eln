@@ -24,6 +24,7 @@ import {
   sheetInstanceDataClient,
 } from '#/lib/sheet-instance-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the working sheet renders inside app-3's shell
  * with its own header, replacing the legacy useShell wrapper. The canonical
@@ -41,7 +42,7 @@ export const Route = createFileRoute('/sheets/$sheetId')({
   }),
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     await resolveIdentifierParam({
       entity: 'sheet',
       ref: params.sheetId,

@@ -11,6 +11,7 @@ import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the experiment detail frame. Overview, Samples,
  * Datasets, Results, Files and History are wired to real data; Notebook reuses
@@ -19,7 +20,7 @@ export const Route = createFileRoute('/experiments/$expId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     await resolveIdentifierParam({
       entity: 'experiment',

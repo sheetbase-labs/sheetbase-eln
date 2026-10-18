@@ -182,6 +182,7 @@ import {
 } from '#/components/shortcuts/shortcut-provider'
 import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * UI port (roadmap-4/ui-app3): the route renders inside app-3's shell, so the
@@ -259,7 +260,7 @@ export const Route = createFileRoute('/review/$revisionId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     await resolveIdentifierParam({
       entity: 'review',

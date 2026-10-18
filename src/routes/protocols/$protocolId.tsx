@@ -33,6 +33,7 @@ import {
 } from '#/lib/controlled-protocols'
 import { useUserNames } from '#/lib/user-names'
 import { protocolStatus } from '#/components/v3/protocols/protocols-registry-grid'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -55,10 +56,10 @@ export const Route = createFileRoute('/protocols/$protocolId')({
         ? search.section
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

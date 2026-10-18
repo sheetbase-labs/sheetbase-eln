@@ -16,15 +16,16 @@ import {
   useTemplate,
   useTemplateVersions,
 } from '#/components/v3/templates/templates-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the template detail frame. The Sections view
  * reads the selected version's stored configuration; Update takes a new version
  * into a notebook that was made from an older one. */
 export const Route = createFileRoute('/templates/$templateId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

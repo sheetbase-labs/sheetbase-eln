@@ -84,16 +84,17 @@ import {
   workspaceAccessKeys,
 } from '#/lib/workspace-access'
 import { cn } from '#/lib/utils'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): Home, matching the reference — a status chip
  * row, Awaiting your review, Continue working, and an inspector with Today,
  * Needs attention and Recent activity — all on real data. When the user has no
  * personal recents yet, Home shows the first-run setup state instead. */
 export const Route = createFileRoute('/')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

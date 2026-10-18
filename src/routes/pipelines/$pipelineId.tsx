@@ -25,13 +25,14 @@ import {
   versionStatus,
 } from '#/components/v3/pipelines/pipelines-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the pipeline detail frame. */
 export const Route = createFileRoute('/pipelines/$pipelineId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     await resolveIdentifierParam({
       entity: 'pipeline',

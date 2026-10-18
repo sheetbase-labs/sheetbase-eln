@@ -41,6 +41,7 @@ import type {
   ClientPortalReport,
 } from '#/lib/client-portal'
 import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['projects', 'reports', 'messages'] as const
 type PortalTab = (typeof tabs)[number]
@@ -62,10 +63,10 @@ export const Route = createFileRoute('/client-portal')({
         ? (search.tab as PortalTab)
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

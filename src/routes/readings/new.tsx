@@ -29,6 +29,7 @@ import {
   sampleBindingField,
   submitBenchReading,
 } from '#/lib/readings-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (RM-109 / MOB-02): record a reading at the bench into a planned
  * Dataset row. The value is validated against its Schema field rules and an
@@ -39,10 +40,10 @@ export const Route = createFileRoute('/readings/new')({
   validateSearch: (search: Record<string, unknown>): { sample?: string } => ({
     sample: typeof search.sample === 'string' ? search.sample : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

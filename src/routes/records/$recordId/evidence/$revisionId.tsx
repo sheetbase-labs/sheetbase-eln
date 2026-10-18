@@ -19,12 +19,13 @@ import {
   revisionEvidenceQueryKeys,
 } from '#/lib/revision-evidence'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 export const Route = createFileRoute('/records/$recordId/evidence/$revisionId')(
   {
-    beforeLoad: async ({ context: rootContext }) => {
+    beforeLoad: async ({ context: rootContext, location }) => {
       const context = rootContext.auth
-      if (!context) throw redirect({ to: '/sign-in' })
+      if (!context) throw redirect(signInRedirect(location))
       return { context }
     },
     component: RevisionEvidenceRoute,

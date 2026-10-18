@@ -12,6 +12,7 @@ import {
   scanTargetHref,
 } from '#/components/v3/scan/scan-data'
 import type { ScanResolution, ScanTarget } from '#/components/v3/scan/scan-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * UI port (roadmap-4/ui-app3): the Scan screen (MOB-02 / LAB-05). Camera
@@ -20,10 +21,10 @@ import type { ScanResolution, ScanTarget } from '#/components/v3/scan/scan-data'
  * works. Results resolve against real records and instruments.
  */
 export const Route = createFileRoute('/scan')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

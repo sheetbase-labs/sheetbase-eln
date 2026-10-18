@@ -24,15 +24,16 @@ import {
   S3_SECRET_NAMES,
   enterpriseAdapterId,
 } from '#/lib/connectors/enterprise/types'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): connector detail under Settings — config, run
  * history and instrument ingestion, with pause/activate through the connector
  * RPCs. */
 export const Route = createFileRoute('/settings/integrations/$connectorId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

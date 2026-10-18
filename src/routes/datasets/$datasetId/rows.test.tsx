@@ -235,6 +235,12 @@ describe('dataset rows grid', () => {
     expect(screen.getByText(/Showing 3 of 120 rows/)).toBeTruthy()
   })
 
+  it('offers a route to correct a value, since the grid is read-only (J-DAT-02)', async () => {
+    renderGrid()
+
+    expect(await screen.findByText('Correct by re-import')).toBeTruthy()
+  })
+
   it('keeps every character of a burst typed faster than the route echoes it', async () => {
     renderGrid()
     const field = await screen.findByLabelText<HTMLInputElement>('Search rows')

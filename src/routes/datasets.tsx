@@ -346,7 +346,7 @@ function DatasetsList() {
                 {datasetValidation(sel).label}
               </Status>
             </div>
-            <div className="mt-1.5 flex gap-1.5">
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               <Button
                 variant={sel.issues > 0 ? 'primary' : undefined}
                 size="sm"
@@ -358,8 +358,26 @@ function DatasetsList() {
                   />
                 }
               >
-                {sel.issues > 0 ? 'Open and fix' : 'Open dataset'}
+                Open dataset
               </Button>
+              {sel.missingUnit > 0 ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to="/models" search={{ q: sel.model }} />}
+                >
+                  Set unit on model
+                </Button>
+              ) : null}
+              {sel.issues > 0 ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to="/import" />}
+                >
+                  Re-import
+                </Button>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-col gap-[18px] px-4 py-3.5">

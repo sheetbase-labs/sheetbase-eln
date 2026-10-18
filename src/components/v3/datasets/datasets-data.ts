@@ -115,7 +115,7 @@ export function datasetIssueSummary(row: DatasetListRow): string {
     const blocker = row.experimentId
       ? ` Units are required before ${row.experimentId} can be submitted.`
       : ' Units are required before the dataset can be submitted.'
-    return `${list} ${verb} no unit.${blocker}`
+    return `${list} ${verb} no unit.${blocker} A model owner or admin sets the unit on the model's field, or re-import with a unit column.`
   }
   if (row.outOfRange > 0) {
     const n = row.outOfRange

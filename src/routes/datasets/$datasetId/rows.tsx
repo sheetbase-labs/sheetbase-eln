@@ -317,6 +317,9 @@ function Rows() {
           <Muted className="max-lg:hidden">
             Snapshot {version.label} · read-only; values change only by import
           </Muted>
+          <Button size="sm" nativeButton={false} render={<Link to="/import" />}>
+            Correct by re-import
+          </Button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto px-4 pb-3 md:px-6">
@@ -461,6 +464,13 @@ function Rows() {
                 sourceSample={sourceSample.data ?? null}
                 onChanged={() => refresh(version.id)}
               />
+              <Muted className="mt-2">
+                To correct this value, import the corrected rows into the
+                dataset.{' '}
+                <Link to="/import" className="underline">
+                  Re-import
+                </Link>
+              </Muted>
             </InspectorSection>
           ) : null}
         </Inspector>

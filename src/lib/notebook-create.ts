@@ -12,16 +12,21 @@ export async function createBlankExperiment(
   input: {
     projectId: string
     title: string
+    /** Defaults to an experiment; a protocol is created the same way. */
+    kind?: 'experiment' | 'protocol_template'
     /** Record properties, e.g. reviewer_user_id and planned_end. */
     properties?: Record<string, unknown>
   },
 ): Promise<NotebookRecord> {
-  const title = input.title.trim() || 'Untitled experiment'
+  const kind = input.kind ?? 'experiment'
+  const title =
+    input.title.trim() ||
+    (kind === 'protocol_template' ? 'Untitled protocol' : 'Untitled experiment')
   const result = await client.rpc<{ record: RecordWire; blocks: BlockWire[] }>(
     'create_record_with_blocks',
     {
       p_project_id: input.projectId,
-      p_kind: 'experiment',
+      p_kind: kind,
       p_title: title,
       p_status: 'draft',
       p_tags: [],

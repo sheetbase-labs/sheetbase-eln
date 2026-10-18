@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 
 import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Select } from '#/components/v3/ui/select'
 import {
@@ -121,7 +122,18 @@ function ModelFields() {
             <EmptyState
               icon="table"
               title="No version yet"
-              description="Start a version from the header, add fields, then publish it."
+              description="Open Edit model, choose Start draft, add fields, then publish it. Only model owners and admins can."
+              action={
+                <Button
+                  variant="primary"
+                  nativeButton={false}
+                  render={
+                    <Link to="/models/$modelId/edit" params={{ modelId }} />
+                  }
+                >
+                  Edit model
+                </Button>
+              }
             />
           ) : rows.length ? (
             <TableBox>
@@ -139,7 +151,18 @@ function ModelFields() {
             <EmptyState
               icon="table"
               title="No fields on this version"
-              description="Add fields to the draft version, then publish it for datasets to use."
+              description="Open Edit model to add fields to the draft version, then publish it for datasets to use. Only model owners and admins can."
+              action={
+                <Button
+                  variant="primary"
+                  nativeButton={false}
+                  render={
+                    <Link to="/models/$modelId/edit" params={{ modelId }} />
+                  }
+                >
+                  Edit model
+                </Button>
+              }
             />
           )}
         </div>

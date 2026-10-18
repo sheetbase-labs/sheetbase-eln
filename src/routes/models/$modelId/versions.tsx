@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
@@ -159,7 +159,16 @@ function DatasetModelVersions() {
         <EmptyState
           icon="table"
           title="No versions yet"
-          description="Start a version from the header, add fields, then publish it."
+          description="Open Edit model, choose Start draft, add fields, then publish it. Only model owners and admins can."
+          action={
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<Link to="/models/$modelId/edit" params={{ modelId }} />}
+            >
+              Edit model
+            </Button>
+          }
         />
       </div>
     )

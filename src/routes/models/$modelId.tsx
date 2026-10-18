@@ -93,6 +93,20 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
           trail={[{ label: 'Models', link: { to: '/models' } }]}
           title={definition.isLoading ? 'Loading model…' : 'Model not found'}
         />
+        {definition.isLoading ? null : (
+          <div className="px-4 py-6 md:px-6">
+            <EmptyState
+              icon="warn"
+              title="Model not found"
+              description="It may have been removed, or it belongs to another workspace."
+              action={
+                <Button nativeButton={false} render={<Link to="/models" />}>
+                  Back to models
+                </Button>
+              }
+            />
+          </div>
+        )}
       </div>
     )
   }

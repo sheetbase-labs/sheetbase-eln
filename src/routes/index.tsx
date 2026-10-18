@@ -84,16 +84,17 @@ import {
   workspaceAccessKeys,
 } from '#/lib/workspace-access'
 import { cn } from '#/lib/utils'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): Home, matching the reference — a status chip
  * row, Awaiting your review, Continue working, and an inspector with Today,
  * Needs attention and Recent activity — all on real data. When the user has no
  * personal recents yet, Home shows the first-run setup state instead. */
 export const Route = createFileRoute('/')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -140,7 +141,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
     },
     {
       label: 'Set up your electronic signature',
-      hint: 'Required before you can author, review or approve records. Takes about 2 minutes.',
+      hint: 'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so a new workspace needs a second administrator.',
       done: input.signatureCertified,
       actionLabel: 'Set up signature',
       actionTo: '/settings/signatures',

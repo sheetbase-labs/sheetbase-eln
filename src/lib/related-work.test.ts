@@ -146,7 +146,7 @@ describe('relatedDestination / relatedKindLabel', () => {
       '/records/r-1',
     )
     expect(relatedDestination('record', 's-1', 'sample')).toBe(
-      '/samples?selected=s-1',
+      '/samples/s-1',
     )
     expect(relatedDestination('dataset', 'd-1')).toBe('/datasets?dataset=d-1')
     expect(relatedDestination('sheet', 'sh-1')).toBe('/sheets/sh-1')

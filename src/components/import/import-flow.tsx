@@ -236,10 +236,13 @@ interface ImportCommitResponseSummary {
 export function ImportUploadFlow({
   workspaceId,
   createdByUserId,
+  initialInstrumentId,
 }: {
   workspaceId: string
   /** The signed-in person a Dataset created here is attributed to. */
   createdByUserId: string | null
+  /** Preselects the instrument, e.g. from an instrument's "Upload a file" action. */
+  initialInstrumentId?: string
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -262,7 +265,7 @@ export function ImportUploadFlow({
   const [schemaVersionId, setSchemaVersionId] = useState('')
   const [newName, setNewName] = useState('')
   const [experimentId, setExperimentId] = useState('')
-  const [instrumentId, setInstrumentId] = useState('')
+  const [instrumentId, setInstrumentId] = useState(initialInstrumentId ?? '')
 
   const datasetRows = datasets.data ?? []
   // With nothing to append to, the new-Dataset branch is the only path — it is

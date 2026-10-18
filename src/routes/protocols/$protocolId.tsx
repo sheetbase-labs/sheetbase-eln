@@ -8,6 +8,7 @@ import { Tabs } from '#/components/v3/ui/tabs'
 import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { Button } from '#/components/v3/ui/button'
 import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { TableBox } from '#/components/v3/ui/table'
@@ -33,6 +34,7 @@ import {
 } from '#/lib/controlled-protocols'
 import { useUserNames } from '#/lib/user-names'
 import { protocolStatus } from '#/components/v3/protocols/protocols-registry-grid'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -55,10 +57,10 @@ export const Route = createFileRoute('/protocols/$protocolId')({
         ? search.section
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -102,6 +104,20 @@ function ProtocolPage() {
           trail={[{ label: 'Protocols', link: { to: '/protocols' } }]}
           title={record.isLoading ? 'Loading protocol…' : 'Protocol not found'}
         />
+        {record.isLoading ? null : (
+          <div className="px-4 py-4 md:px-6">
+            <EmptyState
+              icon="protocol"
+              title="This protocol isn’t available to you"
+              description="It may have been removed, may not be a protocol, or sits in a project you can’t view. Ask the project owner for access, or pick another protocol."
+              action={
+                <Button nativeButton={false} render={<Link to="/protocols" />}>
+                  Back to protocols
+                </Button>
+              }
+            />
+          </div>
+        )}
       </div>
     )
   }
@@ -208,6 +224,20 @@ function ProtocolPage() {
           { label: p.identifier, mono: true },
         ]}
         title={p.title}
+        actions={
+          <Button
+            variant="primary"
+            nativeButton={false}
+            render={
+              <Link
+                to="/records/$recordId/notebook"
+                params={{ recordId: p.id }}
+              />
+            }
+          >
+            Open working document
+          </Button>
+        }
         meta={
           <>
             <span className="text-fg">
@@ -320,6 +350,19 @@ function ProtocolPage() {
                   icon="protocol"
                   title="No frozen versions yet"
                   description="A version is frozen when the protocol is submitted for review. New experiments pin the version they start from."
+                  action={
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link
+                          to="/records/$recordId/notebook"
+                          params={{ recordId: p.id }}
+                        />
+                      }
+                    >
+                      Open the document to submit it
+                    </Button>
+                  }
                 />
               )}
             </Section>

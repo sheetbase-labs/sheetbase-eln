@@ -24,6 +24,8 @@ export interface OfflineBannerProps {
   /** How many edits are waiting on this device. */
   unsyncedCount?: number
   onRetry?: () => void
+  /** False when the workspace has turned offline editing off. */
+  offlineEditingAllowed?: boolean
   /** True while a reconnect attempt is in flight. */
   retrying?: boolean
   className?: string
@@ -35,6 +37,7 @@ export function OfflineBanner({
   unsyncedCount = 0,
   onRetry,
   retrying = false,
+  offlineEditingAllowed = true,
   className,
 }: OfflineBannerProps) {
   if (!offline) return null
@@ -56,8 +59,10 @@ export function OfflineBanner({
     >
       <WifiOff className="size-3.5 shrink-0" aria-hidden="true" />
       <span className="text-fg">
-        <b className="font-semibold">You&apos;re offline.</b> Keep working:
-        edits are saved on this device and sync when you reconnect.
+        <b className="font-semibold">You&apos;re offline.</b>{' '}
+        {offlineEditingAllowed
+          ? 'Keep working: edits are saved on this device and sync when you reconnect.'
+          : 'Offline editing is turned off for this workspace, so edits are not kept on this device. Reconnect to save your work. A workspace owner can change this in Settings, General.'}
       </span>
       <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
         {pending ? <span data-offline-pending>{pending}</span> : null}

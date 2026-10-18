@@ -25,6 +25,7 @@ import {
   useRegisterShortcuts,
   useShortcutScope,
 } from '#/components/shortcuts/shortcut-provider'
+import { resolveRunForWorkItem } from '#/components/v3/pipelines/pipelines-data'
 import { listShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
 import {
@@ -146,15 +147,48 @@ export function itemLink(item: WorkItem) {
       },
     }
   if (item.kind === 'run_failed' || item.kind === 'run_waiting')
-    return { to: '/pipelines' as const }
+    // Until the run is resolved (see `runLink`), at least narrow the list to
+    // the pipeline the item is about.
+    return {
+      to: '/pipelines' as const,
+      search: { q: item.identifier ?? undefined },
+    }
   if (item.kind === 'data_issue') return { to: '/datasets' as const }
-  if (item.kind === 'material_expiring') return { to: '/materials' as const }
+  if (item.kind === 'material_expiring')
+    return item.recordId
+      ? {
+          to: '/materials' as const,
+          search: { selected: item.recordId },
+        }
+      : { to: '/materials' as const }
   if (item.recordId)
     return {
       to: '/records/$recordId' as const,
       params: { recordId: item.recordId },
     }
   return { to: '/inbox' as const }
+}
+
+/** The specific run a failed or waiting item is about, once it is resolved. */
+export function runLink(runId: string) {
+  return { to: '/pipelines/runs/$runId' as const, params: { runId } }
+}
+
+/** The run a failed or waiting item is about; null for any other kind. */
+function useItemRun(item: WorkItem | undefined) {
+  const isRun = item?.kind === 'run_failed' || item?.kind === 'run_waiting'
+  return useQuery({
+    queryKey: [
+      'inbox',
+      'item-run',
+      item?.kind,
+      item?.sourceId,
+      item?.identifier,
+    ],
+    queryFn: () => (item ? resolveRunForWorkItem(item) : null),
+    enabled: isRun,
+    staleTime: 30_000,
+  })
 }
 
 /** The record page for an item, when it names one. */
@@ -248,6 +282,7 @@ function Inbox() {
   )
   const selected =
     orderedRows.find((i) => rowKey(i) === selectedKey) ?? orderedRows[0]
+  const selectedRun = useItemRun(selected)
   const selectedCount = orderedRows.filter((item) =>
     selection.has(rowKey(item)),
   ).length
@@ -326,7 +361,16 @@ function Inbox() {
     const item =
       rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
       rowsRef.current.at(0)
-    if (item) void navigate(itemLink(item) as never)
+    if (!item) return
+    if (item.kind === 'run_failed' || item.kind === 'run_waiting') {
+      void resolveRunForWorkItem(item)
+        .catch(() => null)
+        .then((runId) =>
+          navigate((runId ? runLink(runId) : itemLink(item)) as never),
+        )
+      return
+    }
+    void navigate(itemLink(item) as never)
   }, [navigate])
   const selectCurrent = useCallback((add: boolean) => {
     const item =
@@ -661,8 +705,13 @@ function Inbox() {
                 </p>
               </>
             ) : (
-              <Link {...itemLink(selected)} className="text-label">
-                Open
+              <Link
+                {...(selectedRun.data
+                  ? runLink(selectedRun.data)
+                  : itemLink(selected))}
+                className="text-label"
+              >
+                {selectedRun.data ? 'Open the run' : 'Open'}
               </Link>
             )}
           </InspectorSection>

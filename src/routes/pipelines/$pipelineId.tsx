@@ -1,4 +1,5 @@
 import {
+  Link,
   Outlet,
   createFileRoute,
   redirect,
@@ -11,10 +12,7 @@ import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { toast } from '#/components/v3/ui/sonner'
-import {
-  publishPipelineDefinitionVersion,
-  startPipelineRun,
-} from '#/lib/pipelines/data'
+import { publishPipelineDefinitionVersion } from '#/lib/pipelines/data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   currentVersion,
@@ -24,14 +22,18 @@ import {
   usePipelineVersions,
   versionStatus,
 } from '#/components/v3/pipelines/pipelines-data'
+import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
+import { ProjectListFailure } from '#/components/v3/projects/project-list'
+import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the pipeline detail frame. */
 export const Route = createFileRoute('/pipelines/$pipelineId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     await resolveIdentifierParam({
       entity: 'pipeline',
@@ -62,27 +64,7 @@ function PipelineLayout() {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
 
-  const run = useMutation({
-    mutationFn: () => {
-      if (!current) throw new Error('This pipeline has no version to run.')
-      return startPipelineRun(notebookDataClient, {
-        workspaceId,
-        definitionVersionId: current.id,
-        triggerKind: 'manual',
-      })
-    },
-    onSuccess: () => {
-      void invalidate()
-      toast('Run started', {
-        description: 'Inputs are pinned to the latest snapshots.',
-      })
-    },
-    onError: (error: unknown) =>
-      toast('Could not start the run', {
-        description:
-          error instanceof Error ? error.message : 'The database refused it.',
-      }),
-  })
+  const run = useRunLauncher(workspaceId)
 
   const publish = useMutation({
     mutationFn: () => {
@@ -114,9 +96,35 @@ function PipelineLayout() {
         <PageHeader
           trail={[{ label: 'Pipelines', link: { to: '/pipelines' } }]}
           title={
-            definition.isLoading ? 'Loading pipeline…' : 'Pipeline not found'
+            definition.isLoading
+              ? 'Loading pipeline…'
+              : definition.isError
+                ? 'Pipeline could not be loaded'
+                : 'Pipeline not found'
           }
         />
+        <div className="px-4 py-4 md:px-6">
+          {definition.isError ? (
+            <ProjectListFailure
+              error={definition.error}
+              what="this pipeline"
+              onRetry={() => void definition.refetch()}
+            />
+          ) : definition.isLoading ? null : (
+            <NotFoundNotice
+              what="pipeline"
+              action={
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to="/pipelines" />}
+                >
+                  Back to Pipelines
+                </Button>
+              }
+            />
+          )}
+        </div>
       </div>
     )
   }
@@ -148,9 +156,11 @@ function PipelineLayout() {
             <Button
               icon="play"
               disabled={
-                !current || current.lifecycle === 'draft' || run.isPending
+                !current || current.lifecycle === 'draft' || run.pending
               }
-              onClick={() => run.mutate()}
+              onClick={() =>
+                current && run.launch({ pipelineKey: d.key, version: current })
+              }
             >
               Run now
             </Button>
@@ -198,6 +208,7 @@ function PipelineLayout() {
       <div className="flex min-h-0 flex-1">
         <Outlet />
       </div>
+      {run.dialog}
     </div>
   )
 }

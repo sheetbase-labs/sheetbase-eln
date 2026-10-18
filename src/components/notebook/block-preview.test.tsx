@@ -220,7 +220,7 @@ describe('BlockPreview linked_record (NOTE-03 canonical open affordance)', () =>
     )
     const open = screen.getByRole('link', { name: 'Open' })
     expect(open.getAttribute('href')).toBe(
-      `/samples?selected=${encodeURIComponent(sampleId)}`,
+      `/samples/${encodeURIComponent(sampleId)}`,
     )
   })
 

@@ -81,14 +81,14 @@ describe('datasetIssueSummary', () => {
         }),
       ),
     ).toBe(
-      '“Glucose” and “Osmolality” have no unit. Units are required before EXP-0142 can be submitted.',
+      "“Glucose” and “Osmolality” have no unit. Units are required before EXP-0142 can be submitted. A model owner or admin sets the unit on the model's field, or re-import with a unit column.",
     )
   })
 
   it('uses singular wording for one column', () => {
     expect(
       datasetIssueSummary(row({ missingUnit: 1, missingUnitFields: ['pH'] })),
-    ).toBe(
+    ).toContain(
       '“pH” has no unit. Units are required before EXP-0142 can be submitted.',
     )
   })

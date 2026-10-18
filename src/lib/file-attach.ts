@@ -109,6 +109,51 @@ export function validateFileForUpload(
   return { ok: true, mediaType }
 }
 
+/**
+ * Upload a file into a project's file records without attaching it to a block.
+ * Returns the `file_objects` id that RPCs such as `record_instrument_calibration`
+ * take as a file reference.
+ */
+export async function uploadProjectFile(args: {
+  projectId: string
+  file: File
+}): Promise<{ fileObjectId: string; displayName: string }> {
+  const checked = validateFileForUpload(args.file)
+  if (!checked.ok) throw new AttachFileError(checked.message, checked.code)
+  const authorizeRes = await fetch('/api/files/upload-authorize', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      projectId: args.projectId,
+      displayName: args.file.name,
+      mediaType: checked.mediaType,
+      byteSize: args.file.size,
+    }),
+  })
+  if (authorizeRes.status >= 400) {
+    throw mapStatusToError(
+      authorizeRes.status,
+      await authorizeRes.json().catch(() => null),
+    )
+  }
+  const meta = (await authorizeRes.json()) as {
+    fileRecordId: string
+    fileObjectId: string
+  }
+  const uploadRes = await fetch(`/api/files/${meta.fileRecordId}/upload`, {
+    method: 'PUT',
+    headers: { 'content-type': checked.mediaType },
+    body: args.file,
+  })
+  if (uploadRes.status >= 400) {
+    throw mapStatusToError(
+      uploadRes.status,
+      await uploadRes.json().catch(() => null),
+    )
+  }
+  return { fileObjectId: meta.fileObjectId, displayName: args.file.name }
+}
+
 export async function attachFileToBlock(
   client: DataClient,
   args: AttachFileArgs,

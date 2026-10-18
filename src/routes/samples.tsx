@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -50,6 +50,7 @@ import {
 import type { SampleListRow } from '#/components/v3/samples/samples-data'
 import { createSample } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['instock', 'mine', 'awaiting', 'quarantine', 'consumed'] as const
 type SampleTab = (typeof tabs)[number]
@@ -79,10 +80,10 @@ export const Route = createFileRoute('/samples')({
         : undefined,
     new: search.new === true || search.new === 'true' || undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -133,6 +134,28 @@ function SamplesList() {
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
+
+  // `?selected=<sample>` names a sample, not a tab: move to the tab that holds
+  // it rather than selecting the first row of the wrong list.
+  const linked = search.selected
+    ? rows.find((r) => r.uuid === search.selected)
+    : undefined
+  const linkedTab =
+    linked && !inTab(linked, tab)
+      ? tabs.find((t) => inTab(linked, t))
+      : undefined
+  useEffect(() => {
+    if (!linkedTab) return
+    void navigate({
+      to: '/samples',
+      search: (s) => ({
+        ...s,
+        tab: linkedTab === 'instock' ? undefined : linkedTab,
+        q: undefined,
+      }),
+      replace: true,
+    })
+  }, [linkedTab, navigate])
 
   const columns = useMemo<RegistryColumn<SampleListRow>[]>(
     () => [

@@ -94,10 +94,32 @@ export const sampleListQueryKeys = {
   projects: ['ui-port', 'samples', 'projects'] as const,
 }
 
+/**
+ * The registry searches, filters and counts tabs in memory, so it reads every
+ * sample rather than the first page: a 200-row read hid sample 201 onward and
+ * made search report a false "no match" while the header showed the real total.
+ */
+export async function fetchAllSamples(
+  client: DataClient,
+): Promise<{ rows: SampleRecord[]; totalCount: number }> {
+  const rows: SampleRecord[] = []
+  let totalCount = 0
+  for (;;) {
+    const page = await fetchSamplesPage(client, {
+      ...EMPTY_QUERY,
+      pageIndex: Math.floor(rows.length / EMPTY_QUERY.pageSize),
+    })
+    totalCount = page.totalCount
+    rows.push(...page.rows)
+    if (page.rows.length < EMPTY_QUERY.pageSize) break
+  }
+  return { rows, totalCount }
+}
+
 export function useSamplePage(client: DataClient = notebookDataClient) {
   return useQuery({
     queryKey: sampleListQueryKeys.page,
-    queryFn: () => fetchSamplesPage(client, EMPTY_QUERY),
+    queryFn: () => fetchAllSamples(client),
     staleTime: 15_000,
   })
 }

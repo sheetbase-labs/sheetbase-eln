@@ -22,6 +22,7 @@ import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
 import { DatasetUsedByTab } from '#/components/v3/datasets/dataset-used-by-tab'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the dataset detail frame. Rows, Snapshots and
  * Compare are child routes; R5-SURF-01 adds Imports, Used by and History,
@@ -36,7 +37,7 @@ export const Route = createFileRoute('/datasets/$datasetId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     await resolveIdentifierParam({
       entity: 'dataset',

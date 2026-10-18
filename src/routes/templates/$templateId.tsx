@@ -10,21 +10,23 @@ import { Button } from '#/components/v3/ui/button'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
+import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog'
 import {
   publishedTemplateVersion,
   templateLifecycle,
   useTemplate,
   useTemplateVersions,
 } from '#/components/v3/templates/templates-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the template detail frame. The Sections view
  * reads the selected version's stored configuration; Update takes a new version
  * into a notebook that was made from an older one. */
 export const Route = createFileRoute('/templates/$templateId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -94,6 +96,12 @@ function TemplateLayout() {
           { label: t.key, mono: true },
         ]}
         title={t.name}
+        actions={
+          <UseTemplateDialog
+            templateName={t.name}
+            version={publishedTemplateVersion(list) ?? null}
+          />
+        }
         meta={
           <>
             <span className="text-fg">

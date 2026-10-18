@@ -368,7 +368,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
               ['Condition', sample.holdCondition ?? '—'],
               ['Hold limit', holdLimit],
               [
-                'Released by',
+                'Released',
                 sample.releasedAt
                   ? formatHoldDate(new Date(sample.releasedAt))
                   : '—',

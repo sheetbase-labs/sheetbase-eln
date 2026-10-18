@@ -15,6 +15,7 @@ import type { NotebookRecord } from '#/lib/notebook-data'
 import { SubmitNotebookDialog } from './submit-notebook-dialog'
 import { fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import { requestSignatureStepUp } from '#/lib/signatures'
+import { fetchWorkspaceCertifications } from '#/lib/signature-certification'
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -37,6 +38,13 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
 vi.mock('#/lib/signatures', async (importOriginal) => ({
   ...(await importOriginal()),
   requestSignatureStepUp: vi.fn(),
+}))
+
+vi.mock('#/lib/signature-certification', async (importOriginal) => ({
+  ...(await importOriginal()),
+  fetchWorkspaceCertifications: vi.fn(async () => {
+    throw new Error('certification read unavailable')
+  }),
 }))
 
 vi.mock('#/lib/workspace-admin', async (importOriginal) => ({
@@ -324,6 +332,37 @@ describe('SubmitNotebookDialog', () => {
       'value',
       '',
     )
+  })
+
+  it('says up front that an uncertified author cannot sign, and links to settings', async () => {
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([])
+    vi.mocked(fetchWorkspaceCertifications).mockResolvedValueOnce([])
+    const user = userEvent.setup()
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="u1"
+        workspaceId="ws"
+        record={testRecord}
+      />,
+    )
+    await screen.findByRole('option', { name: /controlled-scientific-review/ })
+    await user.selectOptions(
+      screen.getByLabelText('Review workflow'),
+      'controlled-scientific-review/1',
+    )
+    await screen.findByText(/signature is not certified for this workspace/)
+    expect(
+      screen
+        .getByRole('link', { name: 'Open signature settings' })
+        .getAttribute('href'),
+    ).toBe('/settings/signatures')
+    expect(
+      screen.getByLabelText('Author signing password').matches(':disabled'),
+    ).toBe(true)
   })
 
   it('never freezes an unsigned controlled submission after password proof fails', async () => {

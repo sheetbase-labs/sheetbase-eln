@@ -51,7 +51,9 @@ import {
 } from '#/components/v3/templates/templates-data'
 import type { TemplateRow } from '#/components/v3/templates/templates-data'
 import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
+import { UseTemplateDialog } from '#/components/v3/templates/use-template-dialog'
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'active', 'retired'] as const
 type TemplateTab = (typeof tabs)[number]
@@ -88,10 +90,10 @@ export const Route = createFileRoute('/templates')({
         ? search.tab
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -363,7 +365,19 @@ function TemplatesList() {
               >
                 Open
               </Button>
+              <UseTemplateDialog
+                size="sm"
+                variant="secondary"
+                templateName={sel.name}
+                version={sel.published}
+              />
             </div>
+            {sel.published ? null : (
+              <Muted className="mt-1">
+                No published version yet. Publish one from Versions, then you
+                can start a notebook from it.
+              </Muted>
+            )}
           </div>
           <div className="flex flex-col gap-4 px-4 py-3.5">
             <InspectorSection title="Details">

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { z } from 'zod'
+import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import {
   Collapsible,
@@ -24,21 +26,39 @@ import {
   parserSettingsQueryKeys,
   validateParserVersion,
 } from '#/lib/parser-settings'
+import type { ParserVersionStatus } from '#/lib/parser-settings'
 import { ParserVersions } from './parser-versions'
 
 const client = createDataClient()
 const definitionSchema = z.record(z.string(), z.unknown())
+
+function instrumentGuidance(
+  status: ParserVersionStatus | undefined,
+  canEdit: boolean,
+): string {
+  if (!canEdit)
+    return 'Ask a workspace admin or schema editor to create and test it.'
+  if (status === 'draft')
+    return 'Pick a retained export from this instrument, or upload one, then validate the draft.'
+  if (status === 'validated')
+    return 'Validation passed. Approve the version when QA is satisfied.'
+  if (status === 'approved') return 'This version is approved.'
+  return 'Create a draft below, then test it against a real export from the instrument.'
+}
 
 export function ParserSettings({
   workspaceId,
   role,
   fileId,
   versionId,
+  instrumentId: forInstrumentId,
 }: {
   workspaceId: string
   role: string | undefined
   fileId?: string
   versionId?: string
+  /** The instrument the person came from, so its parser is the one in front of them. */
+  instrumentId?: string
 }) {
   const qc = useQueryClient()
   const instruments = useInstruments()
@@ -54,10 +74,11 @@ export function ParserSettings({
   })
   const [selectedId, setSelectedId] = useState(versionId ?? '')
   const [testFileId, setTestFileId] = useState(fileId ?? '')
+  const forInstrument = instruments.data?.find((i) => i.id === forInstrumentId)
   const [key, setKey] = useState('')
   const [name, setName] = useState('')
   const [format, setFormat] = useState('csv')
-  const [instrumentId, setInstrumentId] = useState('')
+  const [instrumentId, setInstrumentId] = useState(forInstrumentId ?? '')
   const [signature, setSignature] = useState('{"requiredHeaders":["sample"]}')
   const [mapping, setMapping] = useState('{}')
   const [message, setMessage] = useState('')
@@ -68,6 +89,19 @@ export function ParserSettings({
     (v) => v.id === selectedId,
   )
   const testFile = files.data?.find((f) => f.id === testFileId)
+  // Arriving from an instrument with nothing selected, start the draft as that
+  // instrument's parser instead of a blank form.
+  const [prefilled, setPrefilled] = useState(false)
+  if (forInstrument && !selectedId && !prefilled && !key && !name) {
+    setPrefilled(true)
+    setName(`${forInstrument.name} export`)
+    setKey(
+      `${forInstrument.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')}-export`,
+    )
+  }
   const canEdit = hasCapability(role, 'schema.edit')
   const refresh = async () => {
     await Promise.all([
@@ -131,6 +165,55 @@ export function ParserSettings({
   const error = action.error ?? parsers.error ?? files.error
   return (
     <div className="flex min-w-0 flex-col gap-6">
+      {forInstrument ? (
+        <Notice tone="info">
+          Setting up the parser for{' '}
+          <Link
+            to="/instruments/$instrumentId"
+            params={{ instrumentId: forInstrument.id }}
+            className="font-semibold"
+          >
+            {forInstrument.name}
+          </Link>
+          . {instrumentGuidance(selected?.status, canEdit)}
+        </Notice>
+      ) : null}
+      {fileId && !forInstrument ? (
+        <Notice tone={testFile?.parser_failure ? 'warn' : 'info'}>
+          {testFile
+            ? `${testFile.filename} could not be read by an approved parser.`
+            : 'This page was opened from a failed import.'}{' '}
+          {canEdit
+            ? 'Create, test and approve a parser below, then resume the import from here.'
+            : `You can’t change parsers with the ${role ?? 'current'} role. Ask a workspace admin or schema editor to approve one; ${
+                testFile?.parser_failure?.requestedAt
+                  ? 'a request is already with them in their Inbox.'
+                  : 'use “Ask an admin to update the parser” on the import page to put the request in their Inbox.'
+              } Meanwhile you can map the columns by hand.`}{' '}
+          <Link
+            to="/import/$importId"
+            params={{ importId: fileId }}
+            search={{ step: 'map' }}
+            className="font-semibold"
+          >
+            Back to the import
+          </Link>
+        </Notice>
+      ) : null}
+      {fileId && selected?.status === 'approved' ? (
+        <Notice tone="info" title="Parser approved.">
+          The retained file is still stored.{' '}
+          <Link
+            to="/import/$importId"
+            params={{ importId: fileId }}
+            search={{ step: 'map', parser: selectedParser?.key }}
+            className="font-semibold"
+          >
+            Resume the import
+          </Link>{' '}
+          to read it with this version.
+        </Notice>
+      ) : null}
       <Section title="Canonical parser versions">
         <Muted>
           Definitions and approval belong to this workspace. A regulated-record

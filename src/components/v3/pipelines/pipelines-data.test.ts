@@ -1,11 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   buildPipelineRows,
   currentVersion,
   draftVersion,
+  resolveRunForWorkItem,
   runStatus,
 } from './pipelines-data'
+import type { DataClient } from '#/lib/data-client'
 import type {
   PipelineDefinitionVersionWire,
   PipelineDefinitionWire,
@@ -142,5 +144,51 @@ describe('runStatus', () => {
       tone: 'stored',
       label: 'Cancelled',
     })
+  })
+})
+
+describe('resolveRunForWorkItem', () => {
+  const client = (rows: Record<string, unknown[]>) =>
+    ({
+      list: vi.fn(async (resource: string) => rows[resource] ?? []),
+    }) as unknown as DataClient
+
+  it('finds the run a waiting item’s prompt belongs to', async () => {
+    const run = await resolveRunForWorkItem(
+      { kind: 'run_waiting', sourceId: 'prompt-1', identifier: 'glucose' },
+      client({ pipeline_run_prompts: [{ run_id: 'run-7' }] }),
+    )
+    expect(run).toBe('run-7')
+  })
+
+  it('finds the newest failed run of the pipeline a failed item names', async () => {
+    const c = client({
+      pipeline_definitions: [{ id: 'def-1' }],
+      pipeline_definition_versions: [{ id: 'v-1' }, { id: 'v-2' }],
+      pipeline_runs: [{ id: 'run-9' }],
+    })
+    const run = await resolveRunForWorkItem(
+      { kind: 'run_failed', sourceId: null, identifier: 'glucose' },
+      c,
+    )
+    expect(run).toBe('run-9')
+    expect(vi.mocked(c.list).mock.calls.at(-1)?.[1]).toContain(
+      'definition_version_id=in.(v-1,v-2)&status=eq.failed',
+    )
+  })
+
+  it('has no run for a pipeline that no longer exists, or another kind', async () => {
+    expect(
+      await resolveRunForWorkItem(
+        { kind: 'run_failed', sourceId: null, identifier: 'gone' },
+        client({}),
+      ),
+    ).toBeNull()
+    expect(
+      await resolveRunForWorkItem(
+        { kind: 'data_issue', sourceId: null, identifier: 'DS-1' },
+        client({}),
+      ),
+    ).toBeNull()
   })
 })

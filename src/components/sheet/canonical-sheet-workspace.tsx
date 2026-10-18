@@ -2149,8 +2149,17 @@ export function CanonicalSheetEditor({
           their own scientific query filters).
         </p>
         {staleCalc ? (
-          <p role="status">
+          <p role="status" className="flex flex-wrap items-center gap-2">
             Calculation results are stale. Recalculate after edits.
+            {readOnly ? null : (
+              <Button
+                size="sm"
+                disabled={calculations.isFetching}
+                onClick={() => void calculations.refetch()}
+              >
+                {calculations.isFetching ? 'Recalculating…' : 'Recalculate'}
+              </Button>
+            )}
           </p>
         ) : null}
         {writeStatus ? <p role="status">{writeStatus}</p> : null}

@@ -1,3 +1,4 @@
+import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -138,8 +139,7 @@ function AnalysisHome() {
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) =>
           (datasets.data ?? []).find(
-            (dataset) =>
-              dataset.id === row.original.spec.datasets[0]?.datasetId,
+            (dataset) => dataset.id === specSourceDatasetId(row.original.spec),
           )?.name ?? '—',
       },
       {
@@ -176,7 +176,7 @@ function AnalysisHome() {
         if (tab === 'drafts' && v.version > 1) return false
         if (
           needle &&
-          !`${v.display_id ?? ''} ${v.name} ${v.spec.type} ${v.spec.datasets[0]?.datasetId ?? ''}`
+          !`${v.display_id ?? ''} ${v.name} ${v.spec.type} ${specSourceDatasetId(v.spec) ?? ''}`
             .toLowerCase()
             .includes(needle)
         )
@@ -429,7 +429,7 @@ function AnalysisHome() {
                   to="/analysis/new"
                   search={{
                     mode: 'chart',
-                    dataset: selected.spec.datasets[0]?.datasetId,
+                    dataset: specSourceDatasetId(selected.spec),
                   }}
                 />
               }
@@ -440,7 +440,7 @@ function AnalysisHome() {
           <div className="flex flex-col gap-2">
             <h3 className="text-label font-medium text-fg-muted">Source</h3>
             <span className="text-body">
-              {datasetName(selected.spec.datasets[0]?.datasetId)}
+              {datasetName(specSourceDatasetId(selected.spec))}
             </span>
           </div>
           <Muted>

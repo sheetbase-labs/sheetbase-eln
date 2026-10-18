@@ -9,10 +9,12 @@ import { ParserSettings } from '#/components/v3/settings/parser-settings'
 export const Route = createFileRoute('/settings/instruments')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { fileId?: string; versionId?: string } => ({
+  ): { fileId?: string; versionId?: string; instrumentId?: string } => ({
     fileId: typeof search.fileId === 'string' ? search.fileId : undefined,
     versionId:
       typeof search.versionId === 'string' ? search.versionId : undefined,
+    instrumentId:
+      typeof search.instrumentId === 'string' ? search.instrumentId : undefined,
   }),
   component: Instruments,
 })

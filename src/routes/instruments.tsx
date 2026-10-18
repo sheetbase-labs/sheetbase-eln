@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
 import {
   Link,
   Outlet,
@@ -21,6 +22,13 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Choice } from '#/components/v3/ui/choice'
 import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Notice } from '#/components/v3/ui/alert'
+import { CalibrationOverdueNotice } from '#/components/v3/instruments/calibration-overdue'
+import {
+  IntakeDeliveryNotice,
+  intakeDeliveryProblem,
+} from '#/components/v3/instruments/intake-delivery-notice'
+import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
+import { hasCapability } from '#/lib/capability'
 import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import {
@@ -47,6 +55,7 @@ import {
   intakeHealth,
   intakeMethodLabel,
   intakeMethodNeedsParser,
+  parserFollowUp,
   setInstrumentIntakeMethod,
   setInstrumentRetired,
   useInstrumentLastImport,
@@ -63,6 +72,7 @@ import type {
 } from '#/components/v3/instruments/instruments-data'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the Instruments area (LAB-06). Reads the real
  * instrument registry with its calibration standing; registering and retiring
@@ -97,10 +107,10 @@ export const Route = createFileRoute('/instruments')({
         ? search.state
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -213,7 +223,7 @@ function InstrumentsList() {
     calibration: rows.filter((i) => {
       if (i.retiredAt) return false
       const c = calFor(i.id).state
-      return c === 'overdue' || c === 'soon'
+      return c === 'overdue' || c === 'soon' || c === 'na'
     }).length,
     retired: rows.filter((i) => i.retiredAt).length,
   }
@@ -228,7 +238,8 @@ function InstrumentsList() {
       return false
     if (tab === 'calibration') {
       const c = calFor(i.id).state
-      if (i.retiredAt || (c !== 'overdue' && c !== 'soon')) return false
+      if (i.retiredAt || (c !== 'overdue' && c !== 'soon' && c !== 'na'))
+        return false
     }
     if (tab === 'retired' && !i.retiredAt) return false
     if (tab === 'all' && i.retiredAt) return false
@@ -392,7 +403,13 @@ function InstrumentsList() {
           <EmptyState
             icon="lock"
             title="You don’t have access to the instrument registry"
-            description="The registry is open to members of this workspace. Ask a workspace admin to add you."
+            description={
+              <>
+                The registry is open to members of this workspace. Ask a
+                workspace admin to add you.
+                <WorkspaceAdminsLine workspaceId={workspaceId} />
+              </>
+            }
             action={
               <Button nativeButton={false} render={<Link to="/schedule" />}>
                 Book an instrument instead
@@ -633,6 +650,8 @@ function InstrumentsList() {
           calibration={calFor(sel.id)}
           ownerLabel={sel.ownerId ? names.userLabel(sel.ownerId) : '—'}
           canManage={role === 'owner' || role === 'admin' || role === 'member'}
+          canEditParsers={hasCapability(role, 'schema.edit')}
+          canRecordCalibration={hasCapability(role, 'record.create')}
         />
       ) : null}
     </div>
@@ -664,11 +683,15 @@ export function InstrumentInspector({
   calibration,
   ownerLabel,
   canManage,
+  canEditParsers,
+  canRecordCalibration = false,
 }: {
   instrument: InstrumentRow
   calibration: { state: CalibrationState; label: string; tone: string }
   ownerLabel: string
   canManage: boolean
+  canEditParsers: boolean
+  canRecordCalibration?: boolean
 }) {
   const queryClient = useQueryClient()
   const parsers = useInstrumentParsers(instrument.id)
@@ -678,11 +701,16 @@ export function InstrumentInspector({
   const parserReady =
     parserRows.length > 0 && parserRows.some((parser) => parser.validated)
   const needsParser = intakeMethodNeedsParser(instrument.intakeMethod)
-  const parserFollowUp = needsParser && parsers.isSuccess && !parserReady
+  const followUp = parserFollowUp(
+    instrument.id,
+    instrument.intakeMethod,
+    parsers.data,
+  )
   const health = intakeHealth(instrument.intakeMethod, {
     parserReady: parsers.isSuccess ? parserReady : undefined,
     lastImport: lastImport.data ?? null,
   })
+  const deliveryProblem = intakeDeliveryProblem(health.label)
   const lastDataAt =
     lastImport.data?.status === 'committed' ? lastImport.data.createdAt : null
   const nextBooking = !booking.isSuccess
@@ -771,15 +799,39 @@ export function InstrumentInspector({
       </div>
       <div className="flex flex-col gap-5 px-4 py-3.5">
         {calibration.state === 'overdue' ? (
-          <Notice tone="bad" title="Calibration overdue.">
-            Data from {instrument.name} is flagged and can’t be cited in GxP
-            records until a new certificate is attached.
-          </Notice>
-        ) : parserFollowUp ? (
-          <Notice tone="warn" title="Parser not validated.">
-            Readings from {instrument.name} can’t be imported into a GxP dataset
-            until a validated parser is attached to it.
-          </Notice>
+          <CalibrationOverdueNotice
+            instrumentName={instrument.name}
+            action={
+              canRecordCalibration ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/instruments/$instrumentId"
+                      params={{ instrumentId: instrument.id }}
+                      search={{ record: '1' }}
+                    />
+                  }
+                >
+                  Record calibration
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : followUp ? (
+          <ParserFollowUpNotice
+            instrumentName={instrument.name}
+            followUp={followUp}
+            canEdit={canEditParsers}
+          />
+        ) : deliveryProblem ? (
+          <IntakeDeliveryNotice
+            instrumentId={instrument.id}
+            instrumentName={instrument.name}
+            problem={deliveryProblem}
+            canImport={canRecordCalibration}
+          />
         ) : null}
         <RegistrySection title="How data gets in">
           <DescriptionList
@@ -805,7 +857,8 @@ export function InstrumentInspector({
           {needsParser ? (
             <Link
               to="/settings/instruments"
-              className="mt-1.5 inline-block text-label"
+              search={{ instrumentId: instrument.id }}
+              className="mt-1.5 inline-block text-label text-link hover:underline"
             >
               Parser and imports
             </Link>

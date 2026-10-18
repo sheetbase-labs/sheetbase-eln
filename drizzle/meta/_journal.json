@@ -3030,6 +3030,20 @@
       "when": 1792072176810,
       "tag": "0434_witness_reads_the_record",
       "breakpoints": true
+    },
+    {
+      "idx": 435,
+      "version": "7",
+      "when": 1792158576810,
+      "tag": "0435_booking_checks_the_latest_calibration",
+      "breakpoints": true
+    },
+    {
+      "idx": 436,
+      "version": "7",
+      "when": 1792244976810,
+      "tag": "0436_accepting_an_invitation_keeps_an_active_role",
+      "breakpoints": true
     }
   ]
 }

@@ -27,6 +27,9 @@ const mocks = vi.hoisted(() => ({
   moveStudyTaskDue: vi.fn(),
   setStudyTaskClientVisible: vi.fn(),
   createPlanFromProject: vi.fn(),
+  createStudyDeliverable: vi.fn(),
+  setStudyDeliverableStatus: vi.fn(),
+  linkStudyDeliverableEvidence: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-router', () => ({
@@ -42,6 +45,7 @@ vi.mock('@tanstack/react-router', () => ({
     }),
   }),
   useNavigate: () => mocks.navigate,
+  Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
 }))
 
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
@@ -77,6 +81,12 @@ vi.mock('#/lib/planner', () => ({
     mocks.setStudyTaskClientVisible(...args),
   createPlanFromProject: (...args: unknown[]) =>
     mocks.createPlanFromProject(...args),
+  createStudyDeliverable: (...args: unknown[]) =>
+    mocks.createStudyDeliverable(...args),
+  setStudyDeliverableStatus: (...args: unknown[]) =>
+    mocks.setStudyDeliverableStatus(...args),
+  linkStudyDeliverableEvidence: (...args: unknown[]) =>
+    mocks.linkStudyDeliverableEvidence(...args),
   fetchStudyTasks: (...args: unknown[]) => mocks.fetchStudyTasks(...args),
   fetchStudyWorkstreams: (...args: unknown[]) =>
     mocks.fetchStudyWorkstreams(...args),
@@ -209,6 +219,86 @@ describe('project milestones plan', () => {
       add.hasAttribute('disabled') ||
         add.getAttribute('aria-disabled') === 'true',
     ).toBe(true)
+  })
+
+  it('explains the disabled add button on an empty plan for a viewer', async () => {
+    mocks.canEdit = false
+    renderRoute()
+    expect(await screen.findByText('No milestones yet')).toBeTruthy()
+    expect(
+      await screen.findByText(/You can view this plan but not change it/),
+    ).toBeTruthy()
+    expect(screen.getByText(/Ask the project lead/)).toBeTruthy()
+  })
+
+  it('shows a load failure with a retry, not an empty plan', async () => {
+    mocks.fetchStudyTasks.mockRejectedValueOnce(new Error('network'))
+    renderRoute()
+    expect(screen.queryByText('No milestones yet')).toBeNull()
+    const retry = await screen.findByRole('button', { name: /try again/i })
+    mocks.fetchStudyTasks.mockResolvedValue([])
+    await userEvent.click(retry)
+    expect(await screen.findByText('No milestones yet')).toBeTruthy()
+  })
+
+  it('lets an editor add a condition so a milestone with none can be marked done', async () => {
+    mocks.canEdit = true
+    mocks.fetchStudyTasks.mockResolvedValue([studyTask({})])
+    mocks.createStudyDeliverable.mockResolvedValue({ id: 'd-1' })
+    renderRoute()
+    expect(
+      await screen.findByText(/Add a condition to enable Mark done/),
+    ).toBeTruthy()
+    await userEvent.type(
+      screen.getByLabelText('New condition'),
+      'Release report signed',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Add condition' }))
+    await waitFor(() =>
+      expect(mocks.createStudyDeliverable).toHaveBeenCalledWith(
+        expect.anything(),
+        { taskId: 'ms-1', name: 'Release report signed' },
+      ),
+    )
+  })
+
+  it('marks a condition met and links a record by identifier', async () => {
+    mocks.canEdit = true
+    mocks.fetchStudyTasks.mockResolvedValue([studyTask({})])
+    mocks.fetchStudyDeliverables.mockResolvedValue([
+      {
+        id: 'd-1',
+        taskId: 'ms-1',
+        name: 'Release report signed',
+        status: 'planned',
+        linkedRecordId: null,
+        linkedRecordIdentifier: null,
+      },
+    ])
+    mocks.setStudyDeliverableStatus.mockResolvedValue({ id: 'd-1' })
+    mocks.linkStudyDeliverableEvidence.mockResolvedValue({})
+    renderRoute()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Mark met' }),
+    )
+    await waitFor(() =>
+      expect(mocks.setStudyDeliverableStatus).toHaveBeenCalledWith(
+        expect.anything(),
+        { id: 'd-1', status: 'delivered' },
+      ),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Link record' }))
+    await userEvent.type(
+      screen.getByLabelText('Record identifier for Release report signed'),
+      'EXP-0012',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Link' }))
+    await waitFor(() =>
+      expect(mocks.linkStudyDeliverableEvidence).toHaveBeenCalledWith(
+        expect.anything(),
+        { id: 'd-1', recordIdentifier: 'EXP-0012' },
+      ),
+    )
   })
 
   // QA-048: the project's own edit permission decides, not the workspace role.

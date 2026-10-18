@@ -17,6 +17,7 @@ import {
 } from '#/components/v3/projects/project-lists'
 import { toExperimentListRow } from '#/components/v3/experiments/experiments-data'
 import { useUserNames } from '#/lib/user-names'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * R5-SURF-02 — the project's Experiments tab.
@@ -30,9 +31,9 @@ export const Route = createFileRoute('/projects/$projectId/experiments')({
     const page = parseProjectPage(search.page)
     return page > 1 ? { page } : {}
   },
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
-    if (!context) throw redirect({ to: '/sign-in' })
+    if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
   component: ProjectExperimentsTab,

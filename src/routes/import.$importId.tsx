@@ -5,6 +5,7 @@ import {
   parseImportSearch,
 } from '#/components/import/import-flow'
 import type { ImportSearch } from '#/components/import/import-flow'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * R5-SURF-04 — an import is addressable: the path is the retained import
@@ -16,10 +17,10 @@ import type { ImportSearch } from '#/components/import/import-flow'
 export const Route = createFileRoute('/import/$importId')({
   validateSearch: (search: Record<string, unknown>): ImportSearch =>
     parseImportSearch(search),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

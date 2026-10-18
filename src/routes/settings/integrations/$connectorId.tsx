@@ -6,6 +6,7 @@ import { PageHeader, Section } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
+import { ConnectorConfigCard } from '#/components/v3/integrations/config-card'
 import { ConnectorCredentialsCard } from '#/components/v3/integrations/credentials-card'
 import { EnterpriseSourcePanel } from '#/components/v3/integrations/enterprise-source-panel'
 import { IngestPanel } from '#/components/v3/integrations/ingest-panel'
@@ -24,15 +25,16 @@ import {
   S3_SECRET_NAMES,
   enterpriseAdapterId,
 } from '#/lib/connectors/enterprise/types'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): connector detail under Settings — config, run
  * history and instrument ingestion, with pause/activate through the connector
  * RPCs. */
 export const Route = createFileRoute('/settings/integrations/$connectorId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -172,6 +174,15 @@ function ConnectorDetailRoute() {
                 parserId={connector.parser_id}
               />
             )}
+
+          {enterpriseAdapterId(connector) ? (
+            <ConnectorConfigCard
+              workspaceId={workspaceId}
+              connector={connector}
+              adapter={enterpriseAdapterId(connector)!}
+              canManage={canManage}
+            />
+          ) : null}
 
           {enterpriseAdapterId(connector) && connector.status === 'active' ? (
             <EnterpriseSourcePanel

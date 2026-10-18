@@ -68,6 +68,15 @@ const SCIENTIFIC_ROLES: ReadonlySet<string> = new Set([
   'scientist',
 ])
 
+/**
+ * Roles that may edit details, record hold limits, receive stock and archive.
+ * The edit/receive/archive RPCs have no dedicated capability, so this only
+ * keeps read-only roles from being offered controls the server refuses.
+ */
+export function canEditSample(role: string | null | undefined): boolean {
+  return role ? !['viewer', 'client_viewer'].includes(role) : false
+}
+
 export function canReleaseSample(role: string | null | undefined): boolean {
   return role ? RELEASE_ROLES.has(role) : false
 }

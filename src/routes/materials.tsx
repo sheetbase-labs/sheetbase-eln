@@ -1,8 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import {
+  NO_PROJECT_ACCESS_BODY,
+  noProjectAccessTitle,
+  useHasProjectAccess,
+} from '#/components/v3/projects/project-access'
+import { Select } from '#/components/v3/ui/select'
+import { useProjectNames } from '#/components/v3/samples/samples-data'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
@@ -47,6 +54,7 @@ import {
 } from '#/components/v3/materials/materials-data'
 import type { MaterialListRow } from '#/components/v3/materials/materials-data'
 import {
+  createReagent,
   fetchCertificateFile,
   fetchReplacementLot,
   fetchReagentUsage,
@@ -55,6 +63,7 @@ import {
 } from '#/lib/reagent-data'
 import type { Reagent } from '#/lib/reagent-data'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['instock', 'expiring', 'quarantine', 'expired'] as const
 
@@ -132,10 +141,10 @@ export const Route = createFileRoute('/materials')({
         ? search.tab
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -150,6 +159,9 @@ function MaterialsList() {
   const tab: MaterialTab = search.tab ?? 'instock'
   const [selected, setSelected] = useState<string | null>(null)
   const [receiveOpen, setReceiveOpen] = useState(false)
+  const [registerOpen, setRegisterOpen] = useState(false)
+  const projects = useProjectNames()
+  const hasProjectAccess = useHasProjectAccess()
   const [replacementOpen, setReplacementOpen] = useState(false)
   const [quarantineOpen, setQuarantineOpen] = useState(false)
   const [quarantineReason, setQuarantineReason] = useState('')
@@ -190,6 +202,29 @@ function MaterialsList() {
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
+
+  // A link such as `?selected=<lot>` names a lot, not a tab. When that lot lives
+  // on another tab (an expired or quarantined lot, say) move to the tab that
+  // holds it instead of selecting the first row of the wrong list.
+  const linked = search.selected
+    ? rows.find((r) => r.uuid === search.selected)
+    : undefined
+  const linkedTab =
+    linked && !inTab(linked, tab)
+      ? tabs.find((t) => inTab(linked, t))
+      : undefined
+  useEffect(() => {
+    if (!linkedTab) return
+    void navigate({
+      to: '/materials',
+      search: (s) => ({
+        ...s,
+        tab: linkedTab === 'instock' ? undefined : linkedTab,
+        q: undefined,
+      }),
+      replace: true,
+    })
+  }, [linkedTab, navigate])
 
   const columns = useMemo<RegistryColumn<MaterialListRow>[]>(
     () => [
@@ -322,6 +357,38 @@ function MaterialsList() {
     staleTime: 15_000,
   })
 
+  const register = useMutation({
+    mutationFn: (input: RegisterLotInput) =>
+      createReagent(notebookDataClient, {
+        projectId: input.projectId,
+        title: input.title,
+        properties: {
+          supplier: input.supplier ?? null,
+          catalogNo: input.catalogNo ?? null,
+          lot: input.lot ?? null,
+          expiry: input.expiry ?? null,
+          quantity: input.quantity,
+          unit: input.unit ?? null,
+          storage: input.storage ?? null,
+        },
+      }),
+    onSuccess: (created) => {
+      void queryClient.invalidateQueries({
+        queryKey: materialListQueryKeys.page,
+      })
+      toast(`Lot ${created.identifier} registered`)
+      setRegisterOpen(false)
+      void navigate({
+        to: '/materials',
+        search: { selected: created.id },
+        replace: true,
+      })
+    },
+    onError: (error: unknown) => {
+      toast(error instanceof Error ? error.message : 'Could not register lot')
+    },
+  })
+
   const receive = useMutation({
     mutationFn: (input: { quantity: number; reason?: string }) =>
       recordReagentMovement(notebookDataClient, {
@@ -359,8 +426,19 @@ function MaterialsList() {
                 Scan label
               </Button>
               <Button
-                variant="primary"
+                variant={sel ? 'secondary' : 'primary'}
+                onClick={() => setRegisterOpen(true)}
+              >
+                Register lot
+              </Button>
+              <Button
+                variant={sel ? 'primary' : 'secondary'}
                 disabled={!sel}
+                title={
+                  sel
+                    ? undefined
+                    : 'Select a lot to receive more stock into it, or register a new lot.'
+                }
                 onClick={() => setReceiveOpen(true)}
               >
                 Receive lot
@@ -434,27 +512,47 @@ function MaterialsList() {
                 className="items-center py-14 text-center"
                 icon={q ? 'search' : 'box'}
                 title={
-                  q
-                    ? `No material lots match “${search.q}”`
-                    : `No lots in ${tabLabel[tab].toLowerCase()}`
+                  hasProjectAccess === false
+                    ? noProjectAccessTitle('materials')
+                    : q
+                      ? `No material lots match “${search.q}”`
+                      : tab === 'instock'
+                        ? 'No lots in stock'
+                        : `No ${tabLabel[tab].toLowerCase()} lots`
                 }
                 description={
-                  q
-                    ? 'Search looks at ID, material, supplier, lot and location.'
-                    : 'Lots appear here when their status or expiry puts them in this list.'
+                  hasProjectAccess === false
+                    ? NO_PROJECT_ACCESS_BODY
+                    : q
+                      ? 'Search looks at ID, material, supplier, lot and location.'
+                      : tab === 'instock'
+                        ? 'Register a material lot to start the inventory.'
+                        : 'Lots appear here when their status or expiry puts them in this list.'
                 }
                 action={
-                  <Button
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to="/materials"
-                        search={{ tab: tab === 'instock' ? undefined : tab }}
-                      />
-                    }
-                  >
-                    {q ? 'Clear search' : 'Back to in stock'}
-                  </Button>
+                  hasProjectAccess === false ? undefined : q ||
+                    tab !== 'instock' ? (
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link
+                          to="/materials"
+                          search={{
+                            tab: !q && tab !== 'instock' ? undefined : tab,
+                          }}
+                        />
+                      }
+                    >
+                      {q ? 'Clear search' : 'Back to in stock'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      onClick={() => setRegisterOpen(true)}
+                    >
+                      Register lot
+                    </Button>
+                  )
                 }
               />
             </div>
@@ -606,6 +704,30 @@ function MaterialsList() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
+        <DialogContent className="w-[min(520px,calc(100vw-32px))]">
+          <DialogHeader title="Register material lot" />
+          <DialogBody>
+            <RegisterLotForm
+              busy={register.isPending}
+              projects={projects.data ?? new Map()}
+              onSubmit={(input) => register.mutate(input)}
+            />
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <Button
+              variant="primary"
+              type="submit"
+              form="register-lot-form"
+              disabled={register.isPending}
+            >
+              {register.isPending ? 'Registering…' : 'Register'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={replacementOpen} onOpenChange={setReplacementOpen}>
         <DialogContent className="w-[min(440px,calc(100vw-32px))]">
           <DialogHeader
@@ -660,6 +782,145 @@ function MaterialsList() {
         </ConfirmDialogContent>
       </ConfirmDialog>
     </div>
+  )
+}
+
+interface RegisterLotInput {
+  projectId: string
+  title: string
+  supplier?: string
+  catalogNo?: string
+  lot?: string
+  expiry?: string
+  quantity: number
+  unit?: string
+  storage?: string
+}
+
+function RegisterLotForm({
+  busy,
+  projects,
+  onSubmit,
+}: {
+  busy: boolean
+  projects: Map<string, string>
+  onSubmit: (input: RegisterLotInput) => void
+}) {
+  const [projectId, setProjectId] = useState('')
+  const [title, setTitle] = useState('')
+  const [supplier, setSupplier] = useState('')
+  const [catalogNo, setCatalogNo] = useState('')
+  const [lot, setLot] = useState('')
+  const [expiry, setExpiry] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [unit, setUnit] = useState('')
+  const [storage, setStorage] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  return (
+    <form
+      id="register-lot-form"
+      className="flex flex-col gap-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        const n = Number(quantity)
+        const next: Record<string, string> = {}
+        if (!projectId) next.project = 'Choose the project that owns this lot.'
+        if (!title.trim()) next.title = 'Enter the material name.'
+        if (quantity.trim() === '' || !Number.isFinite(n) || n <= 0)
+          next.quantity = 'Enter a quantity greater than zero.'
+        if (expiry && expiry < todayISO())
+          next.expiry = 'The expiry must be today or later.'
+        setErrors(next)
+        if (Object.keys(next).length) return
+        onSubmit({
+          projectId,
+          title: title.trim(),
+          supplier: supplier.trim() || undefined,
+          catalogNo: catalogNo.trim() || undefined,
+          lot: lot.trim() || undefined,
+          expiry: expiry || undefined,
+          quantity: n,
+          unit: unit.trim() || undefined,
+          storage: storage.trim() || undefined,
+        })
+      }}
+    >
+      <Field label="Project" required error={errors.project}>
+        <Select
+          value={projectId}
+          onChange={(e) => setProjectId(e.target.value)}
+          disabled={busy}
+        >
+          <option value="">Choose…</option>
+          {[...projects].map(([id, name]) => (
+            <option key={id} value={id}>
+              {name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Material" required error={errors.title}>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          disabled={busy}
+          autoFocus
+        />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Supplier">
+          <Input
+            value={supplier}
+            onChange={(e) => setSupplier(e.target.value)}
+            disabled={busy}
+          />
+        </Field>
+        <Field label="Catalogue no.">
+          <Input
+            value={catalogNo}
+            onChange={(e) => setCatalogNo(e.target.value)}
+            disabled={busy}
+          />
+        </Field>
+        <Field label="Lot number">
+          <Input
+            value={lot}
+            onChange={(e) => setLot(e.target.value)}
+            disabled={busy}
+          />
+        </Field>
+        <Field label="Expiry" error={errors.expiry}>
+          <Input
+            type="date"
+            value={expiry}
+            onChange={(e) => setExpiry(e.target.value)}
+            disabled={busy}
+          />
+        </Field>
+        <Field label="Quantity" required error={errors.quantity}>
+          <Input
+            type="number"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            disabled={busy}
+          />
+        </Field>
+        <Field label="Unit">
+          <Input
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            disabled={busy}
+          />
+        </Field>
+      </div>
+      <Field label="Storage location">
+        <Input
+          value={storage}
+          onChange={(e) => setStorage(e.target.value)}
+          disabled={busy}
+        />
+      </Field>
+    </form>
   )
 }
 

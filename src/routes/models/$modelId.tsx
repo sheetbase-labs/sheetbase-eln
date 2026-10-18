@@ -23,15 +23,16 @@ import {
   useWorkspaceRecordModel,
 } from '#/components/v3/models/models-data'
 import { isUuid } from '#/lib/field-value-validation'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the model detail frame. A dataset-schema model
  * (uuid) opens on Fields; a workspace-defined record model (ADR-0051, key)
  * opens on its Records list. Built-in kinds link to their existing surface. */
 export const Route = createFileRoute('/models/$modelId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -93,6 +94,20 @@ function DatasetModelLayout({ modelId }: { modelId: string }) {
           trail={[{ label: 'Models', link: { to: '/models' } }]}
           title={definition.isLoading ? 'Loading model…' : 'Model not found'}
         />
+        {definition.isLoading ? null : (
+          <div className="px-4 py-6 md:px-6">
+            <EmptyState
+              icon="warn"
+              title="Model not found"
+              description="It may have been removed, or it belongs to another workspace."
+              action={
+                <Button nativeButton={false} render={<Link to="/models" />}>
+                  Back to models
+                </Button>
+              }
+            />
+          </div>
+        )}
       </div>
     )
   }

@@ -39,6 +39,7 @@ import {
   useDatasetSummaries,
 } from '#/components/v3/datasets/datasets-data'
 import type { DatasetListRow } from '#/components/v3/datasets/datasets-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'mine', 'issues', 'locked'] as const
 type DatasetTab = (typeof tabs)[number]
@@ -77,10 +78,10 @@ export const Route = createFileRoute('/datasets')({
         ? search.tab
         : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -346,7 +347,7 @@ function DatasetsList() {
                 {datasetValidation(sel).label}
               </Status>
             </div>
-            <div className="mt-1.5 flex gap-1.5">
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               <Button
                 variant={sel.issues > 0 ? 'primary' : undefined}
                 size="sm"
@@ -358,8 +359,26 @@ function DatasetsList() {
                   />
                 }
               >
-                {sel.issues > 0 ? 'Open and fix' : 'Open dataset'}
+                Open dataset
               </Button>
+              {sel.missingUnit > 0 ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to="/models" search={{ q: sel.model }} />}
+                >
+                  Set unit on model
+                </Button>
+              ) : null}
+              {sel.issues > 0 ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to="/import" />}
+                >
+                  Re-import
+                </Button>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-col gap-[18px] px-4 py-3.5">

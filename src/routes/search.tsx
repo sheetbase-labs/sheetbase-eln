@@ -32,6 +32,7 @@ import {
 } from '#/lib/search'
 import type { SearchResult, SearchResultGroup } from '#/lib/search'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the Search results page, wired to the real
  * `search` RPC (records, cell values, comments and file contents) with
@@ -60,10 +61,10 @@ export const Route = createFileRoute('/search')({
     archived:
       search.archived === true || search.archived === 'true' || undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

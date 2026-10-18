@@ -116,7 +116,7 @@ describe('ProjectNavigationTree', () => {
       screen
         .getByRole('link', { name: 'Reference sample' })
         .getAttribute('href'),
-    ).toBe('/samples?selected=sample-id')
+    ).toBe('/samples/sample-id')
     expect(
       screen
         .getByRole('link', { name: 'Orphaned report' })

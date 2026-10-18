@@ -31,9 +31,11 @@ import {
 } from '#/components/v3/protocols/protocols-registry-grid'
 import { useRowFocus } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
+import { NewProtocolDialog } from '#/components/v3/protocols/new-protocol-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchTemplates } from '#/lib/templates'
 import { useUserNames } from '#/lib/user-names'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 type ProtocolTab = (typeof tabs)[number]
@@ -86,10 +88,10 @@ export const Route = createFileRoute('/protocols')({
       ? (search.tab as ProtocolTab)
       : undefined,
   }),
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -190,6 +192,7 @@ function ProtocolsList() {
         <ListHeader
           title="Protocols"
           total={rows.length}
+          actions={<NewProtocolDialog />}
           tabs={
             <Tabs
               mode="url"
@@ -279,7 +282,9 @@ function ProtocolsList() {
                     >
                       Clear search
                     </Button>
-                  ) : undefined
+                  ) : (
+                    <NewProtocolDialog />
+                  )
                 }
               />
             </div>

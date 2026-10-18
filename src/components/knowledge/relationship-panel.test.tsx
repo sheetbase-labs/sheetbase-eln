@@ -58,7 +58,7 @@ const outgoing: RelationshipRow[] = [
     state: 'available',
     title: 'Cell line',
     identifier: 'SMP-2',
-    destination: '/samples?selected=rec-2',
+    destination: '/samples/rec-2',
     createdAt: '2026-08-03T00:00:00Z',
     createdByUserId: 'user-1',
     duplicateCount: 1,
@@ -106,7 +106,7 @@ describe('RelationshipList', () => {
   it('links available rows to their stable-ID destinations', () => {
     render(<RelationshipList outgoing={outgoing} incoming={[]} />)
     const link = screen.getByRole('link', { name: /Cell line/ })
-    expect(link.getAttribute('href')).toBe('/samples?selected=rec-2')
+    expect(link.getAttribute('href')).toBe('/samples/rec-2')
     expect(screen.getByText('SMP-2')).toBeTruthy()
     expect(screen.getByText('uses')).toBeTruthy()
   })
@@ -149,7 +149,7 @@ describe('RelationshipPanel', () => {
     expect(screen.getByText('Relationships')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: /Cell line/ }).getAttribute('href'),
-    ).toBe('/samples?selected=rec-2')
+    ).toBe('/samples/rec-2')
     expect(screen.getByText('Restricted record')).toBeTruthy()
   })
 

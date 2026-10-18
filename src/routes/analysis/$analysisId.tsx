@@ -1,3 +1,4 @@
+import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -23,15 +24,16 @@ import {
 } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { CitationList } from '#/components/viz/citation-list'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): a saved analysis view, rebuilt from its stored
  * ChartSpec and the current source dataset. The studio at /analysis is the
  * authoring surface; this route is the shareable, read-only view. */
 export const Route = createFileRoute('/analysis/$analysisId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -121,7 +123,7 @@ function AnalysisView() {
     )
   }
 
-  const datasetId = view.spec.datasets[0]?.datasetId
+  const datasetId = specSourceDatasetId(view.spec)
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">

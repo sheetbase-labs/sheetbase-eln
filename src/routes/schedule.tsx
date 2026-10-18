@@ -38,6 +38,7 @@ import {
   workspaceGeneralQueryKey,
 } from '#/lib/workspace-general'
 import { cn } from '#/lib/utils'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): the Schedule day/week instrument grid, wired
  * to the instruments registry and calendar_bookings; a booking's resource_id is
@@ -93,10 +94,10 @@ export const Route = createFileRoute('/schedule')({
   // action): `?book=<instrumentId>` opens the dialog with it preselected.
   validateSearch: (search: Record<string, unknown>): { book?: string } =>
     typeof search.book === 'string' && search.book ? { book: search.book } : {},
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

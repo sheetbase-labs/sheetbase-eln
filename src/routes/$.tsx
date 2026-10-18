@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { NotFound } from '#/components/v3/shell/not-found'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * R5-SURF-03: the catch-all under the app shell. An unmatched URL with a
@@ -10,8 +11,8 @@ import { NotFound } from '#/components/v3/shell/not-found'
  * URL never leaks the app's page structure.
  */
 export const Route = createFileRoute('/$')({
-  beforeLoad: async ({ context }) => {
-    if (!context.auth) throw redirect({ to: '/sign-in' })
+  beforeLoad: async ({ context, location }) => {
+    if (!context.auth) throw redirect(signInRedirect(location))
   },
   component: NotFound,
 })

@@ -20,7 +20,7 @@ import { Route } from './$instrumentId'
 const InstrumentPage = Route.options.component as React.ComponentType
 
 const dataClient = vi.hoisted(() => ({
-  list: vi.fn<() => Promise<unknown[]>>(async () => []),
+  list: vi.fn<(...args: unknown[]) => Promise<unknown[]>>(async () => []),
   rpc: vi.fn<(name: string) => Promise<unknown>>(async () => ({})),
 }))
 
@@ -39,6 +39,12 @@ const qualifications = vi.hoisted(() => ({
 }))
 
 const calibrations = vi.hoisted(() => ({ current: [] as unknown[] }))
+const intake = vi.hoisted(() => ({
+  method: 'none',
+  parsers: [] as unknown[],
+  lastImport: null as null | { status: string; createdAt: string },
+}))
+const search = vi.hoisted(() => ({ current: {} }))
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
 // every element the viewport a browser would report for the list area.
@@ -52,6 +58,7 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ instrumentId: 'inst-1' }),
+    useSearch: () => search.current,
     useRouteContext: () => ({
       context: {
         workspace: { id: 'ws-1', role: role.current },
@@ -114,7 +121,7 @@ vi.mock(
         location: 'Lab 2',
         ownerId: null,
         retiredAt: null,
-        intakeMethod: 'none',
+        intakeMethod: intake.method,
         position: 1,
         updatedAt: '2026-10-01T00:00:00Z',
       },
@@ -126,8 +133,11 @@ vi.mock(
       data: calibrations.current,
       isSuccess: true,
     }),
-    useInstrumentParsers: () => ({ data: [], isSuccess: true }),
-    useInstrumentLastImport: () => ({ data: null, isSuccess: true }),
+    useInstrumentParsers: () => ({ data: intake.parsers, isSuccess: true }),
+    useInstrumentLastImport: () => ({
+      data: intake.lastImport,
+      isSuccess: true,
+    }),
     useInstrumentNextBooking: () => ({
       data: { bookable: true, next: null },
       isSuccess: true,
@@ -149,7 +159,15 @@ function renderPage() {
 beforeEach(() => {
   role.current = 'owner'
   calibrations.current = []
-  dataClient.list.mockResolvedValue([{ user_id: 'u-2' }])
+  search.current = {}
+  intake.method = 'none'
+  intake.parsers = []
+  intake.lastImport = null
+  dataClient.list.mockImplementation(async (...args: unknown[]) =>
+    String(args[0]) === 'projects'
+      ? [{ id: 'p-1', title: 'Process development' }]
+      : [{ user_id: 'u-2' }],
+  )
   dataClient.rpc.mockImplementation((name: string) => {
     if (name === 'instrument_qualification_list')
       return Promise.resolve(qualifications.current)
@@ -275,5 +293,124 @@ describe('instrument record actions and dates', () => {
     expect(screen.getAllByText('11 Sep 2026').length).toBe(2)
     expect(screen.getAllByText('9 Apr 2027').length).toBe(2)
     expect(screen.queryByText('2026-09-11')).toBeNull()
+  })
+})
+
+describe('J-INS-10 overdue calibration and its certificate', () => {
+  const OVERDUE = {
+    id: 'cal-1',
+    instrumentId: 'inst-1',
+    performedAt: '2025-01-01T00:00:00.000Z',
+    dueAt: '2025-07-01T00:00:00.000Z',
+    certificateFileId: null,
+    performedByUserId: null,
+    notes: null,
+  }
+
+  it('shows the overdue notice on the record page with the step that clears it', async () => {
+    calibrations.current = [OVERDUE]
+    renderPage()
+
+    await screen.findByText('Calibration overdue.')
+    // One in the header and one in the notice.
+    expect(
+      screen.getAllByRole('button', { name: 'Record calibration' }).length,
+    ).toBe(2)
+  })
+
+  it('names who can record it when the viewer cannot', async () => {
+    role.current = 'viewer'
+    calibrations.current = [OVERDUE]
+    renderPage()
+
+    await screen.findByText('Calibration overdue.')
+    expect(screen.getByText(/any role except viewer/)).toBeTruthy()
+  })
+
+  it('opens the record dialog from the registry deep link', async () => {
+    search.current = { record: '1' }
+    renderPage()
+
+    expect(await screen.findByText('Certificate project')).toBeTruthy()
+    expect(
+      await screen.findByLabelText('Calibration certificate', {
+        selector: 'input',
+      }),
+    ).toBeTruthy()
+  })
+
+  it('uploads the certificate and passes its file id to the calibration', async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn(async (url: string) =>
+      String(url).includes('upload-authorize')
+        ? new Response(
+            JSON.stringify({ fileRecordId: 'rec-1', fileObjectId: 'fo-9' }),
+            { status: 201 },
+          )
+        : new Response('{}', { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      search.current = { record: '1' }
+      renderPage()
+
+      const input = await screen.findByLabelText('Calibration certificate', {
+        selector: 'input',
+      })
+      await user.upload(
+        input,
+        new File(['%PDF'], 'cert.pdf', { type: 'application/pdf' }),
+      )
+      await screen.findByText('Certificate: cert.pdf')
+      const buttons = screen.getAllByRole('button', {
+        name: 'Record calibration',
+      })
+      await user.click(buttons[buttons.length - 1])
+
+      await waitFor(() =>
+        expect(dataClient.rpc).toHaveBeenCalledWith(
+          'record_instrument_calibration',
+          expect.objectContaining({ p_certificate_file_id: 'fo-9' }),
+        ),
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe('J-INS-09 an automated instrument that is not delivering', () => {
+  function automated(lastImport: { status: string; createdAt: string } | null) {
+    intake.method = 'filedrop'
+    intake.parsers = [{ id: 'p1', name: 'Plate export', validated: true }]
+    intake.lastImport = lastImport
+  }
+
+  it('turns "Last import failed" into a retry through the import page for this instrument', async () => {
+    automated({ status: 'failed', createdAt: new Date().toISOString() })
+    renderPage()
+
+    await screen.findByText('The last import failed.')
+    expect(
+      screen.getByRole('link', { name: 'Upload a file' }).getAttribute('href'),
+    ).toBe('/import?instrument=inst-1')
+  })
+
+  it('tells a first-time instrument how data is supposed to arrive', async () => {
+    automated(null)
+    renderPage()
+
+    expect(await screen.findByText('Waiting for first data.')).toBeTruthy()
+    expect(screen.getByText(/uploads one of its exports/)).toBeTruthy()
+  })
+
+  it('names who can upload when the viewer cannot', async () => {
+    role.current = 'viewer'
+    automated(null)
+    renderPage()
+
+    await screen.findByText('Waiting for first data.')
+    expect(screen.queryByRole('link', { name: 'Upload a file' })).toBeNull()
+    expect(screen.getByText(/any role except viewer/)).toBeTruthy()
   })
 })

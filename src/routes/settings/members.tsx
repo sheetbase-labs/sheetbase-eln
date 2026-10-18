@@ -58,6 +58,8 @@ import {
   adminQueryKeys,
   changeMemberRole,
   createInvitation,
+  describeAdminError,
+  invitationLink,
   fetchClients,
   fetchInvitations,
   fetchWorkspaceMembers,
@@ -74,6 +76,9 @@ import type { WorkspaceRole } from '#/lib/workspace-admin'
  * workspace_invitations. Roles decide what people can do; the role change,
  * suspend, reinstate, remove and invite RPCs hold the rules server-side. */
 export const Route = createFileRoute('/settings/members')({
+  validateSearch: (search: Record<string, unknown>): { invite?: 'admin' } => ({
+    invite: search.invite === 'admin' ? 'admin' : undefined,
+  }),
   component: Members,
 })
 
@@ -82,6 +87,7 @@ const roles = Object.keys(WORKSPACE_ROLE_LABELS) as WorkspaceRole[]
 
 function Members() {
   const { context } = Route.useRouteContext()
+  const search = Route.useSearch()
   const workspaceId = context.workspace?.id ?? ''
   // ADR-0049: a client account is not an internal member, so
   // `workspace_members_list` and the invitation list are refused to it. An
@@ -116,6 +122,7 @@ function Members() {
   const [dialog, setDialog] = useState<
     | { kind: 'invite' }
     | { kind: 'groups' }
+    | { kind: 'invite-link'; email: string; link: string }
     | {
         kind: 'role'
         userId: string
@@ -128,7 +135,11 @@ function Members() {
     | { kind: 'reinstate'; userId: string; name: string }
     | { kind: 'revoke'; invitationId: string; email: string }
     | null
-  >(null)
+  >(
+    // J-SET-02: "invite another administrator" deep-links here with the dialog
+    // already open on the Administrator role.
+    search.invite === 'admin' && canManage ? { kind: 'invite' } : null,
+  )
 
   const members = useQuery({
     queryKey: adminQueryKeys.members(workspaceId),
@@ -240,16 +251,18 @@ function Members() {
         expiresAfterDays: 7,
         clientId: input.clientId,
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       invalidate()
-      setDialog(null)
-      toast('Invitation sent')
+      // No email is sent: the link is the invitation. It is shown once, as the
+      // database keeps only a hash of the token.
+      setDialog({
+        kind: 'invite-link',
+        email: result.invitation.email,
+        link: invitationLink(window.location.origin, result.token),
+      })
     },
     onError: (error: unknown) =>
-      toast('Could not invite', {
-        description:
-          error instanceof Error ? error.message : 'The database refused it.',
-      }),
+      toast('Could not invite', { description: describeAdminError(error) }),
   })
 
   const revoke = useMutation({
@@ -608,8 +621,15 @@ function Members() {
             .map((m) => ({ id: m.userId, name: names.userLabel(m.userId) }))}
           onClose={() => setDialog(null)}
         />
+      ) : dialog?.kind === 'invite-link' ? (
+        <InviteLinkDialog
+          email={dialog.email}
+          link={dialog.link}
+          onClose={() => setDialog(null)}
+        />
       ) : dialog?.kind === 'invite' ? (
         <InviteDialog
+          initialRole={search.invite === 'admin' ? 'admin' : 'viewer'}
           clients={clients.data ?? []}
           busy={invite.isPending}
           onClose={() => setDialog(null)}
@@ -681,7 +701,7 @@ function Members() {
                 Revoke the invitation to {dialog.email}?
               </ConfirmDialogTitle>
               <ConfirmDialogDescription>
-                The sign-in link stops working immediately. They cannot join
+                The invitation link stops working immediately. They cannot join
                 until you invite them again.
               </ConfirmDialogDescription>
             </ConfirmDialogHeader>
@@ -748,11 +768,13 @@ function MembershipConfirmDialog({
 }
 
 function InviteDialog({
+  initialRole,
   clients,
   busy,
   onClose,
   onSubmit,
 }: {
+  initialRole: WorkspaceRole
   clients: { id: string; code: string; name: string }[]
   busy: boolean
   onClose: () => void
@@ -763,7 +785,7 @@ function InviteDialog({
   ) => void
 }) {
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<WorkspaceRole>('viewer')
+  const [role, setRole] = useState<WorkspaceRole>(initialRole)
   const [clientId, setClientId] = useState(clients.at(0)?.id ?? '')
   // The empty address is invalid from the first paint, but the dialog opens
   // before anyone has used the field, so the message waits for the first
@@ -780,7 +802,7 @@ function InviteDialog({
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
           title="Invite someone"
-          description="They get a sign-in link from your company sign-in. Access is decided by role and project membership."
+          description="You get a one-time link to send them. It signs them in and adds them to this workspace with the role you choose."
         />
         <DialogBody>
           <Field
@@ -842,8 +864,48 @@ function InviteDialog({
               )
             }
           >
-            Send invitation
+            Create invitation link
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** The one-time link for a new invitation, with a Copy control. */
+function InviteLinkDialog({
+  email,
+  link,
+  onClose,
+}: {
+  email: string
+  link: string
+  onClose: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
+      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+        <DialogHeader
+          title="Send this link to the invitee"
+          description={`Sheetbase does not email invitations. Send ${email} this link yourself. It works once, for 7 days, and cannot be shown again, so copy it now.`}
+        />
+        <DialogBody>
+          <Field label="Invitation link">
+            <Input readOnly value={link} onFocus={(e) => e.target.select()} />
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <Button
+            onClick={() => {
+              void navigator.clipboard.writeText(link).then(() => {
+                setCopied(true)
+              })
+            }}
+          >
+            {copied ? 'Copied' : 'Copy link'}
+          </Button>
+          <DialogClose render={<Button variant="primary" />}>Done</DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

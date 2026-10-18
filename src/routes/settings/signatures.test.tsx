@@ -23,9 +23,17 @@ const mocks = vi.hoisted(() => {
     request: vi.fn(),
     credential: vi.fn(),
     withdraw: vi.fn(),
+    admins: [] as { name: string; email: string; role: string }[],
   }
 })
+vi.mock('#/lib/workspace-admins', async (importOriginal) => ({
+  ...(await importOriginal()),
+  getWorkspaceAdmins: async () => mocks.admins,
+}))
 vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
+    <a href={to}>{children}</a>
+  ),
   createFileRoute: () => (options: object) => ({
     options,
     useRouteContext: () => ({
@@ -99,6 +107,7 @@ function renderRoute() {
 beforeEach(() => {
   vi.resetAllMocks()
   mocks.role = 'owner'
+  mocks.admins = []
   mocks.signInAvailable = true
   mocks.certifications = [certification('me', 'Ada Lovelace')]
   for (const mutation of [
@@ -368,5 +377,30 @@ describe('REV-03 signature settings', () => {
       screen.getByRole('button', { name: 'Certify signature' }),
     ).toHaveProperty('disabled', true)
     expect(screen.queryByText(/Certified 2026-09-01/)).toBeNull()
+  })
+
+  it('tells a sole owner a second administrator is needed and offers the invite', async () => {
+    mocks.certifications = [certification('me', 'Ada Lovelace', {})]
+    mocks.admins = [
+      { name: 'Ada Lovelace', email: 'ada@sheetbase.test', role: 'owner' },
+    ]
+    renderRoute()
+    await screen.findByText(/Nobody can verify you yet/)
+    expect(
+      screen
+        .getByRole('link', { name: 'Invite another administrator' })
+        .getAttribute('href'),
+    ).toBe('/settings/members')
+  })
+
+  it('names the administrators who can verify when there are some', async () => {
+    mocks.certifications = [certification('me', 'Ada Lovelace', {})]
+    mocks.admins = [
+      { name: 'Ada Lovelace', email: 'ada@sheetbase.test', role: 'owner' },
+      { name: 'Grace Hopper', email: 'grace@sheetbase.test', role: 'admin' },
+    ]
+    renderRoute()
+    await screen.findByText(/Grace Hopper/)
+    expect(screen.queryByText(/Nobody can verify you yet/)).toBeNull()
   })
 })

@@ -40,6 +40,7 @@ import {
   reviewWorkspaceDataClient,
 } from '#/lib/review-workspace'
 import { createAmendment, sign002DataClient } from '#/lib/sign-002'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): submitted evidence. The frozen revision reads
  * exactly as it was signed and never changes; when the live record has moved on,
@@ -50,10 +51,10 @@ import { createAmendment, sign002DataClient } from '#/lib/sign-002'
  * wrapping rows, the hash stated inline), while the amendment stays a desktop
  * action and the page says so. */
 export const Route = createFileRoute('/evidence/$revisionId')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },

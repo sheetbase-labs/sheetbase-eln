@@ -789,7 +789,7 @@ function Notifications({
         )}
         <div className="bg-surface-muted px-3 py-2 text-label">
           <Link to="/inbox">Open inbox</Link> ·{' '}
-          <Link to="/settings">Notification settings</Link>
+          <Link to="/settings/notifications">Notification settings</Link>
         </div>
       </PopoverContent>
     </Popover>

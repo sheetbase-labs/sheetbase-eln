@@ -14,8 +14,13 @@ import { Route } from './help'
 describe('/help route (WORK-02.4)', () => {
   it('redirects to sign-in when unauthenticated', async () => {
     await expect(
-      Route.options.beforeLoad?.({ context: { auth: null } } as never),
-    ).rejects.toBeInstanceOf(Response)
+      Route.options.beforeLoad?.({
+        context: { auth: null },
+        location: { href: '/help?topic=signing' },
+      } as never),
+    ).rejects.toMatchObject({
+      options: { to: '/sign-in', search: { next: '/help?topic=signing' } },
+    })
   })
 
   it('passes the auth context through when authenticated', async () => {

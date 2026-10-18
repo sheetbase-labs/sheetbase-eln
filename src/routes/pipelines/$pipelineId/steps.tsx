@@ -12,6 +12,7 @@ import { toast } from '#/components/v3/ui/sonner'
 import { Select } from '#/components/v3/ui/select'
 import {
   draftVersion,
+  usePipelineOutputTargets,
   usePipelineVersions,
 } from '#/components/v3/pipelines/pipelines-data'
 import {
@@ -21,18 +22,19 @@ import {
 } from '#/lib/pipelines/config'
 import type { PipelineInput } from '#/lib/pipelines/config'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (RM-125): the pipeline Steps editor. Edits the stored configuration
  * — description, declared inputs, the transform and the output — saves it as
  * the draft version (or creates the first one), and publishes it. Output targets
  * (the Dataset Schema Version a create output builds from, the Dataset an append
- * output extends) are part of the stored configuration and are not chosen here,
- * so the mode control only offers the modes this version can honestly produce. */
+ * output extends) are chosen here from what the workspace has, with the Dataset
+ * Version label every kept output needs. */
 export const Route = createFileRoute('/pipelines/$pipelineId/steps')({
-  beforeLoad: async ({ context: rootContext }) => {
+  beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
-      throw redirect({ to: '/sign-in' })
+      throw redirect(signInRedirect(location))
     }
     return { context }
   },
@@ -82,6 +84,10 @@ function PipelineSteps() {
   const [datasetName, setDatasetName] = useState('')
   const [inputs, setInputs] = useState<PipelineInput[]>([])
   const [outputMode, setOutputMode] = useState<OutputMode>('none')
+  const [schemaVersionId, setSchemaVersionId] = useState('')
+  const [datasetId, setDatasetId] = useState('')
+  const [datasetLabel, setDatasetLabel] = useState('')
+  const targets = usePipelineOutputTargets()
 
   const sourceId = source?.id
   const sourceConfig = (source?.configuration ?? {}) as PipelineConfiguration
@@ -90,15 +96,19 @@ function PipelineSteps() {
     setStatement(sourceConfig.transform?.statement ?? '')
     setDatasetName(sourceConfig.output?.datasetName ?? '')
     setInputs(sourceConfig.inputs ?? [])
-    // A version with no stored output keeps nothing; "create" would need a
-    // Dataset Schema Version this page does not choose, so it is not assumed.
     setOutputMode(sourceConfig.output?.mode ?? 'none')
+    setSchemaVersionId(sourceConfig.output?.schemaVersionId ?? '')
+    setDatasetId(sourceConfig.output?.datasetId ?? '')
+    setDatasetLabel(sourceConfig.output?.datasetLabel ?? '')
   }, [
     sourceId,
     sourceConfig.description,
     sourceConfig.transform?.statement,
     sourceConfig.output?.datasetName,
     sourceConfig.output?.mode,
+    sourceConfig.output?.schemaVersionId,
+    sourceConfig.output?.datasetId,
+    sourceConfig.output?.datasetLabel,
     sourceConfig.inputs,
   ])
 
@@ -117,9 +127,23 @@ function PipelineSteps() {
         ...(sourceConfig.output ?? {}),
         mode: outputMode,
         datasetName: datasetName.trim(),
+        schemaVersionId:
+          outputMode === 'create' ? schemaVersionId || undefined : undefined,
+        datasetId: outputMode === 'append' ? datasetId || undefined : undefined,
+        datasetLabel: datasetLabel.trim() || undefined,
       },
     }),
-    [sourceConfig, description, inputs, outputMode, statement, datasetName],
+    [
+      sourceConfig,
+      description,
+      inputs,
+      outputMode,
+      statement,
+      datasetName,
+      schemaVersionId,
+      datasetId,
+      datasetLabel,
+    ],
   )
 
   // The shared contract validator mirrors `api.pipeline_config_errors`, so a
@@ -317,7 +341,7 @@ function PipelineSteps() {
         <div className="flex flex-col gap-4">
           <Field
             label="Mode"
-            hint="What the run leaves behind. The dataset the output uses is configured on the version, not here."
+            hint="What the run leaves behind. Keep a dataset to make each successful run write a new Dataset Version."
           >
             <Select
               aria-label="Output mode"
@@ -332,19 +356,76 @@ function PipelineSteps() {
             </Select>
           </Field>
           {outputMode === 'create' ? (
-            <Field label="Dataset name">
+            <>
+              <Field label="Dataset name">
+                <Input
+                  aria-label="Dataset name"
+                  value={datasetName}
+                  onChange={(e) => setDatasetName(e.target.value)}
+                />
+              </Field>
+              <Field
+                label="Dataset schema version"
+                hint="The published schema the new dataset is built from."
+              >
+                <Select
+                  aria-label="Dataset schema version"
+                  value={schemaVersionId}
+                  onChange={(e) => setSchemaVersionId(e.target.value)}
+                >
+                  <option value="">Choose a schema version…</option>
+                  {(targets.data?.schemaVersions ?? []).map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </>
+          ) : null}
+          {outputMode === 'append' ? (
+            <Field
+              label="Dataset"
+              hint="The dataset each run adds a version to."
+            >
+              <Select
+                aria-label="Dataset"
+                value={datasetId}
+                onChange={(e) => setDatasetId(e.target.value)}
+              >
+                <option value="">Choose a dataset…</option>
+                {(targets.data?.datasets ?? []).map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.displayId ? `${d.displayId} · ${d.name}` : d.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
+          {outputMode !== 'none' ? (
+            <Field
+              label="Dataset version label"
+              hint="Names each version a run writes, for example “Weekly readings”."
+            >
               <Input
-                value={datasetName}
-                onChange={(e) => setDatasetName(e.target.value)}
+                aria-label="Dataset version label"
+                value={datasetLabel}
+                onChange={(e) => setDatasetLabel(e.target.value)}
               />
             </Field>
           ) : (
             <p className="m-0 text-label text-fg-muted">
-              {outputMode === 'append'
-                ? `Appends to the dataset this version is configured with${sourceConfig.output?.datasetLabel ? ` as “${sourceConfig.output.datasetLabel}”` : ''}.`
-                : 'The run keeps its result in the run record only.'}
+              The run keeps its result in the run record only.
             </p>
           )}
+          {outputMode !== 'none' && targets.isError ? (
+            <Notice tone="bad" title="Couldn’t load datasets and schemas">
+              The choices above come from the workspace’s datasets.{' '}
+              <Button size="sm" onClick={() => void targets.refetch()}>
+                Try again
+              </Button>
+            </Notice>
+          ) : null}
         </div>
       </Section>
 

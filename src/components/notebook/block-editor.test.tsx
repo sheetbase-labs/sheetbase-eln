@@ -589,6 +589,37 @@ describe('BlockEditor — failed save surface', () => {
   })
 })
 
+describe('BlockEditor — failed save retry (J-NBK-16)', () => {
+  it('offers Try again after a failed save and saves on the second attempt', async () => {
+    const user = userEvent.setup()
+    const save = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        kind: 'validation' as const,
+        message: 'Save failed after several attempts.',
+      })
+      .mockResolvedValue({ ok: true })
+    renderWithQuery(
+      <BlockEditor
+        block={block({ type: 'rich_text', payload: richText('Hi') })}
+        save={save}
+      />,
+    )
+    const editor = await screen.findByRole('textbox', { name: 'Text content' })
+    editor.focus()
+    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await user.paste('X')
+    await user.tab()
+    await screen.findByText(/Save failed after several attempts/)
+    await user.click(await screen.findByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull(),
+    )
+  })
+})
+
 describe('BlockEditor — explain surface (ASSIST-01)', () => {
   it('offers a grounded explanation for a validation failure', async () => {
     const user = userEvent.setup()

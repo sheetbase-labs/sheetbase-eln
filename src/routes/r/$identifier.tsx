@@ -18,6 +18,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { recordDestination } from '#/lib/navigation'
 import { resolveRecordByIdentifier } from '#/lib/record-resolver'
 
 export const Route = createFileRoute('/r/$identifier')({
@@ -38,14 +39,16 @@ function ResolveIdentifierRoute() {
   })
 
   const recordId = lookup.data?.id
+  const kind = lookup.data?.kind
   useEffect(() => {
     if (!recordId) return
+    // Samples and lots land on the surface that owns their quarantine and hold
+    // state, not the generic notebook record page.
     void navigate({
-      to: '/records/$recordId',
-      params: { recordId },
+      to: recordDestination(kind ?? '', recordId),
       replace: true,
     })
-  }, [recordId, navigate])
+  }, [recordId, kind, navigate])
 
   if (lookup.isError) {
     return (

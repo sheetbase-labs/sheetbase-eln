@@ -148,7 +148,13 @@ export function itemLink(item: WorkItem) {
   if (item.kind === 'run_failed' || item.kind === 'run_waiting')
     return { to: '/pipelines' as const }
   if (item.kind === 'data_issue') return { to: '/datasets' as const }
-  if (item.kind === 'material_expiring') return { to: '/materials' as const }
+  if (item.kind === 'material_expiring')
+    return item.recordId
+      ? {
+          to: '/materials' as const,
+          search: { selected: item.recordId },
+        }
+      : { to: '/materials' as const }
   if (item.recordId)
     return {
       to: '/records/$recordId' as const,

@@ -113,7 +113,7 @@ describe('RecordLineageList', () => {
 
     expect(
       screen.getByRole('link', { name: /SMP-UP-1/ }).getAttribute('href'),
-    ).toBe('/samples?selected=up-id')
+    ).toBe('/samples/up-id')
     expect(
       screen.getByRole('link', { name: /EXP-DOWN-1/ }).getAttribute('href'),
     ).toBe('/records/down-id')
@@ -168,6 +168,6 @@ describe('RecordLineageSection', () => {
     expect(screen.getByText('Lineage')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: /SMP-UP-1/ }).getAttribute('href'),
-    ).toBe('/samples?selected=up-id')
+    ).toBe('/samples/up-id')
   })
 })

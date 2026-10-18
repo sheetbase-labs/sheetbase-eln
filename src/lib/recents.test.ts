@@ -263,7 +263,7 @@ describe('resolveRecentItems', () => {
     )
     expect(items).toHaveLength(1)
     expect(items[0].label).toBe('Buffer lot A')
-    expect(items[0].destination).toBe('/samples?selected=r-1')
+    expect(items[0].destination).toBe('/samples/r-1')
     expect(items[0].identifier).toBe('SAM-0001')
   })
 

@@ -23,7 +23,7 @@ export function sheetPath(sheetId: string): string {
 }
 
 export function samplePath(sampleId: string): string {
-  return `/samples?selected=${encodeURIComponent(sampleId)}`
+  return `/samples/${encodeURIComponent(sampleId)}`
 }
 
 export function reagentPath(reagentId: string): string {

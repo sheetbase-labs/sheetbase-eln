@@ -1550,6 +1550,25 @@ export async function releaseSample(
 }
 
 /**
+ * The labels of the release checks `api.release_sample` refused on (SB093
+ * `release checks failed: ["Purity","Identity"]`). Null when the error is not a
+ * release-check refusal or carries no labels.
+ */
+export function releaseFailedChecks(error: unknown): string[] | null {
+  if (!(error instanceof DataClientError)) return null
+  const match = /release checks failed:\s*(\[.*\])/s.exec(error.message)
+  if (!match) return null
+  try {
+    const labels: unknown = JSON.parse(match[1])
+    if (!Array.isArray(labels)) return null
+    const names = labels.map((label) => String(label)).filter(Boolean)
+    return names.length ? names : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Map a DataClientError to a short, actionable user-facing message keyed by
  * the database error code. Unknown codes fall back to the upstream message.
  */
@@ -1568,8 +1587,11 @@ export function describeSampleError(error: unknown): string {
         return 'This operation is not allowed for the sample lifecycle state.'
       case 'SB001':
         return 'This sample was edited by someone else. Refresh and try again.'
-      case 'SB093':
+      case 'SB093': {
+        const failed = releaseFailedChecks(error)
+        if (failed) return `Release checks failed: ${failed.join(', ')}.`
         return 'The release, quarantine or disposal could not be recorded. Check the required details.'
+      }
       case '42501':
         return 'You do not have access to that sample.'
       default:

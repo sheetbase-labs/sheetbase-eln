@@ -34,7 +34,7 @@ const outgoing: RelationshipRow[] = [
     state: 'available',
     title: 'Cell line',
     identifier: 'SMP-2',
-    destination: '/samples?selected=rec-2',
+    destination: '/samples/rec-2',
     createdAt: '2026-08-03T00:00:00Z',
     createdByUserId: 'user-1',
     duplicateCount: 1,

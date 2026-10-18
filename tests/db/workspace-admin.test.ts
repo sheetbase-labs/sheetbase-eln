@@ -159,6 +159,23 @@ describe('ADMIN-001 invitations', () => {
     )
   })
 
+  it('does not demote an active member who accepts a lower-role invitation', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const { rows } = await owner.query(
+      `SELECT api.create_invitation($1, $2, 'viewer', 7) AS invitation`,
+      [WS_A, 'admin001-self@sheetbase.test'],
+    )
+    await owner.query(`SELECT * FROM api.accept_invitation($1, $2)`, [
+      rows[0].invitation.token,
+      OWNER_A,
+    ])
+    const { rows: memberships } = await migrator.query(
+      `SELECT role FROM api.workspace_memberships WHERE workspace_id=$1 AND user_id=$2`,
+      [WS_A, OWNER_A],
+    )
+    expect(memberships[0].role).toBe('owner')
+  })
+
   it('rejects invalid and expired invitation tokens', async () => {
     const expiredUser = await asAuthenticated(EXPIRED, WS_A)
     await expectDenied(

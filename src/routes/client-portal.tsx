@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
@@ -42,6 +42,7 @@ import type {
 } from '#/lib/client-portal'
 import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { authClient } from '#/lib/auth-client'
 
 const tabs = ['projects', 'reports', 'messages'] as const
 type PortalTab = (typeof tabs)[number]
@@ -417,6 +418,25 @@ function ClientPortal() {
   const { context } = Route.useRouteContext()
   const navigate = Route.useNavigate()
   const search = Route.useSearch()
+  const router = useRouter()
+  const [signingOut, setSigningOut] = useState(false)
+  const [signOutError, setSignOutError] = useState<string | null>(null)
+  async function signOut() {
+    setSignOutError(null)
+    setSigningOut(true)
+    try {
+      const result = await authClient.signOut()
+      if (result.error || !result.data.success) throw new Error('sign out')
+      await router.options.context.queryClient.cancelQueries()
+      router.options.context.queryClient.clear()
+      await navigate({ to: '/sign-in', search: { state: 'signed-out' } })
+      await router.invalidate()
+    } catch {
+      setSignOutError('Sign out could not be confirmed. Try again.')
+    } finally {
+      setSigningOut(false)
+    }
+  }
   const tab = search.tab ?? 'projects'
   const setTab = (next: PortalTab) => void navigate({ search: { tab: next } })
   const projects = useQuery({
@@ -498,6 +518,19 @@ function ClientPortal() {
             <span className="max-md:sr-only">Client view preview</span>
           </span>
         )}
+        <Button
+          size="sm"
+          variant="quiet"
+          disabled={signingOut}
+          onClick={() => void signOut()}
+        >
+          Sign out
+        </Button>
+        {signOutError ? (
+          <span role="alert" className="text-label text-danger-text">
+            {signOutError}
+          </span>
+        ) : null}
         <span
           aria-label={`Account: ${context.user.name}`}
           className="flex size-7 items-center justify-center rounded-full bg-review-wash text-[11px] font-semibold"

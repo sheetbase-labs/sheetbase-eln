@@ -183,8 +183,10 @@ import {
 import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
 import { ObjectLink } from '#/components/v3/ui/object-link'
-import { returnToHere } from '#/lib/create-context-search'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { returnToHere } from '#/lib/return-to'
+import { reviewNextStep } from '#/lib/review-next-step'
+import { ReviewNextStepPanel } from '#/components/review/review-next-step'
 
 /**
  * UI port (roadmap-4/ui-app3): the route renders inside app-3's shell, so the
@@ -546,6 +548,32 @@ export function ReviewWorkspaceRoute() {
 
   const integrityDigest = revision?.integrity_digest ?? null
 
+  // What happens next, in words, for the reader.
+  const nextStepNames = useUserNames(
+    [
+      ...(submission?.assigned_reviewer_user_ids ?? []).filter(
+        (id) => id !== currentUserId,
+      ),
+      ...(submission ? [submission.submitted_by_user_id] : []),
+    ],
+    { id: currentUserId, name: currentUserName },
+  )
+  const nextStep = reviewNextStep({
+    state: submission?.state ?? null,
+    superseded: Boolean(revision?.superseded_by_revision_id),
+    locked: isLocked,
+    isSubmitter: submission?.submitted_by_user_id === currentUserId,
+    isAssignedReviewer:
+      submission?.assigned_reviewer_user_ids.includes(currentUserId) ?? false,
+    hasSigned: signatures.some((sig) => sig.signer_user_id === currentUserId),
+    reviewerNames: (submission?.assigned_reviewer_user_ids ?? [])
+      .filter((id) => id !== currentUserId)
+      .map((id) => nextStepNames.names[id] ?? 'a colleague'),
+    submitterName: submission
+      ? (nextStepNames.names[submission.submitted_by_user_id] ?? null)
+      : null,
+  })
+
   // --- Error / permission state ------------------------------------------
 
   const permissionDenied =
@@ -699,6 +727,13 @@ export function ReviewWorkspaceRoute() {
             lockedByRevisionId={record?.locked_by_revision_id ?? null}
             recordId={recordId}
           />
+
+          {submission ? (
+            <ReviewNextStepPanel
+              step={nextStep}
+              currentRevisionId={revisionId}
+            />
+          ) : null}
 
           {submission?.state === 'returned' ? (
             <ReturnedCommentsBanner
@@ -1865,7 +1900,6 @@ export function ActionButtons({
   const [submittingKind, setSubmittingKind] =
     useState<ReviewDecisionKind | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [signAfterApproval, setSignAfterApproval] = useState(false)
   useRegisterShortcuts(
     useMemo(
       () =>
@@ -1875,7 +1909,6 @@ export function ActionButtons({
               ? () => {
                   setNote('')
                   setError(null)
-                  setSignAfterApproval(true)
                   setPendingKind('approve')
                 }
               : undefined,
@@ -1905,8 +1938,8 @@ export function ActionButtons({
       })
       setPendingKind(null)
       setNote('')
-      if (kind === 'approve' && signAfterApproval) onApprovedForSigning?.()
-      setSignAfterApproval(false)
+      // Approving leads straight into signing; the dialog offers Sign later.
+      if (kind === 'approve') onApprovedForSigning?.()
     } catch (err) {
       setError(renderError(err))
     } finally {
@@ -1964,7 +1997,6 @@ export function ActionButtons({
               submitting={submittingKind === action.kind}
               onOpen={() => {
                 setNote('')
-                setSignAfterApproval(false)
               }}
               onConfirm={confirm}
               onOpenChange={(open) => {
@@ -2552,6 +2584,11 @@ export function SignaturePanel({
               currentUserName={currentUserName}
               signing={signing}
               error={error}
+              // An approved review waits for the signature; leaving the dialog
+              // is a choice to sign later, and the Inbox keeps the reminder.
+              cancelLabel={
+                submission.state === 'approved' ? 'Sign later' : undefined
+              }
               onConfirm={handleSigned}
             />
           ) : certifications.isError || eligibility.isError ? (

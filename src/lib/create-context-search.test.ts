@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cancelTarget,
   parseCreateContext,
-  returnToHere,
+  returnWithContext,
   safeReturnTo,
 } from './create-context-search'
 
@@ -49,9 +49,22 @@ describe('cancelTarget', () => {
   })
 })
 
-describe('returnToHere', () => {
-  it('is the current in-app path in the browser', () => {
-    window.history.pushState({}, '', '/experiments/e-1/notebook?revision=r1')
-    expect(returnToHere()).toBe('/experiments/e-1/notebook?revision=r1')
+describe('returnWithContext', () => {
+  it('hands what the detour made back to the page that sent the person', () => {
+    expect(returnWithContext('/datasets/new', { model: 'm1' })).toBe(
+      '/datasets/new?model=m1',
+    )
+  })
+
+  it('keeps what the return path already carries and replaces a value it names', () => {
+    expect(
+      returnWithContext('/datasets/new?project=p1&model=old', { model: 'm2' }),
+    ).toBe('/datasets/new?project=p1&model=m2')
+  })
+
+  it('leaves an unsafe path alone', () => {
+    expect(returnWithContext('https://example.com', { model: 'm1' })).toBe(
+      'https://example.com',
+    )
   })
 })

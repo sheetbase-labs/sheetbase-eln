@@ -63,6 +63,7 @@ import { Icon } from '#/components/v3/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
+import { returnLabel } from '#/lib/return-to'
 import { Notice } from '#/components/v3/ui/alert'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Input } from '#/components/v3/ui/input'
@@ -391,6 +392,14 @@ function AnalysisStudio() {
       if (view) {
         toast('Analysis view saved', {
           description: `${view.name} v${view.version}`,
+          ...(search.returnTo
+            ? {
+                action: {
+                  label: returnLabel(search.returnTo),
+                  onClick: () => void navigate({ to: search.returnTo }),
+                },
+              }
+            : {}),
         })
       }
       queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
@@ -578,6 +587,7 @@ function AnalysisStudio() {
             error={summariesQuery.error}
             selectedDatasetId={selectedDatasetId}
             onSelect={setSelectedDatasetId}
+            returnTo={search.returnTo}
           />
           {search.returnTo ? (
             <Link to={search.returnTo} className="text-label text-link">
@@ -770,6 +780,8 @@ interface AnalysisStudioHeaderProps {
   error: unknown
   selectedDatasetId: string | null
   onSelect: (id: string) => void
+  /** The page that opened the studio, when it asked to be returned to. */
+  returnTo?: string
 }
 
 export function AnalysisStudioHeader({
@@ -778,6 +790,7 @@ export function AnalysisStudioHeader({
   error,
   selectedDatasetId,
   onSelect,
+  returnTo,
 }: AnalysisStudioHeaderProps) {
   return (
     <header
@@ -793,6 +806,16 @@ export function AnalysisStudioHeader({
         <h1 id="analysis-title" className="text-title">
           Analysis Studio
         </h1>
+        {returnTo ? (
+          <Button
+            size="sm"
+            variant="quiet"
+            nativeButton={false}
+            render={<Link to={returnTo} />}
+          >
+            {returnLabel(returnTo)}
+          </Button>
+        ) : null}
       </div>
       <div className="flex items-center gap-2">
         {error ? (

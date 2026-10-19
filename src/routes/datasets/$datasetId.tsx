@@ -188,7 +188,11 @@ function DatasetLayout() {
                 render={
                   <Link
                     to="/analysis/new"
-                    search={{ mode: 'chart', dataset: dataset.uuid }}
+                    search={{
+                      mode: 'chart',
+                      dataset: dataset.uuid,
+                      returnTo: `/datasets/${dataset.uuid}`,
+                    }}
                   />
                 }
               >
@@ -199,7 +203,11 @@ function DatasetLayout() {
                 render={
                   <Link
                     to="/analysis/new"
-                    search={{ mode: 'analyse', dataset: dataset.uuid }}
+                    search={{
+                      mode: 'analyse',
+                      dataset: dataset.uuid,
+                      returnTo: `/datasets/${dataset.uuid}`,
+                    }}
                   />
                 }
               >

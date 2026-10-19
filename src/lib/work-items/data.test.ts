@@ -93,6 +93,8 @@ describe('countByKind', () => {
       item({ kind: 'cell_conflict' }),
       item({ kind: 'following' }),
       item({ kind: 'witness_requested' }),
+      item({ kind: 'review_returned' }),
+      item({ kind: 'calibration_overdue' }),
     ])
     expect(counts).toEqual({
       review_requested: 2,
@@ -103,9 +105,43 @@ describe('countByKind', () => {
       material_expiring: 1,
       cell_conflict: 1,
       approval_requested: 0,
+      review_returned: 1,
+      approval_unsigned: 0,
+      witness_signed: 0,
+      access_requested: 0,
+      access_decided: 0,
+      agent_proposal: 0,
+      invitation_accepted: 0,
+      verification_requested: 0,
+      verification_granted: 0,
+      sample_awaiting_release: 0,
+      sample_hold_exceeded: 0,
+      calibration_overdue: 1,
       following: 1,
     })
   })
+})
+
+describe('toWorkItem for the waiting states', () => {
+  it.each([
+    'review_returned',
+    'approval_unsigned',
+    'witness_signed',
+    'access_requested',
+    'access_decided',
+    'agent_proposal',
+    'invitation_accepted',
+    'verification_requested',
+    'verification_granted',
+    'sample_awaiting_release',
+    'sample_hold_exceeded',
+    'calibration_overdue',
+  ])(
+    'keeps %s as its own kind instead of folding it into Following',
+    (kind) => {
+      expect(toWorkItem(wire({ kind }), NOW).kind).toBe(kind)
+    },
+  )
 })
 
 describe('fetchWorkItems', () => {

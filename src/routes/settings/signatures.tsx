@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
-
-import { safeReturnTo } from '#/lib/create-context-search'
 import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -30,6 +28,8 @@ import { TableBox } from '#/components/v3/ui/table'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
+import { safeReturnTo } from '#/lib/create-context-search'
+import { returnLabel } from '#/lib/return-to'
 import {
   CheckRow,
   SettingsBody,
@@ -122,11 +122,11 @@ const getSigningAvailability = createServerFn({ method: 'GET' }).handler(
 )
 
 export const Route = createFileRoute('/settings/signatures')({
-  // A page that sends someone here (to certify before signing) names where to
-  // come back to.
-  validateSearch: (search: Record<string, unknown>): { returnTo?: string } => ({
-    returnTo: safeReturnTo(search.returnTo),
-  }),
+  // A page that sent the person here to certify hands over where to go back to.
+  validateSearch: (search: Record<string, unknown>): { returnTo?: string } => {
+    const returnTo = safeReturnTo(search.returnTo)
+    return returnTo ? { returnTo } : {}
+  },
   loader: () => getSigningAvailability(),
   component: Signatures,
 })
@@ -203,8 +203,8 @@ export function VerificationPath({
 
 function Signatures() {
   const { context } = Route.useRouteContext()
-  const { signInAvailable } = Route.useLoaderData()
   const { returnTo } = Route.useSearch()
+  const { signInAvailable } = Route.useLoaderData()
   const workspaceId = context.workspace?.id ?? ''
   const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
   const canVerify =
@@ -325,20 +325,31 @@ function Signatures() {
 
   return (
     <>
-      <SettingsHeader
-        title="Electronic signatures"
-        actions={
-          returnTo ? (
-            <Button nativeButton={false} render={<Link to={returnTo} />}>
-              Back to where you were
-            </Button>
-          ) : undefined
-        }
-      >
+      <SettingsHeader title="Electronic signatures">
         {context.workspace?.name ?? 'Workspace'} · signatures are a deliberate
         act; every one records who, when and what version
       </SettingsHeader>
       <SettingsBody>
+        {returnTo ? (
+          <Notice
+            title={current ? 'You can sign now' : 'You came here to certify'}
+          >
+            <p className="m-0">
+              {current
+                ? 'Your signature is certified, so the task you left can go ahead.'
+                : 'Finish certifying below, then go back to the task you left.'}
+            </p>
+            <p className="m-0 mt-1.5">
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link to={returnTo} />}
+              >
+                {returnLabel(returnTo)}
+              </Button>
+            </p>
+          </Notice>
+        ) : null}
         {signInAvailable ? null : (
           <Notice tone="warn" title="Signing needs a signed-in account">
             This environment runs without sign-in, so identity verification,

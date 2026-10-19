@@ -13,6 +13,7 @@
  *
  * `readOnly` disables editing (archived notebooks, etc.).
  */
+import { returnToHere } from '#/lib/return-to'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -84,7 +85,6 @@ import { useUnsyncedBlock } from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
 import { OpenLink } from './block-preview'
-import { returnToHere } from '#/lib/create-context-search'
 import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
 import { validateFileForUpload } from '#/lib/file-attach'
 import { formatFileSize } from '#/lib/format-numbers'

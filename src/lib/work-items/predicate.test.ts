@@ -53,3 +53,22 @@ describe('workItemType', () => {
     expect(workItemType('material_expiring')).toBe('materials')
   })
 })
+
+describe('workItemType for the waiting states', () => {
+  it.each([
+    ['review_returned', 'reviews'],
+    ['approval_unsigned', 'reviews'],
+    ['witness_signed', 'reviews'],
+    ['sample_awaiting_release', 'lab'],
+    ['sample_hold_exceeded', 'lab'],
+    ['calibration_overdue', 'lab'],
+    ['access_requested', 'admin'],
+    ['access_decided', 'admin'],
+    ['agent_proposal', 'admin'],
+    ['invitation_accepted', 'admin'],
+    ['verification_requested', 'admin'],
+    ['verification_granted', 'admin'],
+  ])('files %s under %s', (kind, type) => {
+    expect(workItemType(kind)).toBe(type)
+  })
+})

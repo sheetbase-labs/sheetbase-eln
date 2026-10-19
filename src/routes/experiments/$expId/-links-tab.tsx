@@ -222,7 +222,11 @@ export function LinksPanel({ expId }: { expId: string }) {
                   render={
                     <Link
                       to="/analysis/new"
-                      search={{ mode: 'chart', experiment: expId }}
+                      search={{
+                        mode: 'chart',
+                        experiment: expId,
+                        returnTo: `/experiments/${expId}/links`,
+                      }}
                     />
                   }
                 >

@@ -1,3 +1,4 @@
+import { returnToHere } from '#/lib/return-to'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
@@ -52,7 +53,6 @@ import {
 
 import { BlockPreview } from './block-preview'
 import { SubmissionReadinessGuide } from '#/components/assist/submission-readiness-guide'
-import { returnToHere } from '#/lib/create-context-search'
 
 const WORKFLOW_KEY = 'default-scientific-review'
 const WORKFLOW_VERSION = 1
@@ -558,7 +558,7 @@ export function SubmitNotebookDialog({
                   <p className="m-0 mt-1.5">
                     <Link
                       to="/settings/signatures"
-                      search={{ returnTo: returnToHere() }}
+                      search={{ returnTo: returnToHere('submit') }}
                       className="underline"
                     >
                       Open signature settings

@@ -46,7 +46,9 @@ import { useWorkspaceMemberNames } from '#/components/v3/projects/project-data'
 import { toast } from '#/components/v3/ui/sonner'
 import { hasCapability } from '#/lib/capability'
 import { createDatasetSchemaDefinition } from '#/lib/dataset-schema-definition-rpc'
+import { returnWithContext, safeReturnTo } from '#/lib/create-context-search'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { returnLabel } from '#/lib/return-to'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 const tabs = ['all', 'published', 'drafts', 'retired'] as const
@@ -76,7 +78,14 @@ export const Route = createFileRoute('/models')({
     q?: string
     tab?: ModelTab
     selected?: string
+    create?: true
+    returnTo?: string
   } => ({
+    // A page that needs a model sends the person here to make one (`create`)
+    // and says where to come back to (`returnTo`).
+    create:
+      search.create === true || search.create === 'true' ? true : undefined,
+    returnTo: safeReturnTo(search.returnTo),
     q: typeof search.q === 'string' ? search.q : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
     tab:
@@ -141,7 +150,9 @@ function ModelsList() {
   // (`api.require_capability`): the board offers the control only to a role
   // that holds it, and states why when it does not.
   const canCreate = hasCapability(context.workspace?.role, 'schema.edit')
-  const [createOpen, setCreateOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(
+    () => search.create === true && canCreate,
+  )
   const create = useMutation({
     mutationFn: (input: ModelCreateInput) => {
       if (!workspaceId) throw new Error('No active workspace.')
@@ -154,9 +165,23 @@ function ModelsList() {
     },
     onSuccess: (created, input) => {
       setCreateOpen(false)
+      const back = search.returnTo
       void queryClient.invalidateQueries({ queryKey: modelsQueryKeys.list })
       toast(`Model “${input.name}” created`, {
         description: 'v1 is a draft. Add its fields, then publish it.',
+        ...(back
+          ? {
+              action: {
+                label: returnLabel(back),
+                onClick: () =>
+                  void navigate({
+                    to: returnWithContext(back, {
+                      model: created.schema_definition_id,
+                    }),
+                  } as never),
+              },
+            }
+          : {}),
       })
       // A new definition is a draft, so it belongs to the All tab whatever tab
       // the board is on: show it there and select its row.
@@ -165,6 +190,7 @@ function ModelsList() {
         search: (s) => ({
           ...s,
           tab: undefined,
+          create: undefined,
           selected: created.schema_definition_id,
         }),
         replace: true,
@@ -281,15 +307,25 @@ function ModelsList() {
           total={rows.length}
           actions={
             canCreate ? (
-              <Button
-                variant="primary"
-                onClick={() => {
-                  create.reset()
-                  setCreateOpen(true)
-                }}
-              >
-                New model
-              </Button>
+              <>
+                {search.returnTo ? (
+                  <Button
+                    nativeButton={false}
+                    render={<Link to={search.returnTo} />}
+                  >
+                    {returnLabel(search.returnTo)}
+                  </Button>
+                ) : null}
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    create.reset()
+                    setCreateOpen(true)
+                  }}
+                >
+                  New model
+                </Button>
+              </>
             ) : (
               <p className="m-0 max-w-[320px] text-label text-fg-muted">
                 {CREATE_DENIED_REASON}

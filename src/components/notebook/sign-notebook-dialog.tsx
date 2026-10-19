@@ -1,3 +1,4 @@
+import { returnToHere } from '#/lib/return-to'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -33,7 +34,6 @@ import {
 } from '#/lib/signature-certification'
 import { ESignDialog } from './e-sign-dialog'
 import type { ESignSubmitInput } from './e-sign-dialog'
-import { returnToHere } from '#/lib/create-context-search'
 
 /**
  * R5-NOTE-02: the Notebook signature dialog now renders the shared
@@ -256,7 +256,7 @@ export function SignNotebookDialog({
         <p className="m-0 mt-1.5">
           <Link
             to="/settings/signatures"
-            search={{ returnTo: returnToHere() }}
+            search={{ returnTo: returnToHere('sign') }}
             className="underline"
           >
             Open signature settings

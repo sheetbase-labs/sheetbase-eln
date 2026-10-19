@@ -24,6 +24,7 @@ export function SignatureDialog({
   currentUserName,
   signing,
   error,
+  cancelLabel,
   onConfirm,
 }: {
   open: boolean
@@ -35,6 +36,8 @@ export function SignatureDialog({
   currentUserName: string
   signing: boolean
   error: string | null
+  /** What leaving without signing is called, e.g. "Sign later". */
+  cancelLabel?: string
   onConfirm: (
     meaning: PostSubmissionSignatureMeaning,
     confirmation: string,
@@ -75,6 +78,7 @@ export function SignatureDialog({
         initialMeaning={initialMeaning}
         busy={signing}
         errorMessage={error}
+        cancelLabel={cancelLabel}
         onSubmit={({ meaning, confirmation, password }) =>
           onConfirm(meaning, confirmation, password)
         }

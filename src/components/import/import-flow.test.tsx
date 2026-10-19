@@ -64,8 +64,17 @@ vi.mock('#/lib/dataset-product', async (importOriginal) => ({
   listPublishedDatasetSchemas: vi.fn(async () => []),
 }))
 
+const experimentRows = vi.hoisted(() => ({
+  data: [] as {
+    id: string
+    identifier: string
+    title: string
+    project_id: string | null
+  }[],
+}))
+
 vi.mock('#/components/v3/experiments/experiments-data', () => ({
-  useExperimentRecords: () => ({ data: [] }),
+  useExperimentRecords: () => ({ data: experimentRows.data }),
 }))
 
 vi.mock('#/components/v3/instruments/instruments-data', () => ({
@@ -90,6 +99,7 @@ vi.mock('@tanstack/react-router', () => ({
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  experimentRows.data = []
 })
 
 beforeEach(() => {
@@ -241,6 +251,8 @@ describe('import URL contract', () => {
       instrument: 'inst-1',
       parser: 'sheetbase.plate-reader-csv',
       map: 'raw:field-1',
+      project: undefined,
+      returnTo: undefined,
     })
     expect(parseImportSearch({ step: 'upload' })).toEqual({
       step: undefined,
@@ -249,7 +261,18 @@ describe('import URL contract', () => {
       instrument: undefined,
       parser: undefined,
       map: undefined,
+      project: undefined,
+      returnTo: undefined,
     })
+  })
+
+  it('keeps the shared create-context pins and refuses an off-site returnTo', () => {
+    expect(
+      parseImportSearch({ project: 'p-1', returnTo: '/experiments/e-1' }),
+    ).toMatchObject({ project: 'p-1', returnTo: '/experiments/e-1' })
+    expect(
+      parseImportSearch({ returnTo: 'https://example.com/x' }).returnTo,
+    ).toBeUndefined()
   })
 
   it('round-trips a mapping, including headers with separators', () => {
@@ -414,6 +437,7 @@ describe('ImportUploadFlow', () => {
         schemaVersionId: 'sv-1',
         name: 'ELISA capsid titre run 4',
         createdByUserId: 'u-1',
+        primaryProjectId: null,
       },
     )
     const [uploadArgs] = importData.uploadImportFile.mock.calls[0] ?? []
@@ -426,6 +450,118 @@ describe('ImportUploadFlow', () => {
         search: expect.objectContaining({ step: 'map', dataset: 'ds-new' }),
       }),
     )
+  })
+})
+
+describe('ImportUploadFlow context', () => {
+  async function importNewDataset(ui: ReactNode) {
+    vi.mocked(listPublishedDatasetSchemas).mockResolvedValue([
+      {
+        schemaDefinitionId: 'sd-1',
+        schemaVersionId: 'sv-1',
+        key: 'elisa',
+        name: 'ELISA and turbidity',
+        description: null,
+        version: 2,
+      },
+    ])
+    importData.resolveImportTarget.mockResolvedValue({
+      datasetId: 'ds-new',
+      created: true,
+    })
+    importData.uploadImportFile.mockResolvedValue(
+      uploadResponse({ fileId: 'file-1', datasetId: 'ds-new' }),
+    )
+    const user = userEvent.setup()
+    renderFlow(ui)
+    await screen.findByRole('option', { name: /ELISA and turbidity/ })
+    await user.selectOptions(
+      screen.getByLabelText('Model for the new dataset'),
+      'sv-1',
+    )
+    await user.type(screen.getByLabelText('New dataset name'), 'Run 4')
+    return user
+  }
+
+  it('gives a Dataset made for an experiment that experiment’s project', async () => {
+    experimentRows.data = [
+      { id: 'exp-1', identifier: 'EXP-1', title: 'Titre', project_id: 'prj-9' },
+    ]
+    const user = await importNewDataset(
+      <ImportUploadFlow
+        workspaceId="ws-1"
+        createdByUserId="u-1"
+        initialExperimentId="exp-1"
+      />,
+    )
+    await user.upload(
+      screen.getByLabelText('Laboratory file'),
+      new File(['a,b\n1,2'], 'x.csv', { type: 'text/csv' }),
+    )
+    await waitFor(() =>
+      expect(importData.resolveImportTarget).toHaveBeenCalledTimes(1),
+    )
+    expect(importData.resolveImportTarget.mock.calls[0]?.[1]).toMatchObject({
+      primaryProjectId: 'prj-9',
+    })
+  })
+
+  it('prefers the project the page named, and carries it and returnTo to the next step', async () => {
+    experimentRows.data = [
+      { id: 'exp-1', identifier: 'EXP-1', title: 'Titre', project_id: 'prj-9' },
+    ]
+    const user = await importNewDataset(
+      <ImportUploadFlow
+        workspaceId="ws-1"
+        createdByUserId="u-1"
+        initialExperimentId="exp-1"
+        initialProjectId="prj-2"
+        returnTo="/experiments/exp-1/datasets"
+      />,
+    )
+    await user.upload(
+      screen.getByLabelText('Laboratory file'),
+      new File(['a,b\n1,2'], 'x.csv', { type: 'text/csv' }),
+    )
+    await waitFor(() => expect(navigate).toHaveBeenCalled())
+    expect(importData.resolveImportTarget.mock.calls[0]?.[1]).toMatchObject({
+      primaryProjectId: 'prj-2',
+    })
+    expect(navigate.mock.calls[0]?.[0].search).toMatchObject({
+      project: 'prj-2',
+      returnTo: '/experiments/exp-1/datasets',
+    })
+  })
+
+  it('Cancel goes back to the page the import was started from', () => {
+    renderFlow(
+      <ImportUploadFlow
+        workspaceId="ws-1"
+        createdByUserId="u-1"
+        returnTo="/samples/s-1"
+      />,
+    )
+    expect(
+      screen.getByRole('link', { name: 'Cancel' }).getAttribute('href'),
+    ).toBe('/samples/s-1')
+  })
+
+  it('Cancel falls back to the experiment, then the Datasets list', () => {
+    const { unmount } = renderFlow(
+      <ImportUploadFlow
+        workspaceId="ws-1"
+        createdByUserId="u-1"
+        initialExperimentId="exp-1"
+      />,
+    )
+    expect(
+      screen.getByRole('link', { name: 'Cancel' }).getAttribute('href'),
+    ).toBe('/experiments/exp-1')
+    unmount()
+    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+    expect(
+      screen.getByRole('link', { name: 'Cancel' }).getAttribute('href'),
+    ).toBe('/datasets')
   })
 })
 

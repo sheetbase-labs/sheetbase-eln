@@ -25,6 +25,7 @@ import {
   useInstruments,
   useLatestCalibrationsByInstrument,
 } from '#/components/v3/instruments/instruments-data'
+import { cancelTarget, safeReturnTo } from '#/lib/create-context-search'
 import { createDataClient } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
@@ -73,6 +74,10 @@ export interface ImportSearch {
   instrument?: string
   parser?: string
   map?: string
+  /** The project the import was started from (shared create-context param). */
+  project?: string
+  /** An in-app path the finished or cancelled import goes back to. */
+  returnTo?: string
 }
 
 /** Parse the raw search record; unknown or malformed values are dropped. */
@@ -93,6 +98,8 @@ export function parseImportSearch(
     instrument: text(search.instrument),
     parser: text(search.parser),
     map: text(search.map),
+    project: text(search.project),
+    returnTo: safeReturnTo(search.returnTo),
   }
 }
 
@@ -239,6 +246,8 @@ export function ImportUploadFlow({
   initialInstrumentId,
   initialExperimentId,
   initialDatasetId,
+  initialProjectId,
+  returnTo,
 }: {
   workspaceId: string
   /** The signed-in person a Dataset created here is attributed to. */
@@ -249,6 +258,10 @@ export function ImportUploadFlow({
   initialExperimentId?: string
   /** Preselects the Dataset to append to, e.g. from a Dataset's Re-import. */
   initialDatasetId?: string
+  /** The project in view; a Dataset created here belongs to it. */
+  initialProjectId?: string
+  /** Where Cancel goes back to, when the person came from another page. */
+  returnTo?: string
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -303,6 +316,13 @@ export function ImportUploadFlow({
             schemaVersionId,
             name: newName,
             createdByUserId,
+            // A Dataset made for an experiment belongs to that experiment's
+            // project, unless the page it was started from named one.
+            primaryProjectId:
+              initialProjectId ??
+              experiments.data?.find((item) => item.id === experimentId)
+                ?.project_id ??
+              null,
           }
         : { mode: 'append', datasetId },
     )
@@ -321,6 +341,8 @@ export function ImportUploadFlow({
         dataset: target.datasetId,
         experiment: experimentId || undefined,
         instrument: instrumentId || undefined,
+        project: initialProjectId,
+        returnTo,
       },
     })
   }
@@ -331,6 +353,25 @@ export function ImportUploadFlow({
         trail={[{ label: 'Datasets' }, { label: 'Import data' }]}
         title="Import data"
         meta="Store the file, check its columns, then see every row before importing."
+        actions={
+          <Button
+            nativeButton={false}
+            render={
+              <Link
+                to={cancelTarget(
+                  {
+                    experiment: experimentId || undefined,
+                    project: initialProjectId,
+                    returnTo,
+                  },
+                  '/datasets',
+                )}
+              />
+            }
+          >
+            Cancel
+          </Button>
+        }
       />
       <div className="px-4 py-4 md:px-6">
         <Stepper steps={STEPS} current={1} className="mb-4" />
@@ -806,6 +847,14 @@ export function ImportMapCheckFlow({
         }
         actions={
           <>
+            {!outcome ? (
+              <Button
+                nativeButton={false}
+                render={<Link to={cancelTarget(search, '/import')} />}
+              >
+                Cancel
+              </Button>
+            ) : null}
             {step === 'map' ? (
               <Button
                 variant="primary"
@@ -882,6 +931,26 @@ export function ImportMapCheckFlow({
               >
                 Open the Dataset snapshots
               </Link>
+            ) : null}
+            {search.experiment ? (
+              <>
+                {' · '}
+                <Link
+                  to="/experiments/$expId/datasets"
+                  params={{ expId: search.experiment }}
+                  className="underline"
+                >
+                  Back to the experiment
+                </Link>
+              </>
+            ) : null}
+            {search.returnTo ? (
+              <>
+                {' · '}
+                <Link to={search.returnTo} className="underline">
+                  Back to where you were
+                </Link>
+              </>
             ) : null}
           </Banner>
         ) : null}

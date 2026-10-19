@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { Notice } from '#/components/v3/ui/alert'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { DescriptionList, PageHeader } from '#/components/v3/ui/layout'
 import { Field, Input } from '#/components/v3/ui/input'
 import {
@@ -178,7 +179,11 @@ function LotPage() {
         title={reagent.title}
         meta={
           <>
-            <span className="mono">{reagent.identifier}</span>
+            <ObjectLink
+              kind="material"
+              id={reagent.id}
+              identifier={reagent.identifier}
+            />
             <span>lot {row.lot}</span>
             <Status tone={row.status.tone}>{row.status.label}</Status>
           </>

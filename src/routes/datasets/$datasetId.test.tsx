@@ -37,7 +37,7 @@ const fixtures = vi.hoisted(() => {
       outOfRange: 0,
       missingUnit: 0,
       missingUnitFields: [],
-      experimentId: null,
+      experimentId: null as string | null,
       reviewState: null,
       updated: '2026-09-25',
       updatedAt: '2026-09-25T10:11:00.000Z',
@@ -166,15 +166,33 @@ describe('dataset detail tab search parameter', () => {
     expect(history?.getAttribute('data-search')).toBe('{"view":"history"}')
   })
 
-  it('offers Download CSV always and Analyse only on the Rows tab', () => {
-    renderRoute(DetailLayout)
-    expect(screen.getByText('Download CSV')).toBeTruthy()
-    expect(screen.queryByText('Analyse')).toBeNull()
+  it('offers Chart and Analyse on every tab, opening the studio on this dataset', () => {
+    for (const pathname of ['/datasets/ds-1', '/datasets/ds-1/rows']) {
+      fixtures.routerState.pathname = pathname
+      renderRoute(DetailLayout)
+      expect(screen.getByText('Download CSV')).toBeTruthy()
+      expect(
+        screen.getByText('Chart').closest('a')?.getAttribute('data-search'),
+      ).toBe('{"mode":"chart","dataset":"ds-1"}')
+      expect(
+        screen.getByText('Analyse').closest('a')?.getAttribute('data-search'),
+      ).toBe('{"mode":"analyse","dataset":"ds-1"}')
+      cleanup()
+    }
+  })
 
-    cleanup()
-    fixtures.routerState.pathname = '/datasets/ds-1/rows'
-    renderRoute(DetailLayout)
-    expect(screen.getByText('Analyse')).toBeTruthy()
+  it('names the experiment that made the dataset as a link, and climbs through it', () => {
+    fixtures.datasetRow.experimentId = 'EXP-0142'
+    try {
+      renderRoute(DetailLayout)
+      const links = screen
+        .getAllByText('EXP-0142')
+        .map((node) => node.closest('a')?.getAttribute('data-to'))
+      expect(links).toContain('/experiments/$expId')
+      expect(links).toContain('/experiments/EXP-0142')
+    } finally {
+      fixtures.datasetRow.experimentId = null
+    }
   })
 
   it('renders the panel selected by the view search parameter', () => {

@@ -784,6 +784,17 @@ export function InstrumentInspector({
           >
             Open record
           </Button>
+          {canRecordCalibration ? (
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link to="/import" search={{ instrument: instrument.id }} />
+              }
+            >
+              Upload
+            </Button>
+          ) : null}
           {!instrument.retiredAt ? (
             <Button
               size="sm"

@@ -173,10 +173,10 @@ describe('dataset detail tab search parameter', () => {
       expect(screen.getByText('Download CSV')).toBeTruthy()
       expect(
         screen.getByText('Chart').closest('a')?.getAttribute('data-search'),
-      ).toBe('{"mode":"chart","dataset":"ds-1"}')
+      ).toBe('{"mode":"chart","dataset":"ds-1","returnTo":"/datasets/ds-1"}')
       expect(
         screen.getByText('Analyse').closest('a')?.getAttribute('data-search'),
-      ).toBe('{"mode":"analyse","dataset":"ds-1"}')
+      ).toBe('{"mode":"analyse","dataset":"ds-1","returnTo":"/datasets/ds-1"}')
       cleanup()
     }
   })

@@ -111,9 +111,10 @@ function renderScreen() {
 }
 
 describe('protocol header', () => {
-  it('offers to start an experiment from this protocol', async () => {
+  it('offers to start an experiment only from an effective version', async () => {
     renderScreen()
-    expect(await screen.findByText('Start an experiment')).toBeTruthy()
+    expect(await screen.findByText('Training on v3')).toBeTruthy()
+    expect(screen.queryByText('Start experiment')).toBeNull()
   })
 })
 

@@ -53,7 +53,12 @@ export async function createBlankExperiment(
 export async function applyExperimentSetup(
   client: DataClient,
   recordId: string,
-  input: { protocolRecordId?: string; copyFromRecordId?: string },
+  input: {
+    protocolRecordId?: string
+    copyFromRecordId?: string
+    /** A sample the experiment is created for. */
+    sampleRecordId?: string
+  },
 ): Promise<void> {
   if (input.protocolRecordId) {
     const protocol = (
@@ -69,6 +74,25 @@ export async function applyExperimentSetup(
         p_target_identifier: protocol.identifier,
         p_link_type: 'protocol',
         p_target_record_id: input.protocolRecordId,
+        p_label: null,
+      })
+    }
+  }
+
+  if (input.sampleRecordId) {
+    const sample = (
+      await client.list<{ identifier: string }>(
+        'records',
+        `?id=eq.${encodeURIComponent(input.sampleRecordId)}&select=identifier`,
+      )
+    ).at(0)
+    if (sample) {
+      await client.rpc('create_record_link', {
+        p_source_record_id: recordId,
+        p_target_kind: 'sample',
+        p_target_identifier: sample.identifier,
+        p_link_type: 'sample',
+        p_target_record_id: input.sampleRecordId,
         p_label: null,
       })
     }

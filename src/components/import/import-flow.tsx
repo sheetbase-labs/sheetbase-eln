@@ -237,12 +237,18 @@ export function ImportUploadFlow({
   workspaceId,
   createdByUserId,
   initialInstrumentId,
+  initialExperimentId,
+  initialDatasetId,
 }: {
   workspaceId: string
   /** The signed-in person a Dataset created here is attributed to. */
   createdByUserId: string | null
   /** Preselects the instrument, e.g. from an instrument's "Upload a file" action. */
   initialInstrumentId?: string
+  /** Preselects the experiment, e.g. from the experiment the person is in. */
+  initialExperimentId?: string
+  /** Preselects the Dataset to append to, e.g. from a Dataset's Re-import. */
+  initialDatasetId?: string
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -261,10 +267,10 @@ export function ImportUploadFlow({
   const calibrations = useLatestCalibrationsByInstrument()
 
   const [mode, setMode] = useState<'append' | 'new'>('append')
-  const [datasetId, setDatasetId] = useState('')
+  const [datasetId, setDatasetId] = useState(initialDatasetId ?? '')
   const [schemaVersionId, setSchemaVersionId] = useState('')
   const [newName, setNewName] = useState('')
-  const [experimentId, setExperimentId] = useState('')
+  const [experimentId, setExperimentId] = useState(initialExperimentId ?? '')
   const [instrumentId, setInstrumentId] = useState(initialInstrumentId ?? '')
 
   const datasetRows = datasets.data ?? []

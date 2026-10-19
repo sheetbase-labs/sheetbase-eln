@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { Button } from '#/components/v3/ui/button'
 import { Section } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { TableBox } from '#/components/v3/ui/table'
@@ -51,7 +52,21 @@ export function LinkTab({
   ]
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <Section title={title} count={rows.length}>
+      <Section
+        title={title}
+        count={rows.length}
+        action={
+          kind === 'dataset' ? (
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<Link to="/import" search={{ experiment: expId }} />}
+            >
+              Import data
+            </Button>
+          ) : undefined
+        }
+      >
         {rows.length ? (
           <TableBox>
             <RegistryGrid

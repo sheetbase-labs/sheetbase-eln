@@ -109,6 +109,7 @@ import {
   fetchDatasetSummaries,
   materialiseAnalysisChart,
   materialiseAnalysisFacets,
+  recordAnalysisCitation,
   resolveAnalysisViewSources,
   saveAnalysisView,
   validateAnalysisSpec,
@@ -1314,6 +1315,7 @@ export function ExportPanel({
         blockId: inserted.block.id,
         expectedVersion: inserted.block.version,
       })
+      await recordAnalysisCitation(notebookDataClient, target.id, view)
       toast('Cited in a notebook', {
         description: `${targetRecord?.identifier ?? 'The notebook'} now shows this analysis.`,
       })

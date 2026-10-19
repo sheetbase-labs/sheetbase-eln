@@ -1,21 +1,21 @@
-import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
+import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
-import { Button } from '#/components/v3/ui/button'
 import { CopyButton } from '#/components/v3/ui/copy-button'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { RecordTitleInput } from '../records/$recordId/notebook'
 
-/** UI port (roadmap-4/ui-app3): the experiment detail frame. Overview, Samples,
- * Datasets, Results, Files and History are wired to real data; Notebook reuses
- * the record notebook. */
+/** The experiment page: one frame, one URL. Notebook is the default tab and the
+ * working surface; Overview, Samples, Datasets, Results, Files and History sit
+ * beside it. `/records/$recordId/notebook` redirects here for experiments. */
 export const Route = createFileRoute('/experiments/$expId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
@@ -60,12 +60,15 @@ export function useExperimentRecord(recordId: string) {
           title: string
           status: string
           project_id: string | null
+          tags: string[] | null
+          locked_at: string | null
+          archived_at: string | null
           created_by_user_id: string
           created_at: string
           updated_at: string
         }>(
           'records',
-          `?id=eq.${recordId}&kind=eq.experiment&limit=1&select=id,identifier,title,status,project_id,created_by_user_id,created_at,updated_at`,
+          `?id=eq.${recordId}&kind=eq.experiment&limit=1&select=id,identifier,title,status,project_id,tags,locked_at,archived_at,created_by_user_id,created_at,updated_at`,
         )
         .then((rows) => rows[0] ?? null),
   })
@@ -123,7 +126,18 @@ function ExperimentLayout() {
           { label: 'Experiments', link: { to: '/experiments' } },
           { label: e.identifier, mono: true },
         ]}
-        title={e.title}
+        title={
+          e.locked_at || e.archived_at ? (
+            e.title
+          ) : (
+            <RecordTitleInput
+              recordId={e.id}
+              title={e.title}
+              tags={e.tags ?? []}
+              className="h-auto w-full min-w-0 border-transparent bg-transparent px-0 text-title shadow-none max-md:text-[18px] max-md:leading-6"
+            />
+          )
+        }
         meta={
           <>
             <span className="text-fg">
@@ -145,18 +159,6 @@ function ExperimentLayout() {
             >
               Share
             </CopyButton>
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={
-                <Link
-                  to="/records/$recordId/notebook"
-                  params={{ recordId: e.id }}
-                />
-              }
-            >
-              Open notebook
-            </Button>
           </>
         }
         tabs={
@@ -165,16 +167,12 @@ function ExperimentLayout() {
             label="Experiment sections"
             items={[
               {
-                label: 'Overview',
-                link: {
-                  to: '/experiments/$expId',
-                  params,
-                  activeOptions: { exact: true },
-                },
-              },
-              {
                 label: 'Notebook',
                 link: { to: '/experiments/$expId/notebook', params },
+              },
+              {
+                label: 'Overview',
+                link: { to: '/experiments/$expId/overview', params },
               },
               {
                 label: 'Samples',

@@ -157,6 +157,21 @@ describe('StickyRecordHeader', () => {
     ).toBeTruthy()
   })
 
+  it('leaves the title and identifier to the experiment page when embedded', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        embedded
+        record={record}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    expect(screen.queryByLabelText('Notebook title')).toBeNull()
+    expect(screen.queryByText('EXP-2025-0001')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy()
+  })
+
   it('offers the rare record actions from the overflow', async () => {
     const user = userEvent.setup()
     renderWithQuery(

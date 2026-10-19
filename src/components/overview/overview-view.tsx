@@ -145,8 +145,8 @@ function ReadinessRow({
         ) : null}
       </div>
       <Link
-        to="/records/$recordId/notebook"
-        params={{ recordId }}
+        to="/experiments/$expId/notebook"
+        params={{ expId: recordId }}
         hash={item.blockId ? `block-${item.blockId}` : undefined}
         className="shrink-0 text-label text-link"
       >

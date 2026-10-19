@@ -47,7 +47,8 @@ interface RegistryRow {
   [column: string]: unknown
 }
 
-async function resolveRegistry(
+/** A dataset, project, sheet, pipeline, analysis or instrument by display id. */
+export async function resolveRegistryObject(
   client: DataClient,
   identifier: string,
 ): Promise<ResolvedObject | null> {
@@ -115,7 +116,7 @@ export async function resolveObjectByIdentifier(
   if (!trimmed) return null
   const record = await resolveRecordByIdentifier(client, trimmed)
   if (record) return { source: 'record', ...record }
-  const registry = await resolveRegistry(client, trimmed)
+  const registry = await resolveRegistryObject(client, trimmed)
   if (registry) return registry
   return resolveAlias(client, trimmed)
 }

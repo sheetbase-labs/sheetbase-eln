@@ -2,6 +2,8 @@ import type { Tone } from '#/components/v3/ui/status'
 import { intakeHealth } from '#/components/v3/instruments/instruments-data'
 import { sampleStatus } from '#/components/v3/samples/samples-data'
 import type { DataClient } from '#/lib/data-client'
+import { resolveRegistryObject } from '#/lib/object-resolver'
+import type { ResolvedObject } from '#/lib/object-resolver'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /**
@@ -15,7 +17,11 @@ export interface ScanTarget {
   /** Stable public identifier, e.g. SMP-2231 or INS-0007. */
   identifier: string
   title: string
-  kind: 'sample' | 'record' | 'instrument'
+  kind: 'sample' | 'record' | 'instrument' | 'object'
+  /** For `record`: the record's own kind (`experiment`, `material`, ...). */
+  recordKind?: string
+  /** For `object`: the registry kind (`dataset`, `project`, ...). */
+  objectKind?: string
   status: { tone: Tone; label: string }
   /** Secondary line: kind label and type/status detail. */
   line: string
@@ -55,6 +61,11 @@ const KIND_LABELS: Record<string, string> = {
   notebook_template: 'Notebook template',
   report: 'Report',
   study: 'Study',
+  project: 'Project',
+  dataset: 'Dataset',
+  sheet: 'Sheet',
+  pipeline: 'Pipeline',
+  analysis: 'Analysis',
 }
 
 export function scanKindLabel(kind: string): string {
@@ -69,6 +80,7 @@ function toRecordTarget(row: RecordWire): ScanTarget {
     identifier: row.identifier,
     title: row.title,
     kind,
+    recordKind: row.kind,
     status,
     line: `${scanKindLabel(row.kind)} · ${status.label}`,
   }
@@ -82,6 +94,18 @@ function toInstrumentTarget(row: InstrumentWire): ScanTarget {
     kind: 'instrument',
     status: intakeHealth(row.intake_method),
     line: `Instrument · ${row.instrument_type}`,
+  }
+}
+
+function toObjectTarget(object: ResolvedObject): ScanTarget {
+  return {
+    id: object.id,
+    identifier: object.identifier,
+    title: object.title,
+    kind: 'object',
+    objectKind: object.kind,
+    status: { tone: 'none', label: scanKindLabel(object.kind) },
+    line: scanKindLabel(object.kind),
   }
 }
 
@@ -107,7 +131,9 @@ export function scanTargetHref(target: ScanTarget): {
         params: { instrumentId: target.id },
       }
     default:
-      return { to: '/records/$recordId', params: { recordId: target.id } }
+      // Every other kind is opened through the resolver, which sends it to the
+      // page that owns it (experiment, material, dataset, project, ...).
+      return { to: '/r/$identifier', params: { identifier: target.identifier } }
   }
 }
 
@@ -117,8 +143,10 @@ export function scanTargetActionLabel(target: ScanTarget): string {
       return 'Open sample'
     case 'instrument':
       return 'Open instrument'
+    case 'object':
+      return `Open ${scanKindLabel(target.objectKind ?? 'record').toLowerCase()}`
     default:
-      return 'Open record'
+      return `Open ${scanKindLabel(target.recordKind ?? 'record').toLowerCase()}`
   }
 }
 
@@ -152,6 +180,12 @@ export async function resolveScanCode(
     ...exactInstruments.map(toInstrumentTarget),
     ...exactAliasTargets,
   ]
+  // Not a record or an instrument: a dataset, project, sheet, pipeline or
+  // analysis carries a display id too, and its label scans the same way.
+  if (exactTargets.length === 0) {
+    const other = await resolveRegistryObject(client, trimmed)
+    if (other) exactTargets.push(toObjectTarget(other))
+  }
   if (exactTargets.length > 0) {
     return {
       found: true,

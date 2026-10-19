@@ -84,6 +84,7 @@ import { useUnsyncedBlock } from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
 import { OpenLink } from './block-preview'
+import { returnToHere } from '#/lib/create-context-search'
 import { RichTextEditor as TiptapRichTextEditor } from './rich-text-editor'
 import { validateFileForUpload } from '#/lib/file-attach'
 import { formatFileSize } from '#/lib/format-numbers'
@@ -3107,7 +3108,7 @@ function AnalysisBlockEditor({
               {definitionsQuery.isLoading
                 ? 'Loading saved analyses…'
                 : definitions.length === 0
-                  ? 'No saved analyses — create one in /analysis → Analyse'
+                  ? 'No saved analyses yet'
                   : 'Select an analysis'}
             </option>
             {definitions.map((d) => (
@@ -3116,6 +3117,16 @@ function AnalysisBlockEditor({
               </option>
             ))}
           </Select>
+          {!definitionsQuery.isLoading && definitions.length === 0 ? (
+            <p className="text-xs text-fg-muted">
+              <OpenLink
+                to={`/analysis/new?mode=analyse&returnTo=${encodeURIComponent(returnToHere() ?? '/')}`}
+              >
+                Create one in the analysis studio
+              </OpenLink>{' '}
+              and come back here.
+            </p>
+          ) : null}
           <p className="text-xs text-fg-muted">
             Analyses execute against live dataset rows. Freeze to pin the inputs
             as evidence.

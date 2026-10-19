@@ -26,6 +26,9 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     createFileRoute: () => (options: unknown) => ({
       options,
       useParams: () => ({ analysisId: 'view-1' }),
+      useRouteContext: () => ({
+        context: { user: { id: 'u1', name: 'Ada' }, workspace: { id: 'ws1' } },
+      }),
     }),
     // The link's search is rendered into the href, so a test can see the view
     // the studio is asked to open.

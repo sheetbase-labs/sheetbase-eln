@@ -29,6 +29,7 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { useUserNames } from '#/lib/user-names'
 
 export const Route = createFileRoute('/projects/$projectId/')({
@@ -161,14 +162,20 @@ function ProjectOverview() {
       id: 'identifier',
       header: 'ID',
       cell: ({ row }) => (
-        <span className="mono">{row.original.identifier}</span>
+        <ObjectLink
+          kind="experiment"
+          id={row.original.id}
+          identifier={row.original.identifier}
+        />
       ),
     },
     {
       id: 'title',
       header: 'Experiment',
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.title}</span>
+        <ObjectLink kind="experiment" id={row.original.id} mono={false}>
+          <span className="font-medium">{row.original.title}</span>
+        </ObjectLink>
       ),
     },
     {

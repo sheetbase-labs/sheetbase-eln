@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCanManageProject } from '#/lib/project-permissions'
 
 import { Section } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
@@ -86,7 +87,11 @@ function ProjectMembers() {
     queryFn: fetchWorkspaceMemberIdentities,
   })
   const members = membersQuery.data ?? []
-  const isLead = project?.leadUserId === context.user.id
+  const { canManage: isLead } = useCanManageProject(
+    projectId,
+    project?.leadUserId,
+    context.user.id,
+  )
   const [pendingRemove, setPendingRemove] = useState<{
     id: string
     name: string
@@ -190,8 +195,8 @@ function ProjectMembers() {
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
         {!isLead ? (
           <Notice icon="lock" title="You can see the team but not change it.">
-            {project.leadName ?? 'The lead'} is the lead. Ask them to add people
-            or change their access.
+            {project.leadName ?? 'The lead'} is the lead. Ask them, or a project
+            owner, to add people or change their access.
           </Notice>
         ) : null}
 

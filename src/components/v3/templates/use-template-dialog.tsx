@@ -35,14 +35,14 @@ interface ProjectOption {
 }
 
 /** Parameters the form can ask for: required scalars with no default. */
-function askedParameters(version: NotebookTemplateVersion): Parameter[] {
+export function askedParameters(version: NotebookTemplateVersion): Parameter[] {
   return version.configuration.parameters.filter(
     (p) =>
       p.required && p.type.kind === 'scalar' && p.defaultValue === undefined,
   )
 }
 
-function parameterInput(
+export function parameterInput(
   parameter: Parameter,
   raw: string,
 ): NotebookTemplateParameterInput | null {

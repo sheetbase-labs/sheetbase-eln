@@ -24,17 +24,23 @@ import {
 } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { CitationList } from '#/components/viz/citation-list'
+import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (roadmap-4/ui-app3): a saved analysis view, rebuilt from its stored
  * ChartSpec and the current source dataset. The studio at /analysis is the
  * authoring surface; this route is the shareable, read-only view. */
 export const Route = createFileRoute('/analysis/$analysisId')({
-  beforeLoad: async ({ context: rootContext, location }) => {
+  beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+    await resolveIdentifierParam({
+      entity: 'analysis',
+      ref: params.analysisId,
+      href: location.href,
+    })
     return { context }
   },
   component: AnalysisView,

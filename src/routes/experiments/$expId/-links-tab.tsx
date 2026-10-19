@@ -6,7 +6,8 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { TableBox } from '#/components/v3/ui/table'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
-import { recordDestination } from '#/lib/navigation'
+import { objectPath } from '#/lib/navigation'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import type { RecordLinkWire } from '../$expId'
 import { useExperimentLinks } from '../$expId'
 
@@ -15,6 +16,12 @@ const LINK_SECTIONS: { kind: string; title: string }[] = [
   { kind: 'dataset', title: 'Datasets' },
   { kind: 'file', title: 'Files' },
 ]
+
+/** A link's `target_kind` is a record kind or an object family; records that
+ * have no page of their own kind open as records. */
+function linkObjectKind(targetKind: string): string {
+  return objectPath(targetKind, 'x') ? targetKind : 'record'
+}
 
 /** Everything linked to the experiment, grouped by what it is: Samples,
  * Datasets, Files, then any other kind. */
@@ -37,19 +44,13 @@ export function LinksPanel({ expId }: { expId: string }) {
     {
       id: 'record',
       header: 'Record',
-      cell: ({ row }) =>
-        row.original.target_record_id ? (
-          <Link
-            to={recordDestination(
-              row.original.target_kind,
-              row.original.target_record_id,
-            )}
-          >
-            <span className="mono">{row.original.target_identifier}</span>
-          </Link>
-        ) : (
-          <span className="mono">{row.original.target_identifier}</span>
-        ),
+      cell: ({ row }) => (
+        <ObjectLink
+          kind={linkObjectKind(row.original.target_kind)}
+          id={row.original.target_record_id}
+          identifier={row.original.target_identifier}
+        />
+      ),
     },
     {
       id: 'kind',
@@ -72,13 +73,27 @@ export function LinksPanel({ expId }: { expId: string }) {
           count={section.rows.length}
           action={
             section.kind === 'dataset' ? (
-              <Button
-                size="sm"
-                nativeButton={false}
-                render={<Link to="/import" search={{ experiment: expId }} />}
-              >
-                Import data
-              </Button>
+              <span className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/analysis/new"
+                      search={{ mode: 'chart', experiment: expId }}
+                    />
+                  }
+                >
+                  Analyse
+                </Button>
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to="/import" search={{ experiment: expId }} />}
+                >
+                  Import data
+                </Button>
+              </span>
             ) : undefined
           }
         >

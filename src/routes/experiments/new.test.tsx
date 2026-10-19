@@ -17,6 +17,7 @@ const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
 const notebookCreate = vi.hoisted(() => ({
   createBlankExperiment: vi.fn(),
   applyExperimentSetup: vi.fn(),
+  insertPinnedProtocol: vi.fn(),
 }))
 const navigate = vi.hoisted(() => vi.fn())
 const search = vi.hoisted((): { current: Record<string, string> } => ({
@@ -111,6 +112,7 @@ async function submitForm(user: UserEvent, { start = false } = {}) {
     screen.getByRole('textbox', { name: /^Title/ }),
     'AAV9 stability',
   )
+  await user.click(screen.getByRole('button', { name: 'A protocol' }))
   await user.selectOptions(
     screen.getByRole('combobox', { name: /^Protocol version to follow/ }),
     PROTOCOL_VERSION.id,
@@ -120,7 +122,11 @@ async function submitForm(user: UserEvent, { start = false } = {}) {
       screen.getByRole('checkbox', { name: /Start the experiment now/ }),
     )
   }
-  await user.click(screen.getByRole('button', { name: 'Create draft' }))
+  await user.click(
+    screen.getByRole('button', {
+      name: start ? 'Create and start' : 'Create draft',
+    }),
+  )
 }
 
 function rpcNames() {
@@ -133,6 +139,7 @@ beforeEach(() => {
     identifier: 'EXP-0001',
   })
   notebookCreate.applyExperimentSetup.mockResolvedValue(undefined)
+  notebookCreate.insertPinnedProtocol.mockResolvedValue(undefined)
   dataClient.list.mockImplementation(async (resource: string, query = '') => {
     if (resource === 'projects')
       return [project(WRITABLE_PROJECT_ID, 'Project A')]
@@ -299,7 +306,9 @@ describe('new experiment', () => {
           .disabled,
       ).toBe(false)
       expect(
-        screen.getByRole('button', { name: 'Create draft' }),
+        screen.getByRole('button', {
+          name: 'Create draft',
+        }),
       ).toHaveProperty('disabled', false)
     } finally {
       vi.useRealTimers()
@@ -320,7 +329,9 @@ describe('new experiment', () => {
       expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined()
       // Nothing to choose, so the create stays unavailable — and says so.
       expect(
-        screen.getByRole('button', { name: 'Create draft' }),
+        screen.getByRole('button', {
+          name: 'Create draft',
+        }),
       ).toHaveProperty('disabled', true)
     } finally {
       vi.useRealTimers()

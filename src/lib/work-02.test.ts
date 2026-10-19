@@ -41,6 +41,24 @@ describe('firstRunSteps', () => {
     expect(firstRunProgress(steps)).toEqual({ done: 1, total: 4 })
   })
 
+  it('asks a viewer only for what a viewer can do', () => {
+    const steps = firstRunSteps({ ...base, role: 'viewer' })
+    expect(steps.map((step) => step.label)).toEqual([
+      'Account created',
+      'Open your first project',
+    ])
+  })
+
+  it('does not ask a reviewer to create an experiment', () => {
+    const steps = firstRunSteps({ ...base, role: 'reviewer' })
+    expect(steps.map((step) => step.label)).toEqual([
+      'Account created',
+      'Set up your electronic signature',
+      'Open your first project',
+    ])
+    expect(steps[2].hint).toContain('Inbox')
+  })
+
   it('completes every item from real state, naming the first project', () => {
     const steps = firstRunSteps({
       workspaceName: 'Process Development',

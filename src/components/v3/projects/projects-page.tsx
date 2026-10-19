@@ -995,6 +995,7 @@ export function ProjectsPage({
         error={createError}
         clientOptions={clientOptions}
         memberOptions={memberOptions}
+        meId={meId}
       />
     </div>
   )
@@ -1277,6 +1278,7 @@ function NewProjectDialog({
   error,
   clientOptions,
   memberOptions,
+  meId,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -1285,12 +1287,18 @@ function NewProjectDialog({
   error: string | null
   clientOptions: { id: string; label: string }[]
   memberOptions: { id: string; label: string }[]
+  meId?: string
 }) {
   const [title, setTitle] = useState('')
   const [clientId, setClientId] = useState('')
   const [stage, setStage] = useState('')
   const [modality, setModality] = useState('')
-  const [lead, setLead] = useState('')
+  // The person creating a project leads it unless they pick someone else.
+  const [leadChoice, setLeadChoice] = useState<string | null>(null)
+  const leadDefault =
+    meId && memberOptions.some((member) => member.id === meId) ? meId : ''
+  const lead = leadChoice ?? leadDefault
+  const setLead = setLeadChoice
   const [reviewer, setReviewer] = useState('')
   const [agreement, setAgreement] = useState('')
   const [startedOn, setStartedOn] = useState('')

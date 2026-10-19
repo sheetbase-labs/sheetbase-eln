@@ -30,6 +30,7 @@ const ENTITY_SPECS: Record<IdentifierEntity, EntitySpec> = {
   instrument: { table: 'api.instruments', column: 'display_id' },
   sheet: { table: 'api.sheet_instances', column: 'display_id' },
   pipeline: { table: 'api.pipeline_definitions', column: 'display_id' },
+  analysis: { table: 'api.analysis_views', column: 'display_id' },
   record: { table: 'api.records', column: 'identifier' },
   experiment: {
     table: 'api.records',

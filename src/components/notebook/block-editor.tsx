@@ -1211,12 +1211,19 @@ function LinkedRecordSearch({
         const rows = await fetchDatasetSummaries(notebookDataClient)
         const q = query.trim().toLowerCase()
         return rows
-          .filter((row) => !q || row.name.toLowerCase().includes(q))
+          .filter(
+            (row) =>
+              !q ||
+              row.name.toLowerCase().includes(q) ||
+              (row.display_id ?? '').toLowerCase().includes(q),
+          )
           .slice(0, 8)
           .map((row) => ({
             id: row.id,
-            identifier: row.name,
-            title: row.description || row.name,
+            // The display id (DS-0298) is what the rest of the app names a
+            // dataset by; the name stays as the label and the fallback.
+            identifier: row.display_id || row.name,
+            title: row.name,
             linkType: 'dataset',
           }))
       }

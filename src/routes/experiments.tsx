@@ -57,6 +57,7 @@ const tabs = [
   'inreview',
   'approved',
   'drafts',
+  'archived',
 ] as const satisfies readonly ExperimentTabKey[]
 type Tab = (typeof tabs)[number]
 const tabLabel: Record<Tab, string> = {
@@ -67,6 +68,7 @@ const tabLabel: Record<Tab, string> = {
   inreview: 'In review',
   approved: 'Approved',
   drafts: 'Drafts',
+  archived: 'Archived',
 }
 /** Empty-state titles. Interpolating the tab label read "No all experiments". */
 const tabEmptyTitle: Record<Tab, string> = {
@@ -77,6 +79,7 @@ const tabEmptyTitle: Record<Tab, string> = {
   inreview: 'No experiments in review',
   approved: 'No approved experiments',
   drafts: 'No draft experiments',
+  archived: 'No archived experiments',
 }
 
 /** UI port (roadmap-4/ui-app3): the experiments list on real experiment
@@ -176,9 +179,9 @@ function Experiments() {
   // status falls outside every tab.
   const inTab = (row: ExperimentListRow, t: Tab): boolean =>
     t === 'all'
-      ? true
+      ? row.statusTab !== 'archived'
       : t === 'mine'
-        ? row.ownerId === context.user.id
+        ? row.ownerId === context.user.id && row.statusTab !== 'archived'
         : row.statusTab === t
   const loadedCounts = Object.fromEntries(
     tabs.map((t) => [t, rows.filter((r) => inTab(r, t)).length]),

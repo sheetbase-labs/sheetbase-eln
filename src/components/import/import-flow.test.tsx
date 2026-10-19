@@ -13,6 +13,7 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
+  DatasetImportRecord,
   ImportFileUploadResponse,
   ImportMappingDocument,
   ImportParserSummary,
@@ -47,6 +48,7 @@ const importData = vi.hoisted(() => ({
   reviewImport: vi.fn(),
   commitImport: vi.fn(),
   saveParserMapping: vi.fn(),
+  fetchDatasetImports: vi.fn(async (): Promise<DatasetImportRecord[]> => []),
 }))
 
 vi.mock('#/lib/import/data', async (importOriginal) => ({
@@ -677,5 +679,113 @@ describe('ImportMapCheckFlow', () => {
     ).toBeTruthy()
     expect(screen.queryByText('Choose how to read this file')).toBeNull()
     expect(screen.getByRole('button', { name: 'Import 2 rows' })).toBeTruthy()
+  })
+})
+
+describe('a committed import', () => {
+  const receipt = {
+    id: 'imp-1',
+    dataset_id: 'ds-1',
+    experiment_record_id: 'exp-1',
+    instrument_id: 'inst-1',
+    parser_id: 'parser-1',
+    parser_version_id: 'parser-version-1',
+    file_id: 'file-1',
+    connector_run_id: null,
+    imported_row_ids: ['r1', 'r2'],
+    parser_provenance: {
+      key: 'sheetbase.plate-reader-csv',
+      name: 'Plate reader CSV',
+      version: 2,
+    },
+    source_provenance: { filename: 'plate-01.csv' },
+    outcome: { added: 2 },
+    mapping: {
+      sources: [
+        { source: 'raw', fieldId: 'field-1', unit: 'NTU' },
+        { source: 'dilution', fieldId: null, unit: null },
+      ],
+    },
+    snapshot_version_id: 'snap-12345678',
+    status: 'committed',
+    error_detail: null,
+    created_at: '2026-02-01T10:00:00Z',
+  }
+
+  it('shows a read-only receipt instead of the map and check steps', async () => {
+    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
+    importData.fetchImportFile.mockResolvedValue(uploadResponse())
+    importData.fetchDatasetImports.mockResolvedValue([receipt])
+    renderFlow(
+      <ImportMapCheckFlow
+        importId="file-1"
+        search={{ step: 'map', dataset: 'ds-1' }}
+        onSearch={vi.fn()}
+      />,
+    )
+
+    expect(await screen.findByText('This import is committed')).toBeTruthy()
+    expect(screen.getByText('plate-01.csv')).toBeTruthy()
+    expect(screen.getByRole('table', { name: 'Mapping used' })).toBeTruthy()
+    expect(screen.queryByRole('table', { name: 'Column mapping' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Import / })).toBeNull()
+  })
+
+  it('uploads a corrected file with the old settings carried over', async () => {
+    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
+    importData.fetchImportFile.mockResolvedValue(uploadResponse())
+    importData.fetchDatasetImports.mockResolvedValue([receipt])
+    importData.uploadImportFile.mockResolvedValue(
+      uploadResponse({ fileId: 'file-2' }),
+    )
+    const user = userEvent.setup()
+    renderFlow(
+      <ImportMapCheckFlow
+        importId="file-1"
+        search={{ step: 'map', dataset: 'ds-1' }}
+        onSearch={vi.fn()}
+      />,
+    )
+
+    await screen.findByText('This import is committed')
+    await user.upload(
+      screen.getByLabelText('Corrected file'),
+      new File(['raw\n1.3'], 'plate-01-fixed.csv', { type: 'text/csv' }),
+    )
+
+    await waitFor(() => expect(navigate).toHaveBeenCalled())
+    expect(importData.uploadImportFile.mock.calls[0][0].datasetId).toBe('ds-1')
+    expect(navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: { importId: 'file-2' },
+        search: {
+          step: 'map',
+          dataset: 'ds-1',
+          experiment: 'exp-1',
+          instrument: 'inst-1',
+          parser: 'sheetbase.plate-reader-csv',
+          map: 'raw:field-1',
+        },
+      }),
+    )
+  })
+
+  it('treats a failed import as still open to mapping', async () => {
+    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
+    importData.fetchImportFile.mockResolvedValue(uploadResponse())
+    importData.fetchDatasetImports.mockResolvedValue([
+      { ...receipt, status: 'failed' },
+    ])
+    renderFlow(
+      <ImportMapCheckFlow
+        importId="file-1"
+        search={{ step: 'map', dataset: 'ds-1' }}
+        onSearch={vi.fn()}
+      />,
+    )
+    expect(
+      await screen.findByRole('table', { name: 'Column mapping' }),
+    ).toBeTruthy()
+    expect(screen.queryByText('This import is committed')).toBeNull()
   })
 })

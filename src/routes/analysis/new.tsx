@@ -80,6 +80,7 @@ import {
 } from '#/components/v3/ui/table'
 import { Inspector } from '#/components/record/inspector'
 import { InspectorSection, InspectorSectionStack } from '#/components/record'
+import { FigureControls } from '#/components/viz/figure-controls'
 import { Property, PropertyList } from '#/components/scientific'
 import {
   freezeChart,
@@ -1063,6 +1064,7 @@ function AnalysisInspector({
           ))}
         </div>
       </InspectorSection>
+      <FigureControls spec={spec} onSpecChange={onSpecChange} />
       <InspectorSection title="Appearance">
         <PropertyList>
           <Property label="Palette">Publication</Property>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useInfiniteQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -27,6 +27,9 @@ import {
 import type { AuditEventWire } from '#/lib/audit-history'
 import { createDataClient } from '#/lib/data-client'
 import { downloadTextFile } from '#/lib/download'
+import { parseSearchDay } from '#/lib/search'
+import { auditFilterFromSearch } from '#/lib/audit-filter'
+import type { AuditSearch } from '#/lib/audit-filter'
 import { useSettledValue } from '#/lib/settled-value'
 
 /** UI port (roadmap-4/ui-app3): the audit log reads the append-only change
@@ -36,6 +39,14 @@ import { useSettledValue } from '#/lib/settled-value'
  * search filters on the server — the loaded window is never the filter's
  * universe. The export walks the same selection to its end, and says so. */
 export const Route = createFileRoute('/settings/audit')({
+  validateSearch: (search: Record<string, unknown>): AuditSearch => ({
+    record:
+      typeof search.record === 'string' && search.record
+        ? search.record
+        : undefined,
+    from: parseSearchDay(search.from),
+    to: parseSearchDay(search.to),
+  }),
   component: Audit,
 })
 
@@ -54,6 +65,13 @@ const LOAD_MORE_THRESHOLD_PX = 240
 
 function Audit() {
   const { context } = Route.useRouteContext()
+  const urlSearch = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const setUrl = (patch: Partial<AuditSearch>) =>
+    void navigate({
+      to: '/settings/audit',
+      search: (s) => ({ ...s, ...patch }),
+    })
   const workspaceId = context.workspace?.id ?? ''
   const [operation, setOperation] = useState<string>('')
   const [exporting, setExporting] = useState(false)
@@ -68,8 +86,9 @@ function Audit() {
     () => ({
       operation: operation || undefined,
       search: search.trim() || undefined,
+      ...auditFilterFromSearch(urlSearch),
     }),
-    [operation, search],
+    [operation, search, urlSearch],
   )
 
   const activity = useInfiniteQuery({
@@ -171,7 +190,19 @@ function Audit() {
       <TableCell className="max-w-[160px] whitespace-normal text-fg-muted">
         {reasonOf(r.payload)}
       </TableCell>
-      <TableCell className="mono text-[11px]">{r.recordId ?? '—'}</TableCell>
+      <TableCell className="mono text-[11px]">
+        {r.recordId ? (
+          <Link
+            to="/settings/audit"
+            search={{ ...urlSearch, record: r.recordId }}
+            title="Show only this record's entries"
+          >
+            {r.recordId.slice(0, 8)}
+          </Link>
+        ) : (
+          '—'
+        )}
+      </TableCell>
       <TableCell className="mono text-[11px] text-fg-muted">
         {r.projectId ? r.projectId.slice(0, 8) : '—'}
       </TableCell>
@@ -258,6 +289,39 @@ function Audit() {
             className="h-[26px] text-label"
           />
         </label>
+        <label className="flex items-center gap-1.5 text-label text-fg-muted">
+          From
+          <Input
+            type="date"
+            value={urlSearch.from ?? ''}
+            max={urlSearch.to}
+            onChange={(e) => setUrl({ from: parseSearchDay(e.target.value) })}
+            className="h-[26px] text-label"
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-label text-fg-muted">
+          To
+          <Input
+            type="date"
+            value={urlSearch.to ?? ''}
+            min={urlSearch.from}
+            onChange={(e) => setUrl({ to: parseSearchDay(e.target.value) })}
+            className="h-[26px] text-label"
+          />
+        </label>
+        {urlSearch.record ? (
+          <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-label">
+            Record <span className="mono">{urlSearch.record.slice(0, 8)}</span>
+            <Button
+              size="sm"
+              variant="quiet"
+              aria-label="Clear the record filter"
+              onClick={() => setUrl({ record: undefined })}
+            >
+              Clear
+            </Button>
+          </span>
+        ) : null}
         <span className="flex-1" />
         <span className="num whitespace-nowrap text-label text-fg-muted">
           {countLabel}

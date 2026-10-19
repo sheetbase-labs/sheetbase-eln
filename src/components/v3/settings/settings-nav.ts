@@ -42,6 +42,12 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     roles: WORKSPACE_ADMIN_ROLES,
   },
   {
+    label: 'Clients',
+    link: { to: '/settings/clients' },
+    match: (p) => p.startsWith('/settings/clients'),
+    roles: WORKSPACE_ADMIN_ROLES,
+  },
+  {
     label: 'Instruments and parsers',
     link: { to: '/settings/instruments' },
     match: (p) => p.startsWith('/settings/instruments'),

@@ -53,7 +53,7 @@ import type {
 } from './ai-context'
 import type { DataClient } from './data-client'
 import { executeSearch } from './search'
-import type { SearchResult, SearchResultType } from './search'
+import type { RpcSearchResult, SearchResultType } from './search'
 
 /** Object classes retrieval can cite. Matches the search RPC contract. */
 export type AiCitationKind = SearchResultType
@@ -116,7 +116,7 @@ export interface AiRetrievalResult {
  * ID is the RPC's canonical object UUID, resolvable under normal
  * permissions through the same actor's reads.
  */
-export function toAiCitation(result: SearchResult): AiCitation {
+export function toAiCitation(result: RpcSearchResult): AiCitation {
   return {
     kind: result.resultType,
     stableId: result.recordId,

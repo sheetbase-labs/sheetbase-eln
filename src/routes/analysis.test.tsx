@@ -433,13 +433,15 @@ describe('ExportPanel', () => {
         }}
       />,
     )
-    expect(screen.getByLabelText('Export format')).toBeTruthy()
+    expect(
+      screen.getByLabelText<HTMLSelectElement>('Export format').value,
+    ).toBe('png')
     expect(screen.getByLabelText('Export theme')).toBeTruthy()
     expect(screen.getByLabelText('Export width')).toBeTruthy()
     expect(screen.getByLabelText('Export height')).toBeTruthy()
     expect(
       screen
-        .getByRole('button', { name: /Export JSON/ })
+        .getByRole('button', { name: /Export PNG/ })
         .hasAttribute('disabled'),
     ).toBe(false)
   })
@@ -473,7 +475,7 @@ describe('ExportPanel', () => {
     expect(screen.getByText('Export uses the Chart builder')).toBeTruthy()
     expect(
       screen
-        .getByRole('button', { name: /Export JSON/ })
+        .getByRole('button', { name: /Export PNG/ })
         .hasAttribute('disabled'),
     ).toBe(true)
   })

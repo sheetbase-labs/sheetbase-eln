@@ -23,6 +23,15 @@ const portal = vi.hoisted(() => ({
   postClientPortalMessage: vi.fn(),
 }))
 const navigate = vi.hoisted(() => vi.fn())
+const signOutMock = vi.hoisted(() => vi.fn())
+const routerMock = vi.hoisted(() => ({
+  invalidate: vi.fn(async () => {}),
+  options: {
+    context: {
+      queryClient: { cancelQueries: vi.fn(async () => {}), clear: vi.fn() },
+    },
+  },
+}))
 const search = vi.hoisted(() => {
   const state: { value: { tab?: string } } = { value: {} }
   return state
@@ -42,6 +51,11 @@ vi.mock('@tanstack/react-router', () => ({
     options: config,
   }),
   redirect: (options: unknown) => options,
+  useRouter: () => routerMock,
+}))
+
+vi.mock('#/lib/auth-client', () => ({
+  authClient: { signOut: signOutMock },
 }))
 
 vi.mock('#/lib/client-portal', async (importOriginal) => ({
@@ -78,6 +92,33 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+})
+
+describe('client portal sign-out', () => {
+  it('ends the session, clears the cache and returns to sign-in', async () => {
+    signOutMock.mockResolvedValue({ data: { success: true }, error: null })
+    const user = userEvent.setup()
+    renderPortal()
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await vi.waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: '/sign-in',
+        search: { state: 'signed-out' },
+      }),
+    )
+    expect(routerMock.options.context.queryClient.clear).toHaveBeenCalled()
+  })
+
+  it('says so when the sign-out is not confirmed and stays on the page', async () => {
+    signOutMock.mockResolvedValue({ data: null, error: new Error('x') })
+    const user = userEvent.setup()
+    renderPortal()
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }))
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'could not be confirmed',
+    )
+    expect(navigate).not.toHaveBeenCalled()
+  })
 })
 
 describe('client portal', () => {

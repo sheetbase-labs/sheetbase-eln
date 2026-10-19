@@ -30,6 +30,8 @@ export interface ChartFrameProps {
   /** Text alternative to the visual, for screen readers. */
   alt?: string
   legend?: React.ReactNode
+  /** The figure's caption, set in the chart's publication controls. */
+  caption?: string
   actions?: React.ReactNode
   loading?: boolean
   children?: React.ReactNode
@@ -51,6 +53,7 @@ export function ChartFrame({
   mode = 'live',
   alt,
   legend,
+  caption,
   actions,
   loading = false,
   children,
@@ -148,6 +151,16 @@ export function ChartFrame({
         <p className="border-t px-4 py-2 text-xs text-fg-muted">{provenance}</p>
       ) : null}
 
+      {caption ? (
+        <p
+          className={cn(
+            'm-0 shrink-0 whitespace-pre-line border-t px-4 text-label text-fg-muted',
+            fill ? 'py-1.5' : 'py-3',
+          )}
+        >
+          {caption}
+        </p>
+      ) : null}
       {legend ? (
         <div className={cn('shrink-0 border-t px-4', fill ? 'py-1.5' : 'py-3')}>
           {legend}

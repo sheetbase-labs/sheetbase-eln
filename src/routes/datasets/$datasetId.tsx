@@ -22,8 +22,10 @@ import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
 import { DatasetModelUpgrade } from '#/components/v3/datasets/dataset-model-upgrade'
 import { hasCapability } from '#/lib/capability'
 import { DatasetUsedByTab } from '#/components/v3/datasets/dataset-used-by-tab'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
+import { useRecentViewTracking } from '#/lib/recents'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -91,6 +93,7 @@ function DatasetLayout() {
       projectId ? fetchProject(notebookDataClient, projectId) : null,
     enabled: Boolean(projectId),
   })
+  useRecentViewTracking('dataset', dataset?.uuid)
 
   if (!dataset) {
     return (
@@ -169,72 +172,78 @@ function DatasetLayout() {
           </>
         }
         actions={
-          exportable ? (
-            <>
-              <DatasetModelUpgrade
-                datasetId={dataset.uuid}
-                canEdit={hasCapability(context.workspace?.role, 'schema.edit')}
-              />
-              <Button
-                nativeButton={false}
-                icon="download"
-                render={
-                  <a
-                    href={`/api/export/dataset/${dataset.uuid}?format=csv`}
-                    aria-label={`Download ${dataset.name} as CSV`}
-                  />
-                }
-              >
-                Download CSV
-              </Button>
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    to="/sheets/new"
-                    search={{
-                      dataset: dataset.uuid,
-                      returnTo: `/datasets/${dataset.uuid}`,
-                    }}
-                  />
-                }
-              >
-                Open in a sheet
-              </Button>
-              {/* Analyse and Chart open the studio on this dataset from any
-                  tab, not only the rows, so the next step is always here. */}
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    to="/analysis/new"
-                    search={{
-                      mode: 'chart',
-                      dataset: dataset.uuid,
-                      returnTo: `/datasets/${dataset.uuid}`,
-                    }}
-                  />
-                }
-              >
-                Chart
-              </Button>
-              <Button
-                nativeButton={false}
-                render={
-                  <Link
-                    to="/analysis/new"
-                    search={{
-                      mode: 'analyse',
-                      dataset: dataset.uuid,
-                      returnTo: `/datasets/${dataset.uuid}`,
-                    }}
-                  />
-                }
-              >
-                Analyse
-              </Button>
-            </>
-          ) : undefined
+          <>
+            <FavouriteToggle kind="dataset" objectId={dataset.uuid} />
+            {exportable ? (
+              <>
+                <DatasetModelUpgrade
+                  datasetId={dataset.uuid}
+                  canEdit={hasCapability(
+                    context.workspace?.role,
+                    'schema.edit',
+                  )}
+                />
+                <Button
+                  nativeButton={false}
+                  icon="download"
+                  render={
+                    <a
+                      href={`/api/export/dataset/${dataset.uuid}?format=csv`}
+                      aria-label={`Download ${dataset.name} as CSV`}
+                    />
+                  }
+                >
+                  Download CSV
+                </Button>
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/sheets/new"
+                      search={{
+                        dataset: dataset.uuid,
+                        returnTo: `/datasets/${dataset.uuid}`,
+                      }}
+                    />
+                  }
+                >
+                  Open in a sheet
+                </Button>
+                {/* Analyse and Chart open the studio on this dataset from any
+                    tab, not only the rows, so the next step is always here. */}
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/analysis/new"
+                      search={{
+                        mode: 'chart',
+                        dataset: dataset.uuid,
+                        returnTo: `/datasets/${dataset.uuid}`,
+                      }}
+                    />
+                  }
+                >
+                  Chart
+                </Button>
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/analysis/new"
+                      search={{
+                        mode: 'analyse',
+                        dataset: dataset.uuid,
+                        returnTo: `/datasets/${dataset.uuid}`,
+                      }}
+                    />
+                  }
+                >
+                  Analyse
+                </Button>
+              </>
+            ) : null}
+          </>
         }
         tabs={
           <Tabs

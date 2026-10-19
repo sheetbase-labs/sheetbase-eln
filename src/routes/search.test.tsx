@@ -15,7 +15,7 @@ import type * as router from '@tanstack/react-router'
 const mocks = vi.hoisted(() => {
   const search: Record<string, unknown> = {}
   return {
-    rpc: vi.fn(async (): Promise<unknown> => []),
+    rpc: vi.fn(async (_name?: string): Promise<unknown> => []),
     navigate: vi.fn(),
     search,
   }
@@ -31,6 +31,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       options,
       useSearch: () => mocks.search,
       useNavigate: () => mocks.navigate,
+      useRouteContext: () => ({ context: { workspace: { id: 'ws-1' } } }),
     }),
     Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
       <a href={typeof to === 'string' ? to : '#'}>{children}</a>
@@ -113,6 +114,51 @@ describe('Search results page (SRCH-02)', () => {
     mocks.rpc.mockImplementation(async () => [RECORD_ROW])
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('EXP-0142')).toBeTruthy()
+  })
+
+  it('pushes the owner and the date range to the search service', async () => {
+    mocks.rpc.mockImplementation(async (name: unknown) =>
+      name === 'workspace_members_list'
+        ? [{ user_id: 'user-1', name: 'Ada Lovelace', role: 'member' }]
+        : [RECORD_ROW],
+    )
+    mountSearch({
+      q: 'plate',
+      owner: 'user-1',
+      from: '2026-09-01',
+      to: '2026-09-30',
+    })
+
+    expect(await screen.findByText('EXP-0142')).toBeTruthy()
+    const calls = mocks.rpc.mock.calls as unknown as [
+      string,
+      Record<string, unknown>,
+    ][]
+    const searchCall = calls.find(([name]) => name === 'search')
+    expect(searchCall?.[1]).toMatchObject({
+      p_owner_id: 'user-1',
+      p_date_from: '2026-09-01T00:00:00.000Z',
+      p_date_to: '2026-09-30T23:59:59.999Z',
+    })
+    expect(
+      (await screen.findAllByRole('option', { name: 'Ada Lovelace' })).length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('clears the 7-day shortcut when a date range is typed', async () => {
+    mountSearch({ q: 'plate', updated: '7d' })
+    await screen.findByText('EXP-0142').catch(() => undefined)
+    fireEvent.change(screen.getAllByLabelText('From')[0], {
+      target: { value: '2026-09-01' },
+    })
+    const call = mocks.navigate.mock.calls[0][0] as {
+      search: (previous: Record<string, unknown>) => Record<string, unknown>
+    }
+    expect(call.search({ q: 'plate', updated: '7d' })).toEqual({
+      q: 'plate',
+      updated: undefined,
+      from: '2026-09-01',
+    })
   })
 
   it('pushes a new query into the history so Back returns to the previous one', async () => {

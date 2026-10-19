@@ -31,11 +31,13 @@ import {
 } from '#/components/v3/projects/project-data'
 import {
   decideProjectAccessRequest,
+  fetchProjectAccessDefaults,
   fetchProjectAccessRequests,
   fetchProjectPermissions,
   fetchWorkspaceAccessRules,
   fetchWorkspaceGroups,
   removeProjectAccessRule,
+  setProjectAccessDefaults,
   setProjectAccessRule,
   workspaceAccessKeys,
 } from '#/lib/workspace-access'
@@ -367,10 +369,14 @@ function Access() {
             New projects are private to the lead until explicit rules are added.
             Client portal access is off by default.
           </Muted>
-          <Muted>
-            QA access requires an explicit rule for a workspace group. A role
-            never adds someone to a group.
-          </Muted>
+          <QaDefault
+            workspaceId={workspaceId}
+            groups={groups.data ?? []}
+            canManage={
+              context.workspace?.role === 'owner' ||
+              context.workspace?.role === 'admin'
+            }
+          />
         </Section>
         {requestRows.length ? (
           <Section title="Access requests" count={requestRows.length}>
@@ -404,6 +410,72 @@ function Access() {
         />
       ) : null}
     </>
+  )
+}
+
+/** The group that can view every project created from now on. View only: edit,
+ * review, manage and the client portal are never granted by this default, and
+ * projects that already exist keep the access they have. */
+function QaDefault({
+  workspaceId,
+  groups,
+  canManage,
+}: {
+  workspaceId: string
+  groups: WorkspaceGroup[]
+  canManage: boolean
+}) {
+  const queryClient = useQueryClient()
+  const defaults = useQuery({
+    queryKey: workspaceAccessKeys.defaults(workspaceId),
+    queryFn: () => fetchProjectAccessDefaults(dataClient),
+    enabled: Boolean(workspaceId),
+  })
+  const save = useMutation({
+    mutationFn: (groupId: string | null) =>
+      setProjectAccessDefaults(dataClient, groupId),
+    onSuccess: (_result, groupId) => {
+      void queryClient.invalidateQueries({
+        queryKey: workspaceAccessKeys.defaults(workspaceId),
+      })
+      toast(
+        groupId
+          ? 'QA access default saved'
+          : 'New projects will no longer be shared with a QA group',
+      )
+    },
+    onError: (error: Error) =>
+      toast('Could not save the QA access default', {
+        description: error.message,
+      }),
+  })
+  const current = defaults.data?.qa_view_group_id ?? ''
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="flex flex-col gap-1 text-label">
+        <span className="font-medium text-fg">QA group with view access</span>
+        <Select
+          aria-label="QA group with view access"
+          value={current}
+          disabled={!canManage || defaults.isPending || save.isPending}
+          onChange={(e) => save.mutate(e.target.value || null)}
+        >
+          <option value="">No group</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </Select>
+      </label>
+      <Muted>
+        {defaults.isError
+          ? 'The current default could not be read.'
+          : canManage
+            ? 'Every project created from now on can be viewed by this group. It cannot edit, review or manage, and existing projects are not changed. A role never adds someone to a group.'
+            : 'Only a workspace admin can change this default.'}
+      </Muted>
+    </div>
   )
 }
 

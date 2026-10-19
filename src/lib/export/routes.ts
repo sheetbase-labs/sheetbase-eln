@@ -25,6 +25,7 @@ import {
 import type { ExportField, ExportFormat, ExportRow } from './serializers'
 import { parquetDocument } from './parquet'
 import { buildEvidencePackage } from './evidence-package'
+import { renderRevisionPdf } from './revision-pdf'
 import {
   auditEventMatchesCategory,
   auditEventsCsv,
@@ -972,5 +973,46 @@ export async function handleRevisionEvidencePackage(
     bytes as unknown as BodyInit,
     'application/zip',
     `evidence-${pkg.revision.id}.zip`,
+  )
+}
+
+/**
+ * Internal PDF of a signed revision, rendered from the same evidence package
+ * as the ZIP. The receipt is written only after the bytes exist.
+ */
+export async function handleRevisionPdf(
+  request: Request,
+  revisionId: string,
+  deps: SessionAuthDeps,
+): Promise<Response> {
+  const auth = await resolveSessionAuth(request.headers, deps)
+  if (!auth.ok)
+    return requestErrorResponse(auth.status, auth.code, auth.message)
+  const { context } = auth
+
+  const rpcRes = await postgrestRpc<unknown>(
+    'revision_evidence_package',
+    { p_revision_id: revisionId },
+    context.token,
+  )
+  if (rpcRes.status >= 400 || !rpcRes.body) {
+    return requestErrorResponse(404, 'not_found', 'Revision not found.')
+  }
+  const pkg = rpcRes.body as Parameters<typeof buildEvidencePackage>[0]
+  const bytes = await renderRevisionPdf(pkg)
+
+  await insertReceipt({
+    actorUserId: context.userId,
+    workspaceId: pkg.revision.workspaceId,
+    objectType: 'revision',
+    objectId: pkg.revision.id,
+    format: 'evidence-pdf',
+    byteSize: bytes.byteLength,
+  })
+
+  return exportResponse(
+    bytes as unknown as BodyInit,
+    'application/pdf',
+    `evidence-${pkg.revision.id}.pdf`,
   )
 }

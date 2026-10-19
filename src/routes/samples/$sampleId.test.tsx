@@ -162,6 +162,12 @@ vi.mock('#/lib/samples', async () => ({
     error instanceof Error ? error.message : 'Could not complete it.',
 }))
 
+vi.mock('#/lib/recents', () => ({ useRecentViewTracking: () => undefined }))
+
+vi.mock('#/components/favourites/favourite-toggle', () => ({
+  FavouriteToggle: () => null,
+}))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({
     names: { 'u-9': 'Gareth P.' },

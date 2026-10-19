@@ -3137,6 +3137,27 @@
       "breakpoints": true
     },
     {
+      "idx": 510,
+      "version": "7",
+      "when": 1798638576810,
+      "tag": "0510_client_portal_preview",
+      "breakpoints": true
+    },
+    {
+      "idx": 511,
+      "version": "7",
+      "when": 1798724976810,
+      "tag": "0511_project_qa_view_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 512,
+      "version": "7",
+      "when": 1798811376810,
+      "tag": "0512_pipeline_event_instrument_filter",
+      "breakpoints": true
+    },
+    {
       "idx": 530,
       "version": "7",
       "when": 1792676976810,

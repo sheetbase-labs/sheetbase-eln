@@ -70,6 +70,7 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
 import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
+import { Route as SettingsClientsRouteImport } from './routes/settings/clients'
 import { Route as SettingsDiagnosticsRouteImport } from './routes/settings/diagnostics'
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
@@ -167,6 +168,7 @@ import { Route as RecordsRecordIdEvidenceRevisionIdRouteImport } from './routes/
 import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
 import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
+import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -471,6 +473,11 @@ const SettingsApiRoute = SettingsApiRouteImport.update({
 const SettingsAuditRoute = SettingsAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsClientsRoute = SettingsClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsDiagnosticsRoute = SettingsDiagnosticsRouteImport.update({
@@ -994,6 +1001,11 @@ const ApiExportRevisionIdPackageRoute =
     path: '/api/export/revision/$id/package',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiExportRevisionIdPdfRoute = ApiExportRevisionIdPdfRouteImport.update({
+  id: '/api/export/revision/$id/pdf',
+  path: '/api/export/revision/$id/pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -1053,6 +1065,7 @@ export interface FileRoutesByFullPath {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
@@ -1154,6 +1167,7 @@ export interface FileRoutesByFullPath {
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
+  '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -1202,6 +1216,7 @@ export interface FileRoutesByTo {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
@@ -1301,6 +1316,7 @@ export interface FileRoutesByTo {
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
+  '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1361,6 +1377,7 @@ export interface FileRoutesById {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
@@ -1462,6 +1479,7 @@ export interface FileRoutesById {
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
+  '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1523,6 +1541,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/instruments'
@@ -1624,6 +1643,7 @@ export interface FileRouteTypes {
     | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
+    | '/api/export/revision/$id/pdf'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1672,6 +1692,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/instruments'
@@ -1771,6 +1792,7 @@ export interface FileRouteTypes {
     | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
+    | '/api/export/revision/$id/pdf'
   id:
     | '__root__'
     | '/'
@@ -1830,6 +1852,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/instruments'
@@ -1931,6 +1954,7 @@ export interface FileRouteTypes {
     | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
+    | '/api/export/revision/$id/pdf'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -2002,6 +2026,7 @@ export interface RootRouteChildren {
   ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
   ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
+  ApiExportRevisionIdPdfRoute: typeof ApiExportRevisionIdPdfRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2431,6 +2456,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/settings/audit'
       preLoaderRoute: typeof SettingsAuditRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/clients': {
+      id: '/settings/clients'
+      path: '/clients'
+      fullPath: '/settings/clients'
+      preLoaderRoute: typeof SettingsClientsRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/diagnostics': {
@@ -3112,6 +3144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExportRevisionIdPackageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/revision/$id/pdf': {
+      id: '/api/export/revision/$id/pdf'
+      path: '/api/export/revision/$id/pdf'
+      fullPath: '/api/export/revision/$id/pdf'
+      preLoaderRoute: typeof ApiExportRevisionIdPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -3444,6 +3483,7 @@ interface SettingsRouteChildren {
   SettingsAccessRoute: typeof SettingsAccessRoute
   SettingsApiRoute: typeof SettingsApiRoute
   SettingsAuditRoute: typeof SettingsAuditRoute
+  SettingsClientsRoute: typeof SettingsClientsRoute
   SettingsDiagnosticsRoute: typeof SettingsDiagnosticsRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
@@ -3460,6 +3500,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAccessRoute: SettingsAccessRoute,
   SettingsApiRoute: SettingsApiRoute,
   SettingsAuditRoute: SettingsAuditRoute,
+  SettingsClientsRoute: SettingsClientsRoute,
   SettingsDiagnosticsRoute: SettingsDiagnosticsRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsInstrumentsRoute: SettingsInstrumentsRoute,
@@ -3603,6 +3644,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiClientPortalRecordsRecordIdPdfRoute:
     ApiClientPortalRecordsRecordIdPdfRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
+  ApiExportRevisionIdPdfRoute: ApiExportRevisionIdPdfRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

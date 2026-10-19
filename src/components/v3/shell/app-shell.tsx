@@ -58,6 +58,7 @@ import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
+import { ContextHelp } from '#/components/v3/help/context-help'
 import { authClient } from '#/lib/auth-client'
 import { Notice } from '#/components/v3/ui/alert'
 
@@ -98,6 +99,9 @@ export function AppShell({
   const navigate = useNavigate()
   const router = useRouter()
   const theme = useTheme()
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const [search, setSearch] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -177,6 +181,10 @@ export function AppShell({
   const switchWorkspace = useCallback(
     async (workspaceId: string) => {
       await setActiveWorkspace(createDataClient(), workspaceId)
+      // The page being looked at belongs to the workspace just left, so the
+      // person lands on the new workspace's Home rather than a page that may
+      // not exist there.
+      await router.navigate({ to: '/' })
       await router.invalidate()
     },
     [router],
@@ -269,7 +277,12 @@ export function AppShell({
             {children}
           </main>
         </div>
-        <SearchPalette open={search} onOpenChange={setSearch} />
+        <SearchPalette
+          open={search}
+          onOpenChange={setSearch}
+          role={data.me.role}
+          pathname={pathname}
+        />
         <RegistryShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
       </div>
     </ShortcutProvider>
@@ -458,6 +471,7 @@ function TopBar({
         </button>
       </div>
       <NewMenu open={createOpen} onOpenChange={onCreateOpenChange} />
+      <ContextHelp />
       <Notifications
         items={data.notifications}
         unreadIds={unreadIds}

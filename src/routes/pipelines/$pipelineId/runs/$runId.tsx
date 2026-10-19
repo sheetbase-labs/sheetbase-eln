@@ -30,6 +30,7 @@ import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
 import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
+import { AddRunToNotebook } from '#/components/v3/pipelines/add-run-to-notebook'
 import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
 import {
   answerPipelineRunPrompt,
@@ -37,11 +38,13 @@ import {
 } from '#/lib/pipelines/data'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { runCitationLines } from '#/lib/pipelines/run-notebook'
 import {
   pipelineDataQueryKeys,
   readDeliveryIds,
   runDuration,
   runStatus,
+  usePipelineDefinition,
   usePipelineVersions,
   usePipelineRun,
   useRunDeliveries,
@@ -92,6 +95,7 @@ function RunPage() {
   const prompts = useRunPrompts(runId)
   const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
+  const definition = usePipelineDefinition(pipelineId)
   const deliveryIds = readDeliveryIds(run.data?.result ?? {})
   const deliveries = useRunDeliveries(runId, deliveryIds)
   const queryClient = useQueryClient()
@@ -125,6 +129,16 @@ function RunPage() {
     (v) => v.id === run.data?.definition_version_id,
   )
   const r = run.data
+  // A retry is pinned to the version the run failed on. When the pipeline has
+  // since published a newer version, the same inputs can be run on that one.
+  const currentPublished = (versions.data ?? []).find(
+    (v) => v.lifecycle === 'published',
+  )
+  const canRerunOnCurrent =
+    !!r &&
+    (r.status === 'failed' || r.status === 'cancelled') &&
+    !!currentPublished &&
+    currentPublished.id !== r.definition_version_id
   // The newest prompt is the one a waiting run is paused on.
   const promptList = prompts.data ?? []
   const prompt = promptList.length
@@ -242,21 +256,49 @@ function RunPage() {
         }
         actions={
           r.status === 'failed' || r.status === 'cancelled' ? (
-            <Button
-              size="sm"
-              icon="play"
-              disabled={!version || launcher.pending}
-              onClick={() =>
-                version &&
-                launcher.launch({
-                  pipelineKey: `run ${r.id.slice(0, 8)}`,
-                  version,
-                  retryOf: r,
-                })
-              }
-            >
-              Retry this run
-            </Button>
+            <>
+              {canRerunOnCurrent ? (
+                <Button
+                  size="sm"
+                  icon="play"
+                  disabled={launcher.pending}
+                  onClick={() =>
+                    launcher.launch({
+                      pipelineKey: `run ${r.id.slice(0, 8)}`,
+                      version: currentPublished,
+                      rerunOn: r,
+                    })
+                  }
+                >
+                  Retry on current version (v{currentPublished.version})
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                icon="play"
+                disabled={!version || launcher.pending}
+                onClick={() =>
+                  version &&
+                  launcher.launch({
+                    pipelineKey: `run ${r.id.slice(0, 8)}`,
+                    version,
+                    retryOf: r,
+                  })
+                }
+              >
+                {canRerunOnCurrent
+                  ? `Retry on v${version?.version ?? ''}`
+                  : 'Retry this run'}
+              </Button>
+            </>
+          ) : r.status === 'succeeded' ? (
+            <AddRunToNotebook
+              lines={runCitationLines(r, {
+                pipelineKey: definition.data?.key ?? pipelineId.slice(0, 8),
+                versionNumber: version?.version ?? null,
+                outputs: outputs.data ?? [],
+              })}
+            />
           ) : r.status === 'running' ? (
             <ConfirmDialog>
               <ConfirmDialogTrigger>
@@ -295,7 +337,11 @@ function RunPage() {
           <a href="#run-log" className="underline">
             See the log
           </a>
-          . Retry runs it again on the same version with the same inputs.
+          . Retry runs it again on the same version with the same inputs
+          {canRerunOnCurrent
+            ? `; Retry on current version uses the same inputs on v${String(currentPublished.version)}`
+            : ''}
+          .
         </Banner>
       ) : null}
 

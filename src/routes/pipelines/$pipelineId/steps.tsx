@@ -10,17 +10,24 @@ import { Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
 import { Select } from '#/components/v3/ui/select'
+import { ParametersEditor } from '#/components/v3/pipelines/parameters-editor'
+import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
 import {
   draftVersion,
   usePipelineOutputTargets,
   usePipelineVersions,
+  useWorkspaceMemberNames,
 } from '#/components/v3/pipelines/pipelines-data'
 import {
   INPUT_NAME_RE,
   MAX_INPUTS,
   validatePipelineConfig,
 } from '#/lib/pipelines/config'
-import type { PipelineInput } from '#/lib/pipelines/config'
+import type {
+  PipelineInput,
+  PipelineParameter,
+  PipelineStep,
+} from '#/lib/pipelines/config'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -46,7 +53,8 @@ type OutputMode = 'create' | 'append' | 'none'
 interface PipelineConfiguration {
   configVersion?: number
   description?: string | null
-  parameters?: unknown[]
+  parameters?: PipelineParameter[]
+  steps?: PipelineStep[]
   inputs?: PipelineInput[]
   transform?: { language?: string; statement?: string }
   output?: {
@@ -62,6 +70,8 @@ interface PipelineConfiguration {
 /** The configuration keys this page edits; other errors are the server's to report. */
 const EDITED_CONFIG_FIELDS = [
   'description',
+  'parameters',
+  'steps',
   'inputs',
   'transform',
   'output',
@@ -83,6 +93,9 @@ function PipelineSteps() {
   const [statement, setStatement] = useState('')
   const [datasetName, setDatasetName] = useState('')
   const [inputs, setInputs] = useState<PipelineInput[]>([])
+  const [parameters, setParameters] = useState<PipelineParameter[]>([])
+  const [extraSteps, setExtraSteps] = useState<PipelineStep[]>([])
+  const members = useWorkspaceMemberNames()
   const [outputMode, setOutputMode] = useState<OutputMode>('none')
   const [schemaVersionId, setSchemaVersionId] = useState('')
   const [datasetId, setDatasetId] = useState('')
@@ -96,6 +109,8 @@ function PipelineSteps() {
     setStatement(sourceConfig.transform?.statement ?? '')
     setDatasetName(sourceConfig.output?.datasetName ?? '')
     setInputs(sourceConfig.inputs ?? [])
+    setParameters(sourceConfig.parameters ?? [])
+    setExtraSteps(sourceConfig.steps ?? [])
     setOutputMode(sourceConfig.output?.mode ?? 'none')
     setSchemaVersionId(sourceConfig.output?.schemaVersionId ?? '')
     setDatasetId(sourceConfig.output?.datasetId ?? '')
@@ -110,6 +125,8 @@ function PipelineSteps() {
     sourceConfig.output?.datasetId,
     sourceConfig.output?.datasetLabel,
     sourceConfig.inputs,
+    sourceConfig.parameters,
+    sourceConfig.steps,
   ])
 
   const builtConfig = useMemo<PipelineConfiguration>(
@@ -117,7 +134,8 @@ function PipelineSteps() {
       ...sourceConfig,
       configVersion: sourceConfig.configVersion ?? 1,
       description: description.trim() || null,
-      parameters: sourceConfig.parameters ?? [],
+      parameters,
+      ...(extraSteps.length ? { steps: extraSteps } : { steps: undefined }),
       inputs,
       transform: {
         language: sourceConfig.transform?.language ?? 'sql',
@@ -136,6 +154,8 @@ function PipelineSteps() {
     [
       sourceConfig,
       description,
+      parameters,
+      extraSteps,
       inputs,
       outputMode,
       statement,
@@ -255,6 +275,18 @@ function PipelineSteps() {
             />
           </Field>
         </div>
+      </Section>
+
+      <Section title="Parameters" count={parameters.length}>
+        <ParametersEditor parameters={parameters} onChange={setParameters} />
+      </Section>
+
+      <Section title="Further steps" count={extraSteps.length}>
+        <StepsEditor
+          steps={extraSteps}
+          members={members.data ?? {}}
+          onChange={setExtraSteps}
+        />
       </Section>
 
       <Section title="Inputs" count={inputs.length}>

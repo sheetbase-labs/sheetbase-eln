@@ -97,6 +97,7 @@ import {
 } from '#/components/v3/ui/tabs'
 import { Select } from '#/components/v3/ui/select'
 import { Textarea } from '#/components/v3/inventory/list'
+import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
 import { DataClientError } from '#/lib/data-client'
 import {
   fetchProjectsForReviews,
@@ -164,7 +165,6 @@ import {
   signatureCertificationQueryKeys,
 } from '#/lib/signature-certification'
 import {
-  createAmendment,
   fetchRecordTimeline,
   sign002DataClient,
   sign002QueryKeys,
@@ -2845,35 +2845,10 @@ export function AmendmentSection({
   onAfterAmendment: () => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
-  const [note, setNote] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{
     revisionId: string
     unlockedAt: string
   } | null>(null)
-
-  async function handleConfirm() {
-    setSubmitting(true)
-    setError(null)
-    try {
-      const res = await createAmendment(sign002DataClient, {
-        recordId,
-        note: note.trim() || undefined,
-      })
-      setResult({
-        revisionId: res.revisionId,
-        unlockedAt: res.unlockedAt,
-      })
-      await onAfterAmendment()
-      setOpen(false)
-      setNote('')
-    } catch (err) {
-      setError(renderError(err))
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   if (result) {
     return (
@@ -2901,66 +2876,28 @@ export function AmendmentSection({
       <p className="mb-2 text-xs text-muted-foreground">
         This record is locked. Start an amendment to create a new draft
         revision, supersede the locked one and unlock the record for editing.
-        The amendment is recorded in the audit trail.
+        The amendment and its reason are recorded in the audit trail.
       </p>
-      <ConfirmDialog
-        open={open}
-        onOpenChange={(next) => {
-          if (!next && submitting) return
-          setOpen(next)
-          if (next) {
-            setNote('')
-            setError(null)
-          }
-        }}
+      <Button
+        variant="secondary"
+        className="w-full"
+        onClick={() => setOpen(true)}
       >
-        <ConfirmDialogTrigger asChild>
-          <Button variant="secondary" className="w-full">
-            <Icon name="check" size={14} aria-hidden />
-            Start amendment
-          </Button>
-        </ConfirmDialogTrigger>
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Start an amendment?</ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              A new revision will be created from the current record, the locked
-              revision will be superseded, and the record will be unlocked so
-              you can edit again. This is recorded in the audit trail and cannot
-              be undone from the workspace.
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <Textarea
-            className="min-h-[70px]"
-            placeholder="Describe the reason for the amendment (optional)…"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            aria-label="Amendment note"
-          />
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-            >
-              {error}
-            </p>
-          ) : null}
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel disabled={submitting}>
-              Cancel
-            </ConfirmDialogCancel>
-            {/* QA-182: a plain button, not a DialogClose — the amendment is
-                awaited, so a refusal stays readable in the open dialog. */}
-            <Button
-              variant="primary"
-              disabled={submitting}
-              onClick={handleConfirm}
-            >
-              {submitting ? 'Starting…' : 'Start amendment'}
-            </Button>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
+        <Icon name="check" size={14} aria-hidden />
+        Start amendment
+      </Button>
+      <AmendNotebookDialog
+        open={open}
+        onOpenChange={setOpen}
+        recordId={recordId}
+        onAmended={async (amended) => {
+          setResult({
+            revisionId: amended.revisionId,
+            unlockedAt: amended.unlockedAt,
+          })
+          await onAfterAmendment()
+        }}
+      />
     </section>
   )
 }

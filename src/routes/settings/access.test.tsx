@@ -17,7 +17,10 @@ import { Route } from './access'
  * cannot decide reads as waiting (never granted), and the decision travels
  * through the canonical RPC.
  */
-const { decideMock } = vi.hoisted(() => ({ decideMock: vi.fn() }))
+const { decideMock, setDefaultMock } = vi.hoisted(() => ({
+  decideMock: vi.fn(),
+  setDefaultMock: vi.fn(),
+}))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: object) => ({
@@ -56,7 +59,15 @@ vi.mock('#/components/v3/projects/project-data', () => ({
 vi.mock('#/lib/workspace-access', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchWorkspaceAccessRules: async () => [],
-  fetchWorkspaceGroups: async () => [],
+  fetchWorkspaceGroups: async () => [
+    { id: '00000000-0000-4000-8000-0000000000aa', name: 'QA', member_ids: [] },
+  ],
+  fetchProjectAccessDefaults: async () => ({
+    private_to_lead: true,
+    qa_view_group_id: null,
+    client_portal_off: true,
+  }),
+  setProjectAccessDefaults: setDefaultMock,
   fetchProjectPermissions: async (_client: unknown, projectId: string) => ({
     can_view: true,
     can_edit: projectId === 'p1',
@@ -112,6 +123,7 @@ vi.mock('#/lib/workspace-access', async (importOriginal) => ({
 afterEach(() => {
   cleanup()
   decideMock.mockReset()
+  setDefaultMock.mockReset()
 })
 
 function renderAccess() {
@@ -178,5 +190,30 @@ describe('SET-02.3 access requests audit', () => {
         approve: true,
       }),
     )
+  })
+})
+
+describe('QA access default for new projects', () => {
+  it('saves the chosen group as the default through the canonical RPC', async () => {
+    const user = userEvent.setup()
+    renderAccess()
+    const select = await screen.findByRole('combobox', {
+      name: 'QA group with view access',
+    })
+    await within(select).findByRole('option', { name: 'QA' })
+    await user.selectOptions(select, '00000000-0000-4000-8000-0000000000aa')
+    await waitFor(() =>
+      expect(setDefaultMock).toHaveBeenCalledWith(
+        expect.anything(),
+        '00000000-0000-4000-8000-0000000000aa',
+      ),
+    )
+  })
+
+  it('says the default is view-only and leaves existing projects alone', async () => {
+    renderAccess()
+    expect(
+      await screen.findByText(/cannot edit, review or manage/),
+    ).toBeTruthy()
   })
 })

@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { Button } from '#/components/v3/ui/button'
+import { useRecentViewTracking } from '#/lib/recents'
 import { Status } from '#/components/v3/ui/status'
 import {
   PageHeader,
@@ -175,6 +177,7 @@ function SampleLayout() {
   const queryClient = useQueryClient()
   const query = useSampleRecord(sampleId)
   const sample = query.data
+  useRecentViewTracking('record', sample?.id)
   const [dialog, setDialog] = useState<SampleDialog>(null)
   // Labels of the release checks the last release attempt failed, shown in the
   // release dialog with a way to the measurements they read.
@@ -546,6 +549,7 @@ function SampleLayout() {
           }
           actions={
             <span className="flex gap-2 max-md:hidden">
+              <FavouriteToggle kind="record" objectId={sample.id} />
               {archived ? (
                 allowEdit ? (
                   <Button

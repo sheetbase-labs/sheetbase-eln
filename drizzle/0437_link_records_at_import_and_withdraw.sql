@@ -13,6 +13,10 @@
 -- additive: it writes no row for past imports or withdrawals. Backfilling those
 -- touches regulated history and is a separate, audited, reversible migration.
 --
+-- When a model's relationship rules forbid the link, the import or withdrawal
+-- fails with that rule's message prefixed by what was being linked: a link that
+-- silently goes missing is worse in a regulated record.
+--
 -- An experiment that is already locked is left alone: its record is signed
 -- evidence and a link cannot be added to it. The receipt or sample event still
 -- carries the experiment.
@@ -33,14 +37,19 @@ BEGIN
 
   patch := E'  -- LINK-01: the experiment reads its data through record_links.\n'
     || E'  IF p_experiment_record_id IS NOT NULL AND d.display_id IS NOT NULL THEN\n'
-    || E'    INSERT INTO api.record_links\n'
-    || E'      (source_record_id, target_kind, target_identifier, link_type, link_metadata, created_by_user_id)\n'
-    || E'    SELECT x.id, ''dataset'', d.display_id, ''dataset'',\n'
-    || E'           jsonb_build_object(''origin'', ''commit_dataset_import'', ''importId'', receipt.id),\n'
-    || E'           api.current_user_id()\n'
-    || E'      FROM api.records x\n'
-    || E'     WHERE x.id = p_experiment_record_id AND x.kind = ''experiment'' AND x.locked_at IS NULL\n'
-    || E'    ON CONFLICT (source_record_id, target_identifier, link_type) DO NOTHING;\n'
+    || E'    BEGIN\n'
+    || E'      INSERT INTO api.record_links\n'
+    || E'        (source_record_id, target_kind, target_identifier, link_type, link_metadata, created_by_user_id)\n'
+    || E'      SELECT x.id, ''dataset'', d.display_id, ''dataset'',\n'
+    || E'             jsonb_build_object(''origin'', ''commit_dataset_import'', ''importId'', receipt.id),\n'
+    || E'             api.current_user_id()\n'
+    || E'        FROM api.records x\n'
+    || E'       WHERE x.id = p_experiment_record_id AND x.kind = ''experiment'' AND x.locked_at IS NULL\n'
+    || E'      ON CONFLICT (source_record_id, target_identifier, link_type) DO NOTHING;\n'
+    || E'    EXCEPTION WHEN SQLSTATE ''SB080'' OR SQLSTATE ''SB081'' THEN\n'
+    || E'      RAISE EXCEPTION ''cannot link dataset % to the experiment: %'', d.display_id, SQLERRM\n'
+    || E'        USING ERRCODE = SQLSTATE;\n'
+    || E'    END;\n'
     || E'  END IF;\n';
 
   EXECUTE replace(definition, anchor, patch || anchor);
@@ -63,13 +72,18 @@ BEGIN
 
   patch := E'  -- LINK-01: the experiment reads the samples it used through record_links.\n'
     || E'  IF v_purpose.locked_at IS NULL THEN\n'
-    || E'    INSERT INTO api.record_links\n'
-    || E'      (source_record_id, target_record_id, target_kind, target_identifier, link_type,\n'
-    || E'       link_metadata, created_by_user_id)\n'
-    || E'    VALUES (v_purpose.id, v_source.id, ''sample'', v_source.identifier, ''sample'',\n'
-    || E'            jsonb_build_object(''origin'', ''withdraw_sample'', ''quantity'', p_quantity),\n'
-    || E'            api.current_user_id())\n'
-    || E'    ON CONFLICT (source_record_id, target_identifier, link_type) DO NOTHING;\n'
+    || E'    BEGIN\n'
+    || E'      INSERT INTO api.record_links\n'
+    || E'        (source_record_id, target_record_id, target_kind, target_identifier, link_type,\n'
+    || E'         link_metadata, created_by_user_id)\n'
+    || E'      VALUES (v_purpose.id, v_source.id, ''sample'', v_source.identifier, ''sample'',\n'
+    || E'              jsonb_build_object(''origin'', ''withdraw_sample'', ''quantity'', p_quantity),\n'
+    || E'              api.current_user_id())\n'
+    || E'      ON CONFLICT (source_record_id, target_identifier, link_type) DO NOTHING;\n'
+    || E'    EXCEPTION WHEN SQLSTATE ''SB080'' OR SQLSTATE ''SB081'' THEN\n'
+    || E'      RAISE EXCEPTION ''cannot link sample % to the experiment: %'', v_source.identifier, SQLERRM\n'
+    || E'        USING ERRCODE = SQLSTATE;\n'
+    || E'    END;\n'
     || E'  END IF;\n\n';
 
   EXECUTE replace(definition, anchor, patch || anchor);

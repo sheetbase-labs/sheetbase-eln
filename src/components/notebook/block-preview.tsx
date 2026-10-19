@@ -49,8 +49,8 @@ import {
 } from '#/lib/chart-data'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartBlockPayload, ChartSpec } from '#/lib/chart-spec'
-import { runAnalysis } from '#/lib/analysis-definition'
-import type { AnalysisDefinition } from '#/lib/analysis-definition'
+import { analysisBlockParts, runAnalysis } from '#/lib/analysis-definition'
+import type { AnalysisBlockDefinition } from '#/lib/analysis-definition'
 import type { AnalysisBlockPayload, FrozenAnalysis } from '#/lib/analysis-block'
 import {
   frozenAnalysisMethodMismatch,
@@ -1611,7 +1611,7 @@ function LiveAnalysisPreview({
       </div>
     )
   const saved = definitionQuery.data
-  const definition = saved.definition as AnalysisDefinition | null
+  const definition = saved.definition as AnalysisBlockDefinition | null
   if (!definition)
     return (
       <div role="alert" className="text-xs text-danger-text">
@@ -1644,9 +1644,10 @@ function LiveAnalysisExecution({
   provenance?: string
   name: string
   version: number
-  definition: AnalysisDefinition
+  definition: AnalysisBlockDefinition
   datasetId: string
 }) {
+  const parts = analysisBlockParts(definition)
   const resolvedQuery = useQuery({
     queryKey: ['analysis-block-dataset', datasetId] as const,
     queryFn: async () => {
@@ -1662,9 +1663,9 @@ function LiveAnalysisExecution({
   })
 
   const executed =
-    resolvedQuery.data && !resolvedQuery.data.truncated
+    parts.statistic && resolvedQuery.data && !resolvedQuery.data.truncated
       ? runAnalysis(
-          definition,
+          parts.statistic,
           resolvedQuery.data.source.columns,
           resolvedQuery.data.rows,
         )
@@ -1684,7 +1685,15 @@ function LiveAnalysisExecution({
           <span className="text-xs text-fg-muted">Loading rows…</span>
         ) : null}
       </div>
-      {executed && executed.ok ? (
+      {parts.chart ? (
+        <LiveChartPreview
+          title={title}
+          spec={parts.chart}
+          sources={chartSourcesFromSpec(parts.chart)}
+          hideTitle
+        />
+      ) : null}
+      {!parts.statistic ? null : executed && executed.ok ? (
         <AnalysisResultTable result={executed.result} />
       ) : executed ? (
         <div
@@ -1743,9 +1752,33 @@ function FrozenAnalysisPreview({
   // reproduce is reported, never silently re-executed under the current method.
   const methodMismatch = frozenAnalysisMethodMismatch(frozen)
   const recordedMethodVersion = frozenAnalysisMethodVersion(frozen)
+  const parts = analysisBlockParts(frozen.definition)
+  const pinnedRows =
+    !methodMismatch && rowsQuery.data?.matchesProvenance
+      ? rowsQuery.data.rows
+      : null
   const executed =
-    !methodMismatch && rowsQuery.data && rowsQuery.data.matchesProvenance
-      ? runAnalysis(frozen.definition, columns, rowsQuery.data.rows)
+    parts.statistic && pinnedRows
+      ? runAnalysis(parts.statistic, columns, pinnedRows)
+      : null
+  // The chart is rebuilt the same way: the pinned Version's rows through the
+  // chart's own spec, never a live re-read.
+  const chartMaterialised =
+    parts.chart && pinnedRows && pin
+      ? materialiseLiveChart(parts.chart, {
+          source: {
+            datasetId: pin.datasetId,
+            name: 'Pinned Dataset Version',
+            workspaceId: '',
+            schemaVersionId: '',
+            schemaVersionNumber: pin.schemaVersionNumber,
+            revision: pin.sourceDatasetRevision,
+            columns,
+          },
+          rows: pinnedRows,
+          truncated: false,
+          totalCount: pin.rowCount,
+        })
       : null
 
   const provenanceParts = frozen.datasetProvenance.map(
@@ -1793,21 +1826,34 @@ function FrozenAnalysisPreview({
           {methodMismatch.current}. The pinned numbers are withheld because they
           cannot honestly be presented as the cited method&apos;s results.
         </EvidenceAlert>
-      ) : executed && executed.ok ? (
+      ) : (
         <>
-          <AnalysisResultTable result={executed.result} />
-          {recordedMethodVersion === null ? (
-            <p className="text-xs text-fg-muted">
-              This snapshot predates method recording, so the method version it
-              ran is not recorded.
-            </p>
+          {parts.chart && chartMaterialised ? (
+            <ChartRenderer
+              title={title}
+              hideTitle
+              spec={parts.chart}
+              materialised={chartMaterialised}
+              frozen={null}
+            />
+          ) : null}
+          {!parts.statistic ? null : executed && executed.ok ? (
+            <>
+              <AnalysisResultTable result={executed.result} />
+              {recordedMethodVersion === null ? (
+                <p className="text-xs text-fg-muted">
+                  This snapshot predates method recording, so the method version
+                  it ran is not recorded.
+                </p>
+              ) : null}
+            </>
+          ) : executed ? (
+            <EvidenceAlert>
+              The pinned inputs no longer execute: {executed.error.code}.
+            </EvidenceAlert>
           ) : null}
         </>
-      ) : executed ? (
-        <EvidenceAlert>
-          The pinned inputs no longer execute: {executed.error.code}.
-        </EvidenceAlert>
-      ) : null}
+      )}
       {provenance ? (
         <p className="text-xs text-fg-muted">{provenance}</p>
       ) : null}

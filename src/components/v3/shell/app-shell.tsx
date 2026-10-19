@@ -180,6 +180,10 @@ export function AppShell({
   const switchWorkspace = useCallback(
     async (workspaceId: string) => {
       await setActiveWorkspace(createDataClient(), workspaceId)
+      // The page being looked at belongs to the workspace just left, so the
+      // person lands on the new workspace's Home rather than a page that may
+      // not exist there.
+      await router.navigate({ to: '/' })
       await router.invalidate()
     },
     [router],

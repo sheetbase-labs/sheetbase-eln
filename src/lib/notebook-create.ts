@@ -6,6 +6,7 @@ import type { DataClient } from '#/lib/data-client'
 import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
 import { toRecord } from '#/lib/notebook-data'
 import { insertBlock } from '#/lib/notebook-mutations'
+import { isDuplicateLinkError } from '#/lib/scientific-records'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import type { BlockWire, NotebookRecord, RecordWire } from '#/lib/notebook-data'
 
@@ -145,4 +146,29 @@ export async function insertPinnedProtocol(
     expectedBlockVersion: inserted.block.version,
     expectedStructureVersion: inserted.structureVersion,
   })
+}
+
+/**
+ * Relate an experiment to a sample in `record_links`, keyed by the sample's
+ * display identifier. Linking the same sample twice is not an error: the
+ * relationship is already recorded once. A locked experiment or a rule
+ * violation surfaces as the database's own error.
+ */
+export async function linkExperimentToSample(
+  client: DataClient,
+  experimentId: string,
+  sample: { identifier: string; recordId: string },
+): Promise<void> {
+  try {
+    await client.rpc('create_record_link', {
+      p_source_record_id: experimentId,
+      p_target_kind: 'sample',
+      p_target_identifier: sample.identifier,
+      p_link_type: 'sample',
+      p_target_record_id: sample.recordId,
+      p_label: null,
+    })
+  } catch (error) {
+    if (!isDuplicateLinkError(error)) throw error
+  }
 }

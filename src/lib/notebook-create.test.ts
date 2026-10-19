@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createBlankExperiment } from './notebook-create'
+import {
+  createBlankExperiment,
+  linkExperimentToSample,
+} from './notebook-create'
 
 describe('createBlankExperiment', () => {
   it('calls create_record_with_blocks for an experiment without a Template', async () => {
@@ -44,5 +47,36 @@ describe('createBlankExperiment', () => {
     )
     expect(record.kind).toBe('experiment')
     expect(record.title).toBe('Blank run')
+  })
+})
+
+describe('linkExperimentToSample', () => {
+  const sample = { identifier: 'SMP-0001', recordId: 'sample-uuid' }
+
+  it('writes one sample link keyed by the sample display identifier', async () => {
+    const rpc = vi.fn().mockResolvedValue({})
+    await linkExperimentToSample({ rpc } as never, 'exp-uuid', sample)
+    expect(rpc).toHaveBeenCalledWith('create_record_link', {
+      p_source_record_id: 'exp-uuid',
+      p_target_kind: 'sample',
+      p_target_identifier: 'SMP-0001',
+      p_link_type: 'sample',
+      p_target_record_id: 'sample-uuid',
+      p_label: null,
+    })
+  })
+
+  it('treats a link that already exists as done', async () => {
+    const rpc = vi.fn().mockRejectedValue({ code: '23505', message: 'dup' })
+    await expect(
+      linkExperimentToSample({ rpc } as never, 'exp-uuid', sample),
+    ).resolves.toBeUndefined()
+  })
+
+  it('surfaces any other refusal', async () => {
+    const rpc = vi.fn().mockRejectedValue(new Error('record is locked'))
+    await expect(
+      linkExperimentToSample({ rpc } as never, 'exp-uuid', sample),
+    ).rejects.toThrow('record is locked')
   })
 })

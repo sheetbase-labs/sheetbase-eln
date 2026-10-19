@@ -6,7 +6,7 @@ import {
   redirect,
   useRouterState,
 } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -48,6 +48,8 @@ import {
   useSamplePage,
 } from '#/components/v3/samples/samples-data'
 import type { SampleListRow } from '#/components/v3/samples/samples-data'
+import { parseCreateContext } from '#/lib/create-context-search'
+import { linkExperimentToSample } from '#/lib/notebook-create'
 import { createSample } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -62,12 +64,28 @@ const tabLabel: Record<SampleTab, string> = {
   consumed: 'Consumed',
 }
 
+function pickSampleContext(search: Record<string, unknown>) {
+  const { project, experiment, returnTo } = parseCreateContext(search)
+  return { project, experiment, returnTo }
+}
+
 /** UI port (roadmap-4/ui-app3): the sample registry list, wired to real sample
  * records. The detail route and the custody dialogs follow. */
 export const Route = createFileRoute('/samples')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { q?: string; tab?: SampleTab; new?: boolean; selected?: string } => ({
+  ): {
+    q?: string
+    tab?: SampleTab
+    new?: boolean
+    selected?: string
+    project?: string
+    experiment?: string
+    returnTo?: string
+  } => ({
+    // The shared create-context params: the project or experiment the sample
+    // is registered for, and where closing the dialog goes back to.
+    ...pickSampleContext(search),
     q: typeof search.q === 'string' ? search.q : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
     tab:
@@ -208,16 +226,32 @@ function SamplesList() {
     setSelected,
   )
 
+  // A sample registered for an experiment goes into that experiment's project
+  // and is linked to it.
+  const forExperiment = useQuery({
+    queryKey: ['ui-port', 'samples', 'register-for', search.experiment],
+    queryFn: () =>
+      notebookDataClient
+        .list<{ id: string; identifier: string; project_id: string | null }>(
+          'records',
+          `?id=eq.${encodeURIComponent(search.experiment ?? '')}&kind=eq.experiment&select=id,identifier,project_id&limit=1`,
+        )
+        .then((rows) => rows[0] ?? null),
+    enabled: Boolean(search.experiment),
+  })
+  const defaultProjectId =
+    search.project ?? forExperiment.data?.project_id ?? undefined
+
   const create = useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       projectId: string
       title: string
       sampleType?: string
       quantity?: string
       quantityUnit?: string
       storageLocation?: string
-    }) =>
-      createSample(notebookDataClient, {
+    }) => {
+      const created = await createSample(notebookDataClient, {
         projectId: input.projectId,
         title: input.title,
         properties: {
@@ -226,10 +260,38 @@ function SamplesList() {
           quantityUnit: input.quantityUnit,
           storageLocation: input.storageLocation,
         },
-      }),
-    onSuccess: (created) => {
+      })
+      let linkError: string | null = null
+      if (search.experiment) {
+        try {
+          await linkExperimentToSample(notebookDataClient, search.experiment, {
+            identifier: created.identifier,
+            recordId: created.id,
+          })
+        } catch (error) {
+          linkError =
+            error instanceof Error ? error.message : 'The link was refused.'
+        }
+      }
+      return { created, linkError }
+    },
+    onSuccess: ({ created, linkError }) => {
       void queryClient.invalidateQueries({ queryKey: sampleListQueryKeys.page })
-      toast('Sample registered')
+      if (search.experiment) {
+        void queryClient.invalidateQueries({
+          queryKey: ['ui-port', 'experiment-links', search.experiment],
+        })
+      }
+      toast(
+        linkError ? 'Sample registered, not linked' : 'Sample registered',
+        linkError
+          ? {
+              description: `It could not be linked to the experiment: ${linkError}`,
+            }
+          : search.experiment
+            ? { description: 'Linked to the experiment.' }
+            : undefined,
+      )
       // Land on the new sample, not back on the list it was registered from.
       void navigate({
         to: '/samples/$sampleId',
@@ -421,13 +483,19 @@ function SamplesList() {
         projects={[...(projects.data ?? new Map()).entries()].map(
           ([id, title]) => ({ id, title }),
         )}
+        initialProjectId={defaultProjectId}
         onOpenChange={(open) => {
-          if (!open)
-            void navigate({
-              to: '/samples',
-              search: (s) => ({ ...s, new: undefined }),
-              replace: true,
-            })
+          if (open) return
+          // Cancel goes back to the page the dialog was opened from.
+          if (search.returnTo) {
+            void navigate({ href: search.returnTo })
+            return
+          }
+          void navigate({
+            to: '/samples',
+            search: (s) => ({ ...s, new: undefined }),
+            replace: true,
+          })
         }}
         onRegister={(input) => create.mutate(input)}
       />
@@ -440,10 +508,13 @@ function RegisterSampleDialog({
   busy,
   onOpenChange,
   projects,
+  initialProjectId,
   onRegister,
 }: {
   open: boolean
   busy: boolean
+  /** The project the sample is being registered for, when a page named one. */
+  initialProjectId?: string
   projects: { id: string; title: string }[]
   onOpenChange: (open: boolean) => void
   onRegister: (input: {
@@ -455,7 +526,12 @@ function RegisterSampleDialog({
     storageLocation?: string
   }) => void
 }) {
-  const [projectId, setProjectId] = useState('')
+  const [projectId, setProjectId] = useState(initialProjectId ?? '')
+  // The project can arrive after the dialog opens (an experiment's project is
+  // read from the experiment); never overwrite a choice the person made.
+  useEffect(() => {
+    if (initialProjectId) setProjectId((current) => current || initialProjectId)
+  }, [initialProjectId])
   const [title, setTitle] = useState('')
   const [sampleType, setSampleType] = useState('')
   const [quantity, setQuantity] = useState('')

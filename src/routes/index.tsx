@@ -97,6 +97,11 @@ export const Route = createFileRoute('/')({
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+    // A client viewer has no Home: the portal is their whole product, so they
+    // land there instead of on a workspace page they cannot use.
+    if (context.workspace?.role === 'client_viewer') {
+      throw redirect({ to: '/client-portal' })
+    }
     return { context }
   },
   component: Home,

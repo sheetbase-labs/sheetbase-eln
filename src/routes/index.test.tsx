@@ -14,7 +14,7 @@ import type * as router from '@tanstack/react-router'
 import type * as projectData from '#/components/v3/projects/project-data'
 import type * as notebookData from '#/lib/notebook-data'
 
-import { Home } from './index'
+import { Home, Route } from './index'
 
 const fixture = vi.hoisted(() => ({
   inbox: 0,
@@ -355,7 +355,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
         shellCounts: fixture.shellInbox ? { inbox: fixture.shellInbox } : {},
       }),
     }),
-    redirect: vi.fn(),
+    redirect: (options: unknown) => options,
     // The real Link spreads the props Base UI injects (role, class, handlers),
     // so the mock must too: a Button rendered as a Link is a `role="button"`.
     Link: ({
@@ -411,6 +411,26 @@ function renderHome() {
     </QueryClientProvider>,
   )
 }
+
+describe('Home landing', () => {
+  it('sends a client viewer straight to the portal', async () => {
+    const beforeLoad = Route.options.beforeLoad as (args: unknown) => unknown
+    await expect(
+      Promise.resolve().then(() =>
+        beforeLoad({
+          context: { auth: { workspace: { role: 'client_viewer' } } },
+          location: { href: '/' },
+        }),
+      ),
+    ).rejects.toEqual({ to: '/client-portal' })
+    expect(
+      await beforeLoad({
+        context: { auth: { workspace: { role: 'member' } } },
+        location: { href: '/' },
+      }),
+    ).toBeTruthy()
+  })
+})
 
 describe('Home degrades one section at a time', () => {
   it('keeps the page and names the section whose read failed', async () => {

@@ -98,6 +98,9 @@ export function AppShell({
   const navigate = useNavigate()
   const router = useRouter()
   const theme = useTheme()
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const [search, setSearch] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -269,7 +272,12 @@ export function AppShell({
             {children}
           </main>
         </div>
-        <SearchPalette open={search} onOpenChange={setSearch} />
+        <SearchPalette
+          open={search}
+          onOpenChange={setSearch}
+          role={data.me.role}
+          pathname={pathname}
+        />
         <RegistryShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
       </div>
     </ShortcutProvider>

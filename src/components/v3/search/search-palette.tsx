@@ -19,6 +19,8 @@ import { Icon } from '#/components/v3/icons'
 import type { IconName } from '#/components/v3/icons'
 import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import { Highlight } from './highlight'
+import { goToCommands, matchCommands, newCommands } from './palette-commands'
+import type { PaletteCommand } from './palette-commands'
 import { searchResultContext, searchResultLabel } from './result-text'
 import {
   contextualSearchActions,
@@ -97,14 +99,23 @@ const optionRow =
 /** The ↵ hint only occupies a column on the active row, as the design draws it. */
 const optionHint = 'hidden group-aria-selected:inline-flex'
 
+/** Typed queries show only the best few commands; an empty one lists them all. */
+const MAX_TYPED_COMMANDS = 4
+
 export function SearchPalette({
   open: openProp,
   onOpenChange,
   initialQuery = '',
+  role,
+  pathname,
 }: {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   initialQuery?: string
+  /** The viewer's workspace role: Go to lists only pages they can open. */
+  role?: string | null
+  /** The page behind the palette: New hands its project, sample or dataset on. */
+  pathname?: string
 }) {
   const [openState, setOpenState] = useState(false)
   const open = openProp ?? openState
@@ -261,8 +272,72 @@ export function SearchPalette({
     )
   }, [scoped, q])
   const actions = useMemo(() => contextualSearchActions(scoped), [scoped])
+  const commandMatch = useMemo(() => {
+    const all = [...goToCommands(role), ...newCommands(pathname)]
+    const match = matchCommands(all, q)
+    // A plain word searches first: its commands join once the results are in,
+    // so the first row the keyboard lands on is a result, not a page link.
+    const settled = res !== null && !searching
+    const limited =
+      q.trim() && !match.leads
+        ? settled
+          ? match.commands.slice(0, MAX_TYPED_COMMANDS)
+          : []
+        : match.commands
+    return {
+      leads: match.leads,
+      goTo: limited.filter((c) => c.group === 'Go to'),
+      create: limited.filter((c) => c.group === 'New'),
+    }
+  }, [q, role, pathname, res, searching])
+  const commandCount = commandMatch.goTo.length + commandMatch.create.length
   const entryCount =
-    buckets.reduce((n, bucket) => n + bucket.results.length, 0) + actions.length
+    buckets.reduce((n, bucket) => n + bucket.results.length, 0) +
+    actions.length +
+    commandCount
+
+  const runCommand = (command: PaletteCommand, newTab = false) => {
+    if (newTab) {
+      window.open(
+        searchResultNewTabUrl(
+          searchActionHref({
+            id: command.id,
+            label: command.label,
+            to: command.to,
+            search: command.search,
+          }),
+          window.location.origin,
+        ),
+        '_blank',
+        'noopener,noreferrer',
+      )
+      return
+    }
+    setOpen(false)
+    void navigate({
+      to: command.to as never,
+      search: command.search as never,
+    })
+  }
+  const commandGroups = (heading: 'Go to' | 'New', list: PaletteCommand[]) =>
+    list.length ? (
+      <CommandGroup key={heading} heading={heading}>
+        {list.map((command) => (
+          <CommandItem
+            key={command.id}
+            value={command.id}
+            onSelect={(_value, newTab) => runCommand(command, newTab)}
+            className={optionRow}
+          >
+            <span className="pt-px text-fg-muted">
+              <Icon name={command.icon} size={14} />
+            </span>
+            <span className="min-w-0">{command.label}</span>
+            <Kbd className={optionHint}>↵</Kbd>
+          </CommandItem>
+        ))}
+      </CommandGroup>
+    ) : null
 
   const go = (result: SearchResult, newTab = false) => {
     if (newTab) {
@@ -494,10 +569,16 @@ export function SearchPalette({
         ) : (
           <CommandList className="max-h-[440px] pb-2 pt-1 max-md:max-h-none">
             {!q.trim() ? (
-              <div className="px-3.5 py-6 text-body text-fg-muted">
+              <div className="px-3.5 py-3 text-body text-fg-muted">
                 Type an ID like <span className="mono">EXP-0001</span>, a name,
                 or a value like <span className="mono">C-150</span>.
               </div>
+            ) : null}
+            {commandMatch.leads ? (
+              <>
+                {commandGroups('New', commandMatch.create)}
+                {commandGroups('Go to', commandMatch.goTo)}
+              </>
             ) : null}
             {searching ? (
               <div
@@ -563,6 +644,12 @@ export function SearchPalette({
                 })}
               </CommandGroup>
             ))}
+            {commandMatch.leads ? null : (
+              <>
+                {commandGroups('Go to', commandMatch.goTo)}
+                {commandGroups('New', commandMatch.create)}
+              </>
+            )}
             {actions.length ? (
               <CommandGroup heading="Actions">
                 {actions.map((action) => (

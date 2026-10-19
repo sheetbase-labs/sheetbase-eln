@@ -7,6 +7,8 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type * as router from '@tanstack/react-router'
+
 import { ExperimentBookings } from './-links-tab'
 
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
@@ -19,7 +21,7 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
 }
 
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tanstack/react-router')>()),
+  ...(await importOriginal<typeof router>()),
   Link: ({
     to,
     search,

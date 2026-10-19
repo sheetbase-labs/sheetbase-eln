@@ -9,22 +9,29 @@ import { recordDestination } from '#/lib/navigation'
 import type { RecordLinkWire } from '../$expId'
 import { useExperimentLinks } from '../$expId'
 
-/** UI port: shared linked-records tab (Samples, Datasets, Files). */
-export function LinkTab({
-  expId,
-  kind,
-  emptyTitle,
-  emptyBody,
-}: {
-  expId: string
-  kind: 'sample' | 'dataset' | 'file'
-  emptyTitle: string
-  emptyBody: string
-}) {
+const LINK_SECTIONS: { kind: string; title: string }[] = [
+  { kind: 'sample', title: 'Samples' },
+  { kind: 'dataset', title: 'Datasets' },
+  { kind: 'file', title: 'Files' },
+]
+
+/** Everything linked to the experiment, grouped by what it is: Samples,
+ * Datasets, Files, then any other kind. */
+export function LinksPanel({ expId }: { expId: string }) {
   const links = useExperimentLinks(expId)
-  const rows = (links.data ?? []).filter((l) => l.target_kind === kind)
-  const title =
-    kind === 'sample' ? 'Samples' : kind === 'dataset' ? 'Datasets' : 'Files'
+  const all = links.data ?? []
+  const named = new Set(LINK_SECTIONS.map((section) => section.kind))
+  const sections = [
+    ...LINK_SECTIONS.map((section) => ({
+      ...section,
+      rows: all.filter((l) => l.target_kind === section.kind),
+    })),
+    {
+      kind: 'other',
+      title: 'Other records',
+      rows: all.filter((l) => !named.has(l.target_kind)),
+    },
+  ].filter((section) => section.rows.length > 0)
   const columns: RegistryColumn<RecordLinkWire>[] = [
     {
       id: 'record',
@@ -44,6 +51,12 @@ export function LinkTab({
         ),
     },
     {
+      id: 'kind',
+      header: 'Kind',
+      meta: { cellClassName: 'capitalize text-fg-muted' },
+      cell: ({ row }) => row.original.target_kind.replace(/_/g, ' '),
+    },
+    {
       id: 'link',
       header: 'Link',
       cell: ({ row }) => row.original.link_type,
@@ -51,25 +64,31 @@ export function LinkTab({
   ]
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <Section title={title} count={rows.length}>
-        {rows.length ? (
-          <TableBox>
-            <RegistryGrid
-              label={title}
-              rows={rows}
-              columns={columns}
-              getRowId={(l) => l.id}
-              selectable={false}
-            />
-          </TableBox>
-        ) : (
-          <EmptyState
-            className="py-2"
-            title={emptyTitle}
-            description={emptyBody}
-          />
-        )}
-      </Section>
+      {sections.length ? (
+        sections.map((section) => (
+          <Section
+            key={section.kind}
+            title={section.title}
+            count={section.rows.length}
+          >
+            <TableBox>
+              <RegistryGrid
+                label={section.title}
+                rows={section.rows}
+                columns={columns}
+                getRowId={(l) => l.id}
+                selectable={false}
+              />
+            </TableBox>
+          </Section>
+        ))
+      ) : (
+        <EmptyState
+          className="py-2"
+          title="Nothing linked yet"
+          description="Samples, datasets, files and other records appear here when they are linked to this experiment."
+        />
+      )}
     </div>
   )
 }

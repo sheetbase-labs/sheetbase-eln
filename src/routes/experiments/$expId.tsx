@@ -115,8 +115,6 @@ function ExperimentLayout() {
   }
 
   const rows = links.data ?? []
-  const countKind = (kind: string) =>
-    rows.filter((l) => l.target_kind === kind).length
   const params = { expId: e.id }
   const status = experimentStatusFor(e.status)
   return (
@@ -175,23 +173,21 @@ function ExperimentLayout() {
                 link: { to: '/experiments/$expId/overview', params },
               },
               {
-                label: 'Samples',
-                count: countKind('sample'),
-                link: { to: '/experiments/$expId/samples', params },
-              },
-              {
-                label: 'Datasets',
-                count: countKind('dataset'),
-                link: { to: '/experiments/$expId/datasets', params },
+                label: 'Links',
+                count: rows.length,
+                link: { to: '/experiments/$expId/links', params },
               },
               {
                 label: 'Results',
                 link: { to: '/experiments/$expId/results', params },
               },
               {
-                label: 'Files',
-                count: countKind('file'),
-                link: { to: '/experiments/$expId/files', params },
+                label: 'Revisions',
+                link: { to: '/experiments/$expId/revisions', params },
+              },
+              {
+                label: 'Signatures',
+                link: { to: '/experiments/$expId/signatures', params },
               },
               {
                 label: 'History',

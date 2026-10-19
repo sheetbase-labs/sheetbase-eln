@@ -1,17 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { LinkTab } from './-links-tab'
-
+/** Samples, Datasets and Files are sections of the Links tab. */
 export const Route = createFileRoute('/experiments/$expId/files')({
-  component: () => {
-    const { expId } = Route.useParams()
-    return (
-      <LinkTab
-        expId={expId}
-        kind="file"
-        emptyTitle="No files linked"
-        emptyBody="Files attached to this experiment appear here when they are linked."
-      />
-    )
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: '/experiments/$expId/links', params })
   },
 })

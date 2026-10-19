@@ -808,7 +808,7 @@ export function RecordNotebookPage({
               onExtensionAction={runExtensionContribution}
               extensionError={extensionError}
             />
-            {!historicalRevisionId ? (
+            {!historicalRevisionId && !embedded ? (
               <RecordNotebookTabs
                 tab={tab}
                 onTab={setTab}
@@ -1472,38 +1472,6 @@ function RecordNotebookPanel({
     ],
     [],
   )
-  const revisionColumns = useMemo<RegistryColumn<RevisionWire>[]>(
-    () => [
-      {
-        id: 'revision',
-        header: 'Revision',
-        meta: { headerClassName: 'pl-3!', cellClassName: 'mono pl-3!' },
-        cell: ({ row }) => `v${row.original.structure_version}`,
-      },
-      {
-        id: 'reason',
-        header: 'Reason',
-        meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => row.original.reason,
-      },
-      {
-        id: 'by',
-        header: 'By',
-        cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
-      },
-      {
-        id: 'when',
-        header: 'When',
-        meta: {
-          headerClassName: 'pr-3!',
-          cellClassName: 'pr-3! text-fg-muted',
-        },
-        cell: ({ row }) =>
-          row.original.created_at.slice(0, 16).replace('T', ' '),
-      },
-    ],
-    [names],
-  )
   if (tab === 'links') {
     return (
       <section aria-label="Links" className="py-4">
@@ -1538,14 +1506,57 @@ function RecordNotebookPanel({
       />
     )
   }
-  const rows = revisions
+  return <RevisionsTable revisions={revisions} names={names} />
+}
+
+/** The record's evidence revisions: shared by the record notebook's tab and the
+ * experiment page's Revisions tab. */
+export function RevisionsTable({
+  revisions,
+  names,
+}: {
+  revisions: RevisionWire[]
+  names: ReturnType<typeof useUserNames>
+}) {
+  const revisionColumns = useMemo<RegistryColumn<RevisionWire>[]>(
+    () => [
+      {
+        id: 'revision',
+        header: 'Revision',
+        meta: { headerClassName: 'pl-3!', cellClassName: 'mono pl-3!' },
+        cell: ({ row }) => `v${row.original.structure_version}`,
+      },
+      {
+        id: 'reason',
+        header: 'Reason',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => row.original.reason,
+      },
+      {
+        id: 'by',
+        header: 'By',
+        cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
+      },
+      {
+        id: 'when',
+        header: 'When',
+        meta: {
+          headerClassName: 'pr-3!',
+          cellClassName: 'pr-3! text-fg-muted',
+        },
+        cell: ({ row }) =>
+          row.original.created_at.slice(0, 16).replace('T', ' '),
+      },
+    ],
+    [names],
+  )
   return (
-    <section aria-label={tab} className="py-4">
-      {rows.length ? (
+    <section aria-label="Revisions" className="py-4">
+      {revisions.length ? (
         <div className="overflow-hidden rounded-md border border-border">
           <RegistryGrid
             label="Revisions"
-            rows={rows}
+            rows={revisions}
             columns={revisionColumns}
             getRowId={(revision) => revision.id}
             selectable={false}

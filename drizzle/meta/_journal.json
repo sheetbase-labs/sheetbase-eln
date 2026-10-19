@@ -3086,6 +3086,13 @@
       "when": 1798724976810,
       "tag": "0511_project_qa_view_default",
       "breakpoints": true
+    },
+    {
+      "idx": 512,
+      "version": "7",
+      "when": 1798811376810,
+      "tag": "0512_pipeline_event_instrument_filter",
+      "breakpoints": true
     }
   ]
 }

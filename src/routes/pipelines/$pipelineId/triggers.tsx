@@ -110,6 +110,23 @@ function useDatasetNames(enabled: boolean) {
   return query.data ?? new Map<string, string>()
 }
 
+/** Instrument id → name, for the instrument filter on a Dataset trigger. */
+function useInstrumentNames(enabled: boolean) {
+  const query = useQuery({
+    queryKey: ['ui-port', 'pipelines', 'trigger-instruments'],
+    enabled,
+    queryFn: async (): Promise<Map<string, string>> => {
+      const rows = await notebookDataClient.list<{ id: string; name: string }>(
+        'instruments',
+        '?select=id,name&order=name.asc',
+      )
+      return new Map(rows.map((row) => [row.id, row.name]))
+    },
+    staleTime: 60_000,
+  })
+  return query.data ?? new Map<string, string>()
+}
+
 function PipelineTriggers() {
   const { pipelineId } = Route.useParams()
   const { context } = Route.useRouteContext()
@@ -353,9 +370,13 @@ function NewTrigger({
     eventType: PIPELINE_TRIGGER_EVENTS[0] ?? '',
     datasetId: '',
     inputName: '',
+    instrumentId: '',
   }
   const [f, setF] = useState(empty)
   const datasetNames = useDatasetNames(open && f.kind === 'event')
+  const instrumentNames = useInstrumentNames(
+    open && f.kind === 'event' && f.eventType === 'dataset.versioned',
+  )
 
   const spec: Record<string, unknown> =
     f.kind === 'interval'
@@ -368,6 +389,9 @@ function NewTrigger({
         : {
             eventType: f.eventType,
             ...(f.datasetId ? { datasetId: f.datasetId } : {}),
+            ...(f.eventType === 'dataset.versioned' && f.instrumentId
+              ? { instrumentId: f.instrumentId }
+              : {}),
             ...(f.eventType === 'dataset.versioned' && f.inputName
               ? { inputName: f.inputName }
               : {}),
@@ -520,6 +544,26 @@ function NewTrigger({
                   >
                     <option value="">Any dataset</option>
                     {[...datasetNames].map(([id, name]) => (
+                      <option key={id} value={id}>
+                        {name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
+              {f.eventType === 'dataset.versioned' ? (
+                <Field
+                  label="Instrument filter"
+                  hint="Only versions made by an import from this instrument start the run. Optional."
+                >
+                  <Select
+                    value={f.instrumentId}
+                    onChange={(e) =>
+                      setF({ ...f, instrumentId: e.target.value })
+                    }
+                  >
+                    <option value="">Any instrument</option>
+                    {[...instrumentNames].map(([id, name]) => (
                       <option key={id} value={id}>
                         {name}
                       </option>

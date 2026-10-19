@@ -239,4 +239,16 @@ describe('a schedule the sweep can never fire', () => {
     expect(select).toBeTruthy()
     expect(screen.getByText('calibration')).toBeTruthy()
   })
+
+  it('offers an instrument filter on a dataset-version trigger', () => {
+    renderTriggers()
+
+    fireEvent.click(screen.getAllByText('New trigger')[0])
+    fireEvent.click(screen.getByText('On an event'))
+    fireEvent.change(screen.getByDisplayValue(PIPELINE_TRIGGER_EVENTS[0]), {
+      target: { value: 'dataset.versioned' },
+    })
+    expect(screen.getByText('Instrument filter')).toBeTruthy()
+    expect(screen.getByText('Any instrument')).toBeTruthy()
+  })
 })

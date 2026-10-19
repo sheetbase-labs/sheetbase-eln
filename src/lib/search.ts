@@ -823,10 +823,23 @@ export function rankByTier(
 // allows localStorage for this.
 // ---------------------------------------------------------------------------
 
+/** The results-page facets a saved search restores (the URL search params). */
+export interface SavedSearchFacets {
+  type?: string[]
+  project?: string[]
+  updated?: '7d'
+  owner?: string
+  from?: string
+  to?: string
+  archived?: boolean
+}
+
 export interface SavedQuery {
   id: string
   name: string
   query: string
+  /** Facets the results page had when the search was saved. */
+  facets?: SavedSearchFacets
   /** Object-class facet ('' = all). Older saved entries may omit it. */
   type?: string
   kind: string
@@ -870,9 +883,9 @@ export function saveQuery(
 ): SavedQuery[] {
   const existing = loadSavedQueries(workspaceId)
   // Deduplicate by name + query + filters.
-  const dedupKey = `${params.name}|${params.query}|${params.type ?? ''}|${params.kind}|${params.projectId}|${params.status}|${params.ownerId}|${params.dateRange}`
+  const dedupKey = `${params.name}|${params.query}|${params.type ?? ''}|${params.kind}|${params.projectId}|${params.status}|${params.ownerId}|${params.dateRange}|${JSON.stringify(params.facets ?? null)}`
   const filtered = existing.filter((s) => {
-    const key = `${s.name}|${s.query}|${s.type ?? ''}|${s.kind}|${s.projectId}|${s.status}|${s.ownerId}|${s.dateRange}`
+    const key = `${s.name}|${s.query}|${s.type ?? ''}|${s.kind}|${s.projectId}|${s.status}|${s.ownerId}|${s.dateRange}|${JSON.stringify(s.facets ?? null)}`
     return key !== dedupKey
   })
   const entry: SavedQuery = {
@@ -1161,5 +1174,53 @@ export async function searchFileContents(
   return client.rpc<FileContentHit[]>('search_file_contents', {
     p_query: query,
     p_limit: limit,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Saved searches on the results page: the URL is the single description of a
+// search, so saving stores it and applying a saved search navigates to it.
+// ---------------------------------------------------------------------------
+
+/** The results page's URL search for a saved query. */
+export function savedQueryToSearch(saved: SavedQuery): {
+  q: string
+} & SavedSearchFacets {
+  const facets = saved.facets ?? {}
+  return {
+    q: saved.query,
+    ...(facets.type?.length ? { type: facets.type } : {}),
+    ...(facets.project?.length ? { project: facets.project } : {}),
+    ...(facets.updated === '7d' ? { updated: '7d' as const } : {}),
+    ...(facets.owner ? { owner: facets.owner } : {}),
+    ...(facets.from ? { from: facets.from } : {}),
+    ...(facets.to ? { to: facets.to } : {}),
+    ...(facets.archived ? { archived: true } : {}),
+  }
+}
+
+/** Save the results page's current search under a name. */
+export function saveCurrentSearch(
+  workspaceId: string,
+  name: string,
+  search: { q: string } & SavedSearchFacets,
+): SavedQuery[] {
+  return saveQuery(workspaceId, {
+    name: name.trim(),
+    query: search.q,
+    kind: '',
+    projectId: '',
+    status: '',
+    ownerId: '',
+    dateRange: 'all',
+    facets: {
+      ...(search.type?.length ? { type: search.type } : {}),
+      ...(search.project?.length ? { project: search.project } : {}),
+      ...(search.updated === '7d' ? { updated: '7d' as const } : {}),
+      ...(search.owner ? { owner: search.owner } : {}),
+      ...(search.from ? { from: search.from } : {}),
+      ...(search.to ? { to: search.to } : {}),
+      ...(search.archived ? { archived: true } : {}),
+    },
   })
 }

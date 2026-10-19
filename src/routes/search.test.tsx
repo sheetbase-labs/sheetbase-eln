@@ -31,6 +31,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       options,
       useSearch: () => mocks.search,
       useNavigate: () => mocks.navigate,
+      useRouteContext: () => ({ context: { workspace: { id: 'ws-1' } } }),
     }),
     Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
       <a href={typeof to === 'string' ? to : '#'}>{children}</a>

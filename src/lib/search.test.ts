@@ -35,6 +35,8 @@ import {
   saveQuery,
   deleteSavedQuery,
   savedQueriesKey,
+  saveCurrentSearch,
+  savedQueryToSearch,
   parseSearchUrl,
   serializeSearchUrl,
   SEARCH_URL_DEFAULTS,
@@ -1448,5 +1450,48 @@ describe('searchResultNewTabUrl', () => {
     expect(
       searchResultNewTabUrl('/samples?new=true', 'https://app.sheetbase.co.uk'),
     ).toBe('https://app.sheetbase.co.uk/samples?new=true')
+  })
+})
+
+describe('saved searches keep the results-page facets', () => {
+  const wsId = 'test-workspace-saved-searches'
+  beforeEach(() => localStorage.clear())
+
+  it('round-trips a search with its facets through storage', () => {
+    const search = {
+      q: 'plate',
+      type: ['Files'],
+      project: ['p-1'],
+      updated: '7d' as const,
+      owner: 'u-1',
+      archived: true,
+    }
+    const saved = saveCurrentSearch(wsId, ' Plates ', search)
+    expect(saved[0].name).toBe('Plates')
+    expect(savedQueryToSearch(loadSavedQueries(wsId)[0])).toEqual(search)
+  })
+
+  it('omits empty facets and treats older entries as a bare query', () => {
+    saveCurrentSearch(wsId, 'Bare', { q: 'x', type: [], owner: '' })
+    expect(savedQueryToSearch(loadSavedQueries(wsId)[0])).toEqual({ q: 'x' })
+    expect(
+      savedQueryToSearch({
+        id: 'old',
+        name: 'Old',
+        query: 'legacy',
+        kind: '',
+        projectId: '',
+        status: '',
+        ownerId: '',
+        dateRange: 'all',
+        ts: 1,
+      }),
+    ).toEqual({ q: 'legacy' })
+  })
+
+  it('keeps two saves of one query with different facets apart', () => {
+    saveCurrentSearch(wsId, 'Same', { q: 'x' })
+    const next = saveCurrentSearch(wsId, 'Same', { q: 'x', owner: 'u-1' })
+    expect(next).toHaveLength(2)
   })
 })

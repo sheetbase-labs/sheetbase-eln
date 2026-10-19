@@ -15,6 +15,7 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Icon } from '#/components/v3/icons'
 import { Sheet, SheetContent, SheetTrigger } from '#/components/v3/ui/sheet'
 import { Highlight } from '#/components/v3/search/highlight'
+import { SavedSearches } from '#/components/v3/search/saved-searches'
 import {
   searchResultContext,
   searchResultLabel,
@@ -120,6 +121,7 @@ function statusLabel(status: string): string {
 function SearchPage() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const { context } = Route.useRouteContext()
   const q = search.q ?? ''
   const [draft, setDraft] = useState(q)
   useEffect(() => setDraft(q), [q])
@@ -380,6 +382,29 @@ function SearchPage() {
     </>
   ) : null
 
+  // Saved searches also work from an empty page, so they sit outside `facetsEl`.
+  const savedEl = context.workspace ? (
+    <SavedSearches
+      workspaceId={context.workspace.id}
+      current={{
+        q,
+        type: search.type,
+        project: search.project,
+        updated: search.updated === '7d' ? '7d' : undefined,
+        owner: search.owner,
+        from: search.from,
+        to: search.to,
+        archived: search.archived,
+      }}
+      onApply={(next) =>
+        void navigate({
+          to: '/search',
+          search: next,
+        })
+      }
+    />
+  ) : null
+
   const searchForm = (
     <form
       role="search"
@@ -408,6 +433,7 @@ function SearchPage() {
       >
         {searchForm}
         {facetsEl}
+        {savedEl}
       </aside>
       <div className="relative min-w-0 flex-1 overflow-auto px-4 py-[18px] md:px-7">
         <div className="mb-4 flex items-center gap-2 lg:hidden">
@@ -424,6 +450,7 @@ function SearchPage() {
               <SheetContent title="Filters">
                 <div className="flex flex-col gap-[18px] p-4 text-body">
                   {facetsEl}
+                  {savedEl}
                 </div>
               </SheetContent>
             </Sheet>

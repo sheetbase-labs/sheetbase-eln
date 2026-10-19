@@ -27,6 +27,10 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { Select } from '#/components/v3/ui/select'
+import {
+  DatasetLandingLink,
+  invalidateDatasetLanding,
+} from '#/components/v3/integrations/dataset-landing'
 import { createDataClient } from '#/lib/data-client'
 import {
   discoverConnectorSource,
@@ -298,10 +302,12 @@ function ImportFeedback({
             attempt #{receipt.attempt})
           </span>
           <p className="m-0">
-            {receipt.rowCount} rows landed in Dataset{' '}
-            <span className="mono">{receipt.datasetId}</span>, run{' '}
+            {receipt.rowCount} rows landed in the target Dataset, run{' '}
             <span className="mono">{receipt.runId}</span>. Provenance is
             attached to the run below.
+          </p>
+          <p className="m-0">
+            <DatasetLandingLink datasetId={receipt.datasetId} />
           </p>
         </Notice>
       )}
@@ -402,11 +408,11 @@ function S3SourcePanel({
         projectId: projectId || null,
         target: buildTarget(target, fields, null),
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({
         queryKey: ['connectors', connector.id, 'runs'],
       })
-      void queryClient.invalidateQueries({ queryKey: ['datasets'] })
+      invalidateDatasetLanding(queryClient, result.datasetId)
     },
   })
 
@@ -590,11 +596,11 @@ function PostgresSourcePanel({
         source: { schema, table: selectedTable },
         target: buildTarget(target, fields, null),
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({
         queryKey: ['connectors', connector.id, 'runs'],
       })
-      void queryClient.invalidateQueries({ queryKey: ['datasets'] })
+      invalidateDatasetLanding(queryClient, result.datasetId)
     },
   })
 

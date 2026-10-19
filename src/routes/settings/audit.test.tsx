@@ -25,6 +25,8 @@ const mocks = vi.hoisted(() => ({
   events: vi.fn(),
   all: vi.fn(),
   toast: vi.fn(),
+  navigate: vi.fn(),
+  urlSearch: { value: {} },
 }))
 
 vi.mock('#/components/v3/ui/sonner', () => ({ toast: mocks.toast }))
@@ -32,6 +34,8 @@ vi.mock('#/components/v3/ui/sonner', () => ({ toast: mocks.toast }))
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: object) => ({
     options,
+    useSearch: () => mocks.urlSearch.value,
+    useNavigate: () => mocks.navigate,
     useRouteContext: () => ({
       context: {
         user: { id: 'admin', name: 'Admin', email: 'admin@sheetbase.test' },
@@ -124,6 +128,44 @@ function filterOf(call: number) {
 afterEach(() => {
   cleanup()
   vi.resetAllMocks()
+})
+
+describe('audit log filters by record and day', () => {
+  it('reads only the entries of the record and days the URL names', async () => {
+    mocks.urlSearch.value = {
+      record: '00000000-0000-4000-8000-0000000000aa',
+      from: '2026-09-01',
+      to: '2026-09-30',
+    }
+    mocks.events.mockResolvedValue(page({ events: [event()] }))
+    renderAudit()
+    await screen.findByText('2026-10-01 09:00:00')
+    expect(filterOf(0)).toMatchObject({
+      object: '00000000-0000-4000-8000-0000000000aa',
+      from: '2026-09-01T00:00:00.000Z',
+      to: '2026-09-30T23:59:59.999Z',
+    })
+    expect(
+      screen.getByRole('button', { name: 'Clear the record filter' }),
+    ).toBeTruthy()
+    mocks.urlSearch.value = {}
+  })
+
+  it('writes a typed day into the URL', async () => {
+    mocks.events.mockResolvedValue(page({ events: [event()] }))
+    renderAudit()
+    await screen.findByText('2026-10-01 09:00:00')
+    fireEvent.change(screen.getByLabelText('From'), {
+      target: { value: '2026-09-01' },
+    })
+    const call = mocks.navigate.mock.calls[0][0] as {
+      search: (s: Record<string, unknown>) => Record<string, unknown>
+    }
+    expect(call.search({ record: 'r' })).toEqual({
+      record: 'r',
+      from: '2026-09-01',
+    })
+  })
 })
 
 describe('audit log grid', () => {

@@ -157,9 +157,35 @@ export function SubmitNotebookDialog({
   // Set when a previously verified snapshot was invalidated by a live
   // change, so the dialog can say why the checklist dropped back to pending.
   const [invalidated, setInvalidated] = useState(false)
-  const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([
-    reviewerUserId,
-  ])
+  const [selectedReviewerIds, setSelectedReviewerIds] = useState<string[]>([])
+  const reviewerTouched = useRef(false)
+
+  // The reviewer chosen when the experiment was created travels here: the
+  // record's own reviewer, else the project's default, and never the author.
+  const defaultReviewer = useQuery({
+    queryKey: ['ui-port', 'submit-default-reviewer', recordId, projectId],
+    queryFn: async () => {
+      const own = (
+        await notebookDataClient.list<{ reviewer_user_id: string | null }>(
+          'records',
+          `?id=eq.${recordId}&select=reviewer_user_id&limit=1`,
+        )
+      ).at(0)
+      if (own?.reviewer_user_id) return own.reviewer_user_id
+      const parent = (
+        await notebookDataClient.list<{
+          default_reviewer_user_id: string | null
+        }>(
+          'projects',
+          `?id=eq.${projectId}&select=default_reviewer_user_id&limit=1`,
+        )
+      ).at(0)
+      return parent?.default_reviewer_user_id ?? null
+    },
+    enabled: open,
+    staleTime: 30_000,
+  })
+  const defaultReviewerId = defaultReviewer.data ?? null
   // WORK-01.1 — optional due date, defaulting to the project's review period.
   const [dueDate, setDueDate] = useState('')
   const [workflowId, setWorkflowId] = useState(
@@ -203,7 +229,8 @@ export function SubmitNotebookDialog({
     if (open) {
       setVerified(null)
       setInvalidated(false)
-      setSelectedReviewerIds([reviewerUserId])
+      reviewerTouched.current = false
+      setSelectedReviewerIds([])
       setDueDate('')
       setWorkflowId(`${WORKFLOW_KEY}/${WORKFLOW_VERSION}`)
       attemptRef.current = null
@@ -237,6 +264,18 @@ export function SubmitNotebookDialog({
   // to display names the same way the rest of the app does. Without this the
   // options read "00000000 · member" — every seeded id shares its first eight
   // characters.
+  // Default reviewer: the record's, else the project's, never the author. A
+  // workspace where the author is the only eligible reviewer has no one else
+  // to default to, so the author stays selected there.
+  const reviewersSettled = !members.isFetching && !defaultReviewer.isFetching
+  useEffect(() => {
+    if (!open || reviewerTouched.current || !reviewersSettled) return
+    if (defaultReviewerId && defaultReviewerId !== reviewerUserId) {
+      setSelectedReviewerIds([defaultReviewerId])
+    } else if (!reviewers.some((member) => member.userId !== reviewerUserId)) {
+      setSelectedReviewerIds([reviewerUserId])
+    }
+  }, [open, reviewersSettled, defaultReviewerId, reviewerUserId])
   const { names: reviewerNames } = useUserNames(
     shownReviewers.map((member) => member.userId),
   )
@@ -404,6 +443,7 @@ export function SubmitNotebookDialog({
   const orderedBlocks = [...frozenBlocks].sort((a, b) => a.order - b.order)
 
   function toggleReviewer(userId: string) {
+    reviewerTouched.current = true
     setSelectedReviewerIds((current) =>
       current.includes(userId)
         ? current.filter((id) => id !== userId)

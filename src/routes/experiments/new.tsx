@@ -14,10 +14,24 @@ import { Select } from '#/components/v3/ui/select'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { toast } from '#/components/v3/ui/sonner'
 import {
+  askedParameters,
+  parameterInput,
+} from '#/components/v3/templates/use-template-dialog'
+import { buildTemplateRows } from '#/components/v3/templates/templates-data'
+import {
   applyExperimentSetup,
   createBlankExperiment,
+  insertPinnedProtocol,
 } from '#/lib/notebook-create'
 import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  fetchAllNotebookTemplateVersions,
+  fetchNotebookTemplates,
+  instantiateNotebookTemplateVersion,
+} from '#/lib/notebook-template-data'
+import type { NotebookTemplateParameterInput } from '#/lib/notebook-template-data'
+import { cancelTarget, parseCreateContext } from '#/lib/create-context-search'
+import type { CreateContextSearch } from '#/lib/create-context-search'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -27,7 +41,10 @@ interface ProjectOption {
   title: string
   archived_at: string | null
   status: string
+  default_reviewer_user_id?: string | null
 }
+
+type StartFrom = 'blank' | 'protocol' | 'template'
 
 /**
  * How long the form waits for the reads that gate the picker. The form cannot
@@ -83,16 +100,15 @@ function createErrorMessage(error: unknown): string {
 export const Route = createFileRoute('/experiments/new')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { project?: string; sample?: string } => ({
-    project:
-      typeof search.project === 'string' && search.project
-        ? search.project
-        : undefined,
-    sample:
-      typeof search.sample === 'string' && search.sample
-        ? search.sample
-        : undefined,
-  }),
+  ): CreateContextSearch & { protocol?: string; template?: string } => {
+    const text = (value: unknown) =>
+      typeof value === 'string' && value ? value : undefined
+    return {
+      ...parseCreateContext(search),
+      protocol: text(search.protocol),
+      template: text(search.template),
+    }
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
@@ -112,7 +128,7 @@ function NewExperiment() {
       withDeadline(
         notebookDataClient.list<ProjectOption>(
           'projects',
-          '?select=id,title,archived_at,status&order=title.asc',
+          '?select=id,title,archived_at,status,default_reviewer_user_id&order=title.asc',
         ),
         'The project list',
       ),
@@ -135,13 +151,24 @@ function NewExperiment() {
   })
   const [projectId, setProjectId] = useState(search.project ?? '')
   const [title, setTitle] = useState('')
-  const [reviewerId, setReviewerId] = useState('')
+  // null until the author chooses: until then the project's default reviewer
+  // stands in, so the reviewer is chosen once and carried to Submit.
+  const [reviewerId, setReviewerId] = useState<string | null>(null)
   const [plannedEnd, setPlannedEnd] = useState('')
-  const [protocolId, setProtocolId] = useState('')
+  const [startFrom, setStartFrom] = useState<StartFrom>(
+    search.template ? 'template' : search.protocol ? 'protocol' : 'blank',
+  )
   const [protocolVersionId, setProtocolVersionId] = useState('')
+  const [templateId, setTemplateId] = useState(search.template ?? '')
+  const [templateValues, setTemplateValues] = useState<Record<string, string>>(
+    {},
+  )
   const [startNow, setStartNow] = useState(false)
   const [copyFromId, setCopyFromId] = useState('')
   const [touched, setTouched] = useState(false)
+  const [idempotencyKey, setIdempotencyKey] = useState(() =>
+    crypto.randomUUID(),
+  )
 
   const members = useQuery({
     queryKey: ['ui-port', 'experiments', 'new', 'members'],
@@ -178,6 +205,21 @@ function NewExperiment() {
       ),
     staleTime: 60_000,
   })
+  // Published notebook templates, only once the author asks to start from one.
+  const templates = useQuery({
+    queryKey: ['ui-port', 'experiments', 'new', 'templates'],
+    enabled: startFrom === 'template',
+    queryFn: async () => {
+      const [list, versions] = await Promise.all([
+        fetchNotebookTemplates(notebookDataClient, { limit: 200 }),
+        fetchAllNotebookTemplateVersions(notebookDataClient),
+      ])
+      return buildTemplateRows(list, versions, []).filter(
+        (row) => row.published && row.lifecycle !== 'retired',
+      )
+    },
+    staleTime: 60_000,
+  })
   // A sample handed over by the page that linked here: it is linked to the new
   // experiment, and named in the form so the author sees what will be linked.
   const sample = useQuery({
@@ -209,6 +251,34 @@ function NewExperiment() {
       ),
     staleTime: 30_000,
   })
+
+  // A protocol handed over by the page that linked here (`?protocol=<record>`)
+  // selects its newest effective version once the versions load.
+  const handedProtocolVersion = search.protocol
+    ? (protocolVersions.data ?? []).find(
+        (v) => v.protocol_record_id === search.protocol,
+      )
+    : undefined
+  const effectiveProtocolVersionId =
+    protocolVersionId || handedProtocolVersion?.id || ''
+  const chosenProtocolVersion = (protocolVersions.data ?? []).find(
+    (v) => v.id === effectiveProtocolVersionId,
+  )
+  const protocolId =
+    startFrom === 'protocol'
+      ? (chosenProtocolVersion?.protocol_record_id ?? '')
+      : ''
+  const chosenTemplate =
+    startFrom === 'template'
+      ? (templates.data ?? []).find((row) => row.id === templateId)
+      : undefined
+  const templateVersion = chosenTemplate?.published ?? null
+  const askedTemplateParameters = templateVersion
+    ? askedParameters(templateVersion)
+    : []
+  const missingTemplateParameters = askedTemplateParameters.filter(
+    (p) => parameterInput(p, templateValues[p.id] ?? '') === null,
+  )
 
   // Two independent reasons a project cannot take a new experiment: the
   // account cannot edit it, or the project is archived (`archive_project`
@@ -247,6 +317,19 @@ function NewExperiment() {
     chosenProject && canCreateIn(chosenProject)
       ? chosenProject.id
       : firstUsableId
+  const effectiveProject = rows.find((p) => p.id === effectiveProjectId)
+  // A hand-off project that cannot take the experiment is replaced by the first
+  // one that can; say so rather than creating it somewhere unannounced.
+  const handedProject = search.project
+    ? rows.find((project) => project.id === search.project)
+    : undefined
+  const projectReplaced =
+    handedProject !== undefined &&
+    !canCreateIn(handedProject) &&
+    effectiveProject !== undefined &&
+    effectiveProject.id !== handedProject.id
+  const effectiveReviewerId =
+    reviewerId ?? effectiveProject?.default_reviewer_user_id ?? ''
   const titleError =
     touched && title.trim().length < 5
       ? 'Use at least 5 characters so the title says what is being tested.'
@@ -260,14 +343,34 @@ function NewExperiment() {
 
   const create = useMutation({
     mutationFn: async () => {
-      const record = await createBlankExperiment(notebookDataClient, {
-        projectId: effectiveProjectId,
-        title: title.trim(),
-      })
-      if (reviewerId || plannedEnd) {
+      let record: { id: string; identifier: string }
+      if (startFrom === 'template') {
+        if (!templateVersion) throw new Error('Choose a published template.')
+        const instantiated = await instantiateNotebookTemplateVersion(
+          {
+            versionId: templateVersion.id,
+            targetProjectId: effectiveProjectId,
+            title: title.trim(),
+            parameterInputs: askedTemplateParameters.flatMap((p) => {
+              const input: NotebookTemplateParameterInput | null =
+                parameterInput(p, templateValues[p.id] ?? '')
+              return input ? [input] : []
+            }),
+            idempotencyKey,
+          },
+          notebookDataClient,
+        )
+        record = instantiated.record
+      } else {
+        record = await createBlankExperiment(notebookDataClient, {
+          projectId: effectiveProjectId,
+          title: title.trim(),
+        })
+      }
+      if (effectiveReviewerId || plannedEnd) {
         await notebookDataClient.rpc('set_experiment_fields', {
           p_record_id: record.id,
-          p_reviewer_user_id: reviewerId || null,
+          p_reviewer_user_id: effectiveReviewerId || null,
           p_planned_end: plannedEnd || null,
         })
       }
@@ -276,6 +379,19 @@ function NewExperiment() {
         copyFromRecordId: copyFromId || undefined,
         sampleRecordId: sample.data?.id,
       })
+      // The protocol goes into the notebook as a pinned block with its steps,
+      // so the notebook and the chosen protocol cannot disagree.
+      let protocolInNotebook = false
+      let protocolPinError: string | undefined
+      if (protocolId) {
+        try {
+          await insertPinnedProtocol(notebookDataClient, record.id, protocolId)
+          protocolInNotebook = true
+        } catch (error) {
+          protocolPinError =
+            error instanceof Error ? error.message : 'The pin was refused.'
+        }
+      }
       if (startNow) {
         // Starting is a server decision: PROJ-03 and LAB-07 authority (effective
         // version, exact-version acknowledgement) are enforced by the RPC.
@@ -287,22 +403,30 @@ function NewExperiment() {
         await notebookDataClient.rpc('start_experiment', {
           p_record_id: record.id,
           p_expected_metadata_version: current.at(0)?.metadata_version ?? 1,
-          p_protocol_version_id: protocolVersionId || null,
+          p_protocol_version_id: effectiveProtocolVersionId || null,
           p_reason: 'Started from the new experiment form',
         })
-        return { record, started: true }
       }
-      return { record, started: false }
+      return {
+        record,
+        started: startNow,
+        protocolInNotebook,
+        protocolPinError,
+      }
     },
-    onSuccess: ({ record, started }) => {
+    onSuccess: ({ record, started, protocolInNotebook, protocolPinError }) => {
       toast(
         started
           ? `Experiment ${record.identifier} started`
           : `Draft ${record.identifier} created`,
         {
-          description: started
-            ? 'It opens on its notebook; edits to pinned steps are recorded as deviations.'
-            : 'It opens on a blank notebook; add blocks as you work.',
+          description: protocolPinError
+            ? `The protocol could not be added to the notebook: ${protocolPinError}`
+            : protocolInNotebook
+              ? 'The protocol’s steps are in the notebook, ready to tick off.'
+              : started
+                ? 'It opens on its notebook.'
+                : 'Start it from the experiment page when you are ready.',
         },
       )
       void navigate({
@@ -311,6 +435,8 @@ function NewExperiment() {
       })
     },
     onError: (error: unknown) => {
+      // A corrected form must not be answered with the earlier refusal.
+      setIdempotencyKey(crypto.randomUUID())
       toast.error(createErrorMessage(error))
     },
   })
@@ -318,18 +444,34 @@ function NewExperiment() {
   const submit = () => {
     setTouched(true)
     if (accessPending || title.trim().length < 5 || !effectiveProjectId) return
+    if (
+      startFrom === 'template' &&
+      (!templateVersion || missingTemplateParameters.length > 0)
+    )
+      return
     create.mutate()
   }
 
+  const trail = effectiveProject
+    ? [
+        { label: 'Projects', link: { to: '/projects' as const } },
+        {
+          label: effectiveProject.title,
+          link: {
+            to: '/projects/$projectId' as const,
+            params: { projectId: effectiveProject.id },
+          },
+        },
+        { label: 'New experiment' },
+      ]
+    : [
+        { label: 'Experiments', link: { to: '/experiments' as const } },
+        { label: 'New' },
+      ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-      <PageHeader
-        trail={[
-          { label: 'Experiments', link: { to: '/experiments' } },
-          { label: 'New' },
-        ]}
-        title="New experiment"
-      />
+      <PageHeader trail={trail} title="New experiment" />
       <form
         className="mx-auto flex w-full max-w-[560px] flex-col gap-4 px-4 py-4 md:px-6"
         onSubmit={(e) => {
@@ -369,6 +511,13 @@ function NewExperiment() {
             ))}
           </Select>
         </Field>
+        {projectReplaced ? (
+          <Muted>
+            The project you came from can’t take a new experiment (it is
+            read-only or archived), so {effectiveProject.title} is selected
+            instead.
+          </Muted>
+        ) : null}
         {sample.data ? (
           <Muted>
             Sample {sample.data.identifier} · {sample.data.title} will be linked
@@ -390,10 +539,14 @@ function NewExperiment() {
         </Field>
         <Field
           label="Reviewer"
-          hint="Who reviews the submitted notebook. Optional."
+          hint={
+            reviewerId === null && effectiveReviewerId
+              ? 'The project’s default reviewer. Submit will offer this person.'
+              : 'Who reviews the submitted notebook. Submit will offer this person. Optional.'
+          }
         >
           <Select
-            value={reviewerId}
+            value={effectiveReviewerId}
             onChange={(e) => setReviewerId(e.target.value)}
           >
             <option value="">No reviewer yet</option>
@@ -414,41 +567,126 @@ function NewExperiment() {
             onChange={(e) => setPlannedEnd(e.target.value)}
           />
         </Field>
-        <Field
-          label="Protocol version to follow"
-          hint={
-            protocolVersionId && !startNow
-              ? 'A draft records the protocol but not the pinned version; tick Start the experiment now to pin this version.'
-              : 'Only effective versions can start an experiment. Optional.'
-          }
+        <div
+          role="group"
+          aria-label="Start from"
+          className="flex flex-col gap-1.5"
         >
-          <Select
-            value={protocolVersionId}
-            onChange={(e) => {
-              const value = e.target.value
-              setProtocolVersionId(value)
-              const chosen = (protocolVersions.data ?? []).find(
-                (v) => v.id === value,
-              )
-              setProtocolId(chosen?.protocol_record_id ?? '')
-            }}
+          <span className="text-label font-medium text-fg">Start from</span>
+          <div className="flex gap-1.5">
+            {(
+              [
+                ['blank', 'Blank notebook'],
+                ['protocol', 'A protocol'],
+                ['template', 'A template'],
+              ] as const
+            ).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={startFrom === value ? 'primary' : 'secondary'}
+                aria-pressed={startFrom === value}
+                onClick={() => setStartFrom(value)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        {startFrom === 'protocol' ? (
+          <Field
+            label="Protocol version to follow"
+            hint={
+              effectiveProtocolVersionId && !startNow
+                ? 'A draft follows the protocol but does not pin the version; tick Start the experiment now to pin this version.'
+                : 'The protocol’s steps are copied into the notebook. Only effective versions can start an experiment.'
+            }
           >
-            <option value="">No protocol</option>
-            {(protocolVersions.data ?? []).map((v) => {
-              const record = (protocols.data ?? []).find(
-                (p) => p.id === v.protocol_record_id,
-              )
-              return (
-                <option key={v.id} value={v.id}>
-                  {record
-                    ? `${record.identifier} · ${record.title}`
-                    : 'Protocol'}{' '}
-                  · v{v.version}
+            <Select
+              value={effectiveProtocolVersionId}
+              onChange={(e) => setProtocolVersionId(e.target.value)}
+            >
+              <option value="">No protocol</option>
+              {(protocolVersions.data ?? []).map((v) => {
+                const record = (protocols.data ?? []).find(
+                  (p) => p.id === v.protocol_record_id,
+                )
+                return (
+                  <option key={v.id} value={v.id}>
+                    {record
+                      ? `${record.identifier} · ${record.title}`
+                      : 'Protocol'}{' '}
+                    · v{v.version}
+                  </option>
+                )
+              })}
+            </Select>
+          </Field>
+        ) : null}
+        {startFrom === 'template' ? (
+          <>
+            <Field
+              label="Template"
+              required
+              error={
+                touched && !templateVersion
+                  ? 'Choose a published template.'
+                  : undefined
+              }
+              hint="The notebook starts from the template’s latest published version and keeps it until you take a newer one."
+            >
+              <Select
+                value={templateId}
+                onChange={(e) => {
+                  setTemplateId(e.target.value)
+                  setTemplateValues({})
+                  setIdempotencyKey(crypto.randomUUID())
+                }}
+                disabled={templates.isLoading}
+              >
+                <option value="">
+                  {templates.isLoading
+                    ? 'Loading templates…'
+                    : (templates.data ?? []).length === 0
+                      ? 'No published templates'
+                      : 'Choose a template'}
                 </option>
-              )
-            })}
-          </Select>
-        </Field>
+                {(templates.data ?? []).map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.name} · v{row.published?.version}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            {askedTemplateParameters.map((parameter) => (
+              <Field
+                key={parameter.id}
+                label={parameter.label}
+                required
+                error={
+                  touched &&
+                  parameterInput(
+                    parameter,
+                    templateValues[parameter.id] ?? '',
+                  ) === null
+                    ? 'The template needs this value to start.'
+                    : undefined
+                }
+              >
+                <Input
+                  value={templateValues[parameter.id] ?? ''}
+                  onChange={(e) =>
+                    setTemplateValues((current) => ({
+                      ...current,
+                      [parameter.id]: e.target.value,
+                    }))
+                  }
+                />
+              </Field>
+            ))}
+          </>
+        ) : null}
         <label className="flex cursor-pointer items-center gap-2 text-label">
           <Checkbox
             checked={startNow}
@@ -478,9 +716,16 @@ function NewExperiment() {
             variant="primary"
             disabled={create.isPending || accessPending || !effectiveProjectId}
           >
-            {create.isPending ? 'Creating…' : 'Create draft'}
+            {create.isPending
+              ? 'Creating…'
+              : startNow
+                ? 'Create and start'
+                : 'Create draft'}
           </Button>
-          <Button nativeButton={false} render={<Link to="/experiments" />}>
+          <Button
+            nativeButton={false}
+            render={<Link to={cancelTarget(search, '/experiments')} />}
+          >
             Cancel
           </Button>
         </div>
@@ -526,7 +771,13 @@ function NewExperiment() {
           </span>
         ) : null}
         {rows.length === 0 && !projects.isLoading && !projects.isError ? (
-          <Muted>Create a project first; an experiment belongs to one.</Muted>
+          <Muted>
+            An experiment belongs to a project.{' '}
+            <Link to="/projects" search={{ new: true }} className="text-link">
+              Create a project first
+            </Link>
+            .
+          </Muted>
         ) : null}
         {accessKnown && rows.length > 0 && !effectiveProjectId ? (
           <Muted>

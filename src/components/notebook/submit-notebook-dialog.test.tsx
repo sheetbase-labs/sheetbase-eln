@@ -194,7 +194,7 @@ describe('SubmitNotebookDialog', () => {
     expect(submitRecordRevision).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        reviewerUserIds: ['22222222-reviewer', 'u1'],
+        reviewerUserIds: ['22222222-reviewer'],
         dueAt: new Date('2026-10-15T00:00:00').toISOString(),
       }),
     )

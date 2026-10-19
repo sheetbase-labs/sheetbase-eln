@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { Save, Sigma, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
@@ -16,7 +17,17 @@ import {
   ConfirmDialogHeader,
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+} from '#/components/v3/ui/dialog'
 import { Input } from '#/components/v3/ui/input'
+import { RecordPicker } from '#/components/v3/record-picker/record-picker'
+import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
 import { Select } from '#/components/v3/ui/select'
 import {
   Table,
@@ -54,6 +65,7 @@ import {
   deleteAnalysisDefinition,
   detectStaleSources,
   fetchAnalysisDefinitions,
+  freezeAnalysisBlock,
   saveAnalysisDefinition,
 } from '#/lib/analysis-definitions-data'
 import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
@@ -64,6 +76,8 @@ import {
 } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import { fetchActiveDatasetFlags } from '#/lib/dataset-flags'
+import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
+import { insertBlock } from '#/lib/notebook-mutations'
 
 /**
  * SCI-02 — reusable analysis definitions in the Analysis Studio;
@@ -84,6 +98,10 @@ export interface AnalysisPanelProps {
   datasets: CanonicalDatasetSource[]
   workspaceId: string
   userId: string
+  /** The dataset the studio was opened with; the panel starts on it. */
+  initialDatasetId?: string | null
+  /** The experiment the studio was opened from; Cite offers it first. */
+  experimentId?: string
 }
 
 interface DefinitionDraft {
@@ -102,9 +120,17 @@ export function AnalysisPanel({
   datasets,
   workspaceId,
   userId,
+  initialDatasetId,
+  experimentId,
 }: AnalysisPanelProps) {
   const queryClient = useQueryClient()
-  const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const navigate = useNavigate()
+  const [selectedDatasetId, setSelectedDatasetId] = useState(
+    initialDatasetId && datasets.some((d) => d.datasetId === initialDatasetId)
+      ? initialDatasetId
+      : '',
+  )
+  const [citeOpen, setCiteOpen] = useState(false)
   const [draft, setDraft] = useState<DefinitionDraft>(emptyDraft)
 
   const definitionsQuery = useQuery({
@@ -398,6 +424,16 @@ export function AnalysisPanel({
           >
             <Save /> {draft.editingId ? 'Update' : 'Save'}
           </Button>
+          {draft.editingId ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => setCiteOpen(true)}
+            >
+              Cite in a notebook…
+            </Button>
+          ) : null}
           {staleDetail ? (
             <Badge variant="chg">
               <Icon name="warn" className="size-3" aria-hidden />
@@ -454,6 +490,29 @@ export function AnalysisPanel({
           Grouped fits produce one model per group; a single overlay would
           misrepresent them, so no curve is drawn for grouped regressions.
         </p>
+      ) : null}
+
+      {citeOpen && draft.editingId ? (
+        <CiteDefinitionDialog
+          definitionId={draft.editingId}
+          defaultTitle={draft.name}
+          defaultExperimentId={experimentId}
+          onClose={() => setCiteOpen(false)}
+          onCited={(experiment) => {
+            setCiteOpen(false)
+            toast('Cited in a notebook', {
+              description: `${experiment.identifier} now shows this analysis.`,
+              action: {
+                label: 'Open notebook',
+                onClick: () =>
+                  void navigate({
+                    to: '/experiments/$expId/notebook',
+                    params: { expId: experiment.id },
+                  }),
+              },
+            })
+          }}
+        />
       ) : null}
 
       <SavedDefinitionsList
@@ -1296,4 +1355,105 @@ function toNumberValue(v: unknown): number | null {
     return Number.isFinite(n) ? n : null
   }
   return null
+}
+
+/**
+ * Cite a saved statistic in an experiment's notebook: an `analysis` block that
+ * names the saved definition, frozen on the dataset version it ran against. The
+ * experiment the studio was opened from is the first choice.
+ */
+function CiteDefinitionDialog({
+  definitionId,
+  defaultTitle,
+  defaultExperimentId,
+  onClose,
+  onCited,
+}: {
+  definitionId: string
+  defaultTitle: string
+  defaultExperimentId?: string
+  onClose: () => void
+  onCited: (experiment: { id: string; identifier: string }) => void
+}) {
+  const [title, setTitle] = useState(defaultTitle)
+  const [picked, setPicked] = useState<PickerItem | null>(null)
+  const handed = useQuery({
+    queryKey: ['analysis-panel', 'cite-target', defaultExperimentId],
+    enabled: Boolean(defaultExperimentId),
+    queryFn: async () =>
+      (
+        await notebookDataClient.list<{ id: string; identifier: string }>(
+          'records',
+          `?id=eq.${encodeURIComponent(defaultExperimentId ?? '')}&kind=eq.experiment&select=id,identifier&limit=1`,
+        )
+      ).at(0) ?? null,
+  })
+  const target = picked
+    ? { id: picked.id, identifier: picked.identifier }
+    : (handed.data ?? null)
+  const cite = useMutation({
+    mutationFn: async () => {
+      if (!target) throw new Error('Choose an experiment.')
+      const record = await fetchRecord(notebookDataClient, target.id)
+      const inserted = await insertBlock(notebookDataClient, {
+        recordId: target.id,
+        type: 'analysis',
+        payload: { title: title.trim(), definitionId },
+        expectedStructureVersion: record?.structureVersion,
+      })
+      await freezeAnalysisBlock(notebookDataClient, {
+        blockId: inserted.block.id,
+        expectedVersion: inserted.block.version,
+      })
+      return target
+    },
+    onSuccess: (experiment) => onCited(experiment),
+    onError: (error: unknown) =>
+      toast('Could not cite', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      }),
+  })
+  return (
+    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+        <DialogHeader
+          title="Cite in a notebook"
+          description="Adds this analysis to an experiment’s notebook, frozen on the dataset version it ran against."
+        />
+        <DialogBody>
+          <label className="flex flex-col gap-1 text-label">
+            <span className="font-medium text-fg">Title</span>
+            <Input
+              autoFocus
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </label>
+          <div className="min-h-[220px] rounded-md border border-border">
+            <RecordPicker
+              allowed={['Experiment']}
+              exclude={[]}
+              onPick={(items) => setPicked(items[0] ?? null)}
+            />
+          </div>
+          {target ? (
+            <span className="text-label text-fg-muted">
+              Citing into {target.identifier}
+            </span>
+          ) : null}
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
+          <Button
+            variant="primary"
+            disabled={cite.isPending || !title.trim() || !target}
+            onClick={() => cite.mutate()}
+          >
+            {cite.isPending ? 'Citing…' : 'Cite'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 }

@@ -7,11 +7,12 @@ import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { CopyButton } from '#/components/v3/ui/copy-button'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
-import { notebookDataClient } from '#/lib/notebook-data'
+import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { RecordTitleInput } from '../records/$recordId/notebook'
+import { ExperimentLifecycleActions } from './$expId/-lifecycle-actions'
 
 /** The experiment page: one frame, one URL. Notebook is the default tab and the
  * working surface; Overview, Samples, Datasets, Results, Files and History sit
@@ -64,11 +65,13 @@ export function useExperimentRecord(recordId: string) {
           locked_at: string | null
           archived_at: string | null
           created_by_user_id: string
+          reviewer_user_id: string | null
+          planned_end: string | null
           created_at: string
           updated_at: string
         }>(
           'records',
-          `?id=eq.${recordId}&kind=eq.experiment&limit=1&select=id,identifier,title,status,project_id,tags,locked_at,archived_at,created_by_user_id,created_at,updated_at`,
+          `?id=eq.${recordId}&kind=eq.experiment&limit=1&select=id,identifier,title,status,project_id,tags,locked_at,archived_at,created_by_user_id,reviewer_user_id,planned_end,created_at,updated_at`,
         )
         .then((rows) => rows[0] ?? null),
   })
@@ -100,6 +103,14 @@ function ExperimentLayout() {
     record.data?.created_by_user_id ? [record.data.created_by_user_id] : [],
   )
   const e = record.data
+  const project = useQuery({
+    queryKey: ['ui-port', 'experiment-project', e?.project_id ?? ''],
+    queryFn: () =>
+      e?.project_id
+        ? fetchProject(notebookDataClient, e.project_id)
+        : Promise.resolve(null),
+    enabled: Boolean(e?.project_id),
+  })
 
   if (!e) {
     return (
@@ -121,6 +132,17 @@ function ExperimentLayout() {
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
         trail={[
+          ...(e.project_id
+            ? [
+                {
+                  label: project.data?.title ?? 'Project',
+                  link: {
+                    to: '/projects/$projectId' as const,
+                    params: { projectId: e.project_id },
+                  },
+                },
+              ]
+            : []),
           { label: 'Experiments', link: { to: '/experiments' } },
           { label: e.identifier, mono: true },
         ]}
@@ -157,6 +179,7 @@ function ExperimentLayout() {
             >
               Share
             </CopyButton>
+            <ExperimentLifecycleActions experiment={e} />
           </>
         }
         tabs={

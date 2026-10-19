@@ -25,7 +25,6 @@ import { insertBlock } from '#/lib/notebook-mutations'
 import { DataClientError } from '#/lib/data-client'
 import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
-import { freezeAnalysisBlock } from '#/lib/analysis-definitions-data'
 import { toast } from '#/components/v3/ui/sonner'
 import { Spinner } from '#/components/v3/ui/spinner'
 import {
@@ -48,7 +47,12 @@ import {
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PanelLeft, PanelLeftClose, Save, Sigma, Trash2 } from 'lucide-react'
 
@@ -77,6 +81,7 @@ import { Inspector } from '#/components/record/inspector'
 import { InspectorSection, InspectorSectionStack } from '#/components/record'
 import { Property, PropertyList } from '#/components/scientific'
 import {
+  freezeChart,
   materialiseLiveChart,
   toCanonicalDatasetSource,
   useLiveChartDataset,
@@ -131,26 +136,25 @@ import { formatCount } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 import { rasteriseSvgToPng } from '#/lib/visualisation-export'
 import { CHART_ROW_ID_KEY } from '#/lib/visualisation-pipeline'
+import { parseCreateContext } from '#/lib/create-context-search'
+import type { CreateContextSearch } from '#/lib/create-context-search'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 export const Route = createFileRoute('/analysis/new')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): {
-    dataset?: string
+  ): CreateContextSearch & {
     x?: string
     y?: string
     mode?: string
     view?: string
   } => {
-    const next: {
-      dataset?: string
+    const next: CreateContextSearch & {
       x?: string
       y?: string
       mode?: string
       view?: string
-    } = {}
-    if (typeof search.dataset === 'string') next.dataset = search.dataset
+    } = parseCreateContext(search)
     if (typeof search.x === 'string') next.x = search.x
     if (typeof search.y === 'string') next.y = search.y
     if (typeof search.view === 'string') next.view = search.view
@@ -352,6 +356,7 @@ function AnalysisStudio() {
   }
 
   const queryClient = useQueryClient()
+  const navigate = useNavigate({ from: '/analysis/new' })
 
   const saveMutation = useMutation({
     mutationFn: async (options?: { asNew?: boolean }) => {
@@ -372,6 +377,13 @@ function AnalysisStudio() {
     },
     onSuccess: (view, options) => {
       if (view && options?.asNew) setSelectedViewId(view.id)
+      // A saved view has an address: reloading or sharing the page finds it.
+      if (view) {
+        void navigate({
+          search: (current) => ({ ...current, view: view.id }),
+          replace: true,
+        })
+      }
       if (view) {
         toast('Analysis view saved', {
           description: `${view.name} v${view.version}`,
@@ -548,6 +560,7 @@ function AnalysisStudio() {
           citationsQuery.error ? String(citationsQuery.error) : null
         }
         sourceStatus={sourceStatusQuery.data ?? null}
+        experimentId={search.experiment}
       />
     ) : undefined
 
@@ -597,6 +610,8 @@ function AnalysisStudio() {
               datasets={sources}
               workspaceId={workspaceId}
               userId={userId}
+              initialDatasetId={selectedDatasetId}
+              experimentId={search.experiment}
             />
           </div>
         ) : mode === 'compare' ? (
@@ -941,6 +956,7 @@ function AnalysisInspector({
   citationsLoading,
   citationsError,
   sourceStatus,
+  experimentId,
 }: {
   source: CanonicalDatasetSource
   spec: ChartSpec
@@ -965,6 +981,8 @@ function AnalysisInspector({
   citationsLoading: boolean
   citationsError: string | null
   sourceStatus: AnalysisViewSourceStatus | null
+  /** The experiment this analysis was opened from; Cite offers it first. */
+  experimentId?: string
 }) {
   function setScale(axis: 'x' | 'y', scale: AxisScale) {
     onSpecChange({
@@ -1122,6 +1140,7 @@ function AnalysisInspector({
               user={user}
               workspaceId={workspaceId}
               materialised={materialised}
+              defaultExperimentId={experimentId}
             />
           ),
         },
@@ -1267,6 +1286,8 @@ interface ExportPanelProps {
   user: { id: string; name: string }
   workspaceId: string
   materialised: ReturnType<typeof materialiseLiveChart>
+  /** The experiment the studio was opened from, if any. */
+  defaultExperimentId?: string
 }
 
 export function ExportPanel({
@@ -1281,12 +1302,45 @@ export function ExportPanel({
   user,
   workspaceId,
   materialised,
+  defaultExperimentId,
 }: ExportPanelProps) {
   const svgRef = useRef<SVGSVGElement | null>(null)
+  const navigate = useNavigate()
   const [citeOpen, setCiteOpen] = useState(false)
   const [caption, setCaption] = useState('')
-  const [target, setTarget] = useState<PickerItem | null>(null)
+  const [pickedTarget, setTarget] = useState<PickerItem | null>(null)
   const [citing, setCiting] = useState(false)
+  // The experiment the studio was opened from is the first choice; picking
+  // another in the dialog replaces it.
+  const handedExperiment = useQuery({
+    queryKey: ['analysis-studio', 'cite-target', defaultExperimentId],
+    enabled: Boolean(defaultExperimentId),
+    queryFn: async () =>
+      (
+        await notebookDataClient.list<{
+          id: string
+          identifier: string
+          title: string
+          status: string
+        }>(
+          'records',
+          `?id=eq.${encodeURIComponent(defaultExperimentId ?? '')}&kind=eq.experiment&select=id,identifier,title,status&limit=1`,
+        )
+      ).at(0) ?? null,
+    staleTime: 60_000,
+  })
+  const target: PickerItem | null =
+    pickedTarget ??
+    (handedExperiment.data
+      ? {
+          id: handedExperiment.data.id,
+          identifier: handedExperiment.data.identifier,
+          name: handedExperiment.data.title,
+          kind: 'Experiment',
+          status: { tone: 'none', label: handedExperiment.data.status },
+          project: '',
+        }
+      : null)
 
   async function cite() {
     if (!caption.trim() || !target) return
@@ -1304,20 +1358,31 @@ export function ExportPanel({
         workspaceId,
         user.id,
       )
+      // A figure is cited as a frozen chart block carrying the view's spec: the
+      // notebook shows exactly this chart, pinned to the dataset version it was
+      // drawn from. (The `analysis` block is for saved statistics.)
       const targetRecord = await fetchRecord(notebookDataClient, target.id)
       const inserted = await insertBlock(notebookDataClient, {
         recordId: target.id,
-        type: 'analysis',
-        payload: { title: caption.trim(), definitionId: view.id },
+        type: 'chart',
+        payload: { title: caption.trim(), spec: view.spec },
         expectedStructureVersion: targetRecord?.structureVersion,
       })
-      await freezeAnalysisBlock(notebookDataClient, {
+      await freezeChart(notebookDataClient, {
         blockId: inserted.block.id,
         expectedVersion: inserted.block.version,
       })
       await recordAnalysisCitation(notebookDataClient, target.id, view)
       toast('Cited in a notebook', {
-        description: `${targetRecord?.identifier ?? 'The notebook'} now shows this analysis.`,
+        description: `${targetRecord?.identifier ?? 'The notebook'} now shows this figure.`,
+        action: {
+          label: 'Open notebook',
+          onClick: () =>
+            void navigate({
+              to: '/experiments/$expId/notebook',
+              params: { expId: target.id },
+            }),
+        },
       })
       setCiteOpen(false)
       setCaption('')

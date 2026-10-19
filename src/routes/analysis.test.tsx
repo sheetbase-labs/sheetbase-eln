@@ -9,7 +9,7 @@
  */
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -35,6 +35,7 @@ globalThis.ResizeObserver = class {
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   redirect: (options: unknown) => options,
+  useNavigate: () => vi.fn(),
   Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
     <a href={to}>{children}</a>
   ),
@@ -398,6 +399,14 @@ describe('SavedViewsPanel', () => {
 // --- ExportPanel ----------------------------------------------------------
 
 describe('ExportPanel', () => {
+  beforeEach(() => {
+    // The panel reads the experiment it was handed, if any: none here.
+    vi.mocked(useQuery).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    } as unknown as ReturnType<typeof useQuery>)
+  })
+
   it('renders format, theme, dimensions and provenance controls', () => {
     render(
       <ExportPanel

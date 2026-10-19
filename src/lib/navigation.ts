@@ -52,6 +52,78 @@ export function recordDestination(kind: string, recordId: string): string {
   }
 }
 
+/**
+ * The kinds of object whose identifier is shown as a link. Every route that
+ * owns one accepts both its UUID and its display identifier (`DS-0311`), so a
+ * link needs no lookup first: `objectPath('dataset', 'DS-0311')` is enough.
+ */
+export type ObjectKind =
+  | 'project'
+  | 'experiment'
+  | 'record'
+  | 'sample'
+  | 'material'
+  | 'dataset'
+  | 'instrument'
+  | 'sheet'
+  | 'pipeline'
+  | 'pipeline_run'
+  | 'analysis'
+  | 'protocol_template'
+  | 'review'
+
+/** Record kinds shown as experiments, so a link opens the experiment page. */
+const OBJECT_KIND_ALIASES: Record<string, ObjectKind> = {
+  protocol: 'protocol_template',
+  reagent: 'material',
+  analysis_view: 'analysis',
+  dataset_import: 'dataset',
+}
+
+/** The object kinds `objectPath` can link to; others render as plain text. */
+export function isLinkableObjectKind(kind: string): kind is ObjectKind {
+  return objectPath(kind, 'x') !== null
+}
+
+/**
+ * The page that owns an object, from its kind and either identifier. Returns
+ * null for a kind with no page of its own, so callers fall back to text
+ * instead of inventing a destination.
+ */
+export function objectPath(kind: string, ref: string): string | null {
+  const key = encodeURIComponent(ref)
+  switch (OBJECT_KIND_ALIASES[kind] ?? kind) {
+    case 'project':
+      return `/projects/${key}`
+    case 'experiment':
+      return `/experiments/${key}`
+    case 'record':
+      return recordPath(ref)
+    case 'sample':
+      return samplePath(ref)
+    case 'material':
+      return reagentPath(ref)
+    case 'dataset':
+      return `/datasets/${key}`
+    case 'instrument':
+      return `/instruments/${key}`
+    case 'sheet':
+      return sheetPath(ref)
+    case 'pipeline':
+      return `/pipelines/${key}`
+    case 'pipeline_run':
+      return `/pipelines/runs/${key}`
+    case 'analysis':
+      return `/analysis/${key}`
+    case 'protocol_template':
+      return protocolTemplatePath(ref)
+    case 'review':
+      return `/review/${key}`
+    default:
+      return null
+  }
+}
+
 export type CanonicalSearchResultType =
   'record' | 'file' | 'dataset' | 'sheet' | 'template' | 'comment'
 

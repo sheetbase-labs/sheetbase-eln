@@ -21,6 +21,7 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { useExperimentLinks } from '../$expId'
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -31,6 +32,7 @@ export const Route = createFileRoute('/experiments/$expId/results')({
 })
 
 interface DatasetSummaryWire {
+  id: string
   display_id: string | null
   name: string
   model: string | null
@@ -92,7 +94,7 @@ function ResultsTab() {
         'rpc/dataset_list_summary',
         `?display_id=in.(${datasetIds
           .map(encodeURIComponent)
-          .join(',')})&select=display_id,name,model,row_count,issue_count`,
+          .join(',')})&select=id,display_id,name,model,row_count,issue_count`,
       ),
   })
 
@@ -117,14 +119,20 @@ function ResultsTab() {
       id: 'id',
       header: 'ID',
       cell: ({ row }) => (
-        <span className="mono">{row.original.display_id}</span>
+        <ObjectLink
+          kind="dataset"
+          id={row.original.id}
+          identifier={row.original.display_id}
+        />
       ),
     },
     {
       id: 'dataset',
       header: 'Dataset',
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
+        <ObjectLink kind="dataset" id={row.original.id} mono={false}>
+          <span className="font-medium">{row.original.name}</span>
+        </ObjectLink>
       ),
     },
     {
@@ -156,6 +164,24 @@ function ResultsTab() {
         )
       },
     },
+    {
+      id: 'analyse',
+      header: '',
+      cell: ({ row }) => (
+        <Link
+          to="/analysis/new"
+          search={{
+            mode: 'chart',
+            dataset: row.original.id,
+            experiment: expId,
+          }}
+          className="text-link"
+        >
+          Analyse
+        </Link>
+      ),
+      meta: { cellClassName: 'text-right' },
+    },
   ]
   const decision = record.data?.decision ?? null
   const decisionLabel = decision
@@ -169,10 +195,10 @@ function ResultsTab() {
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
             {analyses.data.map((a) => (
               <li key={a.id}>
-                <Link to="/analysis/$analysisId" params={{ analysisId: a.id }}>
+                <ObjectLink kind="analysis" id={a.id} mono={false}>
                   <span className="mono text-fg-muted">{a.display_id}</span>{' '}
                   {a.name}
-                </Link>
+                </ObjectLink>
               </li>
             ))}
           </ul>
@@ -181,11 +207,37 @@ function ResultsTab() {
             className="py-2"
             title="No cited analyses"
             description="Cite an analysis in this experiment’s notebook and it appears here."
+            action={
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/analysis/new"
+                    search={{ mode: 'chart', experiment: expId }}
+                  />
+                }
+              >
+                New analysis
+              </Button>
+            }
           />
         )}
       </Section>
 
-      <Section title="Datasets" count={datasets.data?.length ?? 0}>
+      <Section
+        title="Datasets"
+        count={datasets.data?.length ?? 0}
+        action={
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<Link to="/import" search={{ experiment: expId }} />}
+          >
+            Import data
+          </Button>
+        }
+      >
         {datasets.data?.length ? (
           <TableBox>
             <RegistryGrid

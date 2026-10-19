@@ -5,6 +5,8 @@
 import type { DataClient } from '#/lib/data-client'
 import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
 import { toRecord } from '#/lib/notebook-data'
+import { insertBlock } from '#/lib/notebook-mutations'
+import { pinProtocolReference } from '#/lib/protocol-materials'
 import type { BlockWire, NotebookRecord, RecordWire } from '#/lib/notebook-data'
 
 export async function createBlankExperiment(
@@ -119,4 +121,28 @@ export async function applyExperimentSetup(
       })
     }
   }
+}
+
+/**
+ * Put the protocol an experiment follows into its notebook: a protocol block
+ * pinned to the protocol's current revision, with the procedure copied in as
+ * steps the author can tick off. The pin is the server's (`pin_protocol_reference`),
+ * so the steps in the notebook are exactly the steps of the pinned revision.
+ */
+export async function insertPinnedProtocol(
+  client: DataClient,
+  recordId: string,
+  protocolRecordId: string,
+): Promise<void> {
+  const inserted = await insertBlock(client, {
+    recordId,
+    type: 'protocol_reference',
+    payload: {},
+  })
+  await pinProtocolReference(client, {
+    blockId: inserted.block.id,
+    protocolRecordId,
+    expectedBlockVersion: inserted.block.version,
+    expectedStructureVersion: inserted.structureVersion,
+  })
 }

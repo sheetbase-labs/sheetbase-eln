@@ -4,6 +4,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
 import { Status } from '#/components/v3/ui/status'
 import { Pager } from '#/components/v3/ui/pager'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import {
   ProjectList,
   ProjectListFailure,
@@ -120,12 +121,18 @@ function ProjectExperimentsTab() {
         {
           key: 'id',
           label: 'ID',
-          cell: (e) => <span className="mono">{e.id}</span>,
+          cell: (e) => (
+            <ObjectLink kind="experiment" id={e.key} identifier={e.id} />
+          ),
         },
         {
           key: 'title',
           label: 'Experiment',
-          cell: (e) => <span className="font-medium">{e.title}</span>,
+          cell: (e) => (
+            <ObjectLink kind="experiment" id={e.key} mono={false}>
+              <span className="font-medium">{e.title}</span>
+            </ObjectLink>
+          ),
         },
         { key: 'owner', label: 'Owner', cell: (e) => e.owner },
         {

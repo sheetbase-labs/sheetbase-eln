@@ -16,6 +16,7 @@ import {
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
 import { Select } from '#/components/v3/ui/select'
+import { useCanManageProject } from '#/lib/project-permissions'
 import { modalities, stages } from '#/components/v3/projects/options'
 import {
   projectDataClient,
@@ -42,6 +43,11 @@ function ProjectSettings() {
   const { projectId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const { project, query } = useProjectSummary(projectId)
+  const { canManage } = useCanManageProject(
+    projectId,
+    project?.leadUserId,
+    context.user.id,
+  )
   const queryClient = useQueryClient()
   const router = useRouter()
   const [confirmArchive, setConfirmArchive] = useState(false)
@@ -158,13 +164,15 @@ function ProjectSettings() {
     )
   }
 
-  const isLead = project.leadUserId === context.user.id
-  if (!isLead) {
+  if (!canManage) {
     return (
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
-        <Notice icon="lock" title="Only the project lead can change settings.">
-          {project.leadName ?? 'The lead'} is the lead. Ask them to change the
-          stage, reviewer or client sharing.
+        <Notice
+          icon="lock"
+          title="Only the project lead or an owner can change settings."
+        >
+          {project.leadName ?? 'The lead'} is the lead. Ask them, or a project
+          owner, to change the stage, reviewer or client sharing.
         </Notice>
       </div>
     )

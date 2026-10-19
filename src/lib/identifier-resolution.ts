@@ -25,6 +25,7 @@ export type IdentifierEntity =
   | 'sheet'
   | 'record'
   | 'pipeline'
+  | 'analysis'
   | 'review'
 
 export interface ResolveIdentifierInput {

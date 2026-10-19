@@ -91,7 +91,13 @@ function Overview() {
     enabled: Boolean(record?.project_id),
   })
 
-  const props = properties.data ?? {}
+  const props: Record<string, unknown> = {
+    ...(properties.data ?? {}),
+    ...(record?.reviewer_user_id
+      ? { reviewerId: record.reviewer_user_id }
+      : {}),
+    ...(record?.planned_end ? { plannedEnd: record.planned_end } : {}),
+  }
   const readinessData = readiness.data ?? null
   const signatureRows = signatures.data ?? []
 

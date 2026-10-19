@@ -116,6 +116,8 @@ export interface FirstRunInput {
   projects: FirstRunProject[]
   hasOpenedProject: boolean
   hasExperiment: boolean
+  /** The person's workspace role. Unset reads as an author. */
+  role?: string
 }
 
 export interface FirstRunStep {
@@ -133,7 +135,9 @@ export interface FirstRunStep {
  */
 export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
   const project = input.projects.at(0)
-  return [
+  const readOnly = input.role === 'viewer' || input.role === 'client_viewer'
+  const reviewOnly = input.role === 'reviewer'
+  const steps: FirstRunStep[] = [
     {
       label: 'Account created',
       hint: input.accountHint ?? `You joined ${input.workspaceName}.`,
@@ -163,6 +167,29 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
       actionTo: '/protocols',
     },
   ]
+  // The checklist asks each role only for what that role can do: a viewer
+  // cannot sign or author, and a reviewer reviews what others submit rather
+  // than creating experiments, so neither is given a step it cannot finish.
+  if (readOnly) {
+    return steps.filter(
+      (step) =>
+        step.actionTo !== '/settings/signatures' &&
+        step.actionTo !== '/protocols',
+    )
+  }
+  if (reviewOnly) {
+    return steps
+      .filter((step) => step.actionTo !== '/protocols')
+      .map((step) =>
+        step.actionTo?.startsWith('/projects')
+          ? {
+              ...step,
+              hint: `${step.hint} Reviews assigned to you arrive in your Inbox.`,
+            }
+          : step,
+      )
+  }
+  return steps
 }
 
 export function firstRunProgress(steps: FirstRunStep[]): {
@@ -594,6 +621,7 @@ export function Home() {
     projects,
     hasOpenedProject: projectOpensQuery.data ?? false,
     hasExperiment: (experimentsQuery.data?.length ?? 0) > 0,
+    role: onboarding?.workspace_role,
   })
   const progress = firstRunProgress(setupSteps)
 

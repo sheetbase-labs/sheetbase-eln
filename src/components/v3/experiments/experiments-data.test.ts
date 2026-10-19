@@ -129,6 +129,7 @@ describe('useExperimentRecords', () => {
 describe('useExperimentTabCounts', () => {
   it('counts every tab from the database under the list’s own filter', async () => {
     count.mockImplementation(async (_resource: string, query: string) => {
+      if (query.includes('archived_at=not.is.null')) return 2
       if (query.includes('created_by_user_id=eq.u-1')) return 3
       if (query.includes('status=eq.in_progress')) return 5
       if (query.includes('status=in.(paused,on_hold)')) return 1
@@ -152,6 +153,7 @@ describe('useExperimentTabCounts', () => {
       inreview: 2,
       approved: 7,
       drafts: 1,
+      archived: 2,
     })
     for (const [, query] of count.mock.calls) {
       expect(query as string).toContain('kind=eq.experiment&deleted_at=is.null')

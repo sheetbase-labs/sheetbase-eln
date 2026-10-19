@@ -25,7 +25,7 @@ export interface ExperimentListRow {
   /** The status tab that lists this record, so the tabs filter the same
    * statuses their counts count. Null only for a status the table does not
    * know, which stays reachable in `all`. */
-  statusTab: ExperimentStatusTab | null
+  statusTab: ExperimentStatusTab | 'archived' | null
   protocol: string
   protocolRecordId: string | null
   created: string
@@ -42,15 +42,26 @@ interface ExperimentWire {
   created_by_user_id: string
   created_at: string
   updated_at: string
+  archived_at?: string | null
 }
 
 /** The list's tabs. `experiments.tsx` renders exactly these. */
 export type ExperimentTabKey =
-  'all' | 'mine' | 'inprogress' | 'onhold' | 'inreview' | 'approved' | 'drafts'
+  | 'all'
+  | 'mine'
+  | 'inprogress'
+  | 'onhold'
+  | 'inreview'
+  | 'approved'
+  | 'drafts'
+  | 'archived'
 
 /** The tabs that group experiments by status. `all` is the whole workspace and
  * `mine` is the caller's own experiments, so neither is a status tab. */
-export type ExperimentStatusTab = Exclude<ExperimentTabKey, 'all' | 'mine'>
+export type ExperimentStatusTab = Exclude<
+  ExperimentTabKey,
+  'all' | 'mine' | 'archived'
+>
 
 /**
  * Every status an experiment record can carry, and the status tab that lists
@@ -110,7 +121,7 @@ export const EXPERIMENT_LIST_PAGE_SIZE = 300
 const EXPERIMENT_FILTER = 'kind=eq.experiment&deleted_at=is.null'
 
 const EXPERIMENT_SELECT =
-  'select=id,project_id,identifier,title,status,created_by_user_id,created_at,updated_at'
+  'select=id,project_id,identifier,title,status,created_by_user_id,created_at,updated_at,archived_at'
 
 export function toExperimentListRow(
   row: ExperimentWire,
@@ -127,7 +138,7 @@ export function toExperimentListRow(
     ownerId: row.created_by_user_id,
     owner: ownerNames.get(row.created_by_user_id) ?? '—',
     status: experimentStatus(row.status),
-    statusTab: STATUS[row.status]?.tab ?? null,
+    statusTab: row.archived_at ? 'archived' : (STATUS[row.status]?.tab ?? null),
     protocol: '—',
     protocolRecordId: null,
     created: row.created_at.slice(0, 10),
@@ -164,6 +175,7 @@ const EXPERIMENT_TAB_KEYS: readonly ExperimentTabKey[] = [
   'inreview',
   'approved',
   'drafts',
+  'archived',
 ]
 
 /**
@@ -173,15 +185,17 @@ const EXPERIMENT_TAB_KEYS: readonly ExperimentTabKey[] = [
  * shows — and since every status has a tab, the status tabs add up to `all`.
  */
 function experimentTabFilter(tab: ExperimentTabKey, userId: string): string {
-  if (tab === 'all') return ''
+  // Archived experiments leave every working tab and gather under Archived.
+  if (tab === 'archived') return '&archived_at=not.is.null'
+  if (tab === 'all') return '&archived_at=is.null'
   if (tab === 'mine')
-    return `&created_by_user_id=eq.${encodeURIComponent(userId)}`
+    return `&archived_at=is.null&created_by_user_id=eq.${encodeURIComponent(userId)}`
   const statuses = Object.keys(STATUS).filter(
     (status) => STATUS[status]?.tab === tab,
   )
   return statuses.length === 1
-    ? `&status=eq.${statuses.join('')}`
-    : `&status=in.(${statuses.join(',')})`
+    ? `&archived_at=is.null&status=eq.${statuses.join('')}`
+    : `&archived_at=is.null&status=in.(${statuses.join(',')})`
 }
 
 /**

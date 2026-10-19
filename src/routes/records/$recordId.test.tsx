@@ -860,7 +860,7 @@ describe('NotebookInspector', () => {
     expect(screen.queryByText('Working')).toBeNull()
   })
 
-  it('lists Record comments through the visibility-checked RPC without inventing a root target', async () => {
+  it('lists Record comments through the visibility-checked RPC and offers a new notebook comment', async () => {
     const fetch = vi
       .spyOn(commentsData, 'fetchCommentsForRecord')
       .mockResolvedValue([])
@@ -880,9 +880,10 @@ describe('NotebookInspector', () => {
       await screen.findByText('No comments yet on this Record.'),
     ).toBeTruthy()
     expect(fetch).toHaveBeenCalledWith(expect.anything(), record.id)
+    // A live notebook takes comments of its own, anchored to the record.
     expect(
-      screen.queryByRole('textbox', { name: 'New comment body' }),
-    ).toBeNull()
+      screen.getByRole('textbox', { name: 'New comment body' }),
+    ).toBeTruthy()
     fetch.mockRestore()
   })
 

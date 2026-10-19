@@ -20,7 +20,12 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
-import { sampleStatus } from '#/components/v3/samples/samples-data'
+import {
+  sampleListQueryKeys,
+  sampleStatus,
+  storageLocationsQueryKey,
+} from '#/components/v3/samples/samples-data'
+import { MoveSampleDialog } from '#/components/v3/samples/move-dialog'
 import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
 import {
   PrintLabelButton,
@@ -33,6 +38,9 @@ import {
   EditHoldDialog,
   ReceiveStockDialog,
 } from '#/components/v3/samples/sample-edit-dialogs'
+import { AliquotDialog } from '#/components/v3/samples/aliquot-dialog'
+import type { AliquotDialogInput } from '#/components/v3/samples/aliquot-dialog'
+import { ReleaseChecksPanel } from '#/components/v3/samples/release-checks-panel'
 import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
 import {
   canDisposeSample,
@@ -44,6 +52,7 @@ import {
   sampleStateKind,
 } from '#/components/v3/samples/sample-state'
 import {
+  aliquotSample,
   archiveSample,
   createSampleReservation,
   describeSampleError,
@@ -77,6 +86,7 @@ import type {
 } from '#/components/v3/samples/withdraw-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { downloadTextFile } from '#/lib/download'
+import { samplePath } from '#/lib/navigation'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -147,6 +157,7 @@ export function downloadLineageCsv(
 type SampleDialog =
   | null
   | 'withdraw'
+  | 'aliquot'
   | 'reserve'
   | 'move'
   | 'release'
@@ -212,6 +223,9 @@ function SampleLayout() {
     void queryClient.invalidateQueries({
       queryKey: sampleQueryKeys.reservations(sampleId),
     })
+    void queryClient.invalidateQueries({
+      queryKey: sampleQueryKeys.releaseChecks(sampleId),
+    })
   }
   const onError = (error: unknown) => {
     toast.error(describeSampleError(error))
@@ -239,6 +253,31 @@ function SampleLayout() {
     },
     onError: (error) =>
       toast.error(describeWithdrawError(error, sample?.quantityUnit ?? null)),
+  })
+  const aliquot = useMutation({
+    mutationFn: (input: AliquotDialogInput) =>
+      aliquotSample(notebookDataClient, {
+        recordId: sampleId,
+        count: input.count,
+        quantityEach: input.quantityEach,
+        purposeExperimentId: input.purposeExperimentId,
+        unit: input.unit,
+        newContainer: input.newContainer,
+        expectedMetadataVersion: sample!.metadataVersion,
+      }),
+    onSuccess: (result) => {
+      invalidate()
+      void queryClient.invalidateQueries({
+        queryKey: sampleDerivedQueryKey(sampleId),
+      })
+      void queryClient.invalidateQueries({ queryKey: sampleListQueryKeys.page })
+      void queryClient.invalidateQueries({
+        queryKey: storageLocationsQueryKey,
+      })
+      toast(
+        `${result.derivedSamples.length} ${result.derivedSamples.length === 1 ? 'tube' : 'tubes'} made`,
+      )
+    },
   })
   const reserve = useMutation({
     mutationFn: (input: ReserveDialogInput) =>
@@ -536,6 +575,25 @@ function SampleLayout() {
                   </Button>
                   <PrintLabelButton record={sample} onPrinted={invalidate} />
                   <Button onClick={() => setDialog('move')}>Move</Button>
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/readings/new"
+                        search={{
+                          sample: sample.id,
+                          returnTo: samplePath(sample.id),
+                        }}
+                      />
+                    }
+                  >
+                    Record reading
+                  </Button>
+                  {withdrawable ? (
+                    <Button onClick={() => setDialog('aliquot')}>
+                      Aliquot…
+                    </Button>
+                  ) : null}
                   {withdrawable ? (
                     <Button
                       variant="primary"
@@ -625,6 +683,11 @@ function SampleLayout() {
           <InspectorSection title="Label">
             <SampleLabelCard record={sample} />
           </InspectorSection>
+          {state === 'quarantined' ? (
+            <InspectorSection title="Release checks">
+              <ReleaseChecksPanel sampleId={sample.id} />
+            </InspectorSection>
+          ) : null}
           <InspectorSection title="Hold time">
             <SampleHoldMeter record={sample} />
             {allowEdit ? (
@@ -674,6 +737,24 @@ function SampleLayout() {
           onSubmit={(input) => withdraw.mutate(input)}
         />
       ) : null}
+      {dialog === 'aliquot' ? (
+        <AliquotDialog
+          open
+          onOpenChange={(open) => {
+            setDialog(open ? 'aliquot' : null)
+            if (!open) aliquot.reset()
+          }}
+          sample={sample}
+          busy={aliquot.isPending}
+          error={
+            aliquot.isError
+              ? describeWithdrawError(aliquot.error, sample.quantityUnit)
+              : null
+          }
+          created={aliquot.data?.derivedSamples ?? null}
+          onSubmit={(input) => aliquot.mutate(input)}
+        />
+      ) : null}
       {dialog === 'reserve' ? (
         <ReserveDialog
           open
@@ -683,14 +764,15 @@ function SampleLayout() {
           onSubmit={(input) => reserve.mutate(input)}
         />
       ) : null}
-      <TextDialog
-        open={dialog === 'move'}
-        onOpenChange={(o) => setDialog(o ? 'move' : null)}
-        title={`Move ${sample.identifier}`}
-        label="New location"
-        busy={move.isPending}
-        onSubmit={(value) => move.mutate({ toLocation: value })}
-      />
+      {dialog === 'move' ? (
+        <MoveSampleDialog
+          open
+          onOpenChange={(open) => setDialog(open ? 'move' : null)}
+          sample={sample}
+          busy={move.isPending}
+          onSubmit={(toLocation) => move.mutate({ toLocation })}
+        />
+      ) : null}
       {dialog === 'edit' ? (
         <EditDetailsDialog
           sample={sample}
@@ -805,52 +887,6 @@ function SampleLayout() {
           only this document reaches the sheet. */}
       <SampleLabelPrint record={sample} />
     </div>
-  )
-}
-
-function TextDialog({
-  open,
-  onOpenChange,
-  title,
-  label,
-  busy,
-  onSubmit,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  label: string
-  busy: boolean
-  onSubmit: (value: string) => void
-}) {
-  const [value, setValue] = useState('')
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(420px,calc(100vw-32px))]">
-        <DialogHeader title={title} />
-        <DialogBody>
-          <Field label={label} required>
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              autoFocus
-            />
-          </Field>
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
-          <Button
-            variant="primary"
-            disabled={busy}
-            onClick={() => {
-              if (value.trim()) onSubmit(value.trim())
-            }}
-          >
-            Confirm
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

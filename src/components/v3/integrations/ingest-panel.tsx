@@ -31,6 +31,10 @@ import {
   TableRow,
 } from '#/components/v3/ui/table'
 import { Select } from '#/components/v3/ui/select'
+import {
+  DatasetLandingLink,
+  invalidateDatasetLanding,
+} from '#/components/v3/integrations/dataset-landing'
 import { createDataClient } from '#/lib/data-client'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { listCanonicalDatasetSchemaVersionFields } from '#/lib/dataset-schema-definition-rpc'
@@ -220,11 +224,11 @@ export function IngestPanel({
         },
       })
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({
         queryKey: ['connectors', connectorId, 'runs'],
       })
-      void queryClient.invalidateQueries({ queryKey: ['datasets'] })
+      invalidateDatasetLanding(queryClient, result.datasetId)
     },
   })
 
@@ -346,6 +350,9 @@ export function IngestPanel({
               {mutation.data.parser.identity}, run{' '}
               <span className="mono">{mutation.data.runId}</span>. See run
               history below for the full provenance payload.
+            </p>
+            <p className="m-0">
+              <DatasetLandingLink datasetId={mutation.data.datasetId} />
             </p>
           </Notice>
         )}

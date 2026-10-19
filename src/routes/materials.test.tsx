@@ -37,6 +37,12 @@ vi.mock('@tanstack/react-router', () => ({
     options: config,
   }),
   redirect: (options: unknown) => options,
+  useRouterState: ({
+    select,
+  }: {
+    select: (state: { location: { pathname: string } }) => unknown
+  }) => select({ location: { pathname: '/materials' } }),
+  Outlet: () => null,
   Link: ({
     to,
     children,

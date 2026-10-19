@@ -25,7 +25,7 @@ import {
   useInstruments,
   useLatestCalibrationsByInstrument,
 } from '#/components/v3/instruments/instruments-data'
-import { cancelTarget, safeReturnTo } from '#/lib/create-context-search'
+import { cancelTarget } from '#/lib/create-context-search'
 import { createDataClient } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
@@ -38,6 +38,7 @@ import type { ImportTargetField } from '#/lib/import-mapping'
 import { requestParserUpdate } from '#/lib/parser-settings'
 import {
   commitImport,
+  fetchDatasetImports,
   fetchImportFile,
   ImportRequestError,
   importQueryKeys,
@@ -53,85 +54,21 @@ import type {
   ImportSheetPreview,
 } from '#/lib/import/types'
 
+import { ImportReceipt, findCommittedReceipt } from './import-receipt'
+import type { ImportSearch } from './import-search'
+import { parseImportMapping, serializeImportMapping } from './import-search'
+
 const client = createDataClient()
 const STEPS = ['Upload', 'Map columns', 'Review and import']
 const DATASETS_QUERY_KEY = ['ui-port', 'import', 'datasets'] as const
 const SCHEMAS_QUERY_KEY = ['ui-port', 'import', 'schemas'] as const
 
-/**
- * R5-SURF-04 — the flow's addressable state. The path identifies the retained
- * import file (the identity the commit path pins as `p_file_id`); the search
- * pins the same target the commit uses (Dataset, parser, mapping) plus the
- * experiment and instrument the receipt records. Everything the server needs
- * to re-derive validity is either on the file row or in these pins, so a link
- * reloads the same step with the same mapping, and the server stays the
- * authority on whether it is valid.
- */
-export interface ImportSearch {
-  step?: 'map' | 'check'
-  dataset?: string
-  experiment?: string
-  instrument?: string
-  parser?: string
-  map?: string
-  /** The project the import was started from (shared create-context param). */
-  project?: string
-  /** An in-app path the finished or cancelled import goes back to. */
-  returnTo?: string
-}
-
-/** Parse the raw search record; unknown or malformed values are dropped. */
-export function parseImportSearch(
-  search: Record<string, unknown>,
-): ImportSearch {
-  const text = (value: unknown) =>
-    typeof value === 'string' && value ? value : undefined
-  return {
-    step:
-      search.step === 'check'
-        ? 'check'
-        : search.step === 'map'
-          ? 'map'
-          : undefined,
-    dataset: text(search.dataset),
-    experiment: text(search.experiment),
-    instrument: text(search.instrument),
-    parser: text(search.parser),
-    map: text(search.map),
-    project: text(search.project),
-    returnTo: safeReturnTo(search.returnTo),
-  }
-}
-
-/** Compact, URL-safe `source:field` pairs; skipped columns carry no pair. */
-export function serializeImportMapping(values: Record<string, string>): string {
-  return Object.entries(values)
-    .filter(([, fieldId]) => Boolean(fieldId))
-    .map(
-      ([source, fieldId]) =>
-        `${encodeURIComponent(source)}:${encodeURIComponent(fieldId)}`,
-    )
-    .join(',')
-}
-
-export function parseImportMapping(
-  value: string | undefined,
-): Record<string, string> {
-  if (!value) return {}
-  const values: Record<string, string> = {}
-  for (const pair of value.split(',')) {
-    const separator = pair.indexOf(':')
-    if (separator <= 0) continue
-    try {
-      const source = decodeURIComponent(pair.slice(0, separator))
-      const fieldId = decodeURIComponent(pair.slice(separator + 1))
-      if (source && fieldId) values[source] = fieldId
-    } catch {
-      // A malformed pair is ignored rather than failing the whole link.
-    }
-  }
-  return values
-}
+export {
+  parseImportMapping,
+  parseImportSearch,
+  serializeImportMapping,
+} from './import-search'
+export type { ImportSearch } from './import-search'
 
 /**
  * A suggestion from the file name only: the parser catalogue's leading label
@@ -573,6 +510,15 @@ export function ImportMapCheckFlow({
   })
 
   const datasetId = search.dataset ?? file.data?.datasetId ?? ''
+  // A committed import is a receipt: read-only, with a way to upload a
+  // corrected file. It is found among the Dataset's receipts by this file.
+  const receipts = useQuery({
+    queryKey: importQueryKeys.imports(datasetId),
+    queryFn: () => fetchDatasetImports(client, datasetId),
+    enabled: Boolean(datasetId),
+    staleTime: 15_000,
+  })
+  const receipt = findCommittedReceipt(receipts.data, importId)
   const dataset =
     (datasets.data ?? []).find((item) => item.id === datasetId) ?? null
   const fields = useMemo(
@@ -794,6 +740,8 @@ export function ImportMapCheckFlow({
       )
     }
   }
+
+  if (receipt) return <ImportReceipt importId={importId} receipt={receipt} />
 
   const notFound =
     file.error instanceof ImportRequestError &&

@@ -111,6 +111,10 @@ export interface DatasetImportRecord {
   id: string
   dataset_id: string
   experiment_record_id: string | null
+  /** The instrument the file came from, when the import named one. */
+  instrument_id?: string | null
+  /** The column mapping the commit used, as the receipt keeps it. */
+  mapping?: Partial<ImportMappingDocument> | null
   parser_id: string | null
   parser_version_id: string | null
   file_id: string | null

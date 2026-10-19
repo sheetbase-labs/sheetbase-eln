@@ -20,15 +20,19 @@ import { Dot } from '#/components/v3/ui/status'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted } from '#/components/v3/ui/layout'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { Icon } from '#/components/v3/icons'
 import { toast } from '#/components/v3/ui/sonner'
 import { BookDialog } from '#/components/v3/schedule/book-dialog'
+import { EditBookingDialog } from '#/components/v3/schedule/edit-booking-dialog'
 import {
   useBookingSamples,
+  useExperimentSamples,
   useRangeBookings,
   useScheduleInstruments,
 } from '#/components/v3/schedule/schedule-data'
 import type {
+  BookableSample,
   BookingSample,
   ScheduleBooking,
   ScheduleInstrument,
@@ -147,6 +151,7 @@ export function Schedule() {
     },
     enabled: Boolean(experiment),
   })
+  const experimentSamples = useExperimentSamples(forExperiment.data?.id)
   const bookingTitle = forExperiment.data
     ? `${forExperiment.data.identifier} ${forExperiment.data.title}`
     : undefined
@@ -172,6 +177,10 @@ export function Schedule() {
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
+  // A booking saved from the edit dialog replaces the row the grid holds until
+  // the range query reloads, so the grid never shows the old time.
+  const [edited, setEdited] = useState<Map<string, ScheduleBooking>>(new Map())
+  const [editing, setEditing] = useState(false)
 
   const weekStart = view === 'day' ? anchor : monday(anchor)
   const weekEnd = addDays(weekStart, 7)
@@ -199,6 +208,7 @@ export function Schedule() {
   const memberNames = membersQuery.data
   const bookings = [...(bookingsQuery.data ?? []), ...added]
     .filter((b) => !cancelledIds.has(b.id))
+    .map((b) => edited.get(b.id) ?? b)
     .map((b) => ({
       ...b,
       mine: Boolean(meId && b.createdByUserId === meId),
@@ -221,6 +231,12 @@ export function Schedule() {
     )
   }
   const selectedBooking = bookings.find((b) => b.id === openBookingId) ?? null
+  const selectedBookingSamples = useBookingSamples(
+    selectedBooking ? [selectedBooking.id] : [],
+  )
+  const selectedExperimentSamples = useExperimentSamples(
+    selectedBooking?.experiment?.id,
+  )
   const selectedInstrument = selectedBooking
     ? instruments.find((i) => i.id === selectedBooking.resourceId)
     : undefined
@@ -295,21 +311,23 @@ export function Schedule() {
           workspaceId={workspaceId}
           defaultDate={view === 'day' ? anchor : addDays(today, 3)}
           defaultResourceId={book}
-          defaultOpen={Boolean(book)}
+          defaultOpen={Boolean(book) || Boolean(experiment)}
           defaultTitle={bookingTitle}
-          linkedExperiment={
+          experiment={
             forExperiment.data
               ? {
-                  id: forExperiment.data.id,
+                  ...forExperiment.data,
                   projectId: forExperiment.data.project_id,
                 }
               : undefined
           }
+          sampleOptions={experimentSamples.data}
           onCancel={() => {
             if (returnTo) void navigate({ to: returnTo })
           }}
           onBooked={(b) => {
             setAdded((a) => [...a, b])
+            void queryClient.invalidateQueries({ queryKey: ['schedule'] })
             toast('Booked')
             if (returnTo) void navigate({ to: returnTo })
           }}
@@ -417,6 +435,42 @@ export function Schedule() {
                 <dd className="m-0">
                   {selectedBooking.mine ? 'You' : selectedBooking.who}
                 </dd>
+                {selectedBooking.experiment ? (
+                  <>
+                    <dt className="text-fg-muted">Experiment</dt>
+                    <dd className="m-0">
+                      <ObjectLink
+                        kind="experiment"
+                        id={selectedBooking.experiment.id}
+                        identifier={selectedBooking.experiment.identifier}
+                      />{' '}
+                      {selectedBooking.experiment.title}
+                    </dd>
+                  </>
+                ) : null}
+                {(selectedBookingSamples.data ?? []).length ? (
+                  <>
+                    <dt className="text-fg-muted">Samples</dt>
+                    <dd className="m-0 flex flex-col gap-0.5">
+                      {(selectedBookingSamples.data ?? []).map((sample) => (
+                        <span key={sample.id}>
+                          <ObjectLink
+                            kind="sample"
+                            id={sample.sampleRecordId}
+                            identifier={sample.identifier}
+                          />{' '}
+                          {sample.title}
+                        </span>
+                      ))}
+                    </dd>
+                  </>
+                ) : null}
+                {selectedBooking.notes ? (
+                  <>
+                    <dt className="text-fg-muted">Notes</dt>
+                    <dd className="m-0">{selectedBooking.notes}</dd>
+                  </>
+                ) : null}
               </dl>
             ) : null}
             {cancelError ? (
@@ -427,6 +481,7 @@ export function Schedule() {
           </DialogBody>
           <DialogFooter>
             <DialogClose render={<Button />}>Keep booking</DialogClose>
+            <Button onClick={() => setEditing(true)}>Edit booking…</Button>
             <Button
               variant="danger-fill"
               disabled={cancelling}
@@ -437,8 +492,44 @@ export function Schedule() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {editing && selectedBooking ? (
+        <EditBookingDialog
+          booking={selectedBooking}
+          sampleOptions={mergeSamples(
+            selectedExperimentSamples.data ?? [],
+            selectedBookingSamples.data ?? [],
+          )}
+          currentSampleIds={(selectedBookingSamples.data ?? []).flatMap((s) =>
+            s.sampleRecordId ? [s.sampleRecordId] : [],
+          )}
+          onClose={() => setEditing(false)}
+          onSaved={(saved) => {
+            setEdited((current) => new Map(current).set(saved.id, saved))
+            void queryClient.invalidateQueries({ queryKey: ['schedule'] })
+            toast('Booking updated')
+            setEditing(false)
+          }}
+        />
+      ) : null}
     </div>
   )
+}
+
+/** The experiment's samples plus any the booking already names, once each. */
+function mergeSamples(
+  fromExperiment: BookableSample[],
+  onBooking: BookingSample[],
+): BookableSample[] {
+  const byId = new Map(fromExperiment.map((s) => [s.id, s]))
+  for (const sample of onBooking) {
+    if (sample.sampleRecordId && !byId.has(sample.sampleRecordId))
+      byId.set(sample.sampleRecordId, {
+        id: sample.sampleRecordId,
+        identifier: sample.identifier,
+        title: sample.title,
+      })
+  }
+  return [...byId.values()]
 }
 
 /**

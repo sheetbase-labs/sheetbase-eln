@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
@@ -12,6 +12,7 @@ import {
   scanTargetHref,
 } from '#/components/v3/scan/scan-data'
 import type { ScanResolution, ScanTarget } from '#/components/v3/scan/scan-data'
+import { ScanSampleActions } from '#/components/v3/scan/scan-sample-actions'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
@@ -21,6 +22,13 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
  * works. Results resolve against real records and instruments.
  */
 export const Route = createFileRoute('/scan')({
+  // A detour from a result (Record reading, Book) comes back with the code, so
+  // the scan reappears resolved instead of empty.
+  validateSearch: (search: Record<string, unknown>): { code?: string } => ({
+    ...(typeof search.code === 'string' && search.code.trim()
+      ? { code: search.code.trim() }
+      : {}),
+  }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
@@ -32,7 +40,8 @@ export const Route = createFileRoute('/scan')({
 })
 
 function ScanPage() {
-  const [code, setCode] = useState('')
+  const search = Route.useSearch()
+  const [code, setCode] = useState(search.code ?? '')
   const [result, setResult] = useState<ScanResolution | null>(null)
   const [busy, setBusy] = useState(false)
   const [recent, setRecent] = useState<ScanTarget[]>([])
@@ -65,6 +74,12 @@ function ScanPage() {
       setBusy(false)
     }
   }
+
+  const startedWith = useRef(search.code)
+  useEffect(() => {
+    if (startedWith.current) void resolve(startedWith.current)
+    // Resolve the code the page was opened with once, on arrival.
+  }, [])
 
   const hit = result?.found ? result.hit : undefined
   const miss = result && !result.found ? result : undefined
@@ -101,8 +116,32 @@ function ScanPage() {
                 </div>
                 <Status tone={hit.status.tone}>{hit.status.label}</Status>
               </div>
+              {hit.kind === 'sample' ? (
+                <ScanSampleActions
+                  sampleId={hit.id}
+                  returnTo={`/scan?code=${encodeURIComponent(hit.identifier)}`}
+                  onChanged={() => void resolve(hit.identifier)}
+                />
+              ) : null}
+              {hit.kind === 'instrument' ? (
+                <Button
+                  size="lg"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/schedule"
+                      search={{
+                        book: hit.id,
+                        returnTo: `/scan?code=${encodeURIComponent(hit.identifier)}`,
+                      }}
+                    />
+                  }
+                >
+                  Book this instrument
+                </Button>
+              ) : null}
               <Button
-                variant="primary"
+                variant={hit.kind === 'sample' ? 'secondary' : 'primary'}
                 size="lg"
                 nativeButton={false}
                 render={<Link {...scanTargetHref(hit)} />}

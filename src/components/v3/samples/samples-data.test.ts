@@ -4,7 +4,13 @@ import type { SampleRecord } from '#/lib/samples'
 
 import type { DataClient } from '#/lib/data-client'
 
-import { fetchAllSamples, sampleStatus, toSampleListRow } from './samples-data'
+import {
+  distinctLocations,
+  fetchAllSamples,
+  fetchStorageLocations,
+  sampleStatus,
+  toSampleListRow,
+} from './samples-data'
 
 function row(overrides: Partial<SampleRecord>): SampleRecord {
   return {
@@ -103,5 +109,36 @@ describe('fetchAllSamples', () => {
     expect(result.rows.at(-1)?.identifier).toBe('SMP-249')
     expect(result.totalCount).toBe(250)
     expect(list).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('storage locations', () => {
+  it('lists each place once, ignoring case and blanks, in natural order', () => {
+    expect(
+      distinctLocations([
+        'Freezer 10',
+        'freezer 2',
+        'Freezer 2',
+        null,
+        '  ',
+        undefined,
+        'Bench',
+      ]),
+    ).toEqual(['Bench', 'freezer 2', 'Freezer 10'])
+  })
+
+  it('reads the locations from the sample records', async () => {
+    const list = vi.fn(async () => [
+      { loc: 'Shelf B' },
+      { loc: 'Shelf A' },
+      { loc: null },
+      { loc: 'Shelf A' },
+    ])
+    const client = { list } as unknown as DataClient
+    expect(await fetchStorageLocations(client)).toEqual(['Shelf A', 'Shelf B'])
+    expect(list).toHaveBeenCalledWith(
+      'records',
+      expect.stringContaining('select=loc:properties->>storageLocation'),
+    )
   })
 })

@@ -9,6 +9,7 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import {
   commentsQueryKeys,
   createComment,
+  createRecordComment,
   createSheetComment,
   fetchCommentsForRecord,
   fetchCommentsForRevision,
@@ -25,10 +26,15 @@ import type {
   CommentWire,
 } from '#/lib/comments-data'
 import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
+import { extractMentions } from '#/lib/mentions'
+import type { MentionCandidate } from '#/lib/mentions'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { useUserNames } from '#/lib/user-names'
+import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 import { cn } from '#/lib/utils'
 
 import { CommentThread } from './comment-thread'
+import { MentionTextarea } from './mention-textarea'
 
 /**
  * REV-004: the anchored-comments panel for a submitted revision. Lists
@@ -69,6 +75,16 @@ export type CommentPanelProps = (
   /** Historical targets may still allow replies, but not a fresh root. */
   canCreate?: boolean
   className?: string
+  /**
+   * The workspace whose members can be @mentioned and whose people are named on
+   * the comments. Without it authors read as "Reviewer" and there is no picker.
+   */
+  workspaceId?: string
+  /**
+   * Record mode only: scope the panel to one block of the notebook. Threads on
+   * other blocks are hidden and a new comment is anchored to this block.
+   */
+  blockId?: string
   /** Only a viewer's visible current/frozen context may assess availability. */
   isTargetAvailable?: (comment: CommentWire) => boolean
   /**
@@ -95,6 +111,8 @@ export function CommentPanel({
   focusCommentId,
   canCreate = true,
   className,
+  workspaceId,
+  blockId,
   isTargetAvailable,
   onDraftComment,
 }: CommentPanelProps) {
@@ -122,10 +140,43 @@ export function CommentPanel({
           : fetchCommentsForRevision(notebookDataClient, revisionId),
   })
 
-  const threads = React.useMemo(
+  const threads = React.useMemo(() => {
+    const all = commentsQuery.data
+      ? groupCommentsIntoThreads(commentsQuery.data)
+      : []
+    return blockId === undefined
+      ? all
+      : all.filter(
+          (thread) =>
+            thread.root.target_kind === 'block' &&
+            thread.root.target.blockId === blockId,
+        )
+  }, [commentsQuery.data, blockId])
+
+  // People: the workspace's members are who can be @mentioned, and every author
+  // is named from the same lookup. Without a workspace both stay empty.
+  const members = useQuery({
+    queryKey: adminQueryKeys.members(workspaceId ?? 'none'),
+    queryFn: () => fetchWorkspaceMembers(notebookDataClient, workspaceId!),
+    enabled: Boolean(workspaceId) && canComment,
+  })
+  const peopleIds = workspaceId
+    ? [
+        ...(commentsQuery.data ?? []).map((c) => c.author_user_id ?? ''),
+        ...(members.data ?? []).map((member) => member.userId),
+      ]
+    : []
+  const { names } = useUserNames(peopleIds)
+  const mentionCandidates = React.useMemo<MentionCandidate[]>(
     () =>
-      commentsQuery.data ? groupCommentsIntoThreads(commentsQuery.data) : [],
-    [commentsQuery.data],
+      (members.data ?? []).flatMap((member) =>
+        !member.suspendedAt &&
+        names[member.userId] &&
+        member.userId !== currentUserId
+          ? [{ userId: member.userId, name: names[member.userId] }]
+          : [],
+      ),
+    [members.data, names, currentUserId],
   )
 
   const focusRequest = `${queryKey.join(':')}:${focusCommentId ?? ''}`
@@ -147,16 +198,23 @@ export function CommentPanel({
 
   const createMutation = useMutation({
     mutationFn: (body: string) => {
+      const mentions = extractMentions(body, mentionCandidates)
       if (recordId !== undefined) {
-        throw new Error('Choose a Sheet or revision target to start a thread.')
+        return createRecordComment(notebookDataClient, {
+          recordId,
+          blockId,
+          body,
+          mentions,
+        })
       }
       return sheet
-        ? createSheetComment(notebookDataClient, { ...sheet, body })
+        ? createSheetComment(notebookDataClient, { ...sheet, body, mentions })
         : createComment(notebookDataClient, {
             revisionId,
             targetKind,
             target,
             body,
+            mentions,
           })
     },
     onSuccess: () => {
@@ -169,7 +227,12 @@ export function CommentPanel({
 
   const replyMutation = useMutation({
     mutationFn: ({ parentId, body }: { parentId: string; body: string }) =>
-      replyToComment(notebookDataClient, parentId, body),
+      replyToComment(
+        notebookDataClient,
+        parentId,
+        body,
+        extractMentions(body, mentionCandidates),
+      ),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: ['comments'],
@@ -279,6 +342,8 @@ export function CommentPanel({
               onReopen={async (commentId) => {
                 await reopenMutation.mutateAsync(commentId)
               }}
+              names={names}
+              mentionCandidates={mentionCandidates}
               pendingReplyId={
                 replyMutation.isPending
                   ? replyMutation.variables.parentId
@@ -289,13 +354,22 @@ export function CommentPanel({
         </ol>
       )}
 
-      {canComment && canCreate && !recordId ? (
+      {canComment && canCreate ? (
         <form onSubmit={handleCreate} className="space-y-2 border-t pt-3">
-          <textarea
+          <MentionTextarea
             className="min-h-[70px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder={`Add a comment on this ${sheet || targetKind?.startsWith('sheet_') ? 'selection' : 'revision'}…`}
+            placeholder={`Add a comment on this ${
+              recordId !== undefined
+                ? blockId
+                  ? 'block'
+                  : 'notebook'
+                : sheet || targetKind.startsWith('sheet_')
+                  ? 'selection'
+                  : 'revision'
+            }…`}
             value={newBody}
-            onChange={(event) => setNewBody(event.target.value)}
+            onChange={setNewBody}
+            candidates={mentionCandidates}
             aria-label="New comment body"
           />
           <div className="flex items-center gap-2">

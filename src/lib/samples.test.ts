@@ -8,15 +8,18 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  aliquotSample,
   buildSamplesCountQuery,
   buildSamplesFilter,
   buildSamplesOrder,
   buildSamplesQuery,
   computeSampleSummaries,
   fetchSampleEvents,
+  fetchSampleReleaseCheckStatus,
   isLowStock,
   parseSampleProperties,
   recordSampleLabelPrint,
+  registerSamples,
   samplePropertiesPayload,
   toSampleRecord,
 } from './samples'
@@ -337,6 +340,109 @@ describe('fetchSampleEvents', () => {
     // reads the same stream, so older events must not be dropped.
     expect(requests).toEqual([
       'sample_events?record_id=eq.s-1&order=created_at.desc',
+    ])
+  })
+})
+
+describe('bench RPC wrappers', () => {
+  function recorder(result: unknown) {
+    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const client = {
+      rpc: (name: string, args: Record<string, unknown>) => {
+        calls.push({ name, args })
+        return Promise.resolve(result)
+      },
+    } as unknown as DataClient
+    return { calls, client }
+  }
+  const sampleWire = (id: string, title: string) => ({
+    id,
+    identifier: `SMP-${id}`,
+    title,
+    kind: 'sample',
+    status: 'available',
+    properties: { quantity: 20, quantityUnit: 'µL' },
+    custom_fields: {},
+  })
+
+  it('registerSamples sends one list and maps the records back in order', async () => {
+    const { calls, client } = recorder([
+      sampleWire('1', 'A'),
+      sampleWire('2', 'B'),
+    ])
+    const out = await registerSamples(client, {
+      projectId: 'p-1',
+      samples: [{ title: 'A' }, { title: 'B', quantity: 3 }],
+    })
+    expect(calls).toEqual([
+      {
+        name: 'register_samples',
+        args: {
+          p_project_id: 'p-1',
+          p_samples: [{ title: 'A' }, { title: 'B', quantity: 3 }],
+        },
+      },
+    ])
+    expect(out.map((s) => s.title)).toEqual(['A', 'B'])
+    expect(out[0].quantity).toBe(20)
+  })
+
+  it('aliquotSample sends the split and returns the source and every tube', async () => {
+    const { calls, client } = recorder({
+      sample: sampleWire('0', 'Stock'),
+      derivedSamples: [sampleWire('1', 'Stock 1'), sampleWire('2', 'Stock 2')],
+    })
+    const out = await aliquotSample(client, {
+      recordId: 's-0',
+      count: 2,
+      quantityEach: 20,
+      purposeExperimentId: 'e-1',
+      expectedMetadataVersion: 4,
+      newContainer: { storageLocation: 'Box 3' },
+    })
+    expect(calls[0].name).toBe('aliquot_sample')
+    expect(calls[0].args).toMatchObject({
+      p_record_id: 's-0',
+      p_count: 2,
+      p_quantity_each: 20,
+      p_purpose_experiment_id: 'e-1',
+      p_expected_metadata_version: 4,
+      p_new_container: { storageLocation: 'Box 3' },
+    })
+    expect(out.derivedSamples).toHaveLength(2)
+  })
+
+  it('fetchSampleReleaseCheckStatus maps the verdict and each check', async () => {
+    const { calls, client } = recorder({
+      passed: false,
+      ruleCount: 2,
+      failedCount: 1,
+      checks: [
+        {
+          key: 'a',
+          label: 'Purity result',
+          kind: 'measurement_required',
+          passed: false,
+          detail: 'missing',
+        },
+        {
+          key: 'b',
+          label: 'No failed QC',
+          kind: 'no_result',
+          passed: true,
+          detail: null,
+        },
+      ],
+    })
+    const status = await fetchSampleReleaseCheckStatus(client, 's-1')
+    expect(calls[0]).toEqual({
+      name: 'sample_release_check_status',
+      args: { p_record_id: 's-1' },
+    })
+    expect(status.passed).toBe(false)
+    expect(status.checks.map((c) => [c.label, c.passed, c.detail])).toEqual([
+      ['Purity result', false, 'missing'],
+      ['No failed QC', true, null],
     ])
   })
 })

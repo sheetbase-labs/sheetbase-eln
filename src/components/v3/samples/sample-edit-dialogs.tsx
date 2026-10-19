@@ -11,6 +11,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { Field, Input } from '#/components/v3/ui/input'
+import { LocationInput } from '#/components/v3/samples/location-field'
 import type { SampleRecord } from '#/lib/samples'
 import {
   parseQuantityInput,
@@ -295,10 +296,7 @@ export function ReceiveStockDialog({
             label="Location"
             hint={`Leave blank to keep ${sample.storageLocation ?? 'the current location'}.`}
           >
-            <Input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
+            <LocationInput value={location} onChange={setLocation} />
           </Field>
           <Field label="Notes">
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />

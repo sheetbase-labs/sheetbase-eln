@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import {
+  Link,
+  Outlet,
+  createFileRoute,
+  redirect,
+  useRouterState,
+} from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
@@ -148,8 +154,16 @@ export const Route = createFileRoute('/materials')({
     }
     return { context }
   },
-  component: MaterialsList,
+  component: MaterialsRoute,
 })
+
+/** The registry, or the lot page nested under it. */
+function MaterialsRoute() {
+  const isIndex = useRouterState({
+    select: (state) => state.location.pathname === '/materials',
+  })
+  return isIndex ? <MaterialsList /> : <Outlet />
+}
 
 function MaterialsList() {
   const search = Route.useSearch()
@@ -578,6 +592,15 @@ function MaterialsList() {
               </div>
             ) : null}
             <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={
+                  <Link to="/materials/$lotId" params={{ lotId: sel.uuid }} />
+                }
+              >
+                Open lot
+              </Button>
               <Button
                 variant="primary"
                 size="sm"

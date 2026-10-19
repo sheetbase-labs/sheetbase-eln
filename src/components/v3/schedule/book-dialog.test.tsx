@@ -96,6 +96,8 @@ const BOOKED: ScheduleBooking = {
   end: '16:00',
   timezone: 'UTC',
   createdByUserId: 'user-1',
+  notes: null,
+  metadataVersion: 1,
 }
 
 function renderDialog(onBooked = vi.fn()) {
@@ -383,5 +385,67 @@ describe('BookDialog', () => {
       /choose an instrument/i,
     )
     expect(rpc).not.toHaveBeenCalled()
+  })
+  it('carries the experiment and the ticked samples onto the booking', async () => {
+    rpc.mockResolvedValueOnce({
+      ...WIRE,
+      linked_experiment_record_id: 'exp-1',
+      linked_experiment_identifier: 'EXP-0145',
+      linked_experiment_title: 'Titration',
+    })
+    const user = userEvent.setup()
+    const onBooked = vi.fn()
+    render(
+      <BookDialog
+        instruments={INSTRUMENTS}
+        workspaceId="ws-1"
+        defaultDate="2026-10-12"
+        onBooked={onBooked}
+        experiment={{ id: 'exp-1', identifier: 'EXP-0145', title: 'Titration' }}
+        sampleOptions={[
+          { id: 's-1', identifier: 'SMP-1', title: 'Lysate A' },
+          { id: 's-2', identifier: 'SMP-2', title: 'Lysate B' },
+        ]}
+      />,
+    )
+
+    const dialog = await openAndFill(user)
+    // The experiment is named and links to its page.
+    expect(
+      within(dialog)
+        .getByRole('link', { name: 'EXP-0145' })
+        .getAttribute('href'),
+    ).toBe('/experiments/exp-1')
+    // Both samples start ticked; the run does not need the second one.
+    const [first, second] = within(dialog).getAllByRole('checkbox')
+    expect(first.getAttribute('aria-checked')).toBe('true')
+    await user.click(second)
+    await user.click(within(dialog).getByRole('button', { name: 'Book' }))
+
+    await vi.waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith(
+        'create_booking',
+        expect.objectContaining({
+          p_linked_experiment_record_id: 'exp-1',
+          p_samples: [
+            expect.objectContaining({
+              sampleRecordId: 's-1',
+              sampleIdentifier: 'SMP-1',
+            }),
+          ],
+        }),
+      ),
+    )
+    await vi.waitFor(() =>
+      expect(onBooked).toHaveBeenCalledWith(
+        expect.objectContaining({
+          experiment: {
+            id: 'exp-1',
+            identifier: 'EXP-0145',
+            title: 'Titration',
+          },
+        }),
+      ),
+    )
   })
 })

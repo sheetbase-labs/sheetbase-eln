@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { TableBox } from '#/components/v3/ui/table'
 import {
@@ -11,6 +12,7 @@ import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { fetchSampleMeasurements } from '#/lib/samples'
 import type { SampleMeasurement } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { samplePath } from '#/lib/navigation'
 
 /**
  * LAB-03: the sample Measurements tab is a read-only view of authoritative
@@ -88,9 +90,23 @@ function MeasurementsTab() {
         <h2 className="text-section">
           Measurements <span className="num text-fg-muted">{rows.length}</span>
         </h2>
+        <Button
+          size="sm"
+          className="ml-auto"
+          nativeButton={false}
+          render={
+            <Link
+              to="/readings/new"
+              search={{ sample: sampleId, returnTo: samplePath(sampleId) }}
+            />
+          }
+        >
+          Record reading
+        </Button>
       </div>
       <p className="m-0 -mt-4 text-label text-fg-muted">
-        Values come from datasets and QC; they can’t be typed here.
+        Values come from datasets and QC. Record reading writes into a planned
+        dataset row for this sample, and that row is the source listed below.
       </p>
 
       {rows.length ? (

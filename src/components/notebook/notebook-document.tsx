@@ -65,6 +65,8 @@ import {
   useThreads,
 } from '#/lib/collaboration/liveblocks.config'
 import { CommentButton } from '#/components/collaboration/comment-button'
+import { LiveBlockComments } from '#/components/notebook/live-block-comments'
+import { hasCapability } from '#/lib/capability'
 import { PresenceSync } from '#/components/collaboration/use-set-presence'
 import { BlockCoEditBadge } from '#/components/collaboration/presence-co-editing'
 import {
@@ -1093,6 +1095,18 @@ function NotebookDocumentContent({
                           recordId={record.id}
                           blockId={block.id}
                           role={collaborationRole}
+                        />
+                      ) : hasQueryClient && collaborationWorkspaceId ? (
+                        // No collaboration room: the same per-block discussion
+                        // runs on ordinary comment rows.
+                        <LiveBlockComments
+                          workspaceId={collaborationWorkspaceId}
+                          recordId={record.id}
+                          blockId={block.id}
+                          canComment={
+                            !record.archivedAt &&
+                            hasCapability(collaborationRole, 'record.create')
+                          }
                         />
                       ) : undefined}
                     </>

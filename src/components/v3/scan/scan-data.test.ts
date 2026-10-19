@@ -12,6 +12,7 @@ import {
 function stubClient(rows: {
   records?: Record<string, unknown>[]
   instruments?: Record<string, unknown>[]
+  datasets?: Record<string, unknown>[]
 }): DataClient {
   return {
     list: async (resource: string, query?: string) =>
@@ -23,7 +24,11 @@ function stubClient(rows: {
           ? (rows.instruments ?? []).filter((r) =>
               query?.includes(String(r.display_id)),
             )
-          : [],
+          : resource === 'datasets'
+            ? (rows.datasets ?? []).filter((r) =>
+                query?.includes(String(r.display_id)),
+              )
+            : [],
   } as unknown as DataClient
 }
 
@@ -122,5 +127,46 @@ describe('resolveScanCode', () => {
       params: { expId: 'e-1' },
     })
     expect(scanTargetActionLabel(result.hit!)).toBe('Open experiment')
+  })
+})
+
+describe('resolveScanCode other objects', () => {
+  it('finds a dataset by its display id and opens it through the resolver', async () => {
+    const result = await resolveScanCode(
+      'DS-0311',
+      stubClient({
+        datasets: [{ id: 'd-1', display_id: 'DS-0311', name: 'Titre run' }],
+      }),
+    )
+    expect(result.found).toBe(true)
+    expect(result.hit).toMatchObject({
+      kind: 'object',
+      objectKind: 'dataset',
+      title: 'Titre run',
+    })
+    expect(scanTargetActionLabel(result.hit!)).toBe('Open dataset')
+    expect(scanTargetHref(result.hit!)).toEqual({
+      to: '/r/$identifier',
+      params: { identifier: 'DS-0311' },
+    })
+  })
+
+  it('opens an experiment record through the resolver, labelled by its kind', async () => {
+    const result = await resolveScanCode(
+      'EXP-9',
+      stubClient({
+        records: [
+          {
+            id: 'e-1',
+            identifier: 'EXP-9',
+            title: 'Titration',
+            kind: 'experiment',
+            status: 'draft',
+          },
+        ],
+      }),
+    )
+    expect(scanTargetActionLabel(result.hit!)).toBe('Open experiment')
+    expect(scanTargetHref(result.hit!).to).toBe('/r/$identifier')
   })
 })

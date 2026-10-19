@@ -297,3 +297,71 @@ describe('Schedule booking cancellation', () => {
     expect(screen.getByTitle(TITLE)).toBeTruthy()
   })
 })
+
+describe('Schedule booking detail and edit', () => {
+  const TITLE = '19:00–20:30 · A colleague · Overnight digest'
+
+  it('names the experiment, links it, and edits the booking in place', async () => {
+    fake.state.bookings = [
+      bookingRow({
+        linked_experiment_record_id: 'exp-1',
+        linked_experiment_identifier: 'EXP-0145',
+        linked_experiment_title: 'Titration',
+        notes: 'Bring the plate',
+      }),
+    ]
+    const day = new Date().toISOString().slice(0, 10)
+    fake.rpc.mockResolvedValue(
+      // The RPC answers with the saved booking row.
+      bookingRow({
+        title: 'Overnight digest, later',
+        starts_at: `${day}T21:00:00.000Z`,
+        ends_at: `${day}T22:00:00.000Z`,
+        metadata_version: 2,
+        linked_experiment_record_id: 'exp-1',
+        linked_experiment_identifier: 'EXP-0145',
+        linked_experiment_title: 'Titration',
+      }) as never,
+    )
+    const user = userEvent.setup()
+    renderSchedule()
+    await user.click(await screen.findByRole('tab', { name: 'Day' }))
+    await user.click(screen.getByTitle(TITLE))
+    const dialog = await screen.findByRole('dialog')
+
+    expect(
+      within(dialog)
+        .getByRole('link', { name: 'EXP-0145' })
+        .getAttribute('href'),
+    ).toBe('/experiments/exp-1')
+    expect(within(dialog).getByText('Bring the plate')).toBeTruthy()
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Edit booking…' }),
+    )
+    const edit = (await screen.findAllByRole('dialog')).at(-1)!
+    const what = within(edit).getByLabelText(/^What/)
+    await user.clear(what)
+    await user.type(what, 'Overnight digest, later')
+    await user.click(within(edit).getByRole('button', { name: 'Save changes' }))
+
+    await vi.waitFor(() =>
+      expect(fake.rpc).toHaveBeenCalledWith(
+        'edit_booking',
+        expect.objectContaining({
+          p_booking_id: 'b-1',
+          p_title: 'Overnight digest, later',
+          p_expected_metadata_version: 1,
+        }),
+      ),
+    )
+    // The grid shows the saved booking, not the old one.
+    await vi.waitFor(() =>
+      expect(
+        screen.getByTitle(
+          '21:00–22:00 · A colleague · Overnight digest, later',
+        ),
+      ).toBeTruthy(),
+    )
+  })
+})

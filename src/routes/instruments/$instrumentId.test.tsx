@@ -413,4 +413,23 @@ describe('J-INS-09 an automated instrument that is not delivering', () => {
     expect(screen.queryByRole('link', { name: 'Upload a file' })).toBeNull()
     expect(screen.getByText(/any role except viewer/)).toBeTruthy()
   })
+
+  it('offers Upload on any instrument, with this instrument chosen', async () => {
+    automated({ status: 'committed', createdAt: new Date().toISOString() })
+    renderPage()
+
+    await screen.findByText('Next booking')
+    expect(
+      screen.getByRole('link', { name: 'Upload' }).getAttribute('href'),
+    ).toBe('/import?instrument=inst-1')
+  })
+
+  it('hides Upload from a viewer', async () => {
+    role.current = 'viewer'
+    automated({ status: 'committed', createdAt: new Date().toISOString() })
+    renderPage()
+
+    await screen.findByText('Next booking')
+    expect(screen.queryByRole('link', { name: 'Upload' })).toBeNull()
+  })
 })

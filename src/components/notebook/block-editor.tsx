@@ -67,6 +67,8 @@ import {
   searchRecords,
 } from '#/lib/scientific-records'
 import type { MaterialItem } from '#/lib/protocol-materials'
+import { StockWithdrawButton } from '#/components/notebook/stock-withdraw-button'
+import { isWithdrawn } from '#/lib/stock-withdraw'
 import { useAutosave } from './use-autosave'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import {
@@ -1681,6 +1683,18 @@ function MaterialsEditor(props: BlockEditorProps) {
                 <p className="font-mono text-xs text-fg-muted">
                   {item.identifier}
                 </p>
+                {props.readOnly && !isWithdrawn(item) ? null : (
+                  <StockWithdrawButton
+                    item={item}
+                    experimentId={block.recordId}
+                    note={item.note}
+                    onWithdrawn={(note) => {
+                      const items = [...a.draft.items]
+                      items[index] = { ...item, note }
+                      updateItems(items, true)
+                    }}
+                  />
+                )}
               </div>
               <Input
                 aria-label={`Quantity for ${item.title}`}

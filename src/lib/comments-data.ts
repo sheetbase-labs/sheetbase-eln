@@ -16,6 +16,8 @@ export type CommentTargetKind =
   | 'block'
   | 'table_region'
   | 'diff'
+  /** A live notebook with no review: the whole record, or one block of it. */
+  | 'record'
   | SheetCommentAnchor['targetKind']
 
 export interface CommentTarget {
@@ -159,6 +161,29 @@ export function createComment(
     p_revision_id: input.revisionId,
     p_target_kind: input.targetKind,
     p_target: input.target,
+    p_body: input.body,
+    p_mentions: input.mentions ?? [],
+  })
+}
+
+/**
+ * Start a thread on a live notebook, or on one of its blocks, with no review and
+ * no collaboration room. The server keeps only the mentioned ids that belong to
+ * workspace members and notifies each of them.
+ */
+export function createRecordComment(
+  client: DataClient,
+  input: {
+    recordId: string
+    blockId?: string
+    body: string
+    mentions?: string[]
+  },
+): Promise<CommentMutationResult> {
+  return client.rpc('create_record_comment', {
+    p_record_id: input.recordId,
+    p_target_kind: input.blockId ? 'block' : 'record',
+    p_target: input.blockId ? { blockId: input.blockId } : {},
     p_body: input.body,
     p_mentions: input.mentions ?? [],
   })

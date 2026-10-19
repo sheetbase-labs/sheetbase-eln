@@ -58,3 +58,20 @@ DROP TRIGGER IF EXISTS projects_apply_qa_view_default ON api.projects;
 CREATE TRIGGER projects_apply_qa_view_default
   AFTER INSERT ON api.projects
   FOR EACH ROW EXECUTE FUNCTION internal.apply_project_qa_view_default();
+--> statement-breakpoint
+
+-- The owner rule trigger (0323) already inserted the chosen group's rule
+-- unconditionally, ahead of the trigger above, so a group that includes a client
+-- user still got access. It now only grants the lead; the default group rule is
+-- applied solely by internal.apply_project_qa_view_default().
+CREATE OR REPLACE FUNCTION internal.project_owner_rule() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE principal text:=coalesce(NEW.lead_user_id,api.current_user_id());
+BEGIN
+  IF principal IS NULL THEN RETURN NEW; END IF;
+  IF NOT EXISTS(SELECT 1 FROM api.workspace_memberships m WHERE m.workspace_id=NEW.workspace_id AND m.user_id=principal AND m.suspended_at IS NULL AND m.role IN ('owner','admin','member','steward','scientist','analyst','reviewer')) THEN RAISE EXCEPTION 'Active writer lead required' USING ERRCODE='42501'; END IF;
+  INSERT INTO api.project_access(workspace_id,project_id,user_id,can_view,can_edit,can_review,can_manage,granted_by_user_id)
+    VALUES(NEW.workspace_id,NEW.id,principal,true,true,true,true,principal)
+  ON CONFLICT(workspace_id,project_id,user_id) DO UPDATE SET can_view=true,can_edit=true,can_review=true,can_manage=true,updated_at=now();
+  RETURN NEW;
+END $$;

@@ -25,6 +25,7 @@ const samples = vi.hoisted(() => ({
   disposeSample: vi.fn(),
   withdrawSample: vi.fn(),
   aliquotSample: vi.fn(),
+  fetchSampleReleaseCheckStatus: vi.fn(),
   editSample: vi.fn(),
   receiveSample: vi.fn(),
   archiveSample: vi.fn(),
@@ -136,7 +137,14 @@ vi.mock('#/lib/samples', async () => ({
   fetchSampleDerivedSamples: samples.fetchSampleDerivedSamples,
   fetchSampleMeasurements: samples.fetchSampleMeasurements,
   fetchSampleReservations: samples.fetchSampleReservations,
+  fetchSampleReleaseCheckStatus: samples.fetchSampleReleaseCheckStatus,
   sampleQueryKeys: {
+    releaseChecks: (recordId: string) => [
+      'reg-002',
+      'samples',
+      'release-checks',
+      recordId,
+    ],
     balances: (recordId: string) => [
       'reg-002',
       'samples',
@@ -278,6 +286,20 @@ beforeEach(() => {
   data.list.mockResolvedValue([
     { id: 'exp-1', identifier: 'EXP-0145', title: '50 L confirmation run' },
   ])
+  samples.fetchSampleReleaseCheckStatus.mockResolvedValue({
+    passed: false,
+    ruleCount: 1,
+    failedCount: 1,
+    checks: [
+      {
+        key: 'purity',
+        label: 'Purity result',
+        kind: 'measurement_required',
+        passed: false,
+        detail: 'measurement Purity is missing or outside the required range',
+      },
+    ],
+  })
   samples.fetchSampleDerivedSamples.mockResolvedValue([])
   samples.fetchSampleMeasurements.mockResolvedValue([])
   samples.fetchSampleReservations.mockResolvedValue([])
@@ -595,6 +617,26 @@ describe('sample aliquot and reading actions', () => {
     await screen.findByText('pAAV9-RC, lot P-117')
     const link = screen.getByText('Record reading').closest('a')
     expect(link?.getAttribute('href')).toBe('/readings/new')
+  })
+
+  it('shows the live release checks on a quarantined sample, and not otherwise', async () => {
+    samples.fetchSample.mockResolvedValue(
+      sample({
+        status: 'quarantined',
+        quarantineReason: 'Awaiting purity',
+        quarantinedAt: '2026-09-15T09:00:00.000Z',
+      }),
+    )
+    const first = renderRoute()
+    expect(await screen.findByText('Purity result')).toBeTruthy()
+    expect(screen.getByText('0 of 1 checks pass')).toBeTruthy()
+    first.unmount()
+
+    samples.fetchSample.mockResolvedValue(sample())
+    renderRoute()
+    await screen.findByText('pAAV9-RC, lot P-117')
+    expect(screen.queryByText('Purity result')).toBeNull()
+    expect(samples.fetchSampleReleaseCheckStatus).toHaveBeenCalledTimes(1)
   })
 
   it('does not offer to aliquot a sample that cannot be withdrawn', async () => {

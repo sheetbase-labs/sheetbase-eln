@@ -40,6 +40,7 @@ import {
 } from '#/components/v3/samples/sample-edit-dialogs'
 import { AliquotDialog } from '#/components/v3/samples/aliquot-dialog'
 import type { AliquotDialogInput } from '#/components/v3/samples/aliquot-dialog'
+import { ReleaseChecksPanel } from '#/components/v3/samples/release-checks-panel'
 import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
 import {
   canDisposeSample,
@@ -221,6 +222,9 @@ function SampleLayout() {
     })
     void queryClient.invalidateQueries({
       queryKey: sampleQueryKeys.reservations(sampleId),
+    })
+    void queryClient.invalidateQueries({
+      queryKey: sampleQueryKeys.releaseChecks(sampleId),
     })
   }
   const onError = (error: unknown) => {
@@ -679,6 +683,11 @@ function SampleLayout() {
           <InspectorSection title="Label">
             <SampleLabelCard record={sample} />
           </InspectorSection>
+          {state === 'quarantined' ? (
+            <InspectorSection title="Release checks">
+              <ReleaseChecksPanel sampleId={sample.id} />
+            </InspectorSection>
+          ) : null}
           <InspectorSection title="Hold time">
             <SampleHoldMeter record={sample} />
             {allowEdit ? (

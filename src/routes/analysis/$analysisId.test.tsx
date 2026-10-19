@@ -15,6 +15,7 @@ import type * as router from '@tanstack/react-router'
 import type { AnalysisViewSourceStatus } from '#/lib/analysis-studio-data'
 
 const mocks = vi.hoisted(() => ({
+  datasets: [] as Record<string, unknown>[],
   list: vi.fn(async (): Promise<unknown[]> => []),
   sourceStatus: vi.fn(async (): Promise<unknown> => null),
 }))
@@ -49,6 +50,16 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     redirect: (options: unknown) => options,
   }
 })
+
+vi.mock('#/components/v3/datasets/datasets-data', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useDatasetSummaries: () => ({ data: mocks.datasets, isLoading: false }),
+}))
+
+vi.mock('#/lib/notebook-data', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  fetchProject: async () => ({ id: 'prj-1', title: 'Clarification programme' }),
+}))
 
 vi.mock('#/lib/analysis-studio-data', () => ({
   analysisStudioDataClient: { list: mocks.list, rpc: vi.fn() },
@@ -123,6 +134,7 @@ function renderView() {
 
 beforeEach(() => {
   mocks.list.mockResolvedValue([VIEW])
+  mocks.datasets = []
 })
 
 afterEach(() => {
@@ -198,5 +210,36 @@ describe('Read-only analysis view (R5-STUDIO-03)', () => {
         /^2 records cite this analysis, so it keeps the versions it cited\./,
       ),
     ).toBeTruthy()
+  })
+
+  it('climbs from the analysis to its dataset, experiment and project', async () => {
+    mocks.sourceStatus.mockResolvedValue(sourceStatus('current'))
+    mocks.datasets = [
+      {
+        id: 'DS-0311',
+        uuid: 'ds-1',
+        projectId: 'prj-1',
+        experimentId: 'EXP-0142',
+      },
+    ]
+    renderView()
+    expect(await screen.findByText('Clarification programme')).toBeTruthy()
+    const hrefs = screen
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href'))
+    expect(hrefs).toContain('/projects/$projectId')
+    expect(hrefs).toContain('/experiments/$expId')
+    expect(hrefs).toContain('/datasets/$datasetId')
+    expect(screen.getByText('EXP-0142')).toBeTruthy()
+    expect(screen.getByText('DS-0311')).toBeTruthy()
+  })
+
+  it('keeps the Analysis list as the root when the dataset is unknown', async () => {
+    mocks.sourceStatus.mockResolvedValue(sourceStatus('current'))
+    renderView()
+    await screen.findByText('Up to date')
+    expect(
+      screen.getAllByRole('link').map((link) => link.getAttribute('href')),
+    ).toContain('/analysis')
   })
 })

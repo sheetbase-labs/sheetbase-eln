@@ -24,7 +24,7 @@ describe('canonical navigation destinations', () => {
       '/samples/sample-id',
     )
     expect(recordDestination('material', 'material-id')).toBe(
-      '/materials?selected=material-id',
+      '/materials/material-id',
     )
     expect(recordDestination('protocol_template', 'protocol-id')).toBe(
       '/templates?protocol=protocol-id',

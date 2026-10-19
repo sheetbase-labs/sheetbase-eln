@@ -27,7 +27,7 @@ function renderDialog(ui: ReactNode) {
 }
 
 describe('AmendNotebookDialog', () => {
-  it('starts an amendment with an optional note', async () => {
+  it('starts an amendment with the reason given', async () => {
     const { createAmendment, sign002DataClient } =
       await import('#/lib/sign-002')
     vi.mocked(createAmendment).mockResolvedValue({
@@ -47,13 +47,34 @@ describe('AmendNotebookDialog', () => {
         onAmended={onAmended}
       />,
     )
-    await user.type(screen.getByLabelText('Amendment note'), 'Protocol tweak')
+    await user.type(
+      screen.getByLabelText('Reason for the amendment'),
+      'Protocol tweak',
+    )
     await user.click(screen.getByRole('button', { name: 'Confirm amendment' }))
     expect(createAmendment).toHaveBeenCalledWith(sign002DataClient, {
       recordId: 'r1',
       note: 'Protocol tweak',
     })
     expect(onAmended).toHaveBeenCalled()
+  })
+
+  it('keeps the confirm action off until a reason is given', async () => {
+    const { createAmendment } = await import('#/lib/sign-002')
+    const user = userEvent.setup()
+    renderDialog(
+      <AmendNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        onAmended={vi.fn()}
+      />,
+    )
+    const confirm = screen.getByRole('button', { name: 'Confirm amendment' })
+    expect(confirm.hasAttribute('disabled')).toBe(true)
+    await user.type(screen.getByLabelText('Reason for the amendment'), '   ')
+    expect(confirm.hasAttribute('disabled')).toBe(true)
+    expect(createAmendment).not.toHaveBeenCalled()
   })
 
   it('shows the DataClientError message when amendment fails', async () => {
@@ -69,6 +90,10 @@ describe('AmendNotebookDialog', () => {
         recordId="r1"
         onAmended={vi.fn()}
       />,
+    )
+    await user.type(
+      screen.getByLabelText('Reason for the amendment'),
+      'Wrong buffer',
     )
     await user.click(screen.getByRole('button', { name: 'Confirm amendment' }))
     expect(

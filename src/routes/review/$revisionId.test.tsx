@@ -1267,12 +1267,21 @@ describe('QA-182 — the decision dialog owns its pending state', () => {
     )
     const onAfterAmendment = vi.fn(async () => {})
     render(
-      <AmendmentSection recordId="rec-1" onAfterAmendment={onAfterAmendment} />,
+      <QueryClientProvider client={new QueryClient()}>
+        <AmendmentSection
+          recordId="rec-1"
+          onAfterAmendment={onAfterAmendment}
+        />
+      </QueryClientProvider>,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Start amendment' }))
-    const dialog = await screen.findByRole('alertdialog')
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.change(
+      within(dialog).getByLabelText('Reason for the amendment'),
+      { target: { value: 'Wrong buffer recorded' } },
+    )
     fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Start amendment' }),
+      within(dialog).getByRole('button', { name: 'Confirm amendment' }),
     )
 
     expect(
@@ -1280,9 +1289,26 @@ describe('QA-182 — the decision dialog owns its pending state', () => {
     ).toBeTruthy()
     // The dialog is still on screen, nothing was recorded, and the record was
     // not reported as unlocked.
-    expect(screen.getByRole('alertdialog')).toBeTruthy()
+    expect(screen.getByRole('dialog')).toBeTruthy()
     expect(createAmendmentMock).toHaveBeenCalledTimes(1)
     expect(onAfterAmendment).not.toHaveBeenCalled()
+  })
+
+  it('will not start an amendment without a reason', async () => {
+    createAmendmentMock.mockClear()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AmendmentSection recordId="rec-1" onAfterAmendment={async () => {}} />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start amendment' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog)
+        .getByRole('button', { name: 'Confirm amendment' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    expect(createAmendmentMock).not.toHaveBeenCalled()
   })
 })
 

@@ -75,8 +75,29 @@ export type MatchedField =
   | 'relationship'
   | 'description'
 
+/**
+ * Work objects the `api.search` RPC does not index. They are found by name and
+ * identifier through `src/lib/search-work-objects.ts` and shown beside the RPC
+ * rows, so a person looking for a project, a pipeline or an analysis finds it.
+ */
+export const WORK_OBJECT_RESULT_TYPES = [
+  'project',
+  'pipeline',
+  'analysis',
+] as const
+
+export type WorkObjectResultType = (typeof WORK_OBJECT_RESULT_TYPES)[number]
+
+export function isWorkObjectResult(result: {
+  resultType: string
+}): result is { resultType: WorkObjectResultType } {
+  return (WORK_OBJECT_RESULT_TYPES as readonly string[]).includes(
+    result.resultType,
+  )
+}
+
 export interface SearchResult {
-  resultType: SearchResultType
+  resultType: SearchResultType | WorkObjectResultType
   /** Object-class identity; comment hits carry a Comment UUID, not a Record UUID. */
   recordId: string
   kind: string
@@ -94,6 +115,9 @@ export interface SearchResult {
   deepLink: string
   totalCount: number
 }
+
+/** A row the `api.search` RPC returned, as opposed to a work object. */
+export type RpcSearchResult = SearchResult & { resultType: SearchResultType }
 
 // ---------------------------------------------------------------------------
 // Filters.
@@ -141,7 +165,7 @@ export type SearchableKind = (typeof SEARCHABLE_KINDS)[number]
 // Wire → domain mapper.
 // ---------------------------------------------------------------------------
 
-export function toSearchResult(row: SearchResultWire): SearchResult {
+export function toSearchResult(row: SearchResultWire): RpcSearchResult {
   const resultType = (SEARCH_RESULT_TYPES as readonly string[]).includes(
     row.result_type,
   )
@@ -211,6 +235,9 @@ export const SEARCH_RESULT_GROUPS = [
   'Sheet and dataset rows',
   'Notebook text and comments',
   'Records',
+  'Projects',
+  'Pipelines',
+  'Analyses',
   'Files',
   'Templates',
 ] as const
@@ -222,6 +249,9 @@ export type SearchResultGroup = (typeof SEARCH_RESULT_GROUPS)[number]
  * bucket; rows and notebook text win over their owning record.
  */
 export function searchResultGroup(result: SearchResult): SearchResultGroup {
+  if (result.resultType === 'project') return 'Projects'
+  if (result.resultType === 'pipeline') return 'Pipelines'
+  if (result.resultType === 'analysis') return 'Analyses'
   if (result.resultType === 'file') return 'Files'
   if (result.resultType === 'template') return 'Templates'
   if (result.resultType === 'dataset' || result.resultType === 'sheet')
@@ -719,7 +749,7 @@ export function extractAllStrings(value: unknown): string {
 export function executeSearch(
   client: DataClient,
   filters: SearchFilters,
-): Promise<SearchResult[]> {
+): Promise<RpcSearchResult[]> {
   const args = buildSearchRpcArgs(filters)
   return client
     .rpc<SearchResultWire | SearchResultWire[]>('search', args)

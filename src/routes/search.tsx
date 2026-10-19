@@ -24,8 +24,8 @@ import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
 import type { WorkspaceMemberIdentity } from '#/components/v3/projects/project-data'
 import { cn } from '#/lib/utils'
 import {
-  executeSearch,
   filterSearchResults,
+  isWorkObjectResult,
   parseSearchDay,
   searchDidYouMean,
   searchQueryKeys,
@@ -35,6 +35,7 @@ import {
   SEARCH_RESULT_GROUPS,
 } from '#/lib/search'
 import type { SearchResult, SearchResultGroup } from '#/lib/search'
+import { executeSearchWithWorkObjects } from '#/lib/search-work-objects'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -146,15 +147,24 @@ function SearchPage() {
   )
 
   const query = useInfiniteQuery({
-    queryKey: searchQueryKeys.search(baseFilters),
+    queryKey: [...searchQueryKeys.search(baseFilters), search.type ?? []],
     queryFn: ({ pageParam }) =>
-      executeSearch(notebookDataClient, { ...baseFilters, offset: pageParam }),
+      executeSearchWithWorkObjects(
+        notebookDataClient,
+        { ...baseFilters, offset: pageParam },
+        search.type ?? [],
+      ),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
       // `.at(0)` is typed as possibly-undefined, unlike `[0]`, so the empty
       // final page ends pagination without an unsafe index read.
       const total = lastPage.at(0)?.totalCount
-      const loaded = allPages.reduce((sum, page) => sum + page.length, 0)
+      // Projects, pipelines and analyses ride on the first page only, so the
+      // service's total counts the other rows.
+      const loaded = allPages.reduce(
+        (sum, page) => sum + page.filter((r) => !isWorkObjectResult(r)).length,
+        0,
+      )
       return total !== undefined && loaded < total ? loaded : undefined
     },
     enabled: q.trim().length > 0,
@@ -164,7 +174,10 @@ function SearchPage() {
   const loaded = useMemo(() => query.data?.pages.flat() ?? [], [query.data])
   // QA3-search-2 — the service's own total, not just the page in hand, is the
   // number of matches the heading and the "All" facet state.
-  const totalCount = query.data?.pages.at(-1)?.at(0)?.totalCount
+  const rpcTotal = query.data?.pages.at(-1)?.at(0)?.totalCount
+  const workObjectCount = loaded.filter(isWorkObjectResult).length
+  const totalCount =
+    rpcTotal === undefined ? undefined : rpcTotal + workObjectCount
   // Archived is pushed to the RPC as p_include_archived (via
   // urlFiltersToSearchFilters); the remaining facets are still applied here as
   // the authoritative client filter because the RPC narrowing may be a

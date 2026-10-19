@@ -22,7 +22,6 @@ import { Highlight } from './highlight'
 import { searchResultContext, searchResultLabel } from './result-text'
 import {
   contextualSearchActions,
-  executeSearch,
   filterBySearchScope,
   groupSearchResults,
   rankByTier,
@@ -38,6 +37,7 @@ import type {
   SearchResult,
   SearchResultGroup,
 } from '#/lib/search'
+import { executeSearchWithWorkObjects } from '#/lib/search-work-objects'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /**
@@ -65,6 +65,9 @@ const GROUP_ICONS: Record<SearchResultGroup, IconName> = {
   'Sheet and dataset rows': 'table',
   'Notebook text and comments': 'comment',
   Records: 'box',
+  Projects: 'folder',
+  Pipelines: 'pipeline',
+  Analyses: 'chart',
   Files: 'download',
   Templates: 'template',
 }
@@ -148,7 +151,7 @@ export function SearchPalette({
       const generation = (searchGeneration.current += 1)
       setSearching(true)
       setError(null)
-      void executeSearch(notebookDataClient, {
+      void executeSearchWithWorkObjects(notebookDataClient, {
         query: term,
         limit: FETCH_LIMIT,
         projectId: nextScope === SEARCH_SCOPE_ALL ? undefined : nextScope,

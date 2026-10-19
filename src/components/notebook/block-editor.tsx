@@ -80,6 +80,8 @@ import type {
 } from '#/lib/notebook-action-blocks'
 import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import { SaveStatus } from './save-status'
+import { StepDeviation } from './step-deviation'
+import { isPinnedProtocolStep } from '#/lib/protocol-deviations'
 import { useUnsyncedBlock } from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
@@ -1605,6 +1607,13 @@ function ProcedureStepEditor(props: BlockEditorProps) {
           rows={2}
         />
       </Field>
+      {isPinnedProtocolStep(payload) ? (
+        <StepDeviation
+          block={block}
+          save={props.save}
+          readOnly={props.readOnly}
+        />
+      ) : null}
       <AutosaveFooter
         status={a.status}
         error={a.error}

@@ -20,12 +20,17 @@ import type * as router from '@tanstack/react-router'
 
 // The register dialog writes through the canonical RPC and the inspector reads through the data
 // client; mock only those, so the tests observe what the screen asks for.
-const { rpc, list } = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
+const { rpc, list, navigate } = vi.hoisted(() => ({
+  rpc: vi.fn(),
+  list: vi.fn(),
+  navigate: vi.fn(),
+}))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
   return {
     ...actual,
+    useNavigate: () => navigate,
     // The href is what the registry hands the browser, so the mock keeps the
     // search: a Book action that dropped the instrument would render the same
     // href as one that never carried it.
@@ -224,6 +229,13 @@ describe('R5-CONFIG-02 register instrument', () => {
       expect.objectContaining({
         p_intake_method: 'webhook',
         p_name: 'Osmometer OS-02',
+      }),
+    )
+    // Registering lands on the new instrument, not back on the list.
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith({
+        to: '/instruments/$instrumentId',
+        params: { instrumentId: 'ins-13' },
       }),
     )
   })

@@ -1,6 +1,7 @@
 /** INT-01 — register a connector (steward-gated). UI port: app-3's v3 kit. */
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -37,6 +38,7 @@ export function RegisterConnectorDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
   const [connectorType, setConnectorType] =
@@ -63,12 +65,17 @@ export function RegisterConnectorDialog({
             ? { adapter }
             : undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (created) => {
       setError(null)
       onOpenChange(false)
       setName('')
       setKey('')
       void queryClient.invalidateQueries({ queryKey: ['connectors'] })
+      // Land on the new connector, where credentials and activation are set.
+      void navigate({
+        to: '/settings/integrations/$connectorId',
+        params: { connectorId: created.id },
+      })
     },
     onError: (cause) => setError(describeConnectorsError(cause)),
   })

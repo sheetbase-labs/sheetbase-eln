@@ -190,12 +190,13 @@ function ProjectsIndexRoute() {
     mutationFn: createProject,
     // The dialog closes and the row appears, but nothing said the write landed.
     // Same feedback the bulk archive/restore already gives.
-    onSuccess: (_created, input) => {
+    onSuccess: (created, input) => {
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
       toast(`Project “${input.title}” created`)
+      // Land on the new project, not back on the list it was created from.
       void navigate({
-        to: '/projects',
-        search: (s) => ({ ...s, new: undefined }),
+        to: '/projects/$projectId',
+        params: { projectId: created.id },
       })
     },
   })

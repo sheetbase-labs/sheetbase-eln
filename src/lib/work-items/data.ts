@@ -23,6 +23,16 @@ export type WorkItemKind =
   | 'material_expiring'
   | 'cell_conflict'
   | 'approval_requested'
+  | 'review_returned'
+  | 'approval_unsigned'
+  | 'witness_signed'
+  | 'access_requested'
+  | 'access_decided'
+  | 'agent_proposal'
+  | 'invitation_accepted'
+  | 'sample_awaiting_release'
+  | 'sample_hold_exceeded'
+  | 'calibration_overdue'
   | 'following'
 export type WorkItemState =
   'needs_action' | 'following' | 'overdue' | 'done_today'
@@ -72,6 +82,16 @@ const KINDS: readonly WorkItemKind[] = [
   'material_expiring',
   'cell_conflict',
   'approval_requested',
+  'review_returned',
+  'approval_unsigned',
+  'witness_signed',
+  'access_requested',
+  'access_decided',
+  'agent_proposal',
+  'invitation_accepted',
+  'sample_awaiting_release',
+  'sample_hold_exceeded',
+  'calibration_overdue',
   'following',
 ]
 const STATES: readonly WorkItemState[] = [
@@ -247,6 +267,16 @@ export function countByKind(
     material_expiring: 0,
     cell_conflict: 0,
     approval_requested: 0,
+    review_returned: 0,
+    approval_unsigned: 0,
+    witness_signed: 0,
+    access_requested: 0,
+    access_decided: 0,
+    agent_proposal: 0,
+    invitation_accepted: 0,
+    sample_awaiting_release: 0,
+    sample_hold_exceeded: 0,
+    calibration_overdue: 0,
     following: 0,
   }
   for (const item of items) counts[item.kind] += 1

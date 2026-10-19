@@ -193,6 +193,25 @@ describe('StickyRecordHeader', () => {
     expect(items).toContain('Link records…')
   })
 
+  it('offers Duplicate only for an experiment, never for a protocol', async () => {
+    const user = userEvent.setup()
+    renderWithQuery(
+      <StickyRecordHeader
+        record={{ ...record, kind: 'protocol_template' }}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'More record actions' }),
+    )
+    const items = (await screen.findAllByRole('menuitem')).map((item) =>
+      item.textContent.trim(),
+    )
+    expect(items).not.toContain('Duplicate')
+  })
+
   it('keeps tags in the properties inspector instead of the document header', () => {
     renderWithQuery(<StickyRecordHeader record={record} projectName={null} />)
     expect(screen.queryByText('stability')).toBeNull()

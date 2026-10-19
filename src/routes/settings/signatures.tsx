@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
+
+import { safeReturnTo } from '#/lib/create-context-search'
 import { createServerFn } from '@tanstack/react-start'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -56,7 +58,11 @@ import {
 } from '#/lib/signature-certification'
 import type { SignaturePolicy } from '#/lib/signature-certification'
 import { requestSignatureCredential } from '#/lib/signatures'
-import { getWorkspaceAdmins, workspaceAdminsKey, formatAdminNames  } from '#/lib/workspace-admins'
+import {
+  getWorkspaceAdmins,
+  workspaceAdminsKey,
+  formatAdminNames,
+} from '#/lib/workspace-admins'
 
 /** UI port (roadmap-4/ui-app3): electronic signatures. You certify your own
  * signature for the workspace; owners and admins set the workspace policy.
@@ -116,6 +122,11 @@ const getSigningAvailability = createServerFn({ method: 'GET' }).handler(
 )
 
 export const Route = createFileRoute('/settings/signatures')({
+  // A page that sends someone here (to certify before signing) names where to
+  // come back to.
+  validateSearch: (search: Record<string, unknown>): { returnTo?: string } => ({
+    returnTo: safeReturnTo(search.returnTo),
+  }),
   loader: () => getSigningAvailability(),
   component: Signatures,
 })
@@ -193,6 +204,7 @@ export function VerificationPath({
 function Signatures() {
   const { context } = Route.useRouteContext()
   const { signInAvailable } = Route.useLoaderData()
+  const { returnTo } = Route.useSearch()
   const workspaceId = context.workspace?.id ?? ''
   const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
   const canVerify =
@@ -313,7 +325,16 @@ function Signatures() {
 
   return (
     <>
-      <SettingsHeader title="Electronic signatures">
+      <SettingsHeader
+        title="Electronic signatures"
+        actions={
+          returnTo ? (
+            <Button nativeButton={false} render={<Link to={returnTo} />}>
+              Back to where you were
+            </Button>
+          ) : undefined
+        }
+      >
         {context.workspace?.name ?? 'Workspace'} · signatures are a deliberate
         act; every one records who, when and what version
       </SettingsHeader>

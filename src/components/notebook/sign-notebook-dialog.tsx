@@ -33,6 +33,7 @@ import {
 } from '#/lib/signature-certification'
 import { ESignDialog } from './e-sign-dialog'
 import type { ESignSubmitInput } from './e-sign-dialog'
+import { returnToHere } from '#/lib/create-context-search'
 
 /**
  * R5-NOTE-02: the Notebook signature dialog now renders the shared
@@ -253,7 +254,11 @@ export function SignNotebookDialog({
           password. A practice signature is offered there and is not stored.
         </p>
         <p className="m-0 mt-1.5">
-          <Link to="/settings/signatures" className="underline">
+          <Link
+            to="/settings/signatures"
+            search={{ returnTo: returnToHere() }}
+            className="underline"
+          >
             Open signature settings
           </Link>
         </p>

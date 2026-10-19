@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   createFileRoute,
   Link,
@@ -18,11 +18,18 @@ import { createAdHocSheetInstance } from '#/lib/sheet-instance-data'
 import type { SheetInstanceState } from '#/lib/sheet-instance'
 import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { notebookDataClient } from '#/lib/notebook-data'
+import { cancelTarget, parseCreateContext } from '#/lib/create-context-search'
+import type { CreateContextSearch } from '#/lib/create-context-search'
 
 /** UI port (roadmap-4/ui-app3): a new, empty working sheet. A sheet lives in a
  * project, so the flow picks one; the blank sheet is created through the
  * canonical create RPC and opened at /sheets/$sheetId. */
 export const Route = createFileRoute('/sheets/new')({
+  // The shared create-context params: the project or experiment the sheet is
+  // for, and where Cancel goes back to.
+  validateSearch: (search: Record<string, unknown>): CreateContextSearch =>
+    parseCreateContext(search),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
@@ -84,12 +91,31 @@ function NewSheet() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const navigate = useNavigate()
+  const search = Route.useSearch()
   const projects = useQuery({
     queryKey: ['ui-port', 'sheets', 'new', 'projects'],
     queryFn: () => fetchProjectSummaries(undefined),
   })
-  const [projectId, setProjectId] = useState('')
+  const [projectId, setProjectId] = useState(search.project ?? '')
   const [name, setName] = useState('Untitled sheet')
+  // A sheet made for an experiment sits in that experiment's project and is
+  // attached to its notebook.
+  const forExperiment = useQuery({
+    queryKey: ['ui-port', 'sheets', 'new', 'experiment', search.experiment],
+    queryFn: () =>
+      notebookDataClient
+        .list<{ id: string; project_id: string | null }>(
+          'records',
+          `?id=eq.${encodeURIComponent(search.experiment ?? '')}&kind=eq.experiment&select=id,project_id&limit=1`,
+        )
+        .then((rows) => rows[0] ?? null),
+    enabled: Boolean(search.experiment),
+  })
+  const experimentProject = forExperiment.data?.project_id
+  useEffect(() => {
+    if (experimentProject)
+      setProjectId((current) => current || experimentProject)
+  }, [experimentProject])
 
   const create = useMutation({
     mutationFn: () =>
@@ -97,6 +123,7 @@ function NewSheet() {
         workspaceId,
         name: name.trim() || 'Untitled sheet',
         projectId,
+        notebookRecordId: forExperiment.data?.id,
         state: blankState(),
       }),
     onSuccess: (instance) => {
@@ -122,6 +149,14 @@ function NewSheet() {
       <PageHeader
         trail={[{ label: 'New' }]}
         title="New sheet"
+        actions={
+          <Button
+            nativeButton={false}
+            render={<Link to={cancelTarget(search, '/')} />}
+          >
+            Cancel
+          </Button>
+        }
         meta={
           <span>Sheets are private to a project and are never evidence.</span>
         }
@@ -160,6 +195,15 @@ function NewSheet() {
                 <Link
                   key={o.title}
                   to={o.to}
+                  search={
+                    o.to === '/import'
+                      ? {
+                          project: projectId || undefined,
+                          experiment: search.experiment,
+                          returnTo: search.returnTo,
+                        }
+                      : undefined
+                  }
                   className="flex min-h-14 gap-2.5 rounded-md border border-border bg-surface p-3 text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
                 >
                   <span className="mt-px shrink-0 text-fg-muted">

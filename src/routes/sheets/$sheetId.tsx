@@ -105,12 +105,16 @@ export function ComposedSheetRoute() {
     })
   }
   if (owningRecordId && owningRecordQuery.data) {
+    // An experiment has one page; any other owner keeps its notebook.
     trail.push({
       label: owningRecordQuery.data.title,
-      link: {
-        to: '/records/$recordId/notebook',
-        params: { recordId: owningRecordId },
-      },
+      link:
+        owningRecordQuery.data.kind === 'experiment'
+          ? { to: '/experiments/$expId', params: { expId: owningRecordId } }
+          : {
+              to: '/records/$recordId/notebook',
+              params: { recordId: owningRecordId },
+            },
     })
   }
   trail.push({ label: 'Sheet', mono: true })

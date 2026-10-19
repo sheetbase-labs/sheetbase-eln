@@ -92,6 +92,8 @@ export type ImportTargetChoice =
       name: string
       /** The signed-in person the new Dataset is attributed to. */
       createdByUserId?: string | null
+      /** The project the new Dataset belongs to (an experiment's project). */
+      primaryProjectId?: string | null
     }
 
 /**
@@ -119,6 +121,7 @@ export async function resolveImportTarget(
     schemaVersionId: choice.schemaVersionId,
     name,
     createdByUserId: choice.createdByUserId ?? null,
+    primaryProjectId: choice.primaryProjectId ?? null,
   })
   return { datasetId: created.id, created: true }
 }

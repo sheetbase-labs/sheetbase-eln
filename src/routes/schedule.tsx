@@ -135,11 +135,13 @@ export function Schedule() {
         ? `id=eq.${experiment}`
         : `identifier=eq.${encodeURIComponent(experiment ?? '')}`
       const rows = await notebookDataClient.list<{
+        id: string
         identifier: string
         title: string
+        project_id: string | null
       }>(
         'records',
-        `?${filter}&kind=eq.experiment&select=identifier,title&limit=1`,
+        `?${filter}&kind=eq.experiment&select=id,identifier,title,project_id&limit=1`,
       )
       return rows.at(0) ?? null
     },
@@ -295,6 +297,14 @@ export function Schedule() {
           defaultResourceId={book}
           defaultOpen={Boolean(book)}
           defaultTitle={bookingTitle}
+          linkedExperiment={
+            forExperiment.data
+              ? {
+                  id: forExperiment.data.id,
+                  projectId: forExperiment.data.project_id,
+                }
+              : undefined
+          }
           onCancel={() => {
             if (returnTo) void navigate({ to: returnTo })
           }}

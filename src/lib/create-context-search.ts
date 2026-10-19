@@ -45,14 +45,26 @@ export function parseCreateContext(
 }
 
 /**
- * Where Cancel goes: the page the person came from, else the project they were
- * working in, else the list the create screen belongs to.
+ * Where Cancel goes: the page the person came from, else the experiment, else
+ * the project they were working in, else the list the create screen belongs to.
  */
 export function cancelTarget(
   context: CreateContextSearch,
   fallback: string,
 ): string {
   if (context.returnTo) return context.returnTo
+  if (context.experiment)
+    return `/experiments/${encodeURIComponent(context.experiment)}`
   if (context.project) return `/projects/${encodeURIComponent(context.project)}`
   return fallback
+}
+
+/**
+ * The page the person is on, as a `returnTo` for a detour (a settings page they
+ * must visit before they can continue). Read at render time in the browser;
+ * undefined while rendering on the server.
+ */
+export function returnToHere(): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  return safeReturnTo(window.location.pathname + window.location.search)
 }

@@ -20,6 +20,7 @@ import {
   Section,
 } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import type { SignatureWire } from '#/lib/signatures'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
@@ -400,7 +401,16 @@ export function ExperimentOverview({
                   : 'Not recorded',
               ],
               ['Reviewer', reviewerId ? userLabel(reviewerId) : 'Not recorded'],
-              ['Project', projectName ?? record.projectId ?? 'Not recorded'],
+              [
+                'Project',
+                record.projectId ? (
+                  <ObjectLink kind="project" id={record.projectId} mono={false}>
+                    {projectName ?? 'Project'}
+                  </ObjectLink>
+                ) : (
+                  'Not recorded'
+                ),
+              ],
               ['Client', clientId ?? 'Not recorded'],
               [
                 'Protocol',

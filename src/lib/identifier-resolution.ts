@@ -101,3 +101,60 @@ export async function resolveIdentifierParam(
     replace: true,
   })
 }
+
+const recordKindFn = createServerFn({ method: 'POST' })
+  .validator((input: { ref: string }) => input)
+  .handler(async ({ data }): Promise<string | null> => {
+    const { getRequestHeaders } = await import('@tanstack/react-start/server')
+    const { getCurrentContext } = await import('#/lib/current-user')
+    const context = await getCurrentContext(getRequestHeaders())
+    if (!context?.workspace) return null
+    const { resolveRecordKind } =
+      await import('#/lib/identifier-resolution.server')
+    return resolveRecordKind({
+      ref: data.ref,
+      workspaceId: context.workspace.id,
+      userId: context.user.id,
+    })
+  })
+
+type ResolveRecordKind = (ref: string) => Promise<string | null>
+
+const defaultResolveKind: ResolveRecordKind = (ref) =>
+  recordKindFn({ data: { ref } })
+
+/** The experiment tab a generic record path maps to, or null when the path is
+ * not one an experiment page replaces (evidence and other tabs stay put). */
+export function experimentPathForRecordPath(
+  pathname: string,
+  search: string,
+  hash: string,
+  ref: string,
+): string | null {
+  const base = `/records/${encodeURIComponent(ref)}`
+  const rest = pathname.startsWith(base) ? pathname.slice(base.length) : null
+  if (rest === null || !(rest === '' || rest === '/' || rest === '/notebook'))
+    return null
+  return `/experiments/${encodeURIComponent(ref)}/notebook${search}${hash}`
+}
+
+/**
+ * Route `beforeLoad` helper for `/records/$recordId`: an experiment has one
+ * page, so its record URL (and the notebook tab of it) redirects there before
+ * the record route renders anything. Other kinds, and the record's other tabs,
+ * are left alone.
+ */
+export async function redirectExperimentRecord(
+  input: { ref: string; pathname: string; search: string; hash: string },
+  resolve: ResolveRecordKind = defaultResolveKind,
+): Promise<void> {
+  const to = experimentPathForRecordPath(
+    input.pathname,
+    input.search,
+    input.hash,
+    input.ref,
+  )
+  if (!to) return
+  if ((await resolve(input.ref)) !== 'experiment') return
+  throw redirect({ href: to, replace: true })
+}

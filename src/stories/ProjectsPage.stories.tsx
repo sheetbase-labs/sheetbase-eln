@@ -31,6 +31,7 @@ const meta = {
         route: screenRoutes('/projects', [
           '/projects/$projectId',
           '/records/$recordId',
+          '/experiments/$expId',
         ]),
         path: '/projects',
       },

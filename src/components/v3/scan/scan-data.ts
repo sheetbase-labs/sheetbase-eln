@@ -15,7 +15,7 @@ export interface ScanTarget {
   /** Stable public identifier, e.g. SMP-2231 or INS-0007. */
   identifier: string
   title: string
-  kind: 'sample' | 'record' | 'instrument'
+  kind: 'sample' | 'experiment' | 'record' | 'instrument'
   status: { tone: Tone; label: string }
   /** Secondary line: kind label and type/status detail. */
   line: string
@@ -62,7 +62,8 @@ export function scanKindLabel(kind: string): string {
 }
 
 function toRecordTarget(row: RecordWire): ScanTarget {
-  const kind = row.kind === 'sample' ? 'sample' : 'record'
+  const kind =
+    row.kind === 'sample' || row.kind === 'experiment' ? row.kind : 'record'
   const status = sampleStatus(row.status)
   return {
     id: row.id,
@@ -106,6 +107,8 @@ export function scanTargetHref(target: ScanTarget): {
         to: '/instruments/$instrumentId',
         params: { instrumentId: target.id },
       }
+    case 'experiment':
+      return { to: '/experiments/$expId', params: { expId: target.id } }
     default:
       return { to: '/records/$recordId', params: { recordId: target.id } }
   }
@@ -117,6 +120,8 @@ export function scanTargetActionLabel(target: ScanTarget): string {
       return 'Open sample'
     case 'instrument':
       return 'Open instrument'
+    case 'experiment':
+      return 'Open experiment'
     default:
       return 'Open record'
   }

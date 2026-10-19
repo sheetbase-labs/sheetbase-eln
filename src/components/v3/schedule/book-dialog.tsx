@@ -110,6 +110,8 @@ export interface BookingDialogProps {
   defaultOpen?: boolean
   /** A title to start from, e.g. the experiment the booking is for. */
   defaultTitle?: string
+  /** The experiment the booking is for; it is recorded on the booking. */
+  linkedExperiment?: { id: string; projectId: string | null }
   /** Called when the person dismisses the dialog without booking. */
   onCancel?: () => void
 }
@@ -122,6 +124,7 @@ export function BookDialog({
   defaultResourceId,
   defaultOpen,
   defaultTitle,
+  linkedExperiment,
   onCancel,
 }: BookingDialogProps) {
   const [open, setOpen] = useState(defaultOpen ?? false)
@@ -216,6 +219,8 @@ export function BookDialog({
         startsAt,
         endsAt,
         timezone,
+        linkedExperimentRecordId: linkedExperiment?.id,
+        projectId: linkedExperiment?.projectId,
       })
       onBooked(booking)
       setOpen(false)

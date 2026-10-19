@@ -225,18 +225,34 @@ function ProtocolPage() {
         ]}
         title={p.title}
         actions={
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={
-              <Link
-                to="/records/$recordId/notebook"
-                params={{ recordId: p.id }}
-              />
-            }
-          >
-            Open working document
-          </Button>
+          <>
+            <Button
+              nativeButton={false}
+              render={
+                <Link
+                  to="/experiments/new"
+                  search={{
+                    protocol: p.id,
+                    returnTo: `/protocols/${encodeURIComponent(p.id)}`,
+                  }}
+                />
+              }
+            >
+              Start an experiment
+            </Button>
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/records/$recordId/notebook"
+                  params={{ recordId: p.id }}
+                />
+              }
+            >
+              Open working document
+            </Button>
+          </>
         }
         meta={
           <>

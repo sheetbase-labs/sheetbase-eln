@@ -110,6 +110,13 @@ function renderScreen() {
   )
 }
 
+describe('protocol header', () => {
+  it('offers to start an experiment from this protocol', async () => {
+    renderScreen()
+    expect(await screen.findByText('Start an experiment')).toBeTruthy()
+  })
+})
+
 describe('protocol training tab', () => {
   it('records acknowledgement against the frozen version, not the record', async () => {
     renderScreen()

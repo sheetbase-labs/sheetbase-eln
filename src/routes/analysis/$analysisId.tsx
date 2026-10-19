@@ -26,6 +26,8 @@ import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import { CitationList } from '#/components/viz/citation-list'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { useDatasetSummaries } from '#/components/v3/datasets/datasets-data'
+import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
 
 /** UI port (roadmap-4/ui-app3): a saved analysis view, rebuilt from its stored
  * ChartSpec and the current source dataset. The studio at /analysis is the
@@ -92,6 +94,20 @@ function AnalysisView() {
     enabled: Boolean(view),
     staleTime: 5_000,
   })
+  // Where the analysis sits, for the trail: the dataset it draws on, the
+  // experiment that made it and that experiment's project.
+  const summaries = useDatasetSummaries()
+  const sourceId = view ? specSourceDatasetId(view.spec) : null
+  const source = summaries.data?.find((d) => d.uuid === sourceId) ?? null
+  const sourceProjectId = source?.projectId ?? null
+  const sourceProject = useQuery({
+    queryKey: ['ui-port', 'analysis', 'source-project', sourceProjectId ?? ''],
+    queryFn: () =>
+      sourceProjectId
+        ? fetchProject(notebookDataClient, sourceProjectId)
+        : null,
+    enabled: Boolean(sourceProjectId),
+  })
   const status = statusQuery.data ?? null
   const movedSources =
     status?.sources.filter((item) => item.status !== 'current') ?? []
@@ -135,7 +151,41 @@ function AnalysisView() {
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
           trail={[
-            { label: 'Analysis', link: { to: '/analysis' } },
+            ...(source
+              ? [
+                  ...(sourceProjectId
+                    ? [
+                        {
+                          label: sourceProject.data?.title ?? 'Project',
+                          link: {
+                            to: '/projects/$projectId' as const,
+                            params: { projectId: sourceProjectId },
+                          },
+                        },
+                      ]
+                    : []),
+                  ...(source.experimentId
+                    ? [
+                        {
+                          label: source.experimentId,
+                          mono: true,
+                          link: {
+                            to: '/experiments/$expId' as const,
+                            params: { expId: source.experimentId },
+                          },
+                        },
+                      ]
+                    : []),
+                  {
+                    label: source.id,
+                    mono: true,
+                    link: {
+                      to: '/datasets/$datasetId' as const,
+                      params: { datasetId: source.uuid },
+                    },
+                  },
+                ]
+              : [{ label: 'Analysis', link: { to: '/analysis' as const } }]),
             { label: view.display_id ?? `v${view.version}`, mono: true },
           ]}
           title={view.name}

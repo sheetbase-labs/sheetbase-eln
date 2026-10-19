@@ -182,6 +182,8 @@ import {
 } from '#/components/shortcuts/shortcut-provider'
 import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
+import { ObjectLink } from '#/components/v3/ui/object-link'
+import { returnToHere } from '#/lib/create-context-search'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
@@ -934,7 +936,15 @@ export function WorkspaceHeader({
             {record?.title ?? 'Untitled record'}
           </h1>
           <p className="truncate font-mono text-xs text-muted-foreground">
-            {record?.identifier ?? revision?.id}
+            {record?.identifier && recordId ? (
+              <ObjectLink
+                kind={record.kind === 'experiment' ? 'experiment' : 'record'}
+                id={recordId}
+                identifier={record.identifier}
+              />
+            ) : (
+              (record?.identifier ?? revision?.id)
+            )}
           </p>
           {/* NOTE-04: from the submit flow's success state, the working
               Notebook and the frozen evidence view must both stay reachable —
@@ -2555,7 +2565,11 @@ export function SignaturePanel({
             <p className="text-xs text-warning-text">
               Certification is required before you can sign. An uncertified
               signature is not accepted — certify in{' '}
-              <Link to="/settings/signatures" className="underline">
+              <Link
+                to="/settings/signatures"
+                search={{ returnTo: returnToHere() }}
+                className="underline"
+              >
                 Settings → Electronic signatures
               </Link>
               .

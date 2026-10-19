@@ -56,3 +56,23 @@ export function cancelTarget(
   if (context.project) return `/projects/${encodeURIComponent(context.project)}`
   return fallback
 }
+
+/**
+ * The page to return to, carrying what the detour made. A model created on the
+ * way back to "new dataset" returns to that screen with `model=<id>`, so the
+ * form opens on it and nothing is chosen twice. Anything already in the return
+ * path's search is kept; a value the path already names is replaced.
+ */
+export function returnWithContext(
+  returnTo: string,
+  made: Partial<Omit<CreateContextSearch, 'returnTo'>>,
+): string {
+  const safe = safeReturnTo(returnTo)
+  if (!safe) return returnTo
+  const url = new URL(safe, 'https://return.invalid')
+  for (const key of KEYS) {
+    const value = made[key]
+    if (value) url.searchParams.set(key, value)
+  }
+  return `${url.pathname}${url.search}${url.hash}`
+}

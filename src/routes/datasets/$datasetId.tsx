@@ -151,7 +151,11 @@ function DatasetLayout() {
                   render={
                     <Link
                       to="/analysis/new"
-                      search={{ mode: 'analyse', dataset: dataset.uuid }}
+                      search={{
+                        mode: 'analyse',
+                        dataset: dataset.uuid,
+                        returnTo: `/datasets/${dataset.uuid}`,
+                      }}
                     />
                   }
                 >

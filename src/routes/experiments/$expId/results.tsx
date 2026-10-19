@@ -174,6 +174,7 @@ function ResultsTab() {
             mode: 'chart',
             dataset: row.original.id,
             experiment: expId,
+            returnTo: `/experiments/${expId}/results`,
           }}
           className="text-link"
         >
@@ -214,7 +215,11 @@ function ResultsTab() {
                 render={
                   <Link
                     to="/analysis/new"
-                    search={{ mode: 'chart', experiment: expId }}
+                    search={{
+                      mode: 'chart',
+                      experiment: expId,
+                      returnTo: `/experiments/${expId}/results`,
+                    }}
                   />
                 }
               >

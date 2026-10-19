@@ -11,30 +11,38 @@ import { DataClientError } from '#/lib/data-client'
  * RPC's `schema.edit` requirement), and what a create does afterwards. The
  * dialog's own validation lives in its component test. */
 const { navigate, toast, createDatasetSchemaDefinition, ctx, seen, rows } =
-  vi.hoisted(() => ({
-    navigate: vi.fn(async () => undefined),
-    toast: Object.assign(vi.fn(), { error: vi.fn() }),
-    createDatasetSchemaDefinition: vi.fn(async () => ({
-      schema_definition_id: 'def-new',
-      schema_version_id: 'ver-new',
-    })),
-    ctx: {
-      value: {
-        user: { id: 'user-1', name: 'Gareth P.', email: 'g@test.invalid' },
-        workspace: { id: 'ws-1', slug: 'dev', name: 'Dev', role: 'owner' },
+  vi.hoisted(() => {
+    const searchDefault: { create?: true; returnTo?: string } = {}
+    return {
+      navigate: vi.fn(async () => undefined),
+      toast: Object.assign(vi.fn(), { error: vi.fn() }),
+      createDatasetSchemaDefinition: vi.fn(async () => ({
+        schema_definition_id: 'def-new',
+        schema_version_id: 'ver-new',
+      })),
+      ctx: {
+        value: {
+          user: { id: 'user-1', name: 'Gareth P.', email: 'g@test.invalid' },
+          workspace: { id: 'ws-1', slug: 'dev', name: 'Dev', role: 'owner' },
+        },
       },
-    },
-    seen: { dialog: null as null | Record<string, unknown> },
-    rows: { value: [] as ModelRow[] },
-  }))
+      seen: {
+        dialog: null as null | Record<string, unknown>,
+        search: searchDefault,
+      },
+      rows: { value: [] as ModelRow[] },
+    }
+  })
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useRouteContext: () => ({ context: ctx.value }),
-    useSearch: () => ({}),
+    useSearch: () => seen.search,
     options: config,
   }),
-  Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
+  Link: ({ children, to }: { children?: React.ReactNode; to?: unknown }) => (
+    <a href={typeof to === 'string' ? to : '#'}>{children}</a>
+  ),
   Outlet: () => <div data-testid="outlet" />,
   redirect: (options: unknown) => options,
   useNavigate: () => navigate,
@@ -94,6 +102,7 @@ beforeEach(() => {
   vi.resetAllMocks()
   ctx.value.workspace.role = 'owner'
   seen.dialog = null
+  seen.search = {}
   rows.value = [model()]
 })
 
@@ -198,5 +207,44 @@ describe('models route create flow', () => {
     )
     expect(seen.dialog?.open).toBe(true)
     expect(navigate).not.toHaveBeenCalled()
+  })
+})
+
+describe('models route detours (Phase 4)', () => {
+  it('opens the create dialog when a page sends the person here to make a model', () => {
+    seen.search = { create: true, returnTo: '/datasets/new' }
+    renderRoute()
+    expect(seen.dialog?.open).toBe(true)
+  })
+
+  it('does not open the dialog for a role that cannot create', () => {
+    ctx.value.workspace.role = 'member'
+    seen.search = { create: true }
+    renderRoute()
+    expect(seen.dialog?.open).toBeFalsy()
+  })
+
+  it('offers the way back after creating, carrying the new model', async () => {
+    seen.search = { returnTo: '/datasets/new' }
+    renderRoute()
+    expect(
+      screen.getByRole('link', { name: 'Back to what you were doing' }),
+    ).toBeTruthy()
+    await act(async () => {
+      screen.getByRole('button', { name: 'New model' }).click()
+    })
+    const onCreate = seen.dialog?.onCreate as (input: unknown) => void
+    await act(async () => {
+      onCreate({ key: 'reading', name: 'Reading', description: null })
+    })
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    const options = toast.mock.calls[0][1] as {
+      action: { label: string; onClick: () => void }
+    }
+    expect(options.action.label).toBe('Back to what you were doing')
+    options.action.onClick()
+    expect(navigate).toHaveBeenLastCalledWith({
+      to: '/datasets/new?model=def-new',
+    })
   })
 })

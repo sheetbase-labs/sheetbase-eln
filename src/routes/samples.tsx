@@ -233,7 +233,7 @@ function SamplesList() {
       // Land on the new sample, not back on the list it was registered from.
       void navigate({
         to: '/samples/$sampleId',
-        params: { sampleId: created.uuid },
+        params: { sampleId: created.id },
       })
     },
   })

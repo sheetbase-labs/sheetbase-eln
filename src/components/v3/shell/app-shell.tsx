@@ -58,6 +58,7 @@ import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
+import { ContextHelp } from '#/components/v3/help/context-help'
 import { authClient } from '#/lib/auth-client'
 import { Notice } from '#/components/v3/ui/alert'
 
@@ -470,6 +471,7 @@ function TopBar({
         </button>
       </div>
       <NewMenu open={createOpen} onOpenChange={onCreateOpenChange} />
+      <ContextHelp />
       <Notifications
         items={data.notifications}
         unreadIds={unreadIds}

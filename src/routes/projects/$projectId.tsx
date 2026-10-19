@@ -18,6 +18,7 @@ import {
   useProjectRecordCount,
 } from '#/components/v3/projects/project-lists'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { useRecentViewTracking } from '#/lib/recents'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -131,6 +132,7 @@ function ProjectLayout() {
         }
         actions={
           <>
+            <FavouriteToggle kind="project" objectId={project.id} />
             {project.archivedAt ? null : (
               <Button
                 variant="primary"

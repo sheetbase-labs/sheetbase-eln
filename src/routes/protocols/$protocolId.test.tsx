@@ -56,6 +56,12 @@ vi.mock('#/lib/notebook-data', () => ({
   fetchLinksForRecord: async () => [],
 }))
 
+vi.mock('#/lib/recents', () => ({ useRecentViewTracking: () => undefined }))
+
+vi.mock('#/components/favourites/favourite-toggle', () => ({
+  FavouriteToggle: () => null,
+}))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id }),
 }))

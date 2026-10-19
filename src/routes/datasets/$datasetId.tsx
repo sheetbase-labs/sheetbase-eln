@@ -20,7 +20,9 @@ import type { DatasetDetailTab } from '#/components/v3/datasets/dataset-detail-t
 import { DatasetHistoryTab } from '#/components/v3/datasets/dataset-history-tab'
 import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
 import { DatasetUsedByTab } from '#/components/v3/datasets/dataset-used-by-tab'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { useRecentViewTracking } from '#/lib/recents'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -81,6 +83,7 @@ function DatasetLayout() {
   const summaries = useDatasetSummaries()
   const versions = useDatasetVersions(datasetId)
   const dataset = summaries.data?.find((d) => d.uuid === datasetId)
+  useRecentViewTracking('dataset', dataset?.uuid)
 
   if (!dataset) {
     return (
@@ -131,35 +134,38 @@ function DatasetLayout() {
           </>
         }
         actions={
-          exportable ? (
-            <>
-              <Button
-                nativeButton={false}
-                icon="download"
-                render={
-                  <a
-                    href={`/api/export/dataset/${dataset.uuid}?format=csv`}
-                    aria-label={`Download ${dataset.name} as CSV`}
-                  />
-                }
-              >
-                Download CSV
-              </Button>
-              {isRows ? (
+          <>
+            <FavouriteToggle kind="dataset" objectId={dataset.uuid} />
+            {exportable ? (
+              <>
                 <Button
                   nativeButton={false}
+                  icon="download"
                   render={
-                    <Link
-                      to="/analysis/new"
-                      search={{ mode: 'analyse', dataset: dataset.uuid }}
+                    <a
+                      href={`/api/export/dataset/${dataset.uuid}?format=csv`}
+                      aria-label={`Download ${dataset.name} as CSV`}
                     />
                   }
                 >
-                  Analyse
+                  Download CSV
                 </Button>
-              ) : null}
-            </>
-          ) : undefined
+                {isRows ? (
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/analysis/new"
+                        search={{ mode: 'analyse', dataset: dataset.uuid }}
+                      />
+                    }
+                  >
+                    Analyse
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+          </>
         }
         tabs={
           <Tabs

@@ -8,7 +8,9 @@ import { Tabs } from '#/components/v3/ui/tabs'
 import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { Button } from '#/components/v3/ui/button'
+import { useRecentViewTracking } from '#/lib/recents'
 import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { TableBox } from '#/components/v3/ui/table'
@@ -96,6 +98,7 @@ function ProtocolPage() {
     ...(revisions.data ?? []).map((r) => r.created_by_user_id),
   ])
   const p = record.data
+  useRecentViewTracking('record', p?.kind === 'protocol_template' ? p.id : null)
 
   if (!p || p.kind !== 'protocol_template') {
     return (
@@ -225,18 +228,21 @@ function ProtocolPage() {
         ]}
         title={p.title}
         actions={
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={
-              <Link
-                to="/records/$recordId/notebook"
-                params={{ recordId: p.id }}
-              />
-            }
-          >
-            Open working document
-          </Button>
+          <>
+            <FavouriteToggle kind="record" objectId={p.id} />
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/records/$recordId/notebook"
+                  params={{ recordId: p.id }}
+                />
+              }
+            >
+              Open working document
+            </Button>
+          </>
         }
         meta={
           <>

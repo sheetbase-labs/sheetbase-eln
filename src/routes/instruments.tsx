@@ -5,6 +5,7 @@ import {
   Outlet,
   createFileRoute,
   redirect,
+  useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -949,6 +950,7 @@ export function RegisterInstrument({
   ownerId: string
 }) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [tried, setTried] = useState(false)
   // A refusal usually belongs to the form, not to one field: only a serial clash is
@@ -1017,6 +1019,11 @@ export function RegisterInstrument({
               : f.method === 'manual'
                 ? `Created ${row.displayId ?? 'the instrument'}. Readings are typed in and carry who entered them.`
                 : `Created ${row.displayId ?? 'the instrument'}. No data will arrive until you connect it.`,
+      })
+      // Land on the new instrument, where parser, calibration and intake are set up.
+      void navigate({
+        to: '/instruments/$instrumentId',
+        params: { instrumentId: row.id },
       })
     },
     onError: (e) => {

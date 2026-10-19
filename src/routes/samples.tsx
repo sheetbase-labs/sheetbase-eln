@@ -227,12 +227,13 @@ function SamplesList() {
           storageLocation: input.storageLocation,
         },
       }),
-    onSuccess: () => {
+    onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: sampleListQueryKeys.page })
       toast('Sample registered')
+      // Land on the new sample, not back on the list it was registered from.
       void navigate({
-        to: '/samples',
-        search: (s) => ({ ...s, new: undefined }),
+        to: '/samples/$sampleId',
+        params: { sampleId: created.uuid },
       })
     },
   })

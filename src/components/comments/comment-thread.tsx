@@ -6,6 +6,9 @@ import { Avatar } from '#/components/v3/ui/avatar'
 import { Badge } from '#/components/v3/ui/badge'
 import { Button } from '#/components/v3/ui/button'
 import type { CommentTargetKind, CommentWire } from '#/lib/comments-data'
+import type { MentionCandidate } from '#/lib/mentions'
+
+import { MentionTextarea } from './mention-textarea'
 
 /**
  * REV-004: a single anchored comment thread with replies, a reply composer,
@@ -26,11 +29,16 @@ export interface CommentThreadProps {
   onReopen: (commentId: string) => Promise<void>
   pendingReplyId?: string | null
   targetUnavailable?: boolean
+  /** Display names by user id, so another author is named rather than "Reviewer". */
+  names?: Record<string, string>
+  /** Members a reply can @mention; with none, the reply box is plain text. */
+  mentionCandidates?: readonly MentionCandidate[]
 }
 
 const TARGET_KIND_LABEL: Record<CommentTargetKind, string> = {
   revision: 'Whole revision',
   block: 'Block',
+  record: 'Whole notebook',
   table_region: 'Table region',
   diff: 'Diff',
   sheet_cell: 'Sheet cell',
@@ -42,12 +50,13 @@ function authorLabel(
   authorUserId: string | null,
   currentUserId: string | null,
   currentUserName: string,
+  names?: Record<string, string>,
 ): string {
   if (authorUserId === null) return 'Deleted user'
   if (currentUserId !== null && authorUserId === currentUserId) {
     return currentUserName
   }
-  return 'Reviewer'
+  return names?.[authorUserId] ?? 'Reviewer'
 }
 
 function describeTarget(
@@ -55,6 +64,7 @@ function describeTarget(
   target: CommentWire['target'],
 ): string {
   if (kind === 'revision') return TARGET_KIND_LABEL.revision
+  if (kind === 'record') return TARGET_KIND_LABEL.record
   if (kind === 'block')
     return `${TARGET_KIND_LABEL.block} ${target.blockId ?? ''}`.trim()
   if (kind === 'sheet_cell' || kind === 'sheet_row' || kind === 'sheet_range') {
@@ -86,15 +96,18 @@ function CommentRow({
   comment,
   currentUserId,
   currentUserName,
+  names,
 }: {
   comment: CommentWire
   currentUserId: string | null
   currentUserName: string
+  names?: Record<string, string>
 }) {
   const label = authorLabel(
     comment.author_user_id,
     currentUserId,
     currentUserName,
+    names,
   )
   const deleted = comment.author_user_id === null
   return (
@@ -136,6 +149,8 @@ export function CommentThread({
   onReopen,
   pendingReplyId,
   targetUnavailable = false,
+  names,
+  mentionCandidates = [],
 }: CommentThreadProps) {
   const [replyBody, setReplyBody] = React.useState('')
   const [showReply, setShowReply] = React.useState(false)
@@ -179,6 +194,7 @@ export function CommentThread({
         comment={root}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
+        names={names}
       />
 
       {replies.length > 0 ? (
@@ -194,6 +210,7 @@ export function CommentThread({
                   comment={reply}
                   currentUserId={currentUserId}
                   currentUserName={currentUserName}
+                  names={names}
                 />
               </li>
             ))}
@@ -239,11 +256,12 @@ export function CommentThread({
 
       {showReply && canComment ? (
         <form onSubmit={handleReply} className="space-y-2 pl-5">
-          <textarea
+          <MentionTextarea
             className="min-h-[60px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
             placeholder="Write a reply…"
             value={replyBody}
-            onChange={(event) => setReplyBody(event.target.value)}
+            onChange={setReplyBody}
+            candidates={mentionCandidates}
             aria-label="Reply body"
           />
           <div className="flex items-center gap-2">

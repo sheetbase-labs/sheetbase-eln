@@ -234,6 +234,7 @@ const COMMENT_TARGET_LABELS: Record<CommentTargetKind, string> = {
   block: 'a block in the frozen revision',
   table_region: 'a region of a scientific table',
   diff: 'a change in this comparison',
+  record: 'the whole notebook',
   sheet_cell: 'a frozen Sheet cell',
   sheet_row: 'a frozen Sheet row',
   sheet_range: 'a frozen Sheet range',

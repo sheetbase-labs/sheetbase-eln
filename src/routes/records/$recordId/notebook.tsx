@@ -746,6 +746,7 @@ export function RecordNotebookPage({
               ownerName={context.user.name}
               currentUserId={context.user.id}
               currentUserName={context.user.name}
+              workspaceId={context.workspace?.id}
               links={links}
               linksLoading={linksQuery.isLoading}
               blocks={blocks}
@@ -2942,6 +2943,7 @@ export function NotebookInspector({
   ownerName,
   currentUserId,
   currentUserName,
+  workspaceId,
   links,
   linksLoading,
   blocks,
@@ -2970,6 +2972,8 @@ export function NotebookInspector({
   ownerName?: string | null
   currentUserId?: string | null
   currentUserName?: string
+  /** Names the people on comments and offers them for @mentions. */
+  workspaceId?: string
   links: NotebookLink[]
   linksLoading: boolean
   blocks?: NotebookBlockDomain[]
@@ -3252,6 +3256,7 @@ export function NotebookInspector({
       ) : (
         <CommentPanel
           recordId={record.id}
+          workspaceId={workspaceId}
           currentUserId={currentUserId ?? null}
           currentUserName={currentUserName ?? 'Reviewer'}
           canComment={canEditMetadata && !record.archivedAt}

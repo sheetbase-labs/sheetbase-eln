@@ -29,7 +29,7 @@ DECLARE
 BEGIN
   SELECT * INTO v_row FROM api.protocol_deviations WHERE id = p_deviation_id FOR UPDATE;
   IF v_row.id IS NULL OR v_row.workspace_id IS DISTINCT FROM api.current_workspace_id()
-    OR NOT api.is_workspace_member(v_row.workspace_id) THEN
+    OR NOT api.is_workspace_writer(v_row.workspace_id) THEN
     RAISE EXCEPTION 'deviation not found' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO v_record FROM api.records WHERE id = v_row.record_id;

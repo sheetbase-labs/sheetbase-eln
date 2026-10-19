@@ -12,8 +12,7 @@ DECLARE
   v_name text := btrim(coalesce(p_name, ''));
 BEGIN
   SELECT * INTO v_row FROM api.sheet_instances WHERE id = p_instance_id FOR UPDATE;
-  IF v_row.id IS NULL OR NOT api.is_workspace_member(v_row.workspace_id)
-    OR NOT api.is_workspace_writer(v_row.workspace_id) THEN
+  IF v_row.id IS NULL OR NOT api.is_workspace_writer(v_row.workspace_id) THEN
     RAISE EXCEPTION 'workspace writer required' USING ERRCODE = '42501';
   END IF;
   IF v_row.lifecycle <> 'active' THEN

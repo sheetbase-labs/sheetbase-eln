@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as notebookData from '#/lib/notebook-data'
 
+import { bookInstrument } from './schedule-data'
+
 const rpc = vi.hoisted(() => vi.fn())
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal<typeof notebookData>()),
   notebookDataClient: { rpc, list: vi.fn(async () => []) },
 }))
-
-import { bookInstrument } from './schedule-data'
 
 const wire = {
   id: 'b-1',

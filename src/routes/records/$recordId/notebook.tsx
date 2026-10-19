@@ -39,6 +39,7 @@ import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import { NotebookPrintStyles } from '#/components/notebook/print-notebook'
 import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
+import { reopenTaskFromSearch } from '#/lib/return-to'
 import { NotebookDocument } from '#/components/notebook'
 import type { SaveResult } from '#/components/notebook'
 import {
@@ -1092,6 +1093,28 @@ export function StickyRecordHeader({
     !record.archivedAt &&
     (reviewActivity === 'approved' || Boolean(lockedAt && lockedByRevisionId))
   const evidenceRevisionId = reviewRevisionId
+
+  // Coming back from a detour (certifying a signature, for one) reopens the
+  // dialog the person left, instead of leaving them to find the button again.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const task = reopenTaskFromSearch(
+      Object.fromEntries(new URLSearchParams(window.location.search)),
+    )
+    if (!task) return
+    if (task === 'submit' && !canSubmit) return
+    if (task === 'sign' && !canSign) return
+    if (task === 'submit') setSubmitOpen(true)
+    else setSignOpen(true)
+    void navigate({
+      to: '.',
+      search: (previous: Record<string, unknown>) => ({
+        ...previous,
+        reopen: undefined,
+      }),
+      replace: true,
+    } as never)
+  }, [canSubmit, canSign, navigate])
 
   const linkRecords = useMutation({
     mutationFn: (items: PickerItem[]) =>

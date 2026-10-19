@@ -226,6 +226,37 @@ describe('StickyRecordHeader', () => {
   })
 })
 
+describe('StickyRecordHeader reopens the task the person left', () => {
+  afterEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('opens the Submit dialog on return from certifying a signature', async () => {
+    window.history.replaceState(null, '', '/records/r1?reopen=submit')
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    expect(await screen.findByRole('group', { name: 'Readiness' })).toBeTruthy()
+  })
+
+  it('leaves the dialog closed when nothing was left open', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    expect(screen.queryByRole('group', { name: 'Readiness' })).toBeNull()
+  })
+})
+
 describe('ArchivedBanner', () => {
   it('announces the archived, read-only state', () => {
     render(<ArchivedBanner />)

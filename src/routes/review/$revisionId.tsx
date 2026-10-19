@@ -183,6 +183,7 @@ import {
 import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { returnToHere } from '#/lib/return-to'
 
 /**
  * UI port (roadmap-4/ui-app3): the route renders inside app-3's shell, so the
@@ -2555,7 +2556,11 @@ export function SignaturePanel({
             <p className="text-xs text-warning-text">
               Certification is required before you can sign. An uncertified
               signature is not accepted — certify in{' '}
-              <Link to="/settings/signatures" className="underline">
+              <Link
+                to="/settings/signatures"
+                search={{ returnTo: returnToHere() }}
+                className="underline"
+              >
                 Settings → Electronic signatures
               </Link>
               .

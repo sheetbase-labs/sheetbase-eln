@@ -1,3 +1,4 @@
+import { returnToHere } from '#/lib/return-to'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
@@ -555,7 +556,11 @@ export function SubmitNotebookDialog({
                     above, which needs no signature.
                   </p>
                   <p className="m-0 mt-1.5">
-                    <Link to="/settings/signatures" className="underline">
+                    <Link
+                      to="/settings/signatures"
+                      search={{ returnTo: returnToHere('submit') }}
+                      className="underline"
+                    >
                       Open signature settings
                     </Link>
                   </p>

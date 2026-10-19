@@ -13,10 +13,12 @@ import { Route } from './signatures'
 
 const mocks = vi.hoisted(() => {
   const certifications: WorkspaceCertification[] = []
+  const searchDefault: { returnTo?: string } = {}
   return {
     certifications,
     role: 'owner',
     signInAvailable: true,
+    search: searchDefault,
     certify: vi.fn(),
     practice: vi.fn(),
     verify: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock('@tanstack/react-router', () => ({
       },
     }),
     useLoaderData: () => ({ signInAvailable: mocks.signInAvailable }),
+    useSearch: () => mocks.search,
   }),
 }))
 vi.mock('#/lib/signature-certification', async (importOriginal) => ({
@@ -109,6 +112,7 @@ beforeEach(() => {
   mocks.role = 'owner'
   mocks.admins = []
   mocks.signInAvailable = true
+  mocks.search = {}
   mocks.certifications = [certification('me', 'Ada Lovelace')]
   for (const mutation of [
     mocks.certify,
@@ -402,5 +406,51 @@ describe('REV-03 signature settings', () => {
     renderRoute()
     await screen.findByText(/Grace Hopper/)
     expect(screen.queryByText(/Nobody can verify you yet/)).toBeNull()
+  })
+})
+
+describe('returning to the task that sent the person here', () => {
+  it('offers no way back when nothing sent the person here', async () => {
+    renderRoute()
+    await screen.findByRole('button', { name: 'Certify signature' })
+    expect(screen.queryByText(/Back to/)).toBeNull()
+  })
+
+  it('names the task that was left and links back to it while still uncertified', async () => {
+    mocks.search = { returnTo: '/records/r1?reopen=submit' }
+    renderRoute()
+    await screen.findByText('You came here to certify')
+    const back = screen.getByRole('link', { name: 'Back to Submit' })
+    expect(back.getAttribute('href')).toBe('/records/r1?reopen=submit')
+  })
+
+  it('says the task can go ahead once the signature is certified', async () => {
+    mocks.search = { returnTo: '/records/r1?reopen=sign' }
+    mocks.certifications = [
+      certification('me', 'Ada Lovelace', {
+        identityVerifiedAt: '2026-10-04T12:00:00Z',
+        identityVerifiedBy: 'admin',
+        verifiedEmail: 'ada@sheetbase.test',
+        certifiedAt: '2026-10-04T12:01:00Z',
+        statementVersion: 1,
+        authMethod: 'password',
+      }),
+    ]
+    renderRoute()
+    await screen.findByText('You can sign now')
+    expect(
+      screen.getByRole('link', { name: 'Back to Sign' }).getAttribute('href'),
+    ).toBe('/records/r1?reopen=sign')
+  })
+
+  it('refuses a return path that leaves the app', () => {
+    const validate = Route.options.validateSearch as (
+      search: Record<string, unknown>,
+    ) => { returnTo?: string }
+    expect(validate({ returnTo: 'https://example.com' })).toEqual({})
+    expect(validate({ returnTo: '//example.com' })).toEqual({})
+    expect(validate({ returnTo: '/records/r1' })).toEqual({
+      returnTo: '/records/r1',
+    })
   })
 })

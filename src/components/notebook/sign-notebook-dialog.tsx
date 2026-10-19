@@ -1,3 +1,4 @@
+import { returnToHere } from '#/lib/return-to'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -253,7 +254,11 @@ export function SignNotebookDialog({
           password. A practice signature is offered there and is not stored.
         </p>
         <p className="m-0 mt-1.5">
-          <Link to="/settings/signatures" className="underline">
+          <Link
+            to="/settings/signatures"
+            search={{ returnTo: returnToHere('sign') }}
+            className="underline"
+          >
             Open signature settings
           </Link>
         </p>

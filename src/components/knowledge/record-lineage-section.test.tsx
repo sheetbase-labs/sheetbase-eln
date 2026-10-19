@@ -116,7 +116,7 @@ describe('RecordLineageList', () => {
     ).toBe('/samples/up-id')
     expect(
       screen.getByRole('link', { name: /EXP-DOWN-1/ }).getAttribute('href'),
-    ).toBe('/records/down-id')
+    ).toBe('/experiments/down-id')
     // The seed's own row describes the viewed object, not its lineage.
     expect(screen.queryByText('EXP-SEED-1')).toBeNull()
   })

@@ -111,7 +111,7 @@ describe('ProjectNavigationTree', () => {
     expect(within(contents).getByText('Results')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: 'Stability run' }).getAttribute('href'),
-    ).toBe('/records/experiment-id')
+    ).toBe('/experiments/experiment-id')
     expect(
       screen
         .getByRole('link', { name: 'Reference sample' })

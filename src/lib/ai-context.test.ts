@@ -154,7 +154,7 @@ describe('record summaries', () => {
 
     expect(object.kind).toBe('record')
     expect(object.title).toBe('Visible experiment')
-    expect(object.deepLink).toBe('/records/rec-1')
+    expect(object.deepLink).toBe('/experiments/rec-1')
     expect(object.freshness).toBe('live')
     expect(object.pins).toEqual([])
     expect(object.sections.map((s) => s.heading)).toEqual([

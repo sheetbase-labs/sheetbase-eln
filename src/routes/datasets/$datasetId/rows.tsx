@@ -317,7 +317,11 @@ function Rows() {
           <Muted className="max-lg:hidden">
             Snapshot {version.label} · read-only; values change only by import
           </Muted>
-          <Button size="sm" nativeButton={false} render={<Link to="/import" />}>
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<Link to="/import" search={{ dataset: datasetId }} />}
+          >
             Correct by re-import
           </Button>
         </div>
@@ -467,7 +471,11 @@ function Rows() {
               <Muted className="mt-2">
                 To correct this value, import the corrected rows into the
                 dataset.{' '}
-                <Link to="/import" className="underline">
+                <Link
+                  to="/import"
+                  search={{ dataset: datasetId }}
+                  className="underline"
+                >
                   Re-import
                 </Link>
               </Muted>

@@ -374,7 +374,7 @@ function DatasetsList() {
                 <Button
                   size="sm"
                   nativeButton={false}
-                  render={<Link to="/import" />}
+                  render={<Link to="/import" search={{ dataset: sel.uuid }} />}
                 >
                   Re-import
                 </Button>

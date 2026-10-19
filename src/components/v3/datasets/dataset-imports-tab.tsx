@@ -194,7 +194,7 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
               <Button
                 variant="primary"
                 nativeButton={false}
-                render={<Link to="/import" />}
+                render={<Link to="/import" search={{ dataset: datasetId }} />}
               >
                 Import a file
               </Button>

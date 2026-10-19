@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { Button } from '#/components/v3/ui/button'
 import { Section } from '#/components/v3/ui/layout'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { TableBox } from '#/components/v3/ui/table'
@@ -31,7 +32,7 @@ export function LinksPanel({ expId }: { expId: string }) {
       title: 'Other records',
       rows: all.filter((l) => !named.has(l.target_kind)),
     },
-  ].filter((section) => section.rows.length > 0)
+  ].filter((section) => section.rows.length > 0 || section.kind === 'dataset')
   const columns: RegistryColumn<RecordLinkWire>[] = [
     {
       id: 'record',
@@ -64,13 +65,24 @@ export function LinksPanel({ expId }: { expId: string }) {
   ]
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      {sections.length ? (
-        sections.map((section) => (
-          <Section
-            key={section.kind}
-            title={section.title}
-            count={section.rows.length}
-          >
+      {sections.map((section) => (
+        <Section
+          key={section.kind}
+          title={section.title}
+          count={section.rows.length}
+          action={
+            section.kind === 'dataset' ? (
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link to="/import" search={{ experiment: expId }} />}
+              >
+                Import data
+              </Button>
+            ) : undefined
+          }
+        >
+          {section.rows.length ? (
             <TableBox>
               <RegistryGrid
                 label={section.title}
@@ -80,15 +92,15 @@ export function LinksPanel({ expId }: { expId: string }) {
                 selectable={false}
               />
             </TableBox>
-          </Section>
-        ))
-      ) : (
-        <EmptyState
-          className="py-2"
-          title="Nothing linked yet"
-          description="Samples, datasets, files and other records appear here when they are linked to this experiment."
-        />
-      )}
+          ) : (
+            <EmptyState
+              className="py-2"
+              title="No datasets linked"
+              description="Datasets produced by this experiment appear here when they are linked."
+            />
+          )}
+        </Section>
+      ))}
     </div>
   )
 }

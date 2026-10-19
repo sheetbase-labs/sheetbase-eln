@@ -20,6 +20,7 @@ import {
   exportDataCsv,
   exportViewJson,
   materialiseAnalysisChart,
+  recordAnalysisCitation,
   saveAnalysisView,
   updateAnalysisView,
   validateAnalysisSpec,
@@ -506,5 +507,48 @@ describe('reproducibility — rebuild a saved chart from its stored spec', () =>
     for (let i = 0; i < original.series.length; i++) {
       expect(rebuilt.series[i].points).toEqual(original.series[i].points)
     }
+  })
+})
+
+describe('recordAnalysisCitation', () => {
+  it('links the citing record to the view by display id', async () => {
+    const rpc = vi.fn().mockResolvedValue({})
+    await recordAnalysisCitation({ rpc } as unknown as DataClient, 'rec-1', {
+      display_id: 'AV-0007',
+    })
+    expect(rpc).toHaveBeenCalledWith('create_record_link', {
+      p_source_record_id: 'rec-1',
+      p_target_kind: 'analysis',
+      p_target_identifier: 'AV-0007',
+      p_link_type: 'analysis',
+      p_target_record_id: null,
+    })
+  })
+
+  it('treats a repeat citation as already recorded', async () => {
+    const rpc = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error('duplicate key'), { code: '23505' }),
+      )
+    await expect(
+      recordAnalysisCitation({ rpc } as unknown as DataClient, 'rec-1', {
+        display_id: 'AV-0007',
+      }),
+    ).resolves.toBeUndefined()
+  })
+
+  it('surfaces any other failure and skips a view with no display id', async () => {
+    const rpc = vi.fn().mockRejectedValue(new Error('permission denied'))
+    await expect(
+      recordAnalysisCitation({ rpc } as unknown as DataClient, 'rec-1', {
+        display_id: 'AV-0007',
+      }),
+    ).rejects.toThrow('permission denied')
+    rpc.mockClear()
+    await recordAnalysisCitation({ rpc } as unknown as DataClient, 'rec-1', {
+      display_id: null,
+    })
+    expect(rpc).not.toHaveBeenCalled()
   })
 })

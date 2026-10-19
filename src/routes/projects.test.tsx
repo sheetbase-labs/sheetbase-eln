@@ -109,7 +109,7 @@ describe('projects route', () => {
     await waitFor(() => expect(seen.props?.error).toBeNull())
   })
 
-  it('confirms a successful create and clears the dialog', async () => {
+  it('confirms a successful create and lands on the new project', async () => {
     renderRoute()
     await waitFor(() => expect(seen.props).not.toBeNull())
     const onCreate = seen.props?.onCreate as (input: unknown) => void
@@ -129,8 +129,8 @@ describe('projects route', () => {
       expect(toast).toHaveBeenCalledWith('Project “QA2 probe” created'),
     )
     expect(navigate).toHaveBeenCalledWith({
-      to: '/projects',
-      search: expect.any(Function),
+      to: '/projects/$projectId',
+      params: { projectId: 'project-1' },
     })
   })
 })

@@ -81,8 +81,17 @@ function createErrorMessage(error: unknown): string {
  * `create_record_with_blocks` RPC, so the new notebook opens on its own data.
  */
 export const Route = createFileRoute('/experiments/new')({
-  validateSearch: (search: Record<string, unknown>): { project?: string } => ({
-    project: typeof search.project === 'string' ? search.project : undefined,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { project?: string; sample?: string } => ({
+    project:
+      typeof search.project === 'string' && search.project
+        ? search.project
+        : undefined,
+    sample:
+      typeof search.sample === 'string' && search.sample
+        ? search.sample
+        : undefined,
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -169,6 +178,24 @@ function NewExperiment() {
       ),
     staleTime: 60_000,
   })
+  // A sample handed over by the page that linked here: it is linked to the new
+  // experiment, and named in the form so the author sees what will be linked.
+  const sample = useQuery({
+    queryKey: ['ui-port', 'experiments', 'new', 'sample', search.sample],
+    queryFn: async () =>
+      (
+        await notebookDataClient.list<{
+          id: string
+          identifier: string
+          title: string
+        }>(
+          'records',
+          `?id=eq.${encodeURIComponent(search.sample ?? '')}&select=id,identifier,title&limit=1`,
+        )
+      ).at(0) ?? null,
+    enabled: Boolean(search.sample),
+    staleTime: 60_000,
+  })
   const experiments = useQuery({
     queryKey: ['ui-port', 'experiments', 'new', 'sources'],
     queryFn: () =>
@@ -247,6 +274,7 @@ function NewExperiment() {
       await applyExperimentSetup(notebookDataClient, record.id, {
         protocolRecordId: protocolId || undefined,
         copyFromRecordId: copyFromId || undefined,
+        sampleRecordId: sample.data?.id,
       })
       if (startNow) {
         // Starting is a server decision: PROJ-03 and LAB-07 authority (effective
@@ -341,6 +369,12 @@ function NewExperiment() {
             ))}
           </Select>
         </Field>
+        {sample.data ? (
+          <Muted>
+            Sample {sample.data.identifier} · {sample.data.title} will be linked
+            to this experiment.
+          </Muted>
+        ) : null}
         <Field
           label="Title"
           required

@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => {
   return {
     search,
     citations: [] as { target_identifier: string }[],
+    definitions: [] as unknown[],
     views: [
       view({
         id: 'view-1',
@@ -76,6 +77,11 @@ vi.mock('#/lib/analysis-studio-data', () => ({
     datasets: ['analysis-datasets'],
   },
   fetchAnalysisViews: async () => mocks.views,
+}))
+
+vi.mock('#/lib/analysis-definitions-data', () => ({
+  analysisDefinitionQueryKeys: { all: ['analysis-definitions'] },
+  fetchAnalysisDefinitions: async () => mocks.definitions,
 }))
 
 vi.mock('#/lib/dataset-explorer-data', () => ({
@@ -134,6 +140,7 @@ afterEach(() => {
   cleanup()
   mocks.search = {}
   mocks.views = [...DEFAULT_VIEWS]
+  mocks.definitions = []
 })
 
 describe('Analysis list — cited in records tab', () => {
@@ -166,6 +173,32 @@ describe('Analysis list — cited in records tab', () => {
     renderHome([])
 
     expect(await screen.findByText('No analyses yet')).toBeTruthy()
+  })
+})
+
+describe('Analysis list — chart views and statistics together', () => {
+  it('lists a saved statistic beside the chart views and says which is which', async () => {
+    mocks.definitions = [
+      {
+        id: 'def-12345678-0000',
+        owner_user_id: 'user-1',
+        name: 'Titre summary',
+        version: 1,
+        definition: {
+          kind: 'descriptive',
+          datasets: [{ datasetId: 'ds-1' }],
+        },
+        created_at: '2026-09-03T00:00:00.000Z',
+        updated_at: '2026-09-03T00:00:00.000Z',
+      },
+    ]
+
+    renderHome([])
+
+    expect(await screen.findByText('Titre summary')).toBeTruthy()
+    expect(screen.getByText('Statistics · descriptive')).toBeTruthy()
+    expect(screen.getAllByText('Chart · chart').length).toBe(2)
+    expect(screen.getByText('3 saved analyses')).toBeTruthy()
   })
 })
 

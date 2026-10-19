@@ -108,6 +108,10 @@ export interface BookingDialogProps {
   defaultResourceId?: string
   /** Opens the dialog on mount, e.g. a deep link that asks to book. */
   defaultOpen?: boolean
+  /** A title to start from, e.g. the experiment the booking is for. */
+  defaultTitle?: string
+  /** Called when the person dismisses the dialog without booking. */
+  onCancel?: () => void
 }
 
 export function BookDialog({
@@ -117,10 +121,17 @@ export function BookDialog({
   onBooked,
   defaultResourceId,
   defaultOpen,
+  defaultTitle,
+  onCancel,
 }: BookingDialogProps) {
   const [open, setOpen] = useState(defaultOpen ?? false)
   const [resourceId, setResourceId] = useState(defaultResourceId ?? '')
-  const [title, setTitle] = useState('')
+  const [title, setTitle] = useState(defaultTitle ?? '')
+  // The default may arrive after the dialog opens (it is read from the record);
+  // it fills an empty title and never overwrites what the person typed.
+  useEffect(() => {
+    if (defaultTitle) setTitle((current) => current || defaultTitle)
+  }, [defaultTitle])
   const [date, setDate] = useState(defaultDate)
   const [start, setStart] = useState(DEFAULT_START)
   const [end, setEnd] = useState(DEFAULT_END)
@@ -228,7 +239,13 @@ export function BookDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) onCancel?.()
+      }}
+    >
       <Button
         className="ml-2 max-md:ml-0 max-md:w-full"
         onClick={() => setOpen(true)}

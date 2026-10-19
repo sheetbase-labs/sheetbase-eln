@@ -26,6 +26,11 @@ import {
   fetchAnalysisViews,
 } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
+import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
+import {
+  analysisDefinitionQueryKeys,
+  fetchAnalysisDefinitions,
+} from '#/lib/analysis-definitions-data'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -61,8 +66,98 @@ const MODES = [
   { mode: 'compare', label: 'Compare', body: 'Two snapshots side by side.' },
 ] as const
 
-function kindLabel(view: AnalysisViewWire): string {
-  return view.spec.type
+/**
+ * One saved analysis as the list shows it. Chart views (`analysis_views`) and
+ * statistics (`analysis_definitions`) are two stores but one kind of thing to
+ * the person looking for their work, so the list merges them and the Kind
+ * column says which each is.
+ */
+interface AnalysisRow {
+  id: string
+  kind: 'chart' | 'statistics'
+  /** The display id when the row has one, else the start of its id. */
+  identifier: string
+  /** What a citation of this row names, for the Cited tab. */
+  citeKey: string
+  name: string
+  /** The chart type or statistic, e.g. `line` or `descriptive`. */
+  detail: string
+  ownerId: string
+  version: number
+  updatedAt: string
+  datasetId: string | undefined
+}
+
+function viewRow(view: AnalysisViewWire): AnalysisRow {
+  return {
+    id: view.id,
+    kind: 'chart',
+    identifier: view.display_id ?? view.id.slice(0, 8),
+    citeKey: view.display_id ?? '',
+    name: view.name,
+    detail: view.spec.type,
+    ownerId: view.owner_user_id,
+    version: view.version,
+    updatedAt: view.updated_at,
+    datasetId: specSourceDatasetId(view.spec),
+  }
+}
+
+function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
+  const definition = saved.definition as {
+    kind?: string
+    datasets?: { datasetId?: string }[]
+  }
+  return {
+    id: saved.id,
+    kind: 'statistics',
+    identifier: saved.id.slice(0, 8),
+    citeKey: saved.id,
+    name: saved.name,
+    detail: definition.kind ?? 'analysis',
+    ownerId: saved.owner_user_id,
+    version: saved.version,
+    updatedAt: saved.updated_at,
+    datasetId: definition.datasets?.at(0)?.datasetId,
+  }
+}
+
+const KIND_LABEL: Record<AnalysisRow['kind'], string> = {
+  chart: 'Chart',
+  statistics: 'Statistics',
+}
+
+function kindLabel(row: AnalysisRow): string {
+  return `${KIND_LABEL[row.kind]} · ${row.detail}`
+}
+
+/** Where a row opens: a chart view has its own page, statistics open in the studio. */
+function RowLink({
+  row,
+  className,
+  children,
+}: {
+  row: AnalysisRow
+  className?: string
+  children: React.ReactNode
+}) {
+  return row.kind === 'chart' ? (
+    <Link
+      to="/analysis/$analysisId"
+      params={{ analysisId: row.id }}
+      className={className}
+    >
+      {children}
+    </Link>
+  ) : (
+    <Link
+      to="/analysis/new"
+      search={{ mode: 'analyse', definition: row.id }}
+      className={className}
+    >
+      {children}
+    </Link>
+  )
 }
 
 function AnalysisHome() {
@@ -75,6 +170,11 @@ function AnalysisHome() {
   const views = useQuery({
     queryKey: analysisStudioQueryKeys.views,
     queryFn: () => fetchAnalysisViews(client),
+    staleTime: 10_000,
+  })
+  const definitions = useQuery({
+    queryKey: analysisDefinitionQueryKeys.all,
+    queryFn: () => fetchAnalysisDefinitions(),
     staleTime: 10_000,
   })
   const datasets = useQuery({
@@ -99,9 +199,16 @@ function AnalysisHome() {
       ),
     [citations.data],
   )
-  const rows = views.data ?? []
-  const names = useUserNames(rows.map((r) => r.owner_user_id).filter(Boolean))
-  const columns = useMemo<RegistryColumn<AnalysisViewWire>[]>(
+  const rows = useMemo<AnalysisRow[]>(
+    () =>
+      [
+        ...(views.data ?? []).map(viewRow),
+        ...(definitions.data ?? []).map(definitionRow),
+      ].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    [views.data, definitions.data],
+  )
+  const names = useUserNames(rows.map((r) => r.ownerId).filter(Boolean))
+  const columns = useMemo<RegistryColumn<AnalysisRow>[]>(
     () => [
       {
         id: 'identifier',
@@ -111,13 +218,9 @@ function AnalysisHome() {
           cellClassName: 'pl-4!',
         },
         cell: ({ row }) => (
-          <Link
-            to="/analysis/$analysisId"
-            params={{ analysisId: row.original.id }}
-            className="mono"
-          >
-            {row.original.display_id ?? row.original.id.slice(0, 8)}
-          </Link>
+          <RowLink row={row.original} className="mono">
+            {row.original.identifier}
+          </RowLink>
         ),
       },
       {
@@ -139,14 +242,14 @@ function AnalysisHome() {
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) =>
           (datasets.data ?? []).find(
-            (dataset) => dataset.id === specSourceDatasetId(row.original.spec),
+            (dataset) => dataset.id === row.original.datasetId,
           )?.name ?? '—',
       },
       {
         id: 'owner',
         header: 'Owner',
         meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => names.userLabel(row.original.owner_user_id),
+        cell: ({ row }) => names.userLabel(row.original.ownerId),
       },
       {
         id: 'updated',
@@ -155,7 +258,7 @@ function AnalysisHome() {
           headerClassName: 'pr-4!',
           cellClassName: 'pr-4! text-fg-muted',
         },
-        cell: ({ row }) => row.original.updated_at.slice(0, 10),
+        cell: ({ row }) => row.original.updatedAt.slice(0, 10),
       },
     ],
     [datasets.data, names],
@@ -171,12 +274,12 @@ function AnalysisHome() {
   const visible = useMemo(
     () =>
       rows.filter((v) => {
-        if (tab === 'mine' && v.owner_user_id !== userId) return false
-        if (tab === 'cited' && !citedIds.has(v.display_id ?? '')) return false
+        if (tab === 'mine' && v.ownerId !== userId) return false
+        if (tab === 'cited' && !citedIds.has(v.citeKey)) return false
         if (tab === 'drafts' && v.version > 1) return false
         if (
           needle &&
-          !`${v.display_id ?? ''} ${v.name} ${v.spec.type} ${specSourceDatasetId(v.spec) ?? ''}`
+          !`${v.identifier} ${v.name} ${kindLabel(v)} ${v.datasetId ?? ''}`
             .toLowerCase()
             .includes(needle)
         )
@@ -309,14 +412,13 @@ function AnalysisHome() {
                 {
                   key: 'mine',
                   label: 'Mine',
-                  count: rows.filter((v) => v.owner_user_id === userId).length,
+                  count: rows.filter((v) => v.ownerId === userId).length,
                   link: { to: '/analysis', search: { tab: 'mine' } },
                 },
                 {
                   key: 'cited',
                   label: 'Cited in records',
-                  count: rows.filter((v) => citedIds.has(v.display_id ?? ''))
-                    .length,
+                  count: rows.filter((v) => citedIds.has(v.citeKey)).length,
                   link: { to: '/analysis', search: { tab: 'cited' } },
                 },
                 {
@@ -331,7 +433,9 @@ function AnalysisHome() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {views.isLoading || (tab === 'cited' && citations.isLoading) ? (
+          {views.isLoading ||
+          definitions.isLoading ||
+          (tab === 'cited' && citations.isLoading) ? (
             <div className="px-4 py-5 md:px-6">
               <Muted>Loading analyses…</Muted>
             </div>
@@ -400,7 +504,7 @@ function AnalysisHome() {
         >
           <div className="flex flex-col gap-1">
             <span className="mono text-label text-fg-muted">
-              {selected.display_id ?? selected.id.slice(0, 8)}
+              {selected.identifier}
             </span>
             <div className="font-heading text-doc font-semibold">
               {selected.name}
@@ -413,10 +517,17 @@ function AnalysisHome() {
               variant="primary"
               nativeButton={false}
               render={
-                <Link
-                  to="/analysis/$analysisId"
-                  params={{ analysisId: selected.id }}
-                />
+                selected.kind === 'chart' ? (
+                  <Link
+                    to="/analysis/$analysisId"
+                    params={{ analysisId: selected.id }}
+                  />
+                ) : (
+                  <Link
+                    to="/analysis/new"
+                    search={{ mode: 'analyse', definition: selected.id }}
+                  />
+                )
               }
             >
               Open
@@ -429,7 +540,7 @@ function AnalysisHome() {
                   to="/analysis/new"
                   search={{
                     mode: 'chart',
-                    dataset: specSourceDatasetId(selected.spec),
+                    dataset: selected.datasetId,
                   }}
                 />
               }
@@ -439,9 +550,7 @@ function AnalysisHome() {
           </div>
           <div className="flex flex-col gap-2">
             <h3 className="text-label font-medium text-fg-muted">Source</h3>
-            <span className="text-body">
-              {datasetName(specSourceDatasetId(selected.spec))}
-            </span>
+            <span className="text-body">{datasetName(selected.datasetId)}</span>
           </div>
           <Muted>
             Editing an analysis updates it in place and bumps its version, so a

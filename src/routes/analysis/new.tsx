@@ -148,16 +148,20 @@ export const Route = createFileRoute('/analysis/new')({
     y?: string
     mode?: string
     view?: string
+    definition?: string
   } => {
     const next: CreateContextSearch & {
       x?: string
       y?: string
       mode?: string
       view?: string
+      definition?: string
     } = parseCreateContext(search)
     if (typeof search.x === 'string') next.x = search.x
     if (typeof search.y === 'string') next.y = search.y
     if (typeof search.view === 'string') next.view = search.view
+    if (typeof search.definition === 'string' && search.definition)
+      next.definition = search.definition
     if (
       search.mode === 'chart' ||
       search.mode === 'analyse' ||
@@ -611,6 +615,7 @@ function AnalysisStudio() {
               workspaceId={workspaceId}
               userId={userId}
               initialDatasetId={selectedDatasetId}
+              initialDefinitionId={search.definition}
               experimentId={search.experiment}
             />
           </div>

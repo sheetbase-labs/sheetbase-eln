@@ -14,6 +14,8 @@ import { PageHeader } from '#/components/v3/ui/layout'
 import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { parseCreateContext } from '#/lib/create-context-search'
+import type { CreateContextSearch } from '#/lib/create-context-search'
 import {
   attachPhotoToSample,
   dilutionReadingField,
@@ -37,9 +39,16 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
  * the dataset's dilution field value; an optional photo is attached to the
  * sample through the existing file routes. */
 export const Route = createFileRoute('/readings/new')({
-  validateSearch: (search: Record<string, unknown>): { sample?: string } => ({
-    sample: typeof search.sample === 'string' ? search.sample : undefined,
-  }),
+  // The page that linked here hands over the sample or dataset in view and where
+  // to return to, so the form opens on them and Cancel goes back.
+  validateSearch: (search: Record<string, unknown>): CreateContextSearch => {
+    const { sample, dataset, returnTo } = parseCreateContext(search)
+    return {
+      ...(sample ? { sample } : {}),
+      ...(dataset ? { dataset } : {}),
+      ...(returnTo ? { returnTo } : {}),
+    }
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
@@ -81,7 +90,7 @@ function NewReading() {
   const allPlannedRows = plannedRows.data ?? []
 
   const [sampleId, setSampleId] = useState(search.sample ?? '')
-  const [datasetId, setDatasetId] = useState('')
+  const [datasetId, setDatasetId] = useState(search.dataset ?? '')
   const [plannedKey, setPlannedKey] = useState('')
   const [measurementFieldId, setMeasurementFieldId] = useState('')
   const [value, setValue] = useState('')
@@ -228,10 +237,14 @@ function NewReading() {
           queryKey: ['dataset-value-flags', 'active', effectiveDatasetId],
         })
       }
-      void navigate({
-        to: '/samples/$sampleId/measurements',
-        params: { sampleId: sample!.id },
-      })
+      if (search.returnTo) {
+        void navigate({ to: search.returnTo })
+      } else {
+        void navigate({
+          to: '/samples/$sampleId/measurements',
+          params: { sampleId: sample!.id },
+        })
+      }
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Couldn’t save it.')
@@ -494,6 +507,15 @@ function NewReading() {
           <Button size="lg" nativeButton={false} render={<Link to="/scan" />}>
             Scan instead
           </Button>
+          {search.returnTo ? (
+            <Button
+              size="lg"
+              nativeButton={false}
+              render={<Link to={search.returnTo} />}
+            >
+              Cancel
+            </Button>
+          ) : null}
         </div>
 
         {saveBlockedReason ? (

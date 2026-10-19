@@ -1,6 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, createFileRoute, redirect } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -33,6 +38,8 @@ import { useWorkItems } from '#/lib/work-items/data'
 import { homeIsoDay } from '#/lib/home-quiet'
 import { cancelBooking, describeCalendarError } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { parseCreateContext } from '#/lib/create-context-search'
+import { isUuid } from '#/lib/identifier-resolution'
 import {
   fetchWorkspaceGeneral,
   workspaceGeneralQueryKey,
@@ -92,8 +99,21 @@ function InstrumentLabel({ instrument }: { instrument: ScheduleInstrument }) {
 export const Route = createFileRoute('/schedule')({
   // A deep link may ask to book one instrument (the registry inspector's Book
   // action): `?book=<instrumentId>` opens the dialog with it preselected.
-  validateSearch: (search: Record<string, unknown>): { book?: string } =>
-    typeof search.book === 'string' && search.book ? { book: search.book } : {},
+  // `?experiment=` names the experiment the booking is for (it starts the
+  // title) and `?returnTo=` is where to go once the person has booked or
+  // dismissed the dialog.
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { book?: string; experiment?: string; returnTo?: string } => {
+    const { experiment, returnTo } = parseCreateContext(search)
+    return {
+      ...(typeof search.book === 'string' && search.book
+        ? { book: search.book }
+        : {}),
+      ...(experiment ? { experiment } : {}),
+      ...(returnTo ? { returnTo } : {}),
+    }
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
     if (!context) {
@@ -106,7 +126,28 @@ export const Route = createFileRoute('/schedule')({
 
 export function Schedule() {
   const { context } = Route.useRouteContext()
-  const { book } = Route.useSearch()
+  const { book, experiment, returnTo } = Route.useSearch()
+  const navigate = useNavigate()
+  const forExperiment = useQuery({
+    queryKey: ['ui-port', 'schedule-experiment', experiment ?? ''],
+    queryFn: async () => {
+      const filter = isUuid(experiment ?? '')
+        ? `id=eq.${experiment}`
+        : `identifier=eq.${encodeURIComponent(experiment ?? '')}`
+      const rows = await notebookDataClient.list<{
+        identifier: string
+        title: string
+      }>(
+        'records',
+        `?${filter}&kind=eq.experiment&select=identifier,title&limit=1`,
+      )
+      return rows.at(0) ?? null
+    },
+    enabled: Boolean(experiment),
+  })
+  const bookingTitle = forExperiment.data
+    ? `${forExperiment.data.identifier} ${forExperiment.data.title}`
+    : undefined
   const workspaceId = context.workspace?.id
   // QA-022: a Schedule day is the workspace's day. Home groups the same
   // bookings by the workspace timezone, so "today" comes from that clock rather
@@ -253,9 +294,14 @@ export function Schedule() {
           defaultDate={view === 'day' ? anchor : addDays(today, 3)}
           defaultResourceId={book}
           defaultOpen={Boolean(book)}
+          defaultTitle={bookingTitle}
+          onCancel={() => {
+            if (returnTo) void navigate({ to: returnTo })
+          }}
           onBooked={(b) => {
             setAdded((a) => [...a, b])
             toast('Booked')
+            if (returnTo) void navigate({ to: returnTo })
           }}
         />
       </div>

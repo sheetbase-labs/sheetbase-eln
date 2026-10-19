@@ -20,6 +20,7 @@ import {
   datasetExplorerDataClient,
 } from './dataset-explorer-data'
 import { chartUsedFieldIds } from './chart-data'
+import { isDuplicateLinkError } from './scientific-records'
 import type { CanonicalDatasetSource } from './chart-data'
 import { filterRowsByFlags } from './dataset-flags'
 import type { DatasetValueFlag } from './dataset-flags'
@@ -359,6 +360,32 @@ export async function saveAnalysisView(
     return updateAnalysisView(client, input.id, input)
   }
   return createAnalysisView(client, input, workspaceId, userId)
+}
+
+/**
+ * Record that a notebook cites a saved analysis view. A citation is a
+ * `record_links` row (`target_kind` and `link_type` 'analysis') whose
+ * `target_identifier` is the view's stable `display_id`; Cited by, the
+ * experiment Results tab and the cited-update guard all read exactly that row.
+ * Citing the same view twice is a no-op: the unique link already says it.
+ */
+export async function recordAnalysisCitation(
+  client: DataClient,
+  sourceRecordId: string,
+  view: Pick<AnalysisViewWire, 'display_id'>,
+): Promise<void> {
+  if (!view.display_id) return
+  try {
+    await client.rpc('create_record_link', {
+      p_source_record_id: sourceRecordId,
+      p_target_kind: 'analysis',
+      p_target_identifier: view.display_id,
+      p_link_type: 'analysis',
+      p_target_record_id: null,
+    })
+  } catch (error) {
+    if (!isDuplicateLinkError(error)) throw error
+  }
 }
 
 export async function deleteAnalysisView(

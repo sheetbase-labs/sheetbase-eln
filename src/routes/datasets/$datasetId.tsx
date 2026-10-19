@@ -19,6 +19,8 @@ import { isDatasetDetailTab } from '#/components/v3/datasets/dataset-detail-tabs
 import type { DatasetDetailTab } from '#/components/v3/datasets/dataset-detail-tabs'
 import { DatasetHistoryTab } from '#/components/v3/datasets/dataset-history-tab'
 import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
+import { DatasetModelUpgrade } from '#/components/v3/datasets/dataset-model-upgrade'
+import { hasCapability } from '#/lib/capability'
 import { DatasetUsedByTab } from '#/components/v3/datasets/dataset-used-by-tab'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
@@ -133,6 +135,10 @@ function DatasetLayout() {
         actions={
           exportable ? (
             <>
+              <DatasetModelUpgrade
+                datasetId={dataset.uuid}
+                canEdit={hasCapability(context.workspace?.role, 'schema.edit')}
+              />
               <Button
                 nativeButton={false}
                 icon="download"

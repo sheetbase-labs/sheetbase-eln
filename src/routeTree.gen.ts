@@ -26,6 +26,7 @@ import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as PromotionsRouteImport } from './routes/promotions'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as ScanRouteImport } from './routes/scan'
@@ -135,6 +136,7 @@ import { Route as ProjectsProjectIdMembersRouteImport } from './routes/projects/
 import { Route as ProjectsProjectIdMilestonesRouteImport } from './routes/projects/$projectId/milestones'
 import { Route as ProjectsProjectIdSamplesRouteImport } from './routes/projects/$projectId/samples'
 import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId/settings'
+import { Route as ProjectsProjectIdSheetsRouteImport } from './routes/projects/$projectId/sheets'
 import { Route as RecordsRecordIdIndexRouteImport } from './routes/records/$recordId/index'
 import { Route as RecordsRecordIdNotebookRouteImport } from './routes/records/$recordId/notebook'
 import { Route as SamplesSampleIdIndexRouteImport } from './routes/samples/$sampleId/index'
@@ -249,6 +251,11 @@ const PipelinesRoute = PipelinesRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromotionsRoute = PromotionsRouteImport.update({
+  id: '/promotions',
+  path: '/promotions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtocolsRoute = ProtocolsRouteImport.update({
@@ -814,6 +821,11 @@ const ProjectsProjectIdSettingsRoute =
     path: '/settings',
     getParentRoute: () => ProjectsProjectIdRoute,
   } as any)
+const ProjectsProjectIdSheetsRoute = ProjectsProjectIdSheetsRouteImport.update({
+  id: '/sheets',
+  path: '/sheets',
+  getParentRoute: () => ProjectsProjectIdRoute,
+} as any)
 const RecordsRecordIdIndexRoute = RecordsRecordIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -1001,6 +1013,7 @@ export interface FileRoutesByFullPath {
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/projects': typeof ProjectsRouteWithChildren
+  '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
@@ -1104,6 +1117,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
   '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/projects/$projectId/sheets': typeof ProjectsProjectIdSheetsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
@@ -1156,6 +1170,7 @@ export interface FileRoutesByTo {
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/projects': typeof ProjectsRouteWithChildren
+  '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
@@ -1249,6 +1264,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
   '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/projects/$projectId/sheets': typeof ProjectsProjectIdSheetsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
@@ -1305,6 +1321,7 @@ export interface FileRoutesById {
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/projects': typeof ProjectsRouteWithChildren
+  '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
@@ -1408,6 +1425,7 @@ export interface FileRoutesById {
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
   '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/projects/$projectId/sheets': typeof ProjectsProjectIdSheetsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
@@ -1465,6 +1483,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/projects'
+    | '/promotions'
     | '/protocols'
     | '/samples'
     | '/scan'
@@ -1568,6 +1587,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/milestones'
     | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
+    | '/projects/$projectId/sheets'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
@@ -1620,6 +1640,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/projects'
+    | '/promotions'
     | '/protocols'
     | '/samples'
     | '/scan'
@@ -1713,6 +1734,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/milestones'
     | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
+    | '/projects/$projectId/sheets'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
@@ -1768,6 +1790,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/projects'
+    | '/promotions'
     | '/protocols'
     | '/samples'
     | '/scan'
@@ -1871,6 +1894,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/milestones'
     | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
+    | '/projects/$projectId/sheets'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
@@ -1927,6 +1951,7 @@ export interface RootRouteChildren {
   ModelsRoute: typeof ModelsRouteWithChildren
   PipelinesRoute: typeof PipelinesRouteWithChildren
   ProjectsRoute: typeof ProjectsRouteWithChildren
+  PromotionsRoute: typeof PromotionsRoute
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
   SamplesRoute: typeof SamplesRouteWithChildren
   ScanRoute: typeof ScanRoute
@@ -2098,6 +2123,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/promotions': {
+      id: '/promotions'
+      path: '/promotions'
+      fullPath: '/promotions'
+      preLoaderRoute: typeof PromotionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/protocols': {
@@ -2863,6 +2895,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdSettingsRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
+    '/projects/$projectId/sheets': {
+      id: '/projects/$projectId/sheets'
+      path: '/sheets'
+      fullPath: '/projects/$projectId/sheets'
+      preLoaderRoute: typeof ProjectsProjectIdSheetsRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
     '/records/$recordId/': {
       id: '/records/$recordId/'
       path: '/'
@@ -3315,6 +3354,7 @@ interface ProjectsProjectIdRouteChildren {
   ProjectsProjectIdMilestonesRoute: typeof ProjectsProjectIdMilestonesRoute
   ProjectsProjectIdSamplesRoute: typeof ProjectsProjectIdSamplesRoute
   ProjectsProjectIdSettingsRoute: typeof ProjectsProjectIdSettingsRoute
+  ProjectsProjectIdSheetsRoute: typeof ProjectsProjectIdSheetsRoute
   ProjectsProjectIdIndexRoute: typeof ProjectsProjectIdIndexRoute
 }
 
@@ -3327,6 +3367,7 @@ const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
   ProjectsProjectIdMilestonesRoute: ProjectsProjectIdMilestonesRoute,
   ProjectsProjectIdSamplesRoute: ProjectsProjectIdSamplesRoute,
   ProjectsProjectIdSettingsRoute: ProjectsProjectIdSettingsRoute,
+  ProjectsProjectIdSheetsRoute: ProjectsProjectIdSheetsRoute,
   ProjectsProjectIdIndexRoute: ProjectsProjectIdIndexRoute,
 }
 
@@ -3510,6 +3551,7 @@ const rootRouteChildren: RootRouteChildren = {
   ModelsRoute: ModelsRouteWithChildren,
   PipelinesRoute: PipelinesRouteWithChildren,
   ProjectsRoute: ProjectsRouteWithChildren,
+  PromotionsRoute: PromotionsRoute,
   ProtocolsRoute: ProtocolsRouteWithChildren,
   SamplesRoute: SamplesRouteWithChildren,
   ScanRoute: ScanRoute,

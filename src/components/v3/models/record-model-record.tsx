@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
@@ -17,6 +18,7 @@ import {
   useRecordModelUsedBy,
   useWorkspaceRecordModel,
 } from './models-data'
+import { RecordModelEditDialog } from './record-model-edit-dialog'
 
 /**
  * MDL-04.3 — a record page for a workspace model: the model's fields as a
@@ -42,6 +44,7 @@ export function RecordModelRecord({
   const usedByQuery = useRecordModelUsedBy(recordId)
   const timelineQuery = useRecordModelTimeline(recordId)
 
+  const [editing, setEditing] = useState(false)
   const fields = fieldsQuery.data ?? []
   const record = recordQuery.data
   const usedBy = usedByQuery.data ?? []
@@ -99,6 +102,11 @@ export function RecordModelRecord({
           <h2 className="mt-1 mb-0 text-title">{record?.title ?? 'Record'}</h2>
         </div>
         <div className="flex gap-2 max-md:hidden">
+          {record ? (
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              Edit details
+            </Button>
+          ) : null}
           <Button
             variant="secondary"
             nativeButton={false}
@@ -162,6 +170,16 @@ export function RecordModelRecord({
           <p className="text-label text-fg-muted">Loading fields…</p>
         )}
       </Section>
+
+      {record && editing ? (
+        <RecordModelEditDialog
+          open
+          onOpenChange={setEditing}
+          recordId={record.id}
+          fields={fields}
+          stored={record.custom_fields}
+        />
+      ) : null}
 
       <Section title="Used by" count={usedBy.length}>
         {usedBy.length ? (

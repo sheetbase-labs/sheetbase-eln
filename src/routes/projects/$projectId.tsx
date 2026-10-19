@@ -17,6 +17,8 @@ import {
   useProjectDatasetCount,
   useProjectRecordCount,
 } from '#/components/v3/projects/project-lists'
+import { projectSheetsKey } from '#/components/v3/projects/project-sheets'
+import { fetchProjectSheets } from '#/lib/sheet-instance-data'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { useRecentViewTracking } from '#/lib/recents'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -60,6 +62,13 @@ function ProjectLayout() {
   const foldersQuery = useQuery({
     queryKey: ['project-folders', project?.id ?? ''],
     queryFn: () => fetchProjectFolders(project?.id ?? ''),
+    enabled: Boolean(project),
+  })
+
+  // Same key the Sheets tab reads, so the count and the list share one fetch.
+  const sheetsQuery = useQuery({
+    queryKey: projectSheetsKey(project?.id ?? '', false),
+    queryFn: () => fetchProjectSheets(project?.id ?? ''),
     enabled: Boolean(project),
   })
 
@@ -179,6 +188,11 @@ function ProjectLayout() {
                 label: 'Datasets',
                 count: datasetsCount.data ?? '—',
                 link: { to: '/projects/$projectId/datasets', params },
+              },
+              {
+                label: 'Sheets',
+                count: sheetsQuery.data?.length ?? '—',
+                link: { to: '/projects/$projectId/sheets', params },
               },
               {
                 label: 'Folders',

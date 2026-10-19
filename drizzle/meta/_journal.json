@@ -3088,6 +3088,41 @@
       "breakpoints": true
     },
     {
+      "idx": 470,
+      "version": "7",
+      "when": 1795182576810,
+      "tag": "0470_protocol_deviation_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 471,
+      "version": "7",
+      "when": 1795268976810,
+      "tag": "0471_rename_sheet_instance",
+      "breakpoints": true
+    },
+    {
+      "idx": 472,
+      "version": "7",
+      "when": 1795355376810,
+      "tag": "0472_dataset_model_upgrade",
+      "breakpoints": true
+    },
+    {
+      "idx": 473,
+      "version": "7",
+      "when": 1795441776810,
+      "tag": "0473_merged_analysis_block",
+      "breakpoints": true
+    },
+    {
+      "idx": 474,
+      "version": "7",
+      "when": 1795528176810,
+      "tag": "0474_compose_analysis_definition",
+      "breakpoints": true
+    },
+    {
       "idx": 490,
       "version": "7",
       "when": 1792676976810,

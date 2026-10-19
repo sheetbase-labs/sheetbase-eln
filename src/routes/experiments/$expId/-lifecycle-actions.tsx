@@ -22,6 +22,7 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { Icon } from '#/components/v3/icons'
+import { SaveAsTemplateDialog } from '#/components/v3/experiments/save-as-template-dialog'
 import {
   archiveExperiment,
   createNewRun,
@@ -36,7 +37,8 @@ import type { useExperimentRecord } from '../$expId'
 
 type ExperimentRow = NonNullable<ReturnType<typeof useExperimentRecord>['data']>
 
-type DialogKind = 'hold' | 'move' | 'run' | 'archive' | 'delete' | null
+type DialogKind =
+  'hold' | 'move' | 'run' | 'template' | 'archive' | 'delete' | null
 
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : 'That did not work.'
@@ -215,6 +217,12 @@ export function ExperimentLifecycleActions({
               New run of this experiment
             </DropdownMenuItem>
           ) : null}
+          <DropdownMenuItem
+            icon="template"
+            onClick={() => setDialog('template')}
+          >
+            Save as template
+          </DropdownMenuItem>
           {isDraft ? (
             <DropdownMenuItem icon="move" onClick={() => setDialog('move')}>
               Move to another project
@@ -231,6 +239,14 @@ export function ExperimentLifecycleActions({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {dialog === 'template' ? (
+        <SaveAsTemplateDialog
+          open
+          onOpenChange={(open) => (open ? null : close())}
+          experiment={e}
+        />
+      ) : null}
 
       <Dialog
         open={dialog === 'hold'}

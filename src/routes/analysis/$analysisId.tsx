@@ -1,5 +1,5 @@
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
@@ -23,6 +23,7 @@ import {
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
+import { DuplicateAnalysisDialog } from '#/components/v3/analysis/duplicate-analysis-dialog'
 import { CitationList } from '#/components/viz/citation-list'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -50,6 +51,8 @@ export const Route = createFileRoute('/analysis/$analysisId')({
 
 function AnalysisView() {
   const { analysisId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+  const [duplicating, setDuplicating] = useState(false)
   const viewQuery = useQuery({
     queryKey: ['ui-port', 'analysis', 'view', analysisId],
     queryFn: () =>
@@ -209,13 +212,20 @@ function AnalysisView() {
             </>
           }
           actions={
-            <Link
-              to="/analysis/new"
-              search={{ view: view.id, dataset: datasetId }}
-              className={buttonVariants({ variant: 'primary' })}
-            >
-              Edit in studio
-            </Link>
+            <>
+              {datasetId ? (
+                <Button onClick={() => setDuplicating(true)}>
+                  Run on other data
+                </Button>
+              ) : null}
+              <Link
+                to="/analysis/new"
+                search={{ view: view.id, dataset: datasetId }}
+                className={buttonVariants({ variant: 'primary' })}
+              >
+                Edit in studio
+              </Link>
+            </>
           }
         />
         <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
@@ -266,6 +276,16 @@ function AnalysisView() {
           )}
         </div>
       </div>
+
+      {duplicating ? (
+        <DuplicateAnalysisDialog
+          view={view}
+          workspaceId={context.workspace?.id ?? ''}
+          userId={context.user.id}
+          open
+          onOpenChange={setDuplicating}
+        />
+      ) : null}
 
       <Inspector aria-label="Analysis details" className="w-[320px]">
         <InspectorSection title="Source">

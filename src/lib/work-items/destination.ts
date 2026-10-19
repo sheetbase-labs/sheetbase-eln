@@ -38,6 +38,7 @@ export type WorkItemLink =
     }
   | { to: '/pipelines'; search: { q: string | undefined } }
   | { to: '/datasets' }
+  | { to: '/promotions' }
   | { to: '/materials'; search?: { selected: string } }
 
 export function itemLink(item: WorkItem): WorkItemLink {
@@ -124,6 +125,11 @@ export function itemLink(item: WorkItem): WorkItemLink {
     // Until the run is resolved, at least narrow the list to the pipeline the
     // item is about.
     return { to: '/pipelines', search: { q: item.identifier ?? undefined } }
+  if (
+    item.kind === 'approval_requested' &&
+    item.identifier === 'column_promotion'
+  )
+    return { to: '/promotions' }
   if (item.kind === 'data_issue') return { to: '/datasets' }
   if (item.kind === 'material_expiring')
     return item.recordId

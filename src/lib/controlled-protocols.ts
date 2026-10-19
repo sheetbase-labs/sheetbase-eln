@@ -11,7 +11,10 @@ export const protocolVersionSchema = z.object({
   status: z.enum(['draft', 'in_review', 'effective', 'superseded', 'retired']),
   effective_at: z.iso.datetime({ offset: true }).nullable(),
   review_due_at: z.iso.datetime({ offset: true }).nullable(),
-  change_summary: z.string(),
+  change_summary: z
+    .string()
+    .nullable()
+    .transform((value) => value ?? ''),
   created_by_user_id: z.string(),
   created_at: z.iso.datetime({ offset: true }),
 })
@@ -90,13 +93,13 @@ export async function createProtocolVersion(
   input: {
     protocolRecordId: string
     changeSummary: string
-    reviewDueAt: string | null
+    reason?: string | null
   },
 ): Promise<ProtocolVersion> {
   const row = await client.rpc<unknown>('create_protocol_version', {
     p_protocol_record_id: z.uuid().parse(input.protocolRecordId),
     p_change_summary: input.changeSummary,
-    p_review_due_at: input.reviewDueAt,
+    p_reason: input.reason ?? null,
   })
   return protocolVersionSchema.parse(row)
 }

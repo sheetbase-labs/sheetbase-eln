@@ -628,7 +628,7 @@ function SubmitDialog({
   )
 }
 
-function ReasonDialog({
+export function ReasonDialog({
   open,
   busy,
   title,

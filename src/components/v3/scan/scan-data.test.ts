@@ -151,7 +151,7 @@ describe('resolveScanCode other objects', () => {
     })
   })
 
-  it('opens an experiment record through the resolver, labelled by its kind', async () => {
+  it('opens an experiment on its own page, labelled by its kind', async () => {
     const result = await resolveScanCode(
       'EXP-9',
       stubClient({
@@ -167,6 +167,6 @@ describe('resolveScanCode other objects', () => {
       }),
     )
     expect(scanTargetActionLabel(result.hit!)).toBe('Open experiment')
-    expect(scanTargetHref(result.hit!).to).toBe('/r/$identifier')
+    expect(scanTargetHref(result.hit!).to).toBe('/experiments/$expId')
   })
 })

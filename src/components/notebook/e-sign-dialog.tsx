@@ -78,6 +78,8 @@ export interface ESignDialogProps {
   busy?: boolean
   errorMessage?: string | null
   submitLabel?: string
+  /** The label for the control that leaves without signing (default Cancel). */
+  cancelLabel?: string
   onSubmit: (input: ESignSubmitInput) => void
 }
 
@@ -95,6 +97,7 @@ export function ESignDialog({
   busy = false,
   errorMessage = null,
   submitLabel = 'Sign',
+  cancelLabel = 'Cancel',
   onSubmit,
 }: ESignDialogProps) {
   // `meanings` may be empty while eligibility loads; the selection still needs
@@ -246,7 +249,7 @@ export function ESignDialog({
           </DialogBody>
           <DialogFooter>
             <DialogClose render={<Button type="button" />}>
-              {blocked ? 'Close' : 'Cancel'}
+              {blocked ? 'Close' : cancelLabel}
             </DialogClose>
             {!blocked ? (
               <Button variant="primary" type="submit" disabled={!canSubmit}>

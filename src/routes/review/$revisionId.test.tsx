@@ -519,6 +519,41 @@ describe('ActionButtons — confirmation consequence text', () => {
   })
 })
 
+describe('ActionButtons — approving leads into signing', () => {
+  function renderWithSigning(onApprovedForSigning: () => void) {
+    return render(
+      <ActionButtons
+        submission={submission()}
+        permission={makePermission({ canReview: true, canWithdraw: false })}
+        integrityDigest={DIGEST}
+        onAfterDecision={vi.fn().mockResolvedValue(undefined)}
+        onApprovedForSigning={onApprovedForSigning}
+      />,
+    )
+  }
+
+  it('opens signing after Approve without needing the shortcut', async () => {
+    const onApprovedForSigning = vi.fn()
+    renderWithSigning(onApprovedForSigning)
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }))
+    await waitFor(() => expect(onApprovedForSigning).toHaveBeenCalledTimes(1))
+  })
+
+  it('does not open signing after a return', async () => {
+    const onApprovedForSigning = vi.fn()
+    renderWithSigning(onApprovedForSigning)
+    fireEvent.click(screen.getByRole('button', { name: 'Request changes' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Request changes' }),
+    )
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(onApprovedForSigning).not.toHaveBeenCalled()
+  })
+})
+
 describe('ActionButtons — stale and permission-loss error surfacing', () => {
   it('surfaces a stale-state error when the review changed before the action landed', async () => {
     const onAfterDecision = vi

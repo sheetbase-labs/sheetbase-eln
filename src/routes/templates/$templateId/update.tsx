@@ -14,6 +14,7 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
+import { BulkUpgradePanel } from '#/components/v3/templates/bulk-upgrade-panel'
 import { NotebookTemplateUpdateView } from '#/components/v3/templates/template-update-view'
 import { applyNotebookTemplateUpgrade } from '#/lib/notebook-template-data'
 import type { NotebookUpgradeDecision } from '#/lib/notebook-template-upgrade'
@@ -174,6 +175,14 @@ function TemplateUpdate() {
           }
         />
         <div className="px-4 py-4 md:px-6">
+          {eligible.length ? (
+            <BulkUpgradePanel
+              templateId={templateId}
+              targetVersion={target.version}
+              targetVersionId={target.id}
+              notebooks={eligible}
+            />
+          ) : null}
           {eligible.length ? (
             <TableBox className="max-w-[760px]">
               <RegistryGrid

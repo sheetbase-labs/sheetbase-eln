@@ -164,6 +164,7 @@ import { Route as RecordsRecordIdEvidenceRevisionIdRouteImport } from './routes/
 import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
 import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
+import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -976,6 +977,11 @@ const ApiExportRevisionIdPackageRoute =
     path: '/api/export/revision/$id/package',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiExportRevisionIdPdfRoute = ApiExportRevisionIdPdfRouteImport.update({
+  id: '/api/export/revision/$id/pdf',
+  path: '/api/export/revision/$id/pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -1133,6 +1139,7 @@ export interface FileRoutesByFullPath {
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
+  '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -1277,6 +1284,7 @@ export interface FileRoutesByTo {
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
+  '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1435,6 +1443,7 @@ export interface FileRoutesById {
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
+  '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1594,6 +1603,7 @@ export interface FileRouteTypes {
     | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
+    | '/api/export/revision/$id/pdf'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1738,6 +1748,7 @@ export interface FileRouteTypes {
     | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
+    | '/api/export/revision/$id/pdf'
   id:
     | '__root__'
     | '/'
@@ -1895,6 +1906,7 @@ export interface FileRouteTypes {
     | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
+    | '/api/export/revision/$id/pdf'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1965,6 +1977,7 @@ export interface RootRouteChildren {
   ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
   ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
+  ApiExportRevisionIdPdfRoute: typeof ApiExportRevisionIdPdfRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -3054,6 +3067,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExportRevisionIdPackageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/revision/$id/pdf': {
+      id: '/api/export/revision/$id/pdf'
+      path: '/api/export/revision/$id/pdf'
+      fullPath: '/api/export/revision/$id/pdf'
+      preLoaderRoute: typeof ApiExportRevisionIdPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -3530,6 +3550,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiClientPortalRecordsRecordIdPdfRoute:
     ApiClientPortalRecordsRecordIdPdfRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
+  ApiExportRevisionIdPdfRoute: ApiExportRevisionIdPdfRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

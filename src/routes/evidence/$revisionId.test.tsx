@@ -240,8 +240,8 @@ describe('evidence page — package export (DATA-02)', () => {
 
       await waitFor(() =>
         expect(mocks.toast).toHaveBeenCalledWith(
-          'Could not export the evidence package',
-          { description: 'This revision has no exportable package.' },
+          'Could not export the evidence',
+          { description: 'This revision has nothing to export.' },
         ),
       )
       expect(fetchMock).toHaveBeenCalledWith(
@@ -251,6 +251,26 @@ describe('evidence page — package export (DATA-02)', () => {
       expect(
         screen.getByRole('table', { name: 'Frozen revision content' }),
       ).toBeTruthy()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe('evidence page — PDF export', () => {
+  it('fetches the internal PDF and reports a refusal beside the button', async () => {
+    const fetchMock = vi.fn(async () => new Response('nope', { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      renderPage()
+      await screen.findByRole('table', { name: 'Frozen revision content' })
+      fireEvent.click(screen.getByRole('button', { name: 'Export PDF' }))
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/export/revision/rev-0001/pdf',
+        ),
+      )
+      await waitFor(() => expect(mocks.toast).toHaveBeenCalled())
     } finally {
       vi.unstubAllGlobals()
     }

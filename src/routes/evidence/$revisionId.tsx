@@ -209,24 +209,24 @@ export function EvidencePage() {
   // The package endpoint answers 404 for a revision the caller cannot read and
   // 500 for a build failure. Fetch it here so a refusal is a message beside the
   // button instead of a raw error page replacing the evidence.
-  async function exportPackage() {
+  async function exportFile(path: string, fallbackName: string) {
     setExporting(true)
     try {
-      const response = await fetch(packagePath)
+      const response = await fetch(path)
       if (!response.ok) {
         throw new Error(
           response.status === 404
-            ? 'This revision has no exportable package.'
-            : 'The server could not build the package.',
+            ? 'This revision has nothing to export.'
+            : 'The server could not build the export.',
         )
       }
       const blob = await response.blob()
       const disposition = response.headers.get('content-disposition')
       const filename =
-        disposition?.match(/filename="([^"]+)"/)?.[1] ?? packageFilename
+        disposition?.match(/filename="([^"]+)"/)?.[1] ?? fallbackName
       downloadTextFile(filename, blob)
     } catch (error) {
-      toast('Could not export the evidence package', {
+      toast('Could not export the evidence', {
         description:
           error instanceof Error ? error.message : 'The request failed.',
       })
@@ -280,9 +280,20 @@ export function EvidencePage() {
                 Create amendment
               </Button>
               <Button
+                disabled={exporting}
+                onClick={() =>
+                  void exportFile(
+                    `/api/export/revision/${revision.id}/pdf`,
+                    `evidence-${revision.id}.pdf`,
+                  )
+                }
+              >
+                Export PDF
+              </Button>
+              <Button
                 variant="primary"
                 disabled={exporting}
-                onClick={() => void exportPackage()}
+                onClick={() => void exportFile(packagePath, packageFilename)}
               >
                 {exporting ? 'Exporting…' : 'Export evidence package'}
               </Button>

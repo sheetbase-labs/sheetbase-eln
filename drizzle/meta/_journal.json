@@ -3100,6 +3100,13 @@
       "when": 1795441776810,
       "tag": "0473_merged_analysis_block",
       "breakpoints": true
+    },
+    {
+      "idx": 474,
+      "version": "7",
+      "when": 1795528176810,
+      "tag": "0474_compose_analysis_definition",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   captureDefinitionSourceRevisions,
+  composeAnalysisDefinition,
+  definitionNameFrom,
   createAnalysisDefinition,
   deleteAnalysisDefinition,
   saveAnalysisDefinition,
@@ -153,5 +155,67 @@ describe('save/delete wrappers', () => {
       'analysis_definitions',
       '?id=eq.abc',
     )
+  })
+})
+
+describe('composeAnalysisDefinition', () => {
+  const clash = Object.assign(new Error('duplicate'), { code: '23505' })
+
+  it('names the chart view and the statistic it joins', async () => {
+    const rpc = vi.fn().mockResolvedValue({ id: 'def-2' })
+    await composeAnalysisDefinition({ rpc } as unknown as DataClient, {
+      chartViewId: 'view-1',
+      statisticDefinitionId: 'def-1',
+      name: 'Dose response',
+    })
+    expect(rpc).toHaveBeenCalledWith('compose_analysis_definition', {
+      p_chart_view_id: 'view-1',
+      p_statistic_definition_id: 'def-1',
+      p_name: 'Dose response',
+    })
+  })
+
+  it('sends null for a chart with no statistic', async () => {
+    const rpc = vi.fn().mockResolvedValue({ id: 'def-2' })
+    await composeAnalysisDefinition({ rpc } as unknown as DataClient, {
+      chartViewId: 'view-1',
+      name: 'Dose response',
+    })
+    expect(rpc.mock.calls[0][1].p_statistic_definition_id).toBeNull()
+  })
+
+  it('retries a name already taken with a number, and gives up on other errors', async () => {
+    const rpc = vi
+      .fn()
+      .mockRejectedValueOnce(clash)
+      .mockResolvedValueOnce({ id: 'def-2' })
+    await composeAnalysisDefinition({ rpc } as unknown as DataClient, {
+      chartViewId: 'v',
+      name: 'Dose response',
+    })
+    expect(rpc.mock.calls[1][1].p_name).toBe('Dose response 2')
+
+    const failing = vi.fn().mockRejectedValue(new Error('denied'))
+    await expect(
+      composeAnalysisDefinition({ rpc: failing } as unknown as DataClient, {
+        chartViewId: 'v',
+        name: 'x',
+      }),
+    ).rejects.toThrow('denied')
+    expect(failing).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('definitionNameFrom', () => {
+  it('keeps what the name check allows and trims the ends', () => {
+    expect(definitionNameFrom('  Dose / response (24 h)!  ')).toBe(
+      'Dose response 24 h',
+    )
+    expect(definitionNameFrom('---')).toBe('Analysis')
+  })
+  it('stays within 100 characters with a suffix', () => {
+    const name = definitionNameFrom('a'.repeat(300), 3)
+    expect(name.length).toBeLessThanOrEqual(100)
+    expect(name.endsWith(' 3')).toBe(true)
   })
 })

@@ -466,3 +466,113 @@ describe('merged analysis block', () => {
     expect(frozen.rows[0].payload.frozen).toBeTruthy()
   })
 })
+
+describe('compose_analysis_definition', () => {
+  async function member(user: string) {
+    const client = await asRole('authenticator')
+    clients.push(client)
+    await client.query('SET ROLE authenticated')
+    await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
+      JSON.stringify({ sub: user, workspace_id: WS_A, role: 'authenticated' }),
+    ])
+    return client
+  }
+
+  async function viewWith(name: string, spec: unknown) {
+    const res = await migrator.query(
+      `INSERT INTO api.analysis_views(workspace_id,owner_user_id,name,spec,source_revisions)
+       VALUES ($1,$2,$3,$4::jsonb,'[]'::jsonb) RETURNING id`,
+      [WS_A, USER_A, `${name} ${Date.now()}`, JSON.stringify(spec)],
+    )
+    return res.rows[0].id as string
+  }
+
+  it('makes a chart-only definition from a saved chart view, owned by the caller', async () => {
+    const viewId = await viewWith('Compose view', chartSpec())
+    const owner = await member(USER_A)
+    const res = await owner.query(
+      `SELECT * FROM api.compose_analysis_definition($1,NULL,$2)`,
+      [viewId, `Composed chart ${Date.now()}`],
+    )
+    const row = res.rows[0]
+    expect(row.owner_user_id).toBe(USER_A)
+    expect(row.definition.kind).toBe('chart')
+    expect(row.definition.datasets).toEqual([{ datasetId }])
+    expect(row.definition.chart.type).toBe('scatter')
+  })
+
+  it('puts the chart beside a statistic and leaves the statistic untouched', async () => {
+    const viewId = await viewWith('Compose both', chartSpec())
+    const statisticId = await definitionWith('Compose statistic', statistic())
+    const owner = await member(USER_A)
+    const res = await owner.query(
+      `SELECT * FROM api.compose_analysis_definition($1,$2,$3)`,
+      [viewId, statisticId, `Composed both ${Date.now()}`],
+    )
+    expect(res.rows[0].definition.kind).toBe('regression')
+    expect(res.rows[0].definition.chart.type).toBe('scatter')
+    const original = await migrator.query(
+      `SELECT definition FROM api.analysis_definitions WHERE id=$1`,
+      [statisticId],
+    )
+    expect(original.rows[0].definition.chart).toBeUndefined()
+  })
+
+  it('refuses a chart on another dataset, a multi-dataset chart and a missing name', async () => {
+    const other = await insertCanonicalDataset(`compose_other_${Date.now()}`, 3)
+    const elsewhere = await viewWith(
+      'Compose elsewhere',
+      chartSpec({ datasets: [{ datasetId: other }] }),
+    )
+    const two = await viewWith(
+      'Compose two',
+      chartSpec({ datasets: [{ datasetId }, { datasetId: other }] }),
+    )
+    const statisticId = await definitionWith('Compose mismatch', statistic())
+    const owner = await member(USER_A)
+    await expect(
+      owner.query(`SELECT * FROM api.compose_analysis_definition($1,$2,$3)`, [
+        elsewhere,
+        statisticId,
+        `Never saved ${Date.now()}`,
+      ]),
+    ).rejects.toMatchObject({ code: '23514' })
+    await expect(
+      owner.query(`SELECT * FROM api.compose_analysis_definition($1,NULL,$2)`, [
+        two,
+        `Never saved two ${Date.now()}`,
+      ]),
+    ).rejects.toMatchObject({ code: '22023' })
+    await expect(
+      owner.query(
+        `SELECT * FROM api.compose_analysis_definition($1,NULL,'  ')`,
+        [elsewhere],
+      ),
+    ).rejects.toMatchObject({ code: '22023' })
+  })
+
+  it('refuses a view or an analysis the caller cannot see', async () => {
+    const outsider = `mab-outsider-${crypto.randomUUID().slice(0, 8)}`
+    await migrator.query(
+      `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES ($1,'Outsider',$2,true)`,
+      [outsider, `${outsider}@sheetbase.test`],
+    )
+    const viewId = await viewWith('Compose hidden', chartSpec())
+    const stranger = await asRole('authenticator')
+    clients.push(stranger)
+    await stranger.query('SET ROLE authenticated')
+    await stranger.query("SELECT set_config('request.jwt.claims',$1,false)", [
+      JSON.stringify({
+        sub: outsider,
+        workspace_id: crypto.randomUUID(),
+        role: 'authenticated',
+      }),
+    ])
+    await expect(
+      stranger.query(
+        `SELECT * FROM api.compose_analysis_definition($1,NULL,$2)`,
+        [viewId, `Hidden ${Date.now()}`],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+  })
+})

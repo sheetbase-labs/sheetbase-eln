@@ -179,3 +179,52 @@ export async function unfreezeAnalysisBlock(
     p_expected_version: args.expectedVersion,
   })
 }
+
+/**
+ * A name the saved-definition check accepts: letters and digits at both ends,
+ * letters, digits, space, underscore, dot and hyphen between, at most 100
+ * characters. Anything else in the source name becomes a space.
+ */
+export function definitionNameFrom(base: string, attempt = 1): string {
+  const suffix = attempt > 1 ? ` ${attempt}` : ''
+  const cleaned = base
+    .replace(/[^\p{L}\p{N} _.-]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+  const head = (cleaned || 'Analysis').slice(0, 99 - suffix.length)
+  return `${head.replace(/[^\p{L}\p{N}]+$/u, '') || 'Analysis'}${suffix}`
+}
+
+/**
+ * Put a saved chart view into an analysis block's definition: the statistic's
+ * body with the chart beside it, or a chart-only definition when there is no
+ * statistic. Saves a new definition and leaves both sources as they were. A
+ * name clash is retried with a number, so the person never sees it.
+ */
+export async function composeAnalysisDefinition(
+  client: DataClient,
+  input: {
+    chartViewId: string
+    statisticDefinitionId?: string | null
+    name: string
+  },
+): Promise<AnalysisDefinitionWire> {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      return await client.rpc<AnalysisDefinitionWire>(
+        'compose_analysis_definition',
+        {
+          p_chart_view_id: input.chartViewId,
+          p_statistic_definition_id: input.statisticDefinitionId ?? null,
+          p_name: definitionNameFrom(input.name, attempt),
+        },
+      )
+    } catch (error) {
+      lastError = error
+      const code = (error as { code?: string }).code
+      if (code !== '23505') throw error
+    }
+  }
+  throw lastError
+}

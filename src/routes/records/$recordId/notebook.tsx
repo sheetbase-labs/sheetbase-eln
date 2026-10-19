@@ -1210,7 +1210,9 @@ export function StickyRecordHeader({
                   Link records…
                 </DropdownMenuItem>
               ) : null}
-              {projectId && !historicalRevisionId ? (
+              {projectId &&
+              !historicalRevisionId &&
+              record.kind === 'experiment' ? (
                 <DropdownMenuItem onClick={() => setDuplicateOpen(true)}>
                   Duplicate
                 </DropdownMenuItem>

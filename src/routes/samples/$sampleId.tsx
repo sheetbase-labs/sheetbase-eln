@@ -25,7 +25,7 @@ import {
   sampleStatus,
   storageLocationsQueryKey,
 } from '#/components/v3/samples/samples-data'
-import { LocationInput } from '#/components/v3/samples/location-field'
+import { MoveSampleDialog } from '#/components/v3/samples/move-dialog'
 import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
 import {
   PrintLabelButton,
@@ -764,20 +764,15 @@ function SampleLayout() {
           onSubmit={(input) => reserve.mutate(input)}
         />
       ) : null}
-      <TextDialog
-        open={dialog === 'move'}
-        onOpenChange={(o) => setDialog(o ? 'move' : null)}
-        title={`Move ${sample.identifier}`}
-        label="New location"
-        hint={
-          sample.storageLocation
-            ? `Now at ${sample.storageLocation}. Pick a place already in use or type a new one.`
-            : 'Pick a place already in use or type a new one.'
-        }
-        suggestLocations
-        busy={move.isPending}
-        onSubmit={(value) => move.mutate({ toLocation: value })}
-      />
+      {dialog === 'move' ? (
+        <MoveSampleDialog
+          open
+          onOpenChange={(open) => setDialog(open ? 'move' : null)}
+          sample={sample}
+          busy={move.isPending}
+          onSubmit={(toLocation) => move.mutate({ toLocation })}
+        />
+      ) : null}
       {dialog === 'edit' ? (
         <EditDetailsDialog
           sample={sample}
@@ -892,61 +887,6 @@ function SampleLayout() {
           only this document reaches the sheet. */}
       <SampleLabelPrint record={sample} />
     </div>
-  )
-}
-
-function TextDialog({
-  open,
-  onOpenChange,
-  title,
-  label,
-  hint,
-  suggestLocations,
-  busy,
-  onSubmit,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  label: string
-  hint?: string
-  /** Offer the locations samples already sit at. */
-  suggestLocations?: boolean
-  busy: boolean
-  onSubmit: (value: string) => void
-}) {
-  const [value, setValue] = useState('')
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(420px,calc(100vw-32px))]">
-        <DialogHeader title={title} />
-        <DialogBody>
-          <Field label={label} hint={hint} required>
-            {suggestLocations ? (
-              <LocationInput value={value} onChange={setValue} autoFocus />
-            ) : (
-              <Input
-                value={value}
-                onChange={(e) => setValue(e.target.value)}
-                autoFocus
-              />
-            )}
-          </Field>
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose render={<Button />}>Cancel</DialogClose>
-          <Button
-            variant="primary"
-            disabled={busy}
-            onClick={() => {
-              if (value.trim()) onSubmit(value.trim())
-            }}
-          >
-            Confirm
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

@@ -88,6 +88,10 @@ import {
 } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import {
+  composeAnalysisDefinition,
+  freezeAnalysisBlock,
+} from '#/lib/analysis-definitions-data'
+import {
   AXIS_SCALES,
   CHART_PALETTE,
   CHART_SPEC_VERSION,
@@ -1363,20 +1367,40 @@ export function ExportPanel({
         workspaceId,
         user.id,
       )
-      // A figure is cited as a frozen chart block carrying the view's spec: the
-      // notebook shows exactly this chart, pinned to the dataset version it was
-      // drawn from. (The `analysis` block is for saved statistics.)
+      // A figure is cited as a frozen analysis block that holds the view's
+      // chart: the notebook shows exactly this chart, pinned to the dataset
+      // version it was drawn from. One block kind holds a chart, a statistic
+      // or both, so the figure can later gain a statistic beside it. A chart
+      // over several datasets cannot be pinned to one Dataset Version, so it
+      // is still cited as a frozen chart block, which pins each source.
       const targetRecord = await fetchRecord(notebookDataClient, target.id)
-      const inserted = await insertBlock(notebookDataClient, {
-        recordId: target.id,
-        type: 'chart',
-        payload: { title: caption.trim(), spec: view.spec },
-        expectedStructureVersion: targetRecord?.structureVersion,
-      })
-      await freezeChart(notebookDataClient, {
-        blockId: inserted.block.id,
-        expectedVersion: inserted.block.version,
-      })
+      if (view.spec.datasets.length === 1) {
+        const definition = await composeAnalysisDefinition(notebookDataClient, {
+          chartViewId: view.id,
+          name: caption.trim(),
+        })
+        const inserted = await insertBlock(notebookDataClient, {
+          recordId: target.id,
+          type: 'analysis',
+          payload: { title: caption.trim(), definitionId: definition.id },
+          expectedStructureVersion: targetRecord?.structureVersion,
+        })
+        await freezeAnalysisBlock(notebookDataClient, {
+          blockId: inserted.block.id,
+          expectedVersion: inserted.block.version,
+        })
+      } else {
+        const inserted = await insertBlock(notebookDataClient, {
+          recordId: target.id,
+          type: 'chart',
+          payload: { title: caption.trim(), spec: view.spec },
+          expectedStructureVersion: targetRecord?.structureVersion,
+        })
+        await freezeChart(notebookDataClient, {
+          blockId: inserted.block.id,
+          expectedVersion: inserted.block.version,
+        })
+      }
       await recordAnalysisCitation(notebookDataClient, target.id, view)
       toast('Cited in a notebook', {
         description: `${targetRecord?.identifier ?? 'The notebook'} now shows this figure.`,

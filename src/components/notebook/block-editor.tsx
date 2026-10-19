@@ -94,6 +94,7 @@ import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type { AnalysisBlockPayload } from '#/lib/analysis-block'
 import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
 import { PipelineOutputBlockEditor } from './pipeline-output-block-editor'
+import { AnalysisChartPicker } from './analysis-chart-picker'
 import {
   analysisDefinitionQueryKeys,
   fetchAnalysisDefinitions,
@@ -3059,6 +3060,14 @@ function ValidationConfigEditor({
 // down from the route so durable events and audit attribution stay canonical.
 // ---------------------------------------------------------------------------
 
+/** What a saved analysis holds, for its entry in the picker. */
+function analysisContents(definition: unknown): string {
+  if (typeof definition !== 'object' || definition === null) return ''
+  const body = definition as { kind?: unknown; chart?: unknown }
+  if (body.kind === 'chart') return ' · chart'
+  return body.chart ? ' · statistic and chart' : ''
+}
+
 function AnalysisBlockEditor({
   block,
   save,
@@ -3116,18 +3125,37 @@ function AnalysisBlockEditor({
               {definitionsQuery.isLoading
                 ? 'Loading saved analyses…'
                 : definitions.length === 0
-                  ? 'No saved analyses — create one in /analysis → Analyse'
+                  ? 'No saved analyses — add a saved chart below, or create a statistic in /analysis → Analyse'
                   : 'Select an analysis'}
             </option>
             {definitions.map((d) => (
               <option key={d.id} value={d.id}>
-                {`${d.name} · v${d.version}`}
+                {`${d.name} · v${d.version}${analysisContents(d.definition)}`}
               </option>
             ))}
           </Select>
           <p className="text-xs text-fg-muted">
             Analyses execute against live dataset rows. Freeze to pin the inputs
             as evidence.
+          </p>
+        </ChartField>
+
+        <ChartField label="Chart">
+          <AnalysisChartPicker
+            statistic={selected}
+            disabled={!!frozen || readOnly}
+            onComposed={(definition) => {
+              a.setTouched(true)
+              a.setDraft({
+                ...draft,
+                definitionId: definition.id,
+                title: draft.title || definition.name,
+              })
+            }}
+          />
+          <p className="text-xs text-fg-muted">
+            One block holds a chart, a statistic or both. A chart added here is
+            saved with the analysis; the saved chart itself is not changed.
           </p>
         </ChartField>
 

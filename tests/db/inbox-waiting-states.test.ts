@@ -216,3 +216,25 @@ describe('my_work_items waiting states', () => {
     expect(rows[0]!.total).toBeGreaterThanOrEqual(rows[0]!.reviews)
   })
 })
+
+describe('my_work_items signature identity verification', () => {
+  it('asks an administrator to verify, and tells the requester once it is done', async () => {
+    await migrator.query(
+      `insert into api.user_signature_certifications(workspace_id,user_id,statement_version,credential_session_id)
+       values($1,$2,1,'iw-session')`,
+      [WS, AUTHOR],
+    )
+    expect(await kindsFor(OWNER)).toContain('verification_requested')
+    expect(await kindsFor(AUTHOR)).not.toContain('verification_requested')
+    expect(await kindsFor(REVIEWER)).not.toContain('verification_requested')
+
+    await migrator.query(
+      `update api.user_signature_certifications
+          set identity_verified_at=now(), identity_verified_by=$2, certified_at=null
+        where workspace_id=$1`,
+      [WS, OWNER],
+    )
+    expect(await kindsFor(OWNER)).not.toContain('verification_requested')
+    expect(await kindsFor(AUTHOR)).toContain('verification_granted')
+  })
+})

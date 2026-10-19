@@ -127,6 +127,8 @@ function labelFor(kind: WorkItemKind, state: string): string {
   if (kind === 'access_decided') return 'Access decided'
   if (kind === 'agent_proposal') return 'Agent proposal'
   if (kind === 'invitation_accepted') return 'Joined'
+  if (kind === 'verification_requested') return 'Verify identity'
+  if (kind === 'verification_granted') return 'Verified'
   if (kind === 'sample_awaiting_release') return 'Quarantined'
   if (kind === 'sample_hold_exceeded') return 'Hold exceeded'
   return 'Following'

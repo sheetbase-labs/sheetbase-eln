@@ -66,6 +66,8 @@ describe('workItemType for the waiting states', () => {
     ['access_decided', 'admin'],
     ['agent_proposal', 'admin'],
     ['invitation_accepted', 'admin'],
+    ['verification_requested', 'admin'],
+    ['verification_granted', 'admin'],
   ])('files %s under %s', (kind, type) => {
     expect(workItemType(kind)).toBe(type)
   })

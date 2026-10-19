@@ -3086,6 +3086,13 @@
       "when": 1793540976810,
       "tag": "0451_inbox_review_revision_and_counts",
       "breakpoints": true
+    },
+    {
+      "idx": 452,
+      "version": "7",
+      "when": 1793627376810,
+      "tag": "0452_inbox_signature_verification",
+      "breakpoints": true
     }
   ]
 }

@@ -75,6 +75,15 @@ describe('itemLink', () => {
     })
   })
 
+  it('opens identity verification, on either side, on the signature settings', () => {
+    expect(
+      itemLink(item('verification_requested', { recordId: null })),
+    ).toEqual({ to: '/settings/signatures' })
+    expect(itemLink(item('verification_granted', { recordId: null }))).toEqual({
+      to: '/settings/signatures',
+    })
+  })
+
   it('opens an accepted invitation on the members list', () => {
     expect(itemLink(item('invitation_accepted', { recordId: null }))).toEqual({
       to: '/settings/members',

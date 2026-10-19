@@ -66,7 +66,9 @@ export function workItemType(kind: string): WorkItemType {
     kind === 'access_requested' ||
     kind === 'access_decided' ||
     kind === 'agent_proposal' ||
-    kind === 'invitation_accepted'
+    kind === 'invitation_accepted' ||
+    kind === 'verification_requested' ||
+    kind === 'verification_granted'
   )
     return 'admin'
   return 'following'

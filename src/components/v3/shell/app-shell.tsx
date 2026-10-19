@@ -52,7 +52,7 @@ import { cn } from '#/lib/utils'
 import type { Notification, NotificationTarget } from '#/components/v3/types'
 import type { ShellCounts } from '#/lib/shell-counts.server'
 import { markNotificationsRead } from '#/lib/notifications-data'
-import { createContextFromPath } from './create-context'
+import { createMenuSearch } from './create-context'
 import { isHomeSection, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
@@ -591,7 +591,7 @@ function NewMenu({
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
-  const context = createContextFromPath(pathname)
+  const search = createMenuSearch(pathname)
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
@@ -603,19 +603,14 @@ function NewMenu({
         <DropdownMenuLinkItem
           icon="flask"
           hint="E"
-          render={
-            <Link
-              to="/experiments/new"
-              search={{ project: context.project, sample: context.sample }}
-            />
-          }
+          render={<Link to="/experiments/new" search={search.experiment} />}
         >
           Experiment
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
           icon="tube"
           hint="S"
-          render={<Link to="/samples" search={{ new: true }} />}
+          render={<Link to="/samples" search={search.sample} />}
         >
           Sample
         </DropdownMenuLinkItem>
@@ -625,22 +620,17 @@ function NewMenu({
         >
           Project
         </DropdownMenuLinkItem>
-        <DropdownMenuLinkItem icon="table" render={<Link to="/sheets/new" />}>
+        <DropdownMenuLinkItem
+          icon="table"
+          render={<Link to="/sheets/new" search={search.sheet} />}
+        >
           Working sheet
         </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
         <DropdownMenuLinkItem
           icon="upload"
           hint="I"
-          render={
-            <Link
-              to="/import"
-              search={{
-                experiment: context.experiment,
-                dataset: context.dataset,
-              }}
-            />
-          }
+          render={<Link to="/import" search={search.import} />}
         >
           Import data
         </DropdownMenuLinkItem>

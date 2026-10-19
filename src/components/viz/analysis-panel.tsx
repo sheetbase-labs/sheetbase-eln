@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Save, Sigma, Trash2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { Icon } from '#/components/icons'
 import { ChartRenderer } from '#/components/viz/chart-renderer'
@@ -100,6 +100,8 @@ export interface AnalysisPanelProps {
   userId: string
   /** The dataset the studio was opened with; the panel starts on it. */
   initialDatasetId?: string | null
+  /** A saved statistic to open on, e.g. from the Analysis list. */
+  initialDefinitionId?: string
   /** The experiment the studio was opened from; Cite offers it first. */
   experimentId?: string
 }
@@ -121,6 +123,7 @@ export function AnalysisPanel({
   workspaceId,
   userId,
   initialDatasetId,
+  initialDefinitionId,
   experimentId,
 }: AnalysisPanelProps) {
   const queryClient = useQueryClient()
@@ -246,6 +249,21 @@ export function AnalysisPanel({
     })
     setSelectedDatasetId(def.datasets[0]?.datasetId ?? '')
   }
+
+  // Opened from the Analysis list: load that statistic once, when it arrives.
+  const openedDefinition = useRef<string | null>(null)
+  useEffect(() => {
+    if (
+      !initialDefinitionId ||
+      openedDefinition.current === initialDefinitionId
+    )
+      return
+    const saved = definitions.find((row) => row.id === initialDefinitionId)
+    if (!saved) return
+    openedDefinition.current = initialDefinitionId
+    loadDefinition(saved)
+    // `loadDefinition` only sets state from `saved`.
+  }, [initialDefinitionId, definitions])
 
   const saveMutation = useMutation({
     mutationFn: async () => {

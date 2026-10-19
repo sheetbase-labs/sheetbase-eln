@@ -4,6 +4,7 @@
  */
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
+import { objectPath, recordPath } from './navigation'
 
 export interface NotificationItem {
   id: string
@@ -62,4 +63,81 @@ export async function markNotificationsRead(
   ids: string[] | null = null,
 ): Promise<number> {
   return client.rpc<number>('mark_notifications_read', { p_ids: ids })
+}
+
+/** Notification types that are about a review of a record. */
+const REVIEW_EVENTS: ReadonlySet<string> = new Set([
+  'review_requested',
+  'review_returned_or_signed',
+  'signature_requested',
+])
+
+export function isReviewNotification(item: NotificationItem): boolean {
+  return REVIEW_EVENTS.has(item.eventType) && item.recordId !== null
+}
+
+/** The newest review submission of a record, as the bell needs it. */
+export interface LatestReview {
+  revisionId: string
+  state: string
+}
+
+/**
+ * The newest review submission for each record the review notifications are
+ * about, so the bell can open the review itself and not only the record.
+ */
+export async function fetchLatestReviews(
+  items: readonly NotificationItem[],
+  client: DataClient = notebookDataClient,
+): Promise<Map<string, LatestReview>> {
+  const recordIds = [
+    ...new Set(
+      items
+        .filter(isReviewNotification)
+        .map((item) => item.recordId)
+        .filter((id): id is string => id !== null),
+    ),
+  ]
+  const latest = new Map<string, LatestReview>()
+  if (recordIds.length === 0) return latest
+  const rows = await client.list<{
+    record_id: string
+    revision_id: string
+    state: string
+  }>(
+    'review_submissions',
+    `?record_id=in.(${recordIds.map(encodeURIComponent).join(',')})&select=record_id,revision_id,state&order=submitted_at.desc`,
+  )
+  // Newest first: keep the first row seen for each record.
+  for (const row of rows) {
+    if (!latest.has(row.record_id)) {
+      latest.set(row.record_id, {
+        revisionId: row.revision_id,
+        state: row.state,
+      })
+    }
+  }
+  return latest
+}
+
+/**
+ * Where a notification opens. It follows the Inbox's rules: a review request
+ * or a signature request opens the review for its revision, a review that came
+ * back opens the notebook where the changes are made, and anything else opens
+ * the record it is about.
+ */
+export function notificationDestination(
+  item: NotificationItem,
+  latestReviews: ReadonlyMap<string, LatestReview> = new Map(),
+): string | undefined {
+  if (!item.recordId) return undefined
+  if (REVIEW_EVENTS.has(item.eventType)) {
+    const review = latestReviews.get(item.recordId)
+    if (review && review.state !== 'returned') {
+      return (
+        objectPath('review', review.revisionId) ?? recordPath(item.recordId)
+      )
+    }
+  }
+  return recordPath(item.recordId)
 }

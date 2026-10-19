@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Section } from '#/components/v3/ui/layout'
@@ -6,6 +7,9 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { TableBox } from '#/components/v3/ui/table'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { fetchExperimentBookings } from '#/lib/calendar'
+import type { CalendarBookingWire } from '#/lib/calendar'
+import { notebookDataClient } from '#/lib/notebook-data'
 import { objectPath } from '#/lib/navigation'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import type { RecordLinkWire } from '../$expId'
@@ -21,6 +25,83 @@ const LINK_SECTIONS: { kind: string; title: string }[] = [
  * have no page of their own kind open as records. */
 function linkObjectKind(targetKind: string): string {
   return objectPath(targetKind, 'x') ? targetKind : 'record'
+}
+
+/** The instrument bookings made for this experiment, and the way to make one
+ * that comes back here. A booking is not a record, so it is read from the
+ * booking itself rather than from `record_links`. */
+export function ExperimentBookings({ expId }: { expId: string }) {
+  const bookings = useQuery({
+    queryKey: ['ui-port', 'experiment-bookings', expId],
+    queryFn: () => fetchExperimentBookings(notebookDataClient, expId),
+  })
+  const rows = bookings.data ?? []
+  const columns: RegistryColumn<CalendarBookingWire>[] = [
+    {
+      id: 'booking',
+      header: 'Booking',
+      cell: ({ row }) => row.original.title,
+    },
+    {
+      id: 'when',
+      header: 'When',
+      meta: { cellClassName: 'num text-fg-muted' },
+      cell: ({ row }) => row.original.starts_at.slice(0, 16).replace('T', ' '),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      meta: { cellClassName: 'capitalize text-fg-muted' },
+      cell: ({ row }) => row.original.status,
+    },
+  ]
+  return (
+    <Section
+      title="Bookings"
+      count={rows.length}
+      action={
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={
+            <Link
+              to="/schedule"
+              search={{
+                experiment: expId,
+                returnTo: `/experiments/${expId}/links`,
+              }}
+            />
+          }
+        >
+          Book an instrument
+        </Button>
+      }
+    >
+      {bookings.isError ? (
+        <EmptyState
+          className="py-2"
+          title="Bookings could not be read"
+          description="Reload the page to try again. If it keeps failing, ask a workspace admin."
+        />
+      ) : rows.length ? (
+        <TableBox>
+          <RegistryGrid
+            label="Bookings"
+            rows={rows}
+            columns={columns}
+            getRowId={(b) => b.id}
+            selectable={false}
+          />
+        </TableBox>
+      ) : (
+        <EmptyState
+          className="py-2"
+          title="No instrument booked"
+          description="Instruments booked for this experiment appear here."
+        />
+      )}
+    </Section>
+  )
 }
 
 /** Everything linked to the experiment, grouped by what it is: Samples,
@@ -116,6 +197,7 @@ export function LinksPanel({ expId }: { expId: string }) {
           )}
         </Section>
       ))}
+      <ExperimentBookings expId={expId} />
     </div>
   )
 }

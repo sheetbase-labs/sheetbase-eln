@@ -359,6 +359,18 @@ export async function fetchCalendarBookings(
   )
 }
 
+/** The live bookings made for one experiment, soonest first. */
+export async function fetchExperimentBookings(
+  client: DataClient,
+  experimentRecordId: string,
+): Promise<CalendarBookingWire[]> {
+  return client.list<CalendarBookingWire>(
+    'calendar_bookings',
+    `?linked_experiment_record_id=eq.${encodeURIComponent(experimentRecordId)}` +
+      `&cancelled_at=is.null&order=starts_at.asc`,
+  )
+}
+
 export async function fetchBookingParticipants(
   client: DataClient,
   bookingId: string,

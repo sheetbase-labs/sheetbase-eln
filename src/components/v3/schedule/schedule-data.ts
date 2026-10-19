@@ -159,6 +159,9 @@ export interface BookInstrumentInput {
   startsAt: string
   endsAt: string
   timezone: string
+  /** The experiment the booking is for; the booking then belongs to it. */
+  linkedExperimentRecordId?: string | null
+  projectId?: string | null
 }
 
 export async function bookInstrument(
@@ -171,6 +174,8 @@ export async function bookInstrument(
     endsAt: input.endsAt,
     timezone: input.timezone,
     status: 'tentative',
+    linkedExperimentRecordId: input.linkedExperimentRecordId ?? null,
+    projectId: input.projectId ?? null,
   })
   return toScheduleBooking(wire)
 }

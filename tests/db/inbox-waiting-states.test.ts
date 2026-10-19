@@ -177,4 +177,42 @@ describe('my_work_items waiting states', () => {
     )
     expect(await kindsFor(AUTHOR)).not.toContain('review_returned')
   })
+
+  it('names the revision under review on a review request', async () => {
+    const client = await asRole('authenticator')
+    clients.push(client)
+    await client.query('set role authenticated')
+    await client.query(`select set_config('request.jwt.claims',$1,false)`, [
+      JSON.stringify({
+        sub: REVIEWER,
+        workspace_id: WS,
+        role: 'authenticated',
+      }),
+    ])
+    const { rows } = await client.query<{ revision_id: string | null }>(
+      `select revision_id from api.my_work_items where kind='review_requested'`,
+    )
+    expect(rows.length).toBeGreaterThan(0)
+    for (const row of rows) expect(row.revision_id).not.toBeNull()
+  })
+
+  it('counts the review kinds in the Reviews subset', async () => {
+    const client = await asRole('authenticator')
+    clients.push(client)
+    await client.query('set role authenticated')
+    await client.query(`select set_config('request.jwt.claims',$1,false)`, [
+      JSON.stringify({
+        sub: REVIEWER,
+        workspace_id: WS,
+        role: 'authenticated',
+      }),
+    ])
+    const { rows } = await client.query<{ total: number; reviews: number }>(
+      'select total, reviews from api.inbox_needs_action_counts()',
+    )
+    // The approved review awaiting this reviewer's signature, and the
+    // resubmitted review awaiting their decision.
+    expect(rows[0]!.reviews).toBeGreaterThanOrEqual(2)
+    expect(rows[0]!.total).toBeGreaterThanOrEqual(rows[0]!.reviews)
+  })
 })

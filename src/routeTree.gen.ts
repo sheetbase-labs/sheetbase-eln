@@ -105,10 +105,13 @@ import { Route as ExperimentsExpIdIndexRouteImport } from './routes/experiments/
 import { Route as ExperimentsExpIdDatasetsRouteImport } from './routes/experiments/$expId/datasets'
 import { Route as ExperimentsExpIdFilesRouteImport } from './routes/experiments/$expId/files'
 import { Route as ExperimentsExpIdHistoryRouteImport } from './routes/experiments/$expId/history'
+import { Route as ExperimentsExpIdLinksRouteImport } from './routes/experiments/$expId/links'
 import { Route as ExperimentsExpIdNotebookRouteImport } from './routes/experiments/$expId/notebook'
 import { Route as ExperimentsExpIdOverviewRouteImport } from './routes/experiments/$expId/overview'
 import { Route as ExperimentsExpIdResultsRouteImport } from './routes/experiments/$expId/results'
+import { Route as ExperimentsExpIdRevisionsRouteImport } from './routes/experiments/$expId/revisions'
 import { Route as ExperimentsExpIdSamplesRouteImport } from './routes/experiments/$expId/samples'
+import { Route as ExperimentsExpIdSignaturesRouteImport } from './routes/experiments/$expId/signatures'
 import { Route as ModelsModelIdIndexRouteImport } from './routes/models/$modelId/index'
 import { Route as ModelsModelIdDatasetsRouteImport } from './routes/models/$modelId/datasets'
 import { Route as ModelsModelIdEditRouteImport } from './routes/models/$modelId/edit'
@@ -646,6 +649,11 @@ const ExperimentsExpIdHistoryRoute = ExperimentsExpIdHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => ExperimentsExpIdRoute,
 } as any)
+const ExperimentsExpIdLinksRoute = ExperimentsExpIdLinksRouteImport.update({
+  id: '/links',
+  path: '/links',
+  getParentRoute: () => ExperimentsExpIdRoute,
+} as any)
 const ExperimentsExpIdNotebookRoute =
   ExperimentsExpIdNotebookRouteImport.update({
     id: '/notebook',
@@ -663,11 +671,23 @@ const ExperimentsExpIdResultsRoute = ExperimentsExpIdResultsRouteImport.update({
   path: '/results',
   getParentRoute: () => ExperimentsExpIdRoute,
 } as any)
+const ExperimentsExpIdRevisionsRoute =
+  ExperimentsExpIdRevisionsRouteImport.update({
+    id: '/revisions',
+    path: '/revisions',
+    getParentRoute: () => ExperimentsExpIdRoute,
+  } as any)
 const ExperimentsExpIdSamplesRoute = ExperimentsExpIdSamplesRouteImport.update({
   id: '/samples',
   path: '/samples',
   getParentRoute: () => ExperimentsExpIdRoute,
 } as any)
+const ExperimentsExpIdSignaturesRoute =
+  ExperimentsExpIdSignaturesRouteImport.update({
+    id: '/signatures',
+    path: '/signatures',
+    getParentRoute: () => ExperimentsExpIdRoute,
+  } as any)
 const ModelsModelIdIndexRoute = ModelsModelIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -1051,10 +1071,13 @@ export interface FileRoutesByFullPath {
   '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
   '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
   '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
+  '/experiments/$expId/links': typeof ExperimentsExpIdLinksRoute
   '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
   '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
   '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
+  '/experiments/$expId/revisions': typeof ExperimentsExpIdRevisionsRoute
   '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
+  '/experiments/$expId/signatures': typeof ExperimentsExpIdSignaturesRoute
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
@@ -1193,10 +1216,13 @@ export interface FileRoutesByTo {
   '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
   '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
   '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
+  '/experiments/$expId/links': typeof ExperimentsExpIdLinksRoute
   '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
   '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
   '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
+  '/experiments/$expId/revisions': typeof ExperimentsExpIdRevisionsRoute
   '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
+  '/experiments/$expId/signatures': typeof ExperimentsExpIdSignaturesRoute
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
@@ -1347,10 +1373,13 @@ export interface FileRoutesById {
   '/experiments/$expId/datasets': typeof ExperimentsExpIdDatasetsRoute
   '/experiments/$expId/files': typeof ExperimentsExpIdFilesRoute
   '/experiments/$expId/history': typeof ExperimentsExpIdHistoryRoute
+  '/experiments/$expId/links': typeof ExperimentsExpIdLinksRoute
   '/experiments/$expId/notebook': typeof ExperimentsExpIdNotebookRoute
   '/experiments/$expId/overview': typeof ExperimentsExpIdOverviewRoute
   '/experiments/$expId/results': typeof ExperimentsExpIdResultsRoute
+  '/experiments/$expId/revisions': typeof ExperimentsExpIdRevisionsRoute
   '/experiments/$expId/samples': typeof ExperimentsExpIdSamplesRoute
+  '/experiments/$expId/signatures': typeof ExperimentsExpIdSignaturesRoute
   '/models/$modelId/datasets': typeof ModelsModelIdDatasetsRoute
   '/models/$modelId/edit': typeof ModelsModelIdEditRoute
   '/models/$modelId/fields': typeof ModelsModelIdFieldsRoute
@@ -1503,10 +1532,13 @@ export interface FileRouteTypes {
     | '/experiments/$expId/datasets'
     | '/experiments/$expId/files'
     | '/experiments/$expId/history'
+    | '/experiments/$expId/links'
     | '/experiments/$expId/notebook'
     | '/experiments/$expId/overview'
     | '/experiments/$expId/results'
+    | '/experiments/$expId/revisions'
     | '/experiments/$expId/samples'
+    | '/experiments/$expId/signatures'
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
@@ -1645,10 +1677,13 @@ export interface FileRouteTypes {
     | '/experiments/$expId/datasets'
     | '/experiments/$expId/files'
     | '/experiments/$expId/history'
+    | '/experiments/$expId/links'
     | '/experiments/$expId/notebook'
     | '/experiments/$expId/overview'
     | '/experiments/$expId/results'
+    | '/experiments/$expId/revisions'
     | '/experiments/$expId/samples'
+    | '/experiments/$expId/signatures'
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
@@ -1798,10 +1833,13 @@ export interface FileRouteTypes {
     | '/experiments/$expId/datasets'
     | '/experiments/$expId/files'
     | '/experiments/$expId/history'
+    | '/experiments/$expId/links'
     | '/experiments/$expId/notebook'
     | '/experiments/$expId/overview'
     | '/experiments/$expId/results'
+    | '/experiments/$expId/revisions'
     | '/experiments/$expId/samples'
+    | '/experiments/$expId/signatures'
     | '/models/$modelId/datasets'
     | '/models/$modelId/edit'
     | '/models/$modelId/fields'
@@ -2603,6 +2641,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExperimentsExpIdHistoryRouteImport
       parentRoute: typeof ExperimentsExpIdRoute
     }
+    '/experiments/$expId/links': {
+      id: '/experiments/$expId/links'
+      path: '/links'
+      fullPath: '/experiments/$expId/links'
+      preLoaderRoute: typeof ExperimentsExpIdLinksRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
     '/experiments/$expId/notebook': {
       id: '/experiments/$expId/notebook'
       path: '/notebook'
@@ -2624,11 +2669,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExperimentsExpIdResultsRouteImport
       parentRoute: typeof ExperimentsExpIdRoute
     }
+    '/experiments/$expId/revisions': {
+      id: '/experiments/$expId/revisions'
+      path: '/revisions'
+      fullPath: '/experiments/$expId/revisions'
+      preLoaderRoute: typeof ExperimentsExpIdRevisionsRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
     '/experiments/$expId/samples': {
       id: '/experiments/$expId/samples'
       path: '/samples'
       fullPath: '/experiments/$expId/samples'
       preLoaderRoute: typeof ExperimentsExpIdSamplesRouteImport
+      parentRoute: typeof ExperimentsExpIdRoute
+    }
+    '/experiments/$expId/signatures': {
+      id: '/experiments/$expId/signatures'
+      path: '/signatures'
+      fullPath: '/experiments/$expId/signatures'
+      preLoaderRoute: typeof ExperimentsExpIdSignaturesRouteImport
       parentRoute: typeof ExperimentsExpIdRoute
     }
     '/models/$modelId/': {
@@ -3047,10 +3106,13 @@ interface ExperimentsExpIdRouteChildren {
   ExperimentsExpIdDatasetsRoute: typeof ExperimentsExpIdDatasetsRoute
   ExperimentsExpIdFilesRoute: typeof ExperimentsExpIdFilesRoute
   ExperimentsExpIdHistoryRoute: typeof ExperimentsExpIdHistoryRoute
+  ExperimentsExpIdLinksRoute: typeof ExperimentsExpIdLinksRoute
   ExperimentsExpIdNotebookRoute: typeof ExperimentsExpIdNotebookRoute
   ExperimentsExpIdOverviewRoute: typeof ExperimentsExpIdOverviewRoute
   ExperimentsExpIdResultsRoute: typeof ExperimentsExpIdResultsRoute
+  ExperimentsExpIdRevisionsRoute: typeof ExperimentsExpIdRevisionsRoute
   ExperimentsExpIdSamplesRoute: typeof ExperimentsExpIdSamplesRoute
+  ExperimentsExpIdSignaturesRoute: typeof ExperimentsExpIdSignaturesRoute
   ExperimentsExpIdIndexRoute: typeof ExperimentsExpIdIndexRoute
 }
 
@@ -3058,10 +3120,13 @@ const ExperimentsExpIdRouteChildren: ExperimentsExpIdRouteChildren = {
   ExperimentsExpIdDatasetsRoute: ExperimentsExpIdDatasetsRoute,
   ExperimentsExpIdFilesRoute: ExperimentsExpIdFilesRoute,
   ExperimentsExpIdHistoryRoute: ExperimentsExpIdHistoryRoute,
+  ExperimentsExpIdLinksRoute: ExperimentsExpIdLinksRoute,
   ExperimentsExpIdNotebookRoute: ExperimentsExpIdNotebookRoute,
   ExperimentsExpIdOverviewRoute: ExperimentsExpIdOverviewRoute,
   ExperimentsExpIdResultsRoute: ExperimentsExpIdResultsRoute,
+  ExperimentsExpIdRevisionsRoute: ExperimentsExpIdRevisionsRoute,
   ExperimentsExpIdSamplesRoute: ExperimentsExpIdSamplesRoute,
+  ExperimentsExpIdSignaturesRoute: ExperimentsExpIdSignaturesRoute,
   ExperimentsExpIdIndexRoute: ExperimentsExpIdIndexRoute,
 }
 
@@ -3469,13 +3534,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

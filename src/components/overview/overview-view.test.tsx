@@ -260,7 +260,7 @@ describe('EXP-02.4 ExperimentOverview', () => {
     for (const action of ['Go to cell', 'Open thread', 'Fill in']) {
       const link = screen.getByRole('link', { name: action })
       expect(link.getAttribute('href')).toBe(
-        '/records/rec-1/notebook#block-blk-sheet',
+        '/experiments/rec-1/notebook#block-blk-sheet',
       )
     }
 

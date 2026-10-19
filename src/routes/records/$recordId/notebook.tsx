@@ -245,8 +245,41 @@ export const Route = createFileRoute('/records/$recordId/notebook')({
     if (!context) throw redirect(signInRedirect(location))
     return { context }
   },
-  component: ExperimentNotebookRoute,
+  component: RecordNotebookRoute,
 })
+
+type RecordRouteContext = ReturnType<typeof Route.useRouteContext>['context']
+
+/**
+ * Experiments have one page: `/experiments/$expId` (its Notebook tab is this
+ * same surface). A link to the record notebook of an experiment, old or new,
+ * lands there, with the revision search and block anchor kept. Every other
+ * record kind (a protocol, a template) keeps this route.
+ */
+function RecordNotebookRoute() {
+  const { context } = Route.useRouteContext()
+  const { recordId } = Route.useParams()
+  const navigate = useNavigate()
+  const kind = useQuery({
+    queryKey: notebookQueryKeys.record(recordId),
+    queryFn: () => fetchRecord(notebookDataClient, recordId),
+  })
+  const search = useRouterState({ select: (state) => state.location.search })
+  const hash = useRouterState({ select: (state) => state.location.hash })
+  const isExperiment = kind.data?.kind === 'experiment'
+  useEffect(() => {
+    if (!isExperiment) return
+    void navigate({
+      to: '/experiments/$expId/notebook',
+      params: { expId: recordId },
+      search: search as Record<string, unknown>,
+      hash: hash || undefined,
+      replace: true,
+    })
+  }, [isExperiment, navigate, recordId, search, hash])
+  if (isExperiment) return <NotebookSkeleton />
+  return <RecordNotebookPage context={context} recordId={recordId} />
+}
 
 function historicalRevisionFromSearch(search: unknown): string | undefined {
   if (typeof search === 'string') {
@@ -294,9 +327,19 @@ export function useNotebookCellFacts(options: { enabled?: boolean } = {}) {
   return { cell, onCellSelectionChange }
 }
 
-function ExperimentNotebookRoute() {
-  const { context } = Route.useRouteContext()
-  const { recordId } = Route.useParams()
+/**
+ * The notebook surface. `embedded` is the experiment page, where the frame
+ * above already carries the title and identifier.
+ */
+export function RecordNotebookPage({
+  context,
+  recordId,
+  embedded = false,
+}: {
+  context: RecordRouteContext
+  recordId: string
+  embedded?: boolean
+}) {
   // FIND-01: this page counts as a "view" for the Recent surface.
   useRecentViewTracking('record', recordId)
   // COLLAB-02: one record room per experiment page; null when the
@@ -752,6 +795,7 @@ function ExperimentNotebookRoute() {
               currentUserId={context.user.id}
               currentUserName={context.user.name}
               workspaceId={context.workspace?.id}
+              embedded={embedded}
               blocks={historicalEvidence?.blocks ?? blocks}
               historicalRevisionId={historicalRevisionId}
               review={review}
@@ -764,7 +808,7 @@ function ExperimentNotebookRoute() {
               onExtensionAction={runExtensionContribution}
               extensionError={extensionError}
             />
-            {!historicalRevisionId ? (
+            {!historicalRevisionId && !embedded ? (
               <RecordNotebookTabs
                 tab={tab}
                 onTab={setTab}
@@ -896,6 +940,72 @@ function loadingBreadcrumbs(project: { id: string; title: string } | null) {
 // active project, status and ownership are always present.
 // ---------------------------------------------------------------------------
 
+/**
+ * The record's title as an inline input: saves on blur, and puts the old title
+ * back with a toast when the save is refused. Shared by the notebook header and
+ * the experiment page header.
+ */
+export function RecordTitleInput({
+  recordId,
+  title,
+  tags,
+  className,
+}: {
+  recordId: string
+  title: string
+  tags: string[]
+  className?: string
+}) {
+  const queryClient = useQueryClient()
+  const [titleDraft, setTitleDraft] = useState(title)
+  const saveTitle = useMutation({
+    mutationFn: (next: string) =>
+      updateExperimentMetadata(notebookDataClient, {
+        recordId,
+        title: next,
+        tags,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: notebookQueryKeys.record(recordId),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'experiment', recordId],
+      })
+    },
+    onError: (error: unknown) => {
+      // A refused rename leaves the title unchanged, so the draft has to be
+      // put back by hand or the typed title looks applied.
+      setTitleDraft(title)
+      toast('Could not rename the record', {
+        description:
+          error instanceof Error ? error.message : 'The title was not saved.',
+      })
+    },
+  })
+
+  useEffect(() => {
+    setTitleDraft(title)
+  }, [title])
+
+  return (
+    <Input
+      className={className}
+      value={titleDraft}
+      aria-label="Notebook title"
+      onChange={(event) => setTitleDraft(event.target.value)}
+      onBlur={() => {
+        const next = titleDraft.trim()
+        if (!next || next === title) {
+          setTitleDraft(title)
+          return
+        }
+        saveTitle.mutate(next)
+      }}
+    />
+  )
+}
+
 export function StickyRecordHeader({
   record,
   projectName,
@@ -903,6 +1013,7 @@ export function StickyRecordHeader({
   currentUserId,
   currentUserName,
   workspaceId,
+  embedded = false,
   blocks = [],
   historicalRevisionId,
   review = null,
@@ -925,6 +1036,8 @@ export function StickyRecordHeader({
   currentUserId?: string
   currentUserName?: string
   workspaceId?: string
+  /** The experiment page carries the title and identifier above this header. */
+  embedded?: boolean
   blocks?: NotebookBlockDomain[]
   historicalRevisionId?: string
   review?: NotebookReviewContext | null
@@ -947,7 +1060,6 @@ export function StickyRecordHeader({
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [signOpen, setSignOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
-  const [titleDraft, setTitleDraft] = useState(record.title)
   const lockedAt = liveLockedAt ?? record.lockedAt
   const lockedByRevisionId = liveLockedByRevisionId ?? record.lockedByRevisionId
   const reviewActivity = notebookReviewActivity(review)
@@ -1008,33 +1120,6 @@ export function StickyRecordHeader({
       }),
   })
 
-  const saveTitle = useMutation({
-    mutationFn: (title: string) =>
-      updateExperimentMetadata(notebookDataClient, {
-        recordId: record.id,
-        title,
-        tags: record.tags,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: notebookQueryKeys.record(record.id),
-      })
-    },
-    onError: (error: unknown) => {
-      // A refused rename leaves record.title unchanged, so the draft has to be
-      // put back by hand or the typed title looks applied.
-      setTitleDraft(record.title)
-      toast('Could not rename the record', {
-        description:
-          error instanceof Error ? error.message : 'The title was not saved.',
-      })
-    },
-  })
-
-  useEffect(() => {
-    setTitleDraft(record.title)
-  }, [record.title])
-
   return (
     <div className="flex flex-col pb-1.5 pt-2">
       {/* The title and the record's own actions share a line. Giving the
@@ -1042,24 +1127,16 @@ export function StickyRecordHeader({
           properties and pushed the title down the page. */}
       <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
-          {canEditTitle ? (
+          {embedded ? null : canEditTitle ? (
             <>
               {/* The title is editable, so the document heading is kept for
               assistive tech and the page-level h1 contract. */}
               <h1 className="sr-only">{record.title}</h1>
-              <Input
+              <RecordTitleInput
+                recordId={record.id}
+                title={record.title}
+                tags={record.tags}
                 className="h-auto w-auto min-w-0 flex-1 border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
-                value={titleDraft}
-                aria-label="Notebook title"
-                onChange={(event) => setTitleDraft(event.target.value)}
-                onBlur={() => {
-                  const next = titleDraft.trim()
-                  if (!next || next === record.title) {
-                    setTitleDraft(record.title)
-                    return
-                  }
-                  saveTitle.mutate(next)
-                }}
               />
             </>
           ) : (
@@ -1074,9 +1151,11 @@ export function StickyRecordHeader({
               notebook's evidence lifecycle — read as a contradiction when
               neither is labelled. The lifecycle lives in the inspector, where
               it is labelled. */}
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            {record.identifier}
-          </span>
+          {embedded ? null : (
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              {record.identifier}
+            </span>
+          )}
           {/* The notebook's evidence lifecycle, and only it: Working means you
               are editing a live draft, Submitted or In review means the
               evidence is frozen. The record's own status lives in the
@@ -1236,8 +1315,8 @@ export function StickyRecordHeader({
           blocks={blocks}
           onDuplicated={(copy) => {
             void navigate({
-              to: '/records/$recordId',
-              params: { recordId: copy.id },
+              to: '/experiments/$expId/notebook',
+              params: { expId: copy.id },
             })
           }}
         />
@@ -1393,38 +1472,6 @@ function RecordNotebookPanel({
     ],
     [],
   )
-  const revisionColumns = useMemo<RegistryColumn<RevisionWire>[]>(
-    () => [
-      {
-        id: 'revision',
-        header: 'Revision',
-        meta: { headerClassName: 'pl-3!', cellClassName: 'mono pl-3!' },
-        cell: ({ row }) => `v${row.original.structure_version}`,
-      },
-      {
-        id: 'reason',
-        header: 'Reason',
-        meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => row.original.reason,
-      },
-      {
-        id: 'by',
-        header: 'By',
-        cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
-      },
-      {
-        id: 'when',
-        header: 'When',
-        meta: {
-          headerClassName: 'pr-3!',
-          cellClassName: 'pr-3! text-fg-muted',
-        },
-        cell: ({ row }) =>
-          row.original.created_at.slice(0, 16).replace('T', ' '),
-      },
-    ],
-    [names],
-  )
   if (tab === 'links') {
     return (
       <section aria-label="Links" className="py-4">
@@ -1459,14 +1506,57 @@ function RecordNotebookPanel({
       />
     )
   }
-  const rows = revisions
+  return <RevisionsTable revisions={revisions} names={names} />
+}
+
+/** The record's evidence revisions: shared by the record notebook's tab and the
+ * experiment page's Revisions tab. */
+export function RevisionsTable({
+  revisions,
+  names,
+}: {
+  revisions: RevisionWire[]
+  names: ReturnType<typeof useUserNames>
+}) {
+  const revisionColumns = useMemo<RegistryColumn<RevisionWire>[]>(
+    () => [
+      {
+        id: 'revision',
+        header: 'Revision',
+        meta: { headerClassName: 'pl-3!', cellClassName: 'mono pl-3!' },
+        cell: ({ row }) => `v${row.original.structure_version}`,
+      },
+      {
+        id: 'reason',
+        header: 'Reason',
+        meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => row.original.reason,
+      },
+      {
+        id: 'by',
+        header: 'By',
+        cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
+      },
+      {
+        id: 'when',
+        header: 'When',
+        meta: {
+          headerClassName: 'pr-3!',
+          cellClassName: 'pr-3! text-fg-muted',
+        },
+        cell: ({ row }) =>
+          row.original.created_at.slice(0, 16).replace('T', ' '),
+      },
+    ],
+    [names],
+  )
   return (
-    <section aria-label={tab} className="py-4">
-      {rows.length ? (
+    <section aria-label="Revisions" className="py-4">
+      {revisions.length ? (
         <div className="overflow-hidden rounded-md border border-border">
           <RegistryGrid
             label="Revisions"
-            rows={rows}
+            rows={revisions}
             columns={revisionColumns}
             getRowId={(revision) => revision.id}
             selectable={false}

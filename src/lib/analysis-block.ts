@@ -19,7 +19,7 @@ import {
   ANALYSIS_METHOD_VERSION,
   validateAnalysisDefinition,
 } from './analysis-definition'
-import type { AnalysisDefinition } from './analysis-definition'
+import type { AnalysisBlockDefinition } from './analysis-definition'
 
 /** Column metadata captured at freeze time so frozen blocks can render
  * labels/types even after schema evolution. Metadata only — no rows. */
@@ -50,7 +50,7 @@ export interface FrozenAnalysis {
   frozenByUserId: string
   /** Verbatim definition snapshot; later edits to the saved original do not
    * change what frozen evidence reconstructs. */
-  definition: AnalysisDefinition
+  definition: AnalysisBlockDefinition
   definitionName: string | null
   definitionVersion: number
   /**

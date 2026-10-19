@@ -10,6 +10,7 @@ import {
   safeBuildRoomId,
 } from '#/components/collaboration/collaboration-room'
 import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
+import { ColumnPromotionsPanel } from '#/components/v3/sheets/column-promotions-panel'
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 import {
   notebookDataClient,
@@ -149,6 +150,13 @@ export function ComposedSheetRoute() {
           </>
         }
       />
+      <div className="px-4 empty:hidden">
+        <ColumnPromotionsPanel
+          instanceId={sheetId}
+          role={context.workspace?.role}
+          user={{ id: context.user.id, name: context.user.name }}
+        />
+      </div>
       <div className="flex min-h-0 flex-1">
         <CollaborationRoom roomId={collaborationRoomId}>
           <CanonicalSheetWorkspace

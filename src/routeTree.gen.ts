@@ -26,6 +26,7 @@ import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as PromotionsRouteImport } from './routes/promotions'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as ScanRouteImport } from './routes/scan'
@@ -249,6 +250,11 @@ const PipelinesRoute = PipelinesRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromotionsRoute = PromotionsRouteImport.update({
+  id: '/promotions',
+  path: '/promotions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtocolsRoute = ProtocolsRouteImport.update({
@@ -1001,6 +1007,7 @@ export interface FileRoutesByFullPath {
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/projects': typeof ProjectsRouteWithChildren
+  '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
@@ -1156,6 +1163,7 @@ export interface FileRoutesByTo {
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/projects': typeof ProjectsRouteWithChildren
+  '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
@@ -1305,6 +1313,7 @@ export interface FileRoutesById {
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/projects': typeof ProjectsRouteWithChildren
+  '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
@@ -1465,6 +1474,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/projects'
+    | '/promotions'
     | '/protocols'
     | '/samples'
     | '/scan'
@@ -1620,6 +1630,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/projects'
+    | '/promotions'
     | '/protocols'
     | '/samples'
     | '/scan'
@@ -1768,6 +1779,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/projects'
+    | '/promotions'
     | '/protocols'
     | '/samples'
     | '/scan'
@@ -1927,6 +1939,7 @@ export interface RootRouteChildren {
   ModelsRoute: typeof ModelsRouteWithChildren
   PipelinesRoute: typeof PipelinesRouteWithChildren
   ProjectsRoute: typeof ProjectsRouteWithChildren
+  PromotionsRoute: typeof PromotionsRoute
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
   SamplesRoute: typeof SamplesRouteWithChildren
   ScanRoute: typeof ScanRoute
@@ -2098,6 +2111,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/promotions': {
+      id: '/promotions'
+      path: '/promotions'
+      fullPath: '/promotions'
+      preLoaderRoute: typeof PromotionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/protocols': {
@@ -3500,6 +3520,7 @@ const rootRouteChildren: RootRouteChildren = {
   ModelsRoute: ModelsRouteWithChildren,
   PipelinesRoute: PipelinesRouteWithChildren,
   ProjectsRoute: ProjectsRouteWithChildren,
+  PromotionsRoute: PromotionsRoute,
   ProtocolsRoute: ProtocolsRouteWithChildren,
   SamplesRoute: SamplesRouteWithChildren,
   ScanRoute: ScanRoute,

@@ -153,6 +153,11 @@ export function itemLink(item: WorkItem) {
       to: '/pipelines' as const,
       search: { q: item.identifier ?? undefined },
     }
+  if (
+    item.kind === 'approval_requested' &&
+    item.identifier === 'column_promotion'
+  )
+    return { to: '/promotions' as const }
   if (item.kind === 'data_issue') return { to: '/datasets' as const }
   if (item.kind === 'material_expiring')
     return item.recordId

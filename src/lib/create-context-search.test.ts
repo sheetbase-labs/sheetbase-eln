@@ -38,4 +38,12 @@ describe('cancelTarget', () => {
     expect(cancelTarget({ project: 'p' }, '/list')).toBe('/projects/p')
     expect(cancelTarget({}, '/list')).toBe('/list')
   })
+  it('goes back to the experiment before the project', () => {
+    expect(cancelTarget({ experiment: 'e', project: 'p' }, '/list')).toBe(
+      '/experiments/e',
+    )
+    expect(
+      cancelTarget({ experiment: 'e', returnTo: '/a', project: 'p' }, '/list'),
+    ).toBe('/a')
+  })
 })

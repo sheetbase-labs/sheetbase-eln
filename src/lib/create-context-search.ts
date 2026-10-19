@@ -45,14 +45,16 @@ export function parseCreateContext(
 }
 
 /**
- * Where Cancel goes: the page the person came from, else the project they were
- * working in, else the list the create screen belongs to.
+ * Where Cancel goes: the page the person came from, else the experiment, else
+ * the project they were working in, else the list the create screen belongs to.
  */
 export function cancelTarget(
   context: CreateContextSearch,
   fallback: string,
 ): string {
   if (context.returnTo) return context.returnTo
+  if (context.experiment)
+    return `/experiments/${encodeURIComponent(context.experiment)}`
   if (context.project) return `/projects/${encodeURIComponent(context.project)}`
   return fallback
 }

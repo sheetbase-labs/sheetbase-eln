@@ -226,6 +226,56 @@ describe('StickyRecordHeader', () => {
   })
 })
 
+describe('StickyRecordHeader withdraws a submission from the notebook menu', () => {
+  const submission = (submittedBy: string) => ({
+    submission: {
+      id: 'sub1',
+      workspace_id: 'ws',
+      record_id: 'r1',
+      revision_id: 'rev-sub',
+      state: 'submitted',
+      workflow_definition_key: 'default-scientific-review',
+      workflow_definition_version: 1,
+      assigned_reviewer_user_ids: ['u2'],
+      submitted_by_user_id: submittedBy,
+      submitted_session_id: 's',
+      submitted_role: 'scientist',
+      submitted_at: '2026-08-19T00:00:00.000Z',
+      due_at: null,
+      idempotency_key: 'k',
+      created_at: '2026-08-19T00:00:00.000Z',
+      updated_at: '2026-08-19T00:00:00.000Z',
+    },
+    revision: { id: 'rev-sub', superseded_by_revision_id: null },
+  })
+
+  async function menuItems(submittedBy: string) {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+        review={submission(submittedBy)}
+      />,
+    )
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'More record actions' }))
+    return (await screen.findAllByRole('menuitem')).map((item) =>
+      item.textContent.trim(),
+    )
+  }
+
+  it('offers Withdraw to the person who submitted it', async () => {
+    expect(await menuItems('u1')).toContain('Withdraw from review…')
+  })
+
+  it('does not offer it to anyone else', async () => {
+    expect(await menuItems('u2')).not.toContain('Withdraw from review…')
+  })
+})
+
 describe('StickyRecordHeader reopens the task the person left', () => {
   afterEach(() => {
     window.history.replaceState(null, '', '/')

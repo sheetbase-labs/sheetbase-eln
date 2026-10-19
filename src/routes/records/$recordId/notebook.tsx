@@ -39,6 +39,8 @@ import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import { NotebookPrintStyles } from '#/components/notebook/print-notebook'
 import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
+import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
+import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
 import { reopenTaskFromSearch } from '#/lib/return-to'
 import { NotebookDocument } from '#/components/notebook'
 import type { SaveResult } from '#/components/notebook'
@@ -164,7 +166,10 @@ import {
   sheetEvidenceFromEnvelope,
   sheetEvidenceFromRevisionRows,
 } from '#/lib/sheet-evidence'
-import { toCanonicalEnvelope } from '#/lib/review-workspace'
+import {
+  deriveReviewActionPermission,
+  toCanonicalEnvelope,
+} from '#/lib/review-workspace'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { RelatedWorkPanel } from '#/components/related-work/related-work-panel'
@@ -809,6 +814,17 @@ export function RecordNotebookPage({
               onExtensionAction={runExtensionContribution}
               extensionError={extensionError}
             />
+            {/* A review that came back says so here, where the changes are
+              made. It lasts until the notebook is submitted again. */}
+            {!historicalRevisionId &&
+            !record.lockedAt &&
+            review?.submission?.state === 'returned' ? (
+              <ReturnedReviewBanner
+                submission={review.submission}
+                currentUserId={context.user.id}
+                currentUserName={context.user.name}
+              />
+            ) : null}
             {!historicalRevisionId && !embedded ? (
               <RecordNotebookTabs
                 tab={tab}
@@ -1060,6 +1076,7 @@ export function StickyRecordHeader({
   const [submitOpen, setSubmitOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [signOpen, setSignOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [linkOpen, setLinkOpen] = useState(false)
   const lockedAt = liveLockedAt ?? record.lockedAt
   const lockedByRevisionId = liveLockedByRevisionId ?? record.lockedByRevisionId
@@ -1093,6 +1110,19 @@ export function StickyRecordHeader({
     !record.archivedAt &&
     (reviewActivity === 'approved' || Boolean(lockedAt && lockedByRevisionId))
   const evidenceRevisionId = reviewRevisionId
+  // The submitter can take the notebook back out of review from here, under the
+  // same rule the review page applies.
+  const canWithdraw =
+    !historicalRevisionId &&
+    review?.submission != null &&
+    review.revision != null &&
+    deriveReviewActionPermission({
+      state: review.submission.state,
+      supersededByRevisionId: review.revision.superseded_by_revision_id,
+      assignedReviewerUserIds: review.submission.assigned_reviewer_user_ids,
+      submittedByUserId: review.submission.submitted_by_user_id,
+      currentUserId: currentUserId ?? '',
+    }).canWithdraw
 
   // Coming back from a detour (certifying a signature, for one) reopens the
   // dialog the person left, instead of leaving them to find the button again.
@@ -1238,6 +1268,11 @@ export function StickyRecordHeader({
                   Duplicate
                 </DropdownMenuItem>
               ) : null}
+              {canWithdraw ? (
+                <DropdownMenuItem onClick={() => setWithdrawOpen(true)}>
+                  Withdraw from review…
+                </DropdownMenuItem>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
           {canSubmit ? (
@@ -1328,6 +1363,13 @@ export function StickyRecordHeader({
           archivedAt={record.archivedAt}
           lockedAt={liveLockedAt ?? record.lockedAt}
           activeReview={activeReview}
+        />
+      ) : null}
+      {withdrawOpen && canWithdraw && review.submission ? (
+        <WithdrawReviewDialog
+          open={withdrawOpen}
+          onOpenChange={setWithdrawOpen}
+          submission={review.submission}
         />
       ) : null}
       {duplicateOpen && projectId && !historicalRevisionId ? (

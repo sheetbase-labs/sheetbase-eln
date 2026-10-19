@@ -378,7 +378,29 @@ export interface SearchUrlFilterInput {
   /** Selected project IDs. Multiple selections fall back to client filtering. */
   project?: string[]
   updated?: 'any' | '7d'
+  /** Owner (creator) user id; narrows the search to records they created. */
+  owner?: string
+  /** Inclusive first day (yyyy-mm-dd) an object was last touched. */
+  from?: string
+  /** Inclusive last day (yyyy-mm-dd) an object was last touched. */
+  to?: string
   archived?: boolean
+}
+
+/** A calendar day as written by an `<input type="date">`. */
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+/** The day if it is a real calendar day, else undefined. */
+export function parseSearchDay(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !DAY_PATTERN.test(value)) return undefined
+  const ms = Date.parse(`${value}T00:00:00Z`)
+  if (Number.isNaN(ms)) return undefined
+  return new Date(ms).toISOString().slice(0, 10) === value ? value : undefined
+}
+
+/** UTC start of a day, or the end of it when `endOfDay`. */
+function dayBoundary(day: string, endOfDay: boolean): string {
+  return `${day}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`
 }
 
 /** Start-of-day UTC anchor so the same URL yields a stable RPC date filter. */
@@ -428,8 +450,16 @@ export function urlFiltersToSearchFilters(
         break
     }
   }
-  const dateFrom = updatedDateFrom(input.updated)
+  // An explicit range wins over the "last 7 days" shortcut; the two are one
+  // facet in the UI, so only one of them is ever set at a time.
+  const day = parseSearchDay(input.from)
+  const dateFrom = day
+    ? dayBoundary(day, false)
+    : updatedDateFrom(input.updated)
   if (dateFrom) filters.dateFrom = dateFrom
+  const lastDay = parseSearchDay(input.to)
+  if (lastDay) filters.dateTo = dayBoundary(lastDay, true)
+  if (input.owner) filters.ownerId = input.owner
   // Archived is a scope, not a client-side filter: the URL facet becomes the
   // RPC's p_include_archived so the boundary is authoritative (R5-SHELL-04).
   filters.includeArchived = input.archived === true
@@ -452,9 +482,15 @@ export function filterSearchResults(
 ): SearchResult[] {
   const type = input.type ?? []
   const project = input.project ?? []
-  const dateFrom = updatedDateFrom(input.updated)
+  const fromDay = parseSearchDay(input.from)
+  const toDay = parseSearchDay(input.to)
+  const dateFrom = fromDay
+    ? dayBoundary(fromDay, false)
+    : updatedDateFrom(input.updated)
   const dateFromMs = dateFrom ? Date.parse(dateFrom) : undefined
+  const dateToMs = toDay ? Date.parse(dayBoundary(toDay, true)) : undefined
   return results.filter((result) => {
+    if (input.owner && result.createdByUserId !== input.owner) return false
     if (type.length && !type.includes(searchResultGroup(result))) return false
     if (
       project.length &&
@@ -464,6 +500,10 @@ export function filterSearchResults(
     if (dateFromMs !== undefined) {
       const updated = Date.parse(result.updatedAt)
       if (!Number.isNaN(updated) && updated < dateFromMs) return false
+    }
+    if (dateToMs !== undefined) {
+      const updated = Date.parse(result.updatedAt)
+      if (!Number.isNaN(updated) && updated > dateToMs) return false
     }
     return true
   })

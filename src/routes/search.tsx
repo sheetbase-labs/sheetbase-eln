@@ -7,6 +7,7 @@ import { LoadMore } from '#/components/v3/ui/load-more'
 import { Notice } from '#/components/v3/ui/alert'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Radio, RadioGroup } from '#/components/v3/ui/radio-group'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
@@ -19,10 +20,12 @@ import {
   searchResultLabel,
 } from '#/components/v3/search/result-text'
 import { useProjectNameMap } from '#/components/v3/experiments/experiments-data'
+import type { WorkspaceMemberIdentity } from '#/components/v3/projects/project-data'
 import { cn } from '#/lib/utils'
 import {
   executeSearch,
   filterSearchResults,
+  parseSearchDay,
   searchDidYouMean,
   searchQueryKeys,
   searchResultGroup,
@@ -45,6 +48,9 @@ interface SearchSearch {
   type?: string[]
   project?: string[]
   updated?: 'any' | '7d'
+  owner?: string
+  from?: string
+  to?: string
   archived?: boolean
 }
 
@@ -58,6 +64,12 @@ export const Route = createFileRoute('/search')({
       ? search.project.filter((x): x is string => typeof x === 'string')
       : undefined,
     updated: search.updated === '7d' ? '7d' : undefined,
+    owner:
+      typeof search.owner === 'string' && search.owner
+        ? search.owner
+        : undefined,
+    from: parseSearchDay(search.from),
+    to: parseSearchDay(search.to),
     archived:
       search.archived === true || search.archived === 'true' || undefined,
   }),
@@ -122,6 +134,9 @@ function SearchPage() {
       type: search.type,
       project: search.project,
       updated: search.updated,
+      owner: search.owner,
+      from: search.from,
+      to: search.to,
       archived: search.archived,
     },
     0,
@@ -156,6 +171,9 @@ function SearchPage() {
     type: search.type,
     project: search.project,
     updated: search.updated,
+    owner: search.owner,
+    from: search.from,
+    to: search.to,
   })
   const matchCount = searchMatchCount(loaded.length, results.length, totalCount)
 
@@ -186,6 +204,16 @@ function SearchPage() {
 
   const typeFilter = search.type ?? []
   const projectFilter = search.project ?? []
+  const members = useQuery({
+    queryKey: ['ui-port', 'workspace-members'],
+    queryFn: () =>
+      notebookDataClient.rpc<WorkspaceMemberIdentity[]>(
+        'workspace_members_list',
+        {},
+      ),
+    enabled: q.trim().length > 0,
+    staleTime: 60_000,
+  })
   const updatedFilter = search.updated ?? 'any'
 
   // A query or facet change is a new place in the history: Back returns to the
@@ -216,8 +244,13 @@ function SearchPage() {
   // results. "Include archived" widens the *query*, so ticking it alone must
   // not make the empty state blame filters (nor offer a Clear filters button
   // that resets facets which are already unset).
+  const dateRangeSet = Boolean(search.from || search.to)
   const facetFilterCount =
-    typeFilter.length + projectFilter.length + (updatedFilter === '7d' ? 1 : 0)
+    typeFilter.length +
+    projectFilter.length +
+    (updatedFilter === '7d' ? 1 : 0) +
+    (search.owner ? 1 : 0) +
+    (dateRangeSet ? 1 : 0)
   const activeFilters = facetFilterCount + (search.archived ? 1 : 0)
 
   const facetsEl = q ? (
@@ -266,7 +299,11 @@ function SearchPage() {
           aria-label="Updated"
           value={updatedFilter}
           onValueChange={(v) =>
-            setSearch({ updated: v === '7d' ? '7d' : undefined })
+            setSearch({
+              updated: v === '7d' ? '7d' : undefined,
+              from: undefined,
+              to: undefined,
+            })
           }
           className="gap-0.5"
         >
@@ -280,6 +317,59 @@ function SearchPage() {
           </label>
         </RadioGroup>
       </div>
+      <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
+        <legend className="px-1.5 pb-1 text-label font-medium text-fg-muted">
+          Date range
+        </legend>
+        <label className="flex flex-col gap-0.5 px-1.5 text-label">
+          From
+          <Input
+            type="date"
+            value={search.from ?? ''}
+            max={search.to}
+            onChange={(e) =>
+              setSearch({
+                from: parseSearchDay(e.target.value),
+                updated: undefined,
+              })
+            }
+          />
+        </label>
+        <label className="flex flex-col gap-0.5 px-1.5 text-label">
+          To
+          <Input
+            type="date"
+            value={search.to ?? ''}
+            min={search.from}
+            onChange={(e) =>
+              setSearch({
+                to: parseSearchDay(e.target.value),
+                updated: undefined,
+              })
+            }
+          />
+        </label>
+      </fieldset>
+      <label className="flex flex-col gap-0.5 px-1.5 text-label">
+        <span className="font-medium text-fg-muted">Owner</span>
+        <Select
+          value={search.owner ?? ''}
+          onChange={(e) => setSearch({ owner: e.target.value || undefined })}
+          aria-label="Owner"
+        >
+          <option value="">Anyone</option>
+          {(members.data ?? []).map((m) => (
+            <option key={m.user_id} value={m.user_id}>
+              {m.name}
+            </option>
+          ))}
+        </Select>
+        {search.owner ? (
+          <span className="text-fg-muted">
+            Owner narrows the search to records they created.
+          </span>
+        ) : null}
+      </label>
       <label className="flex cursor-pointer items-center gap-2 px-1.5 text-label max-lg:h-10 max-lg:text-body">
         <Checkbox
           checked={Boolean(search.archived)}
@@ -408,6 +498,9 @@ function SearchPage() {
                     type: undefined,
                     project: undefined,
                     updated: undefined,
+                    owner: undefined,
+                    from: undefined,
+                    to: undefined,
                   })
                 }
               />

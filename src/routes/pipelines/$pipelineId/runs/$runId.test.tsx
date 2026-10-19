@@ -104,6 +104,7 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
     isLoading: false,
   }),
   useWorkspaceMemberNames: () => ({ data: state.memberNames }),
+  usePipelineDefinition: () => ({ data: { key: 'qc-daily' } }),
   usePipelineVersions: () => ({
     data: state.versions,
   }),
@@ -498,6 +499,16 @@ describe('the run’s notification deliveries', () => {
       }),
     )
     expect(dataLayer.launch.mock.calls[0]?.[0]).not.toHaveProperty('retryOf')
+  })
+
+  it('offers to add a succeeded run to a notebook, and not a failed one', () => {
+    state.run = run({ status: 'succeeded' })
+    const { unmount } = renderRun()
+    expect(screen.getByRole('button', { name: 'Add to notebook' })).toBeTruthy()
+    unmount()
+    state.run = run({ status: 'failed' })
+    renderRun()
+    expect(screen.queryByRole('button', { name: 'Add to notebook' })).toBeNull()
   })
 
   it('still explains a failed run that recorded no error message', () => {

@@ -30,6 +30,7 @@ import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
 import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
+import { AddRunToNotebook } from '#/components/v3/pipelines/add-run-to-notebook'
 import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
 import {
   answerPipelineRunPrompt,
@@ -37,11 +38,13 @@ import {
 } from '#/lib/pipelines/data'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { runCitationLines } from '#/lib/pipelines/run-notebook'
 import {
   pipelineDataQueryKeys,
   readDeliveryIds,
   runDuration,
   runStatus,
+  usePipelineDefinition,
   usePipelineVersions,
   usePipelineRun,
   useRunDeliveries,
@@ -92,6 +95,7 @@ function RunPage() {
   const prompts = useRunPrompts(runId)
   const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
+  const definition = usePipelineDefinition(pipelineId)
   const deliveryIds = readDeliveryIds(run.data?.result ?? {})
   const deliveries = useRunDeliveries(runId, deliveryIds)
   const queryClient = useQueryClient()
@@ -287,6 +291,14 @@ function RunPage() {
                   : 'Retry this run'}
               </Button>
             </>
+          ) : r.status === 'succeeded' ? (
+            <AddRunToNotebook
+              lines={runCitationLines(r, {
+                pipelineKey: definition.data?.key ?? pipelineId.slice(0, 8),
+                versionNumber: version?.version ?? null,
+                outputs: outputs.data ?? [],
+              })}
+            />
           ) : r.status === 'running' ? (
             <ConfirmDialog>
               <ConfirmDialogTrigger>

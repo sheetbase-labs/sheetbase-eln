@@ -33,6 +33,7 @@ interface RunPageState {
   deliveries: PipelineRunDeliveryWire[]
   runError: boolean
   refetch: () => void
+  versions: Array<{ id: string; version: number; lifecycle?: string }>
 }
 
 const state = vi.hoisted((): RunPageState => ({
@@ -42,6 +43,7 @@ const state = vi.hoisted((): RunPageState => ({
   deliveries: [],
   runError: false,
   refetch: () => {},
+  versions: [{ id: 'v-1', version: 5 }],
 }))
 const dataLayer = vi.hoisted(() => ({
   answer: vi.fn(),
@@ -103,7 +105,7 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
   }),
   useWorkspaceMemberNames: () => ({ data: state.memberNames }),
   usePipelineVersions: () => ({
-    data: [{ id: 'v-1', version: 5 }],
+    data: state.versions,
   }),
 }))
 
@@ -213,6 +215,7 @@ afterEach(() => {
   notifications.toast.mockReset()
   notifications.error.mockReset()
   state.run = null
+  state.versions = [{ id: 'v-1', version: 5 }]
   state.prompts = []
   state.promptsLoading = undefined
   state.memberNames = {}
@@ -470,6 +473,31 @@ describe('the run’s notification deliveries', () => {
         }),
       }),
     )
+  })
+
+  it('offers the same inputs on the current version when a newer one is published', () => {
+    state.versions = [
+      { id: 'v-2', version: 6, lifecycle: 'published' },
+      { id: 'v-1', version: 5, lifecycle: 'retired' },
+    ]
+    state.run = run({
+      status: 'failed',
+      input_versions: { readings: 'dv-1' },
+    })
+    renderRun()
+    expect(screen.getByRole('button', { name: 'Retry on v5' })).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry on current version (v6)' }),
+    )
+    expect(dataLayer.launch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        version: expect.objectContaining({ id: 'v-2' }),
+        rerunOn: expect.objectContaining({
+          input_versions: { readings: 'dv-1' },
+        }),
+      }),
+    )
+    expect(dataLayer.launch.mock.calls[0]?.[0]).not.toHaveProperty('retryOf')
   })
 
   it('still explains a failed run that recorded no error message', () => {

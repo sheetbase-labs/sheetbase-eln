@@ -125,6 +125,16 @@ function RunPage() {
     (v) => v.id === run.data?.definition_version_id,
   )
   const r = run.data
+  // A retry is pinned to the version the run failed on. When the pipeline has
+  // since published a newer version, the same inputs can be run on that one.
+  const currentPublished = (versions.data ?? []).find(
+    (v) => v.lifecycle === 'published',
+  )
+  const canRerunOnCurrent =
+    !!r &&
+    (r.status === 'failed' || r.status === 'cancelled') &&
+    !!currentPublished &&
+    currentPublished.id !== r.definition_version_id
   // The newest prompt is the one a waiting run is paused on.
   const promptList = prompts.data ?? []
   const prompt = promptList.length
@@ -242,21 +252,41 @@ function RunPage() {
         }
         actions={
           r.status === 'failed' || r.status === 'cancelled' ? (
-            <Button
-              size="sm"
-              icon="play"
-              disabled={!version || launcher.pending}
-              onClick={() =>
-                version &&
-                launcher.launch({
-                  pipelineKey: `run ${r.id.slice(0, 8)}`,
-                  version,
-                  retryOf: r,
-                })
-              }
-            >
-              Retry this run
-            </Button>
+            <>
+              {canRerunOnCurrent ? (
+                <Button
+                  size="sm"
+                  icon="play"
+                  disabled={launcher.pending}
+                  onClick={() =>
+                    launcher.launch({
+                      pipelineKey: `run ${r.id.slice(0, 8)}`,
+                      version: currentPublished,
+                      rerunOn: r,
+                    })
+                  }
+                >
+                  Retry on current version (v{currentPublished.version})
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                icon="play"
+                disabled={!version || launcher.pending}
+                onClick={() =>
+                  version &&
+                  launcher.launch({
+                    pipelineKey: `run ${r.id.slice(0, 8)}`,
+                    version,
+                    retryOf: r,
+                  })
+                }
+              >
+                {canRerunOnCurrent
+                  ? `Retry on v${version?.version ?? ''}`
+                  : 'Retry this run'}
+              </Button>
+            </>
           ) : r.status === 'running' ? (
             <ConfirmDialog>
               <ConfirmDialogTrigger>
@@ -295,7 +325,11 @@ function RunPage() {
           <a href="#run-log" className="underline">
             See the log
           </a>
-          . Retry runs it again on the same version with the same inputs.
+          . Retry runs it again on the same version with the same inputs
+          {canRerunOnCurrent
+            ? `; Retry on current version uses the same inputs on v${String(currentPublished.version)}`
+            : ''}
+          .
         </Banner>
       ) : null}
 

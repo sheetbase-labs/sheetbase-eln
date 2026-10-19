@@ -19,6 +19,12 @@ interface Target {
   version: PipelineDefinitionVersionWire
   /** Set for a retry: links the new run to the failed one and reuses its inputs. */
   retryOf?: PipelineRunWire
+  /**
+   * Set to run a failed or cancelled run's inputs and parameters again on a
+   * different (newer) version. It is a new run, not a retry: the server only
+   * links a retry to the exact version it failed on.
+   */
+  rerunOn?: PipelineRunWire
 }
 
 /**
@@ -60,7 +66,9 @@ export function useRunLauncher(
       toast(
         t.retryOf
           ? `Retry of ${t.pipelineKey} started`
-          : `Run of ${t.pipelineKey} started`,
+          : t.rerunOn
+            ? `Run of ${t.pipelineKey} started on version ${String(t.version.version)}`
+            : `Run of ${t.pipelineKey} started`,
         {
           description: 'It is running now. Open the run to follow its log.',
         },
@@ -76,7 +84,7 @@ export function useRunLauncher(
   })
 
   const launch = (next: Target) => {
-    const retried = next.retryOf
+    const retried = next.retryOf ?? next.rerunOn
     if (!retried && runNeedsDetails(next.version)) {
       setTarget(next)
       return

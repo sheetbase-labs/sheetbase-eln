@@ -6,6 +6,7 @@ import { Tabs } from '#/components/v3/ui/tabs'
 import { Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import { CopyButton } from '#/components/v3/ui/copy-button'
+import { BookInstrumentButton } from '#/components/v3/experiments/book-instrument-button'
 import { experimentStatus } from '#/components/v3/experiments/experiments-data'
 import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
@@ -179,6 +180,9 @@ function ExperimentLayout() {
             >
               Share
             </CopyButton>
+            {e.locked_at || e.archived_at ? null : (
+              <BookInstrumentButton experimentId={e.id} />
+            )}
             <ExperimentLifecycleActions experiment={e} />
           </>
         }

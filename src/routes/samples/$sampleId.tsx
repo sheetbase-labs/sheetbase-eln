@@ -520,6 +520,20 @@ function SampleLayout() {
                 <Button onClick={exportLineage}>Export lineage</Button>
               ) : (
                 <>
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/experiments/new"
+                        search={{
+                          project: project.data?.id,
+                          sample: sample.id,
+                        }}
+                      />
+                    }
+                  >
+                    New experiment
+                  </Button>
                   <PrintLabelButton record={sample} onPrinted={invalidate} />
                   <Button onClick={() => setDialog('move')}>Move</Button>
                   {withdrawable ? (

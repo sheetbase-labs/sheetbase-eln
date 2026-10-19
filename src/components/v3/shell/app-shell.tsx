@@ -52,6 +52,7 @@ import { cn } from '#/lib/utils'
 import type { Notification, NotificationTarget } from '#/components/v3/types'
 import type { ShellCounts } from '#/lib/shell-counts.server'
 import { markNotificationsRead } from '#/lib/notifications-data'
+import { createContextFromPath } from './create-context'
 import { isHomeSection, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
@@ -586,6 +587,11 @@ function NewMenu({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  // The create routes prefill whatever the page behind this menu is about.
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
+  const context = createContextFromPath(pathname)
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
@@ -597,7 +603,12 @@ function NewMenu({
         <DropdownMenuLinkItem
           icon="flask"
           hint="E"
-          render={<Link to="/experiments/new" />}
+          render={
+            <Link
+              to="/experiments/new"
+              search={{ project: context.project, sample: context.sample }}
+            />
+          }
         >
           Experiment
         </DropdownMenuLinkItem>
@@ -621,7 +632,15 @@ function NewMenu({
         <DropdownMenuLinkItem
           icon="upload"
           hint="I"
-          render={<Link to="/import" />}
+          render={
+            <Link
+              to="/import"
+              search={{
+                experiment: context.experiment,
+                dataset: context.dataset,
+              }}
+            />
+          }
         >
           Import data
         </DropdownMenuLinkItem>

@@ -19,13 +19,16 @@ const notebookCreate = vi.hoisted(() => ({
   applyExperimentSetup: vi.fn(),
 }))
 const navigate = vi.hoisted(() => vi.fn())
+const search = vi.hoisted((): { current: Record<string, string> } => ({
+  current: {},
+}))
 const sonner = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
-    useSearch: () => ({}),
+    useSearch: () => search.current,
     options: config,
   }),
   useNavigate: () => navigate,
@@ -150,11 +153,34 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  search.current = {}
   cleanup()
   vi.clearAllMocks()
 })
 
 describe('new experiment', () => {
+  it('links the sample handed over by the page that opened the form', async () => {
+    search.current = { sample: 'smp-1' }
+    const base = dataClient.list.getMockImplementation()!
+    dataClient.list.mockImplementation(async (resource: string, query = '') =>
+      resource === 'records' && query.includes('id=eq.smp-1')
+        ? [{ id: 'smp-1', identifier: 'SMP-0001', title: 'Lysate' }]
+        : base(resource, query),
+    )
+    const user = userEvent.setup()
+    renderForm()
+    expect(await screen.findByText(/SMP-0001/)).toBeTruthy()
+    await submitForm(user)
+
+    await waitFor(() =>
+      expect(notebookCreate.applyExperimentSetup).toHaveBeenCalledWith(
+        dataClient,
+        'rec-1',
+        expect.objectContaining({ sampleRecordId: 'smp-1' }),
+      ),
+    )
+  })
+
   it('leaves a draft when a protocol version is chosen but Start now is unticked', async () => {
     const user = userEvent.setup()
     renderForm()

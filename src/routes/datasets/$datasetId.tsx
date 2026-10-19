@@ -146,17 +146,33 @@ function DatasetLayout() {
                 Download CSV
               </Button>
               {isRows ? (
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/analysis/new"
-                      search={{ mode: 'analyse', dataset: dataset.uuid }}
-                    />
-                  }
-                >
-                  Analyse
-                </Button>
+                <>
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/sheets/new"
+                        search={{
+                          dataset: dataset.uuid,
+                          returnTo: `/datasets/${dataset.uuid}`,
+                        }}
+                      />
+                    }
+                  >
+                    Open in a sheet
+                  </Button>
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/analysis/new"
+                        search={{ mode: 'analyse', dataset: dataset.uuid }}
+                      />
+                    }
+                  >
+                    Analyse
+                  </Button>
+                </>
               ) : null}
             </>
           ) : undefined

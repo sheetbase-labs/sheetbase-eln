@@ -51,12 +51,28 @@ function mount(opts: {
   onChanged?: () => void
 }) {
   const rpc = vi.fn(async (name: string) =>
-    name === 'transfer_sample' ? sampleWire() : {},
+    name === 'transfer_sample'
+      ? sampleWire()
+      : name === 'sample_release_check_status'
+        ? {
+            passed: false,
+            ruleCount: 1,
+            failedCount: 1,
+            checks: [
+              {
+                key: 'p',
+                label: 'Purity result',
+                kind: 'measurement_required',
+                passed: false,
+                detail: 'missing',
+              },
+            ],
+          }
+        : {},
   )
   const list = vi.fn(async (table: string, query: string) => {
     if (table === 'records' && query.includes('kind=eq.sample&select'))
       return opts.sample === null ? [] : [opts.sample ?? sampleWire()]
-    if (table === 'records') return []
     return []
   })
   const client = { rpc, list } as unknown as DataClient
@@ -134,5 +150,11 @@ describe('ScanSampleActions', () => {
     mount({ sample: null })
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Withdraw' })).toBeNull()
+  })
+
+  it('shows the live release checks for a quarantined sample only', async () => {
+    mount({ sample: sampleWire({ status: 'quarantined' }) })
+    expect(await screen.findByText('Purity result')).toBeTruthy()
+    expect(screen.getByText('0 of 1 checks pass')).toBeTruthy()
   })
 })

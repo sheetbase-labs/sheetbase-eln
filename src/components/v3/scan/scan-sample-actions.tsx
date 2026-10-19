@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { toast } from '#/components/v3/ui/sonner'
+import { ReleaseChecksPanel } from '#/components/v3/samples/release-checks-panel'
 import { MoveSampleDialog } from '#/components/v3/samples/move-dialog'
 import { canWithdrawSample } from '#/components/v3/samples/sample-state'
 import {
@@ -145,6 +146,15 @@ export function ScanSampleActions({
           Record reading
         </Button>
       </div>
+      {record.status === 'quarantined' && !archived ? (
+        <section
+          aria-label="Release checks"
+          className="flex flex-col gap-1.5 rounded-md border border-border p-3"
+        >
+          <h2 className="m-0 text-label font-semibold">Release checks</h2>
+          <ReleaseChecksPanel sampleId={sampleId} client={client} />
+        </section>
+      ) : null}
       {!withdrawable && !archived ? (
         <p className="m-0 text-label text-fg-muted">
           Withdraw is unavailable while this sample is{' '}

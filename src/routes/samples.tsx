@@ -41,7 +41,11 @@ import {
   MobileList,
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
+import { BulkRegisterDialog } from '#/components/v3/samples/bulk-register-dialog'
+import { LocationInput } from '#/components/v3/samples/location-field'
+import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
 import {
+  distinctLocations,
   sampleListQueryKeys,
   toSampleListRow,
   useProjectNames,
@@ -67,8 +71,20 @@ const tabLabel: Record<SampleTab, string> = {
 export const Route = createFileRoute('/samples')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { q?: string; tab?: SampleTab; new?: boolean; selected?: string } => ({
+  ): {
+    q?: string
+    tab?: SampleTab
+    new?: boolean
+    bulk?: boolean
+    selected?: string
+    project?: string
+  } => ({
     q: typeof search.q === 'string' ? search.q : undefined,
+    // The project in view travels in, so a registration starts on it.
+    project:
+      typeof search.project === 'string' && search.project
+        ? search.project
+        : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
     tab:
       search.tab === 'mine' ||
@@ -79,6 +95,7 @@ export const Route = createFileRoute('/samples')({
         ? search.tab
         : undefined,
     new: search.new === true || search.new === 'true' || undefined,
+    bulk: search.bulk === true || search.bulk === 'true' || undefined,
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -106,6 +123,7 @@ function SamplesList() {
   const queryClient = useQueryClient()
   const tab: SampleTab = search.tab ?? 'instock'
   const [selected, setSelected] = useState<string | null>(null)
+  const [printOpen, setPrintOpen] = useState(false)
 
   const rows = useMemo(
     () =>
@@ -131,6 +149,12 @@ function SamplesList() {
           v.toLowerCase().includes(q),
         ),
     )
+  const recordsById = new Map((page.data?.rows ?? []).map((r) => [r.id, r]))
+  const printable = visible.flatMap((r) => recordsById.get(r.uuid) ?? [])
+  const projectOptions = [...(projects.data ?? new Map()).entries()].map(
+    ([id, title]) => ({ id, title }),
+  )
+  const locations = distinctLocations(rows.map((r) => r.location))
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
@@ -257,9 +281,28 @@ function SamplesList() {
                 Import
               </Button>
               <Button
+                disabled={visible.length === 0}
+                onClick={() => setPrintOpen(true)}
+              >
+                Print labels
+              </Button>
+              <Button
+                onClick={() =>
+                  navigate({
+                    to: '/samples',
+                    search: (s) => ({ ...s, bulk: true }),
+                  })
+                }
+              >
+                Register from list
+              </Button>
+              <Button
                 variant="primary"
                 onClick={() =>
-                  navigate({ to: '/samples', search: { new: true } })
+                  navigate({
+                    to: '/samples',
+                    search: (s) => ({ ...s, new: true }),
+                  })
                 }
               >
                 Register sample
@@ -418,9 +461,9 @@ function SamplesList() {
       <RegisterSampleDialog
         open={Boolean(search.new)}
         busy={create.isPending}
-        projects={[...(projects.data ?? new Map()).entries()].map(
-          ([id, title]) => ({ id, title }),
-        )}
+        defaultProjectId={search.project}
+        locations={locations}
+        projects={projectOptions}
         onOpenChange={(open) => {
           if (!open)
             void navigate({
@@ -431,6 +474,35 @@ function SamplesList() {
         }}
         onRegister={(input) => create.mutate(input)}
       />
+      <BulkRegisterDialog
+        open={Boolean(search.bulk)}
+        projects={projectOptions}
+        defaultProjectId={search.project}
+        onOpenChange={(open) => {
+          if (!open)
+            void navigate({
+              to: '/samples',
+              search: (s) => ({ ...s, bulk: undefined }),
+              replace: true,
+            })
+        }}
+        onRegistered={() =>
+          void queryClient.invalidateQueries({
+            queryKey: sampleListQueryKeys.page,
+          })
+        }
+      />
+      <PrintLabelsDialog
+        open={printOpen}
+        onOpenChange={setPrintOpen}
+        records={printable}
+        scope={`the ${printable.length} ${tabLabel[tab].toLowerCase()} samples shown`}
+        onPrinted={() =>
+          void queryClient.invalidateQueries({
+            queryKey: sampleListQueryKeys.page,
+          })
+        }
+      />
     </div>
   )
 }
@@ -440,10 +512,14 @@ function RegisterSampleDialog({
   busy,
   onOpenChange,
   projects,
+  defaultProjectId,
+  locations,
   onRegister,
 }: {
   open: boolean
   busy: boolean
+  defaultProjectId?: string
+  locations: readonly string[]
   projects: { id: string; title: string }[]
   onOpenChange: (open: boolean) => void
   onRegister: (input: {
@@ -455,7 +531,8 @@ function RegisterSampleDialog({
     storageLocation?: string
   }) => void
 }) {
-  const [projectId, setProjectId] = useState('')
+  const [pickedProjectId, setProjectId] = useState('')
+  const projectId = pickedProjectId || defaultProjectId || ''
   const [title, setTitle] = useState('')
   const [sampleType, setSampleType] = useState('')
   const [quantity, setQuantity] = useState('')
@@ -514,9 +591,10 @@ function RegisterSampleDialog({
             </Field>
           </div>
           <Field label="Storage location">
-            <Input
+            <LocationInput
               value={storageLocation}
-              onChange={(e) => setStorageLocation(e.target.value)}
+              onChange={setStorageLocation}
+              locations={locations}
             />
           </Field>
         </DialogBody>

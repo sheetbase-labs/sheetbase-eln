@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => {
     certifications,
     role: 'owner',
     signInAvailable: true,
+    returnTo: undefined as string | undefined,
     certify: vi.fn(),
     practice: vi.fn(),
     verify: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock('@tanstack/react-router', () => ({
       },
     }),
     useLoaderData: () => ({ signInAvailable: mocks.signInAvailable }),
+    useSearch: () => ({ returnTo: mocks.returnTo }),
   }),
 }))
 vi.mock('#/lib/signature-certification', async (importOriginal) => ({
@@ -109,6 +111,7 @@ beforeEach(() => {
   mocks.role = 'owner'
   mocks.admins = []
   mocks.signInAvailable = true
+  mocks.returnTo = undefined
   mocks.certifications = [certification('me', 'Ada Lovelace')]
   for (const mutation of [
     mocks.certify,
@@ -123,6 +126,21 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('REV-03 signature settings', () => {
+  it('offers the way back to the page that sent the person here to certify', async () => {
+    mocks.returnTo = '/experiments/e-1/notebook'
+    renderRoute()
+    const back = await screen.findByText('Back to where you were')
+    expect(back.closest('a')?.getAttribute('href')).toBe(
+      '/experiments/e-1/notebook',
+    )
+  })
+
+  it('offers no way back when nothing sent the person here', async () => {
+    renderRoute()
+    await screen.findByText('Confirm your identity')
+    expect(screen.queryByText('Back to where you were')).toBeNull()
+  })
+
   it('explains historical certification ineligibility without claiming the statement changed', async () => {
     mocks.certifications = [
       certification('me', 'Ada Lovelace', {

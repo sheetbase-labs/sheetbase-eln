@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cancelTarget,
   parseCreateContext,
+  returnToHere,
   safeReturnTo,
 } from './create-context-search'
 
@@ -45,5 +46,12 @@ describe('cancelTarget', () => {
     expect(
       cancelTarget({ experiment: 'e', returnTo: '/a', project: 'p' }, '/list'),
     ).toBe('/a')
+  })
+})
+
+describe('returnToHere', () => {
+  it('is the current in-app path in the browser', () => {
+    window.history.pushState({}, '', '/experiments/e-1/notebook?revision=r1')
+    expect(returnToHere()).toBe('/experiments/e-1/notebook?revision=r1')
   })
 })

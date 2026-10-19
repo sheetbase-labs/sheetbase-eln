@@ -52,6 +52,7 @@ import {
 
 import { BlockPreview } from './block-preview'
 import { SubmissionReadinessGuide } from '#/components/assist/submission-readiness-guide'
+import { returnToHere } from '#/lib/create-context-search'
 
 const WORKFLOW_KEY = 'default-scientific-review'
 const WORKFLOW_VERSION = 1
@@ -555,7 +556,11 @@ export function SubmitNotebookDialog({
                     above, which needs no signature.
                   </p>
                   <p className="m-0 mt-1.5">
-                    <Link to="/settings/signatures" className="underline">
+                    <Link
+                      to="/settings/signatures"
+                      search={{ returnTo: returnToHere() }}
+                      className="underline"
+                    >
                       Open signature settings
                     </Link>
                   </p>

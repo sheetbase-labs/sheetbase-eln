@@ -33,6 +33,11 @@ export interface ScheduleBooking {
   end: string
   timezone: string
   createdByUserId: string | null
+  notes?: string | null
+  /** The version an edit must name, so a stale edit is refused. */
+  metadataVersion?: number
+  /** The experiment the booking is for, when it has one. */
+  experiment?: { id: string; identifier: string | null; title: string | null }
   /** Set by the screen: whether the current user made this booking. */
   mine?: boolean
   /** Set by the screen: the booker's display name. */
@@ -65,6 +70,17 @@ export function toScheduleBooking(wire: CalendarBookingWire): ScheduleBooking {
     end: timeFmt(tz).format(new Date(wire.ends_at)),
     timezone: tz,
     createdByUserId: wire.created_by_user_id,
+    notes: wire.notes,
+    metadataVersion: wire.metadata_version,
+    ...(wire.linked_experiment_record_id
+      ? {
+          experiment: {
+            id: wire.linked_experiment_record_id,
+            identifier: wire.linked_experiment_identifier,
+            title: wire.linked_experiment_title,
+          },
+        }
+      : {}),
   }
 }
 
@@ -159,6 +175,11 @@ export interface BookInstrumentInput {
   startsAt: string
   endsAt: string
   timezone: string
+  /** The experiment the booking is for; the booking then names it. */
+  linkedExperimentRecordId?: string
+  /** Samples the run needs, by record, so the day's materials list them. */
+  samples?: { id: string; identifier: string; title: string }[]
+  notes?: string
 }
 
 export async function bookInstrument(
@@ -171,6 +192,65 @@ export async function bookInstrument(
     endsAt: input.endsAt,
     timezone: input.timezone,
     status: 'tentative',
+    linkedExperimentRecordId: input.linkedExperimentRecordId ?? null,
+    notes: input.notes ?? null,
+    samples: input.samples?.map((sample) => ({
+      sampleRecordId: sample.id,
+      sampleIdentifier: sample.identifier,
+      sampleTitle: sample.title,
+    })),
   })
   return toScheduleBooking(wire)
+}
+
+export interface BookableSample {
+  id: string
+  identifier: string
+  title: string
+}
+
+/**
+ * The samples an experiment already uses, from its sample links, so booking an
+ * instrument for it can name them without searching the registry again.
+ */
+export async function fetchExperimentSamples(
+  client: DataClient,
+  experimentId: string,
+): Promise<BookableSample[]> {
+  const links = await client.list<{
+    target_record_id: string | null
+    target_identifier: string | null
+  }>(
+    'record_links',
+    `?source_record_id=eq.${encodeURIComponent(experimentId)}&link_type=eq.sample&select=target_record_id,target_identifier`,
+  )
+  const ids = [
+    ...new Set(
+      links.flatMap((link) =>
+        link.target_record_id ? [link.target_record_id] : [],
+      ),
+    ),
+  ]
+  if (ids.length === 0) return []
+  const rows = await client.list<{
+    id: string
+    identifier: string
+    title: string
+  }>(
+    'records',
+    `?id=in.(${ids.map(encodeURIComponent).join(',')})&kind=eq.sample&deleted_at=is.null&select=id,identifier,title&order=identifier.asc`,
+  )
+  return rows
+}
+
+export function useExperimentSamples(
+  experimentId: string | undefined,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['schedule', 'experiment-samples', experimentId ?? 'none'],
+    enabled: Boolean(experimentId),
+    queryFn: () => fetchExperimentSamples(client, experimentId!),
+    staleTime: 30_000,
+  })
 }

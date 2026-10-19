@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DataClient } from '#/lib/data-client'
-import { resolveScanCode } from './scan-data'
+import {
+  resolveScanCode,
+  scanTargetActionLabel,
+  scanTargetHref,
+} from './scan-data'
 
 /** A client that answers the exact-identifier reads only, so resolveScanCode
  * returns the single target it found. */
@@ -95,5 +99,28 @@ describe('resolveScanCode', () => {
     expect(result.found).toBe(true)
     expect(result.hit?.kind).toBe('instrument')
     expect(result.hit?.status.label).toBe('Not connected')
+  })
+
+  it('opens a scanned experiment on the one experiment page', async () => {
+    const result = await resolveScanCode(
+      'EXP-1',
+      stubClient({
+        records: [
+          {
+            id: 'e-1',
+            identifier: 'EXP-1',
+            title: 'Titration',
+            kind: 'experiment',
+            status: 'in_progress',
+          },
+        ],
+      }),
+    )
+    expect(result.hit?.kind).toBe('experiment')
+    expect(scanTargetHref(result.hit!)).toEqual({
+      to: '/experiments/$expId',
+      params: { expId: 'e-1' },
+    })
+    expect(scanTargetActionLabel(result.hit!)).toBe('Open experiment')
   })
 })

@@ -10,6 +10,11 @@ export function projectPath(projectId: string): string {
   return `/projects/${encodeURIComponent(projectId)}`
 }
 
+/** The one experiment page; its notebook is the default tab. */
+export function experimentPath(experimentId: string): string {
+  return `/experiments/${encodeURIComponent(experimentId)}`
+}
+
 export function recordPath(recordId: string): string {
   return `/records/${encodeURIComponent(recordId)}`
 }
@@ -47,6 +52,8 @@ export function recordDestination(kind: string, recordId: string): string {
       return reagentPath(recordId)
     case 'protocol_template':
       return protocolTemplatePath(recordId)
+    case 'experiment':
+      return experimentPath(recordId)
     default:
       return recordPath(recordId)
   }
@@ -96,7 +103,7 @@ export function objectPath(kind: string, ref: string): string | null {
     case 'project':
       return `/projects/${key}`
     case 'experiment':
-      return `/experiments/${key}`
+      return experimentPath(ref)
     case 'record':
       return recordPath(ref)
     case 'sample':

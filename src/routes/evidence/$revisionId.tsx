@@ -33,6 +33,10 @@ import {
   rightAligned,
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import {
+  EvidenceDrift,
+  EvidenceSignatures,
+} from '#/components/review/evidence-inspector'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { downloadTextFile } from '#/lib/download'
 import {
@@ -347,7 +351,7 @@ export function EvidencePage() {
         </div>
       </div>
 
-      <Inspector aria-label="Evidence package" className="w-[320px]">
+      <Inspector aria-label="Evidence package" className="w-[360px]">
         {/* The phone column above states the hash, so the folded-away inspector
             does not repeat it (heading included) there. */}
         <div className="max-md:hidden">
@@ -358,6 +362,12 @@ export function EvidencePage() {
             </Muted>
           </InspectorSection>
         </div>
+        <EvidenceSignatures
+          recordId={recordId}
+          revisionId={revision.id}
+          structureVersion={revision.structure_version}
+        />
+        <EvidenceDrift revisionId={revision.id} />
         <InspectorSection title="Revision">
           <Muted>
             Structure v{revision.structure_version} · metadata v

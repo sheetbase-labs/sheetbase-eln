@@ -236,7 +236,7 @@ function SamplesList() {
           'records',
           `?id=eq.${encodeURIComponent(search.experiment ?? '')}&kind=eq.experiment&select=id,identifier,project_id&limit=1`,
         )
-        .then((rows) => rows[0] ?? null),
+        .then((found) => found[0] ?? null),
     enabled: Boolean(search.experiment),
   })
   const defaultProjectId =

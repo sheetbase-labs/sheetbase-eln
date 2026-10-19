@@ -21,6 +21,7 @@ import {
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
 import { sampleStatus } from '#/components/v3/samples/samples-data'
+import { LocationInput } from '#/components/v3/samples/location-field'
 import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
 import {
   PrintLabelButton,
@@ -688,6 +689,12 @@ function SampleLayout() {
         onOpenChange={(o) => setDialog(o ? 'move' : null)}
         title={`Move ${sample.identifier}`}
         label="New location"
+        hint={
+          sample.storageLocation
+            ? `Now at ${sample.storageLocation}. Pick a place already in use or type a new one.`
+            : 'Pick a place already in use or type a new one.'
+        }
+        suggestLocations
         busy={move.isPending}
         onSubmit={(value) => move.mutate({ toLocation: value })}
       />
@@ -813,6 +820,8 @@ function TextDialog({
   onOpenChange,
   title,
   label,
+  hint,
+  suggestLocations,
   busy,
   onSubmit,
 }: {
@@ -820,6 +829,9 @@ function TextDialog({
   onOpenChange: (open: boolean) => void
   title: string
   label: string
+  hint?: string
+  /** Offer the locations samples already sit at. */
+  suggestLocations?: boolean
   busy: boolean
   onSubmit: (value: string) => void
 }) {
@@ -829,12 +841,16 @@ function TextDialog({
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">
         <DialogHeader title={title} />
         <DialogBody>
-          <Field label={label} required>
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              autoFocus
-            />
+          <Field label={label} hint={hint} required>
+            {suggestLocations ? (
+              <LocationInput value={value} onChange={setValue} autoFocus />
+            ) : (
+              <Input
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                autoFocus
+              />
+            )}
           </Field>
         </DialogBody>
         <DialogFooter>

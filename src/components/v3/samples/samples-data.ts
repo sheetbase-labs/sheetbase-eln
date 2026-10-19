@@ -137,3 +137,48 @@ export function useProjectNames(client: DataClient = notebookDataClient) {
     staleTime: 60_000,
   })
 }
+
+/** The distinct, non-empty locations in a list, sorted for a picker. */
+export function distinctLocations(
+  values: readonly (string | null | undefined)[],
+): string[] {
+  const seen = new Map<string, string>()
+  for (const value of values) {
+    const trimmed = value?.trim()
+    if (trimmed && !seen.has(trimmed.toLowerCase()))
+      seen.set(trimmed.toLowerCase(), trimmed)
+  }
+  return [...seen.values()].sort((a, b) =>
+    a.localeCompare(b, 'en-GB', { numeric: true, sensitivity: 'base' }),
+  )
+}
+
+export const storageLocationsQueryKey = [
+  'ui-port',
+  'samples',
+  'locations',
+] as const
+
+/** Every location a sample is already stored at, so a move or a registration
+ * can pick one instead of retyping it. */
+export async function fetchStorageLocations(
+  client: DataClient,
+): Promise<string[]> {
+  const rows = await client.list<{ loc: string | null }>(
+    'records',
+    '?kind=eq.sample&archived_at=is.null&select=loc:properties->>storageLocation&limit=5000',
+  )
+  return distinctLocations(rows.map((row) => row.loc))
+}
+
+export function useStorageLocations(
+  client: DataClient = notebookDataClient,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: storageLocationsQueryKey,
+    queryFn: () => fetchStorageLocations(client),
+    staleTime: 60_000,
+    enabled,
+  })
+}

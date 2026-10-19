@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Section } from '#/components/v3/ui/layout'
@@ -7,13 +8,16 @@ import { EmptyState } from '#/components/v3/ui/empty-state'
 import { TableBox } from '#/components/v3/ui/table'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { RecordPickerDialog } from '#/components/v3/record-picker/record-picker'
+import { toast } from '#/components/v3/ui/sonner'
 import { fetchExperimentBookings } from '#/lib/calendar'
+import { linkExperimentToSample } from '#/lib/notebook-create'
 import type { CalendarBookingWire } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { objectPath } from '#/lib/navigation'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import type { RecordLinkWire } from '../$expId'
-import { useExperimentLinks } from '../$expId'
+import { experimentQueryKeys, useExperimentLinks } from '../$expId'
 
 const LINK_SECTIONS: { kind: string; title: string }[] = [
   { kind: 'sample', title: 'Samples' },
@@ -104,6 +108,56 @@ export function ExperimentBookings({ expId }: { expId: string }) {
   )
 }
 
+/** "Link a sample": pick samples and write one link each. The experiment's
+ * Samples list refreshes in place, so the tab that shows the links is also
+ * the tab that makes them. */
+function LinkSamplesAction({ expId }: { expId: string }) {
+  const [open, setOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const link = useMutation({
+    mutationFn: async (
+      items: { id: string; identifier: string }[],
+    ): Promise<number> => {
+      for (const item of items) {
+        await linkExperimentToSample(notebookDataClient, expId, {
+          identifier: item.identifier,
+          recordId: item.id,
+        })
+      }
+      return items.length
+    },
+    onSuccess: (count) => {
+      void queryClient.invalidateQueries({
+        queryKey: experimentQueryKeys.links(expId),
+      })
+      toast(count === 1 ? 'Sample linked' : `${count} samples linked`)
+    },
+    onError: (error: unknown) =>
+      toast('Could not link the sample', {
+        description:
+          error instanceof Error ? error.message : 'The link was refused.',
+      }),
+  })
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        Link a sample
+      </Button>
+      {open ? (
+        <RecordPickerDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="Link samples"
+          allowed={['Sample']}
+          multiple
+          confirmLabel={(n) => `Link ${n}`}
+          onPick={(items) => link.mutate(items)}
+        />
+      ) : null}
+    </>
+  )
+}
+
 /** Everything linked to the experiment, grouped by what it is: Samples,
  * Datasets, Files, then any other kind. */
 export function LinksPanel({ expId }: { expId: string }) {
@@ -120,7 +174,12 @@ export function LinksPanel({ expId }: { expId: string }) {
       title: 'Other records',
       rows: all.filter((l) => !named.has(l.target_kind)),
     },
-  ].filter((section) => section.rows.length > 0 || section.kind === 'dataset')
+  ].filter(
+    (section) =>
+      section.rows.length > 0 ||
+      section.kind === 'dataset' ||
+      section.kind === 'sample',
+  )
   const columns: RegistryColumn<RecordLinkWire>[] = [
     {
       id: 'record',
@@ -153,7 +212,9 @@ export function LinksPanel({ expId }: { expId: string }) {
           title={section.title}
           count={section.rows.length}
           action={
-            section.kind === 'dataset' ? (
+            section.kind === 'sample' ? (
+              <LinkSamplesAction expId={expId} />
+            ) : section.kind === 'dataset' ? (
               <span className="flex items-center gap-2">
                 <Button
                   size="sm"
@@ -191,8 +252,16 @@ export function LinksPanel({ expId }: { expId: string }) {
           ) : (
             <EmptyState
               className="py-2"
-              title="No datasets linked"
-              description="Datasets produced by this experiment appear here when they are linked."
+              title={
+                section.kind === 'sample'
+                  ? 'No samples linked'
+                  : 'No datasets linked'
+              }
+              description={
+                section.kind === 'sample'
+                  ? 'Samples used in this experiment appear here when they are linked or withdrawn for it.'
+                  : 'Datasets produced by this experiment appear here when they are linked.'
+              }
             />
           )}
         </Section>

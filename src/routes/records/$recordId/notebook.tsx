@@ -1110,6 +1110,10 @@ export function StickyRecordHeader({
       void queryClient.invalidateQueries({
         queryKey: notebookQueryKeys.links(record.id),
       })
+      // The experiment page's Links tab reads the same rows under its own key.
+      void queryClient.invalidateQueries({
+        queryKey: ['ui-port', 'experiment-links', record.id],
+      })
       toast(
         items.length === 1 ? 'Record linked' : `${items.length} records linked`,
       )

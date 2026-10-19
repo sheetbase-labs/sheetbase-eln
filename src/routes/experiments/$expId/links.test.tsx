@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type * as router from '@tanstack/react-router'
 
-import { ExperimentBookings } from './-links-tab'
+import { ExperimentBookings, LinksPanel } from './-links-tab'
 
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
 
@@ -89,5 +89,21 @@ describe('ExperimentBookings', () => {
     dataClient.list.mockResolvedValue([])
     renderBookings()
     expect(await screen.findByText('No instrument booked')).toBeTruthy()
+  })
+})
+
+describe('LinksPanel samples', () => {
+  it('offers to link a sample even when none is linked yet', async () => {
+    dataClient.list.mockResolvedValue([])
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <LinksPanel expId="exp-1" />
+      </QueryClientProvider>,
+    )
+    expect(await screen.findByText('No samples linked')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Link a sample' })).toBeTruthy()
   })
 })

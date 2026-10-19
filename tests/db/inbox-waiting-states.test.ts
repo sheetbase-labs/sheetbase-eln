@@ -8,7 +8,7 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { prepareTestDatabase } from './helpers'
+import { grantProjectAccess, prepareTestDatabase } from './helpers'
 
 const WS = '00000000-0000-4000-8000-000000004f0a'
 const AUTHOR = 'iw-author'
@@ -31,10 +31,10 @@ async function submission(
   key: string,
 ): Promise<string> {
   const revision = await migrator.query<{ id: string }>(
-    `insert into api.revisions(record_id,structure_version,metadata_version,metadata_snapshot,
+    `insert into api.revisions(record_id,workspace_id,structure_version,metadata_version,metadata_snapshot,
                                block_snapshot,reason,created_by_user_id,updated_at)
-     values($1,1,1,'{}'::jsonb,'[]'::jsonb,'submit',$2,now()) returning id`,
-    [record, AUTHOR],
+     values($1,$3,1,1,'{}'::jsonb,'[]'::jsonb,'submit',$2,now()) returning id`,
+    [record, AUTHOR, WS],
   )
   const row = await migrator.query<{ id: string }>(
     `insert into api.review_submissions(workspace_id,record_id,revision_id,workflow_definition_key,
@@ -73,13 +73,24 @@ beforeAll(async () => {
     `insert into api.projects(id,workspace_id,key,title,lead_user_id) values($1,$2,'IW','Waiting',$3)`,
     [PROJECT, WS, OWNER],
   )
+  for (const userId of [AUTHOR, REVIEWER]) {
+    await grantProjectAccess(migrator, {
+      workspaceId: WS,
+      projectId: PROJECT,
+      userId,
+      canView: true,
+      canEdit: userId === AUTHOR,
+      canReview: userId === REVIEWER,
+    })
+  }
   for (const [id, identifier] of [
     [RECORD, 'EXP-IW1'],
     [RECORD_APPROVED, 'EXP-IW2'],
   ]) {
     await migrator.query(
-      `insert into api.records(id,workspace_id,project_id,kind,identifier,title,created_by_user_id)
-       values($1,$2,$3,'experiment',$4,'Waiting record',$5)`,
+      // A draft experiment is private to its author, so these are in progress.
+      `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id)
+       values($1,$2,$3,'experiment',$4,'Waiting record','in_progress',$5)`,
       [id, WS, PROJECT, identifier, AUTHOR],
     )
   }

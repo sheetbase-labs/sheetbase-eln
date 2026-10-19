@@ -112,4 +112,26 @@ describe('Record reading — blocked states', () => {
       screen.getByRole('link', { name: 'Open dataset' }).getAttribute('href'),
     ).toBe('/datasets/$datasetId')
   })
+
+  it('reads the sample, dataset and return path handed over by the linking page', () => {
+    const validate = (
+      Route.options as unknown as {
+        validateSearch: (search: Record<string, unknown>) => unknown
+      }
+    ).validateSearch
+    expect(
+      validate({
+        sample: 's1',
+        dataset: 'd1',
+        returnTo: '/experiments/e1/results',
+        project: 'ignored',
+      }),
+    ).toEqual({
+      sample: 's1',
+      dataset: 'd1',
+      returnTo: '/experiments/e1/results',
+    })
+    // A return path must stay inside the app.
+    expect(validate({ returnTo: 'https://example.com' })).toEqual({})
+  })
 })

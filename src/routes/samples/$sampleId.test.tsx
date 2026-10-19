@@ -24,6 +24,7 @@ const samples = vi.hoisted(() => ({
   quarantineSample: vi.fn(),
   disposeSample: vi.fn(),
   withdrawSample: vi.fn(),
+  aliquotSample: vi.fn(),
   editSample: vi.fn(),
   receiveSample: vi.fn(),
   archiveSample: vi.fn(),
@@ -538,6 +539,69 @@ describe('sample withdraw dialog', () => {
         'Only 2 mg available. Enter 2 or less.',
       ),
     )
+  })
+})
+
+describe('sample aliquot and reading actions', () => {
+  it('splits the sample into tubes through one call and lists them', async () => {
+    samples.aliquotSample.mockResolvedValue({
+      sample: sample({ quantity: 2.5 }),
+      derivedSamples: [
+        sample({ id: 't-1', identifier: 'SMP-9001', title: 'Tube 1' }),
+        sample({ id: 't-2', identifier: 'SMP-9002', title: 'Tube 2' }),
+      ],
+    })
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText('pAAV9-RC, lot P-117')
+    await user.click(screen.getByRole('button', { name: 'Aliquot…' }))
+    const dialog = await screen.findByRole('dialog')
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /Number of tubes/ }),
+      '2',
+    )
+    await user.type(
+      within(dialog).getByRole('textbox', { name: /Amount in each/ }),
+      '5',
+    )
+    await user.selectOptions(
+      within(dialog).getByRole('combobox', { name: /For experiment/ }),
+      'exp-1',
+    )
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Make 2 tubes' }),
+    )
+
+    await waitFor(() =>
+      expect(samples.aliquotSample).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          recordId: 's-1',
+          count: 2,
+          quantityEach: 5,
+          purposeExperimentId: 'exp-1',
+          expectedMetadataVersion: 7,
+        }),
+      ),
+    )
+    expect(
+      await within(dialog).findByText('Made 2 tubes from SMP-2220'),
+    ).toBeTruthy()
+  })
+
+  it('offers Record reading, which returns to this sample', async () => {
+    renderRoute()
+    await screen.findByText('pAAV9-RC, lot P-117')
+    const link = screen.getByText('Record reading').closest('a')
+    expect(link?.getAttribute('href')).toBe('/readings/new')
+  })
+
+  it('does not offer to aliquot a sample that cannot be withdrawn', async () => {
+    samples.fetchSample.mockResolvedValue(sample({ status: 'quarantined' }))
+    renderRoute()
+    await screen.findByText('pAAV9-RC, lot P-117')
+    expect(screen.queryByRole('button', { name: 'Aliquot…' })).toBeNull()
   })
 })
 

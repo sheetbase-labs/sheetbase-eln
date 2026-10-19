@@ -20,7 +20,11 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { toast } from '#/components/v3/ui/sonner'
-import { sampleStatus } from '#/components/v3/samples/samples-data'
+import {
+  sampleListQueryKeys,
+  sampleStatus,
+  storageLocationsQueryKey,
+} from '#/components/v3/samples/samples-data'
 import { LocationInput } from '#/components/v3/samples/location-field'
 import { SampleLabelCard } from '#/components/v3/samples/sample-label-card'
 import {
@@ -34,6 +38,8 @@ import {
   EditHoldDialog,
   ReceiveStockDialog,
 } from '#/components/v3/samples/sample-edit-dialogs'
+import { AliquotDialog } from '#/components/v3/samples/aliquot-dialog'
+import type { AliquotDialogInput } from '#/components/v3/samples/aliquot-dialog'
 import { SampleStateBanner } from '#/components/v3/samples/sample-state-banner'
 import {
   canDisposeSample,
@@ -45,6 +51,7 @@ import {
   sampleStateKind,
 } from '#/components/v3/samples/sample-state'
 import {
+  aliquotSample,
   archiveSample,
   createSampleReservation,
   describeSampleError,
@@ -78,6 +85,7 @@ import type {
 } from '#/components/v3/samples/withdraw-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { downloadTextFile } from '#/lib/download'
+import { samplePath } from '#/lib/navigation'
 import { useUserNames } from '#/lib/user-names'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -148,6 +156,7 @@ export function downloadLineageCsv(
 type SampleDialog =
   | null
   | 'withdraw'
+  | 'aliquot'
   | 'reserve'
   | 'move'
   | 'release'
@@ -240,6 +249,31 @@ function SampleLayout() {
     },
     onError: (error) =>
       toast.error(describeWithdrawError(error, sample?.quantityUnit ?? null)),
+  })
+  const aliquot = useMutation({
+    mutationFn: (input: AliquotDialogInput) =>
+      aliquotSample(notebookDataClient, {
+        recordId: sampleId,
+        count: input.count,
+        quantityEach: input.quantityEach,
+        purposeExperimentId: input.purposeExperimentId,
+        unit: input.unit,
+        newContainer: input.newContainer,
+        expectedMetadataVersion: sample!.metadataVersion,
+      }),
+    onSuccess: (result) => {
+      invalidate()
+      void queryClient.invalidateQueries({
+        queryKey: sampleDerivedQueryKey(sampleId),
+      })
+      void queryClient.invalidateQueries({ queryKey: sampleListQueryKeys.page })
+      void queryClient.invalidateQueries({
+        queryKey: storageLocationsQueryKey,
+      })
+      toast(
+        `${result.derivedSamples.length} ${result.derivedSamples.length === 1 ? 'tube' : 'tubes'} made`,
+      )
+    },
   })
   const reserve = useMutation({
     mutationFn: (input: ReserveDialogInput) =>
@@ -537,6 +571,25 @@ function SampleLayout() {
                   </Button>
                   <PrintLabelButton record={sample} onPrinted={invalidate} />
                   <Button onClick={() => setDialog('move')}>Move</Button>
+                  <Button
+                    nativeButton={false}
+                    render={
+                      <Link
+                        to="/readings/new"
+                        search={{
+                          sample: sample.id,
+                          returnTo: samplePath(sample.id),
+                        }}
+                      />
+                    }
+                  >
+                    Record reading
+                  </Button>
+                  {withdrawable ? (
+                    <Button onClick={() => setDialog('aliquot')}>
+                      Aliquot…
+                    </Button>
+                  ) : null}
                   {withdrawable ? (
                     <Button
                       variant="primary"
@@ -673,6 +726,24 @@ function SampleLayout() {
           sample={sample}
           busy={withdraw.isPending}
           onSubmit={(input) => withdraw.mutate(input)}
+        />
+      ) : null}
+      {dialog === 'aliquot' ? (
+        <AliquotDialog
+          open
+          onOpenChange={(open) => {
+            setDialog(open ? 'aliquot' : null)
+            if (!open) aliquot.reset()
+          }}
+          sample={sample}
+          busy={aliquot.isPending}
+          error={
+            aliquot.isError
+              ? describeWithdrawError(aliquot.error, sample.quantityUnit)
+              : null
+          }
+          created={aliquot.data?.derivedSamples ?? null}
+          onSubmit={(input) => aliquot.mutate(input)}
         />
       ) : null}
       {dialog === 'reserve' ? (

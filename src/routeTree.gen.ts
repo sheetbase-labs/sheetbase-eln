@@ -68,6 +68,7 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
 import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
+import { Route as SettingsClientsRouteImport } from './routes/settings/clients'
 import { Route as SettingsDiagnosticsRouteImport } from './routes/settings/diagnostics'
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
@@ -459,6 +460,11 @@ const SettingsApiRoute = SettingsApiRouteImport.update({
 const SettingsAuditRoute = SettingsAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsClientsRoute = SettingsClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsDiagnosticsRoute = SettingsDiagnosticsRouteImport.update({
@@ -1039,6 +1045,7 @@ export interface FileRoutesByFullPath {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
@@ -1186,6 +1193,7 @@ export interface FileRoutesByTo {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
@@ -1343,6 +1351,7 @@ export interface FileRoutesById {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
@@ -1503,6 +1512,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/instruments'
@@ -1650,6 +1660,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/instruments'
@@ -1806,6 +1817,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/instruments'
@@ -2393,6 +2405,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/settings/audit'
       preLoaderRoute: typeof SettingsAuditRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/clients': {
+      id: '/settings/clients'
+      path: '/clients'
+      fullPath: '/settings/clients'
+      preLoaderRoute: typeof SettingsClientsRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/diagnostics': {
@@ -3392,6 +3411,7 @@ interface SettingsRouteChildren {
   SettingsAccessRoute: typeof SettingsAccessRoute
   SettingsApiRoute: typeof SettingsApiRoute
   SettingsAuditRoute: typeof SettingsAuditRoute
+  SettingsClientsRoute: typeof SettingsClientsRoute
   SettingsDiagnosticsRoute: typeof SettingsDiagnosticsRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
@@ -3408,6 +3428,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAccessRoute: SettingsAccessRoute,
   SettingsApiRoute: SettingsApiRoute,
   SettingsAuditRoute: SettingsAuditRoute,
+  SettingsClientsRoute: SettingsClientsRoute,
   SettingsDiagnosticsRoute: SettingsDiagnosticsRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsInstrumentsRoute: SettingsInstrumentsRoute,

@@ -808,6 +808,8 @@ export function describeExecutionError(error: AnalysisError): string {
       return `The definition is missing input column(s): ${error.fields.join(', ')}.`
     case 'empty_dataset':
       return 'The dataset has no rows to analyse.'
+    case 'no_statistic':
+      return 'This analysis is a chart only, so there is no statistic to compute.'
     case 'insufficient_data':
       return `Group “${error.group}” has too few rows for this fit (needs at least ${error.needed}).`
     case 'singular_fit':

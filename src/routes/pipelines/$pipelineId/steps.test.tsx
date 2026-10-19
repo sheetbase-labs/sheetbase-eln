@@ -44,6 +44,7 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
     isLoading: false,
     data: [] as PipelineDefinitionVersionWire[],
   }),
+  useWorkspaceMemberNames: () => ({ data: {} }),
   usePipelineOutputTargets: () => ({
     isError: false,
     data: {
@@ -103,6 +104,33 @@ describe('Steps editor output', () => {
       datasetName: 'Weekly readings',
       datasetLabel: 'Weekly',
     })
+  })
+
+  it('saves declared parameters and a confirm step in the configuration', async () => {
+    renderSteps()
+    fireEvent.change(document.querySelector('textarea')!, {
+      target: { value: 'select 1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }))
+    fireEvent.change(screen.getByLabelText('Parameter 1 name'), {
+      target: { value: 'dose' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add step' }))
+    fireEvent.click(screen.getByLabelText('Step 1 waits for a person'))
+    fireEvent.change(screen.getByLabelText('Output mode'), {
+      target: { value: 'none' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalled())
+    const args = rpc.mock.calls[0][1] as {
+      p_configuration: {
+        parameters: unknown[]
+        steps: { name: string; confirm?: unknown }[]
+      }
+    }
+    expect(args.p_configuration.parameters).toMatchObject([{ name: 'dose' }])
+    expect(args.p_configuration.steps[0].name).toBe('step_1')
+    expect(args.p_configuration.steps[0].confirm).toBeTruthy()
   })
 
   it('can save an append output once a dataset and label are chosen', () => {

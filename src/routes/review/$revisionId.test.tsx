@@ -519,6 +519,41 @@ describe('ActionButtons — confirmation consequence text', () => {
   })
 })
 
+describe('ActionButtons — approving leads into signing', () => {
+  function renderWithSigning(onApprovedForSigning: () => void) {
+    return render(
+      <ActionButtons
+        submission={submission()}
+        permission={makePermission({ canReview: true, canWithdraw: false })}
+        integrityDigest={DIGEST}
+        onAfterDecision={vi.fn().mockResolvedValue(undefined)}
+        onApprovedForSigning={onApprovedForSigning}
+      />,
+    )
+  }
+
+  it('opens signing after Approve without needing the shortcut', async () => {
+    const onApprovedForSigning = vi.fn()
+    renderWithSigning(onApprovedForSigning)
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Approve' }))
+    await waitFor(() => expect(onApprovedForSigning).toHaveBeenCalledTimes(1))
+  })
+
+  it('does not open signing after a return', async () => {
+    const onApprovedForSigning = vi.fn()
+    renderWithSigning(onApprovedForSigning)
+    fireEvent.click(screen.getByRole('button', { name: 'Request changes' }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Request changes' }),
+    )
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
+    expect(onApprovedForSigning).not.toHaveBeenCalled()
+  })
+})
+
 describe('ActionButtons — stale and permission-loss error surfacing', () => {
   it('surfaces a stale-state error when the review changed before the action landed', async () => {
     const onAfterDecision = vi
@@ -1267,12 +1302,21 @@ describe('QA-182 — the decision dialog owns its pending state', () => {
     )
     const onAfterAmendment = vi.fn(async () => {})
     render(
-      <AmendmentSection recordId="rec-1" onAfterAmendment={onAfterAmendment} />,
+      <QueryClientProvider client={new QueryClient()}>
+        <AmendmentSection
+          recordId="rec-1"
+          onAfterAmendment={onAfterAmendment}
+        />
+      </QueryClientProvider>,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Start amendment' }))
-    const dialog = await screen.findByRole('alertdialog')
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.change(
+      within(dialog).getByLabelText('Reason for the amendment'),
+      { target: { value: 'Wrong buffer recorded' } },
+    )
     fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Start amendment' }),
+      within(dialog).getByRole('button', { name: 'Confirm amendment' }),
     )
 
     expect(
@@ -1280,9 +1324,26 @@ describe('QA-182 — the decision dialog owns its pending state', () => {
     ).toBeTruthy()
     // The dialog is still on screen, nothing was recorded, and the record was
     // not reported as unlocked.
-    expect(screen.getByRole('alertdialog')).toBeTruthy()
+    expect(screen.getByRole('dialog')).toBeTruthy()
     expect(createAmendmentMock).toHaveBeenCalledTimes(1)
     expect(onAfterAmendment).not.toHaveBeenCalled()
+  })
+
+  it('will not start an amendment without a reason', async () => {
+    createAmendmentMock.mockClear()
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AmendmentSection recordId="rec-1" onAfterAmendment={async () => {}} />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start amendment' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(
+      within(dialog)
+        .getByRole('button', { name: 'Confirm amendment' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    expect(createAmendmentMock).not.toHaveBeenCalled()
   })
 })
 

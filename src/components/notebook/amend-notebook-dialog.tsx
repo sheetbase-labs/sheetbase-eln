@@ -15,8 +15,13 @@ import {
 import { Textarea } from '#/components/v3/inventory/list'
 import { DataClientError } from '#/lib/data-client'
 import { createAmendment, sign002DataClient } from '#/lib/sign-002'
+import type { CreateAmendmentResult } from '#/lib/sign-002'
 
-/** UI port (roadmap-4/ui-app3): amend a signed notebook, app-3's v3 kit. */
+/**
+ * The one amend dialog: the notebook header and the review page both open it.
+ * An amendment unlocks signed work, so it states why before it starts; the
+ * reason is recorded with the amendment in the audit trail.
+ */
 export function AmendNotebookDialog({
   open,
   onOpenChange,
@@ -26,19 +31,21 @@ export function AmendNotebookDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   recordId: string
-  onAmended: () => void
+  onAmended: (result: CreateAmendmentResult) => void | Promise<void>
 }) {
   const [note, setNote] = useState('')
   const amend = useMutation({
     mutationFn: () =>
       createAmendment(sign002DataClient, {
         recordId,
-        note: note.trim() || undefined,
+        note: note.trim(),
       }),
-    onSuccess: () => {
+    onSuccess: async (result) => {
       setNote('')
+      // The caller refreshes what the amendment changed before the dialog
+      // closes, so a failed refresh is still visible here.
+      await onAmended(result)
       onOpenChange(false)
-      onAmended()
     },
   })
 
@@ -63,11 +70,13 @@ export function AmendNotebookDialog({
           description="The submitted evidence stays frozen and a new working copy is opened so you can edit this Notebook again."
         />
         <DialogBody>
-          <Field label="Note (optional)">
+          <Field label="Reason for the amendment">
             <Textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              aria-label="Amendment note"
+              aria-label="Reason for the amendment"
+              aria-required="true"
+              placeholder="Why is this signed record being reopened?"
             />
           </Field>
           {errorMessage ? <Notice tone="bad">{errorMessage}</Notice> : null}
@@ -76,7 +85,7 @@ export function AmendNotebookDialog({
           <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
             variant="primary"
-            disabled={amend.isPending}
+            disabled={amend.isPending || !note.trim()}
             onClick={() => amend.mutate()}
           >
             Confirm amendment

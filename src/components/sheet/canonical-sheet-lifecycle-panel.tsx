@@ -45,6 +45,7 @@ import {
   previewSheetMaterialization,
 } from '#/lib/sheet-materialization-data'
 import { sheetDefinitionUpgradeAvailability } from '#/lib/reuse-upgrade'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 
 function errorText(error: unknown) {
   if (error instanceof DataClientError) return error.message
@@ -110,6 +111,9 @@ export function CanonicalSheetLifecyclePanel({
     name: string
   } | null>(null)
   const [status, setStatus] = useState<string | null>(null)
+  const [materialisedDatasetId, setMaterialisedDatasetId] = useState<
+    string | null
+  >(null)
   const [preview, setPreview] = useState<string | null>(null)
 
   const definitions = useQuery({
@@ -336,6 +340,7 @@ export function CanonicalSheetLifecyclePanel({
   })
 
   const materialize = useMutation({
+    onMutate: () => setMaterialisedDatasetId(null),
     mutationFn: async () => {
       const materialisationPreview = await previewSheetMaterialization({
         instanceId: instance.id,
@@ -350,7 +355,8 @@ export function CanonicalSheetLifecyclePanel({
       })
     },
     onSuccess: (result) => {
-      setStatus(`Materialised Dataset ${result.datasetId}.`)
+      setStatus('Dataset written from this sheet.')
+      setMaterialisedDatasetId(result.datasetId)
       setPreview(null)
     },
   })
@@ -427,11 +433,13 @@ export function CanonicalSheetLifecyclePanel({
         <div className="mt-2 grid gap-3 md:grid-cols-2">
           <fieldset className="space-y-2 rounded-md border p-2">
             <legend className="px-1 text-xs font-medium">
-              Bind Dataset / adopt Definition
+              Bind a dataset to this sheet
             </legend>
             <p className="text-xs text-fg-muted">
-              Adoption composes this Instance with a published Definition. It is
-              not field promotion.
+              Binding composes this sheet with a published definition and shows
+              a dataset beside your own columns. It does not move any column
+              into the dataset; to do that, choose Promote column on the column
+              itself.
             </p>
             <label className="space-y-1 text-xs">
               <span>Sheet Definition</span>
@@ -625,6 +633,16 @@ export function CanonicalSheetLifecyclePanel({
           {status ? (
             <div className="flex flex-wrap items-center gap-2 text-xs md:col-span-2">
               <p role="status">{status}</p>
+              {materialisedDatasetId ? (
+                <ObjectLink
+                  kind="dataset"
+                  id={materialisedDatasetId}
+                  mono={false}
+                  className="font-medium"
+                >
+                  Open the new dataset
+                </ObjectLink>
+              ) : null}
               {extractedDefinition ? (
                 <a
                   className="font-medium text-primary-text underline-offset-4 hover:underline"

@@ -28,7 +28,7 @@ export interface WorkItemIdentity {
 export type InboxTab = 'needs-action' | 'following' | 'done-today'
 
 export type WorkItemType =
-  'reviews' | 'data' | 'runs' | 'materials' | 'following'
+  'reviews' | 'data' | 'runs' | 'materials' | 'lab' | 'admin' | 'following'
 
 /**
  * Stable key for an Inbox item across reloads: the identity
@@ -38,13 +38,39 @@ export function itemKey(item: WorkItemIdentity): string {
   return `${item.kind}:${item.sourceId ?? item.recordId ?? item.identifier ?? item.title ?? 'Untitled'}`
 }
 
+/**
+ * The kinds the Reviews filter shows. `api.inbox_needs_action_counts()`
+ * counts the same list for Home's "to review" chip, so the two stay in step.
+ */
+const REVIEW_KINDS: ReadonlySet<string> = new Set([
+  'review_requested',
+  'witness_requested',
+  'review_returned',
+  'approval_unsigned',
+  'witness_signed',
+])
+
 /** The Inbox type filter a kind belongs to. */
 export function workItemType(kind: string): WorkItemType {
-  if (kind === 'review_requested' || kind === 'witness_requested')
-    return 'reviews'
+  if (REVIEW_KINDS.has(kind)) return 'reviews'
   if (kind === 'data_issue' || kind === 'cell_conflict') return 'data'
   if (kind === 'run_failed' || kind === 'run_waiting') return 'runs'
   if (kind === 'material_expiring') return 'materials'
+  if (
+    kind === 'sample_awaiting_release' ||
+    kind === 'sample_hold_exceeded' ||
+    kind === 'calibration_overdue'
+  )
+    return 'lab'
+  if (
+    kind === 'access_requested' ||
+    kind === 'access_decided' ||
+    kind === 'agent_proposal' ||
+    kind === 'invitation_accepted' ||
+    kind === 'verification_requested' ||
+    kind === 'verification_granted'
+  )
+    return 'admin'
   return 'following'
 }
 

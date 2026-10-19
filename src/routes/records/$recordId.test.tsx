@@ -193,6 +193,25 @@ describe('StickyRecordHeader', () => {
     expect(items).toContain('Link records…')
   })
 
+  it('offers Duplicate only for an experiment, never for a protocol', async () => {
+    const user = userEvent.setup()
+    renderWithQuery(
+      <StickyRecordHeader
+        record={{ ...record, kind: 'protocol_template' }}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'More record actions' }),
+    )
+    const items = (await screen.findAllByRole('menuitem')).map((item) =>
+      item.textContent.trim(),
+    )
+    expect(items).not.toContain('Duplicate')
+  })
+
   it('keeps tags in the properties inspector instead of the document header', () => {
     renderWithQuery(<StickyRecordHeader record={record} projectName={null} />)
     expect(screen.queryByText('stability')).toBeNull()
@@ -223,6 +242,87 @@ describe('StickyRecordHeader', () => {
         /save or discard them before submitting/i,
       ),
     ).toBeTruthy()
+  })
+})
+
+describe('StickyRecordHeader withdraws a submission from the notebook menu', () => {
+  const submission = (submittedBy: string) => ({
+    submission: {
+      id: 'sub1',
+      workspace_id: 'ws',
+      record_id: 'r1',
+      revision_id: 'rev-sub',
+      state: 'submitted',
+      workflow_definition_key: 'default-scientific-review',
+      workflow_definition_version: 1,
+      assigned_reviewer_user_ids: ['u2'],
+      submitted_by_user_id: submittedBy,
+      submitted_session_id: 's',
+      submitted_role: 'scientist',
+      submitted_at: '2026-08-19T00:00:00.000Z',
+      due_at: null,
+      idempotency_key: 'k',
+      created_at: '2026-08-19T00:00:00.000Z',
+      updated_at: '2026-08-19T00:00:00.000Z',
+    },
+    revision: { id: 'rev-sub', superseded_by_revision_id: null },
+  })
+
+  async function menuItems(submittedBy: string) {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability"
+        projectId="p1"
+        currentUserId="u1"
+        review={submission(submittedBy)}
+      />,
+    )
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'More record actions' }))
+    return (await screen.findAllByRole('menuitem')).map((item) =>
+      item.textContent.trim(),
+    )
+  }
+
+  it('offers Withdraw to the person who submitted it', async () => {
+    expect(await menuItems('u1')).toContain('Withdraw from review…')
+  })
+
+  it('does not offer it to anyone else', async () => {
+    expect(await menuItems('u2')).not.toContain('Withdraw from review…')
+  })
+})
+
+describe('StickyRecordHeader reopens the task the person left', () => {
+  afterEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('opens the Submit dialog on return from certifying a signature', async () => {
+    window.history.replaceState(null, '', '/records/r1?reopen=submit')
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    expect(await screen.findByRole('group', { name: 'Readiness' })).toBeTruthy()
+  })
+
+  it('leaves the dialog closed when nothing was left open', () => {
+    renderWithQuery(
+      <StickyRecordHeader
+        record={record}
+        projectName="Stability Programme"
+        projectId="p1"
+        currentUserId="u1"
+      />,
+    )
+    expect(screen.queryByRole('group', { name: 'Readiness' })).toBeNull()
   })
 })
 
@@ -760,7 +860,7 @@ describe('NotebookInspector', () => {
     expect(screen.queryByText('Working')).toBeNull()
   })
 
-  it('lists Record comments through the visibility-checked RPC without inventing a root target', async () => {
+  it('lists Record comments through the visibility-checked RPC and offers a new notebook comment', async () => {
     const fetch = vi
       .spyOn(commentsData, 'fetchCommentsForRecord')
       .mockResolvedValue([])
@@ -780,9 +880,10 @@ describe('NotebookInspector', () => {
       await screen.findByText('No comments yet on this Record.'),
     ).toBeTruthy()
     expect(fetch).toHaveBeenCalledWith(expect.anything(), record.id)
+    // A live notebook takes comments of its own, anchored to the record.
     expect(
-      screen.queryByRole('textbox', { name: 'New comment body' }),
-    ).toBeNull()
+      screen.getByRole('textbox', { name: 'New comment body' }),
+    ).toBeTruthy()
     fetch.mockRestore()
   })
 

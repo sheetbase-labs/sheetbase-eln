@@ -28,6 +28,8 @@ import { TableBox } from '#/components/v3/ui/table'
 import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
+import { safeReturnTo } from '#/lib/create-context-search'
+import { returnLabel } from '#/lib/return-to'
 import {
   CheckRow,
   SettingsBody,
@@ -56,7 +58,11 @@ import {
 } from '#/lib/signature-certification'
 import type { SignaturePolicy } from '#/lib/signature-certification'
 import { requestSignatureCredential } from '#/lib/signatures'
-import { getWorkspaceAdmins, workspaceAdminsKey, formatAdminNames  } from '#/lib/workspace-admins'
+import {
+  getWorkspaceAdmins,
+  workspaceAdminsKey,
+  formatAdminNames,
+} from '#/lib/workspace-admins'
 
 /** UI port (roadmap-4/ui-app3): electronic signatures. You certify your own
  * signature for the workspace; owners and admins set the workspace policy.
@@ -116,6 +122,11 @@ const getSigningAvailability = createServerFn({ method: 'GET' }).handler(
 )
 
 export const Route = createFileRoute('/settings/signatures')({
+  // A page that sent the person here to certify hands over where to go back to.
+  validateSearch: (search: Record<string, unknown>): { returnTo?: string } => {
+    const returnTo = safeReturnTo(search.returnTo)
+    return returnTo ? { returnTo } : {}
+  },
   loader: () => getSigningAvailability(),
   component: Signatures,
 })
@@ -192,6 +203,7 @@ export function VerificationPath({
 
 function Signatures() {
   const { context } = Route.useRouteContext()
+  const { returnTo } = Route.useSearch()
   const { signInAvailable } = Route.useLoaderData()
   const workspaceId = context.workspace?.id ?? ''
   const canManage = hasCapability(context.workspace?.role, 'workspace.admin')
@@ -318,6 +330,26 @@ function Signatures() {
         act; every one records who, when and what version
       </SettingsHeader>
       <SettingsBody>
+        {returnTo ? (
+          <Notice
+            title={current ? 'You can sign now' : 'You came here to certify'}
+          >
+            <p className="m-0">
+              {current
+                ? 'Your signature is certified, so the task you left can go ahead.'
+                : 'Finish certifying below, then go back to the task you left.'}
+            </p>
+            <p className="m-0 mt-1.5">
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link to={returnTo} />}
+              >
+                {returnLabel(returnTo)}
+              </Button>
+            </p>
+          </Notice>
+        ) : null}
         {signInAvailable ? null : (
           <Notice tone="warn" title="Signing needs a signed-in account">
             This environment runs without sign-in, so identity verification,

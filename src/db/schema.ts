@@ -1750,11 +1750,11 @@ export const comments = api.table(
   (table) => [
     check(
       'chk_comments_target_kind',
-      sql`${table.targetKind} IN ('revision', 'block', 'table_region', 'diff', 'sheet_cell', 'sheet_row', 'sheet_range')`,
+      sql`${table.targetKind} IN ('revision', 'block', 'table_region', 'diff', 'record', 'sheet_cell', 'sheet_row', 'sheet_range')`,
     ),
     check(
       'chk_comments_anchor_owner',
-      sql`((${table.targetKind} IN ('sheet_cell', 'sheet_row', 'sheet_range') AND ${table.sheetInstanceId} IS NOT NULL) OR (${table.targetKind} IN ('revision', 'block', 'table_region', 'diff') AND ${table.sheetInstanceId} IS NULL)) AND (${table.revisionId} IS NOT NULL OR ${table.sheetInstanceId} IS NOT NULL) AND (${table.revisionId} IS NULL OR ${table.recordId} IS NOT NULL)`,
+      sql`((${table.targetKind} IN ('sheet_cell', 'sheet_row', 'sheet_range') AND ${table.sheetInstanceId} IS NOT NULL) OR (${table.targetKind} IN ('revision', 'block', 'table_region', 'diff', 'record') AND ${table.sheetInstanceId} IS NULL)) AND (${table.revisionId} IS NOT NULL OR ${table.sheetInstanceId} IS NOT NULL OR (${table.targetKind} IN ('record', 'block') AND ${table.recordId} IS NOT NULL)) AND (${table.revisionId} IS NULL OR ${table.recordId} IS NOT NULL)`,
     ),
     check('chk_comments_state', sql`${table.state} IN ('open', 'resolved')`),
     check('chk_comments_body', sql`length(${table.body}) BETWEEN 1 AND 8000`),

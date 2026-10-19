@@ -19,8 +19,13 @@ import { isDatasetDetailTab } from '#/components/v3/datasets/dataset-detail-tabs
 import type { DatasetDetailTab } from '#/components/v3/datasets/dataset-detail-tabs'
 import { DatasetHistoryTab } from '#/components/v3/datasets/dataset-history-tab'
 import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
+import { DatasetModelUpgrade } from '#/components/v3/datasets/dataset-model-upgrade'
+import { hasCapability } from '#/lib/capability'
 import { DatasetUsedByTab } from '#/components/v3/datasets/dataset-used-by-tab'
-import { notebookDataClient } from '#/lib/notebook-data'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
+import { ObjectLink } from '#/components/v3/ui/object-link'
+import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
+import { useRecentViewTracking } from '#/lib/recents'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -81,6 +86,14 @@ function DatasetLayout() {
   const summaries = useDatasetSummaries()
   const versions = useDatasetVersions(datasetId)
   const dataset = summaries.data?.find((d) => d.uuid === datasetId)
+  const projectId = dataset?.projectId ?? null
+  const project = useQuery({
+    queryKey: ['ui-port', 'dataset-project', projectId ?? ''],
+    queryFn: () =>
+      projectId ? fetchProject(notebookDataClient, projectId) : null,
+    enabled: Boolean(projectId),
+  })
+  useRecentViewTracking('dataset', dataset?.uuid)
 
   if (!dataset) {
     return (
@@ -103,13 +116,39 @@ function DatasetLayout() {
     (section === 'rows' || section === 'snapshots' || section === 'compare'
       ? section
       : 'overview')
-  const isRows = current === 'rows'
   const exportable = !dataset.archived && current !== 'compare'
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
+        // Where the dataset sits: its project and the experiment that made it,
+        // then itself; a dataset with neither keeps the Datasets list as root.
         trail={[
-          { label: 'Datasets', link: { to: '/datasets' } },
+          ...(projectId
+            ? [
+                {
+                  label: project.data?.title ?? 'Project',
+                  link: {
+                    to: '/projects/$projectId' as const,
+                    params: { projectId },
+                  },
+                },
+              ]
+            : []),
+          ...(dataset.experimentId
+            ? [
+                {
+                  label: dataset.experimentId,
+                  mono: true,
+                  link: {
+                    to: '/experiments/$expId' as const,
+                    params: { expId: dataset.experimentId },
+                  },
+                },
+              ]
+            : []),
+          ...(projectId || dataset.experimentId
+            ? []
+            : [{ label: 'Datasets', link: { to: '/datasets' as const } }]),
           { label: dataset.id, mono: true },
         ]}
         title={dataset.name}
@@ -121,7 +160,9 @@ function DatasetLayout() {
               </Status>
             </span>
             <span>Model {dataset.model}</span>
-            {dataset.experimentId ? <span>{dataset.experimentId}</span> : null}
+            {dataset.experimentId ? (
+              <ObjectLink kind="experiment" identifier={dataset.experimentId} />
+            ) : null}
             <span>
               Owner{' '}
               {dataset.createdByUserId === context.user.id
@@ -131,35 +172,78 @@ function DatasetLayout() {
           </>
         }
         actions={
-          exportable ? (
-            <>
-              <Button
-                nativeButton={false}
-                icon="download"
-                render={
-                  <a
-                    href={`/api/export/dataset/${dataset.uuid}?format=csv`}
-                    aria-label={`Download ${dataset.name} as CSV`}
-                  />
-                }
-              >
-                Download CSV
-              </Button>
-              {isRows ? (
+          <>
+            <FavouriteToggle kind="dataset" objectId={dataset.uuid} />
+            {exportable ? (
+              <>
+                <DatasetModelUpgrade
+                  datasetId={dataset.uuid}
+                  canEdit={hasCapability(
+                    context.workspace?.role,
+                    'schema.edit',
+                  )}
+                />
+                <Button
+                  nativeButton={false}
+                  icon="download"
+                  render={
+                    <a
+                      href={`/api/export/dataset/${dataset.uuid}?format=csv`}
+                      aria-label={`Download ${dataset.name} as CSV`}
+                    />
+                  }
+                >
+                  Download CSV
+                </Button>
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/sheets/new"
+                      search={{
+                        dataset: dataset.uuid,
+                        returnTo: `/datasets/${dataset.uuid}`,
+                      }}
+                    />
+                  }
+                >
+                  Open in a sheet
+                </Button>
+                {/* Analyse and Chart open the studio on this dataset from any
+                    tab, not only the rows, so the next step is always here. */}
                 <Button
                   nativeButton={false}
                   render={
                     <Link
                       to="/analysis/new"
-                      search={{ mode: 'analyse', dataset: dataset.uuid }}
+                      search={{
+                        mode: 'chart',
+                        dataset: dataset.uuid,
+                        returnTo: `/datasets/${dataset.uuid}`,
+                      }}
+                    />
+                  }
+                >
+                  Chart
+                </Button>
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/analysis/new"
+                      search={{
+                        mode: 'analyse',
+                        dataset: dataset.uuid,
+                        returnTo: `/datasets/${dataset.uuid}`,
+                      }}
                     />
                   }
                 >
                   Analyse
                 </Button>
-              ) : null}
-            </>
-          ) : undefined
+              </>
+            ) : null}
+          </>
         }
         tabs={
           <Tabs

@@ -12,6 +12,7 @@
 import type { Pool } from 'pg'
 
 import { getScopedClient } from '#/lib/admin-platform'
+import { isUuid } from '#/lib/identifier-resolution'
 import type { IdentifierEntity } from '#/lib/identifier-resolution'
 
 interface EntitySpec {
@@ -91,6 +92,37 @@ export async function resolveIdentifier(
       params,
     )
     return rows[0]?.id ?? null
+  } finally {
+    await release()
+  }
+}
+
+/**
+ * The kind of a record, from its UUID or its display identifier. Used to send
+ * an experiment opened through the generic record route to its own page before
+ * anything renders. Null when the record is missing or not visible.
+ */
+export async function resolveRecordKind(input: {
+  ref: string
+  workspaceId: string
+  userId: string
+  pool?: Pool
+}): Promise<string | null> {
+  const { client, release } = await getScopedClient(
+    input.workspaceId,
+    input.userId,
+    input.pool,
+  )
+  try {
+    const byId = isUuid(input.ref)
+    const { rows } = await client.query<{ kind: string }>(
+      `SELECT kind FROM api.records
+        WHERE workspace_id = $1 AND ${byId ? 'id = $2::uuid' : 'identifier = $2'}
+        ORDER BY created_at ASC, id ASC
+        LIMIT 1`,
+      [input.workspaceId, input.ref],
+    )
+    return rows[0]?.kind ?? null
   } finally {
     await release()
   }

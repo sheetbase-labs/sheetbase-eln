@@ -32,6 +32,16 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
+vi.mock('#/components/viz/chart-renderer', () => ({
+  ChartRenderer: ({
+    materialised,
+  }: {
+    materialised: { rows: unknown[]; series: unknown[] }
+  }) => (
+    <div data-testid="chart">{`${materialised.rows.length} rows plotted`}</div>
+  ),
+}))
+
 vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
   const actual = await importOriginal<typeof definitionsData>()
   return {
@@ -274,5 +284,105 @@ describe('analysis block preview', () => {
     expect(open.getAttribute('href')).toBe(
       `/datasets?dataset=${encodeURIComponent('11111111-1111-1111-8111-111111111111')}`,
     )
+  })
+})
+
+describe('merged analysis block: a chart, a statistic or both', () => {
+  const DATASET = '11111111-1111-1111-8111-111111111111'
+  const FIELD_TIME = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01'
+  const CHART = {
+    specVersion: 1,
+    type: 'scatter',
+    datasets: [{ datasetId: DATASET }],
+    fields: {
+      x: { fieldId: FIELD_TIME },
+      y: { fieldId: FIELD_RECOVERY },
+      series: null,
+      color: null,
+      size: null,
+      facet: null,
+    },
+    filters: [],
+    transformations: [],
+    typeParams: {},
+    display: {
+      axes: { x: { scale: 'linear' }, y: { scale: 'linear' } },
+      series: [],
+      legend: { visible: true },
+    },
+    overlays: { errorBars: null },
+  }
+  const columns = [
+    { fieldId: FIELD_TIME, label: 'Time', logicalType: 'decimal' },
+    { fieldId: FIELD_RECOVERY, label: 'Recovery (%)', logicalType: 'decimal' },
+  ]
+  const rows = [
+    { [FIELD_TIME]: 0, [FIELD_RECOVERY]: 10 },
+    { [FIELD_TIME]: 24, [FIELD_RECOVERY]: 30 },
+  ]
+  const pinned = (definition: unknown): FrozenAnalysis =>
+    ({ ...FROZEN, columns, definition }) as FrozenAnalysis
+
+  it('rebuilds a frozen statistic and its chart from the pinned rows', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows,
+      totalCount: 2,
+      matchesProvenance: true,
+    })
+    renderPreview({
+      title: 'Recovery',
+      definitionId: 'def-1',
+      frozen: pinned({ ...FROZEN.definition, chart: CHART }),
+    })
+    expect(await screen.findByTestId('chart')).toBeTruthy()
+    expect(screen.getByRole('table')).toBeTruthy()
+    expect(screen.getByTestId('chart').textContent).toBe('2 rows plotted')
+  })
+
+  it('shows only the chart for a frozen chart-only analysis', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows,
+      totalCount: 2,
+      matchesProvenance: true,
+    })
+    renderPreview({
+      title: 'Recovery',
+      definitionId: 'def-1',
+      frozen: pinned({
+        definitionVersion: 1,
+        kind: 'chart',
+        datasets: [{ datasetId: DATASET }],
+        chart: CHART,
+      }),
+    })
+    expect(await screen.findByTestId('chart')).toBeTruthy()
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('keeps a frozen statistic-only payload from before the merge rendering as it did', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows: [{ [FIELD_RECOVERY]: 10 }, { [FIELD_RECOVERY]: 30 }],
+      totalCount: 2,
+      matchesProvenance: true,
+    })
+    renderPreview({ title: 'Old', definitionId: 'def-1', frozen: FROZEN })
+    await screen.findByRole('table')
+    expect(screen.queryByTestId('chart')).toBeNull()
+  })
+
+  it('withholds the chart too when the pinned rows do not match the provenance', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows: [],
+      totalCount: 9,
+      matchesProvenance: false,
+    })
+    renderPreview({
+      title: 'Mismatch',
+      definitionId: 'def-1',
+      frozen: pinned({ ...FROZEN.definition, chart: CHART }),
+    })
+    expect(await screen.findByText(/Evidence mismatch/i)).toBeTruthy()
+    expect(screen.queryByTestId('chart')).toBeNull()
   })
 })

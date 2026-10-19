@@ -96,4 +96,12 @@ describe('review SignatureDialog on the shared e-sign dialog', () => {
       true,
     )
   })
+
+  it('offers Sign later when the review is already approved, and Cancel otherwise', () => {
+    setup({ cancelLabel: 'Sign later' })
+    expect(screen.getByRole('button', { name: 'Sign later' })).toBeTruthy()
+    cleanup()
+    setup()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy()
+  })
 })

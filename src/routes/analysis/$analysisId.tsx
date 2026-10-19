@@ -1,5 +1,5 @@
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
@@ -23,9 +23,12 @@ import {
   validateAnalysisSpec,
 } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
+import { DuplicateAnalysisDialog } from '#/components/v3/analysis/duplicate-analysis-dialog'
 import { CitationList } from '#/components/viz/citation-list'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { useDatasetSummaries } from '#/components/v3/datasets/datasets-data'
+import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
 
 /** UI port (roadmap-4/ui-app3): a saved analysis view, rebuilt from its stored
  * ChartSpec and the current source dataset. The studio at /analysis is the
@@ -48,6 +51,8 @@ export const Route = createFileRoute('/analysis/$analysisId')({
 
 function AnalysisView() {
   const { analysisId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+  const [duplicating, setDuplicating] = useState(false)
   const viewQuery = useQuery({
     queryKey: ['ui-port', 'analysis', 'view', analysisId],
     queryFn: () =>
@@ -92,6 +97,20 @@ function AnalysisView() {
     enabled: Boolean(view),
     staleTime: 5_000,
   })
+  // Where the analysis sits, for the trail: the dataset it draws on, the
+  // experiment that made it and that experiment's project.
+  const summaries = useDatasetSummaries()
+  const sourceId = view ? specSourceDatasetId(view.spec) : null
+  const source = summaries.data?.find((d) => d.uuid === sourceId) ?? null
+  const sourceProjectId = source?.projectId ?? null
+  const sourceProject = useQuery({
+    queryKey: ['ui-port', 'analysis', 'source-project', sourceProjectId ?? ''],
+    queryFn: () =>
+      sourceProjectId
+        ? fetchProject(notebookDataClient, sourceProjectId)
+        : null,
+    enabled: Boolean(sourceProjectId),
+  })
   const status = statusQuery.data ?? null
   const movedSources =
     status?.sources.filter((item) => item.status !== 'current') ?? []
@@ -135,7 +154,41 @@ function AnalysisView() {
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
         <PageHeader
           trail={[
-            { label: 'Analysis', link: { to: '/analysis' } },
+            ...(source
+              ? [
+                  ...(sourceProjectId
+                    ? [
+                        {
+                          label: sourceProject.data?.title ?? 'Project',
+                          link: {
+                            to: '/projects/$projectId' as const,
+                            params: { projectId: sourceProjectId },
+                          },
+                        },
+                      ]
+                    : []),
+                  ...(source.experimentId
+                    ? [
+                        {
+                          label: source.experimentId,
+                          mono: true,
+                          link: {
+                            to: '/experiments/$expId' as const,
+                            params: { expId: source.experimentId },
+                          },
+                        },
+                      ]
+                    : []),
+                  {
+                    label: source.id,
+                    mono: true,
+                    link: {
+                      to: '/datasets/$datasetId' as const,
+                      params: { datasetId: source.uuid },
+                    },
+                  },
+                ]
+              : [{ label: 'Analysis', link: { to: '/analysis' as const } }]),
             { label: view.display_id ?? `v${view.version}`, mono: true },
           ]}
           title={view.name}
@@ -159,13 +212,20 @@ function AnalysisView() {
             </>
           }
           actions={
-            <Link
-              to="/analysis/new"
-              search={{ view: view.id, dataset: datasetId }}
-              className={buttonVariants({ variant: 'primary' })}
-            >
-              Edit in studio
-            </Link>
+            <>
+              {datasetId ? (
+                <Button onClick={() => setDuplicating(true)}>
+                  Run on other data
+                </Button>
+              ) : null}
+              <Link
+                to="/analysis/new"
+                search={{ view: view.id, dataset: datasetId }}
+                className={buttonVariants({ variant: 'primary' })}
+              >
+                Edit in studio
+              </Link>
+            </>
           }
         />
         <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
@@ -216,6 +276,16 @@ function AnalysisView() {
           )}
         </div>
       </div>
+
+      {duplicating ? (
+        <DuplicateAnalysisDialog
+          view={view}
+          workspaceId={context.workspace?.id ?? ''}
+          userId={context.user.id}
+          open
+          onOpenChange={setDuplicating}
+        />
+      ) : null}
 
       <Inspector aria-label="Analysis details" className="w-[320px]">
         <InspectorSection title="Source">

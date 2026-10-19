@@ -75,8 +75,29 @@ export type MatchedField =
   | 'relationship'
   | 'description'
 
+/**
+ * Work objects the `api.search` RPC does not index. They are found by name and
+ * identifier through `src/lib/search-work-objects.ts` and shown beside the RPC
+ * rows, so a person looking for a project, a pipeline or an analysis finds it.
+ */
+export const WORK_OBJECT_RESULT_TYPES = [
+  'project',
+  'pipeline',
+  'analysis',
+] as const
+
+export type WorkObjectResultType = (typeof WORK_OBJECT_RESULT_TYPES)[number]
+
+export function isWorkObjectResult(result: {
+  resultType: string
+}): result is { resultType: WorkObjectResultType } {
+  return (WORK_OBJECT_RESULT_TYPES as readonly string[]).includes(
+    result.resultType,
+  )
+}
+
 export interface SearchResult {
-  resultType: SearchResultType
+  resultType: SearchResultType | WorkObjectResultType
   /** Object-class identity; comment hits carry a Comment UUID, not a Record UUID. */
   recordId: string
   kind: string
@@ -94,6 +115,9 @@ export interface SearchResult {
   deepLink: string
   totalCount: number
 }
+
+/** A row the `api.search` RPC returned, as opposed to a work object. */
+export type RpcSearchResult = SearchResult & { resultType: SearchResultType }
 
 // ---------------------------------------------------------------------------
 // Filters.
@@ -141,7 +165,7 @@ export type SearchableKind = (typeof SEARCHABLE_KINDS)[number]
 // Wire → domain mapper.
 // ---------------------------------------------------------------------------
 
-export function toSearchResult(row: SearchResultWire): SearchResult {
+export function toSearchResult(row: SearchResultWire): RpcSearchResult {
   const resultType = (SEARCH_RESULT_TYPES as readonly string[]).includes(
     row.result_type,
   )
@@ -211,6 +235,9 @@ export const SEARCH_RESULT_GROUPS = [
   'Sheet and dataset rows',
   'Notebook text and comments',
   'Records',
+  'Projects',
+  'Pipelines',
+  'Analyses',
   'Files',
   'Templates',
 ] as const
@@ -222,6 +249,9 @@ export type SearchResultGroup = (typeof SEARCH_RESULT_GROUPS)[number]
  * bucket; rows and notebook text win over their owning record.
  */
 export function searchResultGroup(result: SearchResult): SearchResultGroup {
+  if (result.resultType === 'project') return 'Projects'
+  if (result.resultType === 'pipeline') return 'Pipelines'
+  if (result.resultType === 'analysis') return 'Analyses'
   if (result.resultType === 'file') return 'Files'
   if (result.resultType === 'template') return 'Templates'
   if (result.resultType === 'dataset' || result.resultType === 'sheet')
@@ -378,7 +408,29 @@ export interface SearchUrlFilterInput {
   /** Selected project IDs. Multiple selections fall back to client filtering. */
   project?: string[]
   updated?: 'any' | '7d'
+  /** Owner (creator) user id; narrows the search to records they created. */
+  owner?: string
+  /** Inclusive first day (yyyy-mm-dd) an object was last touched. */
+  from?: string
+  /** Inclusive last day (yyyy-mm-dd) an object was last touched. */
+  to?: string
   archived?: boolean
+}
+
+/** A calendar day as written by an `<input type="date">`. */
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+/** The day if it is a real calendar day, else undefined. */
+export function parseSearchDay(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !DAY_PATTERN.test(value)) return undefined
+  const ms = Date.parse(`${value}T00:00:00Z`)
+  if (Number.isNaN(ms)) return undefined
+  return new Date(ms).toISOString().slice(0, 10) === value ? value : undefined
+}
+
+/** UTC start of a day, or the end of it when `endOfDay`. */
+function dayBoundary(day: string, endOfDay: boolean): string {
+  return `${day}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}Z`
 }
 
 /** Start-of-day UTC anchor so the same URL yields a stable RPC date filter. */
@@ -428,8 +480,16 @@ export function urlFiltersToSearchFilters(
         break
     }
   }
-  const dateFrom = updatedDateFrom(input.updated)
+  // An explicit range wins over the "last 7 days" shortcut; the two are one
+  // facet in the UI, so only one of them is ever set at a time.
+  const day = parseSearchDay(input.from)
+  const dateFrom = day
+    ? dayBoundary(day, false)
+    : updatedDateFrom(input.updated)
   if (dateFrom) filters.dateFrom = dateFrom
+  const lastDay = parseSearchDay(input.to)
+  if (lastDay) filters.dateTo = dayBoundary(lastDay, true)
+  if (input.owner) filters.ownerId = input.owner
   // Archived is a scope, not a client-side filter: the URL facet becomes the
   // RPC's p_include_archived so the boundary is authoritative (R5-SHELL-04).
   filters.includeArchived = input.archived === true
@@ -452,9 +512,15 @@ export function filterSearchResults(
 ): SearchResult[] {
   const type = input.type ?? []
   const project = input.project ?? []
-  const dateFrom = updatedDateFrom(input.updated)
+  const fromDay = parseSearchDay(input.from)
+  const toDay = parseSearchDay(input.to)
+  const dateFrom = fromDay
+    ? dayBoundary(fromDay, false)
+    : updatedDateFrom(input.updated)
   const dateFromMs = dateFrom ? Date.parse(dateFrom) : undefined
+  const dateToMs = toDay ? Date.parse(dayBoundary(toDay, true)) : undefined
   return results.filter((result) => {
+    if (input.owner && result.createdByUserId !== input.owner) return false
     if (type.length && !type.includes(searchResultGroup(result))) return false
     if (
       project.length &&
@@ -464,6 +530,10 @@ export function filterSearchResults(
     if (dateFromMs !== undefined) {
       const updated = Date.parse(result.updatedAt)
       if (!Number.isNaN(updated) && updated < dateFromMs) return false
+    }
+    if (dateToMs !== undefined) {
+      const updated = Date.parse(result.updatedAt)
+      if (!Number.isNaN(updated) && updated > dateToMs) return false
     }
     return true
   })
@@ -679,7 +749,7 @@ export function extractAllStrings(value: unknown): string {
 export function executeSearch(
   client: DataClient,
   filters: SearchFilters,
-): Promise<SearchResult[]> {
+): Promise<RpcSearchResult[]> {
   const args = buildSearchRpcArgs(filters)
   return client
     .rpc<SearchResultWire | SearchResultWire[]>('search', args)
@@ -783,10 +853,23 @@ export function rankByTier(
 // allows localStorage for this.
 // ---------------------------------------------------------------------------
 
+/** The results-page facets a saved search restores (the URL search params). */
+export interface SavedSearchFacets {
+  type?: string[]
+  project?: string[]
+  updated?: '7d'
+  owner?: string
+  from?: string
+  to?: string
+  archived?: boolean
+}
+
 export interface SavedQuery {
   id: string
   name: string
   query: string
+  /** Facets the results page had when the search was saved. */
+  facets?: SavedSearchFacets
   /** Object-class facet ('' = all). Older saved entries may omit it. */
   type?: string
   kind: string
@@ -830,9 +913,9 @@ export function saveQuery(
 ): SavedQuery[] {
   const existing = loadSavedQueries(workspaceId)
   // Deduplicate by name + query + filters.
-  const dedupKey = `${params.name}|${params.query}|${params.type ?? ''}|${params.kind}|${params.projectId}|${params.status}|${params.ownerId}|${params.dateRange}`
+  const dedupKey = `${params.name}|${params.query}|${params.type ?? ''}|${params.kind}|${params.projectId}|${params.status}|${params.ownerId}|${params.dateRange}|${JSON.stringify(params.facets ?? null)}`
   const filtered = existing.filter((s) => {
-    const key = `${s.name}|${s.query}|${s.type ?? ''}|${s.kind}|${s.projectId}|${s.status}|${s.ownerId}|${s.dateRange}`
+    const key = `${s.name}|${s.query}|${s.type ?? ''}|${s.kind}|${s.projectId}|${s.status}|${s.ownerId}|${s.dateRange}|${JSON.stringify(s.facets ?? null)}`
     return key !== dedupKey
   })
   const entry: SavedQuery = {
@@ -1121,5 +1204,53 @@ export async function searchFileContents(
   return client.rpc<FileContentHit[]>('search_file_contents', {
     p_query: query,
     p_limit: limit,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Saved searches on the results page: the URL is the single description of a
+// search, so saving stores it and applying a saved search navigates to it.
+// ---------------------------------------------------------------------------
+
+/** The results page's URL search for a saved query. */
+export function savedQueryToSearch(saved: SavedQuery): {
+  q: string
+} & SavedSearchFacets {
+  const facets = saved.facets ?? {}
+  return {
+    q: saved.query,
+    ...(facets.type?.length ? { type: facets.type } : {}),
+    ...(facets.project?.length ? { project: facets.project } : {}),
+    ...(facets.updated === '7d' ? { updated: '7d' as const } : {}),
+    ...(facets.owner ? { owner: facets.owner } : {}),
+    ...(facets.from ? { from: facets.from } : {}),
+    ...(facets.to ? { to: facets.to } : {}),
+    ...(facets.archived ? { archived: true } : {}),
+  }
+}
+
+/** Save the results page's current search under a name. */
+export function saveCurrentSearch(
+  workspaceId: string,
+  name: string,
+  search: { q: string } & SavedSearchFacets,
+): SavedQuery[] {
+  return saveQuery(workspaceId, {
+    name: name.trim(),
+    query: search.q,
+    kind: '',
+    projectId: '',
+    status: '',
+    ownerId: '',
+    dateRange: 'all',
+    facets: {
+      ...(search.type?.length ? { type: search.type } : {}),
+      ...(search.project?.length ? { project: search.project } : {}),
+      ...(search.updated === '7d' ? { updated: '7d' as const } : {}),
+      ...(search.owner ? { owner: search.owner } : {}),
+      ...(search.from ? { from: search.from } : {}),
+      ...(search.to ? { to: search.to } : {}),
+      ...(search.archived ? { archived: true } : {}),
+    },
   })
 }

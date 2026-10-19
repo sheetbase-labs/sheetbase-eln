@@ -224,14 +224,6 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     aliases: ['note', 'warning', 'banner', 'aside', 'info'],
   },
   {
-    type: 'chart',
-    label: 'Chart',
-    description: 'From a sheet or dataset',
-    icon: 'chart',
-    group: 'evidence',
-    aliases: ['plot', 'graph'],
-  },
-  {
     type: 'file',
     label: 'File or image',
     description: 'Attach a file with provenance and lifecycle states.',
@@ -241,12 +233,12 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
   },
   {
     type: 'analysis',
-    label: 'Analysis',
+    label: 'Chart or analysis',
     description:
-      'A saved analysis — grouped statistics or a regression fit — run against live dataset rows, freezable as evidence.',
-    icon: 'code',
+      'A saved chart, a statistic or both, run against live dataset rows and freezable as evidence.',
+    icon: 'chart',
     group: 'evidence',
-    aliases: ['statistics', 'regression', 'fit'],
+    aliases: ['chart', 'plot', 'graph', 'statistics', 'regression', 'fit'],
   },
   {
     type: 'plate_map',

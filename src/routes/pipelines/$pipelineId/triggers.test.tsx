@@ -8,10 +8,11 @@
 import { createElement } from 'react'
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route, scheduleSpecLabel } from './triggers'
+import { PIPELINE_TRIGGER_EVENTS } from '#/lib/pipeline-schedule'
 import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
 import type {
   PipelineDefinitionVersionWire,
@@ -24,6 +25,7 @@ const state = vi.hoisted(() => ({
   schedules: [] as PipelineScheduleWire[],
   // A published version by default: a trigger on such a pipeline can fire.
   published: true,
+  inputNames: [] as string[],
 }))
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
@@ -49,7 +51,12 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
   usePipelineVersions: () => ({
     isSuccess: true,
     data: [
-      { lifecycle: state.published ? 'published' : 'draft' },
+      {
+        lifecycle: state.published ? 'published' : 'draft',
+        configuration: {
+          inputs: state.inputNames.map((name) => ({ name })),
+        },
+      },
     ] as unknown as PipelineDefinitionVersionWire[],
   }),
 }))
@@ -93,6 +100,7 @@ afterEach(() => {
   cleanup()
   state.schedules = []
   state.published = true
+  state.inputNames = []
 })
 
 const noDatasets = new Map<string, string>()
@@ -216,5 +224,31 @@ describe('a schedule the sweep can never fire', () => {
     expect(getByText('On its event')).toBeTruthy()
     expect(queryByText(/cannot be interpreted/)).toBeNull()
     expect(queryByText('Never fires')).toBeNull()
+  })
+
+  it('offers to bind a dataset-version trigger to a declared input', () => {
+    state.inputNames = ['raw', 'calibration']
+    renderTriggers()
+
+    fireEvent.click(screen.getAllByText('New trigger')[0])
+    fireEvent.click(screen.getByText('On an event'))
+    fireEvent.change(screen.getByDisplayValue(PIPELINE_TRIGGER_EVENTS[0]), {
+      target: { value: 'dataset.versioned' },
+    })
+    const select = screen.getByText('Bind the new version to')
+    expect(select).toBeTruthy()
+    expect(screen.getByText('calibration')).toBeTruthy()
+  })
+
+  it('offers an instrument filter on a dataset-version trigger', () => {
+    renderTriggers()
+
+    fireEvent.click(screen.getAllByText('New trigger')[0])
+    fireEvent.click(screen.getByText('On an event'))
+    fireEvent.change(screen.getByDisplayValue(PIPELINE_TRIGGER_EVENTS[0]), {
+      target: { value: 'dataset.versioned' },
+    })
+    expect(screen.getByText('Instrument filter')).toBeTruthy()
+    expect(screen.getByText('Any instrument')).toBeTruthy()
   })
 })

@@ -27,8 +27,11 @@ describe('block catalogue — Insert block design', () => {
   it('uses the canvas label and description for each block the design names', () => {
     expect(byType.sheet?.label).toBe('Sheet')
     expect(byType.sheet?.description).toBe('Grid backed by a model')
-    expect(byType.chart?.label).toBe('Chart')
-    expect(byType.chart?.description).toBe('From a sheet or dataset')
+    // One block holds a chart, a statistic or both, so there is no separate
+    // Chart entry; the analysis block answers to "chart".
+    expect(byType.chart).toBeUndefined()
+    expect(byType.analysis?.label).toBe('Chart or analysis')
+    expect(byType.analysis?.aliases).toContain('chart')
     expect(byType.linked_record?.label).toBe('Record reference')
     expect(byType.linked_record?.description).toBe('Sample, material, dataset…')
     expect(byType.rich_text?.label).toBe('Text')
@@ -58,8 +61,8 @@ describe('block catalogue — Insert block design', () => {
     ])
     expect(groupLabels('writing')[0]).toBe('Text')
     expect(groupLabels('evidence').slice(0, 2)).toEqual([
-      'Chart',
       'File or image',
+      'Chart or analysis',
     ])
     // R5-NOTE-02: the two sign-and-attach blocks, in the design's order.
     expect(groupLabels('sign')).toEqual([
@@ -123,8 +126,8 @@ describe('SlashCommandMenu', () => {
       <SlashCommandMenu query="chart" selectedIndex={0} onSelect={onSelect} />,
     )
 
-    await user.click(screen.getByRole('option', { name: /Chart/ }))
-    expect(onSelect).toHaveBeenCalledWith('chart')
+    await user.click(screen.getByRole('option', { name: /Chart or analysis/ }))
+    expect(onSelect).toHaveBeenCalledWith('analysis')
   })
 
   it('reports the hovered index so the parent can highlight it', async () => {

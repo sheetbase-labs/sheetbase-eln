@@ -54,6 +54,10 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }))
 
+vi.mock('#/components/v3/sheets/column-promotions-panel', () => ({
+  ColumnPromotionsPanel: () => null,
+}))
+
 vi.mock('#/components/sheet/canonical-sheet-workspace', () => ({
   CanonicalSheetWorkspace: (props: Record<string, unknown>) => {
     mocks.workspaceProps = props

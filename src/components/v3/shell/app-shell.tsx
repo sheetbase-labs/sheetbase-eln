@@ -52,12 +52,13 @@ import { cn } from '#/lib/utils'
 import type { Notification, NotificationTarget } from '#/components/v3/types'
 import type { ShellCounts } from '#/lib/shell-counts.server'
 import { markNotificationsRead } from '#/lib/notifications-data'
-import { createContextFromPath } from './create-context'
+import { createMenuSearch } from './create-context'
 import { isHomeSection, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
+import { ContextHelp } from '#/components/v3/help/context-help'
 import { authClient } from '#/lib/auth-client'
 import { Notice } from '#/components/v3/ui/alert'
 
@@ -98,6 +99,9 @@ export function AppShell({
   const navigate = useNavigate()
   const router = useRouter()
   const theme = useTheme()
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const [search, setSearch] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -177,6 +181,10 @@ export function AppShell({
   const switchWorkspace = useCallback(
     async (workspaceId: string) => {
       await setActiveWorkspace(createDataClient(), workspaceId)
+      // The page being looked at belongs to the workspace just left, so the
+      // person lands on the new workspace's Home rather than a page that may
+      // not exist there.
+      await router.navigate({ to: '/' })
       await router.invalidate()
     },
     [router],
@@ -269,7 +277,12 @@ export function AppShell({
             {children}
           </main>
         </div>
-        <SearchPalette open={search} onOpenChange={setSearch} />
+        <SearchPalette
+          open={search}
+          onOpenChange={setSearch}
+          role={data.me.role}
+          pathname={pathname}
+        />
         <RegistryShortcutsDialog open={helpOpen} onOpenChange={setHelpOpen} />
       </div>
     </ShortcutProvider>
@@ -458,6 +471,7 @@ function TopBar({
         </button>
       </div>
       <NewMenu open={createOpen} onOpenChange={onCreateOpenChange} />
+      <ContextHelp />
       <Notifications
         items={data.notifications}
         unreadIds={unreadIds}
@@ -591,7 +605,7 @@ function NewMenu({
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
-  const context = createContextFromPath(pathname)
+  const search = createMenuSearch(pathname)
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
@@ -603,19 +617,14 @@ function NewMenu({
         <DropdownMenuLinkItem
           icon="flask"
           hint="E"
-          render={
-            <Link
-              to="/experiments/new"
-              search={{ project: context.project, sample: context.sample }}
-            />
-          }
+          render={<Link to="/experiments/new" search={search.experiment} />}
         >
           Experiment
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
           icon="tube"
           hint="S"
-          render={<Link to="/samples" search={{ new: true }} />}
+          render={<Link to="/samples" search={search.sample} />}
         >
           Sample
         </DropdownMenuLinkItem>
@@ -625,22 +634,17 @@ function NewMenu({
         >
           Project
         </DropdownMenuLinkItem>
-        <DropdownMenuLinkItem icon="table" render={<Link to="/sheets/new" />}>
+        <DropdownMenuLinkItem
+          icon="table"
+          render={<Link to="/sheets/new" search={search.sheet} />}
+        >
           Working sheet
         </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
         <DropdownMenuLinkItem
           icon="upload"
           hint="I"
-          render={
-            <Link
-              to="/import"
-              search={{
-                experiment: context.experiment,
-                dataset: context.dataset,
-              }}
-            />
-          }
+          render={<Link to="/import" search={search.import} />}
         >
           Import data
         </DropdownMenuLinkItem>

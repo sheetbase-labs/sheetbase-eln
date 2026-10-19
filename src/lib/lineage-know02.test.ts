@@ -215,7 +215,7 @@ describe('buildLineageGraph evidence plumbing', () => {
 
 describe('lineageNodeDestination', () => {
   it('links live record nodes to their canonical surface', () => {
-    expect(lineageNodeDestination(makeNode())).toBe('/records/rec-1')
+    expect(lineageNodeDestination(makeNode())).toBe('/experiments/rec-1')
     expect(
       lineageNodeDestination(
         makeNode({ kind: 'sample', entityType: 'sample', recordId: 's-1' }),

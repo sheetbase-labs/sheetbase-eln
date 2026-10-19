@@ -3,12 +3,19 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ProtocolDocument } from '#/components/v3/protocols/protocol-document'
+import {
+  ProtocolVersionsPanel,
+  protocolVersionsKey,
+} from '#/components/v3/protocols/protocol-versions-panel'
 import { ProtocolVersionTraining } from '#/components/v3/protocols/protocol-version-training'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { PageHeader, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
+import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { Button } from '#/components/v3/ui/button'
+import { useRecentViewTracking } from '#/lib/recents'
 import { Select } from '#/components/v3/ui/select'
 import { toast } from '#/components/v3/ui/sonner'
 import { TableBox } from '#/components/v3/ui/table'
@@ -24,7 +31,6 @@ import {
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
-import type { RevisionWire } from '#/lib/notebook-data'
 
 import {
   acknowledgeProtocolVersion,
@@ -69,6 +75,7 @@ export const Route = createFileRoute('/protocols/$protocolId')({
 
 function ProtocolPage() {
   const { protocolId } = Route.useParams()
+  const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const tab = search.section ?? 'document'
   const record = useQuery({
@@ -83,19 +90,15 @@ function ProtocolPage() {
     queryKey: ['ui-port', 'protocol-links', protocolId],
     queryFn: () => fetchLinksForRecord(notebookDataClient, protocolId),
   })
-  const revisions = useQuery({
-    queryKey: ['ui-port', 'protocol-revisions', protocolId],
-    queryFn: () =>
-      notebookDataClient.list<RevisionWire>(
-        'revisions',
-        `?record_id=eq.${encodeURIComponent(protocolId)}&order=created_at.desc,id.desc&limit=50`,
-      ),
+  const versions = useQuery({
+    queryKey: protocolVersionsKey(protocolId),
+    queryFn: () => fetchProtocolVersions(notebookDataClient, protocolId),
   })
   const names = useUserNames([
     ...(record.data ? [record.data.createdByUserId] : []),
-    ...(revisions.data ?? []).map((r) => r.created_by_user_id),
   ])
   const p = record.data
+  useRecentViewTracking('record', p?.kind === 'protocol_template' ? p.id : null)
 
   if (!p || p.kind !== 'protocol_template') {
     return (
@@ -124,8 +127,7 @@ function ProtocolPage() {
   const status = protocolStatus(p.status)
   type ProtocolBlock = NonNullable<typeof blocks.data>[number]
   type ProtocolLink = NonNullable<typeof links.data>[number]
-  type ProtocolRevision = NonNullable<typeof revisions.data>[number]
-  const revisionList = revisions.data ?? []
+  const effectiveVersion = versions.data?.find((v) => v.status === 'effective')
 
   const blockColumns: RegistryColumn<ProtocolBlock>[] = [
     {
@@ -139,9 +141,9 @@ function ProtocolPage() {
     },
     { id: 'block', header: 'Block', cell: ({ row }) => row.original.type },
     {
-      id: 'version',
-      header: 'Version',
-      cell: ({ row }) => `v${row.original.version}`,
+      id: 'edits',
+      header: 'Edits',
+      cell: ({ row }) => row.original.version,
       meta: { cellClassName: 'text-fg-muted' },
     },
   ]
@@ -151,7 +153,11 @@ function ProtocolPage() {
       id: 'record',
       header: 'Record',
       cell: ({ row }) => (
-        <span className="mono">{row.original.targetIdentifier}</span>
+        <ObjectLink
+          kind={row.original.targetKind}
+          id={row.original.targetRecordId}
+          identifier={row.original.targetIdentifier}
+        />
       ),
     },
     {
@@ -167,55 +173,6 @@ function ProtocolPage() {
     },
   ]
 
-  const revisionColumns: RegistryColumn<ProtocolRevision>[] = [
-    {
-      id: 'version',
-      header: 'Version',
-      cell: ({ row }) =>
-        `v${
-          revisionList.length -
-          revisionList.findIndex((r) => r.id === row.original.id)
-        }`,
-      meta: {
-        ...rightAligned<ProtocolRevision>().meta,
-        cellClassName: 'num text-right',
-      },
-    },
-    {
-      id: 'reason',
-      header: 'Reason',
-      cell: ({ row }) => row.original.reason,
-    },
-    {
-      id: 'author',
-      header: 'Author',
-      cell: ({ row }) => names.userLabel(row.original.created_by_user_id),
-    },
-    {
-      id: 'created',
-      header: 'Created',
-      cell: ({ row }) => (
-        <span className="text-fg-muted">
-          {row.original.created_at.slice(0, 16).replace('T', ' ')}
-        </span>
-      ),
-    },
-    {
-      id: 'evidence',
-      header: () => <span className="sr-only">Actions</span>,
-      cell: ({ row }) => (
-        <Link
-          to="/evidence/$revisionId"
-          params={{ revisionId: row.original.id }}
-          className="text-link"
-        >
-          Evidence
-        </Link>
-      ),
-      meta: rightAligned<ProtocolRevision>().meta,
-    },
-  ]
-
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -225,23 +182,48 @@ function ProtocolPage() {
         ]}
         title={p.title}
         actions={
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={
-              <Link
-                to="/records/$recordId/notebook"
-                params={{ recordId: p.id }}
-              />
-            }
-          >
-            Open working document
-          </Button>
+          <>
+            <FavouriteToggle kind="record" objectId={p.id} />
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/records/$recordId/notebook"
+                  params={{ recordId: p.id }}
+                />
+              }
+            >
+              Open working document
+            </Button>
+            {effectiveVersion ? (
+              <Button
+                variant="primary"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/experiments/new"
+                    search={{
+                      protocol: p.id,
+                      returnTo: `/protocols/${encodeURIComponent(p.id)}`,
+                    }}
+                  />
+                }
+              >
+                Start experiment
+              </Button>
+            ) : null}
+          </>
         }
         meta={
           <>
             <span className="text-fg">
               <Status tone={status.tone}>{status.label}</Status>
+            </span>
+            <span>
+              {effectiveVersion
+                ? `Effective v${effectiveVersion.version}`
+                : 'No effective version'}
             </span>
             <span>Owner {names.userLabel(p.createdByUserId)}</span>
             <span className="max-lg:hidden">
@@ -259,7 +241,7 @@ function ProtocolPage() {
                 ['document', 'Document', undefined],
                 ['template', 'Template', blocks.data?.length],
                 ['usedby', 'Used by', links.data?.length],
-                ['versions', 'Versions', revisions.data?.length],
+                ['versions', 'Versions', versions.data?.length],
                 ['training', 'Training', undefined],
               ] as [ProtocolTab, string, number | undefined][]
             ).map(([key, label, count]) => ({
@@ -331,41 +313,12 @@ function ProtocolPage() {
           </div>
         ) : (
           <div className="px-4 py-4 md:px-6">
-            <Section
-              title="Version history"
-              count={revisions.data?.length ?? 0}
-            >
-              {revisions.data?.length ? (
-                <TableBox className="max-w-[900px]">
-                  <RegistryGrid
-                    label="Protocol version history"
-                    rows={revisions.data}
-                    columns={revisionColumns}
-                    getRowId={(r) => r.id}
-                    selectable={false}
-                  />
-                </TableBox>
-              ) : (
-                <EmptyState
-                  icon="protocol"
-                  title="No frozen versions yet"
-                  description="A version is frozen when the protocol is submitted for review. New experiments pin the version they start from."
-                  action={
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link
-                          to="/records/$recordId/notebook"
-                          params={{ recordId: p.id }}
-                        />
-                      }
-                    >
-                      Open the document to submit it
-                    </Button>
-                  }
-                />
-              )}
-            </Section>
+            <ProtocolVersionsPanel
+              protocolRecordId={protocolId}
+              workspaceId={context.workspace?.id}
+              role={context.workspace?.role}
+              user={{ id: context.user.id, name: context.user.name }}
+            />
           </div>
         )}
       </div>

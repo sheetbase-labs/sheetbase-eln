@@ -7,6 +7,7 @@ const ADMIN_ONLY = [
   'Members and roles',
   'Electronic signatures',
   'Project access',
+  'Clients',
   'Audit and retention',
   'Diagnostics',
   'Usage',

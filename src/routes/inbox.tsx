@@ -35,10 +35,11 @@ import {
   workItemsQueryKeys,
 } from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
+import { itemLink } from '#/lib/work-items/destination'
 import { itemKey, itemTab, workItemType } from '#/lib/work-items/predicate'
-import type { InboxTab } from '#/lib/work-items/predicate'
+import type { InboxTab, WorkItemType } from '#/lib/work-items/predicate'
 
-type InboxType = 'reviews' | 'data' | 'runs' | 'materials' | 'following'
+type InboxType = WorkItemType
 
 const tabs: [InboxTab, string][] = [
   ['needs-action', 'Needs action'],
@@ -50,6 +51,8 @@ const types: [InboxType, string, Tone, WorkItemKind][] = [
   ['data', 'Data issues', 'bad', 'data_issue'],
   ['runs', 'Runs', 'analysis', 'run_failed'],
   ['materials', 'Materials', 'warn', 'material_expiring'],
+  ['lab', 'Lab', 'warn', 'sample_awaiting_release'],
+  ['admin', 'Access & admin', 'stored', 'access_requested'],
 ]
 
 /** UI port (roadmap-4/ui-app3): the Inbox, wired to `my_work_items`. */
@@ -58,7 +61,11 @@ export const Route = createFileRoute('/inbox')({
   // the set the page shows.
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tab?: InboxTab; type?: InboxType } => ({
+  ): { tab?: InboxTab; type?: InboxType; item?: string } => ({
+    // The selected item lives in the URL, so a reload, Back and a shared link
+    // land on the same row.
+    item:
+      typeof search.item === 'string' && search.item ? search.item : undefined,
     tab:
       search.tab === 'following' ||
       search.tab === 'done-today' ||
@@ -70,6 +77,8 @@ export const Route = createFileRoute('/inbox')({
       search.type === 'data' ||
       search.type === 'runs' ||
       search.type === 'materials' ||
+      search.type === 'lab' ||
+      search.type === 'admin' ||
       search.type === 'following'
         ? search.type
         : undefined,
@@ -85,12 +94,24 @@ function toneFor(kind: WorkItemKind): Tone {
   // A run waiting for a person is actionable, not broken.
   if (kind === 'run_waiting') return 'warn'
   if (kind === 'material_expiring') return 'warn'
+  // A returned review, an unsigned approval and an overdue calibration are
+  // waiting on the person, not broken.
+  if (
+    kind === 'review_returned' ||
+    kind === 'approval_unsigned' ||
+    kind === 'sample_awaiting_release' ||
+    kind === 'sample_hold_exceeded' ||
+    kind === 'calibration_overdue'
+  )
+    return 'warn'
+  if (kind === 'witness_signed') return 'review'
   // A conflict is actionable: two edits need a person to choose between them.
   if (kind === 'cell_conflict') return 'warn'
   return 'stored'
 }
 
 function labelFor(kind: WorkItemKind, state: string): string {
+  if (kind === 'calibration_overdue') return 'Calibration'
   if (kind === 'witness_requested') return 'Witness requested'
   if (state === 'overdue') return 'Overdue'
   if (kind === 'review_requested') return 'Review'
@@ -99,6 +120,17 @@ function labelFor(kind: WorkItemKind, state: string): string {
   if (kind === 'run_waiting') return 'Waiting'
   if (kind === 'material_expiring') return 'Material'
   if (kind === 'cell_conflict') return 'Conflict'
+  if (kind === 'review_returned') return 'Returned'
+  if (kind === 'approval_unsigned') return 'Sign'
+  if (kind === 'witness_signed') return 'Witnessed'
+  if (kind === 'access_requested') return 'Access request'
+  if (kind === 'access_decided') return 'Access decided'
+  if (kind === 'agent_proposal') return 'Agent proposal'
+  if (kind === 'invitation_accepted') return 'Joined'
+  if (kind === 'verification_requested') return 'Verify identity'
+  if (kind === 'verification_granted') return 'Verified'
+  if (kind === 'sample_awaiting_release') return 'Quarantined'
+  if (kind === 'sample_hold_exceeded') return 'Hold exceeded'
   return 'Following'
 }
 
@@ -124,50 +156,7 @@ export function moveListSelection(
   return keys[next]
 }
 
-export function itemLink(item: WorkItem) {
-  if (item.kind === 'witness_requested')
-    return item.revisionId
-      ? {
-          to: '/review/$revisionId' as const,
-          params: { revisionId: item.revisionId },
-          search: { signatureMeaning: 'witnessed' as const },
-        }
-      : { to: '/inbox' as const }
-  if (item.sourceType === 'connector_run' && item.connectorId)
-    return {
-      to: '/settings/integrations/$connectorId' as const,
-      params: { connectorId: item.connectorId },
-    }
-  if (item.sourceType === 'dataset_import_file' && item.sourceId)
-    return {
-      to: '/settings/instruments' as const,
-      search: {
-        fileId: item.sourceId,
-        versionId: item.parserVersionId ?? undefined,
-      },
-    }
-  if (item.kind === 'run_failed' || item.kind === 'run_waiting')
-    // Until the run is resolved (see `runLink`), at least narrow the list to
-    // the pipeline the item is about.
-    return {
-      to: '/pipelines' as const,
-      search: { q: item.identifier ?? undefined },
-    }
-  if (item.kind === 'data_issue') return { to: '/datasets' as const }
-  if (item.kind === 'material_expiring')
-    return item.recordId
-      ? {
-          to: '/materials' as const,
-          search: { selected: item.recordId },
-        }
-      : { to: '/materials' as const }
-  if (item.recordId)
-    return {
-      to: '/records/$recordId' as const,
-      params: { recordId: item.recordId },
-    }
-  return { to: '/inbox' as const }
-}
+export { itemLink }
 
 /** The specific run a failed or waiting item is about, once it is resolved. */
 export function runLink(runId: string) {
@@ -219,7 +208,9 @@ function Inbox() {
   // instead of its count over an empty list, and the group's Collapse control
   // still wins once the person has chosen.
   const [later, setLater] = useState<boolean | null>(null)
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [selectedKey, setSelectedKeyState] = useState<string | null>(
+    search.item ?? null,
+  )
   const [selection, setSelection] = useState<Set<string>>(() => new Set())
 
   // A chip on Home links to /inbox?type=… — follow the URL when it changes on
@@ -228,6 +219,10 @@ function Inbox() {
     if (search.tab) setTab(search.tab)
     setType(search.type)
   }, [search.tab, search.type])
+  // Back and Forward move the selection with the address.
+  useEffect(() => {
+    setSelectedKeyState(search.item ?? null)
+  }, [search.item])
 
   const queryClient = useQueryClient()
   const router = useRouter()
@@ -287,6 +282,20 @@ function Inbox() {
     selection.has(rowKey(item)),
   ).length
 
+  // Bulk select: the checked rows that still need action are what "Mark
+  // selected seen" acts on.
+  const selectedSeenKeys = useMemo(
+    () =>
+      orderedRows
+        .filter(
+          (item) =>
+            selection.has(rowKey(item)) &&
+            itemTab(item, seen) === 'needs-action',
+        )
+        .map(itemKey),
+    [orderedRows, selection, seen],
+  )
+
   const tabCount = (t: InboxTab) =>
     items.filter((i) => itemTab(i, seen) === t).length
   const typeCount = (t: InboxType) =>
@@ -320,13 +329,37 @@ function Inbox() {
   // Following left `?type=reviews` in the address bar and a reload restored
   // the old filter.
   const updateSearch = useCallback(
-    (patch: { tab?: InboxTab; type?: InboxType }) => {
+    (patch: { tab?: InboxTab; type?: InboxType; item?: string }) => {
       void navigate({
         to: '/inbox',
-        search: (previous: { tab?: InboxTab; type?: InboxType }) => ({
+        search: (previous: {
+          tab?: InboxTab
+          type?: InboxType
+          item?: string
+        }) => ({
           ...previous,
           ...patch,
         }),
+      } as never)
+    },
+    [navigate],
+  )
+  // Choosing a row writes it to the URL; a replace keeps J/K from filling the
+  // history with one entry per row.
+  const selectedKeyRef = useRef<string | null>(selectedKey)
+  const setSelectedKey = useCallback(
+    (key: string | null) => {
+      if (key === selectedKeyRef.current) return
+      selectedKeyRef.current = key
+      setSelectedKeyState(key)
+      void navigate({
+        to: '/inbox',
+        search: (previous: {
+          tab?: InboxTab
+          type?: InboxType
+          item?: string
+        }) => ({ ...previous, item: key ?? undefined }),
+        replace: true,
       } as never)
     },
     [navigate],
@@ -338,6 +371,7 @@ function Inbox() {
     updateSearch({
       tab: next === 'needs-action' ? undefined : next,
       type: undefined,
+      item: undefined,
     })
   }
   const selectType = (next: InboxType | undefined) => {
@@ -347,16 +381,22 @@ function Inbox() {
 
   const filterRef = useRef<HTMLDivElement>(null)
   const rowsRef = useRef<WorkItem[]>(orderedRows)
-  const selectedKeyRef = useRef<string | null>(selectedKey)
   useEffect(() => {
     rowsRef.current = orderedRows
     selectedKeyRef.current = selectedKey
   }, [orderedRows, selectedKey])
-  const move = useCallback((delta: number) => {
-    setSelectedKey((current) =>
-      moveListSelection(rowsRef.current.map(rowKey), current, delta),
-    )
-  }, [])
+  const move = useCallback(
+    (delta: number) => {
+      setSelectedKey(
+        moveListSelection(
+          rowsRef.current.map(rowKey),
+          selectedKeyRef.current,
+          delta,
+        ),
+      )
+    },
+    [setSelectedKey],
+  )
   const openSelected = useCallback(() => {
     const item =
       rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
@@ -490,6 +530,18 @@ function Inbox() {
               <span role="status" className="text-label text-fg-muted">
                 {selectedCount} selected
               </span>
+              <Button
+                size="sm"
+                variant="quiet"
+                disabled={markSeen.isPending || selectedSeenKeys.length === 0}
+                onClick={() =>
+                  markSeen.mutate(selectedSeenKeys, {
+                    onSuccess: () => setSelection(new Set()),
+                  })
+                }
+              >
+                Mark selected seen
+              </Button>
               <Button
                 size="sm"
                 variant="quiet"

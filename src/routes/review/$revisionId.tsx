@@ -97,6 +97,7 @@ import {
 } from '#/components/v3/ui/tabs'
 import { Select } from '#/components/v3/ui/select'
 import { Textarea } from '#/components/v3/inventory/list'
+import { AmendNotebookDialog } from '#/components/notebook/amend-notebook-dialog'
 import { DataClientError } from '#/lib/data-client'
 import {
   fetchProjectsForReviews,
@@ -164,7 +165,6 @@ import {
   signatureCertificationQueryKeys,
 } from '#/lib/signature-certification'
 import {
-  createAmendment,
   fetchRecordTimeline,
   sign002DataClient,
   sign002QueryKeys,
@@ -182,7 +182,11 @@ import {
 } from '#/components/shortcuts/shortcut-provider'
 import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { returnToHere } from '#/lib/return-to'
+import { reviewNextStep } from '#/lib/review-next-step'
+import { ReviewNextStepPanel } from '#/components/review/review-next-step'
 
 /**
  * UI port (roadmap-4/ui-app3): the route renders inside app-3's shell, so the
@@ -234,6 +238,7 @@ const COMMENT_TARGET_LABELS: Record<CommentTargetKind, string> = {
   block: 'a block in the frozen revision',
   table_region: 'a region of a scientific table',
   diff: 'a change in this comparison',
+  record: 'the whole notebook',
   sheet_cell: 'a frozen Sheet cell',
   sheet_row: 'a frozen Sheet row',
   sheet_range: 'a frozen Sheet range',
@@ -544,6 +549,32 @@ export function ReviewWorkspaceRoute() {
 
   const integrityDigest = revision?.integrity_digest ?? null
 
+  // What happens next, in words, for the reader.
+  const nextStepNames = useUserNames(
+    [
+      ...(submission?.assigned_reviewer_user_ids ?? []).filter(
+        (id) => id !== currentUserId,
+      ),
+      ...(submission ? [submission.submitted_by_user_id] : []),
+    ],
+    { id: currentUserId, name: currentUserName },
+  )
+  const nextStep = reviewNextStep({
+    state: submission?.state ?? null,
+    superseded: Boolean(revision?.superseded_by_revision_id),
+    locked: isLocked,
+    isSubmitter: submission?.submitted_by_user_id === currentUserId,
+    isAssignedReviewer:
+      submission?.assigned_reviewer_user_ids.includes(currentUserId) ?? false,
+    hasSigned: signatures.some((sig) => sig.signer_user_id === currentUserId),
+    reviewerNames: (submission?.assigned_reviewer_user_ids ?? [])
+      .filter((id) => id !== currentUserId)
+      .map((id) => nextStepNames.names[id] ?? 'a colleague'),
+    submitterName: submission
+      ? (nextStepNames.names[submission.submitted_by_user_id] ?? null)
+      : null,
+  })
+
   // --- Error / permission state ------------------------------------------
 
   const permissionDenied =
@@ -697,6 +728,13 @@ export function ReviewWorkspaceRoute() {
             lockedByRevisionId={record?.locked_by_revision_id ?? null}
             recordId={recordId}
           />
+
+          {submission ? (
+            <ReviewNextStepPanel
+              step={nextStep}
+              currentRevisionId={revisionId}
+            />
+          ) : null}
 
           {submission?.state === 'returned' ? (
             <ReturnedCommentsBanner
@@ -934,7 +972,15 @@ export function WorkspaceHeader({
             {record?.title ?? 'Untitled record'}
           </h1>
           <p className="truncate font-mono text-xs text-muted-foreground">
-            {record?.identifier ?? revision?.id}
+            {record?.identifier && recordId ? (
+              <ObjectLink
+                kind={record.kind === 'experiment' ? 'experiment' : 'record'}
+                id={recordId}
+                identifier={record.identifier}
+              />
+            ) : (
+              (record?.identifier ?? revision?.id)
+            )}
           </p>
           {/* NOTE-04: from the submit flow's success state, the working
               Notebook and the frozen evidence view must both stay reachable —
@@ -1855,7 +1901,6 @@ export function ActionButtons({
   const [submittingKind, setSubmittingKind] =
     useState<ReviewDecisionKind | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [signAfterApproval, setSignAfterApproval] = useState(false)
   useRegisterShortcuts(
     useMemo(
       () =>
@@ -1865,7 +1910,6 @@ export function ActionButtons({
               ? () => {
                   setNote('')
                   setError(null)
-                  setSignAfterApproval(true)
                   setPendingKind('approve')
                 }
               : undefined,
@@ -1895,8 +1939,8 @@ export function ActionButtons({
       })
       setPendingKind(null)
       setNote('')
-      if (kind === 'approve' && signAfterApproval) onApprovedForSigning?.()
-      setSignAfterApproval(false)
+      // Approving leads straight into signing; the dialog offers Sign later.
+      if (kind === 'approve') onApprovedForSigning?.()
     } catch (err) {
       setError(renderError(err))
     } finally {
@@ -1954,7 +1998,6 @@ export function ActionButtons({
               submitting={submittingKind === action.kind}
               onOpen={() => {
                 setNote('')
-                setSignAfterApproval(false)
               }}
               onConfirm={confirm}
               onOpenChange={(open) => {
@@ -2542,6 +2585,11 @@ export function SignaturePanel({
               currentUserName={currentUserName}
               signing={signing}
               error={error}
+              // An approved review waits for the signature; leaving the dialog
+              // is a choice to sign later, and the Inbox keeps the reminder.
+              cancelLabel={
+                submission.state === 'approved' ? 'Sign later' : undefined
+              }
               onConfirm={handleSigned}
             />
           ) : certifications.isError || eligibility.isError ? (
@@ -2555,7 +2603,11 @@ export function SignaturePanel({
             <p className="text-xs text-warning-text">
               Certification is required before you can sign. An uncertified
               signature is not accepted — certify in{' '}
-              <Link to="/settings/signatures" className="underline">
+              <Link
+                to="/settings/signatures"
+                search={{ returnTo: returnToHere() }}
+                className="underline"
+              >
                 Settings → Electronic signatures
               </Link>
               .
@@ -2793,35 +2845,10 @@ export function AmendmentSection({
   onAfterAmendment: () => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
-  const [note, setNote] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{
     revisionId: string
     unlockedAt: string
   } | null>(null)
-
-  async function handleConfirm() {
-    setSubmitting(true)
-    setError(null)
-    try {
-      const res = await createAmendment(sign002DataClient, {
-        recordId,
-        note: note.trim() || undefined,
-      })
-      setResult({
-        revisionId: res.revisionId,
-        unlockedAt: res.unlockedAt,
-      })
-      await onAfterAmendment()
-      setOpen(false)
-      setNote('')
-    } catch (err) {
-      setError(renderError(err))
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   if (result) {
     return (
@@ -2849,66 +2876,28 @@ export function AmendmentSection({
       <p className="mb-2 text-xs text-muted-foreground">
         This record is locked. Start an amendment to create a new draft
         revision, supersede the locked one and unlock the record for editing.
-        The amendment is recorded in the audit trail.
+        The amendment and its reason are recorded in the audit trail.
       </p>
-      <ConfirmDialog
-        open={open}
-        onOpenChange={(next) => {
-          if (!next && submitting) return
-          setOpen(next)
-          if (next) {
-            setNote('')
-            setError(null)
-          }
-        }}
+      <Button
+        variant="secondary"
+        className="w-full"
+        onClick={() => setOpen(true)}
       >
-        <ConfirmDialogTrigger asChild>
-          <Button variant="secondary" className="w-full">
-            <Icon name="check" size={14} aria-hidden />
-            Start amendment
-          </Button>
-        </ConfirmDialogTrigger>
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Start an amendment?</ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              A new revision will be created from the current record, the locked
-              revision will be superseded, and the record will be unlocked so
-              you can edit again. This is recorded in the audit trail and cannot
-              be undone from the workspace.
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <Textarea
-            className="min-h-[70px]"
-            placeholder="Describe the reason for the amendment (optional)…"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            aria-label="Amendment note"
-          />
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-            >
-              {error}
-            </p>
-          ) : null}
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel disabled={submitting}>
-              Cancel
-            </ConfirmDialogCancel>
-            {/* QA-182: a plain button, not a DialogClose — the amendment is
-                awaited, so a refusal stays readable in the open dialog. */}
-            <Button
-              variant="primary"
-              disabled={submitting}
-              onClick={handleConfirm}
-            >
-              {submitting ? 'Starting…' : 'Start amendment'}
-            </Button>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
+        <Icon name="check" size={14} aria-hidden />
+        Start amendment
+      </Button>
+      <AmendNotebookDialog
+        open={open}
+        onOpenChange={setOpen}
+        recordId={recordId}
+        onAmended={async (amended) => {
+          setResult({
+            revisionId: amended.revisionId,
+            unlockedAt: amended.unlockedAt,
+          })
+          await onAfterAmendment()
+        }}
+      />
     </section>
   )
 }

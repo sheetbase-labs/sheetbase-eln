@@ -1196,8 +1196,8 @@ function ProjectPeek({
           {experiments.map((record) => (
             <Link
               key={record.id}
-              to="/records/$recordId/notebook"
-              params={{ recordId: record.id }}
+              to="/experiments/$expId"
+              params={{ expId: record.id }}
               className="flex flex-col gap-1 text-label"
             >
               <span>

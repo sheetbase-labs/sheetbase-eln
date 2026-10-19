@@ -3,6 +3,7 @@ import { FigureSvg, seriesStyle } from '@sheetbase-labs/sheetbase-explorer'
 import type { FigureModel } from '@sheetbase-labs/sheetbase-explorer'
 
 import { cn } from '#/lib/utils'
+import { legendShown } from '#/lib/figure-display'
 import { ChartFrame } from './chart-frame'
 import {
   CHART_PALETTE,
@@ -124,9 +125,10 @@ export function ChartRenderer({
 }: ChartRendererProps) {
   const mode = frozen ? 'snapshot' : 'live'
   const alt = describeChart(spec, materialised, frozen)
-  const legend = materialised.series.length ? (
-    <ChartLegend series={materialised.series} />
-  ) : null
+  const legend =
+    materialised.series.length && legendShown(spec) ? (
+      <ChartLegend series={materialised.series} />
+    ) : null
   return (
     <ChartFrame
       title={title}
@@ -135,6 +137,7 @@ export function ChartRenderer({
       mode={mode}
       alt={alt}
       legend={legend}
+      caption={spec?.display.caption}
       loading={loading}
       actions={actions}
       className={cn('sheetbase-scope', className)}

@@ -119,6 +119,7 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
   useRouter: () => ({
     invalidate,
+    navigate,
     history: { back: goBack },
     options: {
       context: { queryClient: { cancelQueries, clear: clearQueries } },
@@ -522,6 +523,8 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
       ),
     )
     expect(invalidate).toHaveBeenCalled()
+    // The page open belongs to the workspace just left: land on Home.
+    expect(navigate).toHaveBeenCalledWith({ to: '/' })
   })
 
   it('reports a refused switch instead of re-resolving onto it', async () => {
@@ -536,6 +539,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
       'could not be opened',
     )
     expect(invalidate).not.toHaveBeenCalled()
+    expect(navigate).not.toHaveBeenCalledWith({ to: '/' })
     expect(
       screen.getByRole('button', { name: 'Switch workspace' }).textContent,
     ).toContain('Process Development')

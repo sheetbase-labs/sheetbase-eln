@@ -12,11 +12,12 @@ import {
   PopoverTrigger,
 } from '#/components/v3/ui/popover'
 import {
+  fetchLatestReviews,
   fetchMyNotifications,
   markNotificationsRead,
+  notificationDestination,
   notificationsQueryKeys,
 } from '#/lib/notifications-data'
-import { recordPath } from '#/lib/navigation'
 
 /**
  * WORK-03.3 — the bell popover reading api.my_notifications: an unread dot,
@@ -32,6 +33,19 @@ export function NotificationsBell() {
     retry: false,
   })
   const notifications = query.data ?? []
+  // The review each review notification is about, so it opens the review and
+  // not just the record. Until it answers, the record link stands in.
+  const reviews = useQuery({
+    queryKey: [
+      ...notificationsQueryKeys.list(),
+      'reviews',
+      notifications.length,
+    ],
+    queryFn: () => fetchLatestReviews(notifications),
+    enabled: notifications.length > 0,
+    staleTime: 30_000,
+    retry: false,
+  })
   const unread = notifications.filter((item) => item.readAt === null)
 
   const markRead = useMutation({
@@ -91,7 +105,7 @@ export function NotificationsBell() {
             {notifications.map((item) => (
               <Row
                 key={item.id}
-                to={item.recordId ? recordPath(item.recordId) : undefined}
+                to={notificationDestination(item, reviews.data)}
                 leading={
                   <span
                     className="size-1.5 shrink-0 rounded-full"

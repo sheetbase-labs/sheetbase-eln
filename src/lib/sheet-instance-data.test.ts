@@ -76,3 +76,38 @@ describe('Sheet Instance data boundary', () => {
     expect(rpc.mock.calls[1][0]).toBe('create_sheet_instance_from_definition')
   })
 })
+
+describe('Sheet Instance rename and project list', () => {
+  it('renames through the dedicated RPC with the expected revision', async () => {
+    const rpc = vi.fn().mockResolvedValue(wire())
+    const { renameSheetInstance } = await import('./sheet-instance-data')
+    await renameSheetInstance('s-1', 4, '  Cell count  ', { rpc } as never)
+    expect(rpc).toHaveBeenCalledWith('rename_sheet_instance', {
+      p_instance_id: 's-1',
+      p_expected_revision: 4,
+      p_name: 'Cell count',
+    })
+  })
+
+  it('refuses a name the database would refuse', async () => {
+    const rpc = vi.fn()
+    const { renameSheetInstance } = await import('./sheet-instance-data')
+    await expect(
+      renameSheetInstance('s-1', 4, '   ', { rpc } as never),
+    ).rejects.toThrow('1 to 200')
+    await expect(
+      renameSheetInstance('s-1', 4, 'x'.repeat(201), { rpc } as never),
+    ).rejects.toThrow('1 to 200')
+    expect(rpc).not.toHaveBeenCalled()
+  })
+
+  it('reads one project’s working sheets, or its archived ones', async () => {
+    const list = vi.fn().mockResolvedValue([wire()])
+    const { fetchProjectSheets } = await import('./sheet-instance-data')
+    await fetchProjectSheets('p-1', {}, { list } as never)
+    await fetchProjectSheets('p-1', { archived: true }, { list } as never)
+    expect(list.mock.calls[0]?.[1]).toContain('project_id=eq.p-1')
+    expect(list.mock.calls[0]?.[1]).toContain('lifecycle=eq.active')
+    expect(list.mock.calls[1]?.[1]).toContain('lifecycle=eq.archived')
+  })
+})

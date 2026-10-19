@@ -31,6 +31,17 @@ const fetchDefinitionVersions = vi.fn(
     ..._args: unknown[]
   ): Promise<Array<{ id: string; version: number; lifecycle: string }>> => [],
 )
+vi.mock('#/components/v3/ui/object-link', async () => {
+  const { objectPath } = await import('#/lib/navigation')
+  return {
+    ObjectLink: (props: { kind: string; id?: string; children?: string }) => (
+      <a href={objectPath(props.kind, props.id ?? '') ?? undefined}>
+        {props.children}
+      </a>
+    ),
+  }
+})
+
 vi.mock('#/lib/dataset-explorer-data', () => ({
   fetchDatasetSummaries: vi.fn(async () => []),
 }))
@@ -184,6 +195,31 @@ describe('CanonicalSheetLifecyclePanel', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(materializationData.materializeSheetInstance).not.toHaveBeenCalled()
+  })
+
+  it('lands on the new dataset after materialising', async () => {
+    const user = userEvent.setup()
+    vi.mocked(
+      materializationData.previewSheetMaterialization,
+    ).mockResolvedValue({ previewDigest: 'digest-0123456789abcdef' } as never)
+    vi.mocked(materializationData.materializeSheetInstance).mockResolvedValue({
+      datasetId: 'dataset-9',
+    } as never)
+    renderPanel()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Apply materialise' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Apply materialise' }),
+    )
+
+    const link = await screen.findByRole('link', {
+      name: 'Open the new dataset',
+    })
+    expect(link.getAttribute('href')).toBe('/datasets/dataset-9')
   })
 
   it('publishes no Definition until the extract-and-publish confirmation is accepted', async () => {

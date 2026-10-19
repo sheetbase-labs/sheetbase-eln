@@ -61,6 +61,11 @@ export interface EventSpec {
    * of this Dataset trigger the pipeline. Ignored for other events.
    */
   datasetId?: string | null
+  /**
+   * Optional filter, meaningful only for `dataset.versioned`: only versions
+   * made by an import from this instrument trigger the pipeline.
+   */
+  instrumentId?: string | null
   /** Which pipeline input receives the triggering event's entity uuid. */
   inputName?: string
   /** Fixed inputs for the pipeline's other inputs. */
@@ -161,6 +166,16 @@ export function validateScheduleSpec(
     typeof record.datasetId !== 'string'
   ) {
     return { message: 'datasetId must be a Dataset id or null' }
+  }
+  if (
+    record.instrumentId !== undefined &&
+    record.instrumentId !== null &&
+    (typeof record.instrumentId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        record.instrumentId,
+      ))
+  ) {
+    return { message: 'instrumentId must be an instrument id or null' }
   }
   if (
     record.inputName !== undefined &&

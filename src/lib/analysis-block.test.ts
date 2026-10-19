@@ -14,7 +14,7 @@ import {
 } from './analysis-block'
 import type { AnalysisBlockPayload, FrozenAnalysis } from './analysis-block'
 import type { AnalysisDefinition } from './analysis-definition'
-import { runAnalysis } from './analysis-definition'
+import { analysisBlockParts, runAnalysis } from './analysis-definition'
 import { fetchFrozenAnalysisRows } from './chart-data'
 import type { ChartColumn } from './chart-spec'
 import type { DataClient } from './data-client'
@@ -336,5 +336,85 @@ describe('frozen evidence reproduction', () => {
     const pinned = await fetchFrozenAnalysisRows(client, VERSION_ID, 3)
     expect(pinned.matchesProvenance).toBe(false)
     expect(pinned.totalCount).toBe(7)
+  })
+})
+
+describe('merged analysis block: a chart, a statistic or both', () => {
+  const CHART = {
+    specVersion: 1,
+    type: 'scatter',
+    datasets: [{ datasetId: DATASET_ID }],
+    fields: {
+      x: { fieldId: FIELD_TIME },
+      y: { fieldId: FIELD_RECOVERY },
+      series: null,
+      color: null,
+      size: null,
+      facet: null,
+    },
+    filters: [],
+    transformations: [],
+    typeParams: {},
+    display: {},
+    overlays: { errorBars: null },
+  } as unknown as NonNullable<AnalysisDefinition['chart']>
+
+  const withChart: AnalysisDefinition = { ...DEFINITION, chart: CHART }
+  const chartOnly = {
+    definitionVersion: 1 as const,
+    kind: 'chart' as const,
+    datasets: [{ datasetId: DATASET_ID }],
+    chart: CHART,
+  }
+  const payloadWith = (definition: unknown) => ({
+    title: 'Recovery',
+    definitionId: DATASET_ID,
+    frozen: { ...frozen(), definition },
+  })
+
+  it('keeps a statistic-only payload valid and unchanged', () => {
+    expect(validateAnalysisBlockPayload(payloadWith(DEFINITION))).toEqual([])
+  })
+
+  it('accepts a frozen statistic with a chart and a frozen chart on its own', () => {
+    expect(validateAnalysisBlockPayload(payloadWith(withChart))).toEqual([])
+    expect(validateAnalysisBlockPayload(payloadWith(chartOnly))).toEqual([])
+  })
+
+  it('refuses a chart-only analysis without its chart', () => {
+    const { chart: _chart, ...bare } = chartOnly
+    const errors = validateAnalysisBlockPayload(payloadWith(bare))
+    expect(errors.some((e) => e.field?.endsWith('chart'))).toBe(true)
+  })
+
+  it('refuses a chart that reads another dataset than the analysis', () => {
+    const other = {
+      ...withChart,
+      chart: {
+        ...CHART,
+        datasets: [{ datasetId: '0198d970-e266-4000-8000-0000000000ff' }],
+      },
+    }
+    const errors = validateAnalysisBlockPayload(payloadWith(other))
+    expect(errors.some((e) => e.field?.includes('chart.datasets'))).toBe(true)
+  })
+
+  it('splits a definition into the statistic and the chart it holds', () => {
+    expect(analysisBlockParts(DEFINITION)).toEqual({
+      statistic: DEFINITION,
+      chart: null,
+    })
+    expect(analysisBlockParts(withChart).chart).toBe(CHART)
+    expect(analysisBlockParts(chartOnly)).toEqual({
+      statistic: null,
+      chart: CHART,
+    })
+  })
+
+  it('runs no statistic for a chart-only analysis and says so', () => {
+    expect(runAnalysis(chartOnly, [], [])).toEqual({
+      ok: false,
+      error: { code: 'no_statistic' },
+    })
   })
 })

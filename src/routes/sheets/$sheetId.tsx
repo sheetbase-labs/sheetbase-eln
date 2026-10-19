@@ -10,6 +10,7 @@ import {
   safeBuildRoomId,
 } from '#/components/collaboration/collaboration-room'
 import { useCollaborationEnabled } from '#/lib/collaboration/liveblocks.config'
+import { ColumnPromotionsPanel } from '#/components/v3/sheets/column-promotions-panel'
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
 import {
   notebookDataClient,
@@ -105,12 +106,16 @@ export function ComposedSheetRoute() {
     })
   }
   if (owningRecordId && owningRecordQuery.data) {
+    // An experiment has one page; any other owner keeps its notebook.
     trail.push({
       label: owningRecordQuery.data.title,
-      link: {
-        to: '/records/$recordId/notebook',
-        params: { recordId: owningRecordId },
-      },
+      link:
+        owningRecordQuery.data.kind === 'experiment'
+          ? { to: '/experiments/$expId', params: { expId: owningRecordId } }
+          : {
+              to: '/records/$recordId/notebook',
+              params: { recordId: owningRecordId },
+            },
     })
   }
   trail.push({ label: 'Sheet', mono: true })
@@ -149,6 +154,13 @@ export function ComposedSheetRoute() {
           </>
         }
       />
+      <div className="px-4 empty:hidden">
+        <ColumnPromotionsPanel
+          instanceId={sheetId}
+          role={context.workspace?.role}
+          user={{ id: context.user.id, name: context.user.name }}
+        />
+      </div>
       <div className="flex min-h-0 flex-1">
         <CollaborationRoom roomId={collaborationRoomId}>
           <CanonicalSheetWorkspace

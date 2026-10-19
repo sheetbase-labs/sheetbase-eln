@@ -37,10 +37,16 @@ import { buildFlagIndex, isValueFlagged } from './dataset-flags'
 import type { DatasetValueFlag } from './dataset-flags'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 
-import type { ChartColumn } from './chart-spec'
+import type { ChartColumn, ChartSpec } from './chart-spec'
 
 export const ANALYSIS_DEFINITION_VERSION = 1 as const
 export const ANALYSIS_KINDS = ['descriptive', 'regression'] as const
+/**
+ * What a notebook analysis block may hold: a statistic, a chart, or a
+ * statistic with a chart beside it. `chart` is not a statistic, so the
+ * statistics runner never sees it; the block shows its chart instead.
+ */
+export const ANALYSIS_BLOCK_KINDS = [...ANALYSIS_KINDS, 'chart'] as const
 
 export const COLUMN_TRANSFORMS = ['none', 'log10', 'ln'] as const
 export type ColumnTransform = (typeof COLUMN_TRANSFORMS)[number]
@@ -156,6 +162,12 @@ interface AnalysisDefinitionBase {
   definitionVersion: typeof ANALYSIS_DEFINITION_VERSION
   /** Exactly one input dataset; multi-dataset composition is out of scope. */
   datasets: { datasetId: string }[]
+  /**
+   * A chart shown beside the statistic. It reads the same single dataset; the
+   * freeze pins one Dataset Version that proves both. Absent on definitions
+   * saved before the merge, which stay valid unchanged.
+   */
+  chart?: ChartSpec | null
 }
 
 export interface DescriptiveDefinition extends AnalysisDefinitionBase {
@@ -180,6 +192,28 @@ export interface RegressionDefinition extends AnalysisDefinitionBase {
 }
 
 export type AnalysisDefinition = DescriptiveDefinition | RegressionDefinition
+
+/** A saved analysis that is only a chart. */
+export interface ChartDefinition {
+  definitionVersion: typeof ANALYSIS_DEFINITION_VERSION
+  datasets: { datasetId: string }[]
+  kind: 'chart'
+  chart: ChartSpec
+}
+
+/** Everything a notebook analysis block can run or show. */
+export type AnalysisBlockDefinition = AnalysisDefinition | ChartDefinition
+
+/** The statistic and the chart a block definition holds; either may be absent. */
+export function analysisBlockParts(definition: AnalysisBlockDefinition): {
+  statistic: AnalysisDefinition | null
+  chart: ChartSpec | null
+} {
+  return {
+    statistic: definition.kind === 'chart' ? null : definition,
+    chart: definition.chart ?? null,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Execution results
@@ -256,6 +290,8 @@ export type AnalysisResult = DescriptiveResult | RegressionResult
 export type AnalysisError =
   | { code: 'missing_field'; fields: string[] }
   | { code: 'empty_dataset' }
+  /** The analysis is a chart only; there is no statistic to compute. */
+  | { code: 'no_statistic' }
   | { code: 'insufficient_data'; group: string; needed: number }
   | { code: 'singular_fit'; group: string }
   | {
@@ -323,6 +359,55 @@ function validateBinding(
 }
 
 /**
+ * The chart a definition carries. Structural only: it must name the same single
+ * dataset the definition does and bind a y field. Chart-type rules stay with the
+ * chart spec validator that draws it.
+ */
+function validateCompanionChart(
+  v: Record<string, unknown>,
+  required: boolean,
+): AnalysisDefinitionError[] {
+  const chart = v.chart
+  if (chart === undefined || chart === null) {
+    return required
+      ? [
+          {
+            code: 'missing_field',
+            field: 'chart',
+            message: 'chart is required',
+          },
+        ]
+      : []
+  }
+  if (!isObject(chart))
+    return [
+      {
+        code: 'invalid_shape',
+        field: 'chart',
+        message: 'chart must be an object',
+      },
+    ]
+  const errors: AnalysisDefinitionError[] = []
+  const datasets = chart.datasets
+  const own = Array.isArray(v.datasets) ? v.datasets[0] : undefined
+  if (
+    !Array.isArray(datasets) ||
+    datasets.length !== 1 ||
+    !isObject(datasets[0]) ||
+    !isObject(own) ||
+    datasets[0].datasetId !== own.datasetId
+  )
+    errors.push({
+      code: 'unsupported_dataset_count',
+      field: 'chart.datasets',
+      message: 'the chart must read the same single dataset as the analysis',
+    })
+  const fields = isObject(chart.fields) ? chart.fields : null
+  errors.push(...validateBinding(fields?.y, 'chart.fields.y', true))
+  return errors
+}
+
+/**
  * Structural validation only. Dataset reference integrity against live
  * Datasets is the database's job (mirrored in validate_scientific_block).
  */
@@ -362,17 +447,21 @@ export function validateAnalysisDefinition(
   const kind = v.kind
   if (
     typeof kind !== 'string' ||
-    !(ANALYSIS_KINDS as readonly string[]).includes(kind)
+    !(ANALYSIS_BLOCK_KINDS as readonly string[]).includes(kind)
   ) {
     errors.push({
       code: 'unsupported_kind',
       field: 'kind',
-      message: `kind must be one of ${ANALYSIS_KINDS.join(', ')}`,
+      message: `kind must be one of ${ANALYSIS_BLOCK_KINDS.join(', ')}`,
     })
     return errors
   }
 
-  if (kind === 'descriptive') {
+  errors.push(...validateCompanionChart(v, kind === 'chart'))
+
+  if (kind === 'chart') {
+    // Nothing to bind: the chart is the whole analysis.
+  } else if (kind === 'descriptive') {
     errors.push(...validateBinding(v.value, 'value', true))
     errors.push(...validateBinding(v.group ?? null, 'group', false))
   } else {
@@ -454,11 +543,15 @@ function toNumeric(rowValues: unknown[]): {
  * of the input values.
  */
 export function runAnalysis(
-  definition: AnalysisDefinition,
+  definition: AnalysisBlockDefinition,
   columns: ChartColumn[],
   rows: Record<string, unknown>[],
   flags: readonly DatasetValueFlag[] = [],
 ): { ok: true; result: AnalysisResult } | { ok: false; error: AnalysisError } {
+  // A chart-only analysis has no statistic to run; its chart is drawn by the
+  // block. Callers that show both read `analysisBlockParts` first.
+  if (definition.kind === 'chart')
+    return { ok: false, error: { code: 'no_statistic' } }
   // DSET-01.2 — a row whose analysed field is flagged is excluded by default.
   // The count travels into the reported checks: an exclusion is stated, never
   // silently applied.

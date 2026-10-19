@@ -14,7 +14,7 @@ import type * as router from '@tanstack/react-router'
 import type * as projectData from '#/components/v3/projects/project-data'
 import type * as notebookData from '#/lib/notebook-data'
 
-import { Home } from './index'
+import { Home, Route } from './index'
 
 const fixture = vi.hoisted(() => ({
   inbox: 0,
@@ -23,6 +23,7 @@ const fixture = vi.hoisted(() => ({
   unread: 0,
   hasRecents: true,
   shellInbox: null as string | null,
+  failing: [] as string[],
 }))
 
 const fake = vi.hoisted(() => {
@@ -34,6 +35,7 @@ const fake = vi.hoisted(() => {
     new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)
 
   const list = async (resource: string, query = '') => {
+    if (fixture.failing.includes(resource)) throw new Error('unavailable')
     switch (resource) {
       case 'workspace_settings':
         return [
@@ -353,7 +355,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
         shellCounts: fixture.shellInbox ? { inbox: fixture.shellInbox } : {},
       }),
     }),
-    redirect: vi.fn(),
+    redirect: (options: unknown) => options,
     // The real Link spreads the props Base UI injects (role, class, handlers),
     // so the mock must too: a Button rendered as a Link is a `role="button"`.
     Link: ({
@@ -395,6 +397,7 @@ beforeEach(() => {
   fixture.unread = 0
   fixture.hasRecents = true
   fixture.shellInbox = null
+  fixture.failing = []
 })
 
 function renderHome() {
@@ -408,6 +411,53 @@ function renderHome() {
     </QueryClientProvider>,
   )
 }
+
+describe('Home landing', () => {
+  it('sends a client viewer straight to the portal', async () => {
+    const beforeLoad = Route.options.beforeLoad as (args: unknown) => unknown
+    await expect(
+      Promise.resolve().then(() =>
+        beforeLoad({
+          context: { auth: { workspace: { role: 'client_viewer' } } },
+          location: { href: '/' },
+        }),
+      ),
+    ).rejects.toEqual({ to: '/client-portal' })
+    expect(
+      await beforeLoad({
+        context: { auth: { workspace: { role: 'member' } } },
+        location: { href: '/' },
+      }),
+    ).toBeTruthy()
+  })
+})
+
+describe('Home degrades one section at a time', () => {
+  it('keeps the page and names the section whose read failed', async () => {
+    fixture.inbox = 3
+    fixture.reviews = 2
+    fixture.failing = ['calendar_bookings']
+    renderHome()
+
+    expect(
+      await screen.findByText('Part of Home could not be loaded.'),
+    ).toBeTruthy()
+    expect(screen.getByRole('navigation', { name: 'Summary' })).toBeTruthy()
+    expect(
+      screen.getByRole('heading', { name: 'Awaiting your review' }),
+    ).toBeTruthy()
+    expect(
+      screen.getAllByText(/bookings could not be loaded/i).length,
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText('Home could not be loaded')).toBeNull()
+  })
+
+  it('still fails the whole page when the layout cannot be chosen', async () => {
+    fixture.failing = ['workspace_settings']
+    renderHome()
+    expect(await screen.findByText('Home could not be loaded')).toBeTruthy()
+  })
+})
 
 describe('Home pace', () => {
   it('renders the all-clear, what is coming, what could be picked up and a useful inspector when nothing is waiting', async () => {

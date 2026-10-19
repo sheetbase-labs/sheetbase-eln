@@ -35,6 +35,8 @@ import {
   saveQuery,
   deleteSavedQuery,
   savedQueriesKey,
+  saveCurrentSearch,
+  savedQueryToSearch,
   parseSearchUrl,
   serializeSearchUrl,
   SEARCH_URL_DEFAULTS,
@@ -44,6 +46,7 @@ import {
   searchResultNewTabUrl,
   contextualSearchActions,
   searchActionHref,
+  parseSearchDay,
   urlFiltersToSearchFilters,
   filterSearchResults,
   SEARCH_PAGE_SIZE,
@@ -1316,6 +1319,71 @@ describe('filterSearchResults', () => {
     const filtered = filterSearchResults([recent, old], { updated: '7d' })
     expect(filtered.map((r) => r.recordId)).toEqual(['recent'])
   })
+
+  it('keeps only rows created by the chosen owner', () => {
+    const mine = searchResult({ recordId: 'm', createdByUserId: 'u-1' })
+    const theirs = searchResult({ recordId: 't', createdByUserId: 'u-2' })
+    expect(
+      filterSearchResults([mine, theirs], { owner: 'u-1' }).map(
+        (r) => r.recordId,
+      ),
+    ).toEqual(['m'])
+  })
+
+  it('keeps rows inside an inclusive date range', () => {
+    const before = searchResult({
+      recordId: 'before',
+      updatedAt: '2026-03-31T23:59:59Z',
+    })
+    const first = searchResult({
+      recordId: 'first',
+      updatedAt: '2026-04-01T00:00:00Z',
+    })
+    const last = searchResult({
+      recordId: 'last',
+      updatedAt: '2026-04-30T23:30:00Z',
+    })
+    const after = searchResult({
+      recordId: 'after',
+      updatedAt: '2026-05-01T00:00:00Z',
+    })
+    const filtered = filterSearchResults([before, first, last, after], {
+      from: '2026-04-01',
+      to: '2026-04-30',
+    })
+    expect(filtered.map((r) => r.recordId)).toEqual(['first', 'last'])
+  })
+})
+
+describe('owner and date-range facets', () => {
+  it('pushes the owner and the range to the RPC arguments', () => {
+    const args = buildSearchRpcArgs(
+      urlFiltersToSearchFilters(
+        { q: 'x', owner: 'u-1', from: '2026-04-01', to: '2026-04-30' },
+        0,
+      ),
+    )
+    expect(args.p_owner_id).toBe('u-1')
+    expect(args.p_date_from).toBe('2026-04-01T00:00:00.000Z')
+    expect(args.p_date_to).toBe('2026-04-30T23:59:59.999Z')
+  })
+
+  it('lets an explicit range win over the 7-day shortcut', () => {
+    const filters = urlFiltersToSearchFilters(
+      { q: 'x', updated: '7d', from: '2026-01-02' },
+      0,
+    )
+    expect(filters.dateFrom).toBe('2026-01-02T00:00:00.000Z')
+  })
+
+  it('ignores a malformed or impossible day', () => {
+    expect(parseSearchDay('2026-02-30')).toBeUndefined()
+    expect(parseSearchDay('yesterday')).toBeUndefined()
+    expect(parseSearchDay(undefined)).toBeUndefined()
+    expect(parseSearchDay('2026-02-28')).toBe('2026-02-28')
+    const filters = urlFiltersToSearchFilters({ q: 'x', to: 'soon' }, 0)
+    expect(filters.dateTo).toBeUndefined()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1382,5 +1450,48 @@ describe('searchResultNewTabUrl', () => {
     expect(
       searchResultNewTabUrl('/samples?new=true', 'https://app.sheetbase.co.uk'),
     ).toBe('https://app.sheetbase.co.uk/samples?new=true')
+  })
+})
+
+describe('saved searches keep the results-page facets', () => {
+  const wsId = 'test-workspace-saved-searches'
+  beforeEach(() => localStorage.clear())
+
+  it('round-trips a search with its facets through storage', () => {
+    const search = {
+      q: 'plate',
+      type: ['Files'],
+      project: ['p-1'],
+      updated: '7d' as const,
+      owner: 'u-1',
+      archived: true,
+    }
+    const saved = saveCurrentSearch(wsId, ' Plates ', search)
+    expect(saved[0].name).toBe('Plates')
+    expect(savedQueryToSearch(loadSavedQueries(wsId)[0])).toEqual(search)
+  })
+
+  it('omits empty facets and treats older entries as a bare query', () => {
+    saveCurrentSearch(wsId, 'Bare', { q: 'x', type: [], owner: '' })
+    expect(savedQueryToSearch(loadSavedQueries(wsId)[0])).toEqual({ q: 'x' })
+    expect(
+      savedQueryToSearch({
+        id: 'old',
+        name: 'Old',
+        query: 'legacy',
+        kind: '',
+        projectId: '',
+        status: '',
+        ownerId: '',
+        dateRange: 'all',
+        ts: 1,
+      }),
+    ).toEqual({ q: 'legacy' })
+  })
+
+  it('keeps two saves of one query with different facets apart', () => {
+    saveCurrentSearch(wsId, 'Same', { q: 'x' })
+    const next = saveCurrentSearch(wsId, 'Same', { q: 'x', owner: 'u-1' })
+    expect(next).toHaveLength(2)
   })
 })

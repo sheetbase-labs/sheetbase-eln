@@ -22,6 +22,7 @@ const { navigate, items, state, invalidate, seen } = vi.hoisted(() => {
   const navigateMock = vi.fn()
   const invalidateMock = vi.fn()
   const seenKeys: string[] = []
+  const seenSearch: { item?: string; tab?: string } = {}
   const workItems: WorkItem[] = [
     {
       kind: 'review_requested',
@@ -51,7 +52,11 @@ const { navigate, items, state, invalidate, seen } = vi.hoisted(() => {
     invalidate: invalidateMock,
     items: workItems,
     seen: seenKeys,
-    state: { error: null as Error | null, loading: false },
+    state: {
+      error: null as Error | null,
+      loading: false,
+      search: seenSearch,
+    },
   }
 })
 
@@ -64,7 +69,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     ),
     useNavigate: () => navigate,
     useRouter: () => ({ invalidate: invalidate }),
-    useSearch: () => ({}),
+    useSearch: () => state.search,
   }
 })
 
@@ -120,6 +125,7 @@ afterEach(() => {
   invalidate.mockReset()
   state.error = null
   state.loading = false
+  state.search = {}
   seen.length = 0
   items.splice(2)
 })
@@ -631,5 +637,50 @@ describe('Inbox header fits the phone width (QA4-inbox-phone)', () => {
         getByRole('button', { name: 'Mark all seen' }),
       ),
     ).toBe(true)
+  })
+})
+
+describe('Inbox selection lives in the URL', () => {
+  it('opens on the row the address names', () => {
+    state.search = { item: 'record-2' }
+    renderInbox()
+    expect(currentRow()?.textContent).toContain('Second review')
+  })
+
+  it('writes the chosen row to the address without adding history entries', () => {
+    const { getByRole } = renderInbox()
+    fireEvent.click(getByRole('button', { name: /Second review/ }))
+    const call = navigate.mock.calls.find(
+      ([arg]) => arg && typeof arg === 'object' && 'replace' in arg,
+    )
+    expect(call).toBeTruthy()
+    const arg = call![0] as {
+      replace: boolean
+      search: (previous: object) => object
+    }
+    expect(arg.replace).toBe(true)
+    expect(arg.search({ tab: 'following' })).toEqual({
+      tab: 'following',
+      item: 'record-2',
+    })
+  })
+})
+
+describe('Inbox bulk select (Phase 4)', () => {
+  it('marks only the selected items seen', async () => {
+    const { getByRole } = renderInbox()
+    fireEvent.click(getByRole('button', { name: /Second review/ }))
+    fireEvent.click(getByRole('button', { name: 'Mark selected seen' }))
+    await waitFor(() =>
+      expect(notebookDataClient.rpc).toHaveBeenCalledWith(
+        'mark_work_items_seen',
+        { p_item_keys: ['data_issue:record-2'] },
+      ),
+    )
+  })
+
+  it('offers nothing to mark when nothing is selected', () => {
+    const { queryByRole } = renderInbox()
+    expect(queryByRole('button', { name: 'Mark selected seen' })).toBeNull()
   })
 })

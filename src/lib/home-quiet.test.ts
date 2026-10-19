@@ -31,7 +31,7 @@ function recent(overrides: Partial<RecentItem>): RecentItem {
     id,
     label: 'Harvest clarification',
     identifier: 'EXP-0145',
-    destination: `/records/${id}`,
+    destination: `/experiments/${id}`,
     signal: 'viewed',
     lastActivityAt: '2026-09-25T08:00:00.000Z',
     viewedAt: '2026-09-25T08:00:00.000Z',
@@ -311,7 +311,7 @@ describe('buildComingUp', () => {
     expect(built[3]).toMatchObject({
       text: 'Planned end of EXP-0142',
       why: 'Experiment in AAV9 process transfer',
-      to: '/records/rec-1',
+      to: '/experiments/rec-1',
     })
     expect(built[4]).toMatchObject({
       why: 'A lot used in your work expires',
@@ -454,7 +454,7 @@ describe('pickUpItems', () => {
     expect(picked[0]).toMatchObject({
       action: 'Continue draft',
       why: 'Draft · Viewed record',
-      to: '/records/draft',
+      to: '/experiments/draft',
     })
     expect(picked[1].action).toBe('Open experiment')
 

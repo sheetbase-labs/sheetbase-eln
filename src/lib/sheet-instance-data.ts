@@ -218,6 +218,55 @@ export async function archiveSheetInstance(
   return sheetInstanceFromWire(row)
 }
 
+export async function restoreSheetInstance(
+  id: string,
+  expectedRevision: number,
+  client = sheetInstanceDataClient,
+) {
+  const row = await client.rpc<unknown>('restore_sheet_instance', {
+    p_instance_id: id,
+    p_expected_revision: expectedRevision,
+  })
+  return sheetInstanceFromWire(row)
+}
+
+/** Change a sheet's name and nothing else; the server moves the revision on. */
+export async function renameSheetInstance(
+  id: string,
+  expectedRevision: number,
+  name: string,
+  client = sheetInstanceDataClient,
+) {
+  const clean = name.trim()
+  if (clean.length < 1 || clean.length > 200) {
+    throw new Error('A sheet name is 1 to 200 characters.')
+  }
+  const row = await client.rpc<unknown>('rename_sheet_instance', {
+    p_instance_id: id,
+    p_expected_revision: expectedRevision,
+    p_name: clean,
+  })
+  return sheetInstanceFromWire(row)
+}
+
+/**
+ * The sheets that belong to one project, newest change first. Archived sheets
+ * are read only when asked for, so the default list is the working set.
+ */
+export async function fetchProjectSheets(
+  projectId: string,
+  options: { archived?: boolean } = {},
+  client = sheetInstanceDataClient,
+) {
+  const rows = await client.list<unknown>(
+    'sheet_instances',
+    `?project_id=eq.${encodeURIComponent(projectId)}` +
+      `&lifecycle=eq.${options.archived ? 'archived' : 'active'}` +
+      '&order=updated_at.desc,id.asc&limit=200',
+  )
+  return rows.map(sheetInstanceFromWire)
+}
+
 export async function duplicateSheetInstance(
   id: string,
   expectedRevision: number,

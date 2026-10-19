@@ -15,7 +15,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { Route, SavedViewsPanel } from './new'
+import { AnalysisStudioHeader, Route, SavedViewsPanel } from './new'
 import type * as router from '@tanstack/react-router'
 import type * as studioData from '#/lib/analysis-studio-data'
 
@@ -31,8 +31,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       }),
     }),
     useNavigate: () => vi.fn(),
-    Link: ({ children }: { children?: React.ReactNode }) => (
-      <a href="#">{children}</a>
+    Link: ({ children, to }: { children?: React.ReactNode; to?: unknown }) => (
+      <a href={typeof to === 'string' ? to : '#'}>{children}</a>
     ),
   }
 })
@@ -156,5 +156,34 @@ describe('saved views panel — Save as new (J-DAT-11)', () => {
     expect(
       screen.queryByRole('button', { name: 'Save as new analysis view' }),
     ).toBeNull()
+  })
+})
+
+describe('Analysis Studio return path (Phase 4)', () => {
+  function header(returnTo?: string) {
+    render(
+      <AnalysisStudioHeader
+        datasets={[]}
+        loading={false}
+        error={null}
+        selectedDatasetId={null}
+        onSelect={() => undefined}
+        returnTo={returnTo}
+      />,
+    )
+  }
+
+  it('offers the way back to the page that opened the studio', () => {
+    header('/experiments/e1/results')
+    expect(
+      screen
+        .getByRole('link', { name: 'Back to what you were doing' })
+        .getAttribute('href'),
+    ).toBe('/experiments/e1/results')
+  })
+
+  it('offers no way back when the studio was opened directly', () => {
+    header()
+    expect(screen.queryByRole('link', { name: /Back to/ })).toBeNull()
   })
 })

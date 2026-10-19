@@ -262,7 +262,9 @@ export interface ExportSettings {
 }
 
 export const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
-  format: 'json',
+  // A figure is exported to be used in a document, so an image is the default;
+  // the data and the spec stay one choice away.
+  format: 'png',
   width: 1280,
   height: 720,
   theme: 'light',

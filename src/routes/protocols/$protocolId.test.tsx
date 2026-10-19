@@ -56,6 +56,12 @@ vi.mock('#/lib/notebook-data', () => ({
   fetchLinksForRecord: async () => [],
 }))
 
+vi.mock('#/lib/recents', () => ({ useRecentViewTracking: () => undefined }))
+
+vi.mock('#/components/favourites/favourite-toggle', () => ({
+  FavouriteToggle: () => null,
+}))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id }),
 }))
@@ -109,6 +115,13 @@ function renderScreen() {
     </QueryClientProvider>,
   )
 }
+
+describe('protocol header', () => {
+  it('offers to start an experiment from the effective version', async () => {
+    renderScreen()
+    expect(await screen.findByText('Start experiment')).toBeTruthy()
+  })
+})
 
 describe('protocol training tab', () => {
   it('records acknowledgement against the frozen version, not the record', async () => {

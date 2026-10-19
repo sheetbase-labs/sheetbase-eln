@@ -8,6 +8,36 @@ import {
   validateScheduleSpec,
 } from './pipeline-schedule'
 
+describe('validateScheduleSpec instrument filter', () => {
+  const id = '3f2b8a52-7c1d-4a2e-9b1a-0d6f5e4c3b2a'
+
+  it('accepts an instrument id or null', () => {
+    expect(
+      validateScheduleSpec('event', {
+        eventType: 'dataset.versioned',
+        instrumentId: id,
+      }),
+    ).toBeNull()
+    expect(
+      validateScheduleSpec('event', {
+        eventType: 'dataset.versioned',
+        instrumentId: null,
+      }),
+    ).toBeNull()
+  })
+
+  it('refuses a value that is not an instrument id', () => {
+    for (const instrumentId of ['plate-reader', 7]) {
+      expect(
+        validateScheduleSpec('event', {
+          eventType: 'dataset.versioned',
+          instrumentId,
+        }),
+      ).toEqual({ message: 'instrumentId must be an instrument id or null' })
+    }
+  })
+})
+
 describe('validateScheduleSpec', () => {
   it('accepts valid interval/daily/event specs', () => {
     expect(validateScheduleSpec('interval', { intervalMinutes: 30 })).toBeNull()

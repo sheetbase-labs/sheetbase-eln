@@ -26,6 +26,7 @@ import { Route as MaterialsRouteImport } from './routes/materials'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as PromotionsRouteImport } from './routes/promotions'
 import { Route as ProtocolsRouteImport } from './routes/protocols'
 import { Route as SamplesRouteImport } from './routes/samples'
 import { Route as ScanRouteImport } from './routes/scan'
@@ -54,6 +55,7 @@ import { Route as HelpShortcutsRouteImport } from './routes/help/shortcuts'
 import { Route as ImportIndexRouteImport } from './routes/import.index'
 import { Route as ImportImportIdRouteImport } from './routes/import.$importId'
 import { Route as InstrumentsInstrumentIdRouteImport } from './routes/instruments/$instrumentId'
+import { Route as MaterialsLotIdRouteImport } from './routes/materials/$lotId'
 import { Route as ModelsModelIdRouteImport } from './routes/models/$modelId'
 import { Route as PipelinesPipelineIdRouteImport } from './routes/pipelines/$pipelineId'
 import { Route as PipelinesAgentsRouteImport } from './routes/pipelines/agents'
@@ -68,6 +70,7 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsApiRouteImport } from './routes/settings/api'
 import { Route as SettingsAuditRouteImport } from './routes/settings/audit'
+import { Route as SettingsClientsRouteImport } from './routes/settings/clients'
 import { Route as SettingsDiagnosticsRouteImport } from './routes/settings/diagnostics'
 import { Route as SettingsGeneralRouteImport } from './routes/settings/general'
 import { Route as SettingsInstrumentsRouteImport } from './routes/settings/instruments'
@@ -134,6 +137,7 @@ import { Route as ProjectsProjectIdMembersRouteImport } from './routes/projects/
 import { Route as ProjectsProjectIdMilestonesRouteImport } from './routes/projects/$projectId/milestones'
 import { Route as ProjectsProjectIdSamplesRouteImport } from './routes/projects/$projectId/samples'
 import { Route as ProjectsProjectIdSettingsRouteImport } from './routes/projects/$projectId/settings'
+import { Route as ProjectsProjectIdSheetsRouteImport } from './routes/projects/$projectId/sheets'
 import { Route as RecordsRecordIdIndexRouteImport } from './routes/records/$recordId/index'
 import { Route as RecordsRecordIdNotebookRouteImport } from './routes/records/$recordId/notebook'
 import { Route as SamplesSampleIdIndexRouteImport } from './routes/samples/$sampleId/index'
@@ -164,6 +168,7 @@ import { Route as RecordsRecordIdEvidenceRevisionIdRouteImport } from './routes/
 import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
 import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
+import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -248,6 +253,11 @@ const PipelinesRoute = PipelinesRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromotionsRoute = PromotionsRouteImport.update({
+  id: '/promotions',
+  path: '/promotions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProtocolsRoute = ProtocolsRouteImport.update({
@@ -390,6 +400,11 @@ const InstrumentsInstrumentIdRoute = InstrumentsInstrumentIdRouteImport.update({
   path: '/$instrumentId',
   getParentRoute: () => InstrumentsRoute,
 } as any)
+const MaterialsLotIdRoute = MaterialsLotIdRouteImport.update({
+  id: '/$lotId',
+  path: '/$lotId',
+  getParentRoute: () => MaterialsRoute,
+} as any)
 const ModelsModelIdRoute = ModelsModelIdRouteImport.update({
   id: '/$modelId',
   path: '/$modelId',
@@ -458,6 +473,11 @@ const SettingsApiRoute = SettingsApiRouteImport.update({
 const SettingsAuditRoute = SettingsAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => SettingsRoute,
+} as any)
+const SettingsClientsRoute = SettingsClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
   getParentRoute: () => SettingsRoute,
 } as any)
 const SettingsDiagnosticsRoute = SettingsDiagnosticsRouteImport.update({
@@ -808,6 +828,11 @@ const ProjectsProjectIdSettingsRoute =
     path: '/settings',
     getParentRoute: () => ProjectsProjectIdRoute,
   } as any)
+const ProjectsProjectIdSheetsRoute = ProjectsProjectIdSheetsRouteImport.update({
+  id: '/sheets',
+  path: '/sheets',
+  getParentRoute: () => ProjectsProjectIdRoute,
+} as any)
 const RecordsRecordIdIndexRoute = RecordsRecordIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -976,6 +1001,11 @@ const ApiExportRevisionIdPackageRoute =
     path: '/api/export/revision/$id/package',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiExportRevisionIdPdfRoute = ApiExportRevisionIdPdfRouteImport.update({
+  id: '/api/export/revision/$id/pdf',
+  path: '/api/export/revision/$id/pdf',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -991,10 +1021,11 @@ export interface FileRoutesByFullPath {
   '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
-  '/materials': typeof MaterialsRoute
+  '/materials': typeof MaterialsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/projects': typeof ProjectsRouteWithChildren
+  '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
@@ -1020,6 +1051,7 @@ export interface FileRoutesByFullPath {
   '/help/shortcuts': typeof HelpShortcutsRoute
   '/import/$importId': typeof ImportImportIdRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
+  '/materials/$lotId': typeof MaterialsLotIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
   '/pipelines/agents': typeof PipelinesAgentsRoute
@@ -1033,6 +1065,7 @@ export interface FileRoutesByFullPath {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
@@ -1097,6 +1130,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
   '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/projects/$projectId/sheets': typeof ProjectsProjectIdSheetsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
@@ -1133,6 +1167,7 @@ export interface FileRoutesByFullPath {
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
+  '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -1145,10 +1180,11 @@ export interface FileRoutesByTo {
   '/foundations': typeof FoundationsRoute
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
-  '/materials': typeof MaterialsRoute
+  '/materials': typeof MaterialsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/projects': typeof ProjectsRouteWithChildren
+  '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
@@ -1171,6 +1207,7 @@ export interface FileRoutesByTo {
   '/help/shortcuts': typeof HelpShortcutsRoute
   '/import/$importId': typeof ImportImportIdRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
+  '/materials/$lotId': typeof MaterialsLotIdRoute
   '/pipelines/agents': typeof PipelinesAgentsRoute
   '/protocols/$protocolId': typeof ProtocolsProtocolIdRoute
   '/r/$identifier': typeof RIdentifierRoute
@@ -1179,6 +1216,7 @@ export interface FileRoutesByTo {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
@@ -1241,6 +1279,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
   '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/projects/$projectId/sheets': typeof ProjectsProjectIdSheetsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
@@ -1277,6 +1316,7 @@ export interface FileRoutesByTo {
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
+  '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1293,10 +1333,11 @@ export interface FileRoutesById {
   '/import': typeof ImportRouteWithChildren
   '/inbox': typeof InboxRoute
   '/instruments': typeof InstrumentsRouteWithChildren
-  '/materials': typeof MaterialsRoute
+  '/materials': typeof MaterialsRouteWithChildren
   '/models': typeof ModelsRouteWithChildren
   '/pipelines': typeof PipelinesRouteWithChildren
   '/projects': typeof ProjectsRouteWithChildren
+  '/promotions': typeof PromotionsRoute
   '/protocols': typeof ProtocolsRouteWithChildren
   '/samples': typeof SamplesRouteWithChildren
   '/scan': typeof ScanRoute
@@ -1322,6 +1363,7 @@ export interface FileRoutesById {
   '/help/shortcuts': typeof HelpShortcutsRoute
   '/import/$importId': typeof ImportImportIdRoute
   '/instruments/$instrumentId': typeof InstrumentsInstrumentIdRoute
+  '/materials/$lotId': typeof MaterialsLotIdRoute
   '/models/$modelId': typeof ModelsModelIdRouteWithChildren
   '/pipelines/$pipelineId': typeof PipelinesPipelineIdRouteWithChildren
   '/pipelines/agents': typeof PipelinesAgentsRoute
@@ -1335,6 +1377,7 @@ export interface FileRoutesById {
   '/settings/access': typeof SettingsAccessRoute
   '/settings/api': typeof SettingsApiRoute
   '/settings/audit': typeof SettingsAuditRoute
+  '/settings/clients': typeof SettingsClientsRoute
   '/settings/diagnostics': typeof SettingsDiagnosticsRoute
   '/settings/general': typeof SettingsGeneralRoute
   '/settings/instruments': typeof SettingsInstrumentsRoute
@@ -1399,6 +1442,7 @@ export interface FileRoutesById {
   '/projects/$projectId/milestones': typeof ProjectsProjectIdMilestonesRoute
   '/projects/$projectId/samples': typeof ProjectsProjectIdSamplesRoute
   '/projects/$projectId/settings': typeof ProjectsProjectIdSettingsRoute
+  '/projects/$projectId/sheets': typeof ProjectsProjectIdSheetsRoute
   '/records/$recordId/notebook': typeof RecordsRecordIdNotebookRoute
   '/samples/$sampleId/history': typeof SamplesSampleIdHistoryRoute
   '/samples/$sampleId/lineage': typeof SamplesSampleIdLineageRoute
@@ -1435,6 +1479,7 @@ export interface FileRoutesById {
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
+  '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1456,6 +1501,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/projects'
+    | '/promotions'
     | '/protocols'
     | '/samples'
     | '/scan'
@@ -1481,6 +1527,7 @@ export interface FileRouteTypes {
     | '/help/shortcuts'
     | '/import/$importId'
     | '/instruments/$instrumentId'
+    | '/materials/$lotId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
     | '/pipelines/agents'
@@ -1494,6 +1541,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/instruments'
@@ -1558,6 +1606,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/milestones'
     | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
+    | '/projects/$projectId/sheets'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
@@ -1594,6 +1643,7 @@ export interface FileRouteTypes {
     | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
+    | '/api/export/revision/$id/pdf'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1610,6 +1660,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/projects'
+    | '/promotions'
     | '/protocols'
     | '/samples'
     | '/scan'
@@ -1632,6 +1683,7 @@ export interface FileRouteTypes {
     | '/help/shortcuts'
     | '/import/$importId'
     | '/instruments/$instrumentId'
+    | '/materials/$lotId'
     | '/pipelines/agents'
     | '/protocols/$protocolId'
     | '/r/$identifier'
@@ -1640,6 +1692,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/instruments'
@@ -1702,6 +1755,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/milestones'
     | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
+    | '/projects/$projectId/sheets'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
@@ -1738,6 +1792,7 @@ export interface FileRouteTypes {
     | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
+    | '/api/export/revision/$id/pdf'
   id:
     | '__root__'
     | '/'
@@ -1757,6 +1812,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/pipelines'
     | '/projects'
+    | '/promotions'
     | '/protocols'
     | '/samples'
     | '/scan'
@@ -1782,6 +1838,7 @@ export interface FileRouteTypes {
     | '/help/shortcuts'
     | '/import/$importId'
     | '/instruments/$instrumentId'
+    | '/materials/$lotId'
     | '/models/$modelId'
     | '/pipelines/$pipelineId'
     | '/pipelines/agents'
@@ -1795,6 +1852,7 @@ export interface FileRouteTypes {
     | '/settings/access'
     | '/settings/api'
     | '/settings/audit'
+    | '/settings/clients'
     | '/settings/diagnostics'
     | '/settings/general'
     | '/settings/instruments'
@@ -1859,6 +1917,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId/milestones'
     | '/projects/$projectId/samples'
     | '/projects/$projectId/settings'
+    | '/projects/$projectId/sheets'
     | '/records/$recordId/notebook'
     | '/samples/$sampleId/history'
     | '/samples/$sampleId/lineage'
@@ -1895,6 +1954,7 @@ export interface FileRouteTypes {
     | '/api/client-portal/records/$recordId/pdf'
     | '/api/export/record/$id/audit'
     | '/api/export/revision/$id/package'
+    | '/api/export/revision/$id/pdf'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1911,10 +1971,11 @@ export interface RootRouteChildren {
   ImportRoute: typeof ImportRouteWithChildren
   InboxRoute: typeof InboxRoute
   InstrumentsRoute: typeof InstrumentsRouteWithChildren
-  MaterialsRoute: typeof MaterialsRoute
+  MaterialsRoute: typeof MaterialsRouteWithChildren
   ModelsRoute: typeof ModelsRouteWithChildren
   PipelinesRoute: typeof PipelinesRouteWithChildren
   ProjectsRoute: typeof ProjectsRouteWithChildren
+  PromotionsRoute: typeof PromotionsRoute
   ProtocolsRoute: typeof ProtocolsRouteWithChildren
   SamplesRoute: typeof SamplesRouteWithChildren
   ScanRoute: typeof ScanRoute
@@ -1965,6 +2026,7 @@ export interface RootRouteChildren {
   ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
   ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
+  ApiExportRevisionIdPdfRoute: typeof ApiExportRevisionIdPdfRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2086,6 +2148,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/promotions': {
+      id: '/promotions'
+      path: '/promotions'
+      fullPath: '/promotions'
+      preLoaderRoute: typeof PromotionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/protocols': {
@@ -2284,6 +2353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InstrumentsInstrumentIdRouteImport
       parentRoute: typeof InstrumentsRoute
     }
+    '/materials/$lotId': {
+      id: '/materials/$lotId'
+      path: '/$lotId'
+      fullPath: '/materials/$lotId'
+      preLoaderRoute: typeof MaterialsLotIdRouteImport
+      parentRoute: typeof MaterialsRoute
+    }
     '/models/$modelId': {
       id: '/models/$modelId'
       path: '/$modelId'
@@ -2380,6 +2456,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/settings/audit'
       preLoaderRoute: typeof SettingsAuditRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/settings/clients': {
+      id: '/settings/clients'
+      path: '/clients'
+      fullPath: '/settings/clients'
+      preLoaderRoute: typeof SettingsClientsRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/settings/diagnostics': {
@@ -2844,6 +2927,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdSettingsRouteImport
       parentRoute: typeof ProjectsProjectIdRoute
     }
+    '/projects/$projectId/sheets': {
+      id: '/projects/$projectId/sheets'
+      path: '/sheets'
+      fullPath: '/projects/$projectId/sheets'
+      preLoaderRoute: typeof ProjectsProjectIdSheetsRouteImport
+      parentRoute: typeof ProjectsProjectIdRoute
+    }
     '/records/$recordId/': {
       id: '/records/$recordId/'
       path: '/'
@@ -3054,6 +3144,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiExportRevisionIdPackageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/revision/$id/pdf': {
+      id: '/api/export/revision/$id/pdf'
+      path: '/api/export/revision/$id/pdf'
+      fullPath: '/api/export/revision/$id/pdf'
+      preLoaderRoute: typeof ApiExportRevisionIdPdfRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -3186,6 +3283,18 @@ const InstrumentsRouteWithChildren = InstrumentsRoute._addFileChildren(
   InstrumentsRouteChildren,
 )
 
+interface MaterialsRouteChildren {
+  MaterialsLotIdRoute: typeof MaterialsLotIdRoute
+}
+
+const MaterialsRouteChildren: MaterialsRouteChildren = {
+  MaterialsLotIdRoute: MaterialsLotIdRoute,
+}
+
+const MaterialsRouteWithChildren = MaterialsRoute._addFileChildren(
+  MaterialsRouteChildren,
+)
+
 interface ModelsModelIdRecordsRouteChildren {
   ModelsModelIdRecordsRecordIdRoute: typeof ModelsModelIdRecordsRecordIdRoute
   ModelsModelIdRecordsNewRoute: typeof ModelsModelIdRecordsNewRoute
@@ -3284,6 +3393,7 @@ interface ProjectsProjectIdRouteChildren {
   ProjectsProjectIdMilestonesRoute: typeof ProjectsProjectIdMilestonesRoute
   ProjectsProjectIdSamplesRoute: typeof ProjectsProjectIdSamplesRoute
   ProjectsProjectIdSettingsRoute: typeof ProjectsProjectIdSettingsRoute
+  ProjectsProjectIdSheetsRoute: typeof ProjectsProjectIdSheetsRoute
   ProjectsProjectIdIndexRoute: typeof ProjectsProjectIdIndexRoute
 }
 
@@ -3296,6 +3406,7 @@ const ProjectsProjectIdRouteChildren: ProjectsProjectIdRouteChildren = {
   ProjectsProjectIdMilestonesRoute: ProjectsProjectIdMilestonesRoute,
   ProjectsProjectIdSamplesRoute: ProjectsProjectIdSamplesRoute,
   ProjectsProjectIdSettingsRoute: ProjectsProjectIdSettingsRoute,
+  ProjectsProjectIdSheetsRoute: ProjectsProjectIdSheetsRoute,
   ProjectsProjectIdIndexRoute: ProjectsProjectIdIndexRoute,
 }
 
@@ -3372,6 +3483,7 @@ interface SettingsRouteChildren {
   SettingsAccessRoute: typeof SettingsAccessRoute
   SettingsApiRoute: typeof SettingsApiRoute
   SettingsAuditRoute: typeof SettingsAuditRoute
+  SettingsClientsRoute: typeof SettingsClientsRoute
   SettingsDiagnosticsRoute: typeof SettingsDiagnosticsRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsInstrumentsRoute: typeof SettingsInstrumentsRoute
@@ -3388,6 +3500,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsAccessRoute: SettingsAccessRoute,
   SettingsApiRoute: SettingsApiRoute,
   SettingsAuditRoute: SettingsAuditRoute,
+  SettingsClientsRoute: SettingsClientsRoute,
   SettingsDiagnosticsRoute: SettingsDiagnosticsRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsInstrumentsRoute: SettingsInstrumentsRoute,
@@ -3475,10 +3588,11 @@ const rootRouteChildren: RootRouteChildren = {
   ImportRoute: ImportRouteWithChildren,
   InboxRoute: InboxRoute,
   InstrumentsRoute: InstrumentsRouteWithChildren,
-  MaterialsRoute: MaterialsRoute,
+  MaterialsRoute: MaterialsRouteWithChildren,
   ModelsRoute: ModelsRouteWithChildren,
   PipelinesRoute: PipelinesRouteWithChildren,
   ProjectsRoute: ProjectsRouteWithChildren,
+  PromotionsRoute: PromotionsRoute,
   ProtocolsRoute: ProtocolsRouteWithChildren,
   SamplesRoute: SamplesRouteWithChildren,
   ScanRoute: ScanRoute,
@@ -3530,6 +3644,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiClientPortalRecordsRecordIdPdfRoute:
     ApiClientPortalRecordsRecordIdPdfRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
+  ApiExportRevisionIdPdfRoute: ApiExportRevisionIdPdfRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

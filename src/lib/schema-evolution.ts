@@ -204,6 +204,11 @@ export async function requestColumnPromotion(
   })
 }
 
+const PROMOTION_SELECT =
+  'id,sheet_instance_id,field_id,target,schema_definition_id,' +
+  'schema_version_id,model_key,state,approval_request_id,reason,' +
+  'requested_by_user_id,requested_at,decided_at'
+
 export function listInstanceColumnPromotions(
   client: DataClient,
   instanceId: string,
@@ -211,11 +216,47 @@ export function listInstanceColumnPromotions(
   return client.list(
     'column_promotions',
     `?sheet_instance_id=eq.${instanceId}` +
-      '&select=id,sheet_instance_id,field_id,target,schema_definition_id,' +
-      'schema_version_id,model_key,state,approval_request_id,reason,' +
-      'requested_by_user_id,requested_at,decided_at' +
-      '&order=requested_at.desc',
+      `&select=${PROMOTION_SELECT}&order=requested_at.desc`,
   )
+}
+
+/** Promotions still waiting on a decision or on being applied, workspace-wide. */
+export function listOpenColumnPromotions(
+  client: DataClient,
+  instanceId?: string,
+): Promise<ColumnPromotion[]> {
+  return client.list(
+    'column_promotions',
+    '?state=eq.pending' +
+      (instanceId ? `&sheet_instance_id=eq.${instanceId}` : '') +
+      `&select=${PROMOTION_SELECT}&order=requested_at.desc`,
+  )
+}
+
+export interface ColumnPromotionApplyResult {
+  ok?: boolean
+  state?: ColumnPromotionState | string
+  /** True when the dataset was written; false when the decision was a return. */
+  applied?: boolean
+  reason?: string | null
+  datasetId?: string
+  datasetVersionId?: string
+}
+
+/**
+ * Settle a decided promotion. After an approval this writes the dataset and
+ * retires the local column; after a return or withdrawal it only records the
+ * outcome. The server refuses while the approval is still pending.
+ */
+export function applyColumnPromotion(
+  client: DataClient,
+  promotionId: string,
+  idempotencyKey: string = crypto.randomUUID(),
+): Promise<ColumnPromotionApplyResult> {
+  return client.rpc('apply_column_promotion', {
+    p_promotion_id: promotionId,
+    p_idempotency_key: idempotencyKey,
+  })
 }
 
 /** The server's reason for refusing a promotion, in the language of the UI. */

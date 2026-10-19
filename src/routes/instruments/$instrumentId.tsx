@@ -482,6 +482,17 @@ function InstrumentPage() {
         actions={
           canRecord || !i.retiredAt ? (
             <>
+              {canRecord ? (
+                // Upload is on every instrument, not only one whose intake has
+                // gone quiet: the import page opens with this instrument chosen.
+                <Button
+                  variant="secondary"
+                  nativeButton={false}
+                  render={<Link to="/import" search={{ instrument: i.id }} />}
+                >
+                  Upload
+                </Button>
+              ) : null}
               {!i.retiredAt ? (
                 <Button
                   variant="secondary"

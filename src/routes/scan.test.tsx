@@ -21,10 +21,24 @@ const scanData = vi.hoisted(() => ({
   scanTargetActionLabel: vi.fn(() => 'Open sample'),
 }))
 
+const searchState = vi.hoisted((): { value: { code?: string } } => ({
+  value: {},
+}))
+
 vi.mock('#/components/v3/scan/scan-data', () => scanData)
+vi.mock('#/components/v3/scan/scan-sample-actions', () => ({
+  ScanSampleActions: ({
+    sampleId,
+    returnTo,
+  }: {
+    sampleId: string
+    returnTo: string
+  }) => <div data-testid="sample-actions">{`${sampleId} ${returnTo}`}</div>,
+}))
 
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => ({
+    useSearch: () => searchState.value,
     options: config,
   }),
   redirect: (options: unknown) => options,
@@ -56,6 +70,7 @@ const ScanRoute = Route.options.component as React.ComponentType
 const originalPlay = HTMLMediaElement.prototype.play
 
 afterEach(() => {
+  searchState.value = {}
   cleanup()
   vi.clearAllMocks()
   vi.useRealTimers()
@@ -210,5 +225,63 @@ describe('Scan route', () => {
       ).toBeTruthy(),
     )
     expect(screen.queryByRole('region', { name: 'Scanned record' })).toBeNull()
+  })
+})
+
+describe('Scan route actions', () => {
+  const sampleHit = {
+    found: true,
+    code: 'SMP-2231',
+    suggestions: [],
+    hit: {
+      id: 's-1',
+      identifier: 'SMP-2231',
+      title: 'Harvest lot HL-0934',
+      kind: 'sample',
+      status: { tone: 'ok', label: 'Released' },
+      line: 'Sample · Cell harvest',
+    },
+  }
+
+  it('offers Withdraw, Move and Record reading on a scanned sample, returning to this scan', async () => {
+    scanData.resolveScanCode.mockResolvedValue(sampleHit)
+    render(<ScanRoute />)
+    await userEvent.type(screen.getByLabelText(/Type the ID/), 'SMP-2231')
+    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
+
+    const actions = await screen.findByTestId('sample-actions')
+    expect(actions.textContent).toBe('s-1 /scan?code=SMP-2231')
+  })
+
+  it('opens the code it was sent back with, already resolved', async () => {
+    searchState.value = { code: 'SMP-2231' }
+    scanData.resolveScanCode.mockResolvedValue(sampleHit)
+    render(<ScanRoute />)
+    await waitFor(() =>
+      expect(scanData.resolveScanCode).toHaveBeenCalledWith('SMP-2231'),
+    )
+    const region = await screen.findByRole('region', { name: 'Scanned record' })
+    expect(within(region).getByText('Harvest lot HL-0934')).toBeTruthy()
+  })
+
+  it('offers booking on a scanned instrument, returning to this scan', async () => {
+    scanData.resolveScanCode.mockResolvedValue({
+      found: true,
+      code: 'INS-0007',
+      suggestions: [],
+      hit: {
+        id: 'i-1',
+        identifier: 'INS-0007',
+        title: 'Plate reader',
+        kind: 'instrument',
+        status: { tone: 'ok', label: 'Ready' },
+        line: 'Instrument · plate_reader',
+      },
+    })
+    render(<ScanRoute />)
+    await userEvent.type(screen.getByLabelText(/Type the ID/), 'INS-0007')
+    await userEvent.click(screen.getByRole('button', { name: 'Find' }))
+    expect(await screen.findByText('Book this instrument')).toBeTruthy()
+    expect(screen.queryByTestId('sample-actions')).toBeNull()
   })
 })

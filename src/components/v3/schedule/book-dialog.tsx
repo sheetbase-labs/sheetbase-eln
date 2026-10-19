@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/v3/ui/button'
+import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import {
   Dialog,
   DialogBody,
@@ -17,7 +19,11 @@ import { describeCalendarError } from '#/lib/calendar'
 import { DataClientError } from '#/lib/data-client'
 import { fetchWorkspaceGeneral } from '#/lib/workspace-general'
 import { bookInstrument } from './schedule-data'
-import type { ScheduleBooking, ScheduleInstrument } from './schedule-data'
+import type {
+  BookableSample,
+  ScheduleBooking,
+  ScheduleInstrument,
+} from './schedule-data'
 
 /** The wall-clock a new booking starts from. */
 const DEFAULT_START = '09:00'
@@ -49,7 +55,7 @@ async function workspaceTimezone(): Promise<string | null> {
  * naive instant and re-read at the result: the second pass settles the answer
  * across a DST boundary. `null` when the date or time is not one.
  */
-function instantInZone(
+export function instantInZone(
   date: string,
   time: string,
   timeZone: string,
@@ -110,6 +116,15 @@ export interface BookingDialogProps {
   defaultOpen?: boolean
   /** A title to start from, e.g. the experiment the booking is for. */
   defaultTitle?: string
+  /** The experiment the booking is for; the booking then carries it. */
+  experiment?: {
+    id: string
+    identifier: string
+    title: string
+    projectId?: string | null
+  }
+  /** Samples the booking can name (the experiment's), all ticked to start. */
+  sampleOptions?: BookableSample[]
   /** Called when the person dismisses the dialog without booking. */
   onCancel?: () => void
 }
@@ -122,6 +137,8 @@ export function BookDialog({
   defaultResourceId,
   defaultOpen,
   defaultTitle,
+  experiment,
+  sampleOptions = [],
   onCancel,
 }: BookingDialogProps) {
   const [open, setOpen] = useState(defaultOpen ?? false)
@@ -132,6 +149,12 @@ export function BookDialog({
   useEffect(() => {
     if (defaultTitle) setTitle((current) => current || defaultTitle)
   }, [defaultTitle])
+  // Samples start ticked: an experiment's booking is for the samples it uses,
+  // so the person unticks what the run does not need.
+  const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set())
+  const chosenSamples = sampleOptions.filter(
+    (sample) => !unticked.has(sample.id),
+  )
   const [date, setDate] = useState(defaultDate)
   const [start, setStart] = useState(DEFAULT_START)
   const [end, setEnd] = useState(DEFAULT_END)
@@ -216,11 +239,15 @@ export function BookDialog({
         startsAt,
         endsAt,
         timezone,
+        linkedExperimentRecordId: experiment?.id,
+        projectId: experiment?.projectId,
+        samples: chosenSamples,
       })
       onBooked(booking)
       setOpen(false)
       setTitle('')
       setResourceId('')
+      setUnticked(new Set())
     } catch (e) {
       // The server owns clash, qualification and calibration decisions; show
       // its reason rather than guessing at availability in the dialog.
@@ -279,6 +306,48 @@ export function BookDialog({
           <Field label="What" required>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </Field>
+          {experiment ? (
+            <div className="flex flex-col gap-1 text-label">
+              <span className="font-medium text-fg">For experiment</span>
+              <span className="text-body">
+                <ObjectLink
+                  kind="experiment"
+                  id={experiment.id}
+                  identifier={experiment.identifier}
+                />{' '}
+                {experiment.title}
+              </span>
+            </div>
+          ) : null}
+          {sampleOptions.length ? (
+            <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
+              <legend className="mb-1 p-0 text-label font-medium text-fg">
+                Samples this run uses
+              </legend>
+              {sampleOptions.map((sample) => (
+                <label
+                  key={sample.id}
+                  className="flex items-center gap-2 text-body"
+                >
+                  <Checkbox
+                    checked={!unticked.has(sample.id)}
+                    onCheckedChange={(checked) =>
+                      setUnticked((current) => {
+                        const next = new Set(current)
+                        if (checked) next.delete(sample.id)
+                        else next.add(sample.id)
+                        return next
+                      })
+                    }
+                  />
+                  <span className="mono text-fg-muted">
+                    {sample.identifier}
+                  </span>
+                  <span className="min-w-0 truncate">{sample.title}</span>
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
           <Field label="Date" required>
             <Input
               type="date"

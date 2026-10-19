@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
 import {
   Inspector,
@@ -95,6 +96,11 @@ export const Route = createFileRoute('/')({
     const context = rootContext.auth
     if (!context) {
       throw redirect(signInRedirect(location))
+    }
+    // A client viewer has no Home: the portal is their whole product, so they
+    // land there instead of on a workspace page they cannot use.
+    if (context.workspace?.role === 'client_viewer') {
+      throw redirect({ to: '/client-portal' })
     }
     return { context }
   },
@@ -310,6 +316,39 @@ const homeRecentColumns: RegistryColumn<RecentItem>[] = [
     cell: ({ row }) => formatRelativeTime(row.original.lastActivityAt),
   },
 ]
+
+/** The part of a query result Home's degradation reads. */
+interface HomeQueryState {
+  isError: boolean
+  refetch: () => unknown
+}
+
+/** The sections whose reads failed, each with the reads that back it. */
+export function unavailableSections(
+  sections: { label: string; queries: HomeQueryState[] }[],
+): { label: string; queries: HomeQueryState[] }[] {
+  return sections.filter((section) =>
+    section.queries.some((query) => query.isError),
+  )
+}
+
+/** A section that could not be read says so and offers the retry. */
+function SectionUnavailable({
+  what,
+  onRetry,
+}: {
+  what: string
+  onRetry: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2 text-label text-fg-muted">
+      <span>{what} could not be loaded.</span>
+      <Button size="sm" variant="quiet" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
+  )
+}
 
 export function Home() {
   const { context, shellCounts } = Route.useRouteContext()
@@ -674,7 +713,11 @@ export function Home() {
         ]
       : []),
   ]
-  if (homeQueries.some((query) => query.isError)) {
+  // Home degrades one section at a time. Only the two reads that decide which
+  // Home to draw (the workspace's time zone and the person's recents) take the
+  // whole page down with them; every other read that fails leaves its own
+  // section saying so, with a way to retry, and the rest of Home stays usable.
+  if ([workspaceQuery, recentsQuery].some((query) => query.isError)) {
     return (
       <div className="flex flex-1 flex-col gap-3 p-6" role="alert">
         <h1 className="text-section">Home could not be loaded</h1>
@@ -700,7 +743,58 @@ export function Home() {
     )
   }
 
-  const header = (
+  const unavailable = unavailableSections([
+    { label: 'Counts', queries: [countsQuery] },
+    { label: 'Your bookings', queries: [bookingsQuery] },
+    {
+      label: 'Needs attention',
+      queries: [datasetIssuesQuery, materialsQuery, seenQuery],
+    },
+    { label: 'Awaiting your review', queries: [reviewsQuery, seenQuery] },
+    { label: 'Recent activity', queries: [activityQuery] },
+    ...(showFirstRun
+      ? [
+          {
+            label: 'Get set up',
+            queries: [
+              onboardingQuery,
+              certificationsQuery,
+              assignmentsQuery,
+              projectsQuery,
+              projectOpensQuery,
+              peopleQuery,
+              experimentsQuery,
+            ],
+          },
+        ]
+      : []),
+    ...(calm
+      ? [
+          {
+            label: 'Coming up',
+            queries: [resourcesQuery, upcomingEndsQuery, milestonesQuery],
+          },
+          {
+            label: 'Your projects',
+            queries: [assignmentsQuery, projectsQuery, approvalsQuery],
+          },
+        ]
+      : []),
+  ])
+  const retryUnavailable = () => {
+    for (const section of unavailable)
+      for (const query of section.queries)
+        if (query.isError) void query.refetch()
+  }
+  const sectionFailed = (...queries: HomeQueryState[]) =>
+    queries.some((query) => query.isError)
+  const retrySection =
+    (...queries: HomeQueryState[]) =>
+    () => {
+      for (const query of queries) if (query.isError) void query.refetch()
+    }
+
+  const pageHeader = (
     <PageHeader
       className="border-b-0 bg-transparent"
       title="Home"
@@ -743,6 +837,28 @@ export function Home() {
         )
       }
     />
+  )
+  const header = (
+    <>
+      {pageHeader}
+      {unavailable.length ? (
+        <div className="px-4 pb-2 md:px-6">
+          <Notice
+            tone="warn"
+            title="Part of Home could not be loaded."
+            action={
+              <Button size="sm" onClick={retryUnavailable}>
+                Try again
+              </Button>
+            }
+          >
+            Unavailable right now:{' '}
+            {unavailable.map((section) => section.label).join(', ')}. The rest
+            of this page is current.
+          </Notice>
+        </div>
+      ) : null}
+    </>
   )
 
   if (calm) {
@@ -837,7 +953,12 @@ export function Home() {
                   </Link>
                 }
               >
-                {todayBookings.length ? (
+                {sectionFailed(bookingsQuery) ? (
+                  <SectionUnavailable
+                    what="Your bookings"
+                    onRetry={retrySection(bookingsQuery)}
+                  />
+                ) : todayBookings.length ? (
                   <ul className="m-0 flex list-none flex-col p-0">
                     {todayBookings.map((b) => (
                       <li
@@ -936,7 +1057,12 @@ export function Home() {
                 </Link>
               }
             >
-              {reviews.length ? (
+              {sectionFailed(reviewsQuery, seenQuery) ? (
+                <SectionUnavailable
+                  what="Your reviews"
+                  onRetry={retrySection(reviewsQuery, seenQuery)}
+                />
+              ) : reviews.length ? (
                 <TableBox>
                   <RegistryGrid
                     label="Awaiting your review"
@@ -1059,7 +1185,12 @@ export function Home() {
               </span>
             }
           >
-            {todayBookings.length ? (
+            {sectionFailed(bookingsQuery) ? (
+              <SectionUnavailable
+                what="Today's bookings"
+                onRetry={retrySection(bookingsQuery)}
+              />
+            ) : todayBookings.length ? (
               <ul className="m-0 flex list-none flex-col p-0">
                 {todayBookings.map((b) => (
                   <li
@@ -1101,7 +1232,16 @@ export function Home() {
               </span>
             }
           >
-            {datasetIssues.length || materials.length ? (
+            {sectionFailed(datasetIssuesQuery, materialsQuery, seenQuery) ? (
+              <SectionUnavailable
+                what="What needs attention"
+                onRetry={retrySection(
+                  datasetIssuesQuery,
+                  materialsQuery,
+                  seenQuery,
+                )}
+              />
+            ) : datasetIssues.length || materials.length ? (
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
                 {datasetIssues.map((f) => (
                   <li key={f.id} className="flex gap-2">
@@ -1152,7 +1292,12 @@ export function Home() {
           </InspectorSection>
 
           <InspectorSection title="Recent activity">
-            {activity.length ? (
+            {sectionFailed(activityQuery) ? (
+              <SectionUnavailable
+                what="Recent activity"
+                onRetry={retrySection(activityQuery)}
+              />
+            ) : activity.length ? (
               <ul className="m-0 flex list-none flex-col gap-3 p-0">
                 {activity.map((a) => (
                   <li key={a.event.id} className="flex gap-3">

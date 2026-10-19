@@ -404,7 +404,9 @@ describe('SearchPalette failure, progress and scope (R5-SHELL-04)', () => {
       return []
     })
     const { user, input } = await openPalette()
-    await user.type(input, 'protocol')
+    // No page or create command is named like the query, so only the scope
+    // stands between the person and a match.
+    await user.type(input, 'PT-0001')
     await user.selectOptions(
       screen.getByRole('combobox', { name: 'Search scope' }),
       'project-a',
@@ -450,5 +452,34 @@ describe('SearchPalette combobox wiring (QA3-palette-2)', () => {
     const id = input.getAttribute('aria-controls')
     expect(id).toBeTruthy()
     expect(document.getElementById(id as string)).toBeTruthy()
+  })
+})
+
+describe('SearchPalette commands (Go to and New)', () => {
+  beforeEach(() => {
+    mocks.rpc.mockReset()
+    mocks.rpc.mockImplementation(async () => [])
+  })
+
+  it('lists places to go and things to create before anything is typed', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Open search' }))
+    expect(await screen.findByRole('option', { name: /^Inbox/ })).toBeTruthy()
+    expect(screen.getByRole('option', { name: /^New experiment/ })).toBeTruthy()
+    expect(mocks.rpc).not.toHaveBeenCalledWith('search', expect.anything())
+  })
+
+  it('finds a page by name next to the search results', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Open search' }))
+    const input = await screen.findByPlaceholderText(
+      'Search experiments, samples, datasets',
+    )
+    await user.type(input, 'pipelines')
+    expect(
+      await screen.findByRole('option', { name: /^Pipelines/ }),
+    ).toBeTruthy()
   })
 })

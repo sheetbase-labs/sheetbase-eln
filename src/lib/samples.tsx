@@ -655,6 +655,8 @@ export const sampleQueryKeys = {
     ['reg-002', 'samples', 'reservations', recordId] as const,
   balances: (recordId: string) =>
     ['reg-002', 'samples', 'balances', recordId] as const,
+  releaseChecks: (recordId: string) =>
+    ['reg-002', 'samples', 'release-checks', recordId] as const,
 }
 
 export interface SamplePage {
@@ -1547,6 +1549,121 @@ export async function releaseSample(
     p_notes: input.notes ?? null,
   })
   return toSampleRecord(row)
+}
+
+export interface RegisterSamplesInput {
+  projectId: string
+  samples: {
+    title: string
+    sampleType?: string
+    quantity?: number
+    quantityUnit?: string
+    storageLocation?: string
+    barcode?: string
+  }[]
+}
+
+/**
+ * Register a list of samples in one transaction: the whole list lands or none
+ * of it does. Returns the new samples in the order they were given.
+ */
+export async function registerSamples(
+  client: DataClient,
+  input: RegisterSamplesInput,
+): Promise<SampleRecord[]> {
+  const rows = await client.rpc<RecordWire[]>('register_samples', {
+    p_project_id: input.projectId,
+    p_samples: input.samples,
+  })
+  return rows.map(toSampleRecord)
+}
+
+export interface AliquotSampleInput {
+  recordId: string
+  /** How many tubes to make. */
+  count: number
+  /** The volume or amount in each tube. */
+  quantityEach: number
+  /** The experiment the aliquots are for (the same purpose a withdrawal needs). */
+  purposeExperimentId: string
+  unit?: string
+  notes?: string
+  expectedMetadataVersion: number
+  /** Shared by every tube: title prefix, location, type, barcode. */
+  newContainer?: NewSampleContainerInput
+}
+
+export interface AliquotSampleResult {
+  /** The source sample after all tubes were taken. */
+  sample: SampleRecord
+  derivedSamples: SampleRecord[]
+}
+
+/**
+ * Split a sample into N tubes in one step. Each tube is a withdrawal into a
+ * derived container, so the ledger and lineage match N manual withdrawals; the
+ * server refuses the whole split when the tubes would overdraw the free volume.
+ */
+export async function aliquotSample(
+  client: DataClient,
+  input: AliquotSampleInput,
+): Promise<AliquotSampleResult> {
+  const result = await client.rpc<{
+    sample: RecordWire
+    derivedSamples: RecordWire[]
+  }>('aliquot_sample', {
+    p_record_id: input.recordId,
+    p_count: input.count,
+    p_quantity_each: input.quantityEach,
+    p_purpose_experiment_id: input.purposeExperimentId,
+    p_expected_metadata_version: input.expectedMetadataVersion,
+    p_unit: input.unit ?? null,
+    p_notes: input.notes ?? null,
+    p_new_container: input.newContainer ?? null,
+  })
+  return {
+    sample: toSampleRecord(result.sample),
+    derivedSamples: result.derivedSamples.map(toSampleRecord),
+  }
+}
+
+export interface SampleReleaseCheck {
+  key: string
+  label: string
+  kind: string
+  passed: boolean
+  detail: string | null
+}
+
+export interface SampleReleaseCheckStatus {
+  passed: boolean
+  ruleCount: number
+  failedCount: number
+  checks: SampleReleaseCheck[]
+}
+
+/** The release checks a sample has to pass, evaluated now (read-only). */
+export async function fetchSampleReleaseCheckStatus(
+  client: DataClient,
+  recordId: string,
+): Promise<SampleReleaseCheckStatus> {
+  const raw = await client.rpc<Record<string, unknown> | null>(
+    'sample_release_check_status',
+    { p_record_id: recordId },
+  )
+  const checks = Array.isArray(raw?.checks) ? raw.checks : []
+  return {
+    passed: raw?.passed === true,
+    ruleCount: Number(raw?.ruleCount ?? checks.length),
+    failedCount: Number(raw?.failedCount ?? 0),
+    checks: checks.map((c: Record<string, unknown>) => ({
+      key: String(c.key ?? ''),
+      label: String(c.label ?? c.key ?? 'Check'),
+      kind: String(c.kind ?? ''),
+      passed: c.passed === true,
+      detail: typeof c.detail === 'string' && c.detail ? c.detail : null,
+    })),
+  }
 }
 
 /**

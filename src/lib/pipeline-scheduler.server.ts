@@ -399,6 +399,7 @@ async function sweepEventSchedule(
     const spec = locked.spec as {
       eventType?: string | null
       datasetId?: string | null
+      instrumentId?: string | null
       inputName?: string
       inputVersions?: Record<string, string>
       parameters?: Record<string, unknown>
@@ -419,6 +420,10 @@ async function sweepEventSchedule(
     // payload carries the parent datasetId); other events ignore it.
     const datasetFilter =
       triggerEvent === 'dataset.versioned' ? (spec.datasetId ?? null) : null
+    // The instrument filter likewise applies to `dataset.versioned` only: the
+    // version must be the snapshot of an import from that instrument.
+    const instrumentFilter =
+      triggerEvent === 'dataset.versioned' ? (spec.instrumentId ?? null) : null
     const events = await conn.query<ChangeEventRow>(
       `SELECT id, entity_uuid, sequence
          FROM api.change_events
@@ -428,6 +433,11 @@ async function sweepEventSchedule(
           AND sequence > $4::bigint
           AND ($5::uuid IS NULL OR payload->>'datasetId' IS NULL
                OR (payload->>'datasetId')::uuid = $5::uuid)
+          AND ($6::uuid IS NULL OR EXISTS (
+                SELECT 1 FROM api.dataset_imports di
+                 WHERE di.workspace_id = api.change_events.workspace_id
+                   AND di.snapshot_version_id = api.change_events.entity_uuid
+                   AND di.instrument_id = $6::uuid))
         ORDER BY sequence
         LIMIT ${MAX_EVENTS_PER_SWEEP}`,
       [
@@ -436,6 +446,7 @@ async function sweepEventSchedule(
         producer.operation,
         cursor,
         datasetFilter,
+        instrumentFilter,
       ],
     )
     // Only `dataset.versioned` supplies an input version (the created

@@ -480,15 +480,15 @@ describe('NotebookDocument — insert-block menu', () => {
     ).toBeTruthy()
     await user.type(
       await screen.findByRole('combobox'),
-      'from a sheet or dataset',
+      'a saved chart, a statistic or both',
     )
 
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(1)
-    expect(options[0].textContent).toContain('Chart')
+    expect(options[0].textContent).toContain('Chart or analysis')
 
     await user.keyboard('{Enter}')
-    expect(onInsertBlock).toHaveBeenCalledWith('chart', 'b1')
+    expect(onInsertBlock).toHaveBeenCalledWith('analysis', 'b1')
   })
 })
 

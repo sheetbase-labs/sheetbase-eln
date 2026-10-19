@@ -6,7 +6,7 @@ import {
   redirect,
   useRouterState,
 } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import {
@@ -41,13 +41,19 @@ import {
   MobileList,
 } from '#/components/v3/inventory/list'
 import { Tabs } from '#/components/v3/ui/tabs'
+import { BulkRegisterDialog } from '#/components/v3/samples/bulk-register-dialog'
+import { LocationInput } from '#/components/v3/samples/location-field'
+import { PrintLabelsDialog } from '#/components/v3/samples/sample-label-sheet'
 import {
+  distinctLocations,
   sampleListQueryKeys,
   toSampleListRow,
   useProjectNames,
   useSamplePage,
 } from '#/components/v3/samples/samples-data'
 import type { SampleListRow } from '#/components/v3/samples/samples-data'
+import { parseCreateContext } from '#/lib/create-context-search'
+import { linkExperimentToSample } from '#/lib/notebook-create'
 import { createSample } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -62,13 +68,35 @@ const tabLabel: Record<SampleTab, string> = {
   consumed: 'Consumed',
 }
 
+function pickSampleContext(search: Record<string, unknown>) {
+  const { project, experiment, returnTo } = parseCreateContext(search)
+  return { project, experiment, returnTo }
+}
+
 /** UI port (roadmap-4/ui-app3): the sample registry list, wired to real sample
  * records. The detail route and the custody dialogs follow. */
 export const Route = createFileRoute('/samples')({
   validateSearch: (
     search: Record<string, unknown>,
-  ): { q?: string; tab?: SampleTab; new?: boolean; selected?: string } => ({
+  ): {
+    q?: string
+    tab?: SampleTab
+    new?: boolean
+    bulk?: boolean
+    selected?: string
+    project?: string
+    experiment?: string
+    returnTo?: string
+  } => ({
+    // The shared create-context params: the project or experiment the sample
+    // is registered for, and where closing the dialog goes back to.
+    ...pickSampleContext(search),
     q: typeof search.q === 'string' ? search.q : undefined,
+    // The project in view travels in, so a registration starts on it.
+    project:
+      typeof search.project === 'string' && search.project
+        ? search.project
+        : undefined,
     selected: typeof search.selected === 'string' ? search.selected : undefined,
     tab:
       search.tab === 'mine' ||
@@ -79,6 +107,7 @@ export const Route = createFileRoute('/samples')({
         ? search.tab
         : undefined,
     new: search.new === true || search.new === 'true' || undefined,
+    bulk: search.bulk === true || search.bulk === 'true' || undefined,
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -106,6 +135,7 @@ function SamplesList() {
   const queryClient = useQueryClient()
   const tab: SampleTab = search.tab ?? 'instock'
   const [selected, setSelected] = useState<string | null>(null)
+  const [printOpen, setPrintOpen] = useState(false)
 
   const rows = useMemo(
     () =>
@@ -131,6 +161,12 @@ function SamplesList() {
           v.toLowerCase().includes(q),
         ),
     )
+  const recordsById = new Map((page.data?.rows ?? []).map((r) => [r.id, r]))
+  const printable = visible.flatMap((r) => recordsById.get(r.uuid) ?? [])
+  const projectOptions = [...(projects.data ?? new Map()).entries()].map(
+    ([id, title]) => ({ id, title }),
+  )
+  const locations = distinctLocations(rows.map((r) => r.location))
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
@@ -208,16 +244,32 @@ function SamplesList() {
     setSelected,
   )
 
+  // A sample registered for an experiment goes into that experiment's project
+  // and is linked to it.
+  const forExperiment = useQuery({
+    queryKey: ['ui-port', 'samples', 'register-for', search.experiment],
+    queryFn: () =>
+      notebookDataClient
+        .list<{ id: string; identifier: string; project_id: string | null }>(
+          'records',
+          `?id=eq.${encodeURIComponent(search.experiment ?? '')}&kind=eq.experiment&select=id,identifier,project_id&limit=1`,
+        )
+        .then((found) => found[0] ?? null),
+    enabled: Boolean(search.experiment),
+  })
+  const defaultProjectId =
+    search.project ?? forExperiment.data?.project_id ?? undefined
+
   const create = useMutation({
-    mutationFn: (input: {
+    mutationFn: async (input: {
       projectId: string
       title: string
       sampleType?: string
       quantity?: string
       quantityUnit?: string
       storageLocation?: string
-    }) =>
-      createSample(notebookDataClient, {
+    }) => {
+      const created = await createSample(notebookDataClient, {
         projectId: input.projectId,
         title: input.title,
         properties: {
@@ -226,10 +278,38 @@ function SamplesList() {
           quantityUnit: input.quantityUnit,
           storageLocation: input.storageLocation,
         },
-      }),
-    onSuccess: (created) => {
+      })
+      let linkError: string | null = null
+      if (search.experiment) {
+        try {
+          await linkExperimentToSample(notebookDataClient, search.experiment, {
+            identifier: created.identifier,
+            recordId: created.id,
+          })
+        } catch (error) {
+          linkError =
+            error instanceof Error ? error.message : 'The link was refused.'
+        }
+      }
+      return { created, linkError }
+    },
+    onSuccess: ({ created, linkError }) => {
       void queryClient.invalidateQueries({ queryKey: sampleListQueryKeys.page })
-      toast('Sample registered')
+      if (search.experiment) {
+        void queryClient.invalidateQueries({
+          queryKey: ['ui-port', 'experiment-links', search.experiment],
+        })
+      }
+      toast(
+        linkError ? 'Sample registered, not linked' : 'Sample registered',
+        linkError
+          ? {
+              description: `It could not be linked to the experiment: ${linkError}`,
+            }
+          : search.experiment
+            ? { description: 'Linked to the experiment.' }
+            : undefined,
+      )
       // Land on the new sample, not back on the list it was registered from.
       void navigate({
         to: '/samples/$sampleId',
@@ -257,9 +337,28 @@ function SamplesList() {
                 Import
               </Button>
               <Button
+                disabled={visible.length === 0}
+                onClick={() => setPrintOpen(true)}
+              >
+                Print labels
+              </Button>
+              <Button
+                onClick={() =>
+                  navigate({
+                    to: '/samples',
+                    search: (s) => ({ ...s, bulk: true }),
+                  })
+                }
+              >
+                Register from list
+              </Button>
+              <Button
                 variant="primary"
                 onClick={() =>
-                  navigate({ to: '/samples', search: { new: true } })
+                  navigate({
+                    to: '/samples',
+                    search: (s) => ({ ...s, new: true }),
+                  })
                 }
               >
                 Register sample
@@ -421,15 +520,51 @@ function SamplesList() {
         projects={[...(projects.data ?? new Map()).entries()].map(
           ([id, title]) => ({ id, title }),
         )}
+        initialProjectId={defaultProjectId}
+        locations={locations}
+        onOpenChange={(open) => {
+          if (open) return
+          // Cancel goes back to the page the dialog was opened from.
+          if (search.returnTo) {
+            void navigate({ href: search.returnTo })
+            return
+          }
+          void navigate({
+            to: '/samples',
+            search: (s) => ({ ...s, new: undefined }),
+            replace: true,
+          })
+        }}
+        onRegister={(input) => create.mutate(input)}
+      />
+      <BulkRegisterDialog
+        open={Boolean(search.bulk)}
+        projects={projectOptions}
+        defaultProjectId={search.project}
         onOpenChange={(open) => {
           if (!open)
             void navigate({
               to: '/samples',
-              search: (s) => ({ ...s, new: undefined }),
+              search: (s) => ({ ...s, bulk: undefined }),
               replace: true,
             })
         }}
-        onRegister={(input) => create.mutate(input)}
+        onRegistered={() =>
+          void queryClient.invalidateQueries({
+            queryKey: sampleListQueryKeys.page,
+          })
+        }
+      />
+      <PrintLabelsDialog
+        open={printOpen}
+        onOpenChange={setPrintOpen}
+        records={printable}
+        scope={`the ${printable.length} ${tabLabel[tab].toLowerCase()} samples shown`}
+        onPrinted={() =>
+          void queryClient.invalidateQueries({
+            queryKey: sampleListQueryKeys.page,
+          })
+        }
       />
     </div>
   )
@@ -440,10 +575,15 @@ function RegisterSampleDialog({
   busy,
   onOpenChange,
   projects,
+  initialProjectId,
+  locations,
   onRegister,
 }: {
   open: boolean
   busy: boolean
+  /** The project the sample is being registered for, when a page named one. */
+  initialProjectId?: string
+  locations: readonly string[]
   projects: { id: string; title: string }[]
   onOpenChange: (open: boolean) => void
   onRegister: (input: {
@@ -455,7 +595,12 @@ function RegisterSampleDialog({
     storageLocation?: string
   }) => void
 }) {
-  const [projectId, setProjectId] = useState('')
+  const [projectId, setProjectId] = useState(initialProjectId ?? '')
+  // The project can arrive after the dialog opens (an experiment's project is
+  // read from the experiment); never overwrite a choice the person made.
+  useEffect(() => {
+    if (initialProjectId) setProjectId((current) => current || initialProjectId)
+  }, [initialProjectId])
   const [title, setTitle] = useState('')
   const [sampleType, setSampleType] = useState('')
   const [quantity, setQuantity] = useState('')
@@ -514,9 +659,10 @@ function RegisterSampleDialog({
             </Field>
           </div>
           <Field label="Storage location">
-            <Input
+            <LocationInput
               value={storageLocation}
-              onChange={(e) => setStorageLocation(e.target.value)}
+              onChange={setStorageLocation}
+              locations={locations}
             />
           </Field>
         </DialogBody>

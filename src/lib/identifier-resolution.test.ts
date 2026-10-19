@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   canonicaliseIdentifierPath,
+  experimentPathForRecordPath,
   isUuid,
+  redirectExperimentRecord,
   resolveIdentifierParam,
 } from './identifier-resolution'
 
@@ -93,5 +95,42 @@ describe('resolveIdentifierParam', () => {
         resolve,
       ),
     ).resolves.toBeUndefined()
+  })
+})
+
+describe('redirectExperimentRecord', () => {
+  const at = (pathname: string, extra = {}) => ({
+    ref: UUID,
+    pathname,
+    search: '?revision=r1',
+    hash: '#b2',
+    ...extra,
+  })
+
+  it('sends an experiment record URL to the experiment page, keeping search and hash', async () => {
+    const resolve = vi.fn().mockResolvedValue('experiment')
+    const thrown = await redirectExperimentRecord(
+      at(`/records/${UUID}/notebook`),
+      resolve,
+    ).catch((e: unknown) => e)
+    expect(redirectHref(thrown)).toBe(
+      `/experiments/${UUID}/notebook?revision=r1#b2`,
+    )
+  })
+
+  it('leaves other kinds on the record route', async () => {
+    const resolve = vi.fn().mockResolvedValue('protocol')
+    await expect(
+      redirectExperimentRecord(at(`/records/${UUID}`), resolve),
+    ).resolves.toBeUndefined()
+  })
+
+  it('does not look the kind up for tabs the experiment page does not replace', async () => {
+    const resolve = vi.fn()
+    await redirectExperimentRecord(at(`/records/${UUID}/evidence`), resolve)
+    expect(resolve).not.toHaveBeenCalled()
+    expect(
+      experimentPathForRecordPath(`/records/${UUID}/evidence`, '', '', UUID),
+    ).toBeNull()
   })
 })

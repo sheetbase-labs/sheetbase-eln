@@ -360,7 +360,7 @@ describe('resolveRecentItems', () => {
     )
     expect(items.map((i) => [i.kind, i.destination])).toEqual([
       ['sheet', '/sheets/s-1'],
-      ['record', '/records/r-1'],
+      ['record', '/experiments/r-1'],
       ['dataset', '/datasets?dataset=d-1'],
       ['project', '/projects/p-1'],
       ['notebook_template', '/templates?template=t-1'],

@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
+import { ApiExample } from '#/components/v3/settings/api-example'
 import {
   SettingsCredentials,
   personalTokensCopy,
@@ -196,6 +197,7 @@ function ApiSettings() {
             />
           )
         ) : null}
+        <ApiExample />
       </SettingsBody>
     </>
   )

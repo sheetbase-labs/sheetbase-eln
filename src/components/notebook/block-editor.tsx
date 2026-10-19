@@ -13,6 +13,7 @@
  *
  * `readOnly` disables editing (archived notebooks, etc.).
  */
+import { returnToHere } from '#/lib/return-to'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -66,6 +67,8 @@ import {
   searchRecords,
 } from '#/lib/scientific-records'
 import type { MaterialItem } from '#/lib/protocol-materials'
+import { StockWithdrawButton } from '#/components/notebook/stock-withdraw-button'
+import { isWithdrawn } from '#/lib/stock-withdraw'
 import { useAutosave } from './use-autosave'
 import type { AutosaveStatus, SaveResult } from './use-autosave'
 import {
@@ -80,6 +83,8 @@ import type {
 } from '#/lib/notebook-action-blocks'
 import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import { SaveStatus } from './save-status'
+import { StepDeviation } from './step-deviation'
+import { isPinnedProtocolStep } from '#/lib/protocol-deviations'
 import { useUnsyncedBlock } from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
@@ -92,6 +97,7 @@ import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
 import type { AnalysisBlockPayload } from '#/lib/analysis-block'
 import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
 import { PipelineOutputBlockEditor } from './pipeline-output-block-editor'
+import { AnalysisChartPicker } from './analysis-chart-picker'
 import {
   analysisDefinitionQueryKeys,
   fetchAnalysisDefinitions,
@@ -1605,6 +1611,13 @@ function ProcedureStepEditor(props: BlockEditorProps) {
           rows={2}
         />
       </Field>
+      {isPinnedProtocolStep(payload) ? (
+        <StepDeviation
+          block={block}
+          save={props.save}
+          readOnly={props.readOnly}
+        />
+      ) : null}
       <AutosaveFooter
         status={a.status}
         error={a.error}
@@ -1680,6 +1693,18 @@ function MaterialsEditor(props: BlockEditorProps) {
                 <p className="font-mono text-xs text-fg-muted">
                   {item.identifier}
                 </p>
+                {props.readOnly && !isWithdrawn(item) ? null : (
+                  <StockWithdrawButton
+                    item={item}
+                    experimentId={block.recordId}
+                    note={item.note}
+                    onWithdrawn={(note) => {
+                      const items = [...a.draft.items]
+                      items[index] = { ...item, note }
+                      updateItems(items, true)
+                    }}
+                  />
+                )}
               </div>
               <Input
                 aria-label={`Quantity for ${item.title}`}
@@ -3050,6 +3075,14 @@ function ValidationConfigEditor({
 // down from the route so durable events and audit attribution stay canonical.
 // ---------------------------------------------------------------------------
 
+/** What a saved analysis holds, for its entry in the picker. */
+function analysisContents(definition: unknown): string {
+  if (typeof definition !== 'object' || definition === null) return ''
+  const body = definition as { kind?: unknown; chart?: unknown }
+  if (body.kind === 'chart') return ' · chart'
+  return body.chart ? ' · statistic and chart' : ''
+}
+
 function AnalysisBlockEditor({
   block,
   save,
@@ -3107,18 +3140,47 @@ function AnalysisBlockEditor({
               {definitionsQuery.isLoading
                 ? 'Loading saved analyses…'
                 : definitions.length === 0
-                  ? 'No saved analyses — create one in /analysis → Analyse'
+                  ? 'No saved analyses — add a saved chart below, or create a statistic in /analysis → Analyse'
                   : 'Select an analysis'}
             </option>
             {definitions.map((d) => (
               <option key={d.id} value={d.id}>
-                {`${d.name} · v${d.version}`}
+                {`${d.name} · v${d.version}${analysisContents(d.definition)}`}
               </option>
             ))}
           </Select>
+          {!definitionsQuery.isLoading && definitions.length === 0 ? (
+            <p className="text-xs text-fg-muted">
+              <OpenLink
+                to={`/analysis/new?mode=analyse&returnTo=${encodeURIComponent(returnToHere() ?? '/')}`}
+              >
+                Create one in the analysis studio
+              </OpenLink>{' '}
+              and come back here.
+            </p>
+          ) : null}
           <p className="text-xs text-fg-muted">
             Analyses execute against live dataset rows. Freeze to pin the inputs
             as evidence.
+          </p>
+        </ChartField>
+
+        <ChartField label="Chart">
+          <AnalysisChartPicker
+            statistic={selected}
+            disabled={!!frozen || readOnly}
+            onComposed={(definition) => {
+              a.setTouched(true)
+              a.setDraft({
+                ...draft,
+                definitionId: definition.id,
+                title: draft.title || definition.name,
+              })
+            }}
+          />
+          <p className="text-xs text-fg-muted">
+            One block holds a chart, a statistic or both. A chart added here is
+            saved with the analysis; the saved chart itself is not changed.
           </p>
         </ChartField>
 

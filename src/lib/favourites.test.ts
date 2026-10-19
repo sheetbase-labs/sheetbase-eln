@@ -396,7 +396,7 @@ describe('fetchFavouriteItems', () => {
       kind: 'record',
       id: 'r-1',
       label: 'Experiment one',
-      destination: '/records/r-1',
+      destination: '/experiments/r-1',
     })
   })
 

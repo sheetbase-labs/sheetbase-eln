@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Section } from '#/components/v3/ui/layout'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { toast } from '#/components/v3/ui/sonner'
 import { TableBox } from '#/components/v3/ui/table'
@@ -119,6 +120,34 @@ function SampleUsage() {
     },
   })
   const experimentById = experiments.data ?? new Map<string, RecordWire>()
+
+  // The experiments that name this sample, from their side of the link: an
+  // experiment that lists the sample as used appears here, whether or not any
+  // volume has been withdrawn for it.
+  const linkedExperiments = useQuery({
+    queryKey: ['ui-port', 'sample-linked-experiments', sampleId],
+    queryFn: async () => {
+      const links = await notebookDataClient.list<{ source_record_id: string }>(
+        'record_links',
+        `?target_record_id=eq.${sampleId}&link_type=eq.sample&select=source_record_id`,
+      )
+      const ids = [...new Set(links.map((l) => l.source_record_id))].slice(
+        0,
+        12,
+      )
+      if (!ids.length) return []
+      return notebookDataClient.list<{
+        id: string
+        identifier: string
+        title: string
+        status: string
+        kind: string
+      }>(
+        'records',
+        `?id=in.(${ids.join(',')})&kind=eq.experiment&deleted_at=is.null&select=id,identifier,title,status,kind&order=updated_at.desc`,
+      )
+    },
+  })
 
   const names = useUserNames(
     [
@@ -284,6 +313,33 @@ function SampleUsage() {
             icon="tube"
             title="Not used yet"
             description="Withdrawals and planned reservations appear here once someone books or consumes this sample."
+          />
+        )}
+      </Section>
+
+      <Section
+        title="Used in experiments"
+        count={linkedExperiments.data?.length ?? 0}
+      >
+        {linkedExperiments.data?.length ? (
+          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+            {linkedExperiments.data.map((experiment) => (
+              <li key={experiment.id}>
+                <ObjectLink
+                  kind="experiment"
+                  id={experiment.id}
+                  identifier={experiment.identifier}
+                />{' '}
+                {experiment.title}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            className="py-2"
+            icon="flask"
+            title="Not linked to an experiment"
+            description="Experiments that list this sample as used appear here."
           />
         )}
       </Section>

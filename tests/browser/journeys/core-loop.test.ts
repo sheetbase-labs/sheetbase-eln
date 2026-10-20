@@ -213,10 +213,12 @@ test('CORE-14 a reviewed notebook is signed from its own page', async ({
 }) => {
   await open(page, '/inbox')
   await page.getByRole('button', { name: /^reviews/i }).click()
+  // A row, not the "Collapse" button a group header can put first in the list.
   await page
     .getByRole('list', { name: 'Inbox items' })
-    .getByRole('button')
+    .getByRole('listitem')
     .first()
+    .getByRole('button')
     .click()
   await page
     .getByRole('complementary', { name: 'Item details' })

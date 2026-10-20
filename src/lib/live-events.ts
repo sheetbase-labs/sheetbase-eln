@@ -710,7 +710,10 @@ export function createLiveEventCoordinator(
 
   return {
     connect() {
-      if (disposed) return
+      // An explicit connect re-arms a disconnected coordinator, so a provider
+      // that unmounts and remounts (an effect re-run, a dev hydration retry)
+      // does not leave the whole session reading as offline.
+      disposed = false
       if (source) return
       openStream()
     },

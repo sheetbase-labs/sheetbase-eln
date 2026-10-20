@@ -48,7 +48,10 @@ export function LiveBlockComments({
   ).length
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<span className="inline-flex" />}>
+      <PopoverTrigger
+        nativeButton={false}
+        render={<span className="inline-flex" />}
+      >
         <CommentButton
           count={unresolved}
           label={`Comments on block ${blockId}`}

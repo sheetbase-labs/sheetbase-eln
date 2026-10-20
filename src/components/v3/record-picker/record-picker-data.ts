@@ -218,10 +218,14 @@ export async function searchPickerRecords(
   // to fabricate them from, so a person with no history gets nothing and the
   // picker says "Nothing recent".
   if (!q) {
-    const recent = await fetchPickerRecents(client)
+    const all = await fetchPickerRecents(client)
     const counts = emptyCounts()
-    for (const item of recent) counts[item.kind] += 1
-    return { recent: true, items: recent, counts, total: recent.length }
+    for (const item of all) counts[item.kind] += 1
+    // A picker that is limited to some kinds must not offer the others.
+    const recent = input.kinds?.length
+      ? all.filter((item) => input.kinds!.includes(item.kind))
+      : all
+    return { recent: true, items: recent, counts, total: all.length }
   }
   const [results, projectNames] = await Promise.all([
     executeSearch(client, { query: q, limit: 50 }),

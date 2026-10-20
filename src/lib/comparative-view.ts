@@ -550,38 +550,59 @@ export function pairComparativeSides(
   const sideB = grouped.find((group) => group.key === sides.b)
   if (!sideA || !sideB) return empty
 
-  type Entry = { label: string; value: number | null }
-  const collect = (group: GroupedRows): Map<string, Entry> => {
-    const entries = new Map<string, Entry>()
-    group.rowIndexes.forEach((rowIndex, offset) => {
-      const row = rows[rowIndex]
-      const key = pairingKey(row, matchBy, fieldId, offset + 1)
-      // A row with no key under the chosen rule cannot be paired honestly; it
-      // is folded into the `(no key)` bucket instead of being dropped.
-      const resolved = key ?? COMPARATIVE_MATCH_MISSING_LABEL
-      const label =
-        matchBy === 'position'
-          ? `#${resolved}`
-          : matchBy === 'field'
-            ? `${resolved}`
-            : resolved
-      // Duplicate keys keep the first row's value: the key is the identity.
-      if (!entries.has(resolved)) {
-        entries.set(resolved, {
-          label,
-          value: toComparableNumber(row[config.valueField]),
-        })
-      }
-    })
-    return entries
-  }
+  const collect = (group: GroupedRows) =>
+    collectPairEntries(
+      group.rowIndexes.map((rowIndex) => rows[rowIndex]),
+      config.valueField,
+      matchBy,
+      fieldId,
+    )
 
   const entriesA = collect(sideA)
   const entriesB = collect(sideB)
+  return assemblePairing(entriesA, entriesB, rule)
+}
+
+type PairEntry = { label: string; value: number | null }
+
+/** One side's rows keyed under the matching rule, ready to pair. */
+function collectPairEntries(
+  rows: Record<string, unknown>[],
+  valueField: string,
+  matchBy: ComparativeMatchMode,
+  fieldId: string | null,
+): Map<string, PairEntry> {
+  const entries = new Map<string, PairEntry>()
+  rows.forEach((row, offset) => {
+    const key = pairingKey(row, matchBy, fieldId, offset + 1)
+    // A row with no key under the chosen rule cannot be paired honestly; it
+    // is folded into the `(no key)` bucket instead of being dropped.
+    const resolved = key ?? COMPARATIVE_MATCH_MISSING_LABEL
+    const label =
+      matchBy === 'position'
+        ? `#${resolved}`
+        : matchBy === 'field'
+          ? `${resolved}`
+          : resolved
+    // Duplicate keys keep the first row's value: the key is the identity.
+    if (!entries.has(resolved)) {
+      entries.set(resolved, {
+        label,
+        value: toComparableNumber(row[valueField]),
+      })
+    }
+  })
+  return entries
+}
+
+function assemblePairing(
+  entriesA: Map<string, PairEntry>,
+  entriesB: Map<string, PairEntry>,
+  rule: string,
+): ComparativePairing {
   const keys = [...new Set([...entriesA.keys(), ...entriesB.keys()])].sort(
     compareKeys,
   )
-
   const paired: ComparativePairedRow[] = keys.map((key) => {
     const a = entriesA.get(key)
     const b = entriesB.get(key)
@@ -598,7 +619,6 @@ export function pairComparativeSides(
       presence,
     }
   })
-
   return {
     rows: paired,
     matchedCount: paired.filter((row) => row.presence === 'both').length,
@@ -608,4 +628,34 @@ export function pairComparativeSides(
       .length,
     rule,
   }
+}
+
+/** One source of a cross-source comparison: its rows and the explicit fields. */
+export interface ComparativeSource {
+  rows: Record<string, unknown>[]
+  /** The measure compared. Each side names its own field; none is inferred. */
+  valueField: string
+  /** The field rows are matched on, for `field` matching. */
+  matchField: string | null
+}
+
+/**
+ * Pair the rows of two sources (two datasets, or a dataset and one of its
+ * snapshots) under an explicit matching rule. Unlike `pairComparativeSides`,
+ * which splits one set of rows into groups, each side here brings its own rows
+ * and its own value and match fields. Row-key matching is honest only within
+ * one dataset's lineage (a snapshot against its live rows), and the UI says so.
+ */
+export function pairComparativeSources(
+  a: ComparativeSource,
+  b: ComparativeSource,
+  matchBy: ComparativeMatchMode,
+  matchFieldLabel?: string | null,
+): ComparativePairing {
+  const rule = describeComparativeMatchRule(matchBy, matchFieldLabel)
+  return assemblePairing(
+    collectPairEntries(a.rows, a.valueField, matchBy, a.matchField),
+    collectPairEntries(b.rows, b.valueField, matchBy, b.matchField),
+    rule,
+  )
 }

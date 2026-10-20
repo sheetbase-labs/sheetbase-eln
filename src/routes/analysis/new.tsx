@@ -36,6 +36,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { CompareView } from '#/components/viz/compare-view'
+import { SourceComparison } from '#/components/viz/source-comparison'
 import { SnapshotSourceBanner } from '#/components/viz/snapshot-source-banner'
 import {
   ConfirmDialog,
@@ -731,6 +732,16 @@ function AnalysisStudio() {
                 error={summariesQuery.error}
               />
             )}
+            {selectedSource && datasetQuery.data ? (
+              <SourceComparison
+                // A new source A starts a new comparison.
+                key={`${selectedSource.datasetId}:${spec?.datasets[0]?.datasetVersionId ?? ''}`}
+                sourceA={selectedSource}
+                rowsA={datasetQuery.data.rows}
+                snapshotA={spec?.datasets[0]?.datasetVersionId ?? null}
+                sources={sources}
+              />
+            ) : null}
           </div>
         ) : selectedSource && spec ? (
           <div className="flex min-h-0 flex-1 overflow-hidden">

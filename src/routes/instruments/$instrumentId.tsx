@@ -743,7 +743,7 @@ function InstrumentPage() {
                 A workspace owner grants and revokes qualifications. Booking
                 this instrument requires one that has not expired.
               </Muted>
-              {iAmQualified ? null : (
+              {iAmQualified || !canRecord ? null : (
                 <div>
                   <RequestQualificationButton
                     instrumentId={instrumentId}

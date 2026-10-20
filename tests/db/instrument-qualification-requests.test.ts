@@ -15,6 +15,7 @@ const ADMIN = 'qreq-admin'
 const ANALYST = 'qreq-analyst'
 const PEER = 'qreq-peer'
 const OUTSIDER = 'qreq-outsider'
+const VIEWER = 'qreq-viewer'
 
 let migrator: Client
 let asRole: (role: 'authenticator') => Promise<Client>
@@ -22,7 +23,7 @@ const clients: Client[] = []
 
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
-  for (const user of [ADMIN, ANALYST, PEER, OUTSIDER]) {
+  for (const user of [ADMIN, ANALYST, PEER, OUTSIDER, VIEWER]) {
     await migrator.query(
       `insert into internal."user"(id,name,email,"emailVerified") values($1,$1,$2,true)`,
       [user, `${user}@test.invalid`],
@@ -34,8 +35,8 @@ beforeAll(async () => {
   )
   await migrator.query(
     `insert into api.workspace_memberships(workspace_id,user_id,role) values
-     ($1,$2,'owner'),($1,$3,'analyst'),($1,$4,'analyst'),($5,$6,'owner')`,
-    [WS, ADMIN, ANALYST, PEER, OTHER_WS, OUTSIDER],
+     ($1,$2,'owner'),($1,$3,'analyst'),($1,$4,'analyst'),($5,$6,'owner'),($1,$7,'viewer')`,
+    [WS, ADMIN, ANALYST, PEER, OTHER_WS, OUTSIDER, VIEWER],
   )
   await migrator.query(
     `insert into api.instruments(id,workspace_id,name,instrument_type,created_by_user_id)
@@ -111,6 +112,17 @@ describe('instrument qualification requests', () => {
     const outsider = await actor(OUTSIDER, OTHER_WS)
     await expectDenied(
       outsider.query(
+        'select * from api.request_instrument_qualification($1,$2)',
+        [INSTRUMENT, null],
+      ),
+      '42501',
+    )
+  })
+
+  it('refuses a read-only member, who could not book the instrument anyway', async () => {
+    const viewer = await actor(VIEWER)
+    await expectDenied(
+      viewer.query(
         'select * from api.request_instrument_qualification($1,$2)',
         [INSTRUMENT, null],
       ),

@@ -78,8 +78,8 @@ BEGIN
   IF v_instrument.id IS NULL THEN
     RAISE EXCEPTION 'instrument not found in active workspace' USING ERRCODE = '42501';
   END IF;
-  IF v_user IS NULL OR NOT api.is_workspace_member(v_instrument.workspace_id) THEN
-    RAISE EXCEPTION 'a workspace member is required' USING ERRCODE = '42501';
+  IF v_user IS NULL OR NOT api.is_workspace_writer(v_instrument.workspace_id) THEN
+    RAISE EXCEPTION 'a workspace writer is required' USING ERRCODE = '42501';
   END IF;
   IF v_instrument.retired_at IS NOT NULL THEN
     RAISE EXCEPTION 'this instrument is retired' USING ERRCODE = '22023';

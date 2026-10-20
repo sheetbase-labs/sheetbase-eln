@@ -267,6 +267,9 @@ describe('instrument qualification', () => {
     ).toBeNull()
     expect(screen.queryByRole('button', { name: 'Revoke' })).toBeNull()
     expect(screen.getByText(/A workspace owner grants/)).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: 'Request qualification' }),
+    ).toBeNull()
   })
 })
 

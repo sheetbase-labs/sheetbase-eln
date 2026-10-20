@@ -1191,7 +1191,7 @@ function ProjectPeek({
             <span className="font-normal text-fg-muted">{p.experiments}</span>
             <Link
               to="/experiments"
-              search={{ q: p.name }}
+              search={{ project: p.uuid }}
               className="ml-auto font-normal"
             >
               All

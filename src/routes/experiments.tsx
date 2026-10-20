@@ -93,11 +93,16 @@ export const Route = createFileRoute('/experiments')({
   ): {
     tab?: Tab
     q?: string
+    project?: string
     older?: boolean
     group?: 'project' | 'owner'
   } => ({
     tab: tabs.includes(search.tab as Tab) ? (search.tab as Tab) : undefined,
     q: typeof search.q === 'string' ? search.q : undefined,
+    project:
+      typeof search.project === 'string' && search.project
+        ? search.project
+        : undefined,
     older: search.older === true || search.older === 'true' || undefined,
     group:
       search.group === 'project' || search.group === 'owner'
@@ -188,12 +193,13 @@ function Experiments() {
   ) as Record<Tab, number>
   // Exact totals once they arrive; the loaded rows stand in while they load so
   // the tabs never flash zeros.
-  const counts = tabCounts.data ?? loadedCounts
+  const counts = search.project ? loadedCounts : (tabCounts.data ?? loadedCounts)
   const total = counts.all
   const q = (search.q ?? '').trim().toLowerCase()
   const base = rows.filter(
     (r) =>
       inTab(r, tab) &&
+      (!search.project || r.projectId === search.project) &&
       (!q ||
         [r.id, r.title, r.project, r.owner].some((v) =>
           v.toLowerCase().includes(q),
@@ -403,6 +409,19 @@ function Experiments() {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        {search.project ? (
+          <Button
+            variant="quiet"
+            icon="x"
+            aria-label="Clear the project filter"
+            onClick={() => setSearch({ project: undefined })}
+          >
+            Project:{' '}
+            {rows.find((r) => r.projectId === search.project)?.project ??
+              projects.data?.get(search.project) ??
+              'selected'}
+          </Button>
+        ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger render={<Button variant="quiet" />}>
             Group:{' '}

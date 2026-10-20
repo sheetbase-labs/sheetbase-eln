@@ -238,6 +238,12 @@ export interface FieldBinding {
 
 export interface DatasetRef {
   datasetId: string
+  /**
+   * Read this Dataset Version (a snapshot) instead of the live rows. A chart
+   * or analysis on a snapshot keeps drawing the same rows however the dataset
+   * changes afterwards.
+   */
+  datasetVersionId?: string
 }
 
 export interface ChartFilter {
@@ -895,6 +901,12 @@ export function validateChartSpec(spec: unknown): ChartSpecError[] {
           code: 'invalid_dataset_reference',
           field: `spec.datasets[${i}].datasetId`,
           message: `datasets[${i}].datasetId must be a UUID`,
+        })
+      else if (d.datasetVersionId !== undefined && !isUuid(d.datasetVersionId))
+        errors.push({
+          code: 'invalid_dataset_reference',
+          field: `spec.datasets[${i}].datasetVersionId`,
+          message: `datasets[${i}].datasetVersionId must be a UUID`,
         })
     })
 

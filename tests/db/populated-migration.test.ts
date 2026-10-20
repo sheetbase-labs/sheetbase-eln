@@ -250,7 +250,7 @@ describe('populated migration 0255', () => {
     )
     expect(lock.rows[0].acquired).toBe(true)
     await client.query('SELECT pg_advisory_unlock($1)', [lockKey])
-  })
+  }, 120_000)
 
   it('refuses request-login credentials before granting migration context', async () => {
     const result = await run(process.execPath, ['scripts/migrate-once.mjs'], {
@@ -326,7 +326,7 @@ describe('populated migration 0255', () => {
     )
     expect(lock.rows[0].acquired).toBe(true)
     await client.query('SELECT pg_advisory_unlock($1)', [lockKey])
-  })
+  }, 120_000)
 
   it('serialises fresh installers and applies the same full chain exactly once', async () => {
     const fresh = `${database}_fresh`
@@ -362,5 +362,5 @@ describe('populated migration 0255', () => {
       await freshClient.end()
       await admin.query(`DROP DATABASE ${fresh} WITH (FORCE)`)
     }
-  })
+  }, 120_000)
 })

@@ -491,7 +491,7 @@ describe('conclusion block payload', () => {
       payload: { text: 'x', verdict: 'proven', basis: 3 },
     })
     expect(result.ok).toBe(false)
-    expect(result.errors?.map((error) => error.field)).toEqual([
+    expect(result.errors.map((error) => error.field)).toEqual([
       'verdict',
       'basis',
     ])

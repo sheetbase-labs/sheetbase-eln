@@ -53,7 +53,7 @@ function renderComparison() {
   return render(
     <QueryClientProvider client={client}>
       <SourceComparison
-        sourceA={SOURCES[0]!}
+        sourceA={SOURCES[0]}
         rowsA={[
           { __sheetbaseRowId: 'r1', sample: 'S1', titre: 10 },
           { __sheetbaseRowId: 'r2', sample: 'S2', titre: 20 },

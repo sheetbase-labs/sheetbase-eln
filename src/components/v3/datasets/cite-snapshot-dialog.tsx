@@ -63,7 +63,7 @@ export function CiteSnapshotDialog({
         datasetName: dataset.data.name,
         versionId: snapshot.id,
         versionLabel: snapshot.label,
-        contentHash: snapshot.contentHash ?? null,
+        contentHash: snapshot.contentHash,
       })
       toast('Cited in a notebook', {
         description: `${target.identifier} now references ${snapshotCitationLabel(

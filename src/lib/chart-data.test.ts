@@ -257,7 +257,7 @@ describe('resolveDatasetRef on a snapshot', () => {
     expect(rpcCalls.map((call) => call.name)).toEqual([
       'query_dataset_version_rows',
     ])
-    expect(rpcCalls[0]!.args.p_dataset_version_id).toBe('ver-9')
+    expect(rpcCalls[0].args.p_dataset_version_id).toBe('ver-9')
   })
 
   it('is null when the dataset is gone, whatever the snapshot', async () => {

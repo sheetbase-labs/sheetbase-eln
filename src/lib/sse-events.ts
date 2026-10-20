@@ -77,6 +77,14 @@ export interface SseDeps {
     limit: number,
   ) => Promise<ReplayResult>
   /**
+   * The newest retained sequence for the workspace, or 0 when none. A
+   * connection that carries no resume cursor starts here rather than at the
+   * start of history: a page that has only just loaded has missed nothing, and
+   * replaying the whole retention window made every navigation refetch the
+   * collections each replayed event touches. Omit to replay from the start.
+   */
+  latestSequence?: (workspaceId: string) => Promise<number>
+  /**
    * Subscribe to live change notifications for the workspace. The callback
    * is invoked for each durable event whose `workspaceId` matches. Returns
    * an unsubscribe that also releases the underlying listener/connection.
@@ -240,10 +248,20 @@ export async function handleSseRequest(
   // the header so the native EventSource auto-reconnect path is unchanged.
   const url = new URL(request.url)
   const afterParam = url.searchParams.get('after')
-  const afterSeq =
+  const hasCursor =
+    request.headers.get('last-event-id') !== null ||
+    (afterParam !== null && /^\d+$/.test(afterParam))
+  let afterSeq =
     afterParam !== null && /^\d+$/.test(afterParam)
       ? Number.parseInt(afterParam, 10)
       : lastSeen
+  if (!hasCursor && deps.latestSequence) {
+    try {
+      afterSeq = await deps.latestSequence(workspace.id)
+    } catch {
+      // Fall back to replaying from the start; the client reconciles.
+    }
+  }
   const encoder = new TextEncoder()
   const controller = new ReadableStreamDefaultControllerHolder()
 
@@ -355,7 +373,7 @@ export async function handleSseRequest(
       lastDeliveredSeq =
         decision.events.length > 0
           ? decision.events[decision.events.length - 1].sequence
-          : lastSeen
+          : afterSeq
       for (const buffered of liveBuffer) {
         if (buffered.sequence > lastDeliveredSeq) {
           lastDeliveredSeq = buffered.sequence

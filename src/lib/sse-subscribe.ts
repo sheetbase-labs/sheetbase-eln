@@ -92,6 +92,24 @@ export async function readChangeEvents(
   }
 }
 
+/** The newest retained sequence for the workspace, or 0 when none. */
+export async function latestChangeEventSequence(
+  workspaceId: string,
+  connectionString: string = env.DATABASE_URL,
+): Promise<number> {
+  const client = new Client({ connectionString })
+  await client.connect()
+  try {
+    const result = await client.query<{ max: string | null }>(
+      `SELECT max(sequence)::text AS max FROM api.change_events WHERE workspace_id = $1`,
+      [workspaceId],
+    )
+    return result.rows[0].max ? Number(result.rows[0].max) : 0
+  } finally {
+    await client.end()
+  }
+}
+
 interface NotificationPayload {
   workspace_id: string
   sequence: number

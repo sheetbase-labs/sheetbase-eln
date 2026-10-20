@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { LoadMore } from '#/components/v3/ui/load-more'
@@ -110,6 +110,75 @@ function Audit() {
     [activity.data],
   )
 
+  // Rows carry ids; people read identifiers and project names. One read per
+  // loaded window names every record and project in it.
+  const recordIds = useMemo(
+    () => [
+      ...new Set(
+        [urlSearch.record, ...rows.map((r) => r.recordId)].filter(
+          (id): id is string => Boolean(id),
+        ),
+      ),
+    ],
+    [rows, urlSearch.record],
+  )
+  const projectIds = useMemo(
+    () => [
+      ...new Set(
+        rows.map((r) => r.projectId).filter((id): id is string => Boolean(id)),
+      ),
+    ],
+    [rows],
+  )
+  const names = useQuery({
+    queryKey: ['audit-names', recordIds, projectIds],
+    enabled: recordIds.length > 0 || projectIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      // The data proxy bounds a query value to 500 characters, which is a
+      // dozen UUIDs, so ids are read in chunks of that size.
+      const listByIds = async <T,>(
+        resource: string,
+        ids: string[],
+        select: string,
+      ): Promise<T[]> => {
+        const chunks: string[][] = []
+        for (let i = 0; i < ids.length; i += 12)
+          chunks.push(ids.slice(i, i + 12))
+        return (
+          await Promise.all(
+            chunks.map((chunk) =>
+              dataClient.list<T>(
+                resource,
+                `?id=in.(${chunk.join(',')})&select=${select}`,
+              ),
+            ),
+          )
+        ).flat()
+      }
+      const [records, projects] = await Promise.all([
+        listByIds<{ id: string; identifier: string }>(
+          'records',
+          recordIds,
+          'id,identifier',
+        ),
+        listByIds<{ id: string; title: string }>(
+          'projects',
+          projectIds,
+          'id,title',
+        ),
+      ])
+      return {
+        records: new Map(records.map((r) => [r.id, r.identifier])),
+        projects: new Map(projects.map((p) => [p.id, p.title])),
+      }
+    },
+  })
+  const recordLabel = (id: string) =>
+    names.data?.records.get(id) ?? id.slice(0, 8)
+  const projectLabel = (id: string) =>
+    names.data?.projects.get(id) ?? id.slice(0, 8)
+
   // The filter lists the operation vocabulary the log can hold — the same set
   // the database's change_events CHECK constrains and the history renders via
   // ACTION_LABELS — unioned with anything an event carries that the catalogue
@@ -197,14 +266,24 @@ function Audit() {
             search={{ ...urlSearch, record: r.recordId }}
             title="Show only this record's entries"
           >
-            {r.recordId.slice(0, 8)}
+            {recordLabel(r.recordId)}
           </Link>
         ) : (
           '—'
         )}
       </TableCell>
-      <TableCell className="mono text-[11px] text-fg-muted">
-        {r.projectId ? r.projectId.slice(0, 8) : '—'}
+      <TableCell className="text-fg-muted">
+        {r.projectId ? (
+          <Link
+            to="/projects/$projectId"
+            params={{ projectId: r.projectId }}
+            title="Open the project"
+          >
+            {projectLabel(r.projectId)}
+          </Link>
+        ) : (
+          '—'
+        )}
       </TableCell>
     </TableRow>
   ))
@@ -311,7 +390,7 @@ function Audit() {
         </label>
         {urlSearch.record ? (
           <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface-muted px-2 py-0.5 text-label">
-            Record <span className="mono">{urlSearch.record.slice(0, 8)}</span>
+            Record <span className="mono">{recordLabel(urlSearch.record)}</span>
             <Button
               size="sm"
               variant="quiet"

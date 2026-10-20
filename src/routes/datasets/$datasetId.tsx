@@ -3,6 +3,7 @@ import {
   Outlet,
   createFileRoute,
   redirect,
+  useNavigate,
   useRouterState,
 } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -20,6 +21,7 @@ import type { DatasetDetailTab } from '#/components/v3/datasets/dataset-detail-t
 import { DatasetHistoryTab } from '#/components/v3/datasets/dataset-history-tab'
 import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
 import { DatasetModelUpgrade } from '#/components/v3/datasets/dataset-model-upgrade'
+import { DatasetRunPipeline } from '#/components/v3/datasets/dataset-run-pipeline'
 import { hasCapability } from '#/lib/capability'
 import { DatasetUsedByTab } from '#/components/v3/datasets/dataset-used-by-tab'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
@@ -83,8 +85,13 @@ function DatasetLayout() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const navigate = useNavigate()
   const summaries = useDatasetSummaries()
   const versions = useDatasetVersions(datasetId)
+  const latestVersionId =
+    [...(versions.data ?? [])].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    )[0]?.id ?? null
   const dataset = summaries.data?.find((d) => d.uuid === datasetId)
   const projectId = dataset?.projectId ?? null
   const project = useQuery({
@@ -241,6 +248,16 @@ function DatasetLayout() {
                 >
                   Analyse
                 </Button>
+                <DatasetRunPipeline
+                  workspaceId={context.workspace?.id ?? ''}
+                  latestVersionId={latestVersionId}
+                  onStarted={(started) =>
+                    void navigate({
+                      to: '/pipelines/runs/$runId',
+                      params: { runId: started.id },
+                    })
+                  }
+                />
               </>
             ) : null}
           </>

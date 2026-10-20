@@ -25,6 +25,12 @@ interface Target {
    * links a retry to the exact version it failed on.
    */
   rerunOn?: PipelineRunWire
+  /**
+   * Values to start the "Run with…" dialog from, e.g. the snapshot of the
+   * dataset the person launched from. The dialog still opens so they can check
+   * them before anything runs.
+   */
+  initial?: Partial<RunDetails>
 }
 
 /**
@@ -102,6 +108,7 @@ export function useRunLauncher(
     <RunDialog
       pipelineKey={target.pipelineKey}
       version={target.version}
+      initial={target.initial}
       busy={start.isPending}
       onClose={() => setTarget(null)}
       onSubmit={(details) => start.mutate({ target, details })}

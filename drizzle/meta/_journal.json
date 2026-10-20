@@ -3212,6 +3212,13 @@
       "when": 1799329776810,
       "tag": "0555_invitation_projects_and_reissue",
       "breakpoints": true
+    },
+    {
+      "idx": 556,
+      "version": "7",
+      "when": 1799416176810,
+      "tag": "0556_folder_rename_delete",
+      "breakpoints": true
     }
   ]
 }

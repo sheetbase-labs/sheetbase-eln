@@ -27,8 +27,11 @@ import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
 import { Select } from '#/components/v3/ui/select'
+import { ObjectLink } from '#/components/v3/ui/object-link'
 import {
   createProjectFolder,
+  deleteProjectFolder,
+  renameProjectFolder,
   fetchProjectFolders,
   fetchProjectMembers,
   moveRecordsToFolder,
@@ -109,6 +112,37 @@ function ProjectFolders() {
       ),
   })
 
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const rename = useMutation({
+    mutationFn: (name: string) => renameProjectFolder(current, name),
+    onSuccess: (folder: ProjectFolder) => {
+      invalidate()
+      setRenaming(false)
+      toast(`Folder renamed to “${folder.name}”`)
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : 'Could not rename the folder.',
+      ),
+  })
+  const remove = useMutation({
+    mutationFn: () => deleteProjectFolder(current),
+    onSuccess: () => {
+      invalidate()
+      setDeleting(false)
+      setCurrent(UNFILED)
+      toast('Folder deleted')
+    },
+    onError: (error: unknown) => {
+      setDeleting(false)
+      toast.error(
+        error instanceof Error ? error.message : 'Could not delete the folder.',
+      )
+    },
+  })
+
   const move = useMutation({
     mutationFn: (folderId: string | null) =>
       moveRecordsToFolder(projectId, [...selected], folderId),
@@ -187,7 +221,15 @@ function ProjectFolders() {
       id: 'name',
       header: 'Name',
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.title}</span>
+        <ObjectLink
+          kind={row.original.kind}
+          id={row.original.id}
+          identifier={row.original.identifier}
+          mono={false}
+          className="font-medium"
+        >
+          {row.original.title}
+        </ObjectLink>
       ),
     },
     {
@@ -264,12 +306,50 @@ function ProjectFolders() {
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto px-4 py-[18px] md:px-6">
+        <Select
+          aria-label="Folder"
+          className="lg:hidden"
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+        >
+          <option value={UNFILED}>Unfiled ({count(UNFILED)})</option>
+          {folders.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.name} ({count(f.id)})
+            </option>
+          ))}
+        </Select>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-section">{currentFolder?.name ?? 'Unfiled'}</h2>
           <span className="text-label text-fg-muted">
             {shown.length} {shown.length === 1 ? 'item' : 'items'}
           </span>
           <span className="flex-1" />
+          {canEdit && currentFolder ? (
+            <>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setRenameValue(currentFolder.name)
+                  setRenaming(true)
+                }}
+              >
+                Rename
+              </Button>
+              <Button
+                size="sm"
+                disabled={shown.length > 0}
+                title={
+                  shown.length
+                    ? 'Move the items out of this folder first'
+                    : undefined
+                }
+                onClick={() => setDeleting(true)}
+              >
+                Delete folder
+              </Button>
+            </>
+          ) : null}
           {selected.size ? (
             <span className="text-label text-fg-muted">
               {selected.size} selected
@@ -321,6 +401,49 @@ function ProjectFolders() {
           access; nothing that cites it breaks.
         </Muted>
       </div>
+
+      <Dialog open={renaming} onOpenChange={setRenaming}>
+        <DialogContent className="w-[min(420px,calc(100vw-32px))]">
+          <DialogHeader title="Rename folder" />
+          <DialogBody>
+            <Field label="Name" required>
+              <Input
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+              />
+            </Field>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <Button
+              variant="primary"
+              disabled={rename.isPending || !renameValue.trim()}
+              onClick={() => rename.mutate(renameValue.trim())}
+            >
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleting} onOpenChange={setDeleting}>
+        <DialogContent className="w-[min(420px,calc(100vw-32px))]">
+          <DialogHeader
+            title={`Delete “${currentFolder?.name ?? ''}”?`}
+            description="The folder is empty. Folders inside it move up one level."
+          />
+          <DialogFooter>
+            <DialogClose render={<Button />}>Cancel</DialogClose>
+            <Button
+              variant="primary"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate()}
+            >
+              Delete folder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={moving} onOpenChange={setMoving}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">

@@ -291,7 +291,9 @@ test.describe('DSET-05 import flow', () => {
     )
 
     await page.getByRole('button', { name: 'Import 5 rows' }).click()
-    await expect(page.getByText('Imported 5 rows')).toBeVisible()
+    // A committed import lands on its read-only receipt; the "Imported 5 rows"
+    // toast can be gone by the time the page has changed.
+    await expect(page.getByText('This import is committed')).toBeVisible()
 
     // Exactly one snapshot plus one import receipt; the rows landed.
     expect(
@@ -533,13 +535,11 @@ test.describe('DSET-05 import flow', () => {
           'Parser version approved. Retry the retained import using this exact version.',
         ),
       ).toBeVisible()
-      await settings.screenshot({
-        path: '.amp/in/artifacts/dset-06-settings-approved.png',
-        fullPage: true,
-      })
       await settings.close()
       await page.getByRole('button', { name: 'Import 5 rows' }).click()
-      await expect(page.getByText('Imported 5 rows')).toBeVisible()
+      // A retained import that commits lands on its read-only receipt; the
+      // toast that announces it can be gone by the time the page has changed.
+      await expect(page.getByText('This import is committed')).toBeVisible()
       const receipt = (
         await admin.query(
           'SELECT imported_row_ids, parser_provenance FROM api.dataset_imports WHERE dataset_id = $1',

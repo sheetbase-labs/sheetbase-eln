@@ -240,19 +240,24 @@ test('Home surfaces unavailable exact totals instead of zero or preview lengths'
     })
   })
   await page.goto('/')
-  await expect(page.getByRole('alert')).toContainText(
-    'Home could not be loaded',
-    { timeout: 20000 },
-  )
+  // Home degrades one section at a time: the counts say they are unavailable
+  // (a dash, never a zero or a preview length) and the rest of the page stays.
+  const notice = page.getByText('Part of Home could not be loaded.')
+  await expect(notice).toBeVisible({ timeout: 20000 })
+  await expect(page.getByText('Unavailable right now: Counts.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Summary' })).toHaveCount(0)
+  await expect(page.getByText('— datasets with errors')).toBeVisible()
+  await expect(page.getByText('0 datasets with errors')).toHaveCount(0)
+  await expect(
+    page.getByRole('heading', { name: 'Continue working' }),
+  ).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('home-count-error.png') })
   await page.unroute(unavailable)
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('navigation', { name: 'Summary' })).toBeVisible({
     timeout: 20000,
   })
-  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(notice).toHaveCount(0)
 })
 
 test('Home material attention opens the actual lot instead of the first registry row', async ({

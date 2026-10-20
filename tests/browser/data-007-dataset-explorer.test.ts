@@ -232,10 +232,11 @@ test.describe('DATA-007 dataset surfaces', () => {
     await expect(inspector).toContainText(DISPLAY_ID)
     await expect(inspector).toContainText(NAME)
     await expect(inspector).toContainText(String(summary.row_count))
+    // The inspector's primary action is always "Open dataset"; an issue adds
+    // its own fix actions beside it (set the unit, re-import) rather than
+    // renaming it.
     await expect(
-      inspector.getByRole('button', {
-        name: Number(summary.issue_count) > 0 ? 'Open and fix' : 'Open dataset',
-      }),
+      inspector.getByRole('button', { name: 'Open dataset' }),
     ).toBeVisible()
 
     // Search reads ID, name and model: one match narrows the list to it.

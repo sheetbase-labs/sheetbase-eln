@@ -14,6 +14,7 @@ import type { Page } from 'playwright/test'
 import { parseSheetInstanceState } from '#/lib/sheet-instance'
 import { createAdHocTextField } from '#/lib/sheet-local-data'
 import { grantFixtureProjectAccess } from '../api/project-fixtures'
+import { waitForHydration } from './journeys/helpers'
 import { signInAsDesignUser } from '../visual/sign-in'
 
 config({ path: ['.env.local', '.env'] })
@@ -806,6 +807,8 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
   }) => {
     await injectAuth(page)
     await page.goto('/search')
+    // Typing into the server-rendered form before React attaches is lost.
+    await waitForHydration(page)
     // An empty query is a prompt, not a browse listing: the design's Search
     // page renders its `EmptyState` and no results for `!q`
     // (sheetbase-app-ui-only/src/routes/_app/search.tsx:105-112), and the app

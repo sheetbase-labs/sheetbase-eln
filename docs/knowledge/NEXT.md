@@ -1,7 +1,7 @@
 ---
 title: Sheetbase Current Work
 status: canonical
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-20
 ---
 
 # Sheetbase — Current Work
@@ -13,6 +13,15 @@ all 86 original tasks and its evidence and limits still stand: task completion i
 not release acceptance, and the visual and browser layers are deferred to
 acceptance by the owner's instruction. The [Roadmap 4 handoff](roadmap-4/NEXT.md)
 and nod tracker own its queue.
+
+**Smooth-journeys work (19–20 October 2026).** After Roadmap 4, PRs #235–#244
+worked through the cross-page user-journey audit (158 journeys): one experiment
+frame, the Inbox as a work queue, bench and lab flows, dataset snapshots as
+analysis sources, compare across datasets, qualification requests, the
+conclusion block and server-side search. CORE-01..14 run as Playwright specs in
+`tests/browser/journeys/`. The October journey map predates that work, so
+re-check a journey against the current screens before treating it as open.
+This is source and local-test evidence, not release acceptance.
 
 [Roadmap 5](roadmap-5/README.md) is the proposed follow-on corpus — app-3
 interface closure, 21 tasks over six streams, audited at `10a84a42`. It is not

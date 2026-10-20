@@ -99,7 +99,7 @@ test('NAV-08 the New menu creates from where you are', async ({ page }) => {
 test('NAV-09 help opens for the page you are on', async ({ page }) => {
   await open(page, '/samples')
   await page.getByRole('button', { name: 'Help for this page' }).click()
-  await expect(page).toHaveURL(/\/help|\/docs/)
+  await expect(page.getByText('Help and shortcuts')).toBeVisible()
 })
 
 test('NAV-10 a phone gets the app without sideways scrolling', async ({

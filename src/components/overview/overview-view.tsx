@@ -226,6 +226,8 @@ export function ExperimentOverview({
   const collaboratorIds = propertyIds(properties, 'collaboratorIds')
   const reviewerId = propertyText(properties, 'reviewerId')
   const plannedEnd = propertyText(properties, 'plannedEnd')
+  const decision = propertyText(properties, 'decision')
+  const decisionNotes = propertyText(properties, 'decisionNotes')
   const clientId = propertyText(properties, 'clientId')
 
   return (
@@ -430,6 +432,12 @@ export function ExperimentOverview({
               ],
               ['Started', record.createdAt.slice(0, 10)],
               ['Planned end', plannedEnd ?? 'Not recorded'],
+              [
+                'Decision',
+                decision
+                  ? `${decision.charAt(0).toUpperCase()}${decision.slice(1)}${decisionNotes ? ` · ${decisionNotes}` : ''}`
+                  : 'Not recorded',
+              ],
             ]}
           />
         </InspectorSection>

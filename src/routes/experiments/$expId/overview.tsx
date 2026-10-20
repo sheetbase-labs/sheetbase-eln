@@ -82,6 +82,22 @@ function Overview() {
     },
   })
 
+  // Same read and key as the Results tab, so a decision recorded there is the
+  // one shown here.
+  const decision = useQuery({
+    queryKey: ['ui-port', 'experiment', 'decision', expId],
+    queryFn: async () =>
+      (
+        await notebookDataClient.list<{
+          decision: string | null
+          decision_notes: string | null
+        }>(
+          'records',
+          `?id=eq.${encodeURIComponent(expId)}&select=decision,decision_notes`,
+        )
+      ).at(0) ?? null,
+  })
+
   const project = useQuery({
     queryKey: ['ui-port', 'experiment-project', record?.project_id ?? ''],
     queryFn: () =>
@@ -97,6 +113,12 @@ function Overview() {
       ? { reviewerId: record.reviewer_user_id }
       : {}),
     ...(record?.planned_end ? { plannedEnd: record.planned_end } : {}),
+    ...(decision.data?.decision
+      ? {
+          decision: decision.data.decision,
+          decisionNotes: decision.data.decision_notes ?? '',
+        }
+      : {}),
   }
   const readinessData = readiness.data ?? null
   const signatureRows = signatures.data ?? []

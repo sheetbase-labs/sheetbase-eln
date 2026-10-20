@@ -276,19 +276,20 @@ export function createLiveEventCoordinator(
   }
 
   /**
-   * Notify subscribers after applying events at most once per microtask. A
-   * burst of durable events (for example a reconnect backlog) would otherwise
-   * call setState synchronously per event and can exceed React's nested-update
-   * limit. Status transitions still emit synchronously.
+   * Notify subscribers after applying events at most once per short window. A
+   * burst of durable events (a reconnect backlog can hold hundreds) would
+   * otherwise call setState once per event and exceed React's nested-update
+   * limit, even when each call is deferred by a microtask. Status transitions
+   * still emit synchronously.
    */
-  let eventEmitScheduled = false
+  const EVENT_EMIT_WINDOW_MS = 50
+  let eventEmitTimer: ReturnType<typeof setTimeout> | null = null
   function scheduleEventEmit(): void {
-    if (eventEmitScheduled) return
-    eventEmitScheduled = true
-    queueMicrotask(() => {
-      eventEmitScheduled = false
+    if (eventEmitTimer !== null) return
+    eventEmitTimer = setTimeout(() => {
+      eventEmitTimer = null
       emit()
-    })
+    }, EVENT_EMIT_WINDOW_MS)
   }
 
   /**
@@ -732,6 +733,10 @@ export function createLiveEventCoordinator(
         homeInvalidationTimer = null
       }
       pendingHomeQueries.clear()
+      if (eventEmitTimer !== null) {
+        clearTimeout(eventEmitTimer)
+        eventEmitTimer = null
+      }
       if (reconnectTimer) {
         clearTimeout(reconnectTimer)
         reconnectTimer = null

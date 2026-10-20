@@ -1,7 +1,7 @@
 import { config } from 'dotenv'
 import { Client } from 'pg'
 import { expect } from 'playwright/test'
-import type { Page } from 'playwright/test'
+import type { Locator, Page } from 'playwright/test'
 
 import { signInAsDesignUser } from '../../visual/sign-in'
 
@@ -102,4 +102,73 @@ export async function ensureEffectiveProtocol(
   } finally {
     await client.end()
   }
+}
+
+/** A Button-styled link is announced as a button; a plain link as a link. */
+export function action(page: Page, name: RegExp | string): Locator {
+  return page
+    .getByRole('link', { name })
+    .or(page.getByRole('button', { name }))
+    .first()
+}
+
+/** A database connection that bypasses row security, for fixtures only. */
+export async function withAdminDb<T>(
+  work: (client: Client) => Promise<T>,
+): Promise<T> {
+  const connectionString = process.env.MIGRATION_DATABASE_URL
+  if (!connectionString) throw new Error('MIGRATION_DATABASE_URL is required')
+  const client = new Client({ connectionString })
+  await client.connect()
+  try {
+    return await work(client)
+  } finally {
+    await client.end()
+  }
+}
+
+export interface FixtureUser {
+  id: string
+  name: string
+}
+
+/** Create a signed-in-able account that belongs to no workspace yet. */
+export async function createUser(name: string): Promise<FixtureUser> {
+  const id = `journey-${Math.random().toString(36).slice(2, 10)}`
+  await withAdminDb((db) =>
+    db.query(
+      `insert into internal."user"(id, name, email, "emailVerified")
+       values ($1, $2, $1 || '@sheetbase.test', true)`,
+      [id, name],
+    ),
+  )
+  return { id, name }
+}
+
+/** An empty workspace with one owner, the state a founder signs up into. */
+export async function createWorkspace(
+  owner: FixtureUser,
+  name: string,
+): Promise<string> {
+  const workspaceId = crypto.randomUUID()
+  await withAdminDb(async (db) => {
+    await db.query(
+      `insert into api.workspaces(id, slug, name) values ($1::uuid, $1::uuid::text, $2)`,
+      [workspaceId, name],
+    )
+    await db.query(
+      `insert into api.workspace_memberships(workspace_id, user_id, role) values ($1, $2, 'owner')`,
+      [workspaceId, owner.id],
+    )
+    await db.query(
+      `insert into api.workspace_settings(workspace_id, timezone, created_by_user_id) values ($1, 'Europe/London', $2)`,
+      [workspaceId, owner.id],
+    )
+  })
+  return workspaceId
+}
+
+/** Sign a fixture user in as the browser's session. */
+export async function signInAs(page: Page, user: FixtureUser): Promise<void> {
+  await signInAsDesignUser(page, user.id)
 }

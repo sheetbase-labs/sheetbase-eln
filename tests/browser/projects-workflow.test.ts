@@ -62,7 +62,11 @@ test('new project is created from the list and the list stays usable', async ({
   await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`))
   expect(new URL(page.url()).searchParams.get('new')).toBeNull()
   // The list is still usable and shows the new project when the person goes back.
-  await page.goto('/projects')
+  await page
+    .getByRole('navigation', { name: 'Main', exact: true })
+    .getByRole('link', { name: 'Projects', exact: true })
+    .click()
+  await expect(page).toHaveURL(/\/projects$/)
   await expect(
     page.getByRole('heading', { name: 'Projects', exact: true }),
   ).toBeVisible()

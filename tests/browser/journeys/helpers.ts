@@ -1,7 +1,11 @@
+import { config } from 'dotenv'
+import { Client } from 'pg'
 import { expect } from 'playwright/test'
 import type { Page } from 'playwright/test'
 
 import { signInAsDesignUser } from '../../visual/sign-in'
+
+config({ path: ['.env.local', '.env'] })
 
 /** Gareth owns the seeded design workspace the journeys run against. */
 export const DESIGN_USER = '00000000-0000-4000-8000-000000000310'
@@ -9,6 +13,30 @@ export const DESIGN_USER = '00000000-0000-4000-8000-000000000310'
 /** A name no seeded row uses, so a journey finds exactly what it created. */
 export function uniqueName(prefix: string): string {
   return `${prefix} ${Date.now().toString(36)}`
+}
+
+/**
+ * Wait until React has attached to the server-rendered page. A fill or click
+ * that lands before hydration is lost (the form resets, the click is inert),
+ * so every journey navigates through `open` rather than `page.goto`.
+ */
+export async function waitForHydration(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () =>
+      Array.from(document.querySelectorAll('main *, [role="dialog"] *'))
+        .slice(0, 200)
+        .some((el) =>
+          Object.keys(el).some((k) => k.startsWith('__reactProps')),
+        ),
+    undefined,
+    { timeout: 30_000 },
+  )
+}
+
+/** Navigate and wait for the page to be interactive. */
+export async function open(page: Page, url: string): Promise<void> {
+  await page.goto(url)
+  await waitForHydration(page)
 }
 
 export async function signIn(page: Page): Promise<void> {
@@ -20,7 +48,7 @@ export async function createProject(
   page: Page,
   title: string,
 ): Promise<string> {
-  await page.goto('/projects?new=true')
+  await open(page, '/projects?new=true')
   await page
     .getByLabel(/^title|^name/i)
     .first()
@@ -37,9 +65,41 @@ export async function createExperiment(
   title: string,
 ): Promise<string> {
   const projectId = projectPath.split('/').pop() ?? ''
-  await page.goto(`/experiments/new?project=${projectId}`)
+  await open(page, `/experiments/new?project=${projectId}`)
   await page.getByLabel(/^title/i).fill(title)
   await page.getByRole('button', { name: /create draft/i }).click()
   await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}\/notebook/)
   return new URL(page.url()).pathname.split('/')[2] ?? ''
+}
+
+/**
+ * Give a design protocol an effective version, which the seed leaves out (its
+ * one frozen version is in review), so a journey can start an experiment from
+ * it. Idempotent: an existing version is left alone.
+ */
+export async function ensureEffectiveProtocol(
+  protocolRecordId: string,
+): Promise<void> {
+  const connectionString = process.env.MIGRATION_DATABASE_URL
+  if (!connectionString) throw new Error('MIGRATION_DATABASE_URL is required')
+  const client = new Client({ connectionString })
+  await client.connect()
+  try {
+    await client.query(
+      `insert into api.protocol_versions
+         (id, workspace_id, protocol_record_id, version, status, reason,
+          change_summary, effective_at, created_by_user_id, updated_by_user_id)
+       select gen_random_uuid(), r.workspace_id, r.id, 1, 'effective',
+              'Journey fixture', 'Journey fixture', now(), $2, $2
+         from api.records r
+        where r.id = $1
+          and not exists (
+            select 1 from api.protocol_versions v
+             where v.protocol_record_id = r.id and v.status = 'effective')
+        on conflict (protocol_record_id, version) do nothing`,
+      [protocolRecordId, DESIGN_USER],
+    )
+  } finally {
+    await client.end()
+  }
 }

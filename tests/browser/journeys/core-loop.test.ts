@@ -10,10 +10,44 @@
  * built yet is expected to fail; that is what makes it the definition of done.
  */
 import { expect, test } from 'playwright/test'
+import type { Locator, Page } from 'playwright/test'
 
-import { createExperiment, createProject, signIn, uniqueName } from './helpers'
+import {
+  createExperiment,
+  createProject,
+  ensureEffectiveProtocol,
+  open,
+  signIn,
+  uniqueName,
+} from './helpers'
 
+/** A Button-styled link is announced as a button; a plain link as a link. */
+function action(page: Page, name: RegExp | string): Locator {
+  return page
+    .getByRole('link', { name })
+    .or(page.getByRole('button', { name }))
+    .first()
+}
+
+/** The experiment frame's section navigation. */
+function section(page: Page, name: string): Locator {
+  return page
+    .getByRole('navigation', { name: 'Experiment sections' })
+    .getByRole('link', { name: new RegExp(`^${name}\\b`) })
+}
+
+/** An effective protocol version is needed to start an experiment from one. */
+const EFFECTIVE_PROTOCOL = '00000000-0000-4000-8000-000000000390'
+const ELISA_DATASET = '00000000-0000-4000-8000-000000000381'
+
+// The dev server compiles each route on first visit, so a journey that crosses
+// several pages needs more than the default budget on a cold run.
+test.setTimeout(120_000)
 test.use({ viewport: { width: 1280, height: 900 } })
+
+test.beforeAll(async () => {
+  await ensureEffectiveProtocol(EFFECTIVE_PROTOCOL)
+})
 
 test.beforeEach(async ({ page }) => {
   await signIn(page)
@@ -21,9 +55,7 @@ test.beforeEach(async ({ page }) => {
 
 test('CORE-01 a new project opens on its own page', async ({ page }) => {
   const path = await createProject(page, uniqueName('Journey project'))
-  await expect(
-    page.getByRole('link', { name: /new experiment/i }),
-  ).toBeVisible()
+  await expect(action(page, /new experiment/i)).toBeVisible({ timeout: 60_000 })
   expect(path).toMatch(/^\/projects\//)
 })
 
@@ -31,22 +63,18 @@ test('CORE-02 a blank experiment from a project lands on its notebook and Cancel
   page,
 }) => {
   const projectPath = await createProject(page, uniqueName('Journey project'))
-  await page
-    .getByRole('link', { name: /new experiment/i })
-    .first()
-    .click()
-  await page.getByRole('link', { name: /^cancel$/i }).click()
+  await action(page, /new experiment/i).click()
+  await action(page, /^cancel$/i).click()
   await expect(page).toHaveURL(new RegExp(`${projectPath}$`))
   await createExperiment(page, projectPath, uniqueName('Blank run'))
-  await expect(page.getByRole('tab', { name: 'Notebook' })).toBeVisible()
+  await expect(section(page, 'Notebook')).toBeVisible()
 })
 
 test('CORE-03 an experiment started from a protocol opens with the protocol in its notebook', async ({
   page,
 }) => {
-  await page.goto('/protocols')
-  await page.getByRole('row').nth(1).click()
-  await page.getByRole('link', { name: /start an experiment/i }).click()
+  await open(page, `/protocols/${EFFECTIVE_PROTOCOL}`)
+  await action(page, /^start experiment$/i).click()
   await expect(page).toHaveURL(/\/experiments\/new\?.*protocol=/)
   await expect(page.getByLabel(/protocol version/i)).toBeVisible()
 })
@@ -56,24 +84,26 @@ test('CORE-04 an experiment can start from a template with the project kept', as
 }) => {
   const projectPath = await createProject(page, uniqueName('Journey project'))
   const projectId = projectPath.split('/').pop() ?? ''
-  await page.goto(`/experiments/new?project=${projectId}`)
-  await page.getByRole('button', { name: /template/i }).click()
-  await expect(page.getByLabel(/^project/i)).toHaveValue(projectId)
+  await open(page, `/experiments/new?project=${projectId}`)
+  await page.getByRole('button', { name: /a template/i }).click()
+  await expect(page.getByRole('combobox', { name: /^project/i })).toHaveValue(
+    projectId,
+  )
 })
 
-test('CORE-05 the notebook is a tab beside Overview, Links and Results on one page', async ({
+test('CORE-05 the notebook is a section beside Overview, Links and Results on one page', async ({
   page,
 }) => {
   const projectPath = await createProject(page, uniqueName('Journey project'))
   const expId = await createExperiment(page, projectPath, uniqueName('Frame'))
   for (const name of ['Overview', 'Links', 'Results', 'History']) {
-    await page.getByRole('tab', { name }).click()
+    await section(page, name).click()
     await expect(page).toHaveURL(new RegExp(`/experiments/${expId}/`))
   }
-  await page.getByRole('tab', { name: 'Notebook' }).click()
+  await section(page, 'Notebook').click()
   await expect(page).toHaveURL(new RegExp(`/experiments/${expId}/notebook`))
   // The record route for the same experiment ends up on the same frame.
-  await page.goto(`/records/${expId}/notebook`)
+  await open(page, `/records/${expId}/notebook`)
   await expect(page).toHaveURL(new RegExp(`/experiments/${expId}/notebook`))
 })
 
@@ -82,13 +112,16 @@ test('CORE-06 a sheet block in the notebook offers the full sheet with the trail
 }) => {
   const projectPath = await createProject(page, uniqueName('Journey project'))
   await createExperiment(page, projectPath, uniqueName('Sheet run'))
-  await page.getByRole('button', { name: /insert block/i }).click()
-  await page.getByRole('menuitem', { name: /^sheet/i }).click()
-  await page.getByRole('link', { name: /open full sheet/i }).click()
+  await page
+    .getByRole('button', { name: /insert block/i })
+    .first()
+    .click()
+  await page.getByRole('option', { name: /^sheet\b/i }).click()
+  await action(page, /open full sheet/i).click()
   await expect(page).toHaveURL(/\/sheets\//)
   await expect(
-    page.getByRole('navigation').getByRole('link').first(),
-  ).toBeVisible()
+    page.getByRole('navigation', { name: /breadcrumb/i }).getByRole('link'),
+  ).not.toHaveCount(0)
 })
 
 test('CORE-07 importing from an experiment links the dataset to it and offers the way back', async ({
@@ -100,18 +133,18 @@ test('CORE-07 importing from an experiment links the dataset to it and offers th
     projectPath,
     uniqueName('Import run'),
   )
-  await page.goto(`/experiments/${expId}/links`)
-  await page.getByRole('link', { name: /import data/i }).click()
+  await open(page, `/experiments/${expId}/links`)
+  await action(page, /import data/i).click()
   await expect(page).toHaveURL(new RegExp(`/import\\?.*experiment=${expId}`))
   await expect(page.getByLabel('Link to experiment')).toHaveValue(expId)
-  await page.getByRole('link', { name: /^cancel$/i }).click()
+  await action(page, /^cancel$/i).click()
   await expect(page).toHaveURL(new RegExp(`/experiments/${expId}`))
 })
 
 test('CORE-08 a column in a sheet can be promoted to a model', async ({
   page,
 }) => {
-  await page.goto('/sheets/new')
+  await open(page, '/sheets/new')
   await expect(page.getByRole('heading', { name: 'New sheet' })).toBeVisible()
   await page
     .getByRole('button', { name: /create blank sheet/i })
@@ -122,39 +155,45 @@ test('CORE-08 a column in a sheet can be promoted to a model', async ({
 test('CORE-09 a dataset snapshot can be referenced from the notebook', async ({
   page,
 }) => {
-  await page.goto('/datasets')
-  await page.getByRole('row').nth(1).click()
-  await page.getByRole('tab', { name: 'Snapshots' }).click()
-  await expect(
-    page.getByRole('button', { name: /cite in notebook/i }),
-  ).toBeVisible()
+  const projectPath = await createProject(page, uniqueName('Journey project'))
+  const title = uniqueName('Snapshot run')
+  const expId = await createExperiment(page, projectPath, title)
+  await open(page, `/datasets/${ELISA_DATASET}/snapshots`)
+  await action(page, /cite in (a )?notebook/i).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await dialog.getByRole('combobox').fill(title)
+  await dialog.getByText(title).first().click()
+  await dialog.getByRole('button', { name: /^cite$/i }).click()
+  await expect(page.getByText('Cited in a notebook')).toBeVisible()
+  await open(page, `/experiments/${expId}/links`)
+  await expect(page.getByRole('link', { name: 'DS-0311' })).toBeVisible()
 })
 
 test('CORE-10 a dataset offers Chart and Analyse on every tab, carrying the dataset', async ({
   page,
 }) => {
-  await page.goto('/datasets')
-  await page.getByRole('row').nth(1).click()
-  await page.getByRole('link', { name: 'Chart' }).click()
+  await open(page, `/datasets/${ELISA_DATASET}/snapshots`)
+  await action(page, 'Chart').click()
   await expect(page).toHaveURL(/\/analysis\/new\?.*mode=chart.*dataset=/)
 })
 
 test('CORE-11 a figure is cited into an experiment notebook and the toast opens it', async ({
   page,
 }) => {
-  await page.goto('/analysis/new?mode=chart')
-  await page.getByRole('button', { name: /cite in a notebook/i }).click()
-  await page.getByLabel(/caption/i).fill(uniqueName('Figure'))
+  await open(page, '/analysis/new?mode=chart')
+  await page.getByRole('tab', { name: 'Export' }).click()
+  await action(page, /cite in a notebook/i).click()
   await expect(page.getByRole('dialog')).toBeVisible()
+  await page.getByLabel(/caption/i).fill(uniqueName('Figure'))
 })
 
 test('CORE-12 a saved statistic can be put into the notebook from the studio', async ({
   page,
 }) => {
-  await page.goto('/analysis/new?mode=analyse')
-  await expect(
-    page.getByRole('button', { name: /cite in a notebook/i }),
-  ).toBeVisible()
+  await open(page, '/analysis/new?mode=analyse')
+  await page.getByRole('tab', { name: 'Export' }).click()
+  await expect(action(page, /cite in a notebook/i)).toBeVisible()
 })
 
 test('CORE-13 submit offers the reviewer chosen when the experiment was created', async ({
@@ -172,13 +211,17 @@ test('CORE-13 submit offers the reviewer chosen when the experiment was created'
 test('CORE-14 a reviewed notebook is signed from its own page', async ({
   page,
 }) => {
-  await page.goto('/inbox')
+  await open(page, '/inbox')
+  await page.getByRole('button', { name: /^reviews/i }).click()
   await page
-    .getByRole('link', { name: /review/i })
+    .getByRole('list', { name: 'Inbox items' })
+    .getByRole('button')
     .first()
     .click()
+  await page
+    .getByRole('complementary', { name: 'Item details' })
+    .getByRole('link', { name: /^open$/i })
+    .click()
   await expect(page).toHaveURL(/\/review\//)
-  await expect(
-    page.getByRole('link', { name: /open working notebook/i }),
-  ).toBeVisible()
+  await expect(action(page, /open working notebook/i)).toBeVisible()
 })

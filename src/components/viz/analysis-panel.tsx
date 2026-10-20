@@ -387,7 +387,7 @@ export function AnalysisPanel({
                       datasets: prev.definition.datasets.map(
                         ({ datasetId }) => ({ datasetId }),
                       ),
-                    } as AnalysisDefinition,
+                    },
                   }
                 : prev,
             )

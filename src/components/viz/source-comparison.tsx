@@ -300,7 +300,7 @@ export function SourceComparison({
           Could not read source B: {String(rowsB.error)}
         </Notice>
       ) : null}
-      {resolvedB === null && !rowsB.isLoading ? (
+      {rowsB.isSuccess && resolvedB === null ? (
         <Notice tone="warn">Source B is no longer available.</Notice>
       ) : null}
       {resolvedB?.truncated ? (

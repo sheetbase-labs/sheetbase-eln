@@ -72,10 +72,12 @@ import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
 import {
   fetchCanonicalDataset,
   fetchDatasetRows,
+  resolveDatasetRef,
   sciDataClient,
 } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import { fetchActiveDatasetFlags } from '#/lib/dataset-flags'
+import { SnapshotSourceBanner } from './snapshot-source-banner'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { insertBlock } from '#/lib/notebook-mutations'
 
@@ -100,6 +102,8 @@ export interface AnalysisPanelProps {
   userId: string
   /** The dataset the studio was opened with; the panel starts on it. */
   initialDatasetId?: string | null
+  /** A snapshot of that dataset to read instead of its live rows. */
+  initialSnapshotId?: string | null
   /** A saved statistic to open on, e.g. from the Analysis list. */
   initialDefinitionId?: string
   /** The experiment the studio was opened from; Cite offers it first. */
@@ -123,6 +127,7 @@ export function AnalysisPanel({
   workspaceId,
   userId,
   initialDatasetId,
+  initialSnapshotId,
   initialDefinitionId,
   experimentId,
 }: AnalysisPanelProps) {
@@ -132,6 +137,9 @@ export function AnalysisPanel({
     initialDatasetId && datasets.some((d) => d.datasetId === initialDatasetId)
       ? initialDatasetId
       : '',
+  )
+  const [snapshotId, setSnapshotId] = useState<string | null>(
+    initialSnapshotId ?? null,
   )
   const [citeOpen, setCiteOpen] = useState(false)
   const [draft, setDraft] = useState<DefinitionDraft>(emptyDraft)
@@ -151,8 +159,17 @@ export function AnalysisPanel({
   // Dataset rows for execution — read-only canonical rows through the same
   // /api/db boundary as every chart surface.
   const rowsQuery = useQuery({
-    queryKey: ['analysis-definition-rows', selectedDatasetId] as const,
+    queryKey: [
+      'analysis-definition-rows',
+      selectedDatasetId,
+      snapshotId,
+    ] as const,
     queryFn: async () => {
+      if (snapshotId)
+        return resolveDatasetRef(sciDataClient, {
+          datasetId: selectedDatasetId,
+          datasetVersionId: snapshotId,
+        })
       const source = await fetchCanonicalDataset(
         sciDataClient,
         selectedDatasetId,
@@ -220,7 +237,12 @@ export function AnalysisPanel({
     const first = numeric[0]
     const base = {
       definitionVersion: 1 as const,
-      datasets: [{ datasetId: selectedDataset.datasetId }],
+      datasets: [
+        {
+          datasetId: selectedDataset.datasetId,
+          ...(snapshotId ? { datasetVersionId: snapshotId } : {}),
+        },
+      ],
     }
     const definition: AnalysisDefinition =
       kind === 'descriptive'
@@ -248,6 +270,7 @@ export function AnalysisPanel({
       definition: def,
     })
     setSelectedDatasetId(def.datasets[0]?.datasetId ?? '')
+    setSnapshotId(def.datasets[0]?.datasetVersionId ?? null)
   }
 
   // Opened from the Analysis list: load that statistic once, when it arrives.
@@ -349,6 +372,28 @@ export function AnalysisPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+      {snapshotId && selectedDatasetId ? (
+        <SnapshotSourceBanner
+          datasetId={selectedDatasetId}
+          datasetVersionId={snapshotId}
+          onUseLive={() => {
+            setSnapshotId(null)
+            setDraft((prev) =>
+              prev.definition
+                ? {
+                    ...prev,
+                    definition: {
+                      ...prev.definition,
+                      datasets: prev.definition.datasets.map(
+                        ({ datasetId }) => ({ datasetId }),
+                      ),
+                    },
+                  }
+                : prev,
+            )
+          }}
+        />
+      ) : null}
       <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-44 flex-1">
@@ -364,6 +409,8 @@ export function AnalysisPanel({
               value={selectedDatasetId}
               onChange={(event) => {
                 setSelectedDatasetId(event.target.value)
+                // A snapshot belongs to one dataset.
+                setSnapshotId(null)
               }}
               className="h-8 bg-surface"
             >

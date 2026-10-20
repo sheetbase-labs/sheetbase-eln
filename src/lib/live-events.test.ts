@@ -151,6 +151,17 @@ describe('createLiveEventCoordinator', () => {
     expect(coordinator.getStatus().status).toBe('offline')
   })
 
+  it('opens a new stream when connect is called again after disconnect', () => {
+    const { coordinator, sources } = makeDeps()
+    coordinator.connect()
+    coordinator.disconnect()
+
+    coordinator.connect()
+
+    expect(sources).toHaveLength(2)
+    expect(coordinator.getStatus().status).toBe('connecting')
+  })
+
   it('applies other-tab block events by invalidating the blocks cache', () => {
     const { coordinator, qc, sources } = makeDeps()
     const spy = vi.spyOn(qc, 'invalidateQueries')

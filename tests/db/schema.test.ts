@@ -14,6 +14,7 @@ import {
   FIXTURE_WORKSPACE_ID,
 } from '#/db/seed/identities'
 import { fixtureSteps } from '#/db/seed/run'
+import { resolveDevUserId } from '#/lib/dev-identity'
 import { migratorUrl, prepareTestDatabase } from './helpers'
 
 const UNIQUE_VIOLATION = '23505'
@@ -50,8 +51,12 @@ describe('identity and workspace schema', () => {
       workspaces: 1,
       // The fixture seed owner plus the auth-free development identity it
       // grants owner membership to (`auth-free development workspace
-      // membership`), which the auth-free dev surface signs in as.
-      memberships: 2,
+      // membership`), which the auth-free dev surface signs in as. They are
+      // one row when SHEETBASE_DEV_USER_ID is the default fixture identity.
+      memberships:
+        resolveDevUserId(process.env.SHEETBASE_DEV_USER_ID) === FIXTURE_USER_ID
+          ? 1
+          : 2,
       projects: 1,
     })
   })

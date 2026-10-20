@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Link } from '@tanstack/react-router'
 
+import { RequestQualificationButton } from '#/components/v3/instruments/request-qualification-button'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
@@ -410,18 +411,28 @@ function BookingRefusal({
 }) {
   const qualification = code === 'SB115'
   return (
-    <p role="alert" className="m-0 text-label text-danger-text">
-      {qualification
-        ? `You are not qualified to run ${instrument.name}. A workspace owner can grant that on the instrument record.`
-        : `${instrument.name}’s calibration is overdue, so it can’t be booked until a new calibration is recorded.`}{' '}
-      <Link
-        to="/instruments/$instrumentId"
-        params={{ instrumentId: instrument.id }}
-        search={qualification ? undefined : { record: '1' }}
-        className="underline"
-      >
-        {qualification ? 'Open the instrument' : 'Record the calibration'}
-      </Link>
-    </p>
+    <div role="alert" className="flex flex-col gap-1.5">
+      <p className="m-0 text-label text-danger-text">
+        {qualification
+          ? `You are not qualified to run ${instrument.name}. A workspace owner can grant that on the instrument record.`
+          : `${instrument.name}’s calibration is overdue, so it can’t be booked until a new calibration is recorded.`}{' '}
+        <Link
+          to="/instruments/$instrumentId"
+          params={{ instrumentId: instrument.id }}
+          search={qualification ? undefined : { record: '1' }}
+          className="underline"
+        >
+          {qualification ? 'Open the instrument' : 'Record the calibration'}
+        </Link>
+      </p>
+      {qualification ? (
+        <div>
+          <RequestQualificationButton
+            instrumentId={instrument.id}
+            instrumentName={instrument.name}
+          />
+        </div>
+      ) : null}
+    </div>
   )
 }

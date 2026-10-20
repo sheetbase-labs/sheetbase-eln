@@ -50,6 +50,12 @@ import {
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { hasCapability } from '#/lib/capability'
 import { ParserFollowUpNotice } from '#/components/v3/instruments/parser-follow-up'
+import { RequestQualificationButton } from '#/components/v3/instruments/request-qualification-button'
+import {
+  dismissQualificationRequest,
+  fetchOpenQualificationRequests,
+  qualificationRequestsQueryKey,
+} from '#/lib/instrument-qualification-requests'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import {
@@ -333,7 +339,23 @@ function InstrumentPage() {
       ),
     staleTime: 60_000,
   })
+  // People who have asked to be qualified: an owner sees everyone's open
+  // requests, anyone else only their own (the table's policy decides).
+  const openRequests = useQuery({
+    queryKey: qualificationRequestsQueryKey(instrumentId),
+    enabled: instrumentId.length > 0,
+    queryFn: () =>
+      fetchOpenQualificationRequests(notebookDataClient, instrumentId),
+    staleTime: 15_000,
+  })
+  const requestRows = openRequests.data ?? []
+  const myUserId = context.user.id
+  const iAmQualified = qualificationRows.some(
+    (row) => row.user_id === myUserId && row.current,
+  )
+  const iHaveAsked = requestRows.some((row) => row.user_id === myUserId)
   const names = useUserNames([
+    ...requestRows.map((row) => row.user_id),
     ...calibrationRows.flatMap((c) =>
       c.performedByUserId ? [c.performedByUserId] : [],
     ),
@@ -390,6 +412,23 @@ function InstrumentPage() {
     },
     onError: (error: unknown) => {
       toast('Could not grant the qualification', {
+        description:
+          error instanceof Error ? error.message : 'The database refused it.',
+      })
+    },
+  })
+
+  const dismissRequest = useMutation({
+    mutationFn: (requestId: string) =>
+      dismissQualificationRequest(notebookDataClient, requestId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: qualificationRequestsQueryKey(instrumentId),
+      })
+      toast('Request dismissed')
+    },
+    onError: (error: unknown) => {
+      toast('Could not dismiss the request', {
         description:
           error instanceof Error ? error.message : 'The database refused it.',
       })
@@ -645,6 +684,46 @@ function InstrumentPage() {
               current qualification.
             </Muted>
           )}
+          {canQualify && requestRows.length ? (
+            <div className="mt-2 flex flex-col gap-1.5">
+              <h3 className="m-0 text-label font-medium text-fg">
+                Waiting to be qualified
+              </h3>
+              {requestRows.map((request) => (
+                <div
+                  key={request.id}
+                  className="flex flex-wrap items-center gap-2 text-body"
+                >
+                  <span className="font-medium text-fg">
+                    {names.userLabel(request.user_id)}
+                  </span>
+                  {request.note ? (
+                    <span className="text-fg-muted">{request.note}</span>
+                  ) : null}
+                  <span className="ml-auto flex gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => {
+                        setGrantUser(request.user_id)
+                        setGrantScope(scope ?? '')
+                        setGrantOpen(true)
+                      }}
+                    >
+                      Qualify
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={dismissRequest.isPending}
+                      onClick={() => dismissRequest.mutate(request.id)}
+                    >
+                      Dismiss
+                    </Button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
           {canQualify ? (
             <div className="mt-1.5">
               <Button
@@ -659,10 +738,26 @@ function InstrumentPage() {
               </Button>
             </div>
           ) : (
-            <Muted className="mt-1.5">
-              A workspace owner grants and revokes qualifications. Booking this
-              instrument requires one that has not expired.
-            </Muted>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              <Muted>
+                A workspace owner grants and revokes qualifications. Booking
+                this instrument requires one that has not expired.
+              </Muted>
+              {iAmQualified || !canRecord ? null : (
+                <div>
+                  <RequestQualificationButton
+                    instrumentId={instrumentId}
+                    instrumentName={i.name}
+                    alreadyRequested={iHaveAsked}
+                    onRequested={() =>
+                      void queryClient.invalidateQueries({
+                        queryKey: qualificationRequestsQueryKey(instrumentId),
+                      })
+                    }
+                  />
+                </div>
+              )}
+            </div>
           )}
         </Section>
 

@@ -40,6 +40,7 @@ import {
   isRichTextPayload,
   richTextToPlainText,
 } from './rich-text'
+import { EMPTY_CONCLUSION_PAYLOAD } from '../conclusion-block'
 import {
   EMPTY_CORRECTIVE_ACTIONS_PAYLOAD,
   EMPTY_SIGNATURE_REQUEST_PAYLOAD,
@@ -68,6 +69,7 @@ export type BlockType =
   | 'pipeline_output'
   | 'signature_request'
   | 'corrective_actions'
+  | 'conclusion'
 
 /**
  * The allow-list, in the order `chk_blocks_type` names them. A type not in this
@@ -91,6 +93,7 @@ export const BLOCK_TYPES: readonly BlockType[] = [
   'pipeline_output',
   'signature_request',
   'corrective_actions',
+  'conclusion',
 ]
 
 /** Membership index for the allow-list; each key is a stored block type. */
@@ -222,6 +225,15 @@ export const BLOCK_PICKER_OPTIONS: readonly BlockPickerOption[] = [
     icon: 'info',
     group: 'writing',
     aliases: ['note', 'warning', 'banner', 'aside', 'info'],
+  },
+  {
+    type: 'conclusion',
+    label: 'Conclusion',
+    description:
+      'What the experiment found: the finding, whether it supports the question, and what it rests on.',
+    icon: 'check',
+    group: 'writing',
+    aliases: ['result', 'finding', 'outcome', 'summary', 'verdict'],
   },
   {
     type: 'file',
@@ -369,6 +381,12 @@ export const BLOCK_DESCRIPTORS: Record<BlockType, BlockDescriptor> = {
     // is still read-only on purpose — see the note in `block-editor.tsx`.
     editable: true,
     defaultPayload: () => ({}),
+  },
+  conclusion: {
+    editable: true,
+    defaultPayload: () => ({ ...EMPTY_CONCLUSION_PAYLOAD }),
+    summary: (payload) =>
+      typeof payload.text === 'string' && payload.text ? payload.text : '',
   },
   table: { editable: false, defaultPayload: () => ({}) },
   sheet: { editable: false, defaultPayload: () => ({}) },

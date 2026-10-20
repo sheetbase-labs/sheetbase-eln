@@ -37,7 +37,7 @@ import { buildFlagIndex, isValueFlagged } from './dataset-flags'
 import type { DatasetValueFlag } from './dataset-flags'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 
-import type { ChartColumn, ChartSpec } from './chart-spec'
+import type { ChartColumn, ChartSpec, DatasetRef } from './chart-spec'
 
 export const ANALYSIS_DEFINITION_VERSION = 1 as const
 export const ANALYSIS_KINDS = ['descriptive', 'regression'] as const
@@ -161,7 +161,7 @@ export interface AnalysisFieldBinding {
 interface AnalysisDefinitionBase {
   definitionVersion: typeof ANALYSIS_DEFINITION_VERSION
   /** Exactly one input dataset; multi-dataset composition is out of scope. */
-  datasets: { datasetId: string }[]
+  datasets: DatasetRef[]
   /**
    * A chart shown beside the statistic. It reads the same single dataset; the
    * freeze pins one Dataset Version that proves both. Absent on definitions
@@ -196,7 +196,7 @@ export type AnalysisDefinition = DescriptiveDefinition | RegressionDefinition
 /** A saved analysis that is only a chart. */
 export interface ChartDefinition {
   definitionVersion: typeof ANALYSIS_DEFINITION_VERSION
-  datasets: { datasetId: string }[]
+  datasets: DatasetRef[]
   kind: 'chart'
   chart: ChartSpec
 }

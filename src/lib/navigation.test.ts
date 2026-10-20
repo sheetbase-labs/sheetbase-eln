@@ -53,6 +53,12 @@ describe('canonical navigation destinations', () => {
     )
   })
 
+  it('opens a project, a pipeline or an analysis hit on its own page', () => {
+    expect(searchResultDestination('project', 'p-1')).toBe('/projects/p-1')
+    expect(searchResultDestination('pipeline', 'pl-1')).toBe('/pipelines/pl-1')
+    expect(searchResultDestination('analysis', 'a-1')).toBe('/analysis/a-1')
+  })
+
   it('encodes IDs without depending on display labels', () => {
     expect(recordPath('stable/id')).toBe('/records/stable%2Fid')
   })

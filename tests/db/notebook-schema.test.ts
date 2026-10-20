@@ -231,6 +231,25 @@ describe('notebook domain schema', () => {
     ])
   })
 
+  it('accepts a conclusion block', async () => {
+    const recordId = await createRecord('experiment', 'EXP-2025-0111')
+    const [inserted] = await db
+      .insert(schema.blocks)
+      .values({
+        recordId,
+        type: 'conclusion',
+        payload: {
+          text: 'Titre fell below spec by day 14.',
+          verdict: 'supported',
+          basis: 'Welch t-test',
+        },
+        order: 1,
+        createdByUserId: OWNER,
+      })
+      .returning({ type: schema.blocks.type })
+    expect(inserted?.type).toBe('conclusion')
+  })
+
   it('rejects duplicate block order within a record', async () => {
     const recordId = await createRecord('experiment', 'EXP-2025-0101')
     await db.insert(schema.blocks).values({

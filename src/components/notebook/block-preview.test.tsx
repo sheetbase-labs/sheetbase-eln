@@ -399,3 +399,26 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
     expect(screen.queryByText('Dataset 1')).toBeNull()
   })
 })
+
+describe('BlockPreview conclusion', () => {
+  it('shows the finding with its verdict and what it is based on', () => {
+    render(
+      <BlockPreview
+        block={block('conclusion', {
+          text: 'The vector is stable to day 21.',
+          verdict: 'supported',
+          basis: 'Potency assay, three lots',
+        })}
+      />,
+    )
+    expect(screen.getByText('The vector is stable to day 21.')).toBeTruthy()
+    expect(screen.getByText('Supported')).toBeTruthy()
+    expect(screen.getByText('Potency assay, three lots')).toBeTruthy()
+  })
+
+  it('says so when no conclusion has been written', () => {
+    render(<BlockPreview block={block('conclusion', {})} />)
+    expect(screen.getByText('No conclusion written.')).toBeTruthy()
+    expect(screen.getByText('Inconclusive')).toBeTruthy()
+  })
+})

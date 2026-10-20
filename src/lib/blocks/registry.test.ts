@@ -62,6 +62,7 @@ describe('editable types', () => {
       'pipeline_output',
       'signature_request',
       'corrective_actions',
+      'conclusion',
     ])
     for (const type of ['table', 'sheet'] as const) {
       expect(isEditableBlockType(type)).toBe(false)

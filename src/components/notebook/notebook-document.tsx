@@ -1404,6 +1404,7 @@ function blockLabel(block: NotebookBlockData): string {
     pipeline_output: 'Pipeline output',
     signature_request: 'Signature request',
     corrective_actions: 'Corrective actions',
+    conclusion: 'Conclusion',
   }
   return map[block.type] ?? block.type
 }

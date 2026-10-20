@@ -53,6 +53,12 @@ import {
 } from './callout-styles'
 import type { CalloutVariant } from './callout-styles'
 import {
+  CONCLUSION_VERDICT_LABELS,
+  CONCLUSION_VERDICTS,
+  conclusionVerdictOf,
+} from '#/lib/conclusion-block'
+import type { ConclusionVerdict } from '#/lib/conclusion-block'
+import {
   Trash2,
   File as FileIcon,
   Image as ImageIcon,
@@ -220,6 +226,8 @@ function BlockEditorBody(props: BlockEditorProps) {
       return <ChecklistEditor {...props} />
     case 'callout':
       return <CalloutEditor {...props} />
+    case 'conclusion':
+      return <ConclusionEditor {...props} />
     case 'metric':
       return <MetricEditor {...props} />
     case 'linked_record':
@@ -836,6 +844,108 @@ function CalloutEditor({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+      <AutosaveFooter
+        status={a.status}
+        error={a.error}
+        validationErrors={a.validationErrors}
+        explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
+        serverPreview={summarizeBlockPayload(
+          block.type,
+          (a.serverValue ?? {}) as Record<string, unknown>,
+        )}
+        onUseServer={() => a.discardDraft()}
+        onKeepLocal={() => a.retry()}
+        retrying={a.status === 'saving'}
+      />
+    </div>
+  )
+}
+
+interface ConclusionDraft {
+  text: string
+  verdict: ConclusionVerdict
+  basis: string
+}
+
+function ConclusionEditor({
+  block,
+  save,
+  offline,
+  onStatusChange,
+  className,
+  autoFocus,
+}: BlockEditorProps) {
+  const initialDraft = React.useMemo<ConclusionDraft>(() => {
+    const payload = block.payload as {
+      text?: unknown
+      verdict?: unknown
+      basis?: unknown
+    }
+    return {
+      text: typeof payload.text === 'string' ? payload.text : '',
+      verdict: conclusionVerdictOf(payload.verdict),
+      basis: typeof payload.basis === 'string' ? payload.basis : '',
+    }
+  }, [block.payload])
+  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
+
+  return (
+    <div className={className}>
+      <div className="space-y-2 rounded-md border border-border px-3.5 py-2.5 text-sm leading-6">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-fg-muted">
+            Conclusion
+          </span>
+          <Select
+            aria-label="Verdict"
+            value={a.draft.verdict}
+            onChange={(event) => {
+              a.setTouched(true)
+              a.setDraft({
+                ...a.draft,
+                verdict: conclusionVerdictOf(event.target.value),
+              })
+            }}
+            className="w-auto"
+          >
+            {CONCLUSION_VERDICTS.map((verdict) => (
+              <option key={verdict} value={verdict}>
+                {CONCLUSION_VERDICT_LABELS[verdict]}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <label className="sr-only" htmlFor={`conclusion-text-${block.id}`}>
+          Conclusion text
+        </label>
+        <textarea
+          id={`conclusion-text-${block.id}`}
+          value={a.draft.text}
+          autoFocus={autoFocus}
+          rows={2}
+          placeholder="What the experiment found"
+          onChange={(event) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, text: event.target.value })
+          }}
+          onBlur={() => a.flush()}
+          className="block w-full resize-none border-0 bg-transparent p-0 text-sm leading-6 text-fg outline-none field-sizing-content placeholder:text-fg-faint focus:ring-0"
+        />
+        <label className="sr-only" htmlFor={`conclusion-basis-${block.id}`}>
+          Based on
+        </label>
+        <input
+          id={`conclusion-basis-${block.id}`}
+          value={a.draft.basis}
+          placeholder="Based on (the result or analysis this rests on)"
+          onChange={(event) => {
+            a.setTouched(true)
+            a.setDraft({ ...a.draft, basis: event.target.value })
+          }}
+          onBlur={() => a.flush()}
+          className="block w-full border-0 bg-transparent p-0 text-xs text-fg-muted outline-none placeholder:text-fg-faint focus:ring-0"
+        />
       </div>
       <AutosaveFooter
         status={a.status}

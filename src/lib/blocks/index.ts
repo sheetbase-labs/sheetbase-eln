@@ -18,6 +18,7 @@ import { isBlockType } from './registry'
 import type { BlockType } from './registry'
 import { validateAnalysisBlockPayload } from '../analysis-block'
 import { validateChartPayload } from '../chart-spec'
+import { CONCLUSION_VERDICTS } from '../conclusion-block'
 import { validatePlateMapPayload } from '../plate-map'
 import {
   validateCorrectiveActions,
@@ -376,6 +377,41 @@ function validateCallout(payload: unknown): FieldErrors {
       code: 'invalid_field_value',
       field: 'variant',
       message: 'variant must be one of info, warning, note, danger',
+    })
+  }
+  return errors
+}
+
+function validateConclusion(payload: unknown): FieldErrors {
+  const errors: FieldErrors = []
+  if (!isObject(payload))
+    return [
+      { code: 'invalid_payload_shape', message: 'payload must be an object' },
+    ]
+  // A new conclusion starts empty, like a new callout draft: the text is
+  // written after the block is inserted, so it is typed but not required.
+  if (payload.text !== undefined && !isString(payload.text)) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'text',
+      message: 'text must be a string',
+    })
+  }
+  if (
+    payload.verdict !== undefined &&
+    !CONCLUSION_VERDICTS.some((verdict) => verdict === payload.verdict)
+  ) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'verdict',
+      message: `verdict must be one of ${CONCLUSION_VERDICTS.join(', ')}`,
+    })
+  }
+  if (payload.basis !== undefined && !isString(payload.basis)) {
+    errors.push({
+      code: 'invalid_field_value',
+      field: 'basis',
+      message: 'basis must be a string',
     })
   }
   return errors
@@ -820,6 +856,7 @@ const validators: Record<BlockType, (payload: unknown) => FieldErrors> = {
   checklist: validateChecklist,
   linked_record: validateLinkedRecord,
   callout: validateCallout,
+  conclusion: validateConclusion,
   table: validateTable,
   sheet: validateSheet,
   chart: validateChart,

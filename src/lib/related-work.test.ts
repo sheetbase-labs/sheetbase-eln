@@ -94,6 +94,7 @@ const on = (
 
 describe('link reasons', () => {
   it('labels outgoing links by relationship', () => {
+    expect(outgoingLinkReason('booking', 'CAL-0913')).toBe('Booked CAL-0913')
     expect(outgoingLinkReason('general', 'EXP-2')).toBe('Linked to EXP-2')
     expect(outgoingLinkReason('template', 'T-1')).toBe(
       'Created from template T-1',

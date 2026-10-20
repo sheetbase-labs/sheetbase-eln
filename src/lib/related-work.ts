@@ -115,6 +115,8 @@ export function outgoingLinkReason(
       return `Uses protocol ${identifier}`
     case 'file':
       return `Has file ${identifier}`
+    case 'booking':
+      return `Booked ${identifier}`
     case 'general':
       return `Linked to ${identifier}`
     default: {

@@ -19,6 +19,7 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
+import { CiteSnapshotDialog } from '#/components/v3/datasets/cite-snapshot-dialog'
 import {
   Dialog,
   DialogBody,
@@ -127,6 +128,7 @@ function Snapshots() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [compareWith, setCompareWith] = useState<string | null>(null)
   const [keepTarget, setKeepTarget] = useState<SnapshotVersion | null>(null)
+  const [citeTarget, setCiteTarget] = useState<SnapshotVersion | null>(null)
   const current = rows.find((v) => v.id === selected) ?? rows.at(0)
   const index = current ? rows.indexOf(current) : -1
   const previous = index >= 0 ? rows[index + 1] : undefined
@@ -373,6 +375,42 @@ function Snapshots() {
               )}
             </div>
           </InspectorSection>
+          {canWrite && !tombstone ? (
+            <InspectorSection title="Notebook">
+              <div className="flex flex-col gap-1.5">
+                <Muted>
+                  Reference this exact snapshot from an experiment’s notebook.
+                </Muted>
+                <Button size="sm" onClick={() => setCiteTarget(current)}>
+                  Cite in a notebook…
+                </Button>
+              </div>
+            </InspectorSection>
+          ) : null}
+          {!tombstone ? (
+            <InspectorSection title="Analysis">
+              <div className="flex flex-col gap-1.5">
+                <Muted>
+                  Chart or analyse the rows exactly as this snapshot holds them.
+                  They do not change when the dataset does.
+                </Muted>
+                <Link
+                  to="/analysis/new"
+                  search={{
+                    dataset: datasetId,
+                    snapshot: current.id,
+                    mode: 'analyse',
+                  }}
+                  className={cn(
+                    buttonVariants({ variant: 'secondary', size: 'sm' }),
+                    'justify-center',
+                  )}
+                >
+                  Analyse this snapshot
+                </Link>
+              </div>
+            </InspectorSection>
+          ) : null}
           <InspectorSection title="Content hash">
             {tombstone ? (
               <Muted>
@@ -474,6 +512,14 @@ function Snapshots() {
           if (keepTarget) keep.mutate({ version: keepTarget, reason })
         }}
       />
+
+      {citeTarget ? (
+        <CiteSnapshotDialog
+          datasetId={datasetId}
+          snapshot={citeTarget}
+          onClose={() => setCiteTarget(null)}
+        />
+      ) : null}
     </>
   )
 }

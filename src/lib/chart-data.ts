@@ -32,6 +32,7 @@ import type { DatasetValueFlag } from './dataset-flags'
 import type {
   ChartColumn,
   ChartSpec,
+  DatasetRef,
   FacetedChart,
   FrozenChart,
   MaterialisedChart,
@@ -249,13 +250,53 @@ export async function resolveChartDataset(
   spec: ChartSpec | null | undefined,
 ): Promise<ResolvedDataset | null> {
   if (!spec || spec.datasets.length === 0) return null
-  const source = await fetchCanonicalDataset(client, spec.datasets[0].datasetId)
+  return resolveDatasetRef(client, spec.datasets[0])
+}
+
+/**
+ * The rows a Dataset reference names: the live rows, or the frozen rows of the
+ * snapshot when it pins a Dataset Version. Columns always come from the
+ * dataset, so a snapshot older than a column reports that field as missing
+ * rather than plotting nothing silently. Flags are live review state and do not
+ * apply to a snapshot, whose values are fixed.
+ */
+export async function resolveDatasetRef(
+  client: DataClient,
+  ref: DatasetRef,
+): Promise<ResolvedDataset | null> {
+  const source = await fetchCanonicalDataset(client, ref.datasetId)
   if (!source) return null
+  if (ref.datasetVersionId) {
+    const paged = await fetchDatasetVersionRows(client, ref.datasetVersionId)
+    return { source, ...paged, flags: [] }
+  }
   const [paged, flags] = await Promise.all([
     fetchDatasetRows(client, source.datasetId),
     fetchActiveDatasetFlags(client, source.datasetId),
   ])
   return { source, ...paged, flags }
+}
+
+/** A snapshot's rows (fieldId-keyed) up to SCI_ANALYSIS_ROW_LIMIT. */
+export async function fetchDatasetVersionRows(
+  client: DataClient,
+  datasetVersionId: string,
+): Promise<{
+  rows: Record<string, unknown>[]
+  totalCount: number
+  truncated: boolean
+}> {
+  return fetchRowsPaged((limit, offset) =>
+    queryDatasetVersionRows(client, datasetVersionId, limit, offset).then(
+      (page) => ({
+        rows: page.rows.map((row) => ({
+          ...row.values,
+          [CHART_ROW_ID_KEY]: row.rowId,
+        })),
+        totalCount: page.totalCount,
+      }),
+    ),
+  )
 }
 
 /**
@@ -455,8 +496,13 @@ export async function fetchFrozenAnalysisRows(
  */
 export function useLiveChartDataset(spec: ChartSpec | null | undefined) {
   const datasetId = spec?.datasets[0]?.datasetId ?? ''
+  const datasetVersionId = spec?.datasets[0]?.datasetVersionId ?? null
   const datasetQuery = useQuery({
-    queryKey: [chartQueryKeys.dataset(datasetId), spec?.filters.length ?? 0],
+    queryKey: [
+      chartQueryKeys.dataset(datasetId),
+      spec?.filters.length ?? 0,
+      datasetVersionId,
+    ],
     queryFn: () => resolveChartDataset(sciDataClient, spec),
     enabled: Boolean(datasetId),
   })

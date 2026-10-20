@@ -47,6 +47,7 @@ const LEFT_OUT_LABEL: Record<string, string> = {
   pipeline_output: 'pipeline output',
   signature_request: 'signature request',
   corrective_actions: 'corrective actions block',
+  conclusion: 'conclusion',
 }
 
 function plural(count: number, noun: string): string {

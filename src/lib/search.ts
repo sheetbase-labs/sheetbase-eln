@@ -50,7 +50,15 @@ export interface SearchResultWire {
 // ---------------------------------------------------------------------------
 
 export type SearchResultType =
-  'record' | 'file' | 'dataset' | 'sheet' | 'template' | 'comment'
+  | 'record'
+  | 'file'
+  | 'dataset'
+  | 'sheet'
+  | 'template'
+  | 'comment'
+  | 'project'
+  | 'pipeline'
+  | 'analysis'
 
 /** Object classes the global search covers. */
 export const SEARCH_RESULT_TYPES = [
@@ -60,6 +68,9 @@ export const SEARCH_RESULT_TYPES = [
   'sheet',
   'template',
   'comment',
+  'project',
+  'pipeline',
+  'analysis',
 ] as const
 
 export type MatchedField =
@@ -75,29 +86,8 @@ export type MatchedField =
   | 'relationship'
   | 'description'
 
-/**
- * Work objects the `api.search` RPC does not index. They are found by name and
- * identifier through `src/lib/search-work-objects.ts` and shown beside the RPC
- * rows, so a person looking for a project, a pipeline or an analysis finds it.
- */
-export const WORK_OBJECT_RESULT_TYPES = [
-  'project',
-  'pipeline',
-  'analysis',
-] as const
-
-export type WorkObjectResultType = (typeof WORK_OBJECT_RESULT_TYPES)[number]
-
-export function isWorkObjectResult(result: {
-  resultType: string
-}): result is { resultType: WorkObjectResultType } {
-  return (WORK_OBJECT_RESULT_TYPES as readonly string[]).includes(
-    result.resultType,
-  )
-}
-
 export interface SearchResult {
-  resultType: SearchResultType | WorkObjectResultType
+  resultType: SearchResultType
   /** Object-class identity; comment hits carry a Comment UUID, not a Record UUID. */
   recordId: string
   kind: string
@@ -116,7 +106,7 @@ export interface SearchResult {
   totalCount: number
 }
 
-/** A row the `api.search` RPC returned, as opposed to a work object. */
+/** A search result; kept as a named alias for callers that cite the RPC row. */
 export type RpcSearchResult = SearchResult & { resultType: SearchResultType }
 
 // ---------------------------------------------------------------------------
@@ -639,6 +629,13 @@ export function extractBlockText(
       return extractFromArrayField(payload, 'items', ['text'])
     case 'callout':
       return extractStringField(payload, 'text')
+    case 'conclusion':
+      return [
+        extractStringField(payload, 'text'),
+        extractStringField(payload, 'basis'),
+      ]
+        .filter(Boolean)
+        .join(' ')
     case 'procedure_step':
       return [
         extractStringField(payload, 'text'),

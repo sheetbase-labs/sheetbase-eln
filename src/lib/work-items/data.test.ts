@@ -95,6 +95,7 @@ describe('countByKind', () => {
       item({ kind: 'witness_requested' }),
       item({ kind: 'review_returned' }),
       item({ kind: 'calibration_overdue' }),
+      item({ kind: 'qualification_requested' }),
     ])
     expect(counts).toEqual({
       review_requested: 2,
@@ -117,6 +118,8 @@ describe('countByKind', () => {
       sample_awaiting_release: 0,
       sample_hold_exceeded: 0,
       calibration_overdue: 1,
+      qualification_requested: 1,
+      qualification_granted: 0,
       following: 1,
     })
   })
@@ -136,6 +139,8 @@ describe('toWorkItem for the waiting states', () => {
     'sample_awaiting_release',
     'sample_hold_exceeded',
     'calibration_overdue',
+    'qualification_requested',
+    'qualification_granted',
   ])(
     'keeps %s as its own kind instead of folding it into Following',
     (kind) => {

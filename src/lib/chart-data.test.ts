@@ -14,6 +14,7 @@ import {
   materialiseFrozenChart,
   materialiseFrozenFacets,
   materialiseLiveChart,
+  resolveDatasetRef,
 } from './chart-data'
 import type { CanonicalDatasetSource, ResolvedDataset } from './chart-data'
 import { CHART_PALETTE } from './chart-spec'
@@ -217,6 +218,56 @@ describe('fetchFrozenAnalysisRows', () => {
     await expect(
       fetchFrozenAnalysisRows(client, 'ver-1', SCI_ANALYSIS_ROW_LIMIT + 1),
     ).rejects.toThrow(/ceiling/)
+  })
+})
+
+describe('resolveDatasetRef on a snapshot', () => {
+  it('reads the snapshot rows, not the live rows, and carries no live flags', async () => {
+    const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const client = {
+      list: async (table: string) =>
+        table === 'datasets'
+          ? [
+              {
+                id: DATASET_ID,
+                workspace_id: 'ws-1',
+                schema_version_id: 'sv-1',
+                name: 'Stability readings',
+                lifecycle: 'active',
+                revision: 4,
+              },
+            ]
+          : [],
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        rpcCalls.push({ name, args })
+        return {
+          rows: [{ rowId: 'r1', revision: 1, values: { c1: 0, c2: 7.2 } }],
+          totalCount: 1,
+        }
+      },
+    } as unknown as DataClient
+
+    const resolved = await resolveDatasetRef(client, {
+      datasetId: DATASET_ID,
+      datasetVersionId: 'ver-9',
+    })
+
+    expect(resolved?.rows).toEqual([{ c1: 0, c2: 7.2, __sheetbaseRowId: 'r1' }])
+    expect(resolved?.flags).toEqual([])
+    expect(rpcCalls.map((call) => call.name)).toEqual([
+      'query_dataset_version_rows',
+    ])
+    expect(rpcCalls[0].args.p_dataset_version_id).toBe('ver-9')
+  })
+
+  it('is null when the dataset is gone, whatever the snapshot', async () => {
+    const client = { list: async () => [] } as unknown as DataClient
+    expect(
+      await resolveDatasetRef(client, {
+        datasetId: DATASET_ID,
+        datasetVersionId: 'ver-9',
+      }),
+    ).toBeNull()
   })
 })
 

@@ -35,6 +35,8 @@ export type WorkItemKind =
   | 'sample_awaiting_release'
   | 'sample_hold_exceeded'
   | 'calibration_overdue'
+  | 'qualification_requested'
+  | 'qualification_granted'
   | 'following'
 export type WorkItemState =
   'needs_action' | 'following' | 'overdue' | 'done_today'
@@ -96,6 +98,8 @@ const KINDS: readonly WorkItemKind[] = [
   'sample_awaiting_release',
   'sample_hold_exceeded',
   'calibration_overdue',
+  'qualification_requested',
+  'qualification_granted',
   'following',
 ]
 const STATES: readonly WorkItemState[] = [
@@ -283,6 +287,8 @@ export function countByKind(
     sample_awaiting_release: 0,
     sample_hold_exceeded: 0,
     calibration_overdue: 0,
+    qualification_requested: 0,
+    qualification_granted: 0,
     following: 0,
   }
   for (const item of items) counts[item.kind] += 1

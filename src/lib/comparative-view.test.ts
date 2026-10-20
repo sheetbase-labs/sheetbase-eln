@@ -4,10 +4,12 @@
 import { describe, expect, it } from 'vitest'
 
 import { validateChartSpec } from './chart-spec'
+import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 import {
   buildDefaultComparativeViewConfig,
   COMPARATIVE_VIEW_CONFIG_VERSION,
   groupRowsByFields,
+  pairComparativeSources,
   promoteToChartSpec,
   shapeComparativeView,
   summarizeValues,
@@ -273,5 +275,59 @@ describe('buildDefaultComparativeViewConfig', () => {
         columns: [{ id: TIME, logicalType: 'decimal' }],
       }),
     ).toBeNull()
+  })
+})
+
+describe('pairComparativeSources', () => {
+  const row = (id: string, values: Record<string, unknown>) => ({
+    [CHART_ROW_ID_KEY]: id,
+    ...values,
+  })
+
+  it('pairs a snapshot with its live rows by row key and reports the change', () => {
+    const snapshot = [row('r1', { c2: 1 }), row('r2', { c2: 2 })]
+    const live = [
+      row('r1', { c2: 1 }),
+      row('r2', { c2: 5 }),
+      row('r3', { c2: 9 }),
+    ]
+    const pairing = pairComparativeSources(
+      { rows: snapshot, valueField: 'c2', matchField: null },
+      { rows: live, valueField: 'c2', matchField: null },
+      'row_key',
+    )
+    expect(pairing.matchedCount).toBe(2)
+    expect(pairing.onlyBCount).toBe(1)
+    expect(pairing.changedCount).toBe(1)
+    expect(pairing.rows.find((r) => r.key === 'r2')?.delta).toBe(3)
+  })
+
+  it('uses each side’s own value and match field across two datasets', () => {
+    const pairing = pairComparativeSources(
+      {
+        rows: [
+          { sample: 'S1', a: 10 },
+          { sample: 'S2', a: 20 },
+        ],
+        valueField: 'a',
+        matchField: 'sample',
+      },
+      {
+        rows: [
+          { id: 'S2', b: 25 },
+          { id: 'S3', b: 1 },
+        ],
+        valueField: 'b',
+        matchField: 'id',
+      },
+      'field',
+      'Sample',
+    )
+    expect(pairing.rows.map((r) => [r.key, r.presence, r.delta])).toEqual([
+      ['S1', 'a-only', null],
+      ['S2', 'both', 5],
+      ['S3', 'b-only', null],
+    ])
+    expect(pairing.rule).toContain('Sample')
   })
 })

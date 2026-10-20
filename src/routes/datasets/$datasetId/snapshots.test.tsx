@@ -299,6 +299,21 @@ describe('dataset snapshots route', () => {
     )
   })
 
+  it('opens the analysis studio on exactly the selected snapshot', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+
+    await screen.findByText('S-15')
+    await user.click(screen.getAllByText('S-14')[0])
+
+    const analyse = screen.getAllByRole('link', {
+      name: 'Analyse this snapshot',
+    })[0]
+    expect(analyse.getAttribute('href')).toBe(
+      '/analysis/new?dataset=ds-1&snapshot=v-1&mode=analyse',
+    )
+  })
+
   it('warns before removal and keeps a prunable snapshot with a reason', async () => {
     const user = userEvent.setup()
     dataClient.rpc.mockResolvedValue([

@@ -38,6 +38,7 @@ const qualifications = vi.hoisted(() => ({
   ],
 }))
 
+const requests = vi.hoisted(() => ({ current: [] as unknown[] }))
 const calibrations = vi.hoisted(() => ({ current: [] as unknown[] }))
 const intake = vi.hoisted(() => ({
   method: 'none',
@@ -163,11 +164,14 @@ beforeEach(() => {
   intake.method = 'none'
   intake.parsers = []
   intake.lastImport = null
-  dataClient.list.mockImplementation(async (...args: unknown[]) =>
-    String(args[0]) === 'projects'
-      ? [{ id: 'p-1', title: 'Process development' }]
-      : [{ user_id: 'u-2' }],
-  )
+  requests.current = []
+  dataClient.list.mockImplementation(async (...args: unknown[]) => {
+    if (String(args[0]) === 'projects')
+      return [{ id: 'p-1', title: 'Process development' }]
+    if (String(args[0]) === 'instrument_qualification_requests')
+      return requests.current
+    return [{ user_id: 'u-2' }]
+  })
   dataClient.rpc.mockImplementation((name: string) => {
     if (name === 'instrument_qualification_list')
       return Promise.resolve(qualifications.current)
@@ -263,6 +267,65 @@ describe('instrument qualification', () => {
     ).toBeNull()
     expect(screen.queryByRole('button', { name: 'Revoke' })).toBeNull()
     expect(screen.getByText(/A workspace owner grants/)).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: 'Request qualification' }),
+    ).toBeNull()
+  })
+})
+
+function pendingRequest(userId: string) {
+  return {
+    id: '00000000-0000-4000-8000-000000000001',
+    instrument_id: 'inst-1',
+    user_id: userId,
+    note: null,
+    status: 'pending',
+    created_at: '2026-10-01T00:00:00Z',
+    updated_at: '2026-10-01T00:00:00Z',
+  }
+}
+
+describe('asking to be qualified', () => {
+  it('shows an owner who is waiting, and lets them dismiss the request', async () => {
+    requests.current = [pendingRequest('u-2')]
+    renderPage()
+
+    expect(await screen.findByText('Waiting to be qualified')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() =>
+      expect(dataClient.rpc).toHaveBeenCalledWith(
+        'dismiss_instrument_qualification_request',
+        expect.objectContaining({
+          p_request_id: '00000000-0000-4000-8000-000000000001',
+        }),
+      ),
+    )
+  })
+
+  it('lets a member ask the owners, once', async () => {
+    role.current = 'member'
+    renderPage()
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Request qualification' }),
+    )
+    await waitFor(() =>
+      expect(dataClient.rpc).toHaveBeenCalledWith(
+        'request_instrument_qualification',
+        { p_instrument_id: 'inst-1', p_note: null },
+      ),
+    )
+  })
+
+  it('shows a member who already asked a disabled button', async () => {
+    role.current = 'member'
+    requests.current = [pendingRequest('u-0')]
+    renderPage()
+
+    const button = await screen.findByRole('button', {
+      name: 'Qualification requested',
+    })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
   })
 })
 

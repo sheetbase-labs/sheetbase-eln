@@ -330,6 +330,44 @@ describe('BookDialog', () => {
     expect(screen.getByRole('dialog')).toBeTruthy()
   })
 
+  it('offers to ask the owners for the qualification', async () => {
+    rpc.mockRejectedValueOnce(
+      new DataClientError(
+        'SB115',
+        'a current qualification is required to book this instrument',
+        400,
+      ),
+    )
+    rpc.mockResolvedValueOnce({
+      id: '00000000-0000-4000-8000-000000000a01',
+      instrument_id: '00000000-0000-4000-8000-000000000a02',
+      user_id: 'u-1',
+      note: null,
+      status: 'pending',
+      created_at: '2026-10-20T08:00:00Z',
+      updated_at: '2026-10-20T08:00:00Z',
+    })
+    const user = userEvent.setup()
+    renderDialog()
+
+    const dialog = await openAndFill(user)
+    await user.click(within(dialog).getByRole('button', { name: 'Book' }))
+    const alert = await screen.findByRole('alert')
+    await user.click(
+      within(alert).getByRole('button', { name: 'Request qualification' }),
+    )
+
+    expect(rpc).toHaveBeenLastCalledWith('request_instrument_qualification', {
+      p_instrument_id: 'res-pr01',
+      p_note: null,
+    })
+    expect(
+      await within(alert).findByRole('button', {
+        name: 'Qualification requested',
+      }),
+    ).toBeTruthy()
+  })
+
   it('explains an overdue-calibration refusal and links to recording it', async () => {
     rpc.mockRejectedValueOnce(
       new DataClientError(

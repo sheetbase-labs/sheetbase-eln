@@ -635,6 +635,46 @@ function resolveThemeDeclarations(
   return declarations.join(';')
 }
 
+const CAPTION_FONT_SIZE = 12
+const CAPTION_LINE_HEIGHT = 16
+const CAPTION_PADDING = 12
+/** Average glyph width of the caption face, as a share of its font size. */
+const CAPTION_GLYPH_RATIO = 0.55
+
+/** Break a caption into lines that fit the figure's width. */
+export function wrapCaption(caption: string, width: number): string[] {
+  const maxChars = Math.max(
+    8,
+    Math.floor(
+      (width - 2 * CAPTION_PADDING) / (CAPTION_FONT_SIZE * CAPTION_GLYPH_RATIO),
+    ),
+  )
+  const lines: string[] = []
+  for (const paragraph of caption.trim().split(/\r?\n/)) {
+    let line = ''
+    for (const word of paragraph.split(/\s+/).filter(Boolean)) {
+      if (line && line.length + 1 + word.length > maxChars) {
+        lines.push(line)
+        line = word
+      } else {
+        line = line ? `${line} ${word}` : word
+      }
+    }
+    if (line) lines.push(line)
+  }
+  return lines
+}
+
+/** Extra height an exported figure needs to carry its caption below it. */
+export function captionBlockHeight(
+  caption: string | undefined,
+  width: number,
+): number {
+  if (!caption?.trim()) return 0
+  const lines = wrapCaption(caption, width).length
+  return lines === 0 ? 0 : lines * CAPTION_LINE_HEIGHT + 2 * CAPTION_PADDING
+}
+
 /**
  * Serialise the chart's SVG element to a standalone SVG document string with
  * explicit width/height, the themed colours inlined and a provenance comment.
@@ -646,6 +686,8 @@ export function exportChartSvg(
   svgEl: SVGSVGElement | null,
   settings: ExportSettings,
   provenance: ExportProvenance | null,
+  /** The figure's caption; drawn under the chart so it travels with the file. */
+  caption?: string,
 ): string {
   if (!svgEl) {
     return `<!-- Sheetbase Analysis Studio: no chart rendered at export time -->`
@@ -659,9 +701,12 @@ export function exportChartSvg(
   const base = routed ?? new XMLSerializer().serializeToString(svgEl)
   const parsed = new DOMParser().parseFromString(base, 'image/svg+xml')
   const root = parsed.documentElement
+  const extra = captionBlockHeight(caption, settings.width)
+  const totalHeight = settings.height + extra
   root.setAttribute('width', String(settings.width))
-  root.setAttribute('height', String(settings.height))
-  root.setAttribute('viewBox', `0 0 ${settings.width} ${settings.height}`)
+  root.setAttribute('height', String(totalHeight))
+  // The chart keeps its own box; the caption sits in the strip added below it.
+  root.setAttribute('viewBox', `0 0 ${settings.width} ${totalHeight}`)
   root.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   const svgNamespace = 'http://www.w3.org/2000/svg'
   const declarations = resolveThemeDeclarations(base, settings.theme)
@@ -676,9 +721,32 @@ export function exportChartSvg(
   background.setAttribute('x', '0')
   background.setAttribute('y', '0')
   background.setAttribute('width', String(settings.width))
-  background.setAttribute('height', String(settings.height))
+  background.setAttribute('height', String(totalHeight))
   background.setAttribute('fill', 'var(--surface, #ffffff)')
   root.insertBefore(background, root.firstChild)
+  if (extra > 0 && caption) {
+    const text = parsed.createElementNS(svgNamespace, 'text')
+    text.setAttribute('data-figure-caption', 'true')
+    text.setAttribute('x', String(CAPTION_PADDING))
+    text.setAttribute('font-size', String(CAPTION_FONT_SIZE))
+    text.setAttribute('fill', 'var(--fg, #1a1a1a)')
+    wrapCaption(caption, settings.width).forEach((line, index) => {
+      const span = parsed.createElementNS(svgNamespace, 'tspan')
+      span.setAttribute('x', String(CAPTION_PADDING))
+      span.setAttribute(
+        'y',
+        String(
+          settings.height +
+            CAPTION_PADDING +
+            CAPTION_FONT_SIZE +
+            index * CAPTION_LINE_HEIGHT,
+        ),
+      )
+      span.textContent = line
+      text.appendChild(span)
+    })
+    root.appendChild(text)
+  }
   const serialised = new XMLSerializer().serializeToString(root)
   const comment =
     settings.includeProvenance && provenance

@@ -14,9 +14,11 @@ import {
   ANALYSIS_MAX_RESULT_ROWS,
   applyTransformations,
   buildExportProvenance,
+  captionBlockHeight,
   captureSourceRevisions,
   DEFAULT_EXPORT_SETTINGS,
   detectStaleSources,
+  exportChartSvg,
   exportDataCsv,
   exportViewJson,
   materialiseAnalysisChart,
@@ -24,6 +26,7 @@ import {
   saveAnalysisView,
   updateAnalysisView,
   validateAnalysisSpec,
+  wrapCaption,
 } from './analysis-studio-data'
 import type { AnalysisViewWire, SourceRevision } from './analysis-studio-data'
 import type { DataClient } from './data-client'
@@ -550,5 +553,57 @@ describe('recordAnalysisCitation', () => {
       display_id: null,
     })
     expect(rpc).not.toHaveBeenCalled()
+  })
+})
+
+describe('figure caption in exports', () => {
+  const settings = { ...DEFAULT_EXPORT_SETTINGS, width: 400, height: 300 }
+
+  function chartSvg(): SVGSVGElement {
+    const wrapper = document.createElement('div')
+    wrapper.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="10" height="10"/></svg>'
+    document.body.appendChild(wrapper)
+    return wrapper.querySelector('svg')!
+  }
+
+  it('wraps a long caption to the figure width', () => {
+    const lines = wrapCaption(
+      'Titre by dilution across three plates, mean of duplicate wells, error bars are one standard deviation.',
+      settings.width,
+    )
+    expect(lines.length).toBeGreaterThan(1)
+    expect(lines.join(' ')).toContain('error bars are one standard deviation.')
+  })
+
+  it('adds no space when there is no caption', () => {
+    expect(captionBlockHeight(undefined, 400)).toBe(0)
+    expect(captionBlockHeight('   ', 400)).toBe(0)
+  })
+
+  it('draws the caption under the chart and grows the figure to fit', () => {
+    const caption = 'Fig 1. Capsid titre by dilution.'
+    const svg = exportChartSvg(chartSvg(), settings, null, caption)
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml')
+    const root = doc.documentElement
+    const extra = captionBlockHeight(caption, settings.width)
+    expect(extra).toBeGreaterThan(0)
+    expect(root.getAttribute('height')).toBe(String(300 + extra))
+    expect(root.getAttribute('viewBox')).toBe(`0 0 400 ${300 + extra}`)
+    const text = doc.querySelector('text[data-figure-caption]')
+    expect(text?.textContent).toBe(caption)
+    expect(
+      Number(text?.querySelector('tspan')?.getAttribute('y')),
+    ).toBeGreaterThan(300)
+  })
+
+  it('keeps the figure size when no caption is set', () => {
+    const svg = exportChartSvg(chartSvg(), settings, null)
+    const root = new DOMParser().parseFromString(
+      svg,
+      'image/svg+xml',
+    ).documentElement
+    expect(root.getAttribute('height')).toBe('300')
+    expect(svg).not.toContain('data-figure-caption')
   })
 })

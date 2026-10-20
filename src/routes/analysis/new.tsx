@@ -111,6 +111,7 @@ import {
   DEFAULT_EXPORT_SETTINGS,
   deleteAnalysisView,
   detectStaleSources,
+  captionBlockHeight,
   exportChartSvg,
   exportDataCsv,
   exportViewJson,
@@ -1490,11 +1491,17 @@ export function ExportPanel({
     }
     try {
       if (settings.format === 'png') {
-        const svg = exportChartSvg(svgRef.current, settings, provenance)
+        const caption = spec.display.caption
+        const svg = exportChartSvg(
+          svgRef.current,
+          settings,
+          provenance,
+          caption,
+        )
         const blob = await rasteriseSvgToPng(svg, {
           format: 'png',
           width: settings.width,
-          height: settings.height,
+          height: settings.height + captionBlockHeight(caption, settings.width),
           scale: 2,
           // The SVG carries the themed surface, so a dark export must not be
           // painted over with white by the rasteriser.
@@ -1519,7 +1526,12 @@ export function ExportPanel({
         mime = 'text/csv'
         ext = 'csv'
       } else {
-        content = exportChartSvg(svgRef.current, settings, provenance)
+        content = exportChartSvg(
+          svgRef.current,
+          settings,
+          provenance,
+          spec.display.caption,
+        )
         mime = 'image/svg+xml'
         ext = 'svg'
       }

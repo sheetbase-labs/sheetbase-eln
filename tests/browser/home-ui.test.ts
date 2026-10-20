@@ -148,14 +148,19 @@ for (const theme of ['light', 'dark'] as const) {
     const summary = page.getByRole('navigation', { name: 'Summary' })
     await expect(summary).toBeVisible({ timeout: 20000 })
     const totals = await page.evaluate(async () => {
+      // The Inbox totals come from the one Inbox predicate (QA2-Inbox-1), not
+      // from a state-only count of the work-item view.
+      const inbox = await fetch('/api/db/rpc/inbox_needs_action_counts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      }).then((response) => response.json())
       const resources = [
-        'my_work_items?kind=eq.review_requested&state=in.(needs_action,overdue)',
         'rpc/dataset_list_summary?issue_count=gt.0&archived_at=is.null',
         'records?kind=eq.experiment&status=eq.in_progress&deleted_at=is.null',
         'instrument_runs?started_at=gte.2026-09-24T23:00:00.000Z&started_at=lt.2026-09-25T23:00:00.000Z',
-        'my_work_items?state=in.(needs_action,overdue)',
       ]
-      return Promise.all(
+      const counted = await Promise.all(
         resources.map(async (resource) => {
           const response = await fetch(`/api/db/${resource}`, {
             headers: { prefer: 'count=exact', range: '0-0' },
@@ -169,6 +174,7 @@ for (const theme of ['light', 'dark'] as const) {
           return Number(range.split('/')[1])
         }),
       )
+      return [inbox[0].reviews, ...counted, inbox[0].total]
     })
     const labels = [
       'to review',

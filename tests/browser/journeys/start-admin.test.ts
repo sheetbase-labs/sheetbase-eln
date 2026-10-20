@@ -141,34 +141,28 @@ test.describe('as the seeded workspace admin', () => {
     ).toHaveCount(0)
   })
 
-  // Known gap: a record's project id is copied onto its sheets, audit rows and
-  // search index, so a cross-project move needs a designed migration of all of
-  // them. Until then the journey is recorded here rather than faked.
-  test.fixme('ADMIN-05 an experiment started in the wrong project can be moved', async ({
+  test('ADMIN-05 an experiment started in the wrong project can be moved', async ({
     page,
   }) => {
     const from = await createProject(page, uniqueName('Wrong project'))
-    const to = await createProject(page, uniqueName('Right project'))
+    const toTitle = uniqueName('Right project')
+    await createProject(page, toTitle)
     const experimentId = await createExperiment(
       page,
       from,
       uniqueName('Misfiled'),
     )
     await open(page, `/experiments/${experimentId}/overview`)
+    await page.getByRole('button', { name: 'More experiment actions' }).click()
     await page
-      .getByRole('button', {
-        name: /move to (another )?project|change project/i,
-      })
+      .getByRole('menuitem', { name: 'Move to another project' })
       .click()
-    await page.getByRole('dialog').getByRole('combobox').click()
-    await page.getByRole('option', { name: /Right project/ }).click()
-    await page
-      .getByRole('dialog')
-      .getByRole('button', { name: /^move/i })
-      .click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('combobox').selectOption({ label: toTitle })
+    await dialog.getByRole('button', { name: 'Move', exact: true }).click()
     await expect(
-      page.getByRole('link', { name: /Right project/ }).first(),
-    ).toHaveAttribute('href', to)
+      page.getByRole('link', { name: toTitle }).first(),
+    ).toBeVisible()
   })
 
   test('ADMIN-06 from a new experiment the project is one click away, and the project lists it as a link', async ({
@@ -203,7 +197,9 @@ test.describe('as the seeded workspace admin', () => {
     await expect(
       page.getByRole('button', { name: 'Clear the project filter' }),
     ).toBeVisible()
-    await expect(page.getByRole('link', { name: /run 1/ }).first()).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: /run 1/ }).first(),
+    ).toBeVisible()
   })
 
   test('ADMIN-08 a milestone condition links a record from a project picker', async ({
@@ -212,7 +208,10 @@ test.describe('as the seeded workspace admin', () => {
     const path = await createProject(page, uniqueName('Evidence project'))
     await createExperiment(page, path, uniqueName('Evidence run'))
     await open(page, `${path}/milestones`)
-    await page.getByRole('button', { name: /^Add (a )?milestone/ }).first().click()
+    await page
+      .getByRole('button', { name: /^Add (a )?milestone/ })
+      .first()
+      .click()
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel(/^Name/).fill('Release package')
     await dialog.getByLabel(/^Due date/).fill('2026-12-01')

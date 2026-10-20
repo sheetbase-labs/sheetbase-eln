@@ -372,8 +372,9 @@ function ProjectSettings() {
           <DialogBody>
             <p className="m-0 text-body leading-5">
               The project leaves the Projects list and the navigation. Signed
-              records, datasets and audit trails stay available; the lead can
-              restore it from the Archived tab.
+              records, datasets and audit trails stay available. Restore it from
+              this project's Settings tab; workspace admins can also restore it
+              from the Archived list.
             </p>
           </DialogBody>
           <DialogFooter>

@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
+  useRouter: () => ({ invalidate: async () => {} }),
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => ({ projectId: 'project-1' }),
     useRouteContext: () => ({ context: {} }),

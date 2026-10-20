@@ -60,6 +60,7 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
+  useRouter: () => ({ invalidate: async () => {} }),
   createFileRoute: () => () => ({
     useRouteContext: () => ({ context: {} }),
     useParams: () => ({ recordId: 'r1', projectId: 'p1' }),

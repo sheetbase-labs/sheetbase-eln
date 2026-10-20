@@ -48,7 +48,19 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
 }))
 
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+vi.mock('#/lib/notebook-data', () => ({
+  notebookDataClient: {},
+  notebookQueryKeys: { records: (id: string) => ['records', id] },
+  fetchRecordsForProject: async () => [
+    {
+      id: 'r-12',
+      identifier: 'EXP-0012',
+      title: 'Release run',
+      status: 'approved',
+      archivedAt: null,
+    },
+  ],
+}))
 
 // QA-048: milestone writes are gated on the project's own edit permission, not
 // the workspace role, so the route's permission read is stubbed here.
@@ -262,7 +274,7 @@ describe('project milestones plan', () => {
     )
   })
 
-  it('marks a condition met and links a record by identifier', async () => {
+  it('marks a condition met and links a record chosen from the project', async () => {
     mocks.canEdit = true
     mocks.fetchStudyTasks.mockResolvedValue([studyTask({})])
     mocks.fetchStudyDeliverables.mockResolvedValue([
@@ -288,8 +300,8 @@ describe('project milestones plan', () => {
       ),
     )
     await userEvent.click(screen.getByRole('button', { name: 'Link record' }))
-    await userEvent.type(
-      screen.getByLabelText('Record identifier for Release report signed'),
+    await userEvent.selectOptions(
+      await screen.findByLabelText('Evidence record for Release report signed'),
       'EXP-0012',
     )
     await userEvent.click(screen.getByRole('button', { name: 'Link' }))

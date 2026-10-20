@@ -50,6 +50,7 @@ const fixtures = vi.hoisted(() => {
 const dataClient = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
 
 vi.mock('@tanstack/react-router', () => ({
+  useRouter: () => ({ invalidate: async () => {} }),
   createFileRoute: () => (config: Record<string, unknown>) => ({
     useParams: () => fixtures.routerState.params,
     useSearch: () => fixtures.routerState.search,

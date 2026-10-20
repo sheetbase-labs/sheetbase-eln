@@ -240,6 +240,11 @@ describe('block payload validation (ELN-002)', () => {
         linkType: 'sample',
       },
       callout: { text: 'Include NTC.', variant: 'warning' },
+      conclusion: {
+        text: 'Titre fell below spec by day 14.',
+        verdict: 'supported',
+        basis: 'Welch t-test, p = 0.003',
+      },
       table: { columns: ['Time', 'Value'], rows: [[0, 1.2]] },
       sheet: { instanceId: '0198d970-e266-4000-8000-000000000001' },
       chart: {
@@ -465,5 +470,30 @@ describe('block payload validation (ELN-002)', () => {
         payload: {},
       }),
     ).toBe(false)
+  })
+})
+
+describe('conclusion block payload', () => {
+  it('accepts an empty draft and each verdict', () => {
+    expect(isBlockPayloadValid({ type: 'conclusion', payload: {} })).toBe(true)
+    for (const verdict of ['supported', 'not_supported', 'inconclusive'])
+      expect(
+        isBlockPayloadValid({
+          type: 'conclusion',
+          payload: { text: 'x', verdict },
+        }),
+      ).toBe(true)
+  })
+
+  it('rejects a verdict outside the vocabulary and a non-string basis', () => {
+    const result = validateBlock({
+      type: 'conclusion',
+      payload: { text: 'x', verdict: 'proven', basis: 3 },
+    })
+    expect(result.ok).toBe(false)
+    expect(result.errors?.map((error) => error.field)).toEqual([
+      'verdict',
+      'basis',
+    ])
   })
 })

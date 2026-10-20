@@ -229,3 +229,31 @@ describe('BlockEditor — metric', () => {
     expect('unit' in saved ? saved.unit : undefined).toBeUndefined()
   })
 })
+
+describe('BlockEditor — conclusion', () => {
+  it('loads the stored conclusion and saves an edited verdict and basis', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn(async () => ({ ok: true }))
+    renderWithQuery(
+      <BlockEditor
+        block={block({
+          type: 'conclusion',
+          payload: { text: 'Titre fell.', verdict: 'supported', basis: '' },
+        })}
+        save={save}
+      />,
+    )
+
+    const text = screen.getByLabelText('Conclusion text')
+    expect((text as HTMLTextAreaElement).value).toBe('Titre fell.')
+
+    await user.selectOptions(screen.getByLabelText('Verdict'), 'not_supported')
+    await user.type(screen.getByLabelText('Based on'), 'ELISA, n = 12')
+    await user.tab()
+
+    const payload = savedPayload(save)
+    expect(payload.text).toBe('Titre fell.')
+    expect(payload.verdict).toBe('not_supported')
+    expect(payload.basis).toBe('ELISA, n = 12')
+  })
+})

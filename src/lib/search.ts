@@ -639,6 +639,13 @@ export function extractBlockText(
       return extractFromArrayField(payload, 'items', ['text'])
     case 'callout':
       return extractStringField(payload, 'text')
+    case 'conclusion':
+      return [
+        extractStringField(payload, 'text'),
+        extractStringField(payload, 'basis'),
+      ]
+        .filter(Boolean)
+        .join(' ')
     case 'procedure_step':
       return [
         extractStringField(payload, 'text'),

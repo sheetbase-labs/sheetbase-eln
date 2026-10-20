@@ -6,6 +6,11 @@ import { cn } from '#/lib/utils'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { RichTextContent, isRichTextPayload } from '#/lib/blocks'
 import { isBlockType } from '#/lib/blocks/registry'
+import {
+  CONCLUSION_VERDICT_LABELS,
+  conclusionVerdictOf,
+} from '#/lib/conclusion-block'
+import type { ConclusionVerdict } from '#/lib/conclusion-block'
 import { CALLOUT_STYLES } from './callout-styles'
 import {
   notebookDataClient,
@@ -212,6 +217,8 @@ function renderPayload(
       return renderChecklist(payload)
     case 'callout':
       return renderCallout(payload)
+    case 'conclusion':
+      return renderConclusion(payload)
     case 'linked_record':
       return renderLinkedRecord(payload)
     case 'procedure_step':
@@ -324,6 +331,45 @@ function renderCallout(payload: unknown): React.ReactNode {
         aria-hidden="true"
       />
       <p className="min-w-0 flex-1">{text}</p>
+    </div>
+  )
+}
+
+const CONCLUSION_VERDICT_STYLES: Record<ConclusionVerdict, string> = {
+  supported: 'bg-success/[0.12] text-success-text',
+  not_supported: 'bg-destructive/[0.1] text-danger-text',
+  inconclusive: 'bg-fg/[0.06] text-fg-muted',
+}
+
+function renderConclusion(payload: unknown): React.ReactNode {
+  const obj = asObject(payload)
+  if (!obj) return null
+  const text = asString(obj.text) ?? ''
+  const basis = asString(obj.basis) ?? ''
+  const verdict = conclusionVerdictOf(obj.verdict)
+  return (
+    <div className="space-y-1.5 rounded-md border border-border bg-surface px-3.5 py-2.5 text-sm leading-6">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-fg-muted">
+          Conclusion
+        </span>
+        <span
+          className={cn(
+            'rounded-full px-2 py-0.5 text-xs font-medium',
+            CONCLUSION_VERDICT_STYLES[verdict],
+          )}
+        >
+          {CONCLUSION_VERDICT_LABELS[verdict]}
+        </span>
+      </div>
+      <p className="text-fg">
+        {text || <span className="text-fg-muted">No conclusion written.</span>}
+      </p>
+      {basis ? (
+        <p className="text-xs text-fg-muted">
+          <span className="font-medium">Based on</span> {basis}
+        </p>
+      ) : null}
     </div>
   )
 }

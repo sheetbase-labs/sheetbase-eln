@@ -310,6 +310,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   pipeline_output: 'Pipeline output',
   signature_request: 'Signature request',
   corrective_actions: 'Corrective actions',
+  conclusion: 'Conclusion',
 }
 
 export const ACTION_LABELS: Record<string, string> = {

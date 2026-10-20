@@ -53,6 +53,10 @@ function PipelineOverview() {
   const version = currentVersion(list)
   const draft = draftVersion(list)
   const shown = draft ?? version
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    shown?.id ?? null,
+    () => {},
+  )
 
   if (!shown) {
     return (
@@ -122,8 +126,6 @@ function PipelineOverview() {
       meta: { cellClassName: 'text-fg-muted' },
     },
   ]
-
-  const { rowSelection, onRowSelectionChange } = useRowFocus(shown.id, () => {})
 
   const config = shown.configuration as ConfigShape
   // R5-SHELL-06: what the run keeps, and where a person can act on its

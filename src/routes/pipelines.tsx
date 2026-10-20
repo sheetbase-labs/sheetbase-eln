@@ -238,7 +238,14 @@ function PipelinesList() {
       }),
   )
 
-  const run = useRunLauncher(workspaceId)
+  const run = useRunLauncher(
+    workspaceId,
+    (started) =>
+      void navigate({
+        to: '/pipelines/runs/$runId',
+        params: { runId: started.id },
+      }),
+  )
 
   return (
     <div className="flex min-w-0 flex-1">

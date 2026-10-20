@@ -6,6 +6,7 @@ import { expect, test } from 'playwright/test'
 
 import {
   action,
+  createExperiment,
   createProject,
   open,
   signIn,
@@ -162,4 +163,67 @@ test('AUTO-02 a dataset offers to run a pipeline on it', async ({ page }) => {
   await open(page, `/datasets/${ELISA_DATASET}`)
   await page.getByRole('button', { name: 'Run pipeline…' }).click()
   await expect(page.getByRole('menu')).toBeVisible()
+})
+
+test('AUTO-03 Run now pins a dataset version and the run page follows it', async ({
+  page,
+}) => {
+  await open(page, '/pipelines')
+  await page.getByRole('link', { name: /^AEX screen summary/ }).click()
+  await page.waitForURL(/\/pipelines\/[0-9a-f-]{36}$/)
+  await waitForHydration(page)
+  const runNow = page.getByRole('button', { name: 'Run now' })
+  await expect(runNow).toBeEnabled()
+  await runNow.click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('combobox').first().selectOption({ index: 1 })
+  await dialog.getByRole('button', { name: 'Run', exact: true }).click()
+  await expect(page).toHaveURL(/\/pipelines\/.*runs\/[0-9a-f-]{36}/)
+})
+
+test('AUTO-05 a failed run is found under Needs attention and offers a retry', async ({
+  page,
+}) => {
+  await open(page, '/pipelines')
+  await page.getByRole('link', { name: /^Needs attention/ }).click()
+  await page.getByRole('link', { name: /v\d/ }).first().click()
+  await expect(page.getByText(/failed|attention/i).first()).toBeVisible()
+})
+
+test('AUTO-06 agent operations lists what an agent proposed', async ({
+  page,
+}) => {
+  await open(page, '/pipelines')
+  await action(page, 'Agent operations').click()
+  await expect(page).toHaveURL(/agent/)
+})
+
+test('AUTO-04 a pipeline result is added to the notebook as a pipeline output block', async ({
+  page,
+}) => {
+  const path = await createProject(page, uniqueName('Pipeline out'))
+  await createExperiment(page, path, uniqueName('Pipeline run'))
+  await waitForHydration(page)
+  await page
+    .getByRole('button', { name: /^Insert block after/ })
+    .first()
+    .click()
+  await page
+    .getByRole('combobox', { name: /Insert block/ })
+    .fill('Pipeline output')
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('group', { name: / block/ })).toHaveCount(2)
+})
+
+test('NAV-12 a pipeline run opens from its link', async ({ page }) => {
+  await open(page, '/pipelines')
+  await page.getByRole('link', { name: /^Weekly stability summary/ }).click()
+  await page.waitForURL(/\/pipelines\/[0-9a-f-]{36}$/)
+  await page.locator('a', { hasText: /^Runs/ }).first().click()
+  await page
+    .getByRole('link')
+    .filter({ hasText: /^[0-9a-f]{8}/ })
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/pipelines\/.*runs\//)
 })

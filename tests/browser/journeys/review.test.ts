@@ -75,3 +75,32 @@ test('REV-01 to REV-04 submit, review, return and see it come back', async ({
     page.getByText(/returned|changes requested/i).first(),
   ).toBeVisible()
 })
+
+test('REV-13 an author withdraws a submission from its review page', async ({
+  page,
+}) => {
+  await signIn(page)
+  await submitFor(page, uniqueName('Withdraw me'))
+  await page.getByRole('button', { name: 'Withdraw' }).click()
+  const confirm = page.getByRole('alertdialog')
+  await confirm.getByRole('textbox').fill('Spotted a mistake in the table.')
+  await confirm.getByRole('button', { name: 'Withdraw' }).click()
+  await expect(page.getByText(/withdrawn/i).first()).toBeVisible()
+})
+
+test('REV-14 and REV-08 the reviewer’s Inbox owes the review, and the revision’s evidence page opens', async ({
+  page,
+}) => {
+  await signIn(page)
+  const title = uniqueName('Owed review')
+  await submitFor(page, title)
+  const revisionId = new URL(page.url()).pathname.split('/')[2]
+  await signInAsDesignUser(page, MEI)
+  await open(page, '/inbox')
+  await page.getByRole('button', { name: /^reviews/i }).click()
+  await expect(page.getByText(title).first()).toBeVisible()
+  await open(page, `/evidence/${revisionId}`)
+  await expect(
+    page.getByText(/evidence|signed|signature/i).first(),
+  ).toBeVisible()
+})

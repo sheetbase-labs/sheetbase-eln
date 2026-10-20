@@ -22,6 +22,7 @@
  */
 import { useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from '@tanstack/react-router'
 
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
@@ -444,6 +445,8 @@ export function useSetFavourite(
   client: DataClient = notebookDataClient,
 ): ReturnType<typeof useMutation<void, Error, SetFavouriteVariables>> {
   const queryClient = useQueryClient()
+  // The sidebar's pinned projects come from the shell loader, not a query.
+  const router = useRouter({ warn: false })
   return useMutation({
     mutationFn: async ({
       kind,
@@ -493,7 +496,8 @@ export function useSetFavourite(
         )
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
+      if (variables.kind === 'project') void router?.invalidate()
       void queryClient.invalidateQueries({
         queryKey: favouritesQueryKeys.list(),
       })

@@ -389,7 +389,7 @@ test('Review N/P navigate real changes and R focuses an actual comment reply', a
   // The review opens on the marked document, which has no change selection of
   // its own; the change list is the surface that owns N/P (SHELL-03.3), and it
   // starts on its first change, so open it before navigating changes.
-  await page.getByRole('button', { name: 'Change list', exact: true }).click()
+  await page.getByRole('tab', { name: 'Change list', exact: true }).click()
   const changes = page.locator('[data-revision-change-id]')
   await expect.poll(() => changes.count()).toBeGreaterThan(1)
   const active = page.locator('[data-revision-change-id][aria-current="step"]')

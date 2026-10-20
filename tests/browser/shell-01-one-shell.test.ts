@@ -68,7 +68,7 @@ test('the project files tab keeps its section navigation', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto(filesTab)
 
-  const sections = page.locator('nav[aria-label="Sections"]')
+  const sections = page.locator('nav[aria-label="Project sections"]')
   await expect(sections).toBeVisible()
   for (const label of [
     'Overview',

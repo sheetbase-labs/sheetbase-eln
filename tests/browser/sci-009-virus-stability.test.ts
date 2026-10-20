@@ -680,9 +680,10 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
   test('notebook renders every block type', async ({ page }) => {
     await injectAuth(page)
     await page.goto(`/records/${RECORD}`)
+    // The title is an editable field in the notebook header, so it has a value, not text.
     await expect(
-      page.getByText('Virus Stability at 4°C', { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 })
+      page.getByRole('textbox', { name: 'Notebook title' }),
+    ).toHaveValue('Virus Stability at 4°C', { timeout: 15_000 })
 
     // rich_text — objective heading + paragraph
     await expect(page.getByText('Objective').first()).toBeVisible()
@@ -747,9 +748,10 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
   test('overview composes from the notebook blocks', async ({ page }) => {
     await injectAuth(page)
     await page.goto(`/experiments/${RECORD}/overview`)
+    // The title is an editable field in the notebook header, so it has a value, not text.
     await expect(
-      page.getByText('Virus Stability at 4°C', { exact: true }).first(),
-    ).toBeVisible({ timeout: 15_000 })
+      page.getByRole('textbox', { name: 'Notebook title' }),
+    ).toHaveValue('Virus Stability at 4°C', { timeout: 15_000 })
 
     // The shipped experiment overview is the canvas composition
     // (docs/knowledge/design/ui-system-v3/screen-text/ExpOverview.txt): the

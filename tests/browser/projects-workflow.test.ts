@@ -53,17 +53,16 @@ test('new project is created from the list and the list stays usable', async ({
   await page
     .getByRole('button', { name: 'Create project', exact: true })
     .click()
-  // The design's `onCreated` clears `new` and keeps the person on the list —
-  // it selects the new row's quick view rather than opening the project
-  // (sheetbase-app-ui-only/src/routes/_app/projects/index.tsx), and the app's
-  // route does the same (src/routes/projects.tsx onSuccess). A successful write
-  // therefore ends the dialog: it used to stay open over the list.
+  // CORE-01: creating a project opens it, so the next step (add an experiment,
+  // invite the team) is on screen. A successful write ends the dialog.
   await expect(dialog).not.toBeVisible()
   await expect(
     page.getByText(`Project “${project.title}” created`),
   ).toBeVisible()
-  expect(new URL(page.url()).pathname).toBe('/projects')
+  await expect(page).toHaveURL(new RegExp(`/projects/${project.id}$`))
   expect(new URL(page.url()).searchParams.get('new')).toBeNull()
+  // The list is still usable and shows the new project when the person goes back.
+  await page.goto('/projects')
   await expect(
     page.getByRole('heading', { name: 'Projects', exact: true }),
   ).toBeVisible()

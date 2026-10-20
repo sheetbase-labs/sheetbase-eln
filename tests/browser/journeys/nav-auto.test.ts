@@ -186,7 +186,12 @@ test('AUTO-05 a failed run is found under Needs attention and offers a retry', a
 }) => {
   await open(page, '/pipelines')
   await page.getByRole('link', { name: /^Needs attention/ }).click()
-  await page.getByRole('link', { name: /v\d/ }).first().click()
+  await page
+    .getByRole('table', { name: 'Pipelines' })
+    .getByRole('link')
+    .first()
+    .click()
+  await expect(page).toHaveURL(/\/pipelines\/[0-9a-f-]{36}/)
   await expect(page.getByText(/failed|attention/i).first()).toBeVisible()
 })
 

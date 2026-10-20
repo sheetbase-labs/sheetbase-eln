@@ -51,10 +51,7 @@ test('DATA-20 a published model can start a new draft version to edit', async ({
   page,
 }) => {
   await open(page, '/models')
-  await page
-    .getByRole('link', { name: 'ELISA and turbidity' })
-    .first()
-    .click()
+  await page.getByRole('link', { name: 'ELISA and turbidity' }).first().click()
   await page.getByRole('button', { name: 'Edit model' }).click()
   await expect(page).toHaveURL(/\/models\/[0-9a-f-]{36}\/edit/)
   await expect(

@@ -1,3 +1,4 @@
+import { chunkIds } from '#/lib/chunk-ids'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -112,10 +113,16 @@ function SampleUsage() {
     ],
     enabled: experimentIds.length > 0,
     queryFn: async () => {
-      const rows = await notebookDataClient.list<RecordWire>(
-        'records',
-        `?id=in.(${experimentIds.join(',')})&select=id,identifier,title`,
-      )
+      const rows = (
+        await Promise.all(
+          chunkIds(experimentIds).map((group) =>
+            notebookDataClient.list<RecordWire>(
+              'records',
+              `?id=in.(${group.join(',')})&select=id,identifier,title`,
+            ),
+          ),
+        )
+      ).flat()
       return new Map(rows.map((row) => [row.id, row]))
     },
   })
@@ -129,7 +136,7 @@ function SampleUsage() {
     queryFn: async () => {
       const links = await notebookDataClient.list<{ source_record_id: string }>(
         'record_links',
-        `?target_record_id=eq.${sampleId}&link_type=eq.sample&select=source_record_id`,
+        `?target_record_id=eq.${sampleId}&link_type=eq.sample&select=source_record_id&order=created_at.desc`,
       )
       const ids = [...new Set(links.map((l) => l.source_record_id))].slice(
         0,

@@ -198,7 +198,10 @@ test.describe('as the seeded workspace admin', () => {
       page.getByRole('button', { name: 'Clear the project filter' }),
     ).toBeVisible()
     await expect(
-      page.getByRole('link', { name: /run 1/ }).first(),
+      page
+        .getByRole('table', { name: 'Experiments' })
+        .getByRole('link', { name: 'AAV9 process transfer' })
+        .first(),
     ).toBeVisible()
   })
 

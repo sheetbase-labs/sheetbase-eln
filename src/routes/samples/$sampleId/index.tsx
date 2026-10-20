@@ -1,3 +1,4 @@
+import { chunkIds } from '#/lib/chunk-ids'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
@@ -72,10 +73,16 @@ function usePurposeRecords(purposeIds: string[]) {
     queryKey: ['ui-port', 'sample-purpose-records', ids.join(',')],
     enabled: ids.length > 0,
     queryFn: async () => {
-      const rows = await notebookDataClient.list<RecordWire>(
-        'records',
-        `?id=in.(${ids.join(',')})&select=id,identifier,title,kind`,
-      )
+      const rows = (
+        await Promise.all(
+          chunkIds(ids).map((group) =>
+            notebookDataClient.list<RecordWire>(
+              'records',
+              `?id=in.(${group.join(',')})&select=id,identifier,title,kind`,
+            ),
+          ),
+        )
+      ).flat()
       return new Map(rows.map((row) => [row.id, row]))
     },
   })

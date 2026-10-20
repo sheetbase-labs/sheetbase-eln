@@ -446,7 +446,9 @@ export function useSetFavourite(
 ): ReturnType<typeof useMutation<void, Error, SetFavouriteVariables>> {
   const queryClient = useQueryClient()
   // The sidebar's pinned projects come from the shell loader, not a query.
-  const router = useRouter({ warn: false })
+  // Outside a router (unit tests, isolated renders) there is none to refresh.
+  const router = useRouter({ warn: false }) as
+    ReturnType<typeof useRouter> | undefined
   return useMutation({
     mutationFn: async ({
       kind,

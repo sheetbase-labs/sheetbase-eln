@@ -256,11 +256,13 @@ describe('handleSseRequest — stream', () => {
   })
 
   it('starts a connection with no cursor at the newest event instead of replaying history', async () => {
-    const readEvents = vi.fn(async (_workspaceId: string, afterSeq: number) => ({
-      events: afterSeq === 0 ? [event(1), event(2)] : [],
-      hasMore: false,
-      earliestAvailableSeq: 1,
-    }))
+    const readEvents = vi.fn(
+      async (_workspaceId: string, afterSeq: number) => ({
+        events: afterSeq === 0 ? [event(1), event(2)] : [],
+        hasMore: false,
+        earliestAvailableSeq: 1,
+      }),
+    )
     const response = await handleSseRequest(
       req(),
       makeDeps({ readEvents, latestSequence: async () => 900 }),

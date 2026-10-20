@@ -193,7 +193,9 @@ function Experiments() {
   ) as Record<Tab, number>
   // Exact totals once they arrive; the loaded rows stand in while they load so
   // the tabs never flash zeros.
-  const counts = search.project ? loadedCounts : (tabCounts.data ?? loadedCounts)
+  const counts = search.project
+    ? loadedCounts
+    : (tabCounts.data ?? loadedCounts)
   const total = counts.all
   const q = (search.q ?? '').trim().toLowerCase()
   const base = rows.filter(

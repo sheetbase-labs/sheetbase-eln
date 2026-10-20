@@ -353,7 +353,9 @@ export const workspaceInvitations = api.table(
      * The projects the invitation adds the person to when it is accepted: a
      * list of `{ project_id, access_level }`.
      */
-    projectGrants: jsonb('project_grants').notNull().default(sql`'[]'::jsonb`),
+    projectGrants: jsonb('project_grants')
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     tokenHash: text('token_hash').notNull(),
     status: text('status').notNull().default('pending'),
     expiresAt: timestamp('expires_at', {

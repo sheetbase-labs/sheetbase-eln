@@ -9,12 +9,12 @@ import {
 } from '@tanstack/react-router'
 
 import { ProjectsPage } from '#/components/v3/projects/projects-page'
-import type { NewProjectInput } from '#/components/v3/projects/projects-page'
-import { createClientOrganisation } from '#/lib/client-sharing'
 import type {
+  NewProjectInput,
   ProjectsSearch,
   ProjectRow,
 } from '#/components/v3/projects/projects-page'
+import { createClientOrganisation } from '#/lib/client-sharing'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import { toast } from '#/components/v3/ui/sonner'
 import {

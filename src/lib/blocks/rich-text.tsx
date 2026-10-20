@@ -53,6 +53,19 @@ export const EMPTY_RICH_TEXT_PAYLOAD: RichTextPayload = {
   doc: { type: 'doc', content: [{ type: 'paragraph' }] },
 }
 
+/** Whether a rich-text payload holds no text at all: only empty paragraphs. */
+export function isEmptyRichText(payload: unknown): boolean {
+  if (!isObject(payload) || !isObject(payload.doc)) return false
+  const content = (payload.doc as { content?: unknown }).content
+  if (!Array.isArray(content)) return true
+  return content.every(
+    (node) =>
+      isObject(node) &&
+      node.type === 'paragraph' &&
+      (!Array.isArray(node.content) || node.content.length === 0),
+  )
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

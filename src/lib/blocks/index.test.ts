@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import { BLOCK_TYPES } from './registry'
-import { isBlockPayloadValid, validateBlock } from './index'
+import {
+  EMPTY_RICH_TEXT_PAYLOAD,
+  isBlockPayloadValid,
+  isEmptyRichText,
+  validateBlock,
+} from './index'
 
 describe('block payload validation (ELN-002)', () => {
   it('accepts a valid rich_text payload', () => {
@@ -495,5 +500,30 @@ describe('conclusion block payload', () => {
       'verdict',
       'basis',
     ])
+  })
+})
+
+describe('empty rich text', () => {
+  it('is an empty paragraph, and nothing with text in it', () => {
+    expect(isEmptyRichText(EMPTY_RICH_TEXT_PAYLOAD)).toBe(true)
+    expect(
+      isEmptyRichText({
+        doc: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Thawed' }] },
+          ],
+        },
+      }),
+    ).toBe(false)
+    expect(
+      isEmptyRichText({
+        doc: {
+          type: 'doc',
+          content: [{ type: 'heading', attrs: { level: 2 } }],
+        },
+      }),
+    ).toBe(false)
+    expect(isEmptyRichText(null)).toBe(false)
   })
 })

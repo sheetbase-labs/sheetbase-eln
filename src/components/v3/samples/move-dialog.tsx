@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
+import { Notice } from '#/components/v3/ui/alert'
 import {
   Dialog,
   DialogBody,
@@ -44,6 +45,12 @@ export function MoveSampleDialog({
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">
         <DialogHeader title={`Move ${sample.identifier}`} />
         <DialogBody>
+          {sample.storageLocation ? null : (
+            <Notice icon="info">
+              {sample.identifier} has no location yet, so there is nothing to
+              move. Use Receive stock… on the sample to put it somewhere first.
+            </Notice>
+          )}
           <Field
             label="New location"
             required
@@ -70,7 +77,7 @@ export function MoveSampleDialog({
           <DialogClose render={<Button />}>Cancel</DialogClose>
           <Button
             variant="primary"
-            disabled={busy || !target || unchanged}
+            disabled={busy || !target || unchanged || !sample.storageLocation}
             onClick={() => onSubmit(target)}
           >
             {busy ? 'Moving…' : 'Move'}

@@ -217,6 +217,7 @@ test('CORE-14 a reviewed notebook is signed from its own page', async ({
   await page
     .getByRole('list', { name: 'Inbox items' })
     .getByRole('listitem')
+    .filter({ hasText: /review requested/i })
     .first()
     .getByRole('button')
     .click()

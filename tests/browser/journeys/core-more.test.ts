@@ -135,7 +135,9 @@ test('CORE-23 samples are linked to an experiment from its Samples tab', async (
   await open(page, `/experiments/${id}/samples`)
   await page.getByRole('button', { name: /link a sample/i }).click()
   const picker = page.getByRole('dialog')
-  await picker.getByRole('option').first().click()
+  // A scientist with no history has no recent samples, so they type an ID.
+  await picker.getByRole('combobox').fill('SMP-1002')
+  await picker.getByRole('option', { name: /SMP-1002/ }).click()
   await picker.getByRole('button', { name: /^link/i }).click()
   await expect(page.getByText('Sample linked')).toBeVisible()
 })

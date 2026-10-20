@@ -56,6 +56,7 @@ import { createMenuSearch } from './create-context'
 import { isHomeSection, primaryNav, recordNav } from './nav'
 import type { NavItem } from './nav'
 import { filterNavForRole } from '#/lib/nav-visibility'
+import { settingsHomePath } from '#/components/v3/settings/settings-nav'
 import { Tooltip } from '#/components/v3/ui/tooltip'
 import { SearchPalette } from '#/components/v3/search/search-palette'
 import { ContextHelp } from '#/components/v3/help/context-help'
@@ -120,6 +121,7 @@ export function AppShell({
   // SHELL-01.2: omit navigation a workspace role cannot open. Everyday
   // scientific items declare no `roles`/`capability`, so they stay visible.
   const role = data.me.role
+  const settingsTo = settingsHomePath(role)
   const primaryItems = useMemo(() => filterNavForRole(primaryNav, role), [role])
   const recordItems = useMemo(() => filterNavForRole(recordNav, role), [role])
 
@@ -263,6 +265,7 @@ export function AppShell({
             className={collapsed ? 'flex' : 'flex xl:hidden'}
             primaryItems={primaryItems}
             recordItems={recordItems}
+            settingsTo={settingsTo}
           />
           {collapsed ? null : (
             <SideNav
@@ -270,6 +273,7 @@ export function AppShell({
               counts={data.counts}
               primaryItems={primaryItems}
               recordItems={recordItems}
+              settingsTo={settingsTo}
               className="hidden xl:flex"
             />
           )}
@@ -293,10 +297,12 @@ function NavRail({
   className,
   primaryItems,
   recordItems,
+  settingsTo,
 }: {
   className?: string
   primaryItems: NavItem[]
   recordItems: NavItem[]
+  settingsTo: string
 }) {
   const homeSelected = useRouterState({
     select: (state) => isHomeSection(state.location.pathname),
@@ -336,7 +342,7 @@ function NavRail({
       <div className="flex-1" />
       <Tooltip content="Settings">
         <Link
-          to="/settings"
+          to={settingsTo}
           aria-label="Settings"
           className="flex size-8 items-center justify-center rounded-md text-fg-muted hover:bg-surface-hover hover:text-fg"
           activeProps={{
@@ -942,7 +948,10 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
         <DropdownMenuLinkItem icon="info" render={<Link to="/help" />}>
           Help and shortcuts
         </DropdownMenuLinkItem>
-        <DropdownMenuLinkItem icon="settings" render={<Link to="/settings" />}>
+        <DropdownMenuLinkItem
+          icon="settings"
+          render={<Link to={settingsHomePath(me.role)} />}
+        >
           Settings
         </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
@@ -994,12 +1003,14 @@ function SideNav({
   counts,
   primaryItems,
   recordItems,
+  settingsTo,
   className,
 }: {
   pinned: ShellData['pinned']
   counts?: ShellData['counts']
   primaryItems: NavItem[]
   recordItems: NavItem[]
+  settingsTo: string
   className?: string
 }) {
   const withCount = (item: NavItem): NavItem => {
@@ -1047,7 +1058,7 @@ function SideNav({
       ) : null}
       <div className="flex-1" />
       <Link
-        to="/settings"
+        to={settingsTo}
         className={cn(
           buttonVariants({ variant: 'quiet' }),
           'h-[30px] justify-start gap-2 px-2 font-normal [&_svg]:text-fg-muted',

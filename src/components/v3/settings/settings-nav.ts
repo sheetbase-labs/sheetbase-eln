@@ -1,6 +1,10 @@
 import type { LinkProps } from '@tanstack/react-router'
 
-import { WORKSPACE_ADMIN_ROLES, filterNavForRole } from '#/lib/nav-visibility'
+import {
+  WORKSPACE_ADMIN_ROLES,
+  canSeeNavItem,
+  filterNavForRole,
+} from '#/lib/nav-visibility'
 import type { NavVisibility } from '#/lib/nav-visibility'
 
 /**
@@ -9,11 +13,12 @@ import type { NavVisibility } from '#/lib/nav-visibility'
  *
  * The app already restricts these surfaces:
  * - workspace configuration and membership (General, Members and roles,
- *   Electronic signatures, Project access, Audit and retention, Diagnostics,
+ *   Project access, Audit and retention, Diagnostics,
  *   Usage) is an owner/admin surface;
  * - Integrations and Instruments and parsers require `integrations.manage`
  *   (owner/admin/steward), see `src/routes/settings/integrations.tsx`;
- * - API and SDK (personal tokens, plus owner-only service credentials),
+ * - Electronic signatures (every author certifies their own signature there),
+ *   API and SDK (personal tokens, plus owner-only service credentials),
  *   Profile and Notifications belong to every member.
  */
 export type SettingsNavItem = NavVisibility & {
@@ -21,6 +26,17 @@ export type SettingsNavItem = NavVisibility & {
   link: LinkProps
   match: (path: string) => boolean
 }
+
+/** Roles that author records and so certify their own signature. A read-only
+ * viewer or a client has nothing to sign. */
+const SIGNING_ROLES = [
+  ...WORKSPACE_ADMIN_ROLES,
+  'steward',
+  'member',
+  'scientist',
+  'analyst',
+  'reviewer',
+] as const
 
 export const settingsWorkspaceNav: SettingsNavItem[] = [
   {
@@ -39,7 +55,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     label: 'Electronic signatures',
     link: { to: '/settings/signatures' },
     match: (p) => p.startsWith('/settings/signatures'),
-    roles: WORKSPACE_ADMIN_ROLES,
+    roles: SIGNING_ROLES,
   },
   {
     label: 'Clients',
@@ -102,6 +118,16 @@ export const settingsAccountNav: SettingsNavItem[] = [
     match: (p) => p.startsWith('/settings/notifications'),
   },
 ]
+
+/** Where the Settings entry points open: a workspace admin lands on General,
+ * anyone else on their own profile rather than a refusal. */
+export function settingsHomePath(
+  role: string | null | undefined,
+): '/settings' | '/settings/profile' {
+  return canSeeNavItem({ roles: WORKSPACE_ADMIN_ROLES }, { role })
+    ? '/settings'
+    : '/settings/profile'
+}
 
 /** The Settings nav a workspace role may open. */
 export function settingsNavForRole(role: string | null | undefined): {

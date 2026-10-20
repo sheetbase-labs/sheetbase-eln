@@ -5,7 +5,6 @@ import { settingsNavForRole } from './settings-nav'
 const ADMIN_ONLY = [
   'General',
   'Members and roles',
-  'Electronic signatures',
   'Project access',
   'Clients',
   'Audit and retention',
@@ -31,7 +30,11 @@ describe('SHELL-01.2 settings navigation', () => {
       for (const restricted of [...ADMIN_ONLY, ...GOVERNED_ONLY]) {
         expect(labels).not.toContain(restricted)
       }
-      expect(labels).toEqual(['API and SDK'])
+      expect(labels).toEqual(
+        ['viewer', 'client_viewer'].includes(role)
+          ? ['API and SDK']
+          : ['Electronic signatures', 'API and SDK'],
+      )
     }
   })
 
@@ -42,7 +45,11 @@ describe('SHELL-01.2 settings navigation', () => {
   it('shows workspace administration to owners and admins', () => {
     for (const role of ['owner', 'admin']) {
       const labels = workspaceLabels(role)
-      for (const restricted of [...ADMIN_ONLY, ...GOVERNED_ONLY]) {
+      for (const restricted of [
+        ...ADMIN_ONLY,
+        ...GOVERNED_ONLY,
+        'Electronic signatures',
+      ]) {
         expect(labels).toContain(restricted)
       }
       expect(labels).toContain('API and SDK')
@@ -54,6 +61,7 @@ describe('SHELL-01.2 settings navigation', () => {
     for (const governed of GOVERNED_ONLY) expect(labels).toContain(governed)
     for (const admin of ADMIN_ONLY) expect(labels).not.toContain(admin)
     expect(labels).toContain('API and SDK')
+    expect(labels).toContain('Electronic signatures')
   })
 
   it('always offers the personal account sections', () => {

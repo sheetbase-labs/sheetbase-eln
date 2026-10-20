@@ -51,7 +51,9 @@ test('DATA-03 the Datasets list offers Import data', async ({ page }) => {
 
 test('DATA-06 a dataset’s Imports tab lists its receipts', async ({ page }) => {
   await open(page, `/datasets/${ELISA_DATASET}?view=imports`)
-  await expect(page.getByRole('heading', { name: 'Imports' }).first()).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Imports' }).first(),
+  ).toBeVisible()
   await expect(action(page, 'Import a file')).toBeVisible()
 })
 
@@ -83,11 +85,16 @@ test('DATA-17 a dataset’s Snapshots tab compares two snapshots', async ({
   await expect(
     page.getByRole('button', { name: 'Create snapshot' }),
   ).toBeVisible()
-  await page.getByRole('link', { name: /^Compare/ }).first().click()
+  await page
+    .getByRole('link', { name: /^Compare/ })
+    .first()
+    .click()
   await expect(page).toHaveURL(/\/compare/)
 })
 
-test('DATA-18 a dataset names the experiments that use it', async ({ page }) => {
+test('DATA-18 a dataset names the experiments that use it', async ({
+  page,
+}) => {
   await open(page, `/datasets/${ELISA_DATASET}`)
   await expect(page.getByText(/EXP-/).first()).toBeVisible()
 })

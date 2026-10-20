@@ -106,7 +106,10 @@ test('LAB-J10 an instrument is registered from the Instruments page', async ({
   page,
 }) => {
   await open(page, '/instruments')
-  await page.getByRole('button', { name: 'Register instrument' }).first().click()
+  await page
+    .getByRole('button', { name: 'Register instrument' })
+    .first()
+    .click()
   const dialog = page.getByRole('dialog')
   const name = uniqueName('Reader')
   await dialog.getByLabel(/^Name/).fill(name)

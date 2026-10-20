@@ -36,6 +36,7 @@ import {
   DialogHeader,
 } from '#/components/v3/ui/dialog'
 import { CompareView } from '#/components/viz/compare-view'
+import { SnapshotSourceBanner } from '#/components/viz/snapshot-source-banner'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -156,6 +157,7 @@ export const Route = createFileRoute('/analysis/new')({
     mode?: string
     view?: string
     definition?: string
+    snapshot?: string
   } => {
     const next: CreateContextSearch & {
       x?: string
@@ -163,12 +165,16 @@ export const Route = createFileRoute('/analysis/new')({
       mode?: string
       view?: string
       definition?: string
+      snapshot?: string
     } = parseCreateContext(search)
     if (typeof search.x === 'string') next.x = search.x
     if (typeof search.y === 'string') next.y = search.y
     if (typeof search.view === 'string') next.view = search.view
     if (typeof search.definition === 'string' && search.definition)
       next.definition = search.definition
+    // A snapshot of `dataset` to read instead of its live rows.
+    if (typeof search.snapshot === 'string' && search.snapshot)
+      next.snapshot = search.snapshot
     if (
       search.mode === 'chart' ||
       search.mode === 'analyse' ||
@@ -222,6 +228,17 @@ function AnalysisStudio() {
     search.dataset ?? null,
   )
   const [spec, setSpec] = useState<ChartSpec | null>(null)
+  // The snapshot named by `?snapshot=` belongs to the dataset named by
+  // `?dataset=`; choosing another dataset leaves it behind.
+  const [snapshotId, setSnapshotId] = useState<string | null>(
+    search.snapshot ?? null,
+  )
+  const activeSnapshotId =
+    snapshotId && selectedDatasetId === search.dataset ? snapshotId : null
+  // Read when a default spec is built, without rebuilding (and so discarding
+  // the user's encodings) when they switch back to live data.
+  const activeSnapshotRef = useRef(activeSnapshotId)
+  activeSnapshotRef.current = activeSnapshotId
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
   const [chartSelection, setChartSelection] = useState<ChartSelection | null>(
     null,
@@ -300,6 +317,13 @@ function AnalysisStudio() {
     const next = buildDefaultChartSpec(selectedDataset)
     if (next && search.x) next.fields.x = { fieldId: search.x }
     if (next && search.y) next.fields.y = { fieldId: search.y }
+    if (next && activeSnapshotRef.current)
+      next.datasets = [
+        {
+          datasetId: next.datasets[0].datasetId,
+          datasetVersionId: activeSnapshotRef.current,
+        },
+      ]
     setSpec(next)
     setSelectedViewId(null)
     setViewName('')
@@ -629,6 +653,27 @@ function AnalysisStudio() {
             </Button>
           ) : null}
         </div>
+        {mode !== 'analyse' && spec?.datasets[0]?.datasetVersionId ? (
+          <div className="px-3 pt-3">
+            <SnapshotSourceBanner
+              datasetId={spec.datasets[0].datasetId}
+              datasetVersionId={spec.datasets[0].datasetVersionId}
+              onUseLive={() => {
+                setSnapshotId(null)
+                setSpec((current) =>
+                  current
+                    ? {
+                        ...current,
+                        datasets: current.datasets.map(({ datasetId }) => ({
+                          datasetId,
+                        })),
+                      }
+                    : current,
+                )
+              }}
+            />
+          </div>
+        ) : null}
         {mode === 'analyse' ? (
           <div className="min-h-0 flex-1 overflow-auto p-3">
             <AnalysisPanel
@@ -636,6 +681,7 @@ function AnalysisStudio() {
               workspaceId={workspaceId}
               userId={userId}
               initialDatasetId={selectedDatasetId}
+              initialSnapshotId={activeSnapshotId}
               initialDefinitionId={search.definition}
               experimentId={search.experiment}
             />

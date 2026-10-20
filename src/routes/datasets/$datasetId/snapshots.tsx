@@ -387,6 +387,30 @@ function Snapshots() {
               </div>
             </InspectorSection>
           ) : null}
+          {!tombstone ? (
+            <InspectorSection title="Analysis">
+              <div className="flex flex-col gap-1.5">
+                <Muted>
+                  Chart or analyse the rows exactly as this snapshot holds them.
+                  They do not change when the dataset does.
+                </Muted>
+                <Link
+                  to="/analysis/new"
+                  search={{
+                    dataset: datasetId,
+                    snapshot: current.id,
+                    mode: 'analyse',
+                  }}
+                  className={cn(
+                    buttonVariants({ variant: 'secondary', size: 'sm' }),
+                    'justify-center',
+                  )}
+                >
+                  Analyse this snapshot
+                </Link>
+              </div>
+            </InspectorSection>
+          ) : null}
           <InspectorSection title="Content hash">
             {tombstone ? (
               <Muted>

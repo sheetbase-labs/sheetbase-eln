@@ -410,7 +410,9 @@ function NotebookInstanceSheetEmbed({
 
   return (
     <div className="flex min-h-[24rem] flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2 px-1 pt-1">
+      {/* pr-16 keeps the header clear of the block's right-edge hover toolbar,
+          which would otherwise sit over "Open full sheet". */}
+      <div className="flex flex-wrap items-center gap-2 pl-1 pr-16 pt-1">
         <h3 className="text-sm font-medium text-fg">{instance.data.name}</h3>
         <span className="text-xs text-fg-muted">{definitionLabel}</span>
         {sharedCount > 1 ? (

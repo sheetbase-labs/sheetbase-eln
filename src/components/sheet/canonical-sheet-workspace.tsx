@@ -1741,7 +1741,7 @@ export function CanonicalSheetEditor({
   }, [comments.data, instance.id, matrix.rowKeys, matrix.columns])
 
   return (
-    <div className="flex h-full min-h-[24rem] flex-col">
+    <div className="flex h-full min-h-[24rem] min-w-0 flex-col">
       <div className="flex shrink-0 items-center justify-end gap-2 border-b px-2 py-1">
         {commentActor ? (
           <Button

@@ -124,6 +124,105 @@ const testRecord: NotebookRecord = {
 }
 
 describe('SubmitNotebookDialog', () => {
+  it('does not offer a reviewer who lacks review access to the project', async () => {
+    names.byId = { '22222222-reviewer': 'Mei L.', u1: 'Gareth P.' }
+    const { notebookDataClient } = await import('#/lib/notebook-data')
+    vi.spyOn(notebookDataClient, 'rpc').mockResolvedValue([{ user_id: 'u1' }])
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([
+      {
+        id: 'm1',
+        workspaceId: 'ws',
+        userId: 'u1',
+        role: 'scientist',
+        suspendedAt: null,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+      },
+      {
+        id: 'm2',
+        workspaceId: 'ws',
+        userId: '22222222-reviewer',
+        role: 'reviewer',
+        suspendedAt: null,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+      },
+    ])
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="u1"
+        workspaceId="ws"
+        record={testRecord}
+      />,
+    )
+    expect(
+      await screen.findByText(/no review access to this project/),
+    ).toBeTruthy()
+    expect(
+      screen
+        .getByRole('checkbox', { name: /Mei L\./ })
+        .hasAttribute('data-disabled'),
+    ).toBe(true)
+    vi.mocked(notebookDataClient.rpc).mockRestore()
+  })
+
+  it('refuses a reviewer who cannot open a draft experiment', async () => {
+    names.byId = { '22222222-reviewer': 'Mei L.', u1: 'Gareth P.' }
+    const { previewSubmissionDigest } = await import('#/lib/notebook-data')
+    vi.mocked(previewSubmissionDigest).mockResolvedValue({
+      recordId: 'r1',
+      sourceDigest: 'abc123digest',
+      structureVersion: 1,
+      metadataVersion: 1,
+      calculationInputRevision: 1,
+    })
+    vi.mocked(fetchWorkspaceMembers).mockResolvedValue([
+      {
+        id: 'm1',
+        workspaceId: 'ws',
+        userId: 'u1',
+        role: 'scientist',
+        suspendedAt: null,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+      },
+      {
+        id: 'm2',
+        workspaceId: 'ws',
+        userId: '22222222-reviewer',
+        role: 'reviewer',
+        suspendedAt: null,
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+      },
+    ])
+    const user = userEvent.setup()
+    renderDialog(
+      <SubmitNotebookDialog
+        open
+        onOpenChange={vi.fn()}
+        recordId="r1"
+        projectId="p1"
+        reviewerUserId="u1"
+        workspaceId="ws"
+        record={{ ...testRecord, status: 'draft' }}
+      />,
+    )
+    await user.click(await screen.findByText('Mei L. · reviewer'))
+    await user.click(screen.getByRole('button', { name: 'Check snapshot' }))
+    expect(
+      await screen.findByText(/cannot open a draft experiment/),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Submit' })).toHaveProperty(
+      'disabled',
+      true,
+    )
+  })
+
   it('requires a snapshot check and a reviewer before submit', async () => {
     names.byId = { '22222222-reviewer': 'Mei L.', u1: 'Gareth P.' }
     const { previewSubmissionDigest, submitRecordRevision } =

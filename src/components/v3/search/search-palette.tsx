@@ -25,6 +25,7 @@ import { searchResultContext, searchResultLabel } from './result-text'
 import {
   contextualSearchActions,
   filterBySearchScope,
+  executeSearch,
   groupSearchResults,
   rankByTier,
   searchActionHref,
@@ -39,7 +40,6 @@ import type {
   SearchResult,
   SearchResultGroup,
 } from '#/lib/search'
-import { executeSearchWithWorkObjects } from '#/lib/search-work-objects'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 /**
@@ -162,7 +162,7 @@ export function SearchPalette({
       const generation = (searchGeneration.current += 1)
       setSearching(true)
       setError(null)
-      void executeSearchWithWorkObjects(notebookDataClient, {
+      void executeSearch(notebookDataClient, {
         query: term,
         limit: FETCH_LIMIT,
         projectId: nextScope === SEARCH_SCOPE_ALL ? undefined : nextScope,

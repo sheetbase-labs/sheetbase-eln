@@ -132,7 +132,15 @@ export function objectPath(kind: string, ref: string): string | null {
 }
 
 export type CanonicalSearchResultType =
-  'record' | 'file' | 'dataset' | 'sheet' | 'template' | 'comment'
+  | 'record'
+  | 'file'
+  | 'dataset'
+  | 'sheet'
+  | 'template'
+  | 'comment'
+  | 'project'
+  | 'pipeline'
+  | 'analysis'
 
 export function searchResultDestination(
   resultType: CanonicalSearchResultType,
@@ -170,6 +178,10 @@ export function searchResultDestination(
       return sheetPath(recordId)
     case 'template':
       return notebookTemplatePath(recordId)
+    case 'project':
+    case 'pipeline':
+    case 'analysis':
+      return objectPath(resultType, recordId) ?? recordPath(recordId)
     default:
       // The palette opens the record itself (its notebook), not the owning
       // registry with the row selected.

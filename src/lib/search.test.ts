@@ -361,6 +361,19 @@ function wireRow(overrides: Partial<SearchResultWire> = {}): SearchResultWire {
 }
 
 describe('toSearchResult', () => {
+  it('keeps the project, pipeline and analysis classes the RPC now returns', () => {
+    for (const resultType of ['project', 'pipeline', 'analysis'] as const) {
+      const result = toSearchResult(
+        wireRow({ result_type: resultType, record_id: 'x-1' }),
+      )
+      expect(result.resultType).toBe(resultType)
+    }
+    expect(
+      toSearchResult(wireRow({ result_type: 'project', record_id: 'p-1' }))
+        .deepLink,
+    ).toBe('/projects/p-1')
+  })
+
   it('maps a record result', () => {
     const result = toSearchResult(wireRow())
     expect(result.resultType).toBe('record')

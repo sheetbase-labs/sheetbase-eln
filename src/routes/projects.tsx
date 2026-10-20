@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createFileRoute,
@@ -149,7 +149,19 @@ function ProjectsRoute() {
 function ProjectsIndexRoute() {
   const { context } = Route.useRouteContext()
   const navigate = useNavigate({ from: Route.fullPath })
-  const search = Route.useSearch()
+  const matchSearch = Route.useSearch()
+  // Coming back to /projects within the router's cache window renders this page
+  // once with the *previous* visit's search ("?new=true", from the create that
+  // just landed), before the URL's own empty search replaces it. The page opens
+  // its New project dialog from that first render and never closes it again,
+  // so only believe a create intent the address bar itself carries.
+  const urlAsksForNew = useRouterState({
+    select: (state) =>
+      Boolean((state.location.search as { new?: unknown } | undefined)?.new),
+  })
+  const search = urlAsksForNew
+    ? matchSearch
+    : { ...matchSearch, new: undefined }
   const queryClient = useQueryClient()
 
   const query = useQuery({
@@ -190,16 +202,25 @@ function ProjectsIndexRoute() {
     mutationFn: createProject,
     // The dialog closes and the row appears, but nothing said the write landed.
     // Same feedback the bulk archive/restore already gives.
-    onSuccess: (created, input) => {
+    onSuccess: (_created, input) => {
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
       toast(`Project “${input.title}” created`)
-      // Land on the new project, not back on the list it was created from.
-      void navigate({
-        to: '/projects/$projectId',
-        params: { projectId: created.id },
-      })
     },
   })
+
+  // Land on the new project, not back on the list it was created from. This is
+  // an effect on the created project rather than a navigate in `onSuccess`:
+  // the router keeps this page on screen while the project loads, and
+  // navigating before the success state has rendered froze it with the New
+  // project dialog still open, which a quick click on Projects then revealed.
+  const createdId = create.data?.id
+  useEffect(() => {
+    if (createdId)
+      void navigate({
+        to: '/projects/$projectId',
+        params: { projectId: createdId },
+      })
+  }, [createdId, navigate])
 
   const members = useQuery({
     queryKey: [...workspaceMemberQueryKeys.identities, context.workspace?.id],

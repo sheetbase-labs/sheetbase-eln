@@ -156,9 +156,8 @@ describe('AnalysisPanel', () => {
       </QueryClientProvider>
     )
     const { rerender } = render(tree([]))
-    const select = (await screen.findByLabelText(
-      'Analysis dataset',
-    )) as HTMLSelectElement
+    const select =
+      await screen.findByLabelText<HTMLSelectElement>('Analysis dataset')
     expect(select.value).toBe('')
     rerender(tree([DATASET]))
     await waitFor(() => expect(select.value).toBe(DATASET.datasetId))

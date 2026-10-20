@@ -83,7 +83,7 @@ export function DatasetRunPipeline({
               disabled={!latestVersionId}
               hint={`v${row.current.version}`}
               onClick={() => {
-                const [input] = declaredRunInputs(row.current).inputs
+                const input = declaredRunInputs(row.current).inputs.at(0)
                 run.launch({
                   pipelineKey: row.key,
                   version: row.current,

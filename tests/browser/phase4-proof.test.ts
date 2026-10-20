@@ -226,9 +226,9 @@ test('Sheet blocks render, and the DB proxy is fail-closed for an unscoped exter
   // server and database, so the notebook and its two grids are given the same
   // budget the sibling specs give this page instead of the 5s default.
   // The title is an editable field in the notebook header, so it has a value, not text.
-    await expect(
-      page.getByRole('textbox', { name: 'Notebook title' }),
-    ).toHaveValue('Virus Stability at 4C', { timeout: 15_000 })
+  await expect(
+    page.getByRole('textbox', { name: 'Notebook title' }),
+  ).toHaveValue('Virus Stability at 4C', { timeout: 15_000 })
   // Both canonical Sheet blocks render their own live grid and their own data.
   await expect(page.getByLabel('Sheet', { exact: true })).toHaveCount(2, {
     timeout: 15_000,

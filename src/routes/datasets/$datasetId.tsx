@@ -19,6 +19,7 @@ import {
 import { isDatasetDetailTab } from '#/components/v3/datasets/dataset-detail-tabs'
 import type { DatasetDetailTab } from '#/components/v3/datasets/dataset-detail-tabs'
 import { DatasetHistoryTab } from '#/components/v3/datasets/dataset-history-tab'
+import { DatasetArchive } from '#/components/v3/datasets/dataset-archive'
 import { DatasetImportsTab } from '#/components/v3/datasets/dataset-imports-tab'
 import { DatasetModelUpgrade } from '#/components/v3/datasets/dataset-model-upgrade'
 import { DatasetRunPipeline } from '#/components/v3/datasets/dataset-run-pipeline'
@@ -260,6 +261,15 @@ function DatasetLayout() {
                 />
               </>
             ) : null}
+            <DatasetArchive
+              datasetId={dataset.uuid}
+              name={dataset.name}
+              archived={dataset.archived}
+              canEdit={hasCapability(context.workspace?.role, 'record.create')}
+              onDone={(nowArchived) => {
+                if (nowArchived) void navigate({ to: '/datasets' })
+              }}
+            />
           </>
         }
         tabs={

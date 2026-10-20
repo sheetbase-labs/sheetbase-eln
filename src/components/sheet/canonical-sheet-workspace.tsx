@@ -1382,11 +1382,18 @@ export function CanonicalSheetEditor({
     [canWrite],
   )
 
+  const selectionKeyRef = useRef<string | null>(null)
   // GRID-04: selection is stored in physical coordinates so delete, provenance
   // and status resolve the column/row the user actually selected, whatever the
   // current sort/filter/move state is.
   const handleSelectionChange = useCallback(
     (selection: SheetbaseGridSelection | null) => {
+      // The grid re-announces an unchanged selection whenever it re-renders;
+      // storing it again as a new object re-renders the grid in turn, so an
+      // identical selection is ignored.
+      const key = selection ? JSON.stringify(selection) : null
+      if (key === selectionKeyRef.current) return
+      selectionKeyRef.current = key
       setCommentSelection(selection)
       selectionRef.current = selection
       if (!selection) return

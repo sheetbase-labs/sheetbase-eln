@@ -1322,6 +1322,105 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     expect(rows[1].retry_of_run_id).toBe(crashedRunId)
   })
 
+  it('fires an instrument-filtered event schedule only for versions imported from that instrument', async () => {
+    const owner = await actor(OWNER, WS)
+    const instrumentRows = await migrator.query<{ id: string }>(
+      `insert into api.instruments(workspace_id,name,instrument_type)
+       values($1,'Sweep filter reader A','qpcr'),($1,'Sweep filter reader B','qpcr')
+       returning id`,
+      [WS],
+    )
+    const [instrumentA, instrumentB] = instrumentRows.rows.map((r) => r.id)
+    const schedule = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_schedule',
+      {
+        p_workspace_id: WS,
+        p_definition_id: pipelineDefinitionId,
+        p_kind: 'event',
+        p_spec: {
+          eventType: 'dataset.versioned',
+          instrumentId: instrumentA,
+          inputName: 'measurements',
+          parameters: { factor: 3 },
+        },
+        p_enabled: true,
+      },
+    )
+    // Only this schedule sees the events.
+    await migrator.query(
+      `update api.pipeline_schedules set enabled = false
+        where kind = 'event' and id <> $1`,
+      [schedule.id],
+    )
+    const fromA = await createInputDatasetVersion(
+      owner,
+      schemaVersionId,
+      'pipeline-sweep-instrument-a',
+      [
+        'bbbb0000-0000-4000-8000-000000000001',
+        'bbbb0000-0000-4000-8000-000000000002',
+        'bbbb0000-0000-4000-8000-000000000003',
+      ],
+    )
+    const fromB = await createInputDatasetVersion(
+      owner,
+      schemaVersionId,
+      'pipeline-sweep-instrument-b',
+      [
+        'bbbb0000-0000-4000-8000-000000000004',
+        'bbbb0000-0000-4000-8000-000000000005',
+        'bbbb0000-0000-4000-8000-000000000006',
+      ],
+    )
+    // A third version made by hand, with no instrument import behind it.
+    await createInputDatasetVersion(
+      owner,
+      schemaVersionId,
+      'pipeline-sweep-instrument-none',
+      [
+        'bbbb0000-0000-4000-8000-000000000007',
+        'bbbb0000-0000-4000-8000-000000000008',
+        'bbbb0000-0000-4000-8000-000000000009',
+      ],
+    )
+    for (const [dataset, version, instrument, key] of [
+      [fromA.datasetId, fromA.versionId, instrumentA, 'sweep-import-a'],
+      [fromB.datasetId, fromB.versionId, instrumentB, 'sweep-import-b'],
+    ] as const) {
+      const file = await migrator.query<{ id: string }>(
+        `insert into api.dataset_import_files(workspace_id,filename,byte_size,checksum,storage_key,format,status,created_by_user_id)
+         values($1,$2,64,repeat('b',64),$3,'csv','parsed',$4) returning id`,
+        [WS, `${key}.csv`, `imports/${key}.csv`, OWNER],
+      )
+      await migrator.query(
+        `insert into api.dataset_imports(workspace_id,dataset_id,instrument_id,file_id,snapshot_version_id,
+                                         status,idempotency_key,created_by_user_id)
+         values($1,$2,$3,$4,$5,'committed',$6,$7)`,
+        [WS, dataset, instrument, file.rows[0]!.id, version, key, OWNER],
+      )
+    }
+
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    const deps = await makeSweepDeps(conn)
+    expect(await sweepPipelines(deps)).toBe(1)
+    // Sweeping again finds nothing new: the filtered-out versions are not
+    // fired later, and the matching one is not fired twice.
+    expect(await sweepPipelines(deps)).toBe(0)
+    await conn.end()
+
+    const { rows } = await migrator.query<{
+      input_versions: Record<string, string>
+    }>(
+      `select input_versions from api.pipeline_runs
+        where schedule_id = $1 and trigger_kind = 'event'`,
+      [schedule.id],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.input_versions.measurements).toBe(fromA.versionId)
+  })
+
   it('recovers a crashed event occurrence via a sweep, retrying evt:<event_id>', async () => {
     const owner = await actor(OWNER, WS)
     const schedule = await rpc<{ id: string }>(

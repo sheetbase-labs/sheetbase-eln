@@ -1874,10 +1874,23 @@ describe('Pipeline workflow extensions', () => {
     const report = await runPipelineExecution(OWNER, run.id, deps)
     expect(report.ok).toBe(true)
 
-    // The runner is configured in this environment but not reachable, so the release
+    // The runner is configured here but not reachable, so the release
     // fails; the run must be left unmarked so the next tick retries rather than looking
     // released when its files were never dealt with.
-    const first = await releaseSettledRunArtefacts(deps)
+    const urlBefore = process.env.PIPELINE_PYTHON_RUNNER_URL
+    const tokenBefore = process.env.PIPELINE_PYTHON_RUNNER_TOKEN
+    process.env.PIPELINE_PYTHON_RUNNER_URL = 'http://127.0.0.1:9'
+    process.env.PIPELINE_PYTHON_RUNNER_TOKEN = 'r'.repeat(32)
+    let first: Awaited<ReturnType<typeof releaseSettledRunArtefacts>>
+    try {
+      first = await releaseSettledRunArtefacts(deps)
+    } finally {
+      if (urlBefore === undefined) delete process.env.PIPELINE_PYTHON_RUNNER_URL
+      else process.env.PIPELINE_PYTHON_RUNNER_URL = urlBefore
+      if (tokenBefore === undefined)
+        delete process.env.PIPELINE_PYTHON_RUNNER_TOKEN
+      else process.env.PIPELINE_PYTHON_RUNNER_TOKEN = tokenBefore
+    }
     expect(first.failed).toBeGreaterThanOrEqual(1)
     const unmarked = await migrator.query(
       `SELECT 1 FROM api.pipeline_artefact_releases WHERE run_id = $1`,

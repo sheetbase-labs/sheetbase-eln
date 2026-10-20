@@ -277,11 +277,15 @@ describe('populated migration 0255', () => {
       entries: { idx: number; tag: string; when: number; version: string }[]
     }
     const last = journal.entries.at(-1)!
+    // Drizzle applies only migrations newer than the latest applied timestamp,
+    // and the journal is not strictly ordered by it, so the probe has to
+    // outrank the newest entry rather than the last one.
+    const newest = Math.max(...journal.entries.map((entry) => entry.when))
     journal.entries.push({
       ...last,
       idx: last.idx + 1,
       tag: 'runner_failure_probe',
-      when: last.when + 1,
+      when: newest + 1,
     })
     // A deliberately failing migration exists only in the disposable fixture.
     await writeFile(

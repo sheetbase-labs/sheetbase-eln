@@ -145,7 +145,7 @@ export function ComposedSheetRoute() {
                 "Link copied" when nothing reached the clipboard would leave the
                 user with an empty paste and no explanation. */}
             <CopyButton
-              value={window.location.href}
+              value={() => window.location.href}
               copiedMessage="Link copied"
               failedMessage="Could not copy the link. Copy it from the address bar."
             >
@@ -161,7 +161,7 @@ export function ComposedSheetRoute() {
           user={{ id: context.user.id, name: context.user.name }}
         />
       </div>
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1">
         <CollaborationRoom roomId={collaborationRoomId}>
           <CanonicalSheetWorkspace
             instanceId={sheetId}

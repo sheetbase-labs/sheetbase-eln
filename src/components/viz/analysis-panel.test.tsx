@@ -141,6 +141,32 @@ describe('AnalysisPanel', () => {
     expect(screen.getByText('median')).toBeTruthy()
   })
 
+  it("selects the requested dataset once a deep link's sources arrive", async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const tree = (datasets: CanonicalDatasetSource[]) => (
+      <QueryClientProvider client={client}>
+        <AnalysisPanel
+          datasets={datasets}
+          workspaceId="ws-1"
+          userId="user-1"
+          initialDatasetId={DATASET.datasetId}
+        />
+      </QueryClientProvider>
+    )
+    const { rerender } = render(tree([]))
+    const select =
+      await screen.findByLabelText<HTMLSelectElement>('Analysis dataset')
+    expect(select.value).toBe('')
+    rerender(tree([DATASET]))
+    await waitFor(() => expect(select.value).toBe(DATASET.datasetId))
+    // A later choice of "no dataset" is the person's and is kept.
+    fireEvent.change(select, { target: { value: '' } })
+    rerender(tree([DATASET]))
+    expect(select.value).toBe('')
+  })
+
   it('surfaces an honest execution error for an empty dataset', async () => {
     mockFetchRows.mockResolvedValue({
       rows: [],

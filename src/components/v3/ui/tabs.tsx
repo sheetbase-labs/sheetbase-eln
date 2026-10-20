@@ -100,7 +100,7 @@ const ACTIVE_DATA: Record<TabVariant, string> = {
 const LIST: Record<TabVariant, string> = {
   strip: 'flex gap-5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]',
   segment:
-    'flex w-fit gap-0.5 rounded-md border border-border bg-surface-muted p-0.5',
+    'flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-md border border-border bg-surface-muted p-0.5 [scrollbar-width:none]',
   chip: 'flex items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none]',
 }
 

@@ -174,7 +174,7 @@ function ExperimentLayout() {
         actions={
           <>
             <CopyButton
-              value={window.location.href}
+              value={() => window.location.href}
               className="max-lg:hidden"
               copiedMessage="Link copied"
               failedMessage="Could not copy the link. Copy it from the address bar."

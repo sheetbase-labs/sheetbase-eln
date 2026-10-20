@@ -59,6 +59,7 @@ vi.mock('@tanstack/react-router', () => ({
     fullPath: '/datasets/$datasetId',
   }),
   useSearch: () => fixtures.routerState.search,
+  useNavigate: () => vi.fn(),
   useRouterState: ({
     select,
   }: {
@@ -110,6 +111,9 @@ vi.mock('#/components/v3/datasets/dataset-used-by-tab', () => ({
   DatasetUsedByTab: ({ datasetId }: { datasetId: string }) => (
     <div data-testid="used-by-panel">{datasetId}</div>
   ),
+}))
+vi.mock('#/components/v3/datasets/dataset-run-pipeline', () => ({
+  DatasetRunPipeline: () => null,
 }))
 vi.mock('#/components/v3/datasets/dataset-history-tab', () => ({
   DatasetHistoryTab: ({ datasetId }: { datasetId: string }) => (

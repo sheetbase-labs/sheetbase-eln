@@ -636,6 +636,27 @@ describe('createLiveEventCoordinator', () => {
     }
   })
 
+  it('tells subscribers once about a backlog of hundreds of events', () => {
+    vi.useFakeTimers()
+    try {
+      const { coordinator, sources } = makeDeps()
+      coordinator.connect()
+      sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+      let notified = 0
+      coordinator.subscribe(() => (notified += 1))
+      notified = 0
+      for (let seq = 1; seq <= 500; seq++) {
+        sources[0].dispatch('change', changeEvent(seq))
+      }
+      expect(notified).toBe(0)
+      vi.advanceTimersByTime(100)
+      expect(notified).toBe(1)
+      expect(coordinator.getStatus().lastAppliedSeq).toBe(500)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('subscribe receives the current snapshot immediately and on changes', () => {
     const { coordinator, sources } = makeDeps()
     const seen: string[] = []

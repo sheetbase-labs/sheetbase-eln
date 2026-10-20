@@ -272,7 +272,7 @@ test('the annotated document fits the phone width and keeps its comment anchors 
   await page.screenshot({ path: '/tmp/note-01-review-document-phone.png' })
 
   // The change list stays available as the other reading of the same diff.
-  await page.getByRole('button', { name: 'Change list' }).click()
+  await page.getByRole('tab', { name: 'Change list' }).click()
   await expect(
     page.getByRole('region', { name: 'Revision comparison' }),
   ).toBeVisible()

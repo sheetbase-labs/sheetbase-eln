@@ -501,6 +501,30 @@ describe('compose_analysis_definition', () => {
     expect(row.definition.chart.type).toBe('scatter')
   })
 
+  it('keeps the snapshot a chart is pinned to (migration 0554)', async () => {
+    const versionId = crypto.randomUUID()
+    const spec = chartSpec() as { datasets: Array<Record<string, unknown>> }
+    spec.datasets[0] = { ...spec.datasets[0], datasetVersionId: versionId }
+    const viewId = await viewWith('Compose pinned', spec)
+    const owner = await member(USER_A)
+    const res = await owner.query(
+      `SELECT * FROM api.compose_analysis_definition($1,NULL,$2)`,
+      [viewId, `Composed pinned ${Date.now()}`],
+    )
+    expect(res.rows[0].definition.datasets).toEqual([
+      { datasetId, datasetVersionId: versionId },
+    ])
+    // A statistic that reads the live dataset cannot take a snapshot chart.
+    const statisticId = await definitionWith('Compose live', statistic())
+    await expect(
+      owner.query(`SELECT * FROM api.compose_analysis_definition($1,$2,$3)`, [
+        viewId,
+        statisticId,
+        `Composed mixed ${Date.now()}`,
+      ]),
+    ).rejects.toThrow(/must read the dataset/)
+  })
+
   it('puts the chart beside a statistic and leaves the statistic untouched', async () => {
     const viewId = await viewWith('Compose both', chartSpec())
     const statisticId = await definitionWith('Compose statistic', statistic())

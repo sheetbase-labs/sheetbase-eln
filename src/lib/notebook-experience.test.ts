@@ -450,6 +450,27 @@ describe('duplicateExperiment', () => {
     expect(record.title).toBe('Stability run copy')
   })
 
+  it('links the copy to the run it repeats and survives a refused link', async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ record: recordWire(), blocks: [] })
+      .mockRejectedValueOnce(new Error('link refused'))
+    const source = sourceRecord()
+    const { record } = await duplicateExperiment(mockClient({ rpc }), {
+      source,
+      blocks: [],
+    })
+    expect(record).toBeDefined()
+    expect(rpc).toHaveBeenLastCalledWith(
+      'create_record_link',
+      expect.objectContaining({
+        p_target_kind: 'experiment',
+        p_link_type: 'follows',
+        p_target_record_id: source.id,
+      }),
+    )
+  })
+
   it('inserts an empty rich_text block when the source has no blocks', async () => {
     const rpc = vi.fn().mockResolvedValue({
       record: recordWire(),

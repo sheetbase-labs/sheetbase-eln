@@ -141,6 +141,16 @@ export function AnalysisPanel({
   const [snapshotId, setSnapshotId] = useState<string | null>(
     initialSnapshotId ?? null,
   )
+  // The dataset list can arrive after the panel mounts (a deep link opens the
+  // studio before its sources load). Adopt the requested dataset once it is
+  // there, and only once, so choosing "Select a dataset" afterwards sticks.
+  const adoptedInitialDataset = useRef(selectedDatasetId !== '')
+  useEffect(() => {
+    if (adoptedInitialDataset.current || !initialDatasetId) return
+    if (!datasets.some((d) => d.datasetId === initialDatasetId)) return
+    adoptedInitialDataset.current = true
+    setSelectedDatasetId(initialDatasetId)
+  }, [datasets, initialDatasetId])
   const [citeOpen, setCiteOpen] = useState(false)
   const [draft, setDraft] = useState<DefinitionDraft>(emptyDraft)
 

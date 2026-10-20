@@ -101,7 +101,9 @@ function toneFor(kind: WorkItemKind): Tone {
     kind === 'approval_unsigned' ||
     kind === 'sample_awaiting_release' ||
     kind === 'sample_hold_exceeded' ||
-    kind === 'calibration_overdue'
+    kind === 'calibration_overdue' ||
+    kind === 'qualification_requested' ||
+    kind === 'qualification_granted'
   )
     return 'warn'
   if (kind === 'witness_signed') return 'review'
@@ -112,6 +114,8 @@ function toneFor(kind: WorkItemKind): Tone {
 
 function labelFor(kind: WorkItemKind, state: string): string {
   if (kind === 'calibration_overdue') return 'Calibration'
+  if (kind === 'qualification_requested') return 'Qualification'
+  if (kind === 'qualification_granted') return 'Qualified'
   if (kind === 'witness_requested') return 'Witness requested'
   if (state === 'overdue') return 'Overdue'
   if (kind === 'review_requested') return 'Review'

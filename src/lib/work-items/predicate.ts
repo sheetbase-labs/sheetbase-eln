@@ -59,7 +59,8 @@ export function workItemType(kind: string): WorkItemType {
   if (
     kind === 'sample_awaiting_release' ||
     kind === 'sample_hold_exceeded' ||
-    kind === 'calibration_overdue'
+    kind === 'calibration_overdue' ||
+    kind === 'qualification_granted'
   )
     return 'lab'
   if (
@@ -68,7 +69,8 @@ export function workItemType(kind: string): WorkItemType {
     kind === 'agent_proposal' ||
     kind === 'invitation_accepted' ||
     kind === 'verification_requested' ||
-    kind === 'verification_granted'
+    kind === 'verification_granted' ||
+    kind === 'qualification_requested'
   )
     return 'admin'
   return 'following'

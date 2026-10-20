@@ -62,6 +62,8 @@ describe('workItemType for the waiting states', () => {
     ['sample_awaiting_release', 'lab'],
     ['sample_hold_exceeded', 'lab'],
     ['calibration_overdue', 'lab'],
+    ['qualification_requested', 'admin'],
+    ['qualification_granted', 'lab'],
     ['access_requested', 'admin'],
     ['access_decided', 'admin'],
     ['agent_proposal', 'admin'],

@@ -107,5 +107,12 @@ describe('itemLink', () => {
       to: '/instruments/$instrumentId',
       params: { instrumentId: 'inst-1' },
     })
+    for (const kind of ['qualification_requested', 'qualification_granted'])
+      expect(
+        itemLink(item(kind as 'calibration_overdue', { sourceId: 'inst-1' })),
+      ).toEqual({
+        to: '/instruments/$instrumentId',
+        params: { instrumentId: 'inst-1' },
+      })
   })
 })

@@ -99,6 +99,8 @@ export function itemLink(item: WorkItem): WorkItemLink {
         ? { to: '/samples/$sampleId', params: { sampleId: item.recordId } }
         : { to: '/inbox' }
     case 'calibration_overdue':
+    case 'qualification_requested':
+    case 'qualification_granted':
       return item.sourceId
         ? {
             to: '/instruments/$instrumentId',

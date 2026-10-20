@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { settingsNavForRole } from './settings-nav'
+import { settingsHomePath, settingsNavForRole } from './settings-nav'
 
 const ADMIN_ONLY = [
   'General',
@@ -77,6 +77,20 @@ describe('SHELL-01.2 settings navigation', () => {
         'Profile',
         'Notifications',
       ])
+    }
+  })
+
+  it('opens Settings on General for admins and on the profile for everyone else', () => {
+    expect(settingsHomePath('owner')).toBe('/settings')
+    expect(settingsHomePath('admin')).toBe('/settings')
+    for (const role of [
+      'scientist',
+      'member',
+      'viewer',
+      'client_viewer',
+      null,
+    ]) {
+      expect(settingsHomePath(role)).toBe('/settings/profile')
     }
   })
 })

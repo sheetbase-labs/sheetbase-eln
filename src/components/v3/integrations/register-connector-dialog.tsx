@@ -28,6 +28,15 @@ import '#/lib/connectors/plate-reader'
 
 const dataClient = createDataClient()
 
+/** A connector key from a name: lowercase letters, digits and single dashes. */
+function slugKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 49)
+}
+
 export function RegisterConnectorDialog({
   workspaceId,
   open,
@@ -41,6 +50,8 @@ export function RegisterConnectorDialog({
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
+  // The key follows the name until a person types their own.
+  const [keyEdited, setKeyEdited] = useState(false)
   const [connectorType, setConnectorType] =
     useState<ConnectorType>('instrument')
   const [direction, setDirection] = useState<ConnectorDirection>('inbound')
@@ -70,6 +81,7 @@ export function RegisterConnectorDialog({
       onOpenChange(false)
       setName('')
       setKey('')
+      setKeyEdited(false)
       void queryClient.invalidateQueries({ queryKey: ['connectors'] })
       // Land on the new connector, where credentials and activation are set.
       void navigate({
@@ -91,7 +103,10 @@ export function RegisterConnectorDialog({
           <Field label="Name" required>
             <Input
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => {
+                setName(event.target.value)
+                if (!keyEdited) setKey(slugKey(event.target.value))
+              }}
               placeholder="Plate reader bench 2"
             />
           </Field>
@@ -102,9 +117,10 @@ export function RegisterConnectorDialog({
           >
             <Input
               value={key}
-              onChange={(event) =>
+              onChange={(event) => {
+                setKeyEdited(true)
                 setKey(event.target.value.toLowerCase().replaceAll(' ', '-'))
-              }
+              }}
               placeholder="plate-reader-bench-2"
             />
           </Field>

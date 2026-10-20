@@ -391,6 +391,13 @@ describe('saved-view writes', () => {
       expect.objectContaining({ workspace_id: 'ws-1', owner_user_id: 'u-1' }),
     )
   })
+
+  it('unwraps the one-row array PostgREST answers an insert with', async () => {
+    const insert = vi.fn(async () => [saved])
+    await expect(
+      saveAnalysisView(client({ insert }), input, 'ws-1', 'u-1'),
+    ).resolves.toBe(saved)
+  })
 })
 
 describe('export helpers', () => {

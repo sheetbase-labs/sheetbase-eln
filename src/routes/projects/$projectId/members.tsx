@@ -2,6 +2,12 @@ import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCanManageProject } from '#/lib/project-permissions'
+import { createDataClient } from '#/lib/data-client'
+import {
+  decideProjectAccessRequest,
+  fetchProjectAccessRequests,
+  workspaceAccessKeys,
+} from '#/lib/workspace-access'
 
 import { Section } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
@@ -59,6 +65,7 @@ const accessLevels = [
   { label: 'Reviewer', value: 'reviewer' },
   { label: 'Viewer', value: 'viewer' },
 ] as const
+const accessClient = createDataClient()
 const accessLabel: Record<string, string> = {
   owner: 'Owner',
   editor: 'Editor',
@@ -92,6 +99,37 @@ function ProjectMembers() {
     project?.leadUserId,
     context.user.id,
   )
+  const requestsQuery = useQuery({
+    queryKey: [
+      ...workspaceAccessKeys.requests(context.workspace?.id ?? ''),
+      projectId,
+    ],
+    queryFn: async () =>
+      (await fetchProjectAccessRequests(accessClient)).filter(
+        (r) => r.project_id === projectId && r.status === 'pending',
+      ),
+    enabled: isLead,
+  })
+  const pendingRequests = requestsQuery.data ?? []
+  const decide = useMutation({
+    mutationFn: (input: { requestId: string; approve: boolean }) =>
+      decideProjectAccessRequest(accessClient, input),
+    onSuccess: (_data, input) => {
+      void queryClient.invalidateQueries({
+        queryKey: ['project-members', projectId],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: workspaceAccessKeys.all(context.workspace?.id ?? ''),
+      })
+      toast(input.approve ? 'Edit access granted' : 'Request denied')
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Could not decide the request.',
+      ),
+  })
   const [pendingRemove, setPendingRemove] = useState<{
     id: string
     name: string
@@ -223,6 +261,50 @@ function ProjectMembers() {
             />
           </TableBox>
         </Section>
+
+        {isLead && pendingRequests.length ? (
+          <Section title="Edit access requests" count={pendingRequests.length}>
+            <div className="flex flex-col gap-2">
+              {pendingRequests.map((request) => {
+                const name =
+                  peopleQuery.data?.find((p) => p.user_id === request.user_id)
+                    ?.name ?? 'A project viewer'
+                return (
+                  <div
+                    key={request.id}
+                    className="flex flex-wrap items-center gap-3 rounded-md border border-border px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{name}</div>
+                      <div className="text-label text-fg-muted">
+                        {request.reason}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={decide.isPending}
+                      onClick={() =>
+                        decide.mutate({ requestId: request.id, approve: true })
+                      }
+                    >
+                      Approve edit access
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="quiet"
+                      disabled={decide.isPending}
+                      onClick={() =>
+                        decide.mutate({ requestId: request.id, approve: false })
+                      }
+                    >
+                      Deny
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          </Section>
+        ) : null}
 
         <Section title="How access works">
           <div className="grid grid-cols-1 gap-3 text-label leading-[18px] md:grid-cols-2 md:gap-6 xl:grid-cols-4">

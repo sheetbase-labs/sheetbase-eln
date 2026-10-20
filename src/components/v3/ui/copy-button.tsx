@@ -50,10 +50,14 @@ export async function copyText(
 
 export type CopyButtonProps = Omit<
   React.ComponentProps<typeof Button>,
-  'onClick' | 'icon'
+  'onClick' | 'icon' | 'value'
 > & {
-  /** What reaches the clipboard. */
-  readonly value: string
+  /**
+   * What reaches the clipboard. A function is read at click time, for values
+   * only the browser knows (the page URL) that must not be read while rendering
+   * on the server.
+   */
+  readonly value: string | (() => string)
   /**
    * Visible label. Omit for an icon-only control, which then needs an
    * `aria-label` naming the value it copies.
@@ -76,7 +80,12 @@ export function CopyButton({
       variant={variant}
       icon="copy"
       data-slot="copy-button"
-      onClick={() => void copyText(value, { copiedMessage, failedMessage })}
+      onClick={() =>
+        void copyText(typeof value === 'function' ? value() : value, {
+          copiedMessage,
+          failedMessage,
+        })
+      }
       {...props}
     >
       {children}

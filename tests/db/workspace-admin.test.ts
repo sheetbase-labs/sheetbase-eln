@@ -20,6 +20,7 @@ const MEMBER_A = 'admin001-member-a'
 const INVITED = 'admin001-invited'
 const EXPIRED = 'admin001-expired'
 const REMOVABLE = 'admin001-removable'
+const GRANTED = 'admin001-granted'
 const LAST_OWNER_TARGET = 'admin001-last-owner-target'
 const SESSION_A = 'admin001-session-1'
 const SESSION_B = 'admin001-session-2'
@@ -59,6 +60,7 @@ beforeAll(async () => {
       ('${INVITED}', 'ADMIN001 Invited', 'admin001-invited@sheetbase.test', true),
       ('${EXPIRED}', 'ADMIN001 Expired', 'admin001-expired@sheetbase.test', true),
       ('${REMOVABLE}', 'ADMIN001 Removable', 'admin001-removable@sheetbase.test', true),
+      ('${GRANTED}', 'ADMIN001 Granted', 'admin001-granted@sheetbase.test', true),
       ('${LAST_OWNER_TARGET}', 'ADMIN001 Last Owner Target', 'admin001-last-owner@sheetbase.test', true);
      INSERT INTO api.workspaces (id, slug, name) VALUES
       ('${WS_A}', 'admin001-a', 'ADMIN001 A'),
@@ -155,6 +157,84 @@ describe('ADMIN-001 invitations', () => {
         token,
         INVITED,
       ]),
+      'SB061',
+    )
+  })
+
+  it('adds the invited person to the projects the invitation names, at the level it names', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const { rows } = await owner.query(
+      `SELECT api.create_invitation($1, $2, 'scientist', 7, NULL, $3::jsonb) AS invitation`,
+      [
+        WS_A,
+        'admin001-granted@sheetbase.test',
+        JSON.stringify([{ project_id: PROJ_A, access_level: 'editor' }]),
+      ],
+    )
+    expect(rows[0].invitation.project_grants).toEqual([
+      { project_id: PROJ_A, access_level: 'editor' },
+    ])
+    const invited = await asAuthenticated(GRANTED, WS_A)
+    await invited.query(`SELECT * FROM api.accept_invitation($1, $2)`, [
+      rows[0].invitation.token,
+      GRANTED,
+    ])
+    const { rows: access } = await migrator.query(
+      `SELECT can_view, can_edit, can_review, can_manage, granted_by_user_id
+         FROM api.project_access WHERE project_id=$1 AND user_id=$2`,
+      [PROJ_A, GRANTED],
+    )
+    expect(access).toEqual([
+      {
+        can_view: true,
+        can_edit: true,
+        can_review: false,
+        can_manage: false,
+        granted_by_user_id: OWNER_A,
+      },
+    ])
+  })
+
+  it('refuses an invitation that grants a project the inviter cannot manage', async () => {
+    // MEMBER_A can view PROJ_A but not manage it, and is not an admin either.
+    const owner = await asAuthenticated(OWNER_B, WS_B)
+    await expectDenied(
+      owner.query(
+        `SELECT api.create_invitation($1, $2, 'member', 7, NULL, $3::jsonb)`,
+        [
+          WS_B,
+          'admin001-cross-grant@sheetbase.test',
+          JSON.stringify([{ project_id: PROJ_A, access_level: 'viewer' }]),
+        ],
+      ),
+      'SB061',
+    )
+  })
+
+  it('replaces a pending invitation link, and the old link stops working', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const { rows } = await owner.query(
+      `SELECT api.create_invitation($1, $2, 'member', 7) AS invitation`,
+      [WS_A, 'admin001-reissue@sheetbase.test'],
+    )
+    const first = rows[0].invitation
+    const { rows: again } = await owner.query(
+      `SELECT api.reissue_invitation($1, $2) AS invitation`,
+      [WS_A, first.id],
+    )
+    expect(again[0].invitation.id).toBe(first.id)
+    expect(again[0].invitation.token).not.toBe(first.token)
+    const lateUser = await asAuthenticated(MEMBER_A, WS_A)
+    await expectDenied(
+      lateUser.query(`SELECT * FROM api.accept_invitation($1, $2)`, [
+        first.token,
+        MEMBER_A,
+      ]),
+      'SB061',
+    )
+    const member = await asAuthenticated(MEMBER_A, WS_A)
+    await expectDenied(
+      member.query(`SELECT api.reissue_invitation($1, $2)`, [WS_A, first.id]),
       'SB061',
     )
   })

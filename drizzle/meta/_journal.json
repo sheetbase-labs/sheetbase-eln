@@ -3205,6 +3205,13 @@
       "when": 1799243376810,
       "tag": "0554_compose_analysis_keeps_snapshot_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 555,
+      "version": "7",
+      "when": 1799329776810,
+      "tag": "0555_invitation_projects_and_reissue",
+      "breakpoints": true
     }
   ]
 }

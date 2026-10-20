@@ -30,6 +30,14 @@ export type WorkspaceRole =
 export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired'
 export type RegistrationMode = 'open' | 'invitation_only'
 export type ProjectAccessLevel = 'owner' | 'editor' | 'viewer'
+/** What an invitation can grant on a project: the levels a member can hold. */
+export type InvitedProjectLevel = 'owner' | 'editor' | 'reviewer' | 'viewer'
+
+/** A project an invitation adds the person to once it is accepted. */
+export interface InvitationProjectGrant {
+  project_id: string
+  access_level: InvitedProjectLevel
+}
 
 export interface WorkspaceMemberWire {
   id: string
@@ -48,6 +56,7 @@ export interface WorkspaceInvitationWire {
   email: string
   role: WorkspaceRole
   client_id?: string | null
+  project_grants?: InvitationProjectGrant[]
   status: InvitationStatus
   expires_at: string
   accepted_at: string | null
@@ -110,6 +119,7 @@ export interface WorkspaceInvitation {
   email: string
   role: WorkspaceRole
   clientId?: string | null
+  projectGrants: InvitationProjectGrant[]
   status: InvitationStatus
   expiresAt: string
   acceptedAt: string | null
@@ -174,6 +184,7 @@ export const toWorkspaceInvitation = (
   email: w.email,
   role: w.role,
   clientId: w.client_id ?? null,
+  projectGrants: w.project_grants ?? [],
   status: w.status,
   expiresAt: w.expires_at,
   acceptedAt: w.accepted_at,
@@ -318,6 +329,8 @@ export async function createInvitation(
     role: WorkspaceRole
     expiresAfterDays: number
     clientId?: string | null
+    /** Projects the person joins on accepting, at the level named. */
+    projectGrants?: InvitationProjectGrant[]
   },
 ): Promise<{ invitation: WorkspaceInvitation; token: string }> {
   const result = await c.rpc<WorkspaceInvitationWire & { token: string }>(
@@ -328,6 +341,31 @@ export async function createInvitation(
       p_role: input.role,
       p_expires_after_days: input.expiresAfterDays,
       p_client_id: input.clientId ?? null,
+      p_project_grants: input.projectGrants ?? [],
+    },
+  )
+  return { invitation: toWorkspaceInvitation(result), token: result.token }
+}
+
+/**
+ * Replace a pending invitation's link with a new one. Only the token's hash is
+ * stored, so an old link cannot be shown again, but it can be replaced; the old
+ * link stops working.
+ */
+export async function reissueInvitation(
+  c: DataClient,
+  input: {
+    workspaceId: string
+    invitationId: string
+    expiresAfterDays?: number
+  },
+): Promise<{ invitation: WorkspaceInvitation; token: string }> {
+  const result = await c.rpc<WorkspaceInvitationWire & { token: string }>(
+    'reissue_invitation',
+    {
+      p_workspace_id: input.workspaceId,
+      p_invitation_id: input.invitationId,
+      p_expires_after_days: input.expiresAfterDays ?? 7,
     },
   )
   return { invitation: toWorkspaceInvitation(result), token: result.token }

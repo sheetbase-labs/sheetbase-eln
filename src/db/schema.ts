@@ -349,6 +349,11 @@ export const workspaceInvitations = api.table(
     clientId: uuid('client_id').references(() => clients.id, {
       onDelete: 'set null',
     }),
+    /**
+     * The projects the invitation adds the person to when it is accepted: a
+     * list of `{ project_id, access_level }`.
+     */
+    projectGrants: jsonb('project_grants').notNull().default(sql`'[]'::jsonb`),
     tokenHash: text('token_hash').notNull(),
     status: text('status').notNull().default('pending'),
     expiresAt: timestamp('expires_at', {
@@ -377,6 +382,10 @@ export const workspaceInvitations = api.table(
     check(
       'chk_workspace_invitations_client',
       sql`(${table.role} = 'client_viewer') = (${table.clientId} IS NOT NULL)`,
+    ),
+    check(
+      'chk_workspace_invitations_project_grants',
+      sql`jsonb_typeof(${table.projectGrants}) = 'array'`,
     ),
     check(
       'chk_workspace_invitations_email',

@@ -50,14 +50,17 @@ import {
   signatureCertificationQueryKeys,
 } from '#/lib/signature-certification'
 import {
+  fetchProjectPermissions,
   fetchWorkspaceGroups,
   fetchWorkspaceMemberStatus,
   workspaceAccessKeys,
 } from '#/lib/workspace-access'
+import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
 import {
   adminQueryKeys,
   changeMemberRole,
   createInvitation,
+  reissueInvitation,
   describeAdminError,
   invitationLink,
   fetchClients,
@@ -70,7 +73,11 @@ import {
   WORKSPACE_ROLE_DESCRIPTIONS,
   WORKSPACE_ROLE_LABELS,
 } from '#/lib/workspace-admin'
-import type { WorkspaceRole } from '#/lib/workspace-admin'
+import type {
+  InvitationProjectGrant,
+  InvitedProjectLevel,
+  WorkspaceRole,
+} from '#/lib/workspace-admin'
 
 /** UI port (roadmap-4/ui-app3): members and roles on workspace_memberships and
  * workspace_invitations. Roles decide what people can do; the role change,
@@ -122,7 +129,7 @@ function Members() {
   const [dialog, setDialog] = useState<
     | { kind: 'invite' }
     | { kind: 'groups' }
-    | { kind: 'invite-link'; email: string; link: string }
+    | { kind: 'invite-link'; email: string; link: string; reissued?: boolean }
     | {
         kind: 'role'
         userId: string
@@ -178,6 +185,23 @@ function Members() {
     rows.map((m) => m.userId),
     context.user,
   )
+  // The projects the inviter can add someone to: the ones they manage. The
+  // database holds the same rule when the invitation is created.
+  const grantableProjects = useQuery({
+    queryKey: ['settings-members-grantable-projects', workspaceId],
+    queryFn: async () => {
+      const projects = await fetchProjectSummaries(workspaceId)
+      const open = projects.filter((p) => !p.archivedAt)
+      const permissions = await Promise.all(
+        open.map(async (p) => fetchProjectPermissions(dataClient, p.id)),
+      )
+      return open
+        .filter((_, index) => permissions[index]?.can_manage)
+        .map((p) => ({ id: p.id, title: p.title }))
+    },
+    enabled: Boolean(workspaceId) && canManage && dialog?.kind === 'invite',
+    staleTime: 30_000,
+  })
   const pending = (invitations.data ?? []).filter((i) => i.status === 'pending')
 
   const invalidate = () => {
@@ -243,6 +267,7 @@ function Members() {
       email: string
       role: WorkspaceRole
       clientId: string | null
+      projectGrants: InvitationProjectGrant[]
     }) =>
       createInvitation(dataClient, {
         workspaceId,
@@ -250,6 +275,7 @@ function Members() {
         role: input.role,
         expiresAfterDays: 7,
         clientId: input.clientId,
+        projectGrants: input.projectGrants,
       }),
     onSuccess: (result) => {
       invalidate()
@@ -263,6 +289,26 @@ function Members() {
     },
     onError: (error: unknown) =>
       toast('Could not invite', { description: describeAdminError(error) }),
+  })
+
+  // A lost link cannot be shown again, but a pending invitation can be given a
+  // new one without revoking it and starting over.
+  const reissue = useMutation({
+    mutationFn: (invitationId: string) =>
+      reissueInvitation(dataClient, { workspaceId, invitationId }),
+    onSuccess: (result) => {
+      invalidate()
+      setDialog({
+        kind: 'invite-link',
+        email: result.invitation.email,
+        link: invitationLink(window.location.origin, result.token),
+        reissued: true,
+      })
+    },
+    onError: (error: unknown) =>
+      toast('Could not make a new link', {
+        description: describeAdminError(error),
+      }),
   })
 
   const revoke = useMutation({
@@ -500,6 +546,13 @@ function Members() {
               · {clientName(row.original.clientId)}
             </span>
           ) : null}
+          {row.original.projectGrants.length ? (
+            <span className="text-fg-muted">
+              {' '}
+              · {row.original.projectGrants.length}{' '}
+              {row.original.projectGrants.length === 1 ? 'project' : 'projects'}
+            </span>
+          ) : null}
         </>
       ),
     },
@@ -515,20 +568,30 @@ function Members() {
       meta: rightAligned<(typeof pending)[number]>().meta,
       cell: ({ row }) =>
         canManage ? (
-          <Button
-            size="sm"
-            variant="quiet"
-            disabled={revoke.isPending}
-            onClick={() =>
-              setDialog({
-                kind: 'revoke',
-                invitationId: row.original.id,
-                email: row.original.email,
-              })
-            }
-          >
-            Revoke
-          </Button>
+          <div className="flex justify-end gap-1">
+            <Button
+              size="sm"
+              variant="quiet"
+              disabled={reissue.isPending}
+              onClick={() => reissue.mutate(row.original.id)}
+            >
+              Copy new link
+            </Button>
+            <Button
+              size="sm"
+              variant="quiet"
+              disabled={revoke.isPending}
+              onClick={() =>
+                setDialog({
+                  kind: 'revoke',
+                  invitationId: row.original.id,
+                  email: row.original.email,
+                })
+              }
+            >
+              Revoke
+            </Button>
+          </div>
         ) : null,
     },
   ]
@@ -625,16 +688,18 @@ function Members() {
         <InviteLinkDialog
           email={dialog.email}
           link={dialog.link}
+          reissued={dialog.reissued}
           onClose={() => setDialog(null)}
         />
       ) : dialog?.kind === 'invite' ? (
         <InviteDialog
           initialRole={search.invite === 'admin' ? 'admin' : 'viewer'}
           clients={clients.data ?? []}
+          projects={grantableProjects.data ?? []}
           busy={invite.isPending}
           onClose={() => setDialog(null)}
-          onSubmit={(email, role, clientId) =>
-            invite.mutate({ email, role, clientId })
+          onSubmit={(email, role, clientId, projectGrants) =>
+            invite.mutate({ email, role, clientId, projectGrants })
           }
         />
       ) : dialog?.kind === 'role' ? (
@@ -767,26 +832,45 @@ function MembershipConfirmDialog({
   )
 }
 
+const INVITED_PROJECT_LEVELS: { value: InvitedProjectLevel; label: string }[] =
+  [
+    { value: 'editor', label: 'Editor' },
+    { value: 'reviewer', label: 'Reviewer' },
+    { value: 'viewer', label: 'Viewer' },
+    { value: 'owner', label: 'Owner' },
+  ]
+
 function InviteDialog({
   initialRole,
   clients,
+  projects,
   busy,
   onClose,
   onSubmit,
 }: {
   initialRole: WorkspaceRole
   clients: { id: string; code: string; name: string }[]
+  /** Projects the inviter can add the person to. */
+  projects: { id: string; title: string }[]
   busy: boolean
   onClose: () => void
   onSubmit: (
     email: string,
     role: WorkspaceRole,
     clientId: string | null,
+    projectGrants: InvitationProjectGrant[],
   ) => void
 }) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<WorkspaceRole>(initialRole)
   const [clientId, setClientId] = useState(clients.at(0)?.id ?? '')
+  const [projectIds, setProjectIds] = useState<ReadonlySet<string>>(new Set())
+  const [projectLevel, setProjectLevel] = useState<InvitedProjectLevel | null>(
+    null,
+  )
+  // A viewer joins as a viewer, anyone else as an editor, unless chosen.
+  const level: InvitedProjectLevel =
+    projectLevel ?? (role === 'viewer' ? 'viewer' : 'editor')
   // The empty address is invalid from the first paint, but the dialog opens
   // before anyone has used the field, so the message waits for the first
   // keystroke or blur. Send stays disabled until the address is valid either
@@ -850,6 +934,53 @@ function InviteDialog({
             </Field>
           ) : null}
           <Muted>{WORKSPACE_ROLE_DESCRIPTIONS[role]}</Muted>
+          {role !== 'client_viewer' && projects.length > 0 ? (
+            <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+              <legend className="mb-1 text-label font-medium">
+                Add to projects
+              </legend>
+              <Muted>
+                They join these projects as soon as they accept, so nobody has
+                to add them afterwards.
+              </Muted>
+              <div className="flex max-h-40 flex-col gap-1 overflow-auto">
+                {projects.map((project) => (
+                  <label
+                    key={project.id}
+                    className="flex items-center gap-2 text-body"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={projectIds.has(project.id)}
+                      onChange={(e) => {
+                        const next = new Set(projectIds)
+                        if (e.target.checked) next.add(project.id)
+                        else next.delete(project.id)
+                        setProjectIds(next)
+                      }}
+                    />
+                    {project.title}
+                  </label>
+                ))}
+              </div>
+              {projectIds.size > 0 ? (
+                <Field label="Access on those projects">
+                  <Select
+                    value={level}
+                    onChange={(e) =>
+                      setProjectLevel(e.target.value as InvitedProjectLevel)
+                    }
+                  >
+                    {INVITED_PROJECT_LEVELS.map((l) => (
+                      <option key={l.value} value={l.value}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
+            </fieldset>
+          ) : null}
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>Cancel</DialogClose>
@@ -861,6 +992,12 @@ function InviteDialog({
                 email.trim(),
                 role,
                 role === 'client_viewer' ? clientId : null,
+                role === 'client_viewer'
+                  ? []
+                  : [...projectIds].map((project_id) => ({
+                      project_id,
+                      access_level: level,
+                    })),
               )
             }
           >
@@ -876,10 +1013,13 @@ function InviteDialog({
 function InviteLinkDialog({
   email,
   link,
+  reissued = false,
   onClose,
 }: {
   email: string
   link: string
+  /** A replacement link: the one sent before no longer works. */
+  reissued?: boolean
   onClose: () => void
 }) {
   const [copied, setCopied] = useState(false)
@@ -888,7 +1028,7 @@ function InviteLinkDialog({
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
         <DialogHeader
           title="Send this link to the invitee"
-          description={`Sheetbase does not email invitations. Send ${email} this link yourself. It works once, for 7 days, and cannot be shown again, so copy it now.`}
+          description={`Sheetbase does not email invitations. Send ${email} this link yourself. It works once, for 7 days, and cannot be shown again, so copy it now. If you lose it, use Copy new link on the pending invitation.${reissued ? ' The link sent before no longer works.' : ''}`}
         />
         <DialogBody>
           <Field label="Invitation link">

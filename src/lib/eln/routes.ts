@@ -162,27 +162,31 @@ async function datasetCsv(
   versionId: string | null,
   token: string,
 ): Promise<ElnDataset | null> {
-  const [dataset] = await select<{
-    id: string
-    name: string
-    description: string | null
-    display_id: string | null
-    schema_version_id: string
-  }>(
-    'datasets',
-    `id=eq.${encodeURIComponent(datasetId)}&select=id,name,description,display_id,schema_version_id&limit=1`,
-    token,
-  )
+  const dataset = (
+    await select<{
+      id: string
+      name: string
+      description: string | null
+      display_id: string | null
+      schema_version_id: string
+    }>(
+      'datasets',
+      `id=eq.${encodeURIComponent(datasetId)}&select=id,name,description,display_id,schema_version_id&limit=1`,
+      token,
+    )
+  ).at(0)
   if (!dataset) return null
   let schemaVersionId = dataset.schema_version_id
   let rpcName = 'query_dataset_rows'
   let rpcArgs: Record<string, unknown> = { p_dataset_id: dataset.id }
   if (versionId) {
-    const [version] = await select<{ id: string; schema_version_id: string }>(
-      'dataset_versions',
-      `id=eq.${encodeURIComponent(versionId)}&dataset_id=eq.${dataset.id}&select=id,schema_version_id&limit=1`,
-      token,
-    )
+    const version = (
+      await select<{ id: string; schema_version_id: string }>(
+        'dataset_versions',
+        `id=eq.${encodeURIComponent(versionId)}&dataset_id=eq.${dataset.id}&select=id,schema_version_id&limit=1`,
+        token,
+      )
+    ).at(0)
     if (version) {
       schemaVersionId = version.schema_version_id
       rpcName = 'query_dataset_version_rows'
@@ -399,11 +403,13 @@ export async function handleRecordElnExport(
     return requestErrorResponse(404, 'not_found', 'Experiment not found.')
 
   try {
-    const [record] = await select<RecordWire>(
-      'records',
-      `id=eq.${recordId}&kind=eq.experiment&select=${RECORD_SELECT}&limit=1`,
-      context.token,
-    )
+    const record = (
+      await select<RecordWire>(
+        'records',
+        `id=eq.${recordId}&kind=eq.experiment&select=${RECORD_SELECT}&limit=1`,
+        context.token,
+      )
+    ).at(0)
     if (!record)
       return requestErrorResponse(404, 'not_found', 'Experiment not found.')
     const experiment = await collectExperiment(record, context, storage, {
@@ -437,17 +443,19 @@ export async function handleProjectElnExport(
     return requestErrorResponse(404, 'not_found', 'Project not found.')
 
   try {
-    const [project] = await select<{
-      id: string
-      workspace_id: string
-      key: string
-      title: string
-      status: string
-    }>(
-      'projects',
-      `id=eq.${projectId}&select=id,workspace_id,key,title,status&limit=1`,
-      context.token,
-    )
+    const project = (
+      await select<{
+        id: string
+        workspace_id: string
+        key: string
+        title: string
+        status: string
+      }>(
+        'projects',
+        `id=eq.${projectId}&select=id,workspace_id,key,title,status&limit=1`,
+        context.token,
+      )
+    ).at(0)
     if (!project)
       return requestErrorResponse(404, 'not_found', 'Project not found.')
 

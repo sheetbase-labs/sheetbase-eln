@@ -95,6 +95,7 @@ export function safeName(name: string, fallback: string): string {
   const cleaned = name
     .normalize('NFKD')
     .replace(/[^\x20-\x7e]/g, '')
+    // eslint-disable-next-line no-control-regex -- strips control characters on purpose
     .replace(/[\\/:*?"<>|\0-\x1f]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()

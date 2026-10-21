@@ -305,10 +305,19 @@ async function outputScaled(
   outputDatasetVersionId: string,
 ): Promise<number[]> {
   const { rows } = await migrator.query<{ numeric_value: string }>(
+    // A create output reuses its Dataset, so a Dataset Version also holds the
+    // rows of earlier runs; this run's rows are the ones no earlier version had.
     `select v.numeric_value
        from api.dataset_version_values v
        join api.dataset_schema_version_fields f on f.field_id = v.field_id
       where v.dataset_version_id = $1 and f.key = 'scaled'
+        and v.row_id not in (
+          select vr.row_id
+            from api.dataset_version_rows vr
+            join api.dataset_versions dv on dv.id = vr.dataset_version_id
+           where dv.dataset_id = (select dataset_id from api.dataset_versions where id = $1)
+             and dv.created_at < (select created_at from api.dataset_versions where id = $1)
+        )
       order by v.row_id`,
     [outputDatasetVersionId],
   )

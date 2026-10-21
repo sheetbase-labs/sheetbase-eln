@@ -1955,13 +1955,22 @@ async function writeOutput(
   let datasetId: string
   let schemaVersionId: string
   if (output.mode === 'create') {
-    const created = await createDataset(
-      conn,
-      run.workspace_id,
-      output.schemaVersionId!,
-      output.datasetName!,
-      run.actor_user_id,
-    )
+    // "Create" makes the Dataset once. Later runs of the same pipeline add a
+    // new Dataset Version to it instead of making another one every time.
+    const created =
+      (await findOwnOutputDataset(
+        conn,
+        run,
+        output.schemaVersionId!,
+        output.datasetName!,
+      )) ??
+      (await createDataset(
+        conn,
+        run.workspace_id,
+        output.schemaVersionId!,
+        output.datasetName!,
+        run.actor_user_id,
+      ))
     if (!created) {
       return {
         ok: false,
@@ -2084,6 +2093,50 @@ async function writeOutput(
     commitMs,
     snapshotMs,
   }
+}
+
+/**
+ * The Dataset this pipeline's earlier runs created for the same output (same
+ * schema version and name), if it is still active. A lock on the definition
+ * makes two runs that start together agree on one Dataset instead of each
+ * creating its own. Changing the schema version or the name in a new version
+ * deliberately starts a new Dataset.
+ */
+async function findOwnOutputDataset(
+  conn: ExecConnection,
+  run: RunRow,
+  schemaVersionId: string,
+  name: string,
+): Promise<{ id: string } | null> {
+  const { rows: definition } = await conn.query<{ definition_id: string }>(
+    `SELECT definition_id FROM api.pipeline_definition_versions WHERE id = $1`,
+    [run.definition_version_id],
+  )
+  const definitionId = definition[0]?.definition_id
+  if (!definitionId) return null
+  await conn.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+    `pipeline-output:${definitionId}`,
+  ])
+  const { rows } = await conn.query<{ id: string }>(
+    `SELECT d.id
+       FROM api.datasets d
+      WHERE d.workspace_id = $1
+        AND d.schema_version_id = $2
+        AND d.name = $3
+        AND d.lifecycle = 'active'
+        AND EXISTS (
+          SELECT 1
+            FROM api.pipeline_run_outputs o
+            JOIN api.pipeline_runs r ON r.id = o.run_id
+            JOIN api.pipeline_definition_versions v
+              ON v.id = r.definition_version_id
+           WHERE o.dataset_id = d.id AND v.definition_id = $4
+        )
+      ORDER BY d.created_at
+      LIMIT 1`,
+    [run.workspace_id, schemaVersionId, name.trim(), definitionId],
+  )
+  return rows[0] ?? null
 }
 
 async function createDataset(

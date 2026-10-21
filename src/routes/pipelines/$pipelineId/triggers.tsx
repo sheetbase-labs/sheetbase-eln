@@ -55,7 +55,13 @@ import {
   useSchedules,
   currentVersion,
   declaredRunInputs,
+  useDatasetVersionChoices,
 } from '#/components/v3/pipelines/pipelines-data'
+import {
+  parameterError,
+  parameterValue,
+} from '#/components/v3/pipelines/run-dialog'
+import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
 
 /** UI port (roadmap-4/ui-app3): pipeline triggers. Schedules are created,
  * enabled, disabled and deleted through the api RPCs. */
@@ -90,6 +96,16 @@ export function scheduleSpecLabel(
   const datasetId = typeof spec.datasetId === 'string' ? spec.datasetId : null
   if (!datasetId) return eventType
   return `${eventType} · ${datasetNames.get(datasetId) ?? 'Dataset no longer readable'}`
+}
+
+/** The parameter values a trigger passes to every run it starts, as
+ * `name=value` pairs, or an empty string when it passes none. */
+export function scheduleParametersLabel(spec: Record<string, unknown>): string {
+  const parameters = spec.parameters
+  if (!parameters || typeof parameters !== 'object') return ''
+  return Object.entries(parameters as Record<string, unknown>)
+    .map(([name, value]) => `${name}=${String(value)}`)
+    .join(', ')
 }
 
 /** Dataset id → name, for the Dataset filter an event trigger names. Only read
@@ -149,9 +165,9 @@ function PipelineTriggers() {
   const declaredVersion = versions.data
     ? currentVersion(versions.data)
     : undefined
-  const inputNames = declaredVersion
-    ? declaredRunInputs(declaredVersion).inputs.map((input) => input.name)
-    : []
+  const declared = declaredVersion
+    ? declaredRunInputs(declaredVersion)
+    : { inputs: [], parameters: [] }
 
   const invalidate = () =>
     queryClient.invalidateQueries({
@@ -204,15 +220,21 @@ function PipelineTriggers() {
     {
       id: 'spec',
       header: 'Spec',
-      cell: ({ row }) => (
-        <span className="text-caption">
-          {scheduleSpecLabel(
-            row.original.kind,
-            row.original.spec,
-            datasetNames,
-          )}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const passed = scheduleParametersLabel(row.original.spec)
+        return (
+          <span className="text-caption">
+            {scheduleSpecLabel(
+              row.original.kind,
+              row.original.spec,
+              datasetNames,
+            )}
+            {passed ? (
+              <span className="block text-fg-muted">With {passed}</span>
+            ) : null}
+          </span>
+        )
+      },
     },
     {
       id: 'status',
@@ -296,7 +318,8 @@ function PipelineTriggers() {
           <NewTrigger
             definitionId={pipelineId}
             workspaceId={workspaceId}
-            inputNames={inputNames}
+            inputs={declared.inputs}
+            parameters={declared.parameters}
           />
         }
       >
@@ -333,7 +356,8 @@ function PipelineTriggers() {
               <NewTrigger
                 definitionId={pipelineId}
                 workspaceId={workspaceId}
-                inputNames={inputNames}
+                inputs={declared.inputs}
+                parameters={declared.parameters}
               />
             }
           />
@@ -352,12 +376,15 @@ function PipelineTriggers() {
 function NewTrigger({
   definitionId,
   workspaceId,
-  inputNames,
+  inputs,
+  parameters,
 }: {
   definitionId: string
   workspaceId: string
-  inputNames: string[]
+  inputs: PipelineInput[]
+  parameters: PipelineParameter[]
 }) {
+  const inputNames = inputs.map((input) => input.name)
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [tried, setTried] = useState(false)
@@ -373,6 +400,11 @@ function NewTrigger({
     instrumentId: '',
   }
   const [f, setF] = useState(empty)
+  // Each run a trigger starts is given these, so a pipeline that declares a
+  // parameter or an input can run on a schedule without anyone pressing Run now.
+  const [paramValues, setParamValues] = useState<Record<string, string>>({})
+  const [pinned, setPinned] = useState<Record<string, string>>({})
+  const choices = useDatasetVersionChoices(open && inputs.length > 0)
   const datasetNames = useDatasetNames(open && f.kind === 'event')
   const instrumentNames = useInstrumentNames(
     open && f.kind === 'event' && f.eventType === 'dataset.versioned',
@@ -396,6 +428,31 @@ function NewTrigger({
               ? { inputName: f.inputName }
               : {}),
           }
+  // An event trigger binds the version that fired it to one input, so only the
+  // other inputs are pinned here.
+  const boundInput =
+    f.kind === 'event' && f.eventType === 'dataset.versioned'
+      ? f.inputName || inputNames[0]
+      : undefined
+  const rawValue = (p: PipelineParameter) =>
+    paramValues[p.name] ?? (p.default === undefined ? '' : String(p.default))
+  const pinnableInputs = inputs.filter((input) => input.name !== boundInput)
+  const parametersGiven = Object.fromEntries(
+    parameters.flatMap((p) => {
+      const value = parameterValue(p, rawValue(p))
+      return value === undefined ? [] : [[p.name, value]]
+    }),
+  )
+  if (Object.keys(parametersGiven).length > 0) spec.parameters = parametersGiven
+  const inputsGiven = Object.fromEntries(
+    pinnableInputs.flatMap((input) =>
+      pinned[input.name] ? [[input.name, pinned[input.name]]] : [],
+    ),
+  )
+  if (Object.keys(inputsGiven).length > 0) spec.inputVersions = inputsGiven
+  const detailError =
+    parameters.some((p) => parameterError(p, rawValue(p))) ||
+    pinnableInputs.some((input) => !pinned[input.name])
   const specError = validateScheduleSpec(f.kind, spec)
   const specErrorMessage = !specError
     ? null
@@ -421,6 +478,8 @@ function NewTrigger({
       })
       setOpen(false)
       setF(empty)
+      setParamValues({})
+      setPinned({})
       setTried(false)
       toast('Trigger added', {
         description:
@@ -441,6 +500,8 @@ function NewTrigger({
         setOpen(next)
         if (!next) {
           setF(empty)
+          setParamValues({})
+          setPinned({})
           setTried(false)
           setServerError(null)
         }
@@ -592,6 +653,86 @@ function NewTrigger({
             </>
           ) : null}
 
+          {pinnableInputs.map((input) => (
+            <Field
+              key={input.name}
+              label={
+                <>
+                  Input <span className="mono">{input.name}</span>
+                </>
+              }
+              required
+              hint="Every run this trigger starts reads this Dataset Version."
+              error={
+                tried && !pinned[input.name] ? 'Choose a version.' : undefined
+              }
+            >
+              <Select
+                aria-label={`Dataset Version for ${input.name}`}
+                value={pinned[input.name] ?? ''}
+                onChange={(e) =>
+                  setPinned((cur) => ({ ...cur, [input.name]: e.target.value }))
+                }
+              >
+                <option value="">Choose a Dataset Version…</option>
+                {(choices.data ?? []).map((choice) => (
+                  <option key={choice.id} value={choice.id}>
+                    {choice.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ))}
+          {parameters.map((parameter) => {
+            const raw = rawValue(parameter)
+            const error = tried ? parameterError(parameter, raw) : undefined
+            return (
+              <Field
+                key={parameter.name}
+                label={
+                  <>
+                    Parameter <span className="mono">{parameter.name}</span>
+                  </>
+                }
+                required={parameter.required}
+                hint={
+                  parameter.description ??
+                  'Every run this trigger starts gets this value.'
+                }
+                error={error}
+              >
+                {parameter.type === 'boolean' ? (
+                  <Select
+                    aria-label={`Parameter ${parameter.name}`}
+                    value={raw}
+                    onChange={(e) =>
+                      setParamValues((cur) => ({
+                        ...cur,
+                        [parameter.name]: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Not set</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </Select>
+                ) : (
+                  <Input
+                    aria-label={`Parameter ${parameter.name}`}
+                    type={parameter.type === 'date' ? 'date' : 'text'}
+                    value={raw}
+                    onChange={(e) =>
+                      setParamValues((cur) => ({
+                        ...cur,
+                        [parameter.name]: e.target.value,
+                      }))
+                    }
+                  />
+                )}
+              </Field>
+            )
+          })}
+
           {tried && specErrorMessage ? (
             <Notice tone="bad">{specErrorMessage}</Notice>
           ) : null}
@@ -604,7 +745,7 @@ function NewTrigger({
             disabled={create.isPending}
             onClick={() => {
               setTried(true)
-              if (specError) return
+              if (specError || detailError) return
               create.mutate()
             }}
           >

@@ -24,7 +24,7 @@ export interface RunDetails {
   parameters: Record<string, unknown>
 }
 
-function parameterValue(
+export function parameterValue(
   parameter: PipelineParameter,
   raw: string,
 ): unknown | undefined {
@@ -41,7 +41,7 @@ function parameterValue(
   }
 }
 
-function parameterError(
+export function parameterError(
   parameter: PipelineParameter,
   raw: string,
 ): string | undefined {

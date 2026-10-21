@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { Route, scheduleSpecLabel } from './triggers'
+import { Route, scheduleParametersLabel, scheduleSpecLabel } from './triggers'
 import { PIPELINE_TRIGGER_EVENTS } from '#/lib/pipeline-schedule'
 import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
 import type {
@@ -26,6 +26,8 @@ const state = vi.hoisted(() => ({
   // A published version by default: a trigger on such a pipeline can fire.
   published: true,
   inputNames: [] as string[],
+  parameters: [] as Array<Record<string, unknown>>,
+  created: [] as Array<Record<string, unknown>>,
 }))
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
@@ -45,6 +47,17 @@ vi.mock('@tanstack/react-router', () => ({
   }),
 }))
 
+vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('#/lib/pipelines/data')>()),
+  createPipelineSchedule: (
+    _client: unknown,
+    input: Record<string, unknown>,
+  ) => {
+    state.created.push(input)
+    return Promise.resolve({})
+  },
+}))
+
 vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
   ...(await importOriginal<typeof pipelinesDataModule>()),
   useSchedules: () => ({ data: state.schedules }),
@@ -55,6 +68,7 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
         lifecycle: state.published ? 'published' : 'draft',
         configuration: {
           inputs: state.inputNames.map((name) => ({ name })),
+          parameters: state.parameters,
         },
       },
     ] as unknown as PipelineDefinitionVersionWire[],
@@ -101,6 +115,8 @@ afterEach(() => {
   state.schedules = []
   state.published = true
   state.inputNames = []
+  state.parameters = []
+  state.created = []
 })
 
 const noDatasets = new Map<string, string>()
@@ -237,7 +253,47 @@ describe('a schedule the sweep can never fire', () => {
     })
     const select = screen.getByText('Bind the new version to')
     expect(select).toBeTruthy()
-    expect(screen.getByText('calibration')).toBeTruthy()
+    expect(screen.getByRole('option', { name: 'calibration' })).toBeTruthy()
+  })
+
+  it('passes the parameter values to the runs a trigger starts', async () => {
+    state.parameters = [
+      { name: 'plate_size', type: 'integer', required: true, default: 96 },
+    ]
+    renderTriggers()
+
+    fireEvent.click(screen.getAllByText('New trigger')[0])
+    const field = screen.getByLabelText('Parameter plate_size')
+    expect((field as HTMLInputElement).value).toBe('96')
+    fireEvent.change(field, { target: { value: '384' } })
+    fireEvent.click(screen.getByText('Add trigger'))
+
+    await vi.waitFor(() => expect(state.created).toHaveLength(1))
+    expect(state.created[0]).toMatchObject({
+      kind: 'daily',
+      spec: { dailyAt: '09:00', parameters: { plate_size: 384 } },
+    })
+  })
+
+  it('refuses a trigger whose required parameter is empty', () => {
+    state.parameters = [{ name: 'plate_size', type: 'integer', required: true }]
+    renderTriggers()
+
+    fireEvent.click(screen.getAllByText('New trigger')[0])
+    fireEvent.click(screen.getByText('Add trigger'))
+
+    expect(screen.getByText('Required.')).toBeTruthy()
+    expect(state.created).toHaveLength(0)
+  })
+
+  it('reads the parameters a trigger passes on its row', () => {
+    expect(
+      scheduleParametersLabel({
+        dailyAt: '09:00',
+        parameters: { plate_size: 384 },
+      }),
+    ).toBe('plate_size=384')
+    expect(scheduleParametersLabel({ dailyAt: '09:00' })).toBe('')
   })
 
   it('offers an instrument filter on a dataset-version trigger', () => {

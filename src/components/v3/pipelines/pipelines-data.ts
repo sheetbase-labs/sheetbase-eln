@@ -27,6 +27,7 @@ import type {
   PipelineRunWire,
   PipelineScheduleWire,
 } from '#/lib/pipelines/types'
+import { listByIds } from '#/lib/chunk-ids'
 
 /**
  * UI port (roadmap-4/ui-app3): the Pipelines board reads the AUTO-01/02/03
@@ -254,9 +255,17 @@ export async function resolveRunForWorkItem(
       `?definition_id=eq.${encodeURIComponent(definitionId)}&select=id`,
     )
     if (versions.length === 0) return null
-    const runs = await client.list<{ id: string }>(
-      'pipeline_runs',
-      `?definition_version_id=in.(${versions.map((v) => v.id).join(',')})&status=eq.failed&order=finished_at.desc&limit=1&select=id`,
+    const runs = await listByIds(
+      versions.map((v) => v.id),
+      (ids) =>
+        client.list<{ id: string; finished_at: string | null }>(
+          'pipeline_runs',
+          `?definition_version_id=in.(${ids})&status=eq.failed&order=finished_at.desc&limit=1&select=id,finished_at`,
+        ),
+    )
+    // Each group returned its own latest failure; the newest of those wins.
+    runs.sort((a, b) =>
+      (b.finished_at ?? '').localeCompare(a.finished_at ?? ''),
     )
     return runs.at(0)?.id ?? null
   }
@@ -390,11 +399,18 @@ export function useDefinitionRuns(
   const versionIds = versions.map((v) => v.id)
   return useQuery({
     queryKey: [...pipelineDataQueryKeys.runs(versionIds.join(',')), versionIds],
-    queryFn: () =>
-      client.list<PipelineRunWire>(
-        'pipeline_runs',
-        `?select=id,workspace_id,definition_version_id,trigger_kind,status,attempt,retry_of_run_id,trigger_occurrence_id,schedule_id,input_digest,parameters,input_versions,result,error_code,error_message,started_at,finished_at,actor_user_id,actor_credential_id,created_at&definition_version_id=in.(${versionIds.join(',')})&order=started_at.desc&limit=100`,
-      ),
+    queryFn: async () => {
+      const runs = await listByIds(versionIds, (ids) =>
+        client.list<PipelineRunWire>(
+          'pipeline_runs',
+          `?select=id,workspace_id,definition_version_id,trigger_kind,status,attempt,retry_of_run_id,trigger_occurrence_id,schedule_id,input_digest,parameters,input_versions,result,error_code,error_message,started_at,finished_at,actor_user_id,actor_credential_id,created_at&definition_version_id=in.(${ids})&order=started_at.desc&limit=100`,
+        ),
+      )
+      // Each group returned its newest 100; keep the newest 100 overall.
+      return runs
+        .sort((a, b) => b.started_at.localeCompare(a.started_at))
+        .slice(0, 100)
+    },
     enabled: versionIds.length > 0,
     staleTime: 15_000,
   })
@@ -504,25 +520,28 @@ export function useRunDeliveries(
   deliveryIds: string[],
   client: DataClient = notebookDataClient,
 ) {
-  const ids = deliveryIds.join(',')
   return useQuery({
     queryKey: pipelineDataQueryKeys.runDeliveries(runId),
     queryFn: async (): Promise<PipelineRunDeliveryWire[]> => {
-      const rows = await client.list<
-        Omit<PipelineRunDeliveryWire, 'destination'>
-      >(
-        'webhook_deliveries',
-        `?select=id,subscription_id,event_type,status,attempt,response_status,error_code,error_message,delivered_at,created_at&id=in.(${ids})&order=created_at.asc`,
-      )
+      const rows = (
+        await listByIds(deliveryIds, (inList) =>
+          client.list<Omit<PipelineRunDeliveryWire, 'destination'>>(
+            'webhook_deliveries',
+            `?select=id,subscription_id,event_type,status,attempt,response_status,error_code,error_message,delivered_at,created_at&id=in.(${inList})&order=created_at.asc`,
+          ),
+        )
+      ).sort((a, b) => a.created_at.localeCompare(b.created_at))
       if (rows.length === 0) return []
       const subscriptionIds = [...new Set(rows.map((r) => r.subscription_id))]
-      const subscriptions = await client.list<{
-        id: string
-        key: string
-        description: string | null
-      }>(
-        'webhook_subscriptions',
-        `?select=id,key,description&id=in.(${subscriptionIds.join(',')})`,
+      const subscriptions = await listByIds(subscriptionIds, (inList) =>
+        client.list<{
+          id: string
+          key: string
+          description: string | null
+        }>(
+          'webhook_subscriptions',
+          `?select=id,key,description&id=in.(${inList})`,
+        ),
       )
       const byId = new Map(subscriptions.map((s) => [s.id, s]))
       return rows.map((row) => ({

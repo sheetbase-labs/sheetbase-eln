@@ -5,6 +5,7 @@ import type { DataClient } from '#/lib/data-client'
 import { resolveRegistryObject } from '#/lib/object-resolver'
 import type { ResolvedObject } from '#/lib/object-resolver'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { listByIds } from '#/lib/chunk-ids'
 
 /**
  * UI port (roadmap-4/ui-app3): the Scan surface (MOB-02 / LAB-05 / LAB-06).
@@ -230,9 +231,11 @@ async function aliasTargets(
 ): Promise<ScanTarget[]> {
   if (aliases.length === 0) return []
   const ids = Array.from(new Set(aliases.map((a) => a.record_id)))
-  const records = await client.list<RecordWire>(
-    'records',
-    `?select=${RECORD_FIELDS}&id=in.(${ids.map((id) => encodeURIComponent(id)).join(',')})`,
+  const records = await listByIds(ids, (inList) =>
+    client.list<RecordWire>(
+      'records',
+      `?select=${RECORD_FIELDS}&id=in.(${inList})`,
+    ),
   )
   const byId = new Map(records.map((r) => [r.id, r]))
   const out: ScanTarget[] = []

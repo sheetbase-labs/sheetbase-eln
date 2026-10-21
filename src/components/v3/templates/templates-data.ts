@@ -14,6 +14,7 @@ import type {
   NotebookTemplate,
   NotebookTemplateVersion,
 } from '#/lib/notebook-template-data'
+import { chunkIds, listByIds } from '#/lib/chunk-ids'
 
 /**
  * UI port (roadmap-4/ui-app3): the Templates board reads the CORE-06 notebook
@@ -179,16 +180,24 @@ async function fetchTemplateUsers(
   versionIds: string[],
   client: DataClient,
 ): Promise<TemplateUser[]> {
-  const filter = `source_notebook_template_version_id=in.(${versionIds.join(',')})`
   const rows: TemplateUser[] = []
-  for (let offset = 0; ; offset += TEMPLATE_USERS_PAGE_SIZE) {
-    const page = await client.list<TemplateUser>(
-      'records',
-      `?${filter}&select=${TEMPLATE_USER_SELECT}&order=updated_at.desc,id.asc&limit=${TEMPLATE_USERS_PAGE_SIZE}&offset=${offset}`,
-    )
-    rows.push(...page)
-    if (page.length < TEMPLATE_USERS_PAGE_SIZE) return rows
+  // A long list of versions is read in groups, each paged to its end, then
+  // put back in the one order the page shows.
+  for (const group of chunkIds([...new Set(versionIds)])) {
+    const filter = `source_notebook_template_version_id=in.(${group.map(encodeURIComponent).join(',')})`
+    for (let offset = 0; ; offset += TEMPLATE_USERS_PAGE_SIZE) {
+      const page = await client.list<TemplateUser>(
+        'records',
+        `?${filter}&select=${TEMPLATE_USER_SELECT}&order=updated_at.desc,id.asc&limit=${TEMPLATE_USERS_PAGE_SIZE}&offset=${offset}`,
+      )
+      rows.push(...page)
+      if (page.length < TEMPLATE_USERS_PAGE_SIZE) break
+    }
   }
+  return rows.sort(
+    (a, b) =>
+      b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id),
+  )
 }
 
 export function useTemplateUsers(
@@ -221,11 +230,17 @@ export function useTemplateMadeCount(
   const ids = [...new Set(versionIds.filter(Boolean))].sort()
   return useQuery({
     queryKey: ['ui-port', 'templates', 'made-count', ids.join(',')],
-    queryFn: () =>
-      client.count(
-        'notebook_template_instantiations',
-        `?template_version_id=in.(${ids.join(',')})`,
-      ),
+    queryFn: async () => {
+      const counts = await Promise.all(
+        chunkIds(ids).map((group) =>
+          client.count(
+            'notebook_template_instantiations',
+            `?template_version_id=in.(${group.map(encodeURIComponent).join(',')})`,
+          ),
+        ),
+      )
+      return counts.reduce((sum, n) => sum + n, 0)
+    },
     enabled: ids.length > 0,
     staleTime: 15_000,
   })
@@ -244,9 +259,11 @@ export function useTemplateProjects(
   return useQuery({
     queryKey: ['ui-port', 'templates', 'projects', ids.join(',')],
     queryFn: async () => {
-      const rows = await client.list<{ id: string; title: string }>(
-        'projects',
-        `?id=in.(${ids.join(',')})&select=id,title`,
+      const rows = await listByIds(ids, (inList) =>
+        client.list<{ id: string; title: string }>(
+          'projects',
+          `?id=in.(${inList})&select=id,title`,
+        ),
       )
       return new Map(rows.map((row) => [row.id, row.title]))
     },

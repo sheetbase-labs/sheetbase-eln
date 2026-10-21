@@ -676,6 +676,25 @@ export function ImportMapCheckFlow({
     }
   }
 
+  /**
+   * A refused row is fixed in the source file. The corrected file starts a new
+   * import with the target, experiment, instrument, parser and mapping this one
+   * used, so the person is not asked to choose them again.
+   */
+  async function uploadCorrected(corrected: File) {
+    const upload = await uploadImportFile({ file: corrected, datasetId })
+    await navigate({
+      to: '/import/$importId',
+      params: { importId: upload.fileId },
+      search: {
+        ...search,
+        dataset: datasetId,
+        step: 'map',
+        map: serializeImportMapping(mappingValues) || undefined,
+      },
+    })
+  }
+
   async function runCommit() {
     if (!file.data || !datasetId || !review.data) return
     setBusy(true)
@@ -1079,6 +1098,7 @@ export function ImportMapCheckFlow({
           <ReviewTable
             review={review.data ?? null}
             loading={review.isFetching}
+            onCorrectedFile={uploadCorrected}
           />
         ) : null}
       </div>
@@ -1211,9 +1231,11 @@ function MapTable({
 function ReviewTable({
   review,
   loading,
+  onCorrectedFile,
 }: {
   review: ImportReviewResponse | null
   loading: boolean
+  onCorrectedFile?: (file: File) => Promise<void> | void
 }) {
   if (loading && !review) {
     return (
@@ -1237,9 +1259,20 @@ function ReviewTable({
           <p className="m-0 mt-1">
             A row that cannot be read is not imported, and nothing is written
             while these are on the list. There is no cell editing here: fix the
-            value in the source file and store it again, or go back to mapping
+            value in the source file and upload it again, or go back to mapping
             and point that column at a field that accepts it.
           </p>
+          {onCorrectedFile ? (
+            <FileDrop
+              className="mt-2 max-w-[420px]"
+              label="Upload corrected file"
+              inputLabel="Corrected file"
+              accept=".csv,.tsv,.tab,.txt,.json,.xlsx,text/csv,text/tab-separated-values,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onFile={(corrected) =>
+                corrected ? onCorrectedFile(corrected) : undefined
+              }
+            />
+          ) : null}
         </Banner>
       ) : null}
       <div className="overflow-auto rounded-md border">

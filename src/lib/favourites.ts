@@ -35,6 +35,7 @@ import {
   sheetPath,
 } from './navigation'
 import type { RecentObjectKind } from './recents'
+import { listByIds } from '#/lib/chunk-ids'
 
 // ---------------------------------------------------------------------------
 // Domain shapes.
@@ -253,33 +254,43 @@ export async function resolveFavouriteItems(
   const [recordRows, datasetRows, sheetRows, projectRows, templateRows] =
     await Promise.all([
       idsByKind.has('record')
-        ? client.list<RecordLabelWire>(
-            'records',
-            `?id=in.(${idsByKind.get('record')!.join(',')})&select=id,kind,identifier,title,archived_at,deleted_at`,
+        ? listByIds(idsByKind.get('record')!, (inList) =>
+            client.list<RecordLabelWire>(
+              'records',
+              `?id=in.(${inList})&select=id,kind,identifier,title,archived_at,deleted_at`,
+            ),
           )
         : Promise.resolve([]),
       idsByKind.has('dataset')
-        ? client.list<DatasetLabelWire>(
-            'datasets',
-            `?id=in.(${idsByKind.get('dataset')!.join(',')})&select=id,name,lifecycle`,
+        ? listByIds(idsByKind.get('dataset')!, (inList) =>
+            client.list<DatasetLabelWire>(
+              'datasets',
+              `?id=in.(${inList})&select=id,name,lifecycle`,
+            ),
           )
         : Promise.resolve([]),
       idsByKind.has('sheet')
-        ? client.list<SheetLabelWire>(
-            'sheet_instances',
-            `?id=in.(${idsByKind.get('sheet')!.join(',')})&select=id,name,lifecycle`,
+        ? listByIds(idsByKind.get('sheet')!, (inList) =>
+            client.list<SheetLabelWire>(
+              'sheet_instances',
+              `?id=in.(${inList})&select=id,name,lifecycle`,
+            ),
           )
         : Promise.resolve([]),
       idsByKind.has('project')
-        ? client.list<ProjectWire>(
-            'projects',
-            `?id=in.(${idsByKind.get('project')!.join(',')})&select=id,key,title,status,archived_at`,
+        ? listByIds(idsByKind.get('project')!, (inList) =>
+            client.list<ProjectWire>(
+              'projects',
+              `?id=in.(${inList})&select=id,key,title,status,archived_at`,
+            ),
           )
         : Promise.resolve([]),
       idsByKind.has('notebook_template')
-        ? client.list<TemplateLabelWire>(
-            'notebook_templates',
-            `?id=in.(${idsByKind.get('notebook_template')!.join(',')})&select=id,key,name,lifecycle`,
+        ? listByIds(idsByKind.get('notebook_template')!, (inList) =>
+            client.list<TemplateLabelWire>(
+              'notebook_templates',
+              `?id=in.(${inList})&select=id,key,name,lifecycle`,
+            ),
           )
         : Promise.resolve([]),
     ])

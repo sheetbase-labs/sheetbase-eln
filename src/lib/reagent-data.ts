@@ -24,6 +24,7 @@ import type { DataClient } from '#/lib/data-client'
 import { toRecord } from '#/lib/notebook-data'
 import type { NotebookRecord, RecordWire } from '#/lib/notebook-data'
 import type { RegistryQuery } from '#/lib/registry'
+import { listByIds } from '#/lib/chunk-ids'
 
 // ---------------------------------------------------------------------------
 // Property projection. Reagent properties are a flat JSONB object keyed by
@@ -554,9 +555,11 @@ export async function fetchReagentUsage(
   if (links.length === 0) return []
 
   const sourceIds = [...new Set(links.map((link) => link.source_record_id))]
-  const sources = await client.list<UsageSourceWire>(
-    'records',
-    `?id=in.(${sourceIds.map(encodeURIComponent).join(',')})&select=id,kind,identifier`,
+  const sources = await listByIds(sourceIds, (inList) =>
+    client.list<UsageSourceWire>(
+      'records',
+      `?id=in.(${inList})&select=id,kind,identifier`,
+    ),
   )
   const sourceById = new Map(sources.map((source) => [source.id, source]))
 

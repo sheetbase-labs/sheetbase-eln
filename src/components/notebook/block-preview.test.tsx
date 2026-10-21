@@ -201,7 +201,7 @@ describe('BlockPreview linked_record (NOTE-03 canonical open affordance)', () =>
     )
     const open = screen.getByRole('link', { name: 'Open' })
     expect(open.getAttribute('href')).toBe(
-      `/datasets?dataset=${encodeURIComponent(datasetId)}`,
+      `/datasets/${encodeURIComponent(datasetId)}`,
     )
   })
 
@@ -321,10 +321,10 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
     const first = await screen.findByRole('link', { name: 'Dataset 1' })
     const second = screen.getByRole('link', { name: 'Dataset 2' })
     expect(first.getAttribute('href')).toBe(
-      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_A)}`,
+      `/datasets/${encodeURIComponent(CHART_DATASET_A)}`,
     )
     expect(second.getAttribute('href')).toBe(
-      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_B)}`,
+      `/datasets/${encodeURIComponent(CHART_DATASET_B)}`,
     )
     // Multi-source labels are ordinal, never a display label.
     expect(screen.queryByRole('link', { name: 'Open dataset' })).toBeNull()
@@ -353,10 +353,10 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
     })
     // Each link targets the stable Dataset UUID, not the Version.
     expect(first.getAttribute('href')).toBe(
-      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_A)}`,
+      `/datasets/${encodeURIComponent(CHART_DATASET_A)}`,
     )
     expect(second.getAttribute('href')).toBe(
-      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_B)}`,
+      `/datasets/${encodeURIComponent(CHART_DATASET_B)}`,
     )
     // No misleading single-version subtitle when two Versions are pinned.
     expect(screen.queryByText(/^Dataset Version /)).toBeNull()
@@ -373,7 +373,7 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
     )
     const open = screen.getByRole('link', { name: 'Open dataset' })
     expect(open.getAttribute('href')).toBe(
-      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_A)}`,
+      `/datasets/${encodeURIComponent(CHART_DATASET_A)}`,
     )
     // No numbering for a single source.
     expect(screen.queryByText('Dataset 1')).toBeNull()
@@ -394,7 +394,7 @@ describe('BlockPreview chart (NOTE-03 Dataset source affordances)', () => {
     expect(screen.getByText('Dataset Version 11111111')).toBeTruthy()
     const open = screen.getByRole('link', { name: 'Open dataset' })
     expect(open.getAttribute('href')).toBe(
-      `/datasets?dataset=${encodeURIComponent(CHART_DATASET_A)}`,
+      `/datasets/${encodeURIComponent(CHART_DATASET_A)}`,
     )
     expect(screen.queryByText('Dataset 1')).toBeNull()
   })

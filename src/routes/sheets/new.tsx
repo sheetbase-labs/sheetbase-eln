@@ -11,6 +11,7 @@ import { PageHeader, Muted } from '#/components/v3/ui/layout'
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Select } from '#/components/v3/ui/select'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { ObjectLink } from '#/components/v3/ui/object-link'
@@ -81,9 +82,11 @@ const starts = [
   },
   {
     icon: 'upload' as const,
-    title: 'Paste or import a file',
-    body: 'CSV or Excel. Values stay local until you keep them.',
-    to: '/import' as const,
+    title: 'Paste a table',
+    body: 'Paste cells or read a CSV into a new sheet. Values stay local until you promote a column.',
+    blank: true,
+    paste: true,
+    to: '/sheets/new' as const,
   },
   {
     icon: 'table' as const,
@@ -151,6 +154,8 @@ function NewSheet() {
   const [chosenProject, setChosenProject] = useState<string | null>(null)
   const projectId = chosenProject ?? impliedProject
   const [name, setName] = useState('Untitled sheet')
+  // Set by the Paste a table start: the new sheet opens its Paste data dialog.
+  const [pasteFirst, setPasteFirst] = useState(false)
   const [optionId, setOptionId] = useState('')
   const option =
     (options.data ?? []).find((o) => o.versionId === optionId) ??
@@ -164,7 +169,10 @@ function NewSheet() {
     navigate({
       to: '/sheets/$sheetId',
       params: { sheetId },
-      search: { projectId },
+      search: {
+        projectId,
+        paste: pasteFirst && !search.dataset ? true : undefined,
+      },
     })
 
   const create = useMutation({
@@ -293,6 +301,7 @@ function NewSheet() {
                       key={o.title}
                       type="button"
                       onClick={() => {
+                        setPasteFirst('paste' in o && o.paste === true)
                         document.getElementById('new-sheet')?.scrollIntoView({
                           behavior: 'smooth',
                           block: 'start',
@@ -315,15 +324,6 @@ function NewSheet() {
                     <Link
                       key={o.title}
                       to={o.to}
-                      search={
-                        o.to === '/import'
-                          ? {
-                              project: projectId || undefined,
-                              experiment: search.experiment,
-                              returnTo: search.returnTo,
-                            }
-                          : undefined
-                      }
                       className="flex min-h-14 gap-2.5 rounded-md border border-border bg-surface p-3 text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
                     >
                       <span className="mt-px shrink-0 text-fg-muted">
@@ -406,6 +406,16 @@ function NewSheet() {
                 onChange={(e) => setName(e.target.value)}
               />
             </Field>
+            {search.dataset ? null : (
+              <label className="flex items-center gap-2 text-label">
+                <Checkbox
+                  aria-label="Paste a table into it"
+                  checked={pasteFirst}
+                  onCheckedChange={(on) => setPasteFirst(Boolean(on))}
+                />
+                Paste a table into it once it exists
+              </label>
+            )}
             <div className="flex gap-2">
               <Button
                 variant="primary"
@@ -419,7 +429,9 @@ function NewSheet() {
               >
                 {search.dataset && option
                   ? 'Open dataset in a new sheet'
-                  : 'Create blank sheet'}
+                  : pasteFirst
+                    ? 'Create sheet and paste'
+                    : 'Create blank sheet'}
               </Button>
               {hasContext ? (
                 <Button nativeButton={false} render={<Link to={cancelTo} />}>

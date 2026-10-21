@@ -381,7 +381,7 @@ describe('ChartBlockPreview — NOTE-03 canonical dataset affordances', () => {
     })
     const open = screen.getByRole('link', { name: 'Open dataset' })
     expect(open.getAttribute('href')).toBe(
-      `/datasets?dataset=${encodeURIComponent(TABLE_ID)}`,
+      `/datasets/${encodeURIComponent(TABLE_ID)}`,
     )
   })
 
@@ -427,7 +427,7 @@ describe('ChartBlockPreview — NOTE-03 canonical dataset affordances', () => {
     expect(await screen.findByText(/Dataset Version 22222222/)).toBeTruthy()
     const open = screen.getByRole('link', { name: 'Open dataset' })
     expect(open.getAttribute('href')).toBe(
-      `/datasets?dataset=${encodeURIComponent(TABLE_ID)}`,
+      `/datasets/${encodeURIComponent(TABLE_ID)}`,
     )
     // VIEW-01: the frame owns the visible Snapshot badge; the inner
     // figcaption is hidden when framed, so exactly one badge renders.

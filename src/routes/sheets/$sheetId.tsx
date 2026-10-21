@@ -36,10 +36,12 @@ export const Route = createFileRoute('/sheets/$sheetId')({
   ): {
     projectId: string | undefined
     commentId?: string
+    paste?: boolean
   } => ({
     projectId:
       typeof search.projectId === 'string' ? search.projectId : undefined,
     commentId: z.uuid().optional().catch(undefined).parse(search.commentId),
+    paste: search.paste === true || search.paste === 'true' ? true : undefined,
   }),
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
@@ -56,7 +58,7 @@ export const Route = createFileRoute('/sheets/$sheetId')({
 
 export function ComposedSheetRoute() {
   const { sheetId } = Route.useParams()
-  const { projectId: projectIdParam, commentId } = Route.useSearch()
+  const { projectId: projectIdParam, commentId, paste } = Route.useSearch()
   const { context } = Route.useRouteContext()
 
   // FIND-01: this page counts as a "view" for the Recent surface.
@@ -167,6 +169,7 @@ export function ComposedSheetRoute() {
             instanceId={sheetId}
             projectId={instanceProjectId}
             commentId={commentId}
+            openPasteOnLoad={paste}
           />
         </CollaborationRoom>
       </div>

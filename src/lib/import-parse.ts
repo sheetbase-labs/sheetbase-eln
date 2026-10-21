@@ -143,7 +143,7 @@ function decodeText(bytes: ArrayBuffer): string {
   }
 }
 
-function detectDelimiter(text: string): ImportDelimiter {
+export function detectDelimiter(text: string): ImportDelimiter {
   const first = text.split(/\r?\n/, 1)[0] ?? ''
   const tabs = (first.match(/\t/g) ?? []).length
   const semis = (first.match(/;/g) ?? []).length

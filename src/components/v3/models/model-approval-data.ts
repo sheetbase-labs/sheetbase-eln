@@ -5,6 +5,7 @@ import type { ApprovalRequest } from '#/lib/approval-requests'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { ApprovalDecision } from './model-approval'
+import { listByIds } from '#/lib/chunk-ids'
 
 /**
  * MDL-03.3 — the client read side of the approval store.
@@ -75,23 +76,31 @@ export function useModelApprovalIndex(
     queryKey: modelApprovalQueryKeys.index(ids, objectKind),
     queryFn: async (): Promise<ModelApprovalIndex> => {
       if (ids.length === 0) return buildIndex([], [])
-      const requests = await client.list<ApprovalRequest>(
-        'approval_requests',
-        `?object_kind=eq.${encodeURIComponent(objectKind)}` +
-          `&object_id=in.(${ids.join(',')})` +
-          '&select=id,workspace_id,object_kind,object_id,object_revision,' +
-          'required_approver_roles,required_approvals,require_independence,state,' +
-          'reason,decision_reason,approved_by_user_ids,submitted_by_user_id,' +
-          'submitted_at,decided_by_user_id,decided_at,created_at,updated_at' +
-          '&order=created_at.desc',
-      )
+      const requests = (
+        await listByIds(ids, (inList) =>
+          client.list<ApprovalRequest>(
+            'approval_requests',
+            `?object_kind=eq.${encodeURIComponent(objectKind)}` +
+              `&object_id=in.(${inList})` +
+              '&select=id,workspace_id,object_kind,object_id,object_revision,' +
+              'required_approver_roles,required_approvals,require_independence,state,' +
+              'reason,decision_reason,approved_by_user_ids,submitted_by_user_id,' +
+              'submitted_at,decided_by_user_id,decided_at,created_at,updated_at' +
+              '&order=created_at.desc',
+          ),
+        )
+      ).sort((a, b) => b.created_at.localeCompare(a.created_at))
       const requestIds = requests.map((request) => request.id)
       const decisions = requestIds.length
-        ? await client.list<ApprovalDecision>(
-            'approval_request_decisions',
-            `?request_id=in.(${requestIds.join(',')})` +
-              `&select=${DECISION_SELECT}&order=created_at.asc`,
-          )
+        ? (
+            await listByIds(requestIds, (inList) =>
+              client.list<ApprovalDecision>(
+                'approval_request_decisions',
+                `?request_id=in.(${inList})` +
+                  `&select=${DECISION_SELECT}&order=created_at.asc`,
+              ),
+            )
+          ).sort((a, b) => a.created_at.localeCompare(b.created_at))
         : []
       return buildIndex(requests, decisions)
     },

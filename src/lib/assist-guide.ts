@@ -207,7 +207,7 @@ export interface AnalysisToFigureState {
 }
 
 function datasetLink(state: AnalysisToFigureState): string {
-  return `/datasets?dataset=${state.datasetId}`
+  return `/datasets/${state.datasetId}`
 }
 
 const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [

@@ -27,6 +27,7 @@ import { fetchRecordTimeline } from '#/lib/sign-002'
 import type { TimelineEventWire } from '#/lib/sign-002'
 import { delimitedHeaderLine, delimitedRowLine } from '#/lib/export/delimited'
 import type { ExportField, ExportRow } from '#/lib/export/delimited'
+import { listByIds } from '#/lib/chunk-ids'
 
 /**
  * UI port (roadmap-4/ui-app3): the Models board reads the canonical dataset
@@ -228,9 +229,13 @@ export function useModelVersionFields(
     queryKey: modelsQueryKeys.versionFields(versionIds),
     queryFn: () =>
       versionIds.length
-        ? client.list<ModelVersionField>(
-            'dataset_schema_version_fields',
-            `?schema_version_id=in.(${versionIds.map(encodeURIComponent).join(',')})&select=field_id,schema_version_id,key,label,description,logical_type,nullable,default_value,quantity,validation,category,relationship,cardinality,lifecycle,display_order&order=display_order.asc`,
+        ? listByIds(versionIds, (inList) =>
+            client.list<ModelVersionField>(
+              'dataset_schema_version_fields',
+              `?schema_version_id=in.(${inList})&select=field_id,schema_version_id,key,label,description,logical_type,nullable,default_value,quantity,validation,category,relationship,cardinality,lifecycle,display_order&order=display_order.asc`,
+            ),
+          ).then((fields) =>
+            fields.sort((a, b) => a.display_order - b.display_order),
           )
         : Promise.resolve([]),
     enabled: versionIds.length > 0,
@@ -253,11 +258,15 @@ export function useModelDatasets(
 ) {
   return useQuery({
     queryKey: [...modelsQueryKeys.datasets(versionIds.join(',')), versionIds],
-    queryFn: () =>
-      client.list<ModelDatasetUse>(
-        'datasets',
-        `?schema_version_id=in.(${versionIds.join(',')})&select=id,schema_version_id,name,display_id,archived_at,updated_at&order=updated_at.desc`,
-      ),
+    queryFn: async () =>
+      (
+        await listByIds(versionIds, (inList) =>
+          client.list<ModelDatasetUse>(
+            'datasets',
+            `?schema_version_id=in.(${inList})&select=id,schema_version_id,name,display_id,archived_at,updated_at&order=updated_at.desc`,
+          ),
+        )
+      ).sort((a, b) => b.updated_at.localeCompare(a.updated_at)),
     enabled: versionIds.length > 0,
     staleTime: 15_000,
   })

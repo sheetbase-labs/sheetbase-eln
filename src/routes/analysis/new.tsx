@@ -54,6 +54,7 @@ import {
   createFileRoute,
   redirect,
   useNavigate,
+  useRouter,
 } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PanelLeft, PanelLeftClose, Save, Sigma, Trash2 } from 'lucide-react'
@@ -271,6 +272,10 @@ function AnalysisStudio() {
   // The saved view named by `?view=` (the read-only route's "Edit in studio"
   // link); consumed once the view list resolves.
   const requestedViewRef = useRef<string | null>(search.view ?? null)
+  // The dataset a `?view=` was applied on. React's dev double-run of effects
+  // reruns the default-spec rebuild right after the view lands; the rebuild
+  // skips once for this dataset so the opened view survives it.
+  const requestedViewAppliedOnRef = useRef<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<AnalysisViewWire | null>(
     null,
   )
@@ -306,6 +311,9 @@ function AnalysisStudio() {
   // the rebuild below cannot discard it).
   useEffect(() => {
     if (!selectedDataset) return
+    const appliedOn = requestedViewAppliedOnRef.current
+    requestedViewAppliedOnRef.current = null
+    if (appliedOn === selectedDataset.id && !pendingViewRef.current) return
     const pending = pendingViewRef.current
     if (pending) {
       pendingViewRef.current = null
@@ -328,7 +336,10 @@ function AnalysisStudio() {
     setSpec(next)
     setSelectedViewId(null)
     setViewName('')
-  }, [selectedDataset, search.x, search.y])
+    // Keyed on the dataset's id, not the object: a background refetch of the
+    // list hands back new objects for the same dataset, and rebuilding then
+    // would drop the saved view the user just opened.
+  }, [selectedDataset?.id, search.x, search.y])
   // Build a default compare config when the dataset (or its columns) change.
   // Explicit source fields only — never label-inferred.
   useEffect(() => {
@@ -393,6 +404,7 @@ function AnalysisStudio() {
 
   const queryClient = useQueryClient()
   const navigate = useNavigate({ from: '/analysis/new' })
+  const router = useRouter()
 
   const saveMutation = useMutation({
     mutationFn: async (options?: { asNew?: boolean }) => {
@@ -509,6 +521,7 @@ function AnalysisStudio() {
       setSelectedDatasetId(targetId)
       return
     }
+    requestedViewAppliedOnRef.current = selectedDatasetId
     setSelectedViewId(view.id)
     setViewName(view.name)
     setSpec(view.spec)
@@ -707,7 +720,7 @@ function AnalysisStudio() {
                   chartSpecReady={comparePromoted}
                   onPromoteGuide={promoteCompareToChart}
                   onNavigateGuide={(href) => {
-                    window.location.assign(href)
+                    router.history.push(href)
                   }}
                 />
               </div>

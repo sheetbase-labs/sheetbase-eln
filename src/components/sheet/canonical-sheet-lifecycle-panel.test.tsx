@@ -13,7 +13,10 @@ import * as materializationData from '#/lib/sheet-materialization-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 
-import { CanonicalSheetLifecyclePanel } from './canonical-sheet-lifecycle-panel'
+import {
+  CanonicalSheetLifecyclePanel,
+  lifecycleErrorText,
+} from './canonical-sheet-lifecycle-panel'
 
 const previewExtraction = vi.fn()
 const extractDraft = vi.fn()
@@ -239,5 +242,22 @@ describe('CanonicalSheetLifecyclePanel', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
     expect(extractDraft).not.toHaveBeenCalled()
+  })
+})
+
+describe('lifecycleErrorText', () => {
+  it('points a local-only sheet at promotion instead of the server code', () => {
+    expect(
+      lifecycleErrorText('active Definition-backed Sheet Instance required'),
+    ).toMatch(/promote a column into a model/)
+    expect(
+      lifecycleErrorText(
+        'invalid extracted Definition configuration: local row identity must be one declared reference UUID column',
+      ),
+    ).toMatch(/promote a column into a model/)
+  })
+
+  it('leaves any other refusal as the server wrote it', () => {
+    expect(lifecycleErrorText('stale revision')).toBe('stale revision')
   })
 })

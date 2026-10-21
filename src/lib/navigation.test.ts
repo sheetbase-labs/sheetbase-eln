@@ -16,7 +16,7 @@ describe('canonical navigation destinations', () => {
     expect(projectPath('project-id')).toBe('/projects/project-id')
     expect(recordPath('record-id')).toBe('/records/record-id')
     expect(sheetPath('sheet-id')).toBe('/sheets/sheet-id')
-    expect(datasetPath('dataset-id')).toBe('/datasets?dataset=dataset-id')
+    expect(datasetPath('dataset-id')).toBe('/datasets/dataset-id')
   })
 
   it('routes workspace catalogue records to their owning surface', () => {

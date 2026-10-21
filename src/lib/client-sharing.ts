@@ -3,6 +3,7 @@ import type {
   ClientPortalProject,
   ClientPortalRecord,
 } from '#/lib/client-portal'
+import { listByIds } from '#/lib/chunk-ids'
 
 /**
  * Internal side of the client portal: create a client organisation, share an
@@ -112,9 +113,11 @@ export async function fetchRecordsByIds(
   ids: string[],
 ): Promise<Array<ShareableRecord & { status: string }>> {
   if (ids.length === 0) return []
-  return client.list<ShareableRecord & { status: string }>(
-    'records',
-    `?id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,identifier,title,kind,status`,
+  return listByIds(ids, (inList) =>
+    client.list<ShareableRecord & { status: string }>(
+      'records',
+      `?id=in.(${inList})&select=id,identifier,title,kind,status`,
+    ),
   )
 }
 

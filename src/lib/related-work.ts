@@ -36,6 +36,7 @@ import {
 } from './notebook-data'
 import { fetchSheetInstance } from './sheet-instance-data'
 import { fetchTemplateUsage } from './templates'
+import { listByIds } from '#/lib/chunk-ids'
 
 // ---------------------------------------------------------------------------
 // Public shapes.
@@ -303,10 +304,6 @@ async function quiet<T>(promise: Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-function inFilter(ids: readonly string[]): string {
-  return `in.(${ids.map((id) => encodeURIComponent(id)).join(',')})`
-}
-
 /**
  * Batch-resolve record ids to openable labels. Records that are gone,
  * archived, deleted or simply invisible under RLS come back absent and are
@@ -319,9 +316,11 @@ async function resolveRecordLabels(
   const unique = [...new Set(ids)].filter(Boolean)
   if (unique.length === 0) return new Map()
   const rows = await quiet(
-    client.list<RecordLabelWire>(
-      'records',
-      `?id=${inFilter(unique)}&select=id,kind,identifier,title,archived_at,deleted_at`,
+    listByIds(unique, (inList) =>
+      client.list<RecordLabelWire>(
+        'records',
+        `?id=in.(${inList})&select=id,kind,identifier,title,archived_at,deleted_at`,
+      ),
     ),
     [],
   )
@@ -633,21 +632,27 @@ async function fetchRelatedForDataset(
       ].filter((id) => id !== schemaId)
       if (siblingSchemaIds.length > 0) {
         const siblingVersions = await quiet(
-          client.list<{ id: string; schema_id: string }>(
-            'dataset_schema_versions',
-            `?schema_id=${inFilter(siblingSchemaIds)}&select=id,schema_id`,
+          listByIds(siblingSchemaIds, (inList) =>
+            client.list<{ id: string; schema_id: string }>(
+              'dataset_schema_versions',
+              `?schema_id=in.(${inList})&select=id,schema_id`,
+            ),
           ),
           [],
         )
         const versionIds = siblingVersions.map((v) => v.id)
         if (versionIds.length > 0) {
-          const siblings = await quiet(
-            client.list<DatasetIdentityWire>(
-              'datasets',
-              `?schema_version_id=${inFilter(versionIds)}&select=id,name,lifecycle&limit=${RELATED_WORK_SOURCE_LIMIT}`,
-            ),
-            [],
-          )
+          const siblings = (
+            await quiet(
+              listByIds(versionIds, (inList) =>
+                client.list<DatasetIdentityWire>(
+                  'datasets',
+                  `?schema_version_id=in.(${inList})&select=id,name,lifecycle&limit=${RELATED_WORK_SOURCE_LIMIT}`,
+                ),
+              ),
+              [],
+            )
+          ).slice(0, RELATED_WORK_SOURCE_LIMIT)
           for (const sibling of siblings) {
             if (sibling.id === datasetId || sibling.lifecycle !== 'active')
               continue

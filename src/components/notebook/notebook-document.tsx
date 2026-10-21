@@ -1052,7 +1052,10 @@ function NotebookDocumentContent({
                   'aria-label': `${blockLabel(block)} block${canMove ? ' — Alt+Arrow keys move; Ctrl+Arrow keys navigate' : ''}`,
                   'data-active': isActive || undefined,
                   'data-selected': isSelected || undefined,
-                  onFocus: () => {
+                  onFocus: (event) => {
+                    // A link in the read view must still be there when the
+                    // click lands, so pressing it does not open the editor.
+                    if ((event.target as HTMLElement).closest('a[href]')) return
                     setActiveId(block.id)
                     selectBlock(block)
                   },

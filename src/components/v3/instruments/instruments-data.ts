@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { Tone } from '#/components/v3/ui/status'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { listByIds } from '#/lib/chunk-ids'
 
 /**
  * UI port (roadmap-4/ui-app3): the Instruments area (LAB-06, folded from
@@ -372,10 +373,13 @@ export function useParserReadinessByInstrument(
         '?select=id,instrument_id&instrument_id=not.is.null&limit=500',
       )
       if (!parsers.length) return new Map()
-      const ids = parsers.map((parser) => parser.id).join(',')
-      const versions = await client.list<ParserVersionWire>(
-        'parser_versions',
-        `?select=parser_id,status&parser_id=in.(${ids})&status=in.(validated,approved)&limit=500`,
+      const versions = await listByIds(
+        parsers.map((parser) => parser.id),
+        (ids) =>
+          client.list<ParserVersionWire>(
+            'parser_versions',
+            `?select=parser_id,status&parser_id=in.(${ids})&status=in.(validated,approved)&limit=500`,
+          ),
       )
       return parserReadinessByInstrument(
         parsers.map((parser) => ({
@@ -403,10 +407,13 @@ export function useInstrumentParsers(
         `?select=id,name&instrument_id=eq.${encodeURIComponent(instrumentId)}&order=name.asc&limit=50`,
       )
       if (!parsers.length) return []
-      const ids = parsers.map((parser) => parser.id).join(',')
-      const versions = await client.list<ParserVersionIdWire>(
-        'parser_versions',
-        `?select=id,parser_id,status&parser_id=in.(${ids})&status=in.(draft,validated,approved)&order=version.desc&limit=200`,
+      const versions = await listByIds(
+        parsers.map((parser) => parser.id),
+        (ids) =>
+          client.list<ParserVersionIdWire>(
+            'parser_versions',
+            `?select=id,parser_id,status&parser_id=in.(${ids})&status=in.(draft,validated,approved)&order=version.desc&limit=200`,
+          ),
       )
       return parsers.map((parser) => {
         const own = versions.filter(

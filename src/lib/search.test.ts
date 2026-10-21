@@ -442,7 +442,7 @@ describe('searchResultDeepLink', () => {
 
   it('links datasets, sheets and templates to their surfaces', () => {
     expect(searchResultDeepLink('dataset', 'ds-1')).toBe(
-      '/datasets?dataset=ds-1',
+      '/datasets/ds-1',
     )
     expect(searchResultDeepLink('sheet', 'sh-1')).toBe('/sheets/sh-1')
     expect(searchResultDeepLink('template', 't-1')).toBe(

@@ -36,6 +36,7 @@ import {
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
 import { listInstanceColumnPromotions } from '#/lib/schema-evolution'
+import { SheetPasteData } from '#/components/sheet/sheet-paste-data'
 import { SheetPromote } from '#/components/sheet/sheet-promote'
 import type { SheetPromoteLocalField } from '#/components/sheet/sheet-promote'
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
@@ -86,6 +87,7 @@ import type {
   BoundValueState,
 } from '#/lib/sheet-bound-columns'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
+import type { PastedTable } from '#/lib/sheet-paste'
 import {
   createAdHocTextField,
   mutateSheetInstanceCalculations,
@@ -309,6 +311,7 @@ export function CanonicalSheetWorkspace({
   projectId,
   readOnly = false,
   commentId,
+  openPasteOnLoad = false,
   cellState,
   onCellSelectionChange,
 }: {
@@ -316,6 +319,8 @@ export function CanonicalSheetWorkspace({
   projectId: string | null
   readOnly?: boolean
   commentId?: string
+  /** Opens the Paste data dialog once, for a sheet created to hold a paste. */
+  openPasteOnLoad?: boolean
   /** EXP-05.2: per-cell state (e.g. `unsynced`) resolved by the host. */
   cellState?: SheetCellStateResolver
   /** EXP-04.4: notified when the selected cell changes. */
@@ -348,6 +353,7 @@ export function CanonicalSheetWorkspace({
       readOnly={readOnly}
       commentActor={auth}
       commentId={commentId}
+      openPasteOnLoad={openPasteOnLoad}
       cellState={cellState}
       onCellSelectionChange={onCellSelectionChange}
     />
@@ -392,6 +398,7 @@ export function CanonicalSheetEditor({
   readOnly = false,
   commentActor = null,
   commentId,
+  openPasteOnLoad = false,
   cellState,
   onCellSelectionChange,
 }: {
@@ -400,6 +407,7 @@ export function CanonicalSheetEditor({
   readOnly?: boolean
   commentActor?: Pick<CurrentContext, 'user' | 'workspace'> | null
   commentId?: string
+  openPasteOnLoad?: boolean
   /** EXP-05.2: per-cell state (e.g. `unsynced`) resolved by the host. */
   cellState?: SheetCellStateResolver
   /** EXP-04.4: published on every change of the selected cell. */
@@ -449,6 +457,10 @@ export function CanonicalSheetEditor({
     openedCommentRequest.current.applied = true
   }, [commentId, comments.data, instance.id, instance.revision])
   const [columnLabel, setColumnLabel] = useState('')
+  const [pasteOpen, setPasteOpen] = useState(
+    openPasteOnLoad && canWrite && instance.state.localFields.length === 0,
+  )
+  const [pasting, setPasting] = useState(false)
   const [formula, setFormula] = useState('')
   const [formulaLabel, setFormulaLabel] = useState('Calculated')
   const [selected, setSelected] = useState<{ row: number; col: number }>({
@@ -909,6 +921,59 @@ export function CanonicalSheetEditor({
       rows: [{ kind: 'local', rowKey }],
     })
     setColumnLabel('')
+  }
+
+  /**
+   * Bring a pasted table in as local text columns and rows, in groups the
+   * server accepts, so a paste is one visible step however long it is.
+   */
+  async function pasteTable(table: PastedTable) {
+    setPasting(true)
+    try {
+      const keys = instanceRef.current.state.localFields
+        .filter((field) => field.lifecycle === 'active')
+        .map((field) => field.key)
+      const fields = table.headers.map((label) => {
+        const field = createAdHocTextField(label, keys)
+        keys.push(field.key)
+        return field
+      })
+      const perGroup = Math.max(
+        1,
+        Math.min(200, Math.floor(1_000 / fields.length)),
+      )
+      for (let start = 0; start < table.rows.length; start += perGroup) {
+        const group = table.rows.slice(start, start + perGroup)
+        const rows = group.map(() => ({
+          kind: 'local' as const,
+          rowKey: crypto.randomUUID(),
+        }))
+        const cells = group.flatMap((values, rowIndex) =>
+          values.map((value, column) => ({
+            rowKey: rows[rowIndex].rowKey,
+            fieldId: fields[column].fieldId,
+            value: value === '' ? null : value,
+          })),
+        )
+        await persistLocalCells(cells, {
+          fieldChanges:
+            start === 0
+              ? fields.map((field) => ({ operation: 'add' as const, field }))
+              : undefined,
+          rows,
+        })
+      }
+      setPasteOpen(false)
+      setWriteStatus(
+        `Pasted ${table.rows.length} ${table.rows.length === 1 ? 'row' : 'rows'} into ${fields.length} new local ${fields.length === 1 ? 'column' : 'columns'}.`,
+      )
+    } catch (error) {
+      setWriteStatus(
+        errorText(error) ?? 'The pasted data could not be added to the sheet.',
+      )
+    } finally {
+      setPasting(false)
+    }
   }
 
   async function deleteLocalRowAt(rowIndex: number) {
@@ -1815,6 +1880,15 @@ export function CanonicalSheetEditor({
           >
             Add row
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={localMutate.isPending}
+            onClick={() => setPasteOpen(true)}
+          >
+            Paste data…
+          </Button>
           <label className="space-y-1 text-xs">
             <span className="text-fg-muted">Formula</span>
             <Input
@@ -2337,6 +2411,12 @@ export function CanonicalSheetEditor({
           </ConfirmDialogContent>
         </ConfirmDialog>
       ) : null}
+      <SheetPasteData
+        open={pasteOpen}
+        onOpenChange={setPasteOpen}
+        busy={pasting}
+        onApply={(table) => void pasteTable(table)}
+      />
       {promoteField ? (
         // SHEET-02.3: the column menu opens this dialog, so it carries no
         // trigger of its own. Closing unmounts it, discarding the draft.
@@ -2356,6 +2436,12 @@ export function CanonicalSheetEditor({
             void queryClient.invalidateQueries({
               queryKey: ['column-promotions'],
             })
+            // The promotions panel above the grid and the steward's Inbox read
+            // the same request, so they learn of it now, not on the next visit.
+            void queryClient.invalidateQueries({
+              queryKey: ['ui-port', 'column-promotions'],
+            })
+            void queryClient.invalidateQueries({ queryKey: ['work-items'] })
           }}
         />
       ) : null}

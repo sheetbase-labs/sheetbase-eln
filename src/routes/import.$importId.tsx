@@ -33,6 +33,7 @@ function ImportMapCheckPage() {
   const navigate = useNavigate()
   return (
     <ImportMapCheckFlow
+      key={importId}
       importId={importId}
       search={search}
       onSearch={(next) => {

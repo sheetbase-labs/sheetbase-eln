@@ -471,7 +471,7 @@ describe('BlockEditor — linked_record stable identity (NOTE-03)', () => {
     )
     const open = screen.getByRole('link', { name: 'Open' })
     expect(open.getAttribute('href')).toBe(
-      '/datasets?dataset=00000000-0000-4000-8000-000000000170',
+      '/datasets/00000000-0000-4000-8000-000000000170',
     )
   })
 

@@ -32,6 +32,7 @@ import {
   toLink,
 } from './notebook-data'
 import type { NotebookLink, RecordLinkWire } from './notebook-data'
+import { listByIds } from '#/lib/chunk-ids'
 
 /** Per-source bound so one chatty record cannot dominate the panel. */
 export const RELATIONSHIP_SOURCE_LIMIT = 50
@@ -206,9 +207,11 @@ export async function fetchRelationshipEndpoints(
   const unique = [...new Set(ids)].filter(Boolean)
   if (unique.length === 0) return new Map()
   const rows = await quiet(
-    client.list<RelationshipEndpointWire>(
-      'records',
-      `?id=in.(${unique.map((id) => encodeURIComponent(id)).join(',')})&select=id,kind,identifier,title,archived_at,deleted_at`,
+    listByIds(unique, (inList) =>
+      client.list<RelationshipEndpointWire>(
+        'records',
+        `?id=in.(${inList})&select=id,kind,identifier,title,archived_at,deleted_at`,
+      ),
     ),
     [],
   )

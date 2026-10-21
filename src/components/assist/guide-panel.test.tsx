@@ -56,7 +56,7 @@ describe('GuidePanel', () => {
     expect(onAccept).toHaveBeenCalledTimes(1)
     expect(onAccept).toHaveBeenCalledWith('promoteToChartSpec')
     const open = screen.getByRole('link', { name: 'Open chart configurator' })
-    expect(open.getAttribute('href')).toBe('/datasets?dataset=d1')
+    expect(open.getAttribute('href')).toBe('/datasets/d1')
   })
 
   it('renders ASSIST-01 explanations on the steps they fit', () => {

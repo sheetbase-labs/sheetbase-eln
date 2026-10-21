@@ -16,6 +16,8 @@ import type {
   PipelineRunOutputWire,
   PipelineRunPromptWire,
   PipelineRunWire,
+  PipelineScheduleKind,
+  PipelineScheduleActivityWire,
   PipelineScheduleWire,
 } from './types'
 
@@ -195,7 +197,7 @@ export async function createPipelineSchedule(
   input: {
     workspaceId: string
     definitionId: string
-    kind: 'interval' | 'daily' | 'event'
+    kind: PipelineScheduleKind
     spec: Record<string, unknown>
     enabled?: boolean
   },
@@ -214,7 +216,7 @@ export async function updatePipelineSchedule(
   input: {
     workspaceId: string
     scheduleId: string
-    kind?: 'interval' | 'daily' | 'event' | null
+    kind?: PipelineScheduleKind | null
     spec?: Record<string, unknown> | null
     enabled?: boolean | null
   },
@@ -258,7 +260,7 @@ const OUTPUT_FIELDS =
   'id,workspace_id,run_id,dataset_id,dataset_version_id,label,created_at'
 
 const SCHEDULE_FIELDS =
-  'id,workspace_id,definition_id,kind,spec,enabled,last_run_at,next_run_at,last_evaluated_at,last_evaluated_sequence,created_at,updated_at,created_by_user_id'
+  'id,workspace_id,definition_id,kind,spec,enabled,last_run_at,next_run_at,last_evaluated_at,last_evaluated_sequence,input_watermarks,created_at,updated_at,created_by_user_id'
 
 const PROMPT_FIELDS =
   'id,workspace_id,run_id,step_id,form_schema,asked_user_ids,answer,answered_by_user_id,answered_at,expires_at,created_at'
@@ -428,6 +430,49 @@ export async function listPipelineSchedules(
   return client.list<PipelineScheduleWire>(
     'pipeline_schedules',
     `?select=${SCHEDULE_FIELDS}${filter}&order=created_at.asc`,
+  )
+}
+
+/** Runs one trigger started, newest first: the trigger's run history. */
+export async function listScheduleRuns(
+  client: DataClient,
+  scheduleId: string,
+  limit = 25,
+): Promise<PipelineRunWire[]> {
+  return client.list<PipelineRunWire>(
+    'pipeline_runs',
+    `?select=${RUN_FIELDS}&schedule_id=eq.${encodeURIComponent(scheduleId)}&order=started_at.desc&limit=${limit}`,
+  )
+}
+
+/** The newest run each of these triggers started, keyed by trigger id. */
+export async function listLatestScheduleRuns(
+  client: DataClient,
+  scheduleIds: string[],
+): Promise<Map<string, PipelineRunWire>> {
+  const latest = new Map<string, PipelineRunWire>()
+  if (scheduleIds.length === 0) return latest
+  const runs = await client.list<PipelineRunWire>(
+    'pipeline_runs',
+    `?select=${RUN_FIELDS}&schedule_id=in.(${scheduleIds.map(encodeURIComponent).join(',')})&order=started_at.desc&limit=200`,
+  )
+  for (const run of runs) {
+    if (run.schedule_id && !latest.has(run.schedule_id)) {
+      latest.set(run.schedule_id, run)
+    }
+  }
+  return latest
+}
+
+/** What one trigger did instead of running (skips, unresolved inputs). */
+export async function listScheduleActivity(
+  client: DataClient,
+  scheduleId: string,
+  limit = 25,
+): Promise<PipelineScheduleActivityWire[]> {
+  return client.list<PipelineScheduleActivityWire>(
+    'pipeline_schedule_activity',
+    `?select=id,schedule_id,kind,occurrence_id,message,detail,occurred_at&schedule_id=eq.${encodeURIComponent(scheduleId)}&order=occurred_at.desc&limit=${limit}`,
   )
 }
 

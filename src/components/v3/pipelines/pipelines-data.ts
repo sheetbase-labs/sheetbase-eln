@@ -12,7 +12,10 @@ import {
   listPipelineRunLogs,
   listPipelineRunOutputs,
   listPipelineRunPrompts,
+  listLatestScheduleRuns,
   listPipelineSchedules,
+  listScheduleActivity,
+  listScheduleRuns,
   startPipelineRun,
 } from '#/lib/pipelines/data'
 import type { StartPipelineRunInput } from '#/lib/pipelines/data'
@@ -157,6 +160,12 @@ export const pipelineDataQueryKeys = {
   runDeliveries: (id: string) =>
     ['ui-port', 'pipelines', 'run-deliveries', id] as const,
   schedules: (id: string) => ['ui-port', 'pipelines', 'schedules', id] as const,
+  scheduleRuns: (id: string) =>
+    ['ui-port', 'pipelines', 'schedule-runs', id] as const,
+  scheduleActivity: (id: string) =>
+    ['ui-port', 'pipelines', 'schedule-activity', id] as const,
+  latestScheduleRuns: (ids: string) =>
+    ['ui-port', 'pipelines', 'latest-schedule-runs', ids] as const,
 }
 
 export function usePipelineRows(client: DataClient = notebookDataClient) {
@@ -577,6 +586,46 @@ export function useSchedules(
   return useQuery({
     queryKey: pipelineDataQueryKeys.schedules(definitionId),
     queryFn: () => listPipelineSchedules(client, definitionId),
+  })
+}
+
+/** The newest run each trigger started, for the Last run column. */
+export function useLatestScheduleRuns(
+  scheduleIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const key = scheduleIds.join(',')
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.latestScheduleRuns(key),
+    queryFn: () => listLatestScheduleRuns(client, scheduleIds),
+    enabled: scheduleIds.length > 0,
+    staleTime: 15_000,
+  })
+}
+
+/** The runs one trigger started: its history. */
+export function useScheduleRuns(
+  scheduleId: string,
+  enabled: boolean,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.scheduleRuns(scheduleId),
+    queryFn: () => listScheduleRuns(client, scheduleId),
+    enabled,
+  })
+}
+
+/** What one trigger did instead of running. */
+export function useScheduleActivity(
+  scheduleId: string,
+  enabled: boolean,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.scheduleActivity(scheduleId),
+    queryFn: () => listScheduleActivity(client, scheduleId),
+    enabled,
   })
 }
 

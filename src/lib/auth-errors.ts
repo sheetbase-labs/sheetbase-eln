@@ -15,6 +15,12 @@ export function describeSignInError(error: string | undefined): string | null {
     case 'state_mismatch':
     case 'invalid_state':
       return 'The sign-in attempt expired before it finished. Start again.'
+    case 'INVALID_TOKEN':
+    case 'EXPIRED_TOKEN':
+    case 'ATTEMPTS_EXCEEDED':
+      return 'That sign-in link has expired or was already used. Ask for a new one.'
+    case 'oidc_not_configured':
+      return 'Company sign-in is not configured for this environment yet.'
     case 'github_not_configured':
       return 'GitHub sign-in is not configured for this environment yet.'
     default:

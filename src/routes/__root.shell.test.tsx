@@ -178,13 +178,15 @@ describe('R5-SHELL-01 — recorded internal reference routes keep the legacy she
 })
 
 describe('R5-SHELL-01 — routes with their own chrome render bare', () => {
-  it.each(['/client-portal', '/sign-in', '/accept-invitation'])(
-    '%s',
-    async (idTemplate) => {
-      const view = await renderRoute(idTemplate)
-      expect(view.queryByTestId('v3-shell')).toBeNull()
-      expect(view.queryByTestId('legacy-shell')).toBeNull()
-      expect(view.queryByTestId('leaf')).toBeTruthy()
-    },
-  )
+  it.each([
+    '/client-portal',
+    '/sign-in',
+    '/sign-in_/two-factor',
+    '/accept-invitation',
+  ])('%s', async (idTemplate) => {
+    const view = await renderRoute(idTemplate)
+    expect(view.queryByTestId('v3-shell')).toBeNull()
+    expect(view.queryByTestId('legacy-shell')).toBeNull()
+    expect(view.queryByTestId('leaf')).toBeTruthy()
+  })
 })

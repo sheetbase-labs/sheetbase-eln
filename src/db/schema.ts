@@ -72,6 +72,7 @@ export const user = internal.table('user', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('emailVerified').notNull().default(false),
   image: text('image'),
+  twoFactorEnabled: boolean('twoFactorEnabled').notNull().default(false),
   createdAt: timestamp('createdAt', { withTimezone: true, mode: 'date' })
     .notNull()
     .defaultNow(),
@@ -79,6 +80,32 @@ export const user = internal.table('user', {
     .notNull()
     .defaultNow(),
 })
+
+/**
+ * Better Auth two-factor (TOTP) secrets and hashed backup codes. The secret
+ * and codes are encrypted by Better Auth with BETTER_AUTH_SECRET; neither is
+ * ever returned over HTTP after enrolment.
+ */
+export const twoFactor = internal.table(
+  'twoFactor',
+  {
+    id: text('id').primaryKey(),
+    secret: text('secret').notNull(),
+    backupCodes: text('backupCodes').notNull(),
+    userId: text('userId')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    verified: boolean('verified').notNull().default(true),
+    failedVerificationCount: integer('failedVerificationCount')
+      .notNull()
+      .default(0),
+    lockedUntil: timestamp('lockedUntil', {
+      withTimezone: true,
+      mode: 'date',
+    }),
+  },
+  (table) => [index('idx_two_factor_user_id').on(table.userId)],
+)
 
 export const session = internal.table(
   'session',

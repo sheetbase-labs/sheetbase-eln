@@ -37,6 +37,16 @@ const invalidProductionCases: Array<
     /requires an HTTPS BETTER_AUTH_URL/,
   ],
   [
+    'no sign-in provider',
+    { GITHUB_CLIENT_ID: undefined, GITHUB_CLIENT_SECRET: undefined },
+    /requires GitHub OAuth or OIDC sign-in credentials/,
+  ],
+  [
+    'half-configured OIDC',
+    { OIDC_ISSUER_URL: 'https://login.example.com', OIDC_CLIENT_ID: 'x' },
+    /requires OIDC_ISSUER_URL, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together/,
+  ],
+  [
     'a local database',
     { DATABASE_URL: 'postgresql://app@localhost/sheetbase' },
     /DATABASE_URL must not target localhost/,
@@ -55,6 +65,19 @@ describe('validateDeploymentConfig', () => {
         expectedMigration: '1784920000000',
       }),
     )
+  })
+
+  it('accepts company OIDC without GitHub credentials', () => {
+    expect(
+      validateDeploymentConfig({
+        ...productionConfig,
+        GITHUB_CLIENT_ID: undefined,
+        GITHUB_CLIENT_SECRET: undefined,
+        OIDC_ISSUER_URL: 'https://login.example.com/realms/lab',
+        OIDC_CLIENT_ID: 'sheetbase',
+        OIDC_CLIENT_SECRET: 'injected-secret',
+      }),
+    ).toEqual(expect.objectContaining({ environment: 'production' }))
   })
 
   it.each(invalidProductionCases)(

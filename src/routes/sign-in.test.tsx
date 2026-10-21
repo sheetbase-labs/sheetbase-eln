@@ -61,7 +61,9 @@ describe('R5-SHELL-05 sign-in states', () => {
     expect(
       screen.getByRole('button', { name: /Continue with GitHub/ }),
     ).toBeTruthy()
-    expect(screen.getByText(/open the invitation link you were sent/i)).toBeTruthy()
+    expect(
+      screen.getByText(/open the invitation link you were sent/i),
+    ).toBeTruthy()
     expect(credentialInputs()).toHaveLength(0)
   })
 
@@ -122,7 +124,9 @@ describe('R5-SHELL-05 sign-in states', () => {
     expect(
       screen.getByRole('button', { name: /Continue with GitHub/ }),
     ).toBeTruthy()
-    expect(screen.getByText(/open the invitation link you were sent/i)).toBeTruthy()
+    expect(
+      screen.getByText(/open the invitation link you were sent/i),
+    ).toBeTruthy()
     expect(credentialInputs()).toHaveLength(0)
   })
 
@@ -187,10 +191,12 @@ describe('R5-SHELL-05 sign-in states', () => {
     expect(screen.queryByText(/Open preview environment/i)).toBeNull()
   })
 
-  it('says GitHub is not configured rather than rendering a dead button', () => {
+  it('says no method is configured rather than rendering a dead button', () => {
     renderSurface({ githubEnabled: false })
     expect(
-      screen.getByText(/not configured for this environment yet/i),
+      screen.getByText(
+        /No sign-in method is configured for this environment yet/i,
+      ),
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Continue with/ })).toBeNull()
   })
@@ -265,5 +271,101 @@ describe('R5-SHELL-05 — a locked-out person cannot bypass the lock through a d
     expect(
       screen.getByRole('button', { name: /Continue with GitHub/ }),
     ).toBeTruthy()
+  })
+})
+
+describe('company OIDC and emailed sign-in link', () => {
+  it('starts company sign-in through the OIDC endpoint and returns to the requested path', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ json: async () => ({}) })
+    vi.stubGlobal('fetch', fetchMock)
+    renderSurface({
+      githubEnabled: false,
+      oidcName: 'Acme SSO',
+      next: '/inbox',
+    })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Continue with Acme SSO/ }),
+    )
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/auth/sign-in/oauth2')
+    expect(JSON.parse(String(init.body))).toEqual({
+      providerId: 'oidc',
+      callbackURL: '/inbox',
+    })
+  })
+
+  it('offers both providers when both are configured', () => {
+    renderSurface({ oidcName: 'Acme SSO' })
+    expect(
+      screen.getByRole('button', { name: /Continue with Acme SSO/ }),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: /Continue with GitHub/ }),
+    ).toBeTruthy()
+  })
+
+  it('shows the email form only when the environment can send the link', () => {
+    const { unmount } = renderSurface()
+    expect(screen.queryByLabelText(/emailed link/i)).toBeNull()
+    unmount()
+    renderSurface({ githubEnabled: false, emailLinkEnabled: true })
+    expect(screen.getByLabelText(/emailed link/i)).toBeTruthy()
+    expect(screen.queryByText(/No sign-in method is configured/i)).toBeNull()
+  })
+
+  it('asks for a link and answers the same whoever the address belongs to', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({}) })
+    vi.stubGlobal('fetch', fetchMock)
+    renderSurface({
+      githubEnabled: false,
+      emailLinkEnabled: true,
+      next: '/review/rev-42',
+    })
+
+    fireEvent.change(screen.getByLabelText(/emailed link/i), {
+      target: { value: ' Someone@Example.com ' },
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Email me a sign-in link' }),
+    )
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/auth/sign-in/magic-link')
+    expect(JSON.parse(String(init.body))).toEqual({
+      email: 'Someone@Example.com',
+      callbackURL: '/review/rev-42',
+      errorCallbackURL: '/sign-in',
+    })
+    expect(
+      await screen.findByText(/If Someone@Example.com can sign in/),
+    ).toBeTruthy()
+  })
+
+  it('says the link could not be requested instead of pretending it was sent', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    )
+    renderSurface({ githubEnabled: false, emailLinkEnabled: true })
+    fireEvent.change(screen.getByLabelText(/emailed link/i), {
+      target: { value: 'a@b.test' },
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Email me a sign-in link' }),
+    )
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /could not be requested/i,
+    )
+  })
+
+  it('maps an expired link to an actionable message', () => {
+    renderSurface({ error: 'EXPIRED_TOKEN' })
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /expired or was already used/i,
+    )
   })
 })

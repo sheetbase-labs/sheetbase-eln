@@ -152,6 +152,10 @@ BETTER_AUTH_URL=https://app.sheetbase.co.uk
 # ── GitHub OAuth (production app) ─────────────────────────────────────────
 GITHUB_CLIENT_ID=<from GitHub OAuth app settings>
 GITHUB_CLIENT_SECRET=<from GitHub OAuth app settings>
+# Or company OIDC instead of GitHub (all three, see authentication.md):
+# OIDC_ISSUER_URL=
+# OIDC_CLIENT_ID=
+# OIDC_CLIENT_SECRET=
 
 # ── PostgREST JWT ─────────────────────────────────────────────────────────
 PGRST_JWT_SECRET=<generate 32+ random characters>

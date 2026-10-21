@@ -36,7 +36,7 @@ evidence.
 Keep separate staging and production scopes for:
 
 - `DATABASE_URL`, `MIGRATION_DATABASE_URL`, and `FORMULA_DATABASE_URL`;
-- `BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, and `GITHUB_CLIENT_SECRET`;
+- `BETTER_AUTH_SECRET` and at least one sign-in provider: `GITHUB_CLIENT_ID` with `GITHUB_CLIENT_SECRET`, or `OIDC_ISSUER_URL` with `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` (see [Authentication](authentication.md));
 - `PGRST_DB_URI` and `PGRST_JWT_SECRET`;
 - future object-storage credentials when the S3 backend is implemented.
 

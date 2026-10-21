@@ -20,7 +20,7 @@ import {
 
 const DESIGN_WORKSPACE = '00000000-0000-4000-8000-000000000300'
 
-test.setTimeout(90_000)
+test.setTimeout(60_000)
 test.use({ viewport: { width: 1280, height: 900 } })
 
 test.beforeEach(async ({ page }) => {
@@ -118,4 +118,34 @@ test('DATA-10 a local column is promoted into a dataset when a steward approves 
     .getByRole('button', { name: 'Apply promotion' })
     .click()
   await expect(page).toHaveURL(/\/datasets\/[0-9a-f-]{36}/)
+})
+
+test('DATA-11 a sheet with local columns only is told how to keep its data', async ({
+  page,
+}) => {
+  await sheetFromPaste(page)
+  await page.getByRole('button', { name: 'Sources, extract, upgrade' }).click()
+  await page
+    .getByLabel('Materialised Dataset name')
+    .fill(uniqueName('Kept readings'))
+  await page.getByRole('button', { name: 'Preview materialise' }).click()
+  // The refusal names the way that works, not a server code.
+  await expect(page.getByRole('alert')).toContainText(
+    'promote a column into a model',
+  )
+})
+
+test('DATA-12 a sheet with no reference column is told why it cannot become a definition', async ({
+  page,
+}) => {
+  await sheetFromPaste(page)
+  await page.getByRole('button', { name: 'Sources, extract, upgrade' }).click()
+  await page
+    .getByLabel('Definition key')
+    .fill(`journey_${Date.now().toString(36)}`)
+  await page.getByLabel('Definition name').fill(uniqueName('Plate layout'))
+  await page.getByRole('button', { name: 'Extract draft' }).click()
+  await expect(page.getByRole('alert')).toContainText(
+    'promote a column into a model',
+  )
 })

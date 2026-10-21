@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
 import { ZipWriter } from '../export/zip'
-import { buildElnArchive } from './eln-archive'
+import { buildElnArchive, safeName } from './eln-archive'
 import type { ElnArchiveInput, ElnExperiment } from './eln-archive'
 import { ElnImportError, parseElnArchive } from './eln-import'
 import { isSafeEntryName, readZip, ZipReadError } from './zip-read'
@@ -183,6 +183,14 @@ describe('buildElnArchive', () => {
     for (const name of readZip(bytes).keys()) {
       expect(isSafeEntryName(name)).toBe(true)
     }
+  })
+})
+
+describe('safeName', () => {
+  it('keeps a temperature range readable', () => {
+    expect(safeName('Day 7 stability pull, 2–8 °C', 'x')).toBe(
+      'Day 7 stability pull, 2-8 C',
+    )
   })
 })
 

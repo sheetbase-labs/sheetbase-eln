@@ -94,6 +94,9 @@ type Json = Record<string, unknown>
 export function safeName(name: string, fallback: string): string {
   const cleaned = name
     .normalize('NFKD')
+    // Keep ranges such as "2–8 °C" readable: Unicode dashes become hyphens
+    // before non-ASCII is dropped.
+    .replace(/[\u2010-\u2015\u2212]/g, '-')
     .replace(/[^\x20-\x7e]/g, '')
     // eslint-disable-next-line no-control-regex -- strips control characters on purpose
     .replace(/[\\/:*?"<>|\0-\x1f]/g, '-')

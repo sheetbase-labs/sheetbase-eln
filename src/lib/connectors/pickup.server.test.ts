@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
 import type { ExternalClaims } from '../external-token'
 import { ExternalTokenError } from '../external-token'
@@ -335,6 +336,22 @@ describe('pickup request handling', () => {
     const failed = await handlePickup(req('connector=c&fileName=a.csv'), deps)
     expect(failed.status).toBe(422)
     expect((await json(failed)).error.message).toBe('Column Well is required')
+  })
+})
+
+describe('pickup refusals from the database', () => {
+  it('reports a row-level security refusal as a permanent 403', async () => {
+    const { deps, retain } = setup({})
+    retain.mockRejectedValueOnce(
+      new DataClientError(
+        '42501',
+        'new row violates row-level security policy "records_live_insert" for table "records"',
+        403,
+      ),
+    )
+    const res = await handlePickup(req('connector=c&fileName=a.csv'), deps)
+    expect(res.status).toBe(403)
+    expect((await json(res)).error.code).toBe('forbidden')
   })
 })
 

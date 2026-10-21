@@ -21,6 +21,7 @@
  *   { projectId, schemaVersionId, datasetId?, datasetNamePattern?,
  *     autoDetect?, instrumentId? }
  */
+import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
 import { listCanonicalDatasetSchemaVersionFields } from '../dataset-schema-definition-rpc'
 import type { ImportTargetField } from '../import-mapping'
@@ -516,6 +517,19 @@ export async function handlePickup(
   } catch (error) {
     if (error instanceof PickupError) {
       return errorResponse(error.status, error.code, error.message)
+    }
+    // A refusal from the database (no edit access to the pickup project, a
+    // revoked membership) will not change on retry, so report it as one the
+    // agent gives up on instead of a retryable 502.
+    if (
+      error instanceof DataClientError &&
+      (error.status === 401 || error.status === 403)
+    ) {
+      return errorResponse(
+        403,
+        'forbidden',
+        `The token's owner cannot write to the pickup project or Dataset: ${boundedErrorMessage(error)}`,
+      )
     }
     return errorResponse(502, 'pickup_failed', boundedErrorMessage(error))
   }

@@ -172,3 +172,34 @@ export async function createWorkspace(
 export async function signInAs(page: Page, user: FixtureUser): Promise<void> {
   await signInAsDesignUser(page, user.id)
 }
+
+/**
+ * A published model in the design workspace whose one field is optional, so a
+ * single promoted column can fill a dataset built on it. A model whose other
+ * fields are required cannot take a promotion of one column.
+ */
+export async function createPublishedModel(name: string): Promise<void> {
+  await withAdminDb(async (db) => {
+    const key = `journey_${Math.random().toString(36).slice(2, 10)}`
+    const definition = await db.query<{ id: string }>(
+      `insert into api.dataset_schema_definitions(workspace_id, key, name, lifecycle)
+       values ('00000000-0000-4000-8000-000000000300', $1, $2, 'active') returning id`,
+      [key, name],
+    )
+    const version = await db.query<{ id: string }>(
+      `insert into api.dataset_schema_versions(schema_id, "version", lifecycle)
+       values ($1, 1, 'draft') returning id`,
+      [definition.rows[0]?.id],
+    )
+    await db.query(
+      `insert into api.dataset_schema_version_fields
+         (schema_version_id, field_id, key, label, logical_type, display_order)
+       values ($1, gen_random_uuid(), 'note', 'Note', 'text', 1)`,
+      [version.rows[0]?.id],
+    )
+    await db.query(
+      `update api.dataset_schema_versions set lifecycle = 'active' where id = $1`,
+      [version.rows[0]?.id],
+    )
+  })
+}

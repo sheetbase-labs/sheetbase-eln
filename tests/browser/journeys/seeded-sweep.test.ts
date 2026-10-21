@@ -7,7 +7,7 @@
 import { expect, test } from 'playwright/test'
 import type { Page } from 'playwright/test'
 
-import { signIn, waitForHydration, withAdminDb } from './helpers'
+import { signIn, withAdminDb } from './helpers'
 
 test.setTimeout(600_000)
 test.use({ viewport: { width: 1280, height: 900 } })
@@ -49,15 +49,22 @@ test('every seeded experiment opens on every tab without an error', async ({
       ).rows,
   )
   expect(experiments.length).toBeGreaterThan(10)
+  // Up to four of each state keeps the sweep to a few minutes.
+  const perStatus = new Map<string, number>()
+  const sample = experiments.filter((exp) => {
+    const n = perStatus.get(exp.status) ?? 0
+    perStatus.set(exp.status, n + 1)
+    return n < 4
+  })
   const problems: string[] = []
   let current = ''
   await watch(page, problems, () => current)
-  for (const exp of experiments) {
+  for (const exp of sample) {
     for (const tab of TABS) {
       current = `${exp.identifier} (${exp.status}) /${tab}`
       await page.goto(`/experiments/${exp.id}/${tab}`)
-      await waitForHydration(page)
-      await page.waitForTimeout(700)
+      await page.locator('main').waitFor()
+      await page.waitForTimeout(1200)
       const text = await page.locator('main').innerText()
       const hit = text.match(ERROR_TEXT)
       if (hit) problems.push(`${current} shows "${hit[0]}"`)

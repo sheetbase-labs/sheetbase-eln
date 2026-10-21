@@ -2,13 +2,6 @@ import { generateKeyPairSync } from 'node:crypto'
 
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('#/env.server', () => ({
-  env: {
-    PIPELINE_MANIFEST_SIGNING_KEY: undefined,
-    SHEETBASE_ARTIFACT_VERSION: 'test',
-  },
-}))
-
 import {
   MANIFEST_SCHEMA,
   canonicalJson,
@@ -20,6 +13,13 @@ import {
   verifyRunManifest,
 } from './pipeline-manifest.server'
 import type { RunManifest } from './pipeline-manifest.server'
+
+vi.mock('#/env.server', () => ({
+  env: {
+    PIPELINE_MANIFEST_SIGNING_KEY: undefined,
+    SHEETBASE_ARTIFACT_VERSION: 'test',
+  },
+}))
 
 function pem() {
   const { privateKey } = generateKeyPairSync('ed25519')

@@ -262,19 +262,17 @@ describe('following a queued run', () => {
   })
 
   it('surfaces a refused request without polling', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        Response.json(
-          {
-            error: {
-              code: 'run_not_found',
-              message: 'Pipeline run not found.',
-            },
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      Response.json(
+        {
+          error: {
+            code: 'run_not_found',
+            message: 'Pipeline run not found.',
           },
-          { status: 404 },
-        ),
-      )
+        },
+        { status: 404 },
+      ),
+    )
     vi.stubGlobal('fetch', fetchMock)
     await expect(executePipelineRun('run-1')).rejects.toThrow(
       'Pipeline run not found.',

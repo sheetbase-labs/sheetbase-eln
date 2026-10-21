@@ -392,7 +392,7 @@ export async function processPipelineJob(
       ),
     Math.max(1_000, (lease * 1000) / 3),
   )
-  heartbeat.unref?.()
+  heartbeat.unref()
   let report: PipelineExecuteReport | null = null
   let thrown: string | null = null
   try {
@@ -609,7 +609,7 @@ export function startPipelineWorker(
   const sleep = (ms: number) =>
     new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, ms)
-      timer.unref?.()
+      timer.unref()
       wake = () => {
         clearTimeout(timer)
         resolve()
@@ -619,6 +619,8 @@ export function startPipelineWorker(
   void (async () => {
     // Give the server a moment to finish booting before the first claim.
     await sleep(2_000)
+    // `stopped` is flipped by the returned stop() while this loop awaits.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     while (!stopped) {
       try {
         if (Date.now() - lastAdopted > ORPHAN_SCAN_INTERVAL_MS) {

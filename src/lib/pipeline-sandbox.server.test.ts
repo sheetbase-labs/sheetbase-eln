@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('#/env.server', () => ({
-  env: { PIPELINE_SANDBOX_DATABASE_URL: undefined },
-}))
-
 import {
   SandboxSession,
   SandboxUnavailableError,
   connectPipelineSandbox,
 } from './pipeline-sandbox.server'
 import type { SandboxConnection } from './pipeline-sandbox.server'
+
+vi.mock('#/env.server', () => ({
+  env: { PIPELINE_SANDBOX_DATABASE_URL: undefined },
+}))
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
@@ -24,7 +24,7 @@ function hangingSandbox(): SandboxConnection & { queries: string[] } {
       if (text.startsWith('SET statement_timeout'))
         return { rows: [] as never[] }
       return new Promise<never>(() => {})
-    }) as SandboxConnection['query'],
+    }),
     end: vi.fn(async () => {}),
   }
 }
@@ -68,11 +68,11 @@ describe('SandboxSession', () => {
     let calls = 0
     const session = new SandboxSession(async () => ({
       backendPid: 1,
-      query: (async (text: string) => {
+      query: async (text: string) => {
         if (text.startsWith('SET')) return { rows: [] }
         calls += 1
         throw new Error('boom')
-      }) as SandboxConnection['query'],
+      },
       end,
     }))
     await expect(session.run('select 1', 5)).rejects.toThrow('boom')

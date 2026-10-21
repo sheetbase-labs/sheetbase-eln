@@ -21,9 +21,7 @@ async function startPipeline(page: Page, name: string): Promise<string> {
   await open(page, '/pipelines')
   await page.getByRole('button', { name: 'New pipeline' }).click()
   const dialog = page.getByRole('dialog')
-  await dialog.getByLabel(/^key/i).fill(
-    `journey_${Date.now().toString(36)}`,
-  )
+  await dialog.getByLabel(/^key/i).fill(`journey_${Date.now().toString(36)}`)
   await dialog.getByLabel(/^name/i).fill(name)
   await dialog.getByRole('button', { name: 'Create pipeline' }).click()
   await expect(page).toHaveURL(/\/pipelines\/[0-9a-f-]{36}$/)
@@ -86,14 +84,18 @@ test('AUTO-08 a run waiting for a person is answered from the Inbox', async ({
   await waitForHydration(page)
   await page.getByRole('button', { name: 'Run now' }).click()
   await expect(page).toHaveURL(/\/pipelines\/.*runs\/[0-9a-f-]{36}/)
-  await expect(page.getByLabel('Waiting prompt')).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByLabel('Waiting prompt')).toBeVisible({
+    timeout: 60_000,
+  })
 
   // The Inbox owes the answer, and its row opens the run.
   await open(page, '/inbox')
   await page.getByText(name).first().click()
   await page.getByRole('link', { name: /open the run/i }).click()
   await expect(page).toHaveURL(/\/pipelines\/.*runs\/[0-9a-f-]{36}/)
-  await page.getByRole('textbox', { name: 'Reason' }).fill('Plate counts match.')
+  await page
+    .getByRole('textbox', { name: 'Reason' })
+    .fill('Plate counts match.')
   await page.getByRole('button', { name: 'Confirm and continue' }).click()
   await expect(page.getByLabel('Answered prompt')).toBeVisible()
   // Answered, it no longer waits in the Inbox.

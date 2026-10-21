@@ -82,6 +82,7 @@ import { Route as SettingsSignaturesRouteImport } from './routes/settings/signat
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
 import { Route as SheetsNewRouteImport } from './routes/sheets/new'
+import { Route as SignInTwoFactorRouteImport } from './routes/sign-in_.two-factor'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
@@ -533,6 +534,11 @@ const SheetsSheetIdRoute = SheetsSheetIdRouteImport.update({
 const SheetsNewRoute = SheetsNewRouteImport.update({
   id: '/sheets/new',
   path: '/sheets/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInTwoFactorRoute = SignInTwoFactorRouteImport.update({
+  id: '/sign-in_/two-factor',
+  path: '/sign-in/two-factor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TemplatesTemplateIdRoute = TemplatesTemplateIdRouteImport.update({
@@ -1077,6 +1083,7 @@ export interface FileRoutesByFullPath {
   '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
+  '/sign-in/two-factor': typeof SignInTwoFactorRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
@@ -1228,6 +1235,7 @@ export interface FileRoutesByTo {
   '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
+  '/sign-in/two-factor': typeof SignInTwoFactorRoute
   '/analysis': typeof AnalysisIndexRoute
   '/help': typeof HelpIndexRoute
   '/import': typeof ImportIndexRoute
@@ -1389,6 +1397,7 @@ export interface FileRoutesById {
   '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
+  '/sign-in_/two-factor': typeof SignInTwoFactorRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
@@ -1553,6 +1562,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
+    | '/sign-in/two-factor'
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
@@ -1704,6 +1714,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
+    | '/sign-in/two-factor'
     | '/analysis'
     | '/help'
     | '/import'
@@ -1864,6 +1875,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
+    | '/sign-in_/two-factor'
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
@@ -1998,6 +2010,7 @@ export interface RootRouteChildren {
   ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
   SheetsSheetIdRoute: typeof SheetsSheetIdRoute
   SheetsNewRoute: typeof SheetsNewRoute
+  SignInTwoFactorRoute: typeof SignInTwoFactorRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
@@ -2540,6 +2553,13 @@ declare module '@tanstack/react-router' {
       path: '/sheets/new'
       fullPath: '/sheets/new'
       preLoaderRoute: typeof SheetsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in_/two-factor': {
+      id: '/sign-in_/two-factor'
+      path: '/sign-in/two-factor'
+      fullPath: '/sign-in/two-factor'
+      preLoaderRoute: typeof SignInTwoFactorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/templates/$templateId': {
@@ -3615,6 +3635,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewRevisionIdRoute: ReviewRevisionIdRoute,
   SheetsSheetIdRoute: SheetsSheetIdRoute,
   SheetsNewRoute: SheetsNewRoute,
+  SignInTwoFactorRoute: SignInTwoFactorRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,

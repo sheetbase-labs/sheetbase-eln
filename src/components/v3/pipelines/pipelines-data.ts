@@ -408,7 +408,7 @@ export function useDefinitionRuns(
       )
       // Each group returned its newest 100; keep the newest 100 overall.
       return runs
-        .sort((a, b) => (b.started_at ?? '').localeCompare(a.started_at ?? ''))
+        .sort((a, b) => b.started_at.localeCompare(a.started_at))
         .slice(0, 100)
     },
     enabled: versionIds.length > 0,

@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Route, scheduleParametersLabel, scheduleSpecLabel } from './triggers'
 import { PIPELINE_TRIGGER_EVENTS } from '#/lib/pipeline-schedule'
 import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
+import type * as PipelineData from '#/lib/pipelines/data'
 import type {
   PipelineDefinitionVersionWire,
   PipelineScheduleWire,
@@ -48,7 +49,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('#/lib/pipelines/data')>()),
+  ...(await importOriginal<typeof PipelineData>()),
   createPipelineSchedule: (
     _client: unknown,
     input: Record<string, unknown>,

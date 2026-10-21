@@ -18,7 +18,7 @@ export interface PastedTable {
  * header and at least one row to bring in.
  */
 export function parsePastedTable(text: string): PastedTable | null {
-  const source = text.replace(/^﻿/, '')
+  const source = text.replace(/^\uFEFF/, '')
   if (!source.trim()) return null
   let matrix: string[][]
   try {

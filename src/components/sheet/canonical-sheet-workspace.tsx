@@ -950,8 +950,8 @@ export function CanonicalSheetEditor({
         }))
         const cells = group.flatMap((values, rowIndex) =>
           values.map((value, column) => ({
-            rowKey: rows[rowIndex]!.rowKey,
-            fieldId: fields[column]!.fieldId,
+            rowKey: rows[rowIndex].rowKey,
+            fieldId: fields[column].fieldId,
             value: value === '' ? null : value,
           })),
         )

@@ -4,11 +4,15 @@ import {
   analysePython,
   contractErrors,
   importedModules,
+  inferColumns,
   isStarterStatement,
+  normaliseContract,
   parseRequirement,
   parseRequirementsText,
   pythonSkeleton,
   requirementErrors,
+  setContractInput,
+  setContractOutput,
   unmetRequirements,
 } from './python'
 
@@ -184,5 +188,73 @@ describe('analysePython', () => {
     expect(
       analysePython(code, { installed: { numpy: '2', 'scikit-learn': '1.5' } }),
     ).toEqual([])
+  })
+})
+
+describe('editing a contract', () => {
+  it('drops empty parts, and a contract left empty altogether', () => {
+    expect(
+      normaliseContract({ inputs: { a: [] }, output: { columns: [] } }),
+    ).toBeUndefined()
+    expect(normaliseContract(undefined)).toBeUndefined()
+    const contract = setContractInput(undefined, 'readings', [
+      { name: 'value', type: 'decimal' },
+    ])
+    expect(contract).toEqual({
+      inputs: { readings: [{ name: 'value', type: 'decimal' }] },
+    })
+    expect(setContractInput(contract, 'readings', [])).toBeUndefined()
+  })
+
+  it('sets the output and keeps the inputs', () => {
+    const base = setContractInput(undefined, 'r', [{ name: 'v', type: 'text' }])
+    expect(
+      setContractOutput(base, [{ name: 'm', type: 'decimal' }], true),
+    ).toEqual({
+      inputs: { r: [{ name: 'v', type: 'text' }] },
+      output: {
+        columns: [{ name: 'm', type: 'decimal' }],
+        additionalColumns: true,
+      },
+    })
+  })
+})
+
+describe('inferColumns', () => {
+  it('names columns in first-seen order with the narrowest type', () => {
+    expect(
+      inferColumns([
+        {
+          n: 1,
+          mean: 0.5,
+          day: '2026-01-01',
+          ok: true,
+          name: 'a',
+          meta: { x: 1 },
+        },
+        { n: 2, mean: 1, day: '2026-01-02', ok: false, name: null, meta: [1] },
+      ]),
+    ).toEqual([
+      { name: 'n', type: 'integer', nullable: false },
+      { name: 'mean', type: 'decimal', nullable: false },
+      { name: 'day', type: 'date', nullable: false },
+      { name: 'ok', type: 'boolean', nullable: false },
+      { name: 'name', type: 'text' },
+      { name: 'meta', type: 'json', nullable: false },
+    ])
+  })
+
+  it('widens mixed numbers and mixed dates, and falls back to text', () => {
+    expect(
+      inferColumns([
+        { a: 1, b: '2026-01-01', c: 1 },
+        { a: 2.5, b: '2026-01-01T10:00:00Z', c: 'x' },
+      ]),
+    ).toMatchObject([
+      { name: 'a', type: 'decimal' },
+      { name: 'b', type: 'timestamp' },
+      { name: 'c', type: 'text' },
+    ])
+    expect(inferColumns([])).toEqual([])
   })
 })

@@ -59,6 +59,38 @@ describe('StepsEditor', () => {
     expect(second[1].statement).toBe('select 42')
   })
 
+  it('gives a Python step the editor, and keeps its contract on that step', () => {
+    const onChange = vi.fn()
+    const python: PipelineStep[] = [
+      {
+        name: 'tidy',
+        language: 'python',
+        statement: 'def transform(inputs, parameters):\n    return []\n',
+      },
+    ]
+    render(
+      <StepsEditor
+        steps={python}
+        members={{}}
+        onChange={onChange}
+        python={{
+          inputs: [{ name: 'readings', required: true }],
+          parameters: [],
+          transformRuns: true,
+        }}
+      />,
+    )
+    // The first step reads the transform's result as `previous`.
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add Step 1 input previous column' }),
+    )
+    const next = onChange.mock.calls[0][0] as PipelineStep[]
+    expect(next[0].contract).toEqual({
+      inputs: { previous: [{ name: '', type: 'text' }] },
+    })
+    expect(screen.getByLabelText('Step 1 code')).toBeTruthy()
+  })
+
   it('turns on a confirm that asks a named person', () => {
     const onChange = vi.fn()
     render(

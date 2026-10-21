@@ -52,7 +52,7 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
     isLoading: false,
     data: [] as PipelineDefinitionVersionWire[],
   }),
-  useWorkspaceMemberNames: () => ({ data: {} }),
+  useWorkspaceMemberNames: () => ({ data: { 'u-1': 'Ada Lovelace' } }),
   usePythonRuntime: () => pythonRuntime.current,
   usePipelineOutputTargets: () => ({
     isError: false,
@@ -248,5 +248,88 @@ describe('Steps editor Python', () => {
     const config = (rpc.mock.calls[0][1] as { p_configuration: object })
       .p_configuration
     expect(config).toMatchObject({ pythonRuntime: undefined })
+  })
+
+  it('saves pinned packages and a data contract with the Python step', async () => {
+    pythonRuntime.current = {
+      isLoading: false,
+      data: {
+        available: true,
+        runtime: RUNTIME,
+        packages: { scipy: '1.15.3', numpy: '2.2.6' },
+      },
+    }
+    renderSteps()
+    choosePythonForTransform()
+    fireEvent.change(screen.getByLabelText('Python package requirements'), {
+      target: { value: 'scipy==1.15.3' },
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Add Transform output column' }),
+    )
+    fireEvent.change(screen.getByLabelText('Transform output column 1 name'), {
+      target: { value: 'mean' },
+    })
+    fireEvent.change(screen.getByLabelText('Output mode'), {
+      target: { value: 'none' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalled())
+    const config = (rpc.mock.calls[0][1] as { p_configuration: unknown })
+      .p_configuration as {
+      pythonRequirements: string[]
+      transform: { contract: unknown }
+    }
+    expect(config.pythonRequirements).toEqual(['scipy==1.15.3'])
+    expect(config.transform.contract).toEqual({
+      output: { columns: [{ name: 'mean', type: 'text' }] },
+    })
+  })
+
+  it('will not save a package the runtime cannot provide', () => {
+    pythonRuntime.current = {
+      isLoading: false,
+      data: { available: true, runtime: RUNTIME, packages: { numpy: '2.2.6' } },
+    }
+    renderSteps()
+    choosePythonForTransform()
+    fireEvent.change(screen.getByLabelText('Python package requirements'), {
+      target: { value: 'scipy==1.15.3' },
+    })
+    expect(screen.getByText('This version cannot be saved yet')).toBeTruthy()
+    expect(
+      screen.getAllByText('scipy==1.15.3 is not in this runtime.').length,
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', {
+        name: 'Create draft v1',
+      }).disabled,
+    ).toBe(true)
+  })
+
+  it('drops packages and the contract when the pipeline goes back to SQL', async () => {
+    pythonRuntime.current = runtimeUp
+    renderSteps()
+    choosePythonForTransform()
+    fireEvent.change(screen.getByLabelText('Python package requirements'), {
+      target: { value: 'numpy==2.2.6' },
+    })
+    fireEvent.change(screen.getByLabelText('Transform language'), {
+      target: { value: 'sql' },
+    })
+    fireEvent.change(screen.getByLabelText('Transform code'), {
+      target: { value: 'select 1' },
+    })
+    fireEvent.change(screen.getByLabelText('Output mode'), {
+      target: { value: 'none' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalled())
+    const config = (rpc.mock.calls[0][1] as { p_configuration: object })
+      .p_configuration
+    expect(config).toMatchObject({
+      pythonRequirements: undefined,
+      pythonRuntime: undefined,
+    })
   })
 })

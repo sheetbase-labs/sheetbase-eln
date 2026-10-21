@@ -45,6 +45,36 @@ export interface PythonContract {
   }
 }
 
+/** The interpreter and declared-package versions a step actually ran with. */
+export interface PythonEnvironment {
+  python: string
+  packages: Record<string, string>
+}
+
+/** What the test-run route returns for a step that ran. */
+export interface PythonTestRunSuccess {
+  ok: true
+  rows: Array<Record<string, unknown>>
+  rowCount: number
+  truncated: boolean
+  /** The result's columns with the types its values have. */
+  columns: PythonColumn[]
+  logs: string[]
+  runtime: string
+  environment?: PythonEnvironment
+  durationMs: number
+}
+
+/** What it returns for a step that failed: the message, its output and the line. */
+export interface PythonTestRunFailure {
+  ok: false
+  error: string
+  code: string
+  logs: string[]
+  line?: number
+  durationMs: number
+}
+
 export const MAX_PYTHON_REQUIREMENTS = 50
 export const MAX_CONTRACT_COLUMNS = 256
 export const PYTHON_COLUMN_NAME_RE = /^[^\s\0][^\0]{0,127}$/
@@ -366,4 +396,99 @@ export function parseRequirementsText(text: string): string[] {
     .split('\n')
     .map((line) => line.replace(/#.*$/, '').trim())
     .filter(Boolean)
+}
+
+// ---------------------------------------------------------------------------
+// Editing a contract
+// ---------------------------------------------------------------------------
+
+/** A contract with nothing left in it is no contract: drop empty parts, or all of it. */
+export function normaliseContract(
+  contract: PythonContract | undefined,
+): PythonContract | undefined {
+  if (!contract) return undefined
+  const inputs = Object.fromEntries(
+    Object.entries(contract.inputs ?? {}).filter(
+      ([, columns]) => columns.length > 0,
+    ),
+  )
+  const output = contract.output?.columns.length ? contract.output : undefined
+  if (!Object.keys(inputs).length && !output) return undefined
+  return {
+    ...(Object.keys(inputs).length ? { inputs } : {}),
+    ...(output ? { output } : {}),
+  }
+}
+
+export function setContractInput(
+  contract: PythonContract | undefined,
+  alias: string,
+  columns: PythonColumn[],
+): PythonContract | undefined {
+  return normaliseContract({
+    ...contract,
+    inputs: { ...contract?.inputs, [alias]: columns },
+  })
+}
+
+export function setContractOutput(
+  contract: PythonContract | undefined,
+  columns: PythonColumn[],
+  additionalColumns?: boolean,
+): PythonContract | undefined {
+  return normaliseContract({
+    ...contract,
+    output: {
+      columns,
+      ...(additionalColumns ? { additionalColumns: true } : {}),
+    },
+  })
+}
+
+const TIMESTAMP_TEXT = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/
+const DATE_TEXT = /^\d{4}-\d{2}-\d{2}$/
+
+function columnTypeOf(value: unknown): PythonColumnType {
+  if (typeof value === 'boolean') return 'boolean'
+  if (typeof value === 'number')
+    return Number.isInteger(value) ? 'integer' : 'decimal'
+  if (typeof value === 'string') {
+    if (DATE_TEXT.test(value)) return 'date'
+    if (TIMESTAMP_TEXT.test(value)) return 'timestamp'
+    return 'text'
+  }
+  return 'json'
+}
+
+/**
+ * The columns a set of result rows has, with the narrowest type that holds every
+ * value. Used to turn a test run's result into a contract in one click.
+ */
+export function inferColumns(
+  rows: ReadonlyArray<Record<string, unknown>>,
+): PythonColumn[] {
+  const order: string[] = []
+  const types = new Map<string, Set<PythonColumnType>>()
+  const nullable = new Set<string>()
+  for (const row of rows)
+    for (const [name, value] of Object.entries(row)) {
+      if (!types.has(name)) {
+        types.set(name, new Set())
+        order.push(name)
+      }
+      if (value === null || value === undefined) nullable.add(name)
+      else types.get(name)?.add(columnTypeOf(value))
+    }
+  return order.map((name) => {
+    const seen = types.get(name) ?? new Set<PythonColumnType>()
+    let type: PythonColumnType
+    if (seen.size === 0) type = 'text'
+    else if (seen.size === 1) type = [...seen][0]
+    else if ([...seen].every((t) => t === 'integer' || t === 'decimal'))
+      type = 'decimal'
+    else if ([...seen].every((t) => t === 'date' || t === 'timestamp'))
+      type = 'timestamp'
+    else type = [...seen].every((t) => t !== 'json') ? 'text' : 'json'
+    return { name, type, ...(nullable.has(name) ? {} : { nullable: false }) }
+  })
 }

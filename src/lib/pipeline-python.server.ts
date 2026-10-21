@@ -7,7 +7,9 @@ import {
   RESULT_CELL_LIMIT,
   formatByteSize,
 } from './pipeline-limits'
-import type { PythonContract } from './pipelines/python'
+import type { PythonContract, PythonEnvironment } from './pipelines/python'
+
+export type { PythonEnvironment }
 
 export interface PythonTransformInput {
   statement: string
@@ -24,12 +26,6 @@ export interface PythonTransformInput {
   contract?: PythonContract
   inputs: Record<string, Record<string, unknown>[]>
   parameters: Record<string, unknown>
-}
-
-/** The interpreter and the declared packages' versions a step actually ran with. */
-export interface PythonEnvironment {
-  python: string
-  packages: Record<string, string>
 }
 
 /** One file a Python step produced, as the runner reports it. */

@@ -32,6 +32,7 @@ import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
 import { AddRunToNotebook } from '#/components/v3/pipelines/add-run-to-notebook'
 import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
+import { RunLog } from '#/components/v3/pipelines/run-log'
 import {
   answerPipelineRunPrompt,
   cancelPipelineRun,
@@ -412,29 +413,7 @@ function RunPage() {
 
           <section id="run-log">
             <h2 className="mb-1.5 font-sans text-label font-semibold">Log</h2>
-            {logs.data?.length ? (
-              <ol className="m-0 flex list-none flex-col gap-1 rounded-md border border-border bg-surface p-3 font-mono text-caption">
-                {logs.data.map((l) => (
-                  <li key={l.id} className="flex gap-2">
-                    <span className="text-fg-muted">{l.at.slice(11, 19)}</span>
-                    <span
-                      className={
-                        l.level === 'error'
-                          ? 'text-danger-text'
-                          : l.level === 'warning'
-                            ? 'text-warning-text'
-                            : undefined
-                      }
-                    >
-                      {l.stage}
-                    </span>
-                    <span>{l.message}</span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <Muted>No log lines recorded.</Muted>
-            )}
+            <RunLog logs={logs.data ?? []} />
           </section>
         </div>
 

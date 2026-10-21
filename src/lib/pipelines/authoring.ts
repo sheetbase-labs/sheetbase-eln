@@ -11,7 +11,7 @@ import {
   isStarterStatement,
   pythonSkeleton,
 } from './python'
-import type { SkeletonOptions } from './python'
+import type { PythonContract, SkeletonOptions } from './python'
 import type {
   ParameterType,
   PipelineParameter,
@@ -159,6 +159,19 @@ export function updateStep(
       }
     }
     return step
+  })
+}
+
+/** Set or clear a Python step's data contract. */
+export function setStepContract(
+  list: PipelineStep[],
+  index: number,
+  contract: PythonContract | undefined,
+): PipelineStep[] {
+  return list.map((step, position) => {
+    if (position !== index) return step
+    const { contract: _old, ...rest } = step
+    return contract ? { ...rest, contract } : rest
   })
 }
 

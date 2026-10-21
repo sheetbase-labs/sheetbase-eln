@@ -11,6 +11,10 @@ import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
 import { Select } from '#/components/v3/ui/select'
 import { ParametersEditor } from '#/components/v3/pipelines/parameters-editor'
+import {
+  PythonPackagesEditor,
+  PythonStepEditor,
+} from '#/components/v3/pipelines/python-editor'
 import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
 import {
   draftVersion,
@@ -30,6 +34,8 @@ import type {
   PipelineStep,
 } from '#/lib/pipelines/config'
 import { statementForLanguage } from '#/lib/pipelines/authoring'
+import { unmetRequirements } from '#/lib/pipelines/python'
+import type { PythonContract } from '#/lib/pipelines/python'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -58,8 +64,13 @@ interface PipelineConfiguration {
   parameters?: PipelineParameter[]
   steps?: PipelineStep[]
   inputs?: PipelineInput[]
-  transform?: { language?: string; statement?: string }
+  transform?: {
+    language?: string
+    statement?: string
+    contract?: PythonContract
+  }
   pythonRuntime?: string
+  pythonRequirements?: string[]
   output?: {
     mode?: OutputMode
     schemaVersionId?: string
@@ -79,6 +90,7 @@ const EDITED_CONFIG_FIELDS = [
   'transform',
   'output',
   'pythonRuntime',
+  'pythonRequirements',
 ] as const
 
 function PipelineSteps() {
@@ -96,6 +108,10 @@ function PipelineSteps() {
   const [description, setDescription] = useState('')
   const [statement, setStatement] = useState('')
   const [language, setLanguage] = useState('sql')
+  const [transformContract, setTransformContract] = useState<
+    PythonContract | undefined
+  >()
+  const [requirements, setRequirements] = useState<string[]>([])
   const [datasetName, setDatasetName] = useState('')
   const [inputs, setInputs] = useState<PipelineInput[]>([])
   const [parameters, setParameters] = useState<PipelineParameter[]>([])
@@ -113,6 +129,8 @@ function PipelineSteps() {
     setDescription(sourceConfig.description ?? '')
     setStatement(sourceConfig.transform?.statement ?? '')
     setLanguage(sourceConfig.transform?.language ?? 'sql')
+    setTransformContract(sourceConfig.transform?.contract)
+    setRequirements(sourceConfig.pythonRequirements ?? [])
     setDatasetName(sourceConfig.output?.datasetName ?? '')
     setInputs(sourceConfig.inputs ?? [])
     setParameters(sourceConfig.parameters ?? [])
@@ -126,6 +144,8 @@ function PipelineSteps() {
     sourceConfig.description,
     sourceConfig.transform?.statement,
     sourceConfig.transform?.language,
+    sourceConfig.transform?.contract,
+    sourceConfig.pythonRequirements,
     sourceConfig.output?.datasetName,
     sourceConfig.output?.mode,
     sourceConfig.output?.schemaVersionId,
@@ -157,6 +177,8 @@ function PipelineSteps() {
     () => ({
       ...sourceConfig,
       pythonRuntime,
+      pythonRequirements:
+        usesPython && requirements.length ? requirements : undefined,
       configVersion: sourceConfig.configVersion ?? 1,
       description: description.trim() || null,
       parameters,
@@ -165,6 +187,9 @@ function PipelineSteps() {
       transform: {
         language,
         statement: statement.trim(),
+        ...(language === 'python' && transformContract
+          ? { contract: transformContract }
+          : {}),
       },
       output: {
         ...(sourceConfig.output ?? {}),
@@ -179,6 +204,9 @@ function PipelineSteps() {
     [
       sourceConfig,
       pythonRuntime,
+      usesPython,
+      requirements,
+      transformContract,
       language,
       description,
       parameters,
@@ -198,14 +226,28 @@ function PipelineSteps() {
   // round-trip. Only the keys this page edits are shown; the server stays
   // authoritative for the rest.
   const configErrors = useMemo(
-    () =>
-      validatePipelineConfig(builtConfig).filter((error) =>
+    () => [
+      ...validatePipelineConfig(builtConfig).filter((error) =>
         EDITED_CONFIG_FIELDS.some(
           (field) =>
-            error.field === field || error.field.startsWith(`${field}.`),
+            error.field === field ||
+            error.field.startsWith(`${field}.`) ||
+            error.field.startsWith(`${field}[`),
         ),
       ),
-    [builtConfig],
+      // The runner only ever has the packages baked into its image, so a
+      // declaration it cannot meet is caught here rather than at the first run.
+      ...(usesPython && runtime.data?.packages
+        ? unmetRequirements(requirements, runtime.data.packages).map(
+            (message) => ({
+              code: 'invalid_value' as const,
+              field: 'pythonRequirements',
+              message,
+            }),
+          )
+        : []),
+    ],
+    [builtConfig, usesPython, requirements, runtime.data?.packages],
   )
 
   const canSave =
@@ -314,23 +356,37 @@ function PipelineSteps() {
               {language === 'none' ? <option value="none">None</option> : null}
             </Select>
           </Field>
-          <Field
-            label="Transform"
-            hint={
-              language === 'python'
-                ? 'Define transform(inputs, parameters) and return rows or a pandas DataFrame. Each input is a list of row dictionaries.'
-                : 'SQL over the declared inputs. Sheets are read as tables named by the input.'
-            }
-          >
-            <textarea
-              aria-label="Transform code"
-              value={statement}
-              onChange={(e) => setStatement(e.target.value)}
-              rows={6}
-              spellCheck={false}
-              className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
-            />
-          </Field>
+          {language === 'python' ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-label font-medium text-fg">Transform</span>
+              <PythonStepEditor
+                label="Transform"
+                statement={statement}
+                onStatementChange={setStatement}
+                contract={transformContract}
+                onContractChange={setTransformContract}
+                inputs={inputs}
+                parameters={parameters}
+                hasPrevious={false}
+                runtime={runtime.data}
+                requirements={requirements}
+              />
+            </div>
+          ) : (
+            <Field
+              label="Transform"
+              hint="SQL over the declared inputs. Sheets are read as tables named by the input."
+            >
+              <textarea
+                aria-label="Transform code"
+                value={statement}
+                onChange={(e) => setStatement(e.target.value)}
+                rows={6}
+                spellCheck={false}
+                className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
+              />
+            </Field>
+          )}
           {pythonUnavailable ? (
             <Notice tone="bad" title="Python is not available">
               {pythonUnavailable}
@@ -348,8 +404,26 @@ function PipelineSteps() {
           steps={extraSteps}
           members={members.data ?? {}}
           onChange={setExtraSteps}
+          python={{
+            runtime: runtime.data,
+            inputs,
+            parameters,
+            requirements,
+            // The transform's result arrives as `previous`, unless there is none.
+            transformRuns: language !== 'none',
+          }}
         />
       </Section>
+
+      {usesPython ? (
+        <Section title="Python packages" count={requirements.length}>
+          <PythonPackagesEditor
+            requirements={requirements}
+            onChange={setRequirements}
+            runtime={runtime.data}
+          />
+        </Section>
+      ) : null}
 
       <Section title="Inputs" count={inputs.length}>
         {inputs.length ? (

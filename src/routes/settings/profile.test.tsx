@@ -18,6 +18,9 @@ const router = vi.hoisted(() => ({ invalidate: vi.fn(async () => {}) }))
 
 vi.mock('#/components/v3/ui/sonner', () => ({ toast: sonner.toast }))
 vi.mock('#/components/v3/settings/settings-profile-data', () => profileData)
+vi.mock('#/components/v3/settings/settings-two-factor', () => ({
+  SettingsTwoFactor: () => null,
+}))
 vi.mock('#/components/v3/settings/settings-sessions', () => ({
   SettingsSessions: () => null,
 }))

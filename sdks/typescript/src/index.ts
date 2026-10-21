@@ -65,6 +65,9 @@ export {
   CataloguesResource,
   AgentOperationsResource,
   WebhooksResource,
+  PipelinesResource,
+  applyStepSource,
+  notebookToPython,
 } from "./resources/index.js";
 export {
   EVENT_ALIASES,
@@ -74,6 +77,11 @@ export {
   verifyWebhookSignature,
 } from "./resources/index.js";
 export type { EventName, WebhookEventPayload } from "./resources/index.js";
+export type {
+  PipelineRunStatus,
+  PipelineStepSource,
+  PipelineTriggerResult,
+} from "./resources/index.js";
 export type {
   AgentOperation,
   AgentProvenance,

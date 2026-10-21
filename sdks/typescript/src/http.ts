@@ -175,6 +175,44 @@ export class HttpTransport {
     return handleResponse(resp);
   }
 
+  /**
+   * Call an endpoint that is authenticated by its own bearer secret instead of
+   * the exchanged access token (a pipeline webhook). A 422 that carries a
+   * `runId` is a settled run that failed, so it is returned, not thrown.
+   */
+  async sendWithBearer(
+    method: string,
+    path: string,
+    bearer: string,
+    options?: RequestOptions,
+  ): Promise<{ status: number; body: any }> {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${bearer}`,
+      "User-Agent": `sheetbase-ts/${VERSION}`,
+      ...(options?.jsonBody ? { "Content-Type": "application/json" } : {}),
+      ...options?.headers,
+    };
+    const signal = this.timeout ? AbortSignal.timeout(this.timeout) : undefined;
+    const resp = await this.fetchFn(buildUrl(`${this.baseUrl}${path}`), {
+      method,
+      headers,
+      body: options?.jsonBody ? JSON.stringify(options.jsonBody) : undefined,
+      signal,
+    });
+    const body = await safeJson(resp);
+    if (
+      resp.status < 400 ||
+      (resp.status === 422 && body && (body as any).runId)
+    ) {
+      return { status: resp.status, body };
+    }
+    const message = (body as Record<string, any> | null)?.error;
+    throw dataPathError(
+      webhookCategory(resp.status),
+      typeof message === "string" ? message : `HTTP ${resp.status}`,
+    );
+  }
+
   async get(path: string, options?: RequestOptions): Promise<any> {
     return this.request("GET", path, options);
   }
@@ -197,6 +235,16 @@ export class HttpTransport {
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────
+
+function webhookCategory(status: number): string {
+  if (status === 401) return "unauthenticated";
+  if (status === 403) return "permission_denied";
+  if (status === 404) return "not_found";
+  if (status === 409) return "conflict";
+  if (status === 429) return "rate_limited";
+  if (status >= 500) return "server_error";
+  return "validation_error";
+}
 
 function buildUrl(
   base: string,

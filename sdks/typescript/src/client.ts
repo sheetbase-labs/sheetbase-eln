@@ -22,13 +22,8 @@
  * client.close();
  * ```
  */
-import {
-  HttpTransport
-  
-  
-  
-} from "./http.js";
-import type {FetchLike, RequestOptions, TableHead} from "./http.js";
+import { HttpTransport } from "./http.js";
+import type { FetchLike, RequestOptions, TableHead } from "./http.js";
 import { API_VERSION, VERSION } from "./version.js";
 import {
   AgentOperationsResource,
@@ -39,6 +34,7 @@ import {
   SearchResource,
   CataloguesResource,
   WebhooksResource,
+  PipelinesResource,
 } from "./resources/index.js";
 
 export interface SheetbaseClientOptions {
@@ -60,6 +56,7 @@ export class SheetbaseClient {
   readonly catalogues: CataloguesResource;
   readonly agentOperations: AgentOperationsResource;
   readonly webhooks: WebhooksResource;
+  readonly pipelines: PipelinesResource;
 
   constructor(options: SheetbaseClientOptions) {
     this.transport = new HttpTransport(
@@ -80,6 +77,7 @@ export class SheetbaseClient {
     this.catalogues = new CataloguesResource(this.transport);
     this.agentOperations = new AgentOperationsResource(this.transport);
     this.webhooks = new WebhooksResource(this.transport);
+    this.pipelines = new PipelinesResource(this.transport);
   }
 
   // ── raw access ──────────────────────────────────────────────────────

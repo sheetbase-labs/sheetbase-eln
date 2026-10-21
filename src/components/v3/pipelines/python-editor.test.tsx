@@ -261,10 +261,14 @@ describe('PythonPackagesEditor', () => {
         onChange={vi.fn()}
         runtime={{
           available: true,
+          runtime: 'registry.local/py@sha256:abc',
           python: '3.12.8',
           packages: { numpy: '2.2.6', pandas: '2.2.3' },
         }}
       />,
+    )
+    expect(screen.getByLabelText('Pinned Python runtime').textContent).toBe(
+      'registry.local/py@sha256:abc',
     )
     expect(screen.getByText(/not pinned/)).toBeTruthy()
     expect(

@@ -189,6 +189,14 @@ export function PythonPackagesEditor({
           </ul>
         </Notice>
       ) : null}
+      {runtime?.runtime ? (
+        <Muted className="text-label">
+          Runtime for the SDK and CLI (<code>--runtime</code>, pythonRuntime):{' '}
+          <code className="num break-all" aria-label="Pinned Python runtime">
+            {runtime.runtime}
+          </code>
+        </Muted>
+      ) : null}
       {preinstalled.length ? (
         <details>
           <summary className="cursor-pointer text-label text-fg-muted">

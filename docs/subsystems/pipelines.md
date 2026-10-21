@@ -93,6 +93,28 @@ pandas DataFrame. Any Python step requires `pythonRuntime` to contain the exact
 `GET /api/pipelines/runtime`; an unavailable or mismatched pin fails closed.
 See the [Python runtime runbook](../operations/pipeline-python.md).
 
+### Python step editor, contract and test-run
+
+A Python step is edited with a starter that shows the `transform` signature,
+inline checks (a missing `transform`, imports of packages the step does not
+declare) and a **Packages** section. `pythonRequirements` pins packages as
+`name==version`. Nothing is installed while a pipeline runs: the runner checks
+the pinned image provides exactly those versions and refuses the run
+otherwise. `GET /api/pipelines/runtime` reports the interpreter and packages the
+image has, which the editor offers as choices.
+
+Each Python step may declare a `contract`: the columns it reads from each input
+and the DataFrame it returns (`text`, `integer`, `decimal`, `boolean`, `date`,
+`timestamp`, `json`, with `nullable` and `additionalColumns`). The worker checks
+inputs before the code runs and outputs after, naming the first few offenders.
+
+**Test run** (`POST /api/pipelines/python-test`, writers only, rate limited)
+runs the unsaved code on pasted or uploaded sample rows in the same isolated
+container. Nothing is stored. The reply carries the rows, inferred columns,
+printed output, the environment and, on failure, the message and line. A real
+run records the same `logs`, `environment` and `line` in its log entry, shown in
+the run view.
+
 `output.mode: "none"` skips Dataset creation and snapshotting. The `actions`
 array contains up to twenty `{ name, operation, arguments }` ELN actions. The
 catalogue in `src/lib/pipelines/actions.ts` supplies labels, argument contracts
@@ -234,6 +256,23 @@ key return a conflict. A failed run can be retried explicitly from Run history.
 
 Session-authenticated GET reads settings; same-origin PUT rotates or disables
 the token. No external API credential scopes are widened by this endpoint.
+
+## SDKs and local files
+
+`client.pipelines` (TypeScript) and `client.pipelines` (Python, sync and async)
+list pipelines, versions, runs, logs and outputs with `pipelines:read`, and
+trigger a run through the webhook above using the pipeline's own secret (not the
+API credential). `pipelines:write` saves draft versions through
+`create_pipeline_definition_version` and
+`update_pipeline_definition_version_draft`; both are limited to a personal token,
+so a service credential is refused by the database. Drafts are never published
+or run by the SDK.
+
+`syncStep` / `sync_step` and `sheetbase push-step analysis.py|.ipynb
+--workspace ... --pipeline ... [--step name] [--requirements requirements.txt]
+[--runtime image]` put a local script or notebook (code cells in order, magics
+commented out) into the main transform or a named step of the open draft, or
+start a draft from the latest version. See `sdks/examples/python/push_step.py`.
 
 ## Product integration
 

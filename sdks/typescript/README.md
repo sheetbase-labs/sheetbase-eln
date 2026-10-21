@@ -34,39 +34,39 @@ Python operation inventory and shared wire-semantics decisions live in the
 ## Quick start
 
 ```ts
-import { SheetbaseClient } from "@sheetbase/eln-sdk";
+import { SheetbaseClient } from '@sheetbase/eln-sdk'
 
 const client = new SheetbaseClient({
-  baseUrl: "https://app.sheetbase.co.uk",
-  credential: "sb_01234567_...",
-  scopes: ["datasets:read", "datasets:write"],
-});
+  baseUrl: 'https://app.sheetbase.co.uk',
+  credential: 'sb_01234567_...',
+  scopes: ['datasets:read', 'datasets:write'],
+})
 
 // List projects
-const projects = await client.projects.list();
+const projects = await client.projects.list()
 
 // Query dataset rows
-const page = await client.datasets.queryRows({ datasetId: "..." });
+const page = await client.datasets.queryRows({ datasetId: '...' })
 
 // Commit with idempotency
 const result = await client.datasets.commitRows(
-  "dataset-uuid",
+  'dataset-uuid',
   3, // expected revision
   [
     {
-      operation: "create",
+      operation: 'create',
       rowId: crypto.randomUUID(),
-      values: { "field-uuid": 1.2e9 },
+      values: { 'field-uuid': 1.2e9 },
     },
   ],
-);
+)
 
 // Iterate all rows
-for await (const row of client.datasets.iterRows("dataset-uuid")) {
-  console.log(row.rowId, row.values);
+for await (const row of client.datasets.iterRows('dataset-uuid')) {
+  console.log(row.rowId, row.values)
 }
 
-client.close();
+client.close()
 ```
 
 ## Authentication
@@ -75,10 +75,10 @@ The SDK exchanges your credential (`sb_<prefix>_<secret>`) for a short-lived JWT
 
 ```ts
 const client = new SheetbaseClient({
-  baseUrl: "https://app.sheetbase.co.uk",
-  credential: "sb_01234567_...",
-  scopes: ["datasets:read", "datasets:write"],
-});
+  baseUrl: 'https://app.sheetbase.co.uk',
+  credential: 'sb_01234567_...',
+  scopes: ['datasets:read', 'datasets:write'],
+})
 ```
 
 Scopes are canonical capability strings from the [public API contract](https://github.com/phlohouse/sheetbase-eln/blob/main/docs/api/public-api-contract.md#8-proposed-credential-scopes-core-domain).
@@ -225,37 +225,37 @@ for await (const r of client.search.iter({ query: "exp", pageSize: 50 })) { ... 
 ### Catalogues (read-only)
 
 ```ts
-await client.catalogues.listSchemaDefinitions();
-await client.catalogues.listSchemaVersionFields({ schemaVersionId: "uuid" });
-await client.catalogues.listSheetDefinitions();
-await client.catalogues.listTemplates();
+await client.catalogues.listSchemaDefinitions()
+await client.catalogues.listSchemaVersionFields({ schemaVersionId: 'uuid' })
+await client.catalogues.listSheetDefinitions()
+await client.catalogues.listTemplates()
 await client.catalogues.instantiateTemplate({
-  templateVersionId: "uuid",
-  projectId: "uuid",
-});
+  templateVersionId: 'uuid',
+  projectId: 'uuid',
+})
 ```
 
 ### Agent operations and workflows
 
 ```ts
 await client.agentOperations.propose({
-  workspaceId: "uuid",
-  title: "Create assay dataset schema",
-  summary: "Prepare a bounded proposal for human approval",
+  workspaceId: 'uuid',
+  title: 'Create assay dataset schema',
+  summary: 'Prepare a bounded proposal for human approval',
   operation,
   provenance,
-  idempotencyKey: "agent-run-42",
-});
+  idempotencyKey: 'agent-run-42',
+})
 
 await client.agentOperations.createWorkflow({
-  workspaceId: "uuid",
-  goal: "Prepare and populate the assay dataset",
+  workspaceId: 'uuid',
+  goal: 'Prepare and populate the assay dataset',
   plan,
   budget,
   initialUsage: { tokens: 0, costMicrousd: 0 },
   provenance,
-  idempotencyKey: "workflow-run-42",
-});
+  idempotencyKey: 'workflow-run-42',
+})
 ```
 
 Operation, plan, provenance and budget objects retain their canonical contract
@@ -266,21 +266,49 @@ budgets and scientific rules.
 
 ```ts
 await client.webhooks.createSubscription({
-  workspaceId: "uuid",
-  key: "analysis-complete",
-  url: "https://integration.example/hooks/sheetbase",
-  eventTypes: ["dataset.versioned"],
-});
+  workspaceId: 'uuid',
+  key: 'analysis-complete',
+  url: 'https://integration.example/hooks/sheetbase',
+  eventTypes: ['dataset.versioned'],
+})
 
 // Verify deliveries with the subscription's signing secret:
 // `verifyWebhookSignature(rawBody, secret, signatureHeader)`.
 
 const deliveries = await client.webhooks.listDeliveries({
-  workspaceId: "uuid",
+  workspaceId: 'uuid',
   limit: 50,
   offset: 0,
-});
+})
 ```
+
+### Pipelines and local Python
+
+```ts
+import { notebookToPython } from '@sheetbase/eln-sdk'
+
+const run = await client.pipelines.trigger({
+  definitionId: 'uuid',
+  webhookToken: webhookSecret, // the pipeline's own secret, shown once in the app
+  idempotencyKey: 'batch-42',
+  parameters: { study: 'S1' },
+})
+const settled = await client.pipelines.waitForRun(run.runId)
+const logs = await client.pipelines.runLogs(run.runId)
+
+// Save local code as a draft of one step; a person reviews and publishes it.
+await client.pipelines.syncStep({
+  workspaceId: 'uuid',
+  definitionId: 'uuid',
+  source: {
+    code: notebookToPython(JSON.parse(notebookText)),
+    step: 'analyse',
+    requirements: ['pandas==2.2.2'],
+  },
+})
+```
+
+Saving a draft needs a personal token with `pipelines:write`.
 
 ### Public tables
 
@@ -292,7 +320,7 @@ Every allowlisted table operation is available through `tableGet`,
 ### Raw public RPC access
 
 ```ts
-await client.rpc("query_dataset_rows", { dataset_id: "uuid", limit: 100 });
+await client.rpc('query_dataset_rows', { dataset_id: 'uuid', limit: 100 })
 ```
 
 Only RPC names in the support matrix are supported. The server's external

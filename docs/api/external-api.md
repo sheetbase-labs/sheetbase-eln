@@ -57,18 +57,19 @@ exchange and rotation.
 
 ### Currently effective
 
-| Scope                                              | Allows                                                                                                  |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `projects:read` / `projects:write`                 | Project-domain tables and RPCs                                                                          |
-| `datasets:read` / `datasets:write`                 | Dataset query, commit, snapshot, archive. Not schema stewardship                                        |
-| `sheets:read` / `sheets:write`                     | Sheet Instance reads and mutations. Does not author Sheet Definitions                                   |
-| `models:read` / `models:write`                     | `search_sheet_records`, custom-field writes, Sheet→Record write-back                                    |
-| `templates:read` / `templates:write`               | Template catalogue reads and instantiation                                                              |
-| `reviews:read`                                     | Preview a submission digest. Does not run revision checks                                               |
-| `reviews:write`                                    | Mintable. Does not submit, sign or amend                                                                |
-| `schema:read`                                      | Catalogue GET only                                                                                      |
-| `webhooks:read` / `webhooks:write`                 | Subscriptions and delivery history (stable event names in [`event-catalogue.md`](event-catalogue.md))   |
-| `agent_operations:read` / `agent_operations:write` | Inspect and submit typed proposals and workflows. Does not approve, execute, resume, or create policies |
+| Scope                                              | Allows                                                                                                                          |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `projects:read` / `projects:write`                 | Project-domain tables and RPCs                                                                                                  |
+| `datasets:read` / `datasets:write`                 | Dataset query, commit, snapshot, archive. Not schema stewardship                                                                |
+| `sheets:read` / `sheets:write`                     | Sheet Instance reads and mutations. Does not author Sheet Definitions                                                           |
+| `models:read` / `models:write`                     | `search_sheet_records`, custom-field writes, Sheet→Record write-back                                                            |
+| `templates:read` / `templates:write`               | Template catalogue reads and instantiation                                                                                      |
+| `reviews:read`                                     | Preview a submission digest. Does not run revision checks                                                                       |
+| `reviews:write`                                    | Mintable. Does not submit, sign or amend                                                                                        |
+| `schema:read`                                      | Catalogue GET only                                                                                                              |
+| `webhooks:read` / `webhooks:write`                 | Subscriptions and delivery history (stable event names in [`event-catalogue.md`](event-catalogue.md))                           |
+| `pipelines:read` / `pipelines:write`               | Read pipelines, versions, runs, logs and outputs; save draft versions (personal tokens only). Does not publish, run or schedule |
+| `agent_operations:read` / `agent_operations:write` | Inspect and submit typed proposals and workflows. Does not approve, execute, resume, or create policies                         |
 
 ### Still fail-closed
 

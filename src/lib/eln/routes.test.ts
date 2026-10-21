@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { readZip } from './zip-read'
+import { buildElnArchive } from './eln-archive'
+import {
+  handleElnImport,
+  handleProjectElnExport,
+  handleRecordElnExport,
+} from './routes'
+
 const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   rpc: vi.fn(),
@@ -31,14 +39,6 @@ vi.mock('../request-auth', () => ({
   recordDataExportReceipt: mocks.receipt,
 }))
 vi.mock('../file-storage', () => ({ getObjectStorage: () => null }))
-
-import { readZip } from './zip-read'
-import { buildElnArchive } from './eln-archive'
-import {
-  handleElnImport,
-  handleProjectElnExport,
-  handleRecordElnExport,
-} from './routes'
 
 const REC = '11111111-1111-4111-8111-111111111111'
 const PROJ = '22222222-2222-4222-8222-222222222222'
@@ -83,7 +83,13 @@ const fileBlock = {
 
 const storage = {
   getStream: async () => ({
-    stream: new Blob(['abc']).stream() as ReadableStream<Uint8Array>,
+    // jsdom's Blob has no stream(); build the byte stream directly.
+    stream: new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('abc'))
+        controller.close()
+      },
+    }),
     byteSize: 3,
   }),
 }

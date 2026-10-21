@@ -111,6 +111,18 @@ describe('Pipelines list states', () => {
     )
   })
 
+  it('suggests the key from the name until the key is typed by hand', async () => {
+    renderList()
+    fireEvent.click(screen.getAllByRole('button', { name: /New pipeline/ })[0])
+    const name = await screen.findByLabelText(/^Name/)
+    const key = screen.getByLabelText<HTMLInputElement>(/^Key/)
+    fireEvent.change(name, { target: { value: 'Viability summary' } })
+    expect(key.value).toBe('viability_summary')
+    fireEvent.change(key, { target: { value: 'my_key' } })
+    fireEvent.change(name, { target: { value: 'Something else' } })
+    expect(key.value).toBe('my_key')
+  })
+
   it('counts a waiting run under Needs attention', () => {
     state.rows = [row('waiting')]
     state.tab = 'needsattention'

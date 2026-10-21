@@ -9,6 +9,7 @@ import {
   removeStep,
   setConfirmPatch,
   setStepConfirm,
+  suggestPipelineKey,
   updateParameter,
   updateStep,
 } from './authoring'
@@ -91,5 +92,28 @@ describe('steps', () => {
     const removed = removeStep(steps, 1)
     expect(removed).toHaveLength(1)
     expect(removed[0].confirm?.skipSteps).toEqual([])
+  })
+})
+
+describe('suggestPipelineKey', () => {
+  it('turns a name into a key the database accepts', () => {
+    expect(suggestPipelineKey('Viability summary')).toBe('viability_summary')
+    expect(suggestPipelineKey('  Plate-reader  PR-01 export! ')).toBe(
+      'plate_reader_pr_01_export',
+    )
+    expect(suggestPipelineKey('Résumé des résultats')).toBe(
+      'resume_des_resultats',
+    )
+  })
+
+  it('starts with a letter and stays within 60 characters', () => {
+    expect(suggestPipelineKey('2026 stability')).toBe('p_2026_stability')
+    const long = suggestPipelineKey('word '.repeat(40))
+    expect(long.length).toBeLessThanOrEqual(60)
+    expect(long).toMatch(/^[a-z][a-z0-9_]*[a-z0-9]$/)
+  })
+
+  it('has no suggestion for a name with nothing usable', () => {
+    expect(suggestPipelineKey('  !!! ')).toBe('')
   })
 })

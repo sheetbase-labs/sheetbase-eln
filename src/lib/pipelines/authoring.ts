@@ -175,3 +175,20 @@ export function setConfirmPatch(
   if (!confirm) return list
   return setStepConfirm(list, index, { ...confirm, ...patch })
 }
+
+/**
+ * A pipeline key suggested from its name: lower-case words joined by `_`, in
+ * the shape the database accepts (a letter first, then letters, digits and
+ * underscores, at most 60 characters). Empty when the name has nothing to use.
+ */
+export function suggestPipelineKey(name: string): string {
+  const slug = name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  if (!slug) return ''
+  const lettered = /^[a-z]/.test(slug) ? slug : `p_${slug}`
+  return lettered.slice(0, 60).replace(/_+$/, '')
+}

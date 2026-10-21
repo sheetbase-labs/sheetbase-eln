@@ -272,6 +272,33 @@ export async function resolveRunForWorkItem(
   return null
 }
 
+/** Dataset id → "DS-0001 · Name", for runs that point at the Datasets they wrote. */
+export function useDatasetNames(
+  datasetIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const ids = [...new Set(datasetIds)].sort()
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'dataset-names', ids] as const,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const rows = await listByIds(ids, (inList) =>
+        client.list<{ id: string; name: string; display_id: string | null }>(
+          'datasets',
+          `?select=id,name,display_id&id=in.(${inList})`,
+        ),
+      )
+      return Object.fromEntries(
+        rows.map((d) => [
+          d.id,
+          d.display_id ? `${d.display_id} · ${d.name}` : d.name,
+        ]),
+      )
+    },
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+  })
+}
+
 export interface DatasetVersionChoice {
   id: string
   label: string

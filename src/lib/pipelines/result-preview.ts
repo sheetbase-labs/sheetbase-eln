@@ -61,7 +61,7 @@ export function readResultPreview(
   if (!columns.every((c) => typeof c === 'string')) return null
   if (!rows.every((r) => Array.isArray(r))) return null
   return {
-    columns: columns as string[],
+    columns,
     rows: rows as PreviewCell[][],
     rowCount: typeof rowCount === 'number' ? rowCount : rows.length,
     truncated: truncated === true,

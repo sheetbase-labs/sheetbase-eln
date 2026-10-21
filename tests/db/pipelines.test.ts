@@ -31,6 +31,7 @@ import type {
   SchedulerConnection,
 } from '#/lib/pipeline-scheduler.server'
 import {
+  connectTestSandbox,
   prepareTestDatabase,
   setActorJwt,
   TEST_DATABASE,
@@ -156,6 +157,7 @@ async function makeExecDeps(actorId: string): Promise<{
     deps: {
       getSession: async () => ({ user: { id: actorId } }),
       connect: execConnection(conn),
+      sandbox: connectTestSandbox,
     },
     close: async () => conn.end(),
   }
@@ -650,6 +652,45 @@ describe('Pipeline execution (AUTO-02)', () => {
     await close()
     expect(report.ok).toBe(false)
     expect(report.errorCode).toBe('transform_failed')
+  })
+
+  it('keeps a transform that slips past the statement filter inside the sandbox login', async () => {
+    const owner = await actor(OWNER, WS)
+    const def = await rpc<{ id: string }>(owner, 'create_pipeline_definition', {
+      p_workspace_id: WS,
+      p_key: 'sandbox_escape',
+      p_name: 'Sandbox escape',
+    })
+    // The schema name is assembled at run time, which the static filter cannot
+    // see; only the sandbox login stands between this statement and the data.
+    const version = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: def.id,
+        p_configuration: pipelineConfig(
+          `SELECT query_to_xml('select * from ap' || 'i.workspaces', true, false, '') AS leaked FROM measurements`,
+        ),
+      },
+    )
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: version.id,
+    })
+    const run = await rpc<{ id: string }>(owner, 'start_pipeline_run', {
+      p_workspace_id: WS,
+      p_definition_version_id: version.id,
+      p_trigger_kind: 'manual',
+      p_parameters: { factor: 1 },
+      p_input_versions: { measurements: inputDatasetVersionId },
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    await close()
+    expect(report.ok).toBe(false)
+    expect(report.errorCode).toBe('transform_failed')
+    expect(report.errorMessage).toMatch(/permission denied/)
   })
 
   it('fails a run when an input Dataset Version is missing', async () => {

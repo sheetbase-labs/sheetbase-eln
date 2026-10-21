@@ -8,6 +8,8 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator'
 import { Client } from 'pg'
 import { expect } from 'vitest'
 
+import type { SandboxConnection } from '#/lib/pipeline-sandbox.server'
+
 config({ path: ['.env.local', '.env'] })
 
 export const TEST_DATABASE = 'sheetbase_test'
@@ -69,6 +71,17 @@ export async function resetTestDatabase(): Promise<void> {
       `DO $$ BEGIN
          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pipeline_worker') THEN
            CREATE ROLE pipeline_worker NOLOGIN NOINHERIT;
+         END IF;
+       END $$`,
+    )
+    // The sandbox login the executor connects as for transform SQL: no grants
+    // and no role memberships, so there is nothing to reset to.
+    await client.query(
+      `DO $$ BEGIN
+         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pipeline_sandbox') THEN
+           CREATE ROLE pipeline_sandbox LOGIN NOINHERIT NOSUPERUSER NOCREATEDB
+             NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 8
+             PASSWORD 'pipeline-sandbox-dev-password';
          END IF;
        END $$`,
     )
@@ -366,4 +379,24 @@ export async function grantProjectAccess(
       input.canManage ?? false,
     ],
   )
+}
+
+/**
+ * A connection to this worker's test database as the `pipeline_sandbox` login,
+ * the same credential the executor uses for transform SQL.
+ */
+export async function connectTestSandbox(): Promise<SandboxConnection> {
+  const url = new URL(
+    process.env.PIPELINE_SANDBOX_DATABASE_URL ??
+      'postgresql://pipeline_sandbox:pipeline-sandbox-dev-password@localhost:5432/sheetbase',
+  )
+  url.pathname = `/${testDatabaseName()}`
+  const client = new Client({ connectionString: url.toString() })
+  await client.connect()
+  const pid = await client.query<{ pid: number }>('select pg_backend_pid() pid')
+  return {
+    query: async (text, values = []) => client.query(text, values),
+    backendPid: pid.rows[0].pid,
+    end: () => client.end(),
+  }
 }

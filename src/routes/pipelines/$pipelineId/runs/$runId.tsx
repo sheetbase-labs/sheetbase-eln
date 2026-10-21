@@ -243,7 +243,7 @@ function RunPage() {
                   disabled={launcher.pending}
                   onClick={() =>
                     launcher.launch({
-                      pipelineKey: definition.data?.name ?? 'this pipeline',
+                      pipelineName: definition.data?.name ?? 'this pipeline',
                       version: currentPublished,
                       rerunOn: r,
                     })
@@ -274,7 +274,7 @@ function RunPage() {
                   onClick={() =>
                     version &&
                     launcher.launch({
-                      pipelineKey: definition.data?.name ?? 'this pipeline',
+                      pipelineName: definition.data?.name ?? 'this pipeline',
                       version,
                       retryOf: r,
                     })
@@ -289,7 +289,9 @@ function RunPage() {
           ) : r.status === 'succeeded' ? (
             <AddRunToNotebook
               lines={runCitationLines(r, {
-                pipelineKey: definition.data?.key ?? pipelineId.slice(0, 8),
+                pipelineKey: definition.data
+                  ? `${definition.data.name} (${definition.data.key})`
+                  : pipelineId.slice(0, 8),
                 versionNumber: version?.version ?? null,
                 outputs: outputs.data ?? [],
               })}

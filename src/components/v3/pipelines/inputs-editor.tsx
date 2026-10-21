@@ -1,7 +1,6 @@
 import { useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import { INPUT_NAME_RE, MAX_INPUTS } from '#/lib/pipelines/config'
@@ -63,7 +62,8 @@ export function InputsEditor({
           Add input
         </Button>
         <span className="text-label text-fg-muted">
-          Each input is a table the SQL reads by name; up to {MAX_INPUTS}.
+          Each input is a table the SQL reads by name; up to {MAX_INPUTS}. A run
+          is always started with a Dataset Version for every input.
         </span>
       </div>
     </div>
@@ -99,14 +99,6 @@ function InputRow({
           value={input.name}
           onChange={(event) => onPatch({ name: event.target.value })}
         />
-        <label className="flex items-center gap-1.5 text-body">
-          <Checkbox
-            aria-label={`Input ${n} required`}
-            checked={input.required}
-            onCheckedChange={(on) => onPatch({ required: Boolean(on) })}
-          />
-          Required
-        </label>
         <span className="flex-1" />
         <Button
           size="sm"

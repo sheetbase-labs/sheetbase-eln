@@ -28,6 +28,7 @@ import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { validatePipelineConfig } from '#/lib/pipelines/config'
 
 /** UI port (roadmap-4/ui-app3): the pipeline detail frame. */
 export const Route = createFileRoute('/pipelines/$pipelineId')({
@@ -61,6 +62,9 @@ function PipelineLayout() {
   const runs = useDefinitionRuns(list)
   const current = currentVersion(list)
   const draft = draftVersion(list)
+
+  // A draft that the contract would refuse cannot be published; say why.
+  const draftProblems = draft ? validatePipelineConfig(draft.configuration) : []
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
@@ -168,7 +172,8 @@ function PipelineLayout() {
                 !current || current.lifecycle === 'draft' || run.pending
               }
               onClick={() =>
-                current && run.launch({ pipelineKey: d.key, version: current })
+                current &&
+                run.launch({ pipelineName: d.name, version: current })
               }
             >
               Run now
@@ -176,7 +181,12 @@ function PipelineLayout() {
             {draft ? (
               <Button
                 variant="primary"
-                disabled={publish.isPending}
+                disabled={publish.isPending || draftProblems.length > 0}
+                title={
+                  draftProblems.length
+                    ? `Finish the draft on the Steps tab first: ${draftProblems[0].message}`
+                    : undefined
+                }
                 onClick={() => publish.mutate()}
               >
                 Publish draft

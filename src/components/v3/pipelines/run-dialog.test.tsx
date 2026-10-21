@@ -58,7 +58,7 @@ describe('RunDialog', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <RunDialog
-          pipelineKey="glucose_trend"
+          pipelineName="glucose_trend"
           version={version({
             inputs: [{ name: 'readings', required: true }],
             parameters: [

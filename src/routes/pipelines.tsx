@@ -405,7 +405,7 @@ function PipelinesList() {
                 }
                 onClick={() =>
                   sel.current &&
-                  run.launch({ pipelineKey: sel.key, version: sel.current })
+                  run.launch({ pipelineName: sel.name, version: sel.current })
                 }
               >
                 Run now

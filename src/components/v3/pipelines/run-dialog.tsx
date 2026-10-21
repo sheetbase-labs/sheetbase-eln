@@ -62,14 +62,14 @@ export function parameterError(
  * request instead of refusing it with "missing input".
  */
 export function RunDialog({
-  pipelineKey,
+  pipelineName,
   version,
   busy,
   onClose,
   onSubmit,
   initial,
 }: {
-  pipelineKey: string
+  pipelineName: string
   version: PipelineDefinitionVersionWire
   busy: boolean
   onClose: () => void
@@ -102,7 +102,7 @@ export function RunDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title={`Run ${pipelineKey} with…`}
+          title={`Run ${pipelineName} with…`}
           description={`Version v${version.version}. Each input is pinned to the Dataset Version you choose, so the run can be repeated exactly.`}
         />
         <DialogBody>

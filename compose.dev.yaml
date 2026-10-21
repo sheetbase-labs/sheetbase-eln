@@ -15,6 +15,7 @@ services:
       POSTGREST_AUTHENTICATOR_PASSWORD: ${POSTGREST_AUTHENTICATOR_PASSWORD:?Set POSTGREST_AUTHENTICATOR_PASSWORD in the development env file}
       MIGRATOR_PASSWORD: ${MIGRATOR_PASSWORD:?Set MIGRATOR_PASSWORD in the development env file}
       FORMULA_WRITER_PASSWORD: ${FORMULA_WRITER_PASSWORD:?Set FORMULA_WRITER_PASSWORD in the development env file}
+      PIPELINE_SANDBOX_PASSWORD: ${PIPELINE_SANDBOX_PASSWORD:?Set PIPELINE_SANDBOX_PASSWORD in the development env file}
     volumes:
       - dev-postgres-data:/var/lib/postgresql
       - ./docker/db/init:/docker-entrypoint-initdb.d:ro
@@ -61,6 +62,7 @@ services:
       SHEETBASE_EXPECTED_MIGRATION: ${SHEETBASE_EXPECTED_MIGRATION:?Set the expected migration version}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in the development env file}
       FORMULA_DATABASE_URL: ${FORMULA_DATABASE_URL:?Set FORMULA_DATABASE_URL in the development env file}
+      PIPELINE_SANDBOX_DATABASE_URL: ${PIPELINE_SANDBOX_DATABASE_URL:?Set PIPELINE_SANDBOX_DATABASE_URL in the development env file}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-insecure-auth-secret-replace-me-0123456789}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://dev.sheetbase.co.uk}
       PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:?Set PGRST_JWT_SECRET in the development env file}

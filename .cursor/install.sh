@@ -80,6 +80,7 @@ sudo -u postgres psql -v ON_ERROR_STOP=1 \
   -v auth_pass="$POSTGREST_AUTHENTICATOR_PASSWORD" \
   -v migrator_pass="$MIGRATOR_PASSWORD" \
   -v formula_pass="$FORMULA_WRITER_PASSWORD" \
+  -v sandbox_pass="$PIPELINE_SANDBOX_PASSWORD" \
   -v db_name="$POSTGRES_DB" \
   -v app_user="$POSTGRES_USER" \
   -v app_pass="$POSTGRES_PASSWORD" <<'SQL'
@@ -124,6 +125,16 @@ SELECT format('CREATE ROLE formula_runtime LOGIN NOINHERIT PASSWORD %L', :'formu
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='formula_runtime')\gexec
 GRANT formula_writer TO formula_runtime;
 ALTER ROLE formula_runtime PASSWORD :'formula_pass';
+
+-- Pipeline SQL sandbox login: zero grants, no role memberships (see
+-- docker/db/init/00-roles.sh).
+SELECT format('CREATE ROLE pipeline_sandbox LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 32 PASSWORD %L', :'sandbox_pass')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='pipeline_sandbox')\gexec
+ALTER ROLE pipeline_sandbox PASSWORD :'sandbox_pass';
+ALTER ROLE pipeline_sandbox SET temp_file_limit = '1GB';
+ALTER ROLE pipeline_sandbox SET statement_timeout = '90s';
+ALTER ROLE pipeline_sandbox SET idle_session_timeout = '10min';
+ALTER ROLE pipeline_sandbox SET search_path = pg_temp;
 
 -- migrator owns the database, matching 00-roles.sh.
 SELECT format('CREATE DATABASE %I OWNER migrator', :'db_name')

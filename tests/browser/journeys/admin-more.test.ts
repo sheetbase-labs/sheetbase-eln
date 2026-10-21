@@ -11,12 +11,11 @@ import {
   signIn,
   signInAs,
   uniqueName,
+  withAdminDb,
 } from './helpers'
 
 test.setTimeout(90_000)
 test.use({ viewport: { width: 1280, height: 900 } })
-
-const SIGNED_REVISION = '0cd23d21-72c4-4c3b-9f9b-3ae25b1604b1'
 
 test.beforeEach(async ({ page }) => {
   await signIn(page)
@@ -78,7 +77,20 @@ test('ADMIN-22 a record is shared with a client and previewed as that client', a
 test('REV-12 the evidence page of a signed revision offers the PDF and the package', async ({
   page,
 }) => {
-  await open(page, `/evidence/${SIGNED_REVISION}`)
+  // Seed revision ids are generated per seed, so find a signed one.
+  const signedRevision = await withAdminDb(
+    async (db) =>
+      (
+        await db.query<{ revision_id: string }>(
+          `SELECT s.revision_id FROM api.signatures s
+             JOIN api.records r ON r.id = s.record_id
+            WHERE r.workspace_id = '00000000-0000-4000-8000-000000000300'
+            ORDER BY s.signed_at LIMIT 1`,
+        )
+      ).rows[0]?.revision_id,
+  )
+  expect(signedRevision).toBeTruthy()
+  await open(page, `/evidence/${signedRevision}`)
   for (const heading of ['Integrity', 'Signatures', 'Revision']) {
     await expect(
       page.getByRole('heading', { name: heading }).first(),

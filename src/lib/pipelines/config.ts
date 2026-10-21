@@ -1,4 +1,6 @@
 import { validatePipelineActions } from './actions'
+import { contractErrors, requirementErrors } from './python'
+import type { PythonContract } from './python'
 
 /**
  * AUTO-01 — Pipeline configuration contract (format version 1).
@@ -111,6 +113,8 @@ export interface PipelineStep {
   name: string
   language: 'sql' | 'python'
   statement: string
+  /** Python only: the columns this step reads and the DataFrame it returns. */
+  contract?: PythonContract
   /** Opt-in: run this step's proposal, then pause for a person. */
   confirm?: PipelineStepConfirm
 }
@@ -119,6 +123,12 @@ export interface PipelineConfig {
   configVersion: typeof PIPELINE_CONFIG_VERSION
   description?: string
   pythonRuntime?: string
+  /**
+   * Python packages the steps need, pinned as `name==version`. Nothing is
+   * installed at run time: the runner refuses a run whose pinned runtime does
+   * not provide exactly these versions.
+   */
+  pythonRequirements?: string[]
   actions?: Array<{
     name: string
     operation: string
@@ -129,6 +139,8 @@ export interface PipelineConfig {
   transform: {
     language: 'sql' | 'python' | 'none'
     statement: string
+    /** Python only; see PipelineStep.contract. */
+    contract?: PythonContract
   }
   output: PipelineOutput
   /** Ordered analysis steps; each receives the preceding result as previous. */
@@ -394,6 +406,18 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         'transform statement must be between 1 and 20000 characters',
       )
     }
+    if (v.transform.contract !== undefined) {
+      if (v.transform.language !== 'python')
+        push(
+          errors,
+          'invalid_value',
+          'transform.contract',
+          'A data contract applies to Python steps only.',
+        )
+      else
+        for (const message of contractErrors(v.transform.contract))
+          push(errors, 'invalid_value', 'transform.contract', message)
+    }
   }
 
   if (v.steps !== undefined) {
@@ -447,6 +471,18 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             `steps[${index}].statement`,
             'Step code must contain 1–20000 characters.',
           )
+        if (step.contract !== undefined) {
+          if (step.language !== 'python')
+            push(
+              errors,
+              'invalid_value',
+              `steps[${index}].contract`,
+              'A data contract applies to Python steps only.',
+            )
+          else
+            for (const message of contractErrors(step.contract))
+              push(errors, 'invalid_value', `steps[${index}].contract`, message)
+        }
         if (step.confirm !== undefined)
           validateConfirmStep(errors, step.confirm, index)
       }
@@ -522,6 +558,17 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       'pythonRuntime',
       'Choose an available Python runtime before saving.',
     )
+  }
+  if (v.pythonRequirements !== undefined) {
+    if (!usesPython)
+      push(
+        errors,
+        'invalid_value',
+        'pythonRequirements',
+        'Package requirements apply only when a step uses Python.',
+      )
+    for (const message of requirementErrors(v.pythonRequirements))
+      push(errors, 'invalid_value', 'pythonRequirements', message)
   }
   if (v.actions !== undefined) {
     for (const message of validatePipelineActions(v.actions))

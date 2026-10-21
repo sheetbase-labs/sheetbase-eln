@@ -48,11 +48,35 @@ const isObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
 export class RunnerError extends Error {
-  constructor(message, status = 422, code = 'transform_failed') {
+  /**
+   * `details` carries what a failed step leaves behind for its author: its own print
+   * output (`logs`) and the line of its code the failure came from (`line`).
+   */
+  constructor(message, status = 422, code = 'transform_failed', details = {}) {
     super(message)
     this.status = status
     this.code = code
+    this.details = details
   }
+}
+
+/** A requirement is `name==version`: nothing the container could be talked into fetching. */
+export const REQUIREMENT =
+  /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?==[A-Za-z0-9](?:[A-Za-z0-9.!+_-]*[A-Za-z0-9])?$/
+const MAX_REQUIREMENTS = 50
+
+/** Failure details from the worker, kept only when they are the shape and size we expect. */
+export function failureDetails(result) {
+  const details = {}
+  if (
+    Array.isArray(result.logs) &&
+    result.logs.every((line) => typeof line === 'string') &&
+    Buffer.byteLength(result.logs.join('\n')) <= LIMITS.logBytes
+  )
+    details.logs = result.logs
+  if (Number.isInteger(result.line) && result.line > 0)
+    details.line = result.line
+  return details
 }
 
 function validateRows(rows) {
@@ -85,6 +109,27 @@ export function validateJob(job) {
       'invalid_configuration',
     )
   }
+  if (job.mode !== undefined)
+    throw new RunnerError('Unknown job option.', 400, 'invalid_configuration')
+  if (
+    job.requirements !== undefined &&
+    (!Array.isArray(job.requirements) ||
+      job.requirements.length > MAX_REQUIREMENTS ||
+      job.requirements.some(
+        (line) => typeof line !== 'string' || !REQUIREMENT.test(line),
+      ))
+  )
+    throw new RunnerError(
+      'Requirements must be pinned as name==version.',
+      400,
+      'invalid_configuration',
+    )
+  if (job.contract !== undefined && !isObject(job.contract))
+    throw new RunnerError(
+      'The data contract must be an object.',
+      400,
+      'invalid_configuration',
+    )
   let count = 0
   let cells = 0
   for (const rows of Object.values(job.inputs)) {
@@ -314,6 +359,44 @@ export async function pruneArtefacts(
   return { removed, kept }
 }
 
+/** The interpreter and declared-package versions the worker reports, or nothing if malformed. */
+function reportedEnvironment(value) {
+  if (!isObject(value) || typeof value.python !== 'string') return undefined
+  if (!isObject(value.packages)) return undefined
+  const packages = {}
+  for (const [name, version] of Object.entries(value.packages)) {
+    if (typeof version !== 'string') return undefined
+    packages[name] = version
+  }
+  return { python: value.python.slice(0, 32), packages }
+}
+
+/**
+ * What the pinned image contains: interpreter version and installed packages.
+ *
+ * Asked of the same hardened container a job runs in (no network, read-only root), so the
+ * answer is what a step would actually see. An unreadable answer is not fatal: the runtime
+ * identity alone is still enough to pin a version.
+ */
+export async function inspectRuntime(image, command = docker) {
+  const name = `sheetbase-python-inspect-${randomUUID()}`
+  try {
+    const created = await command(containerArguments(image, name))
+    if (created.code !== 0) return undefined
+    const completed = await command(
+      ['start', '--attach', '--interactive', name],
+      { input: JSON.stringify({ mode: 'inspect' }), timeoutMs: 20_000 },
+    )
+    return completed.code === 0
+      ? reportedEnvironment(JSON.parse(completed.stdout).environment)
+      : undefined
+  } catch {
+    return undefined
+  } finally {
+    await command(['rm', '--force', name]).catch(() => undefined)
+  }
+}
+
 export async function runDockerJob(job, image, command = docker) {
   validateJob(job)
   if (job.runtime !== undefined && job.runtime !== image)
@@ -356,6 +439,9 @@ export async function runDockerJob(job, image, command = docker) {
         typeof result.error === 'string'
           ? result.error.slice(0, 2000)
           : 'Python execution failed.',
+        422,
+        'transform_failed',
+        failureDetails(result),
       )
     validateResult(result)
     // PIPE-04.1: a function may also return files; they are collected before the
@@ -368,6 +454,9 @@ export async function runDockerJob(job, image, command = docker) {
       logs: result.logs,
       runtime: image,
       files: files.map((file) => ({ name: file.name, size: file.size })),
+      ...(reportedEnvironment(result.environment)
+        ? { environment: reportedEnvironment(result.environment) }
+        : {}),
     }
   } finally {
     // Killing a Docker CLI process does not kill its container. Remove by our fixed name.
@@ -403,6 +492,7 @@ export function createRunnerServer({
   token,
   image,
   execute = runDockerJob,
+  inspect = inspectRuntime,
   checkRuntime = async () => {
     const result = await docker(['image', 'inspect', '--format={{.Id}}', image])
     if (result.code !== 0)
@@ -423,6 +513,15 @@ export function createRunnerServer({
     )
   let active = 0
   let cleanupFailed = false
+  // The image is immutable, so what it contains is asked once and remembered.
+  let inspected
+  const environmentOf = () => {
+    inspected ??= inspect(image).then((environment) => {
+      if (!environment) inspected = undefined
+      return environment
+    })
+    return inspected
+  }
   const server = createServer(
     { maxHeaderSize: 16 * 1024 },
     async (request, response) => {
@@ -475,7 +574,18 @@ export function createRunnerServer({
       if (request.method === 'GET') {
         try {
           await checkRuntime()
-          return send(200, { runtime: image })
+          // The app waits 15 s for this answer: give the inspection less, and let a slow one
+          // finish in the background for the next request.
+          const environment = await Promise.race([
+            environmentOf(),
+            new Promise((resolve) => setTimeout(resolve, 8_000, undefined)),
+          ])
+          return send(200, {
+            runtime: image,
+            ...(environment
+              ? { python: environment.python, packages: environment.packages }
+              : {}),
+          })
         } catch {
           return send(503, {
             error: 'The Python runtime image is not available.',
@@ -517,7 +627,12 @@ export function createRunnerServer({
         validateJob(job)
         const result = await execute(job, image)
         validateResult(result)
-        const payload = { rows: result.rows, logs: result.logs, runtime: image }
+        const payload = {
+          rows: result.rows,
+          logs: result.logs,
+          runtime: image,
+          ...(result.environment ? { environment: result.environment } : {}),
+        }
         if (Buffer.byteLength(JSON.stringify(payload)) > LIMITS.bytes)
           throw new RunnerError('Python output exceeds 32 MiB.')
         send(200, payload)
@@ -531,6 +646,7 @@ export function createRunnerServer({
               : 'Python runner failed.',
           code:
             error instanceof RunnerError ? error.code : 'runner_unavailable',
+          ...(error instanceof RunnerError ? error.details : {}),
         })
       } finally {
         active--

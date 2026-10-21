@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  PipelinePythonError,
   executePythonTransform,
   getPythonRuntime,
+  getPythonRuntimeInfo,
 } from './pipeline-python.server'
 
 const runtime = `ghcr.io/example/python@sha256:${'a'.repeat(64)}`
@@ -158,5 +160,79 @@ describe('Python runtime pin', () => {
         runtime: `other@sha256:${'b'.repeat(64)}`,
       }),
     ).rejects.toThrow('different Python runtime')
+  })
+})
+
+describe('Python contract and environment', () => {
+  it('sends the requirements and contract with the step, and returns the environment it ran in', async () => {
+    const environment = { python: '3.12.8', packages: { scipy: '1.15.3' } }
+    fetchMock.mockResolvedValue(
+      Response.json({ rows: [{ a: 1 }], logs: [], runtime, environment }),
+    )
+    const contract = {
+      output: { columns: [{ name: 'a', type: 'integer' as const }] },
+    }
+    const result = await executePythonTransform({
+      ...job,
+      requirements: ['scipy==1.15.3'],
+      contract,
+    })
+    expect(result.environment).toEqual(environment)
+    const sent = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+      requirements: string[]
+      contract: unknown
+    }
+    expect(sent.requirements).toEqual(['scipy==1.15.3'])
+    expect(sent.contract).toEqual(contract)
+  })
+
+  it('keeps what a failed step printed and the line it failed on', async () => {
+    fetchMock.mockResolvedValue(
+      Response.json(
+        {
+          error: 'ZeroDivisionError: division by zero',
+          logs: ['loaded 3 rows'],
+          line: 5,
+        },
+        { status: 422 },
+      ),
+    )
+    const error = await executePythonTransform(job).catch(
+      (cause: unknown) => cause,
+    )
+    expect(error).toBeInstanceOf(PipelinePythonError)
+    expect(error).toMatchObject({
+      code: 'transform_failed',
+      logs: ['loaded 3 rows'],
+      line: 5,
+    })
+  })
+
+  it('ignores failure details that are not the expected shape', async () => {
+    fetchMock.mockResolvedValue(
+      Response.json(
+        { error: 'boom', logs: [{ not: 'text' }], line: 'five' },
+        { status: 422 },
+      ),
+    )
+    await expect(executePythonTransform(job)).rejects.toMatchObject({
+      logs: [],
+      line: undefined,
+    })
+  })
+
+  it('reads the installed packages along with the runtime pin', async () => {
+    fetchMock.mockResolvedValue(
+      Response.json({
+        runtime,
+        python: '3.12.8',
+        packages: { numpy: '2.2.6', bad: 7 },
+      }),
+    )
+    await expect(getPythonRuntimeInfo()).resolves.toEqual({
+      runtime,
+      python: '3.12.8',
+      packages: { numpy: '2.2.6' },
+    })
   })
 })

@@ -282,7 +282,13 @@ export async function runPipelineExecution(
     if (transform.kind === 'error') {
       observeStage('transform', transformMs)
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
-      await failRun(conn, run, transform.code, transform.message)
+      await failRun(
+        conn,
+        run,
+        transform.code,
+        transform.message,
+        transform.detail,
+      )
       await conn.commit()
       metrics.pipelineRuns.inc({
         trigger_kind: run.trigger_kind,
@@ -927,7 +933,13 @@ export async function resumePipelineRun(
     }
     if (transform.kind === 'error') {
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
-      await failRun(conn, run, transform.code, transform.message)
+      await failRun(
+        conn,
+        run,
+        transform.code,
+        transform.message,
+        transform.detail,
+      )
       await conn.commit()
       metrics.pipelineRuns.inc({
         trigger_kind: run.trigger_kind,
@@ -1176,7 +1188,13 @@ export async function expirePipelinePrompts(
             await pauseRun(conn, run, transform)
           } else if (transform.kind === 'error') {
             await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
-            await failRun(conn, run, transform.code, transform.message)
+            await failRun(
+              conn,
+              run,
+              transform.code,
+              transform.message,
+              transform.detail,
+            )
             metrics.pipelineRuns.inc({
               trigger_kind: run.trigger_kind,
               outcome: 'failed',
@@ -1536,7 +1554,13 @@ type TransformOutcome =
       durationMs: number
     }
   | { kind: 'cancelled' }
-  | { kind: 'error'; code: PipelineErrorCode; message: string }
+  | {
+      kind: 'error'
+      code: PipelineErrorCode
+      message: string
+      /** Extra context for the failure log: what a Python step printed, and where it failed. */
+      detail?: Record<string, unknown>
+    }
 
 /** Run ordered analysis steps without exposing the orchestration connection to Python. */
 async function executeSteps(
@@ -1569,6 +1593,9 @@ async function executeSteps(
             name: 'analysis',
             language: config.transform.language,
             statement: config.transform.statement,
+            ...(config.transform.contract
+              ? { contract: config.transform.contract }
+              : {}),
           },
         ]),
     ...(config.steps ?? []),
@@ -1597,6 +1624,8 @@ async function executeSteps(
           inputs,
           parameters: run.parameters,
           runtime: config.pythonRuntime,
+          requirements: config.pythonRequirements,
+          contract: step.contract,
         })
         await log(
           conn,
@@ -1604,7 +1633,12 @@ async function executeSteps(
           'info',
           'python',
           `Python step ${index + 1} completed.`,
-          { runtime: result.runtime, logs: result.logs },
+          {
+            step: step.name,
+            runtime: result.runtime,
+            environment: result.environment,
+            logs: result.logs,
+          },
         )
         recordUsage(result.usage)
         return {
@@ -1613,11 +1647,24 @@ async function executeSteps(
           durationMs: Date.now() - started,
         }
       } catch (error) {
+        const failure = error instanceof PipelinePythonError ? error : null
+        const message =
+          error instanceof Error ? error.message : 'Python execution failed.'
         return {
           kind: 'error',
           code: pythonErrorCode(error),
+          // A traceback-free message still needs to say where: point at the line.
           message:
-            error instanceof Error ? error.message : 'Python execution failed.',
+            failure?.line && !/\bline \d+/.test(message)
+              ? `${message} (line ${failure.line} of step ${step.name})`
+              : message,
+          // The step's own output survives the rollback because it travels with the
+          // failure log, which is written after it.
+          detail: {
+            step: step.name,
+            ...(failure?.logs.length ? { logs: failure.logs } : {}),
+            ...(failure?.line ? { line: failure.line } : {}),
+          },
         }
       }
     }
@@ -2303,6 +2350,7 @@ async function failRun(
   run: RunRow,
   code: PipelineErrorCode,
   message: string,
+  detail: Record<string, unknown> = {},
 ): Promise<void> {
   await conn.query(
     `SELECT api.append_pipeline_run_log($1, $2, 'error', 'failure', $3, $4::jsonb)`,
@@ -2310,7 +2358,7 @@ async function failRun(
       run.workspace_id,
       run.id,
       truncate(message, 2000),
-      JSON.stringify({ code }),
+      JSON.stringify({ ...detail, code }),
     ],
   )
   await conn.query(`SELECT api.fail_pipeline_run($1, $2, $3, $4)`, [

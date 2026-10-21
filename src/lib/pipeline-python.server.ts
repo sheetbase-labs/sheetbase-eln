@@ -7,6 +7,7 @@ import {
   RESULT_CELL_LIMIT,
   formatByteSize,
 } from './pipeline-limits'
+import type { PythonContract } from './pipelines/python'
 
 export interface PythonTransformInput {
   statement: string
@@ -17,8 +18,18 @@ export interface PythonTransformInput {
    */
   artefactKey?: string
   runtime?: string
+  /** Pinned `name==version` packages the runtime must provide; nothing is installed. */
+  requirements?: string[]
+  /** The columns the step reads and the DataFrame it must return. */
+  contract?: PythonContract
   inputs: Record<string, Record<string, unknown>[]>
   parameters: Record<string, unknown>
+}
+
+/** The interpreter and the declared packages' versions a step actually ran with. */
+export interface PythonEnvironment {
+  python: string
+  packages: Record<string, string>
 }
 
 /** One file a Python step produced, as the runner reports it. */
@@ -32,6 +43,8 @@ export interface PythonTransformResult {
   logs: string[]
   /** Immutable image identity returned by the trusted runner, for run provenance. */
   runtime: string
+  /** What the declared requirements resolved to inside that image. */
+  environment?: PythonEnvironment
   /**
    * PIPE-04.1: files the step wrote to the declared output directory, with their sizes.
    * The bytes stay with the runner; a run records what was produced and where.
@@ -59,6 +72,10 @@ export interface PythonTransformUsage {
 }
 
 export class PipelinePythonError extends Error {
+  /** What the step printed before it failed. */
+  readonly logs: string[]
+  /** The line of the step's code the failure came from. */
+  readonly line?: number
   constructor(
     message: string,
     readonly code:
@@ -67,9 +84,12 @@ export class PipelinePythonError extends Error {
       | 'transform_timed_out'
       | 'input_too_large'
       | 'output_too_large' = 'transform_failed',
+    detail: { logs?: string[]; line?: number } = {},
   ) {
     super(message)
     this.name = 'PipelinePythonError'
+    this.logs = detail.logs ?? []
+    this.line = detail.line
   }
 }
 
@@ -166,6 +186,40 @@ function serialize(input: PythonTransformInput): string {
       'input_too_large',
     )
   return body
+}
+
+/** The logs and line a failed step reported, kept only in the expected shape and size. */
+function failureDetail(result: unknown): { logs?: string[]; line?: number } {
+  if (!isObject(result)) return {}
+  const detail: { logs?: string[]; line?: number } = {}
+  if (
+    Array.isArray(result.logs) &&
+    result.logs.every((line): line is string => typeof line === 'string') &&
+    Buffer.byteLength(result.logs.join('\n')) <= MAX_LOG_BYTES
+  )
+    detail.logs = result.logs
+  if (
+    typeof result.line === 'number' &&
+    Number.isInteger(result.line) &&
+    result.line > 0
+  )
+    detail.line = result.line
+  return detail
+}
+
+function readEnvironment(value: unknown): PythonEnvironment | undefined {
+  if (
+    !isObject(value) ||
+    typeof value.python !== 'string' ||
+    !isObject(value.packages)
+  )
+    return undefined
+  const packages: Record<string, string> = {}
+  for (const [name, version] of Object.entries(value.packages)) {
+    if (typeof version !== 'string') return undefined
+    packages[name] = version
+  }
+  return { python: value.python, packages }
 }
 
 async function boundedJson(
@@ -325,6 +379,7 @@ export async function executePythonTransform(
         : response.status === 503 || response.status === 401
           ? 'runner_unavailable'
           : 'transform_failed',
+      failureDetail(result),
     )
   }
   if (
@@ -373,6 +428,7 @@ export async function executePythonTransform(
     rows: result.rows as Record<string, unknown>[],
     logs: result.logs as string[],
     runtime: result.runtime,
+    environment: readEnvironment(result.environment),
     files,
     usage: {
       inputBytes: Buffer.byteLength(body),
@@ -383,8 +439,15 @@ export async function executePythonTransform(
   }
 }
 
+/** What the runner offers: the immutable image, and when it could be read, its contents. */
+export interface PythonRuntimeInfo {
+  runtime: string
+  python?: string
+  packages?: Record<string, string>
+}
+
 /** Fetch the configured immutable runtime only after the runner checks it is installed. */
-export async function getPythonRuntime(): Promise<string> {
+export async function getPythonRuntimeInfo(): Promise<PythonRuntimeInfo> {
   const runnerUrl = process.env.PIPELINE_PYTHON_RUNNER_URL
   const token = process.env.PIPELINE_PYTHON_RUNNER_TOKEN
   if (!runnerUrl || !token || token.length < 32)
@@ -417,11 +480,23 @@ export async function getPythonRuntime(): Promise<string> {
       !DIGEST_IMAGE.test(result.runtime)
     )
       throw new Error('runtime unavailable')
-    return result.runtime
+    const packages: Record<string, string> = {}
+    if (isObject(result.packages))
+      for (const [name, version] of Object.entries(result.packages))
+        if (typeof version === 'string') packages[name] = version
+    return {
+      runtime: result.runtime,
+      ...(typeof result.python === 'string' ? { python: result.python } : {}),
+      ...(isObject(result.packages) ? { packages } : {}),
+    }
   } catch {
     throw new PipelinePythonError(
       'Python runner is unavailable. Ask an administrator to configure the runtime.',
       'runner_unavailable',
     )
   }
+}
+
+export async function getPythonRuntime(): Promise<string> {
+  return (await getPythonRuntimeInfo()).runtime
 }

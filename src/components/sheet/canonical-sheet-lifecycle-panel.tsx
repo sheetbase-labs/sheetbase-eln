@@ -16,7 +16,6 @@ import {
   ConfirmDialogTitle,
 } from '#/components/v3/ui/confirm-dialog'
 import { Input } from '#/components/v3/ui/input'
-import { DataClientError } from '#/lib/data-client'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import {
   extractSheetDefinitionDraft,
@@ -47,9 +46,21 @@ import {
 import { sheetDefinitionUpgradeAvailability } from '#/lib/reuse-upgrade'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 
+/**
+ * The server's refusal in the language of the page. A sheet made by pasting or
+ * typing has local columns only, which a definition-backed write (materialise,
+ * extract) cannot use, so those refusals point at the way that does work.
+ */
+export function lifecycleErrorText(message: string): string {
+  if (/active Definition-backed Sheet Instance required/i.test(message))
+    return 'This sheet is not backed by a definition, so it cannot be written out as a dataset as it stands. To keep its data, promote a column into a model from the column menu.'
+  if (/local row identity must be one declared reference/i.test(message))
+    return 'A definition needs one reference column that says what each row is about, and this sheet has none. To keep its data, promote a column into a model from the column menu.'
+  return message
+}
+
 function errorText(error: unknown) {
-  if (error instanceof DataClientError) return error.message
-  if (error instanceof Error) return error.message
+  if (error instanceof Error) return lifecycleErrorText(error.message)
   return null
 }
 

@@ -4,6 +4,11 @@
  * not OAuth/IdP or product credential-enrolment acceptance. Independent
  * verification, consent, password proof, practice and signing use real HTTP.
  * Run with auth-free mode disabled and a freshly migrated local database.
+ *
+ * Journeys walked here: REV-05 (approve, then sign, so the record locks),
+ * REV-06 (witness), REV-07 (a first-time signer is verified and certified
+ * before signing), REV-09 (signatures and audit trail of a locked record) and
+ * REV-10 (amend with a stated reason).
  */
 import { createHmac, randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -316,6 +321,8 @@ function parseSubmission(result: unknown) {
   }
 }
 
+test.setTimeout(90_000)
+
 test('independent certification, practice, password focus and exact-digest signing use real HTTP', async ({
   page,
   browser,
@@ -484,7 +491,7 @@ test('independent certification, practice, password focus and exact-digest signi
   expect(sessionOnly.body).toMatchObject({
     error: { message: 'fresh password token required' },
   })
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.getByRole('button', { name: 'Sign later', exact: true }).click()
   await expect(page.getByLabel('Signing password')).toBeHidden()
   await page.reload()
   await page
@@ -826,6 +833,8 @@ test('controlled author submission certifies and signs atomically through the re
   ).toBeVisible()
   await dialog.getByRole('button', { name: 'Check snapshot' }).click()
   await expect(dialog.getByText(/Integrity check:/)).toBeVisible()
+  // A reviewer is chosen, not assumed: the author is no longer preselected.
+  await dialog.getByLabel(new RegExp(signerName)).check()
   await expect(
     dialog.getByRole('button', { name: 'Submit', exact: true }),
   ).toBeDisabled()
@@ -933,9 +942,15 @@ test('controlled author submission certifies and signs atomically through the re
   } finally {
     await ownerContext.close()
   }
-  const witnessCandidates = page.waitForResponse((response) =>
-    response.url().endsWith('/rpc/signature_witness_candidates'),
-  )
+  // Read the body as the response arrives: the page can navigate on after it,
+  // and a body read later is then gone.
+  let candidatesBody: Promise<unknown> = Promise.resolve(null)
+  const witnessCandidates = page.waitForResponse((response) => {
+    if (!response.url().endsWith('/rpc/signature_witness_candidates'))
+      return false
+    candidatesBody = response.json()
+    return true
+  })
   await page.reload()
   const candidatesResponse = await witnessCandidates
   expect(candidatesResponse.status()).toBe(200)
@@ -948,7 +963,7 @@ test('controlled author submission certifies and signs atomically through the re
         can_read_record: z.boolean(),
       }),
     )
-    .parse(await candidatesResponse.json())
+    .parse(await candidatesBody)
   // REV-03: the server answers the record-read question per candidate. The
   // administrator holds View but not record-read authority, because a draft
   // experiment stays private to its author and to workspace owners.
@@ -1250,7 +1265,7 @@ test('controlled author submission certifies and signs atomically through the re
       'Renamed current author profile',
     ])
     await page.goto(`/records/${controlledRecord}/notebook`)
-    await page.getByRole('button', { name: /^Signatures/ }).click()
+    await page.getByRole('link', { name: /^Signatures/ }).click()
     // SignaturesTable renders one `Table` labelled "Signatures" for the whole
     // record's evidence; the older 'Immutable signatures' label is gone, and the
     // name cell holds the recorded signer name alone.
@@ -1313,4 +1328,51 @@ test('controlled author submission certifies and signs atomically through the re
     await reviewerContext.close()
     await witnessContext.close()
   }
+})
+
+test('REV-09 and REV-10 a signed notebook shows its signatures and audit trail, and is amended only with a stated reason', async ({
+  page,
+}) => {
+  test.setTimeout(90_000)
+  // The first test signed `record` with the approving meaning, which locks it.
+  expect(
+    (
+      await admin.query('select locked_at from api.records where id=$1', [
+        record,
+      ])
+    ).rows[0].locked_at,
+  ).not.toBeNull()
+
+  // REV-09: QA reads the signatures and the audit trail of the locked record.
+  await signInAsDesignUser(page, signer)
+  await page.goto(`/experiments/${record}/signatures`)
+  const table = page.getByRole('table', { name: 'Signatures' })
+  await expect(
+    table.getByRole('cell', { name: signerName, exact: true }).first(),
+  ).toBeVisible()
+  await page.goto(`/settings/audit?record=${record}`)
+  await expect(page.getByText('EXP-REV03-BROWSER').first()).toBeVisible()
+
+  // REV-10: the author reopens it. A reason is required.
+  await signInAsDesignUser(page, author)
+  await page.goto(`/experiments/${record}/notebook`)
+  await expect(page.getByText(/Scientific evidence is frozen/)).toBeVisible()
+  await page.getByRole('button', { name: 'Amend', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Amend Notebook' })
+  await expect(
+    dialog.getByRole('button', { name: 'Confirm amendment' }),
+  ).toBeDisabled()
+  await dialog
+    .getByLabel('Reason for the amendment')
+    .fill('Correct the plate layout noted in review.')
+  await dialog.getByRole('button', { name: 'Confirm amendment' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText(/Scientific evidence is frozen/)).toHaveCount(0)
+  expect(
+    (
+      await admin.query('select locked_at from api.records where id=$1', [
+        record,
+      ])
+    ).rows[0].locked_at,
+  ).toBeNull()
 })

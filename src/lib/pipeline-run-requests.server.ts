@@ -23,6 +23,11 @@ import {
   wakePipelineWorker,
 } from './pipeline-queue.server'
 import type { PipelineJobState } from './pipeline-queue.server'
+import { loadSigningKey, verifyRunManifest } from './pipeline-manifest.server'
+import type {
+  ManifestVerification,
+  RunManifest,
+} from './pipeline-manifest.server'
 import type { PipelineRunWire } from './pipelines/types'
 
 export interface PipelineRunRequestDeps {
@@ -212,6 +217,105 @@ export async function handlePipelineRunState(
     const body: PipelineRunStateBody = {
       run,
       job: await getPipelineJobState(conn, runId),
+    }
+    return Response.json(body, { headers: { 'Cache-Control': 'no-store' } })
+  } finally {
+    await conn.end().catch(() => {})
+  }
+}
+
+export interface PipelineManifestBody {
+  runId: string
+  sequence: number
+  manifest: RunManifest
+  manifestDigest: string
+  previousDigest: string | null
+  signature: string | null
+  signatureAlgorithm: string | null
+  keyId: string | null
+  signedAt: string
+  /** PEM of the key that verifies `signature`; null for an unsigned manifest. */
+  publicKey: string | null
+  /** The server's own check, so a reader sees at once whether it holds. */
+  verification: ManifestVerification
+}
+
+/**
+ * GET /api/pipelines/manifest?runId=… — the signed manifest for a succeeded run,
+ * with the public key and the server's verification. An auditor can re-verify it
+ * offline with scripts/verify-pipeline-manifest.mjs.
+ */
+export async function handlePipelineManifest(
+  request: Request,
+  deps: PipelineRunRequestDeps = defaultDeps,
+): Promise<Response> {
+  const session = await deps.getSession(request.headers)
+  if (!session) {
+    return responseError(401, 'unauthenticated', 'Authentication is required.')
+  }
+  const runId = new URL(request.url).searchParams.get('runId')
+  if (!runId || !UUID.test(runId)) {
+    return responseError(400, 'invalid_request', 'A valid runId is required.')
+  }
+  const conn = await deps.connect()
+  try {
+    const access = await loadAccess(conn, runId, session.user.id)
+    if (!access?.role)
+      return responseError(404, 'run_not_found', 'Pipeline run not found.')
+    const { rows } = await conn.query<{
+      sequence: string
+      manifest: RunManifest
+      manifest_digest: string
+      previous_digest: string | null
+      signature: string | null
+      signature_algorithm: string | null
+      key_id: string | null
+      signed_at: Date
+    }>(
+      `SELECT sequence::text, manifest, manifest_digest, previous_digest,
+              signature, signature_algorithm, key_id, signed_at
+         FROM api.pipeline_run_manifests WHERE run_id = $1`,
+      [runId],
+    )
+    const row = rows.at(0)
+    if (!row)
+      return responseError(
+        404,
+        'manifest_not_found',
+        'This run has no manifest: only succeeded runs are recorded.',
+      )
+    const previous = await conn.query<{ manifest_digest: string }>(
+      `SELECT manifest_digest FROM api.pipeline_run_manifests
+        WHERE workspace_id = $1 AND sequence = $2::bigint - 1`,
+      [access.workspace_id, row.sequence],
+    )
+    const key = loadSigningKey()
+    const publicKey =
+      key && key.keyId === row.key_id
+        ? key.publicKey.export({ type: 'spki', format: 'pem' }).toString()
+        : null
+    const stored = {
+      manifest: row.manifest,
+      manifestDigest: row.manifest_digest,
+      previousDigest: row.previous_digest,
+      signature: row.signature,
+    }
+    const body: PipelineManifestBody = {
+      runId,
+      sequence: Number(row.sequence),
+      manifest: row.manifest,
+      manifestDigest: row.manifest_digest,
+      previousDigest: row.previous_digest,
+      signature: row.signature,
+      signatureAlgorithm: row.signature_algorithm,
+      keyId: row.key_id,
+      signedAt: row.signed_at.toISOString(),
+      publicKey,
+      verification: verifyRunManifest(
+        stored,
+        publicKey,
+        previous.rows.at(0)?.manifest_digest ?? null,
+      ),
     }
     return Response.json(body, { headers: { 'Cache-Control': 'no-store' } })
   } finally {

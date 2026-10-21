@@ -135,7 +135,9 @@ export function SignaturesTable({
                 </TableCell>
                 <TableCell>
                   <time dateTime={signature.signed_at}>
-                    {formatNotebookDateTime(signature.signed_at)}
+                    {formatNotebookDateTime(signature.signed_at, {
+                      zone: true,
+                    })}
                   </time>
                 </TableCell>
                 <TableCell className="mono text-fg-muted">

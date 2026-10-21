@@ -1,3 +1,4 @@
+import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { Button } from '#/components/v3/ui/button'
 import { Muted } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -82,7 +83,9 @@ export function ParserVersions({
                 <TableCell title={version.validated_at ?? undefined}>
                   {version.validated_at ? (
                     <time dateTime={version.validated_at}>
-                      {version.validated_at.slice(0, 10)}
+                      {formatNotebookDateTime(version.validated_at, {
+                        zone: true,
+                      })}
                     </time>
                   ) : (
                     'Not tested'
@@ -97,7 +100,9 @@ export function ParserVersions({
                 >
                   {version.approved_at ? (
                     <time dateTime={version.approved_at}>
-                      {version.approved_at.slice(0, 10)}
+                      {formatNotebookDateTime(version.approved_at, {
+                        zone: true,
+                      })}
                     </time>
                   ) : (
                     'Not approved'

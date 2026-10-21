@@ -18,6 +18,7 @@ import {
   createProject,
   createUser,
   createWorkspace,
+  DESIGN_USER,
   open,
   signIn,
   signInAs,
@@ -323,12 +324,35 @@ test.describe('as the seeded workspace admin', () => {
     ).toBeVisible()
   })
 
-  // Known gap: no personal time zone exists yet; dates render in UTC.
-  test.fixme('ADMIN-19 the profile holds a personal time zone', async ({
-    page,
-  }) => {
-    await open(page, '/settings/profile')
-    await expect(page.getByLabel(/time ?zone/i)).toBeVisible()
+  test('ADMIN-19 the profile holds a personal time zone', async ({ page }) => {
+    // Other journeys sign in as this user and read times in UTC, so the zone
+    // is cleared before and after.
+    const clearZone = () =>
+      withAdminDb((db) =>
+        db.query(
+          'update api.user_preferences set timezone = null where user_id = $1',
+          [DESIGN_USER],
+        ),
+      )
+    const savedZone = () =>
+      withAdminDb(async (db) => {
+        const result = await db.query<{ timezone: string | null }>(
+          'select timezone from api.user_preferences where user_id = $1',
+          [DESIGN_USER],
+        )
+        return result.rows[0]?.timezone ?? null
+      })
+    await clearZone()
+    try {
+      await open(page, '/settings/profile')
+      await page.getByLabel('Time zone').fill('America/New_York')
+      await page.getByRole('button', { name: 'Save changes' }).click()
+      await expect.poll(savedZone).toBe('America/New_York')
+      await page.reload()
+      await expect(page.getByLabel('Time zone')).toHaveValue('America/New_York')
+    } finally {
+      await clearZone()
+    }
   })
 
   test('ADMIN-21 signing out leaves the sign-in page with the state named', async ({

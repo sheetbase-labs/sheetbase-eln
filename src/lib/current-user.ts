@@ -33,6 +33,11 @@ export interface CurrentContext {
     role: string
     suspended?: boolean
   }>
+  /**
+   * The IANA zone times are shown in: the person's own setting, else the
+   * workspace's. Stored instants stay UTC; this only picks the wall clock.
+   */
+  timeZone: string
   /** COLLAB: Liveblocks substrate configured on this deployment? */
   collaborationEnabled: boolean
 }
@@ -88,6 +93,11 @@ export async function getCurrentContext(
     preference?.activeWorkspaceId,
   )
   const suspended = Boolean(membership?.suspendedAt)
+  const workspaceSettings = membership
+    ? await db.query.workspaceSettings.findFirst({
+        where: eq(schema.workspaceSettings.workspaceId, membership.workspaceId),
+      })
+    : undefined
   const accessContacts =
     membership && suspended
       ? await listAccessContacts(membership.workspaceId)
@@ -109,6 +119,7 @@ export async function getCurrentContext(
         }
       : null,
     accessContacts,
+    timeZone: preference?.timezone ?? workspaceSettings?.timezone ?? 'UTC',
     workspaces: memberships.map((item) => ({
       id: item.workspace.id,
       slug: item.workspace.slug,

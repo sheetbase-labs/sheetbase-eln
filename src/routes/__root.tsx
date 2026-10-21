@@ -1,3 +1,4 @@
+import { setDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   HeadContent,
   Outlet,
@@ -122,6 +123,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       notifications,
       themePref,
     } = await getAuthContextFn()
+    setDisplayTimeZone(auth?.timeZone)
     return {
       auth,
       capabilities,
@@ -145,6 +147,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootRouteComponent() {
   const { auth, shellCounts, shellPinned, shellNotifications } =
     Route.useRouteContext()
+  // Hydration restores the dehydrated route context without re-running
+  // `beforeLoad`, so the first browser render sets the display zone here. It
+  // is a no-op when `beforeLoad` already did.
+  setDisplayTimeZone(auth?.timeZone)
 
   // R5-SHELL-01: the adopted (v3) shell is the default for every route, so a
   // new product route cannot silently appear without product navigation. Only

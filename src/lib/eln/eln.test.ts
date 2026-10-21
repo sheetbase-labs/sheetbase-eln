@@ -199,7 +199,14 @@ describe('parseElnArchive', () => {
     expect(exp.blocks).toHaveLength(1)
     expect(exp.blocks[0].payload).toEqual(doc('Added buffer.'))
     expect(plan.warnings.join(' ')).toContain('non-text block')
-    expect(plan.warnings.join(' ')).toContain('attached file')
+    // trace.csv and the dataset CSV are counted; the signature and audit
+    // sidecars are reported on their own line, not as attachments.
+    expect(plan.warnings.join(' ')).toContain(
+      '2 attached file(s) were not imported',
+    )
+    expect(plan.warnings.join(' ')).toContain(
+      'signatures and audit history stay with the source',
+    )
   })
 
   it('imports a foreign RO-Crate experiment as text', () => {

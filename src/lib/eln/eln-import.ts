@@ -140,17 +140,27 @@ export function parseElnArchive(bytes: Uint8Array): ElnImportPlan {
     const nativeBytes = entries.get(nativePath)
     const label = clampTitle(entity.name, id)
 
-    // Everything beyond text is reported, never silently dropped.
-    const skippedFiles = asList(entity.hasPart)
+    // Everything beyond text is reported, never silently dropped. A Sheetbase
+    // archive's signature and audit sidecars are evidence of the source
+    // system, not attachments, so they are reported on their own line.
+    const fileParts = asList(entity.hasPart)
       .map(ref)
       .filter((p): p is string => !!p)
       .filter(
         (p) =>
           byId.get(p)?.['@type'] === 'File' && !p.endsWith('/experiment.json'),
       )
+    const isSidecar = (p: string) =>
+      p.endsWith('/signatures.json') || p.endsWith('/audit.csv')
+    const skippedFiles = fileParts.filter((p) => !isSidecar(p))
     if (skippedFiles.length > 0) {
       warnings.push(
         `${label}: ${skippedFiles.length} attached file(s) were not imported.`,
+      )
+    }
+    if (fileParts.some(isSidecar)) {
+      warnings.push(
+        `${label}: signatures and audit history stay with the source; they were not imported.`,
       )
     }
 

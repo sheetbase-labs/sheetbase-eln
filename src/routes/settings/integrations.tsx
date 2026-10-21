@@ -28,6 +28,7 @@ import {
 
 // Register built-in instrument parsers before the catalogue renders.
 import '#/lib/connectors/plate-reader'
+import '#/lib/connectors/instrument-parsers'
 
 /** UI port (roadmap-4/ui-app3): integrations moved under Settings. The connector
  * registry is real; only owners, admins and stewards register or pause. */

@@ -46,6 +46,7 @@ import { ingestInstrumentPayload } from '#/lib/connectors/instrument-ingestion'
 import type { InstrumentIngestionResult } from '#/lib/connectors/instrument-ingestion'
 // Register built-in instrument parsers before this panel renders.
 import '#/lib/connectors/plate-reader'
+import '#/lib/connectors/instrument-parsers'
 
 const dataClient = createDataClient()
 
@@ -251,7 +252,7 @@ export function IngestPanel({
           label="Instrument file"
           inputLabel="Instrument file"
           hint="The raw file is retained, then read by the parser."
-          accept=".csv,.tsv,text/csv,text/tab-separated-values"
+          accept=".csv,.tsv,.txt,.json,text/csv,text/tab-separated-values,application/json"
           disabled={mutation.isPending}
           onFile={(picked) => setFile(picked)}
         />

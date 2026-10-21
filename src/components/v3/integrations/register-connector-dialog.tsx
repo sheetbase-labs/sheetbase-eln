@@ -25,6 +25,7 @@ import { CONNECTOR_DIRECTIONS, CONNECTOR_TYPES } from '#/lib/connectors/types'
 import type { ConnectorDirection, ConnectorType } from '#/lib/connectors/types'
 // Ensure instrument parsers are registered before the catalogue renders.
 import '#/lib/connectors/plate-reader'
+import '#/lib/connectors/instrument-parsers'
 
 const dataClient = createDataClient()
 

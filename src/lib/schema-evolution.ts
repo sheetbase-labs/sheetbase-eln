@@ -268,6 +268,8 @@ export function describeColumnPromotionError(error: unknown): string {
       'Some values in this column cannot be promoted to the dataset. Fix or clear them, then try again.',
     SB072:
       'This dataset already has a draft schema version pending. Publish or discard it before promoting again.',
+    SB089:
+      'The dataset the model describes needs values for fields this sheet does not have. Promote into a model whose other fields are optional, or bring those columns into the sheet first.',
     '22023': 'Check the dataset and reason, then try again.',
     '42501': 'You do not have permission to promote columns in this sheet.',
   }

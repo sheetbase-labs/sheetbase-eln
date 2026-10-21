@@ -26,8 +26,10 @@ import {
 import type { ApprovalRequest } from '#/lib/approval-requests'
 import { objectPath } from '#/lib/navigation'
 import { notebookDataClient, formatNotebookDateTime } from '#/lib/notebook-data'
+import { DataClientError } from '#/lib/data-client'
 import {
   applyColumnPromotion,
+  describeColumnPromotionError,
   listOpenColumnPromotions,
 } from '#/lib/schema-evolution'
 import type { ColumnPromotion } from '#/lib/schema-evolution'
@@ -116,7 +118,12 @@ export function ColumnPromotionsPanel({
   }
   const failed = (title: string) => (cause: unknown) =>
     toast(title, {
-      description: cause instanceof Error ? cause.message : 'Please try again.',
+      description:
+        cause instanceof DataClientError
+          ? describeColumnPromotionError(cause)
+          : cause instanceof Error
+            ? cause.message
+            : 'Please try again.',
     })
 
   const approve = useMutation({

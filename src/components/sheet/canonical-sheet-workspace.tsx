@@ -2436,6 +2436,12 @@ export function CanonicalSheetEditor({
             void queryClient.invalidateQueries({
               queryKey: ['column-promotions'],
             })
+            // The promotions panel above the grid and the steward's Inbox read
+            // the same request, so they learn of it now, not on the next visit.
+            void queryClient.invalidateQueries({
+              queryKey: ['ui-port', 'column-promotions'],
+            })
+            void queryClient.invalidateQueries({ queryKey: ['work-items'] })
           }}
         />
       ) : null}

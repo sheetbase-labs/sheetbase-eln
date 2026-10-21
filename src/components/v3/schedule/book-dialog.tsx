@@ -19,6 +19,7 @@ import { Select } from '#/components/v3/ui/select'
 import { describeCalendarError } from '#/lib/calendar'
 import { DataClientError } from '#/lib/data-client'
 import { fetchWorkspaceGeneral } from '#/lib/workspace-general'
+import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { bookInstrument } from './schedule-data'
 import type {
   BookableSample,
@@ -31,15 +32,16 @@ const DEFAULT_START = '09:00'
 const DEFAULT_END = '10:00'
 
 /**
- * The workspace's IANA time zone — the wall clock a booking is made in. Home
- * renders the same bookings in it, so a booking written in another zone shows a
- * different time there. `null` when the setting cannot be read or resolved: the
+ * The IANA time zone a booking is made in — the person's own, else the
+ * workspace's. Schedule and Home render bookings on the same clock, so a
+ * booking written in another zone would show a different time there. `null` when the setting cannot be read or resolved: the
  * dialog then refuses the booking rather than writing an instant the person did
  * not ask for.
  */
 async function workspaceTimezone(): Promise<string | null> {
   try {
-    const zone = (await fetchWorkspaceGeneral())?.timezone
+    const zone =
+      getDisplayTimeZone() ?? (await fetchWorkspaceGeneral())?.timezone
     if (!zone) return null
     // Resolving the name proves the platform can read it; a name it cannot read
     // would make every conversion silently wrong.

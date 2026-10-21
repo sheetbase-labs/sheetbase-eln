@@ -10,6 +10,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import type { CalendarBookingSample, CalendarBookingWire } from '#/lib/calendar'
 import type { DataClient } from '#/lib/data-client'
 import { listByIds } from '#/lib/chunk-ids'
+import { getDisplayTimeZone } from '#/lib/display-time-zone'
 
 /** UI port (roadmap-4/ui-app3): Schedule books instruments. ADR-0054 makes the
  * booking subject the instrument itself — a booking's resource_id is the
@@ -27,9 +28,9 @@ export interface ScheduleBooking {
   id: string
   resourceId: string
   title: string
-  /** Local ISO day in the booking's timezone. */
+  /** Local ISO day in `timezone`. */
   date: string
-  /** HH:MM in the booking's timezone. */
+  /** HH:MM in `timezone`. */
   start: string
   end: string
   timezone: string
@@ -60,8 +61,13 @@ const timeFmt = (timeZone: string) =>
     hour12: false,
   })
 
+/**
+ * A booking on the viewer's clock: the person's own time zone when they have
+ * set one, otherwise the zone the booking was made in. The instants are UTC
+ * either way; `timezone` names the zone `date`, `start` and `end` are in.
+ */
 export function toScheduleBooking(wire: CalendarBookingWire): ScheduleBooking {
-  const tz = wire.timezone || 'UTC'
+  const tz = getDisplayTimeZone() ?? (wire.timezone || 'UTC')
   return {
     id: wire.id,
     resourceId: wire.resource_id,
@@ -89,7 +95,15 @@ export const scheduleQueryKeys = {
   instruments: (workspaceId: string) =>
     ['schedule', 'instruments', workspaceId] as const,
   bookings: (workspaceId: string, from: string, to: string) =>
-    ['schedule', 'bookings', workspaceId, from, to] as const,
+    [
+      'schedule',
+      'bookings',
+      workspaceId,
+      from,
+      to,
+      // Bookings are converted to the viewer's zone when read.
+      getDisplayTimeZone() ?? null,
+    ] as const,
 }
 
 /** The bookable instruments: the registry minus anything retired. */

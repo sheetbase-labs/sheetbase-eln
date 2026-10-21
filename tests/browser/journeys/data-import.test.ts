@@ -107,3 +107,9 @@ test('DATA-15 a field added to the model after the record was made can be filled
     page.getByText(/added to this model after this record was created/),
   ).toHaveCount(0)
 })
+
+// DATA-19 needs a server action that moves an existing dataset onto a newer
+// model version. Publishing a version leaves datasets on the version they were
+// made with (that half works), but no RPC rebases a dataset, so there is
+// nothing for a screen to call yet. Un-fixme this when one exists.
+test.fixme('DATA-19 a steward upgrades an existing dataset to the newer model version', async () => {})

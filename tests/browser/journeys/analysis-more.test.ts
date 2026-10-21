@@ -135,3 +135,51 @@ test('ANA-07 an analysis whose source changed is refreshed from the studio', asy
     0,
   )
 })
+
+test('ANA-08 an analysis is rerun on a snapshot, or on other data', async ({
+  page,
+}) => {
+  await open(page, `/datasets/${ELISA_DATASET}/snapshots`)
+  await waitForHydration(page)
+  await page.getByRole('row').nth(1).click()
+  await page.getByRole('link', { name: 'Analyse this snapshot' }).click()
+  await expect(page).toHaveURL(/\/analysis\/new\?.*snapshot=/)
+  await expect(
+    page.getByRole('heading', { name: 'Analysis Studio' }),
+  ).toBeVisible()
+
+  const name = await saveChartView(page)
+  await open(page, '/analysis')
+  await page
+    .getByRole('row', { name: new RegExp(name) })
+    .getByRole('link')
+    .first()
+    .click()
+  await page.getByRole('button', { name: 'Run on other data' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  const other = dialog.getByRole('combobox')
+  const option = other.locator('option', { hasText: /^Titre run/ }).first()
+  await other.selectOption(await option.getAttribute('value'))
+  await dialog.getByRole('button', { name: 'Save copy' }).click()
+  await expect(page).toHaveURL(/\/analysis\/[0-9a-f-]{36}/)
+  await expect(page.getByText(/Titre run/).first()).toBeVisible()
+})
+
+test('ANA-10 a comparison is promoted to a chart without leaving the studio', async ({
+  page,
+}) => {
+  await open(page, `/analysis/new?mode=compare&dataset=${ELISA_DATASET}`)
+  await waitForHydration(page)
+  await page.getByRole('tab', { name: 'Compare' }).click()
+  await page
+    .getByRole('button', { name: /Promote/ })
+    .first()
+    .click()
+  await expect(
+    page.getByRole('tab', { name: 'Chart builder' }),
+  ).toHaveAttribute('aria-selected', 'true')
+  await expect(
+    page.getByRole('radiogroup', { name: 'Chart type' }),
+  ).toBeVisible()
+})

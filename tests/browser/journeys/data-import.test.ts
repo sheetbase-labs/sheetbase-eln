@@ -5,7 +5,14 @@
  */
 import { expect, test } from 'playwright/test'
 
-import { action, open, signIn, uniqueName, waitForHydration } from './helpers'
+import {
+  action,
+  open,
+  signIn,
+  uniqueName,
+  waitForHydration,
+  withAdminDb,
+} from './helpers'
 
 const ELISA_DATASET = '00000000-0000-4000-8000-000000000381'
 
@@ -108,8 +115,85 @@ test('DATA-15 a field added to the model after the record was made can be filled
   ).toHaveCount(0)
 })
 
-// DATA-19 needs a server action that moves an existing dataset onto a newer
-// model version. Publishing a version leaves datasets on the version they were
-// made with (that half works), but no RPC rebases a dataset, so there is
-// nothing for a screen to call yet. Un-fixme this when one exists.
-test.fixme('DATA-19 a steward upgrades an existing dataset to the newer model version', async () => {})
+/**
+ * A model of its own with a dataset on v1, and a published v2 that adds one
+ * optional field. Publishing v2 leaves the dataset on v1 until a steward moves it.
+ */
+async function datasetBehindItsModel(name: string): Promise<string> {
+  return withAdminDb(async (db) => {
+    const workspace = '00000000-0000-4000-8000-000000000300'
+    const definition = await db.query<{ id: string }>(
+      `insert into api.dataset_schema_definitions(workspace_id, key, name, lifecycle)
+       values ($1, $2, $3, 'active') returning id`,
+      [workspace, `journey_${Math.random().toString(36).slice(2, 10)}`, name],
+    )
+    const fieldId = (
+      await db.query<{ id: string }>('select gen_random_uuid() id')
+    ).rows[0]!.id
+    const versions: string[] = []
+    for (const [version, fields] of [
+      [1, [['note', 'Note']]],
+      [
+        2,
+        [
+          ['note', 'Note'],
+          ['reviewer', 'Reviewer'],
+        ],
+      ],
+    ] as const) {
+      const row = await db.query<{ id: string }>(
+        `insert into api.dataset_schema_versions(schema_id, "version", lifecycle)
+         values ($1, $2, 'draft') returning id`,
+        [definition.rows[0]!.id, version],
+      )
+      for (const [index, [key, label]] of fields.entries()) {
+        await db.query(
+          `insert into api.dataset_schema_version_fields
+             (schema_version_id, field_id, key, label, logical_type, display_order)
+           values ($1, case when $2 = 'note' then $5::uuid else gen_random_uuid() end, $2, $3, 'text', $4)`,
+          [row.rows[0]!.id, key, label, index + 1, fieldId],
+        )
+      }
+      await db.query(
+        `update api.dataset_schema_versions set lifecycle = 'active', published_at = now() where id = $1`,
+        [row.rows[0]!.id],
+      )
+      versions.push(row.rows[0]!.id)
+    }
+    const dataset = await db.query<{ id: string }>(
+      `insert into api.datasets(workspace_id, schema_version_id, name)
+       values ($1, $2, $3) returning id`,
+      [workspace, versions[0], name],
+    )
+    return dataset.rows[0]!.id
+  })
+}
+
+test('DATA-19 a steward upgrades an existing dataset to the newer model version', async ({
+  page,
+}) => {
+  const name = uniqueName('Behind its model')
+  const datasetId = await datasetBehindItsModel(name)
+  await open(page, `/datasets/${datasetId}`)
+  await page.getByRole('button', { name: 'Model v2 available' }).click()
+  const dialog = page.getByRole('dialog')
+  // The preview says what the move changes before anything is written.
+  await expect(dialog.getByText(/Reviewer/)).toBeVisible()
+  await dialog.getByRole('button', { name: 'Upgrade to v2' }).click()
+  await expect(page.getByText('Dataset now follows model v2')).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Model v2 available' }),
+  ).toHaveCount(0)
+  const followed = await withAdminDb(
+    async (db) =>
+      (
+        await db.query<{ version: number }>(
+          `select v."version" from api.datasets d
+           join api.dataset_schema_versions v on v.id = d.schema_version_id
+          where d.id = $1`,
+          [datasetId],
+        )
+      ).rows[0]?.version,
+  )
+  expect(followed).toBe(2)
+})

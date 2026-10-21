@@ -26,7 +26,11 @@ test('DATA-23 a dataset linked from the notebook opens on its own page', async (
   page,
 }) => {
   const path = await createProject(page, uniqueName('Data link'))
-  await createExperiment(page, path, uniqueName('Uses a dataset'))
+  const experimentId = await createExperiment(
+    page,
+    path,
+    uniqueName('Uses a dataset'),
+  )
   await waitForHydration(page)
   await page.locator('[contenteditable="true"]').first().click()
   await page.keyboard.type('/linked')
@@ -58,6 +62,12 @@ test('DATA-23 a dataset linked from the notebook opens on its own page', async (
   await expect(link).toHaveAttribute('href', /\/datasets\/[0-9a-f-]{36}$/)
   await link.click()
   await expect(page).toHaveURL(/\/datasets\/[0-9a-f-]{36}/, { timeout: 15_000 })
+
+  // The same dataset is on the experiment's Links tab, not only in the note.
+  await open(page, `/experiments/${experimentId}/links`)
+  await expect(
+    page.getByRole('link', { name: /^DS-\d+$/ }).first(),
+  ).toBeVisible()
 })
 
 const ELISA_DATASET = '00000000-0000-4000-8000-000000000381'

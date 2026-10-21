@@ -719,6 +719,10 @@ describe('Pipeline execution (AUTO-02)', () => {
     await close()
     expect(report.ok).toBe(false)
     expect(report.errorCode).toBe('transform_failed')
+    // The failure names the columns the input does have.
+    expect(report.errorMessage).toMatch(
+      /Available: measurements\(batch, value, scaled\)/,
+    )
   })
 
   it('fails a run when an input Dataset Version is missing', async () => {

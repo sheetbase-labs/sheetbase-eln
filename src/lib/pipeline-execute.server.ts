@@ -25,6 +25,7 @@
  * input digest replays the prior success (idempotent); a retry links a new
  * attempt to the failed run.
  */
+import { buildResultPreview } from '#/lib/pipelines/result-preview'
 import { Client } from 'pg'
 import {
   PipelinePythonError,
@@ -576,6 +577,7 @@ async function finishExecution(
   const completion = {
     actions: actionResults,
     rowCount: transform.rows.length,
+    resultPreview: buildResultPreview(transform.rows),
     // PIPE-04.3: the run's peak measured Python payload usage (omitted when no
     // Python step ran). Stored on the run so the UI can show storage/limits.
     pythonUsage: transform.usage,
@@ -1890,11 +1892,37 @@ async function executeTransform(
         message: `Transform exceeded the ${EXECUTION_TIMEOUT_SECONDS}s execution limit.`,
       }
     }
+    const hint = /does not exist/i.test(message)
+      ? await availableColumnsHint(conn)
+      : ''
     return {
       kind: 'error',
       code: 'transform_failed',
-      message: `Transform failed: ${truncate(message, 500)}`,
+      message: `Transform failed: ${truncate(message, 500)}${hint}`,
     }
+  }
+}
+
+/**
+ * When a transform names a table or column that is not there, say what is:
+ * the declared inputs (and `previous`) with their column keys. Best effort;
+ * the failure is reported either way.
+ */
+async function availableColumnsHint(conn: ExecConnection): Promise<string> {
+  try {
+    const { rows } = await conn.query<{ table_name: string; columns: string }>(
+      `SELECT c.table_name, string_agg(c.column_name, ', ' ORDER BY c.ordinal_position) AS columns
+         FROM information_schema.columns c
+        WHERE c.table_schema = pg_my_temp_schema()::regnamespace::text
+          AND c.column_name NOT LIKE '\\_sb\\_%'
+        GROUP BY c.table_name
+        ORDER BY c.table_name`,
+    )
+    if (rows.length === 0) return ''
+    const listing = rows.map((r) => `${r.table_name}(${r.columns})`).join('; ')
+    return `. Available: ${truncate(listing, 600)}`
+  } catch {
+    return ''
   }
 }
 

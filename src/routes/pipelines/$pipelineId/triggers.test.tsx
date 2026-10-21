@@ -12,7 +12,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route, scheduleParametersLabel, scheduleSpecLabel } from './triggers'
-import { PIPELINE_TRIGGER_EVENTS } from '#/lib/pipeline-schedule'
+import { formatNotebookDateTime } from '#/lib/notebook-data'
 import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
 import type * as PipelineData from '#/lib/pipelines/data'
 import type {
@@ -29,6 +29,8 @@ const state = vi.hoisted(() => ({
   inputNames: [] as string[],
   parameters: [] as Array<Record<string, unknown>>,
   created: [] as Array<Record<string, unknown>>,
+  updated: [] as Array<Record<string, unknown>>,
+  latestRuns: new Map<string, Record<string, unknown>>(),
 }))
 
 // jsdom reports no layout, so the grid's virtualiser would render no rows: give
@@ -46,6 +48,13 @@ vi.mock('@tanstack/react-router', () => ({
     useRouteContext: () => ({ context: { workspace: { id: 'ws-1' } } }),
     options: config,
   }),
+  Link: ({
+    children,
+    params,
+  }: {
+    children: React.ReactNode
+    params?: { runId?: string }
+  }) => createElement('a', { href: `/runs/${params?.runId}` }, children),
 }))
 
 vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
@@ -57,11 +66,22 @@ vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
     state.created.push(input)
     return Promise.resolve({})
   },
+  updatePipelineSchedule: (
+    _client: unknown,
+    input: Record<string, unknown>,
+  ) => {
+    state.updated.push(input)
+    return Promise.resolve({ enabled: input.enabled ?? true })
+  },
 }))
 
 vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
   ...(await importOriginal<typeof pipelinesDataModule>()),
   useSchedules: () => ({ data: state.schedules }),
+  useLatestScheduleRuns: () => ({ data: state.latestRuns }),
+  useScheduleRuns: () => ({ data: [], isLoading: false }),
+  useScheduleActivity: () => ({ data: [], isLoading: false }),
+  useDatasetVersionChoices: () => ({ data: [] }),
   usePipelineVersions: () => ({
     isSuccess: true,
     data: [
@@ -90,6 +110,7 @@ function schedule(
     next_run_at: '2026-10-14T08:10:00.000Z',
     last_evaluated_at: null,
     last_evaluated_sequence: null,
+    input_watermarks: {},
     created_at: '2026-10-01T09:00:00.000Z',
     updated_at: '2026-10-01T09:00:00.000Z',
     created_by_user_id: null,
@@ -118,6 +139,8 @@ afterEach(() => {
   state.inputNames = []
   state.parameters = []
   state.created = []
+  state.updated = []
+  state.latestRuns = new Map()
 })
 
 const noDatasets = new Map<string, string>()
@@ -126,10 +149,10 @@ describe('scheduleSpecLabel', () => {
   it('reads an interval spec as a duration', () => {
     expect(
       scheduleSpecLabel('interval', { intervalMinutes: 60 }, noDatasets),
-    ).toBe('Every 1 h')
+    ).toBe('Every hour')
     expect(
       scheduleSpecLabel('interval', { intervalMinutes: 15 }, noDatasets),
-    ).toBe('Every 15 min')
+    ).toBe('Every 15 minutes')
   })
 
   it('reads a daily spec as a time in its zone', () => {
@@ -153,14 +176,14 @@ describe('scheduleSpecLabel', () => {
         { eventType: 'dataset.versioned' },
         noDatasets,
       ),
-    ).toBe('dataset.versioned')
+    ).toBe('A Dataset gets a new version')
     expect(
       scheduleSpecLabel(
         'event',
         { eventType: 'dataset.versioned', datasetId: 'ds-1' },
         new Map([['ds-1', 'Plate reader readings']]),
       ),
-    ).toBe('dataset.versioned · Plate reader readings')
+    ).toBe('A Dataset gets a new version · Plate reader readings')
   })
 
   it('renders a gap rather than raw jsonb when the spec cannot be read', () => {
@@ -177,7 +200,9 @@ describe('scheduleSpecLabel', () => {
     )
 
     expect(label).not.toContain('ds-unreadable')
-    expect(label).toBe('dataset.versioned · Dataset no longer readable')
+    expect(label).toBe(
+      'A Dataset gets a new version · Dataset no longer readable',
+    )
   })
 })
 
@@ -205,7 +230,11 @@ describe('a schedule the sweep can never fire', () => {
     const { getByText, queryByText } = renderTriggers()
 
     expect(getByText('Daily at 09:10 (Europe/London)')).toBeTruthy()
-    expect(getByText('2026-10-14 08:10')).toBeTruthy()
+    expect(
+      getByText(
+        formatNotebookDateTime('2026-10-14T08:10:00.000Z', { zone: true }),
+      ),
+    ).toBeTruthy()
     expect(queryByText(/cannot be interpreted/)).toBeNull()
   })
 
@@ -225,7 +254,11 @@ describe('a schedule the sweep can never fire', () => {
 
     expect(getByText(/so its triggers will not fire/)).toBeTruthy()
     expect(getByText('No published version')).toBeTruthy()
-    expect(queryByText('2026-10-14 11:20')).toBeNull()
+    expect(
+      queryByText(
+        formatNotebookDateTime('2026-10-14T11:20:00.000Z', { zone: true }),
+      ),
+    ).toBeNull()
   })
 
   it('does not call an event trigger broken for having no wall-clock next run', () => {
@@ -248,13 +281,14 @@ describe('a schedule the sweep can never fire', () => {
     renderTriggers()
 
     fireEvent.click(screen.getAllByText('New trigger')[0])
-    fireEvent.click(screen.getByText('On an event'))
-    fireEvent.change(screen.getByDisplayValue(PIPELINE_TRIGGER_EVENTS[0]), {
-      target: { value: 'dataset.versioned' },
+    fireEvent.change(screen.getByLabelText(/^Runs/), {
+      target: { value: 'event' },
     })
-    const select = screen.getByText('Bind the new version to')
-    expect(select).toBeTruthy()
+    expect(screen.getByText('Bind the new version to')).toBeTruthy()
     expect(screen.getByRole('option', { name: 'calibration' })).toBeTruthy()
+    // The bound input reads the version that started the run; the other follows its Dataset.
+    expect(screen.getByText(/reads the Dataset/)).toBeTruthy()
+    expect(screen.getByLabelText('How calibration picks its data')).toBeTruthy()
   })
 
   it('passes the parameter values to the runs a trigger starts', async () => {
@@ -301,11 +335,99 @@ describe('a schedule the sweep can never fire', () => {
     renderTriggers()
 
     fireEvent.click(screen.getAllByText('New trigger')[0])
-    fireEvent.click(screen.getByText('On an event'))
-    fireEvent.change(screen.getByDisplayValue(PIPELINE_TRIGGER_EVENTS[0]), {
-      target: { value: 'dataset.versioned' },
+    fireEvent.change(screen.getByLabelText(/^Runs/), {
+      target: { value: 'event' },
     })
-    expect(screen.getByText('Instrument filter')).toBeTruthy()
+    expect(screen.getByText('Only imports from this instrument')).toBeTruthy()
     expect(screen.getByText('Any instrument')).toBeTruthy()
+  })
+
+  it('reads a weekday cron trigger in plain words with its zone', () => {
+    state.schedules = [
+      schedule({
+        kind: 'cron',
+        spec: { cron: '30 7 * * 1-5', timeZone: 'Europe/London' },
+      }),
+    ]
+    const { getByText } = renderTriggers()
+
+    expect(getByText('Weekdays at 07:30 (Europe/London)')).toBeTruthy()
+  })
+
+  it('shows what an input follows and the missed-run policy on the row', () => {
+    state.schedules = [
+      schedule({
+        spec: {
+          dailyAt: '06:00',
+          timeZone: 'UTC',
+          missedRunPolicy: 'skip',
+          inputs: {
+            readings: { mode: 'incremental', datasetId: 'ds-1' },
+          },
+        },
+      }),
+    ]
+    const { getByText } = renderTriggers()
+
+    expect(getByText(/readings: new versions of a Dataset only/)).toBeTruthy()
+    expect(getByText('Skips runs it misses')).toBeTruthy()
+  })
+
+  it('shows the last run and a paused trigger as paused', () => {
+    state.schedules = [schedule({ enabled: false })]
+    state.latestRuns = new Map([
+      [
+        'sched-1',
+        {
+          id: 'run-9',
+          status: 'failed',
+          started_at: '2026-10-13T09:10:00.000Z',
+        },
+      ],
+    ])
+    const { getByText, getAllByText } = renderTriggers()
+
+    expect(getByText('Failed')).toBeTruthy()
+    expect(getAllByText('Paused').length).toBeGreaterThanOrEqual(2)
+    expect(getByText('Resume')).toBeTruthy()
+  })
+
+  it('adds a trigger that follows the latest data, in the person’s own zone', async () => {
+    state.inputNames = ['readings']
+    renderTriggers()
+
+    fireEvent.click(screen.getAllByText('New trigger')[0])
+    const mode = screen.getByLabelText<HTMLSelectElement>(
+      'How readings picks its data',
+    )
+    // Following the latest version is the default; pinning is the opt-in.
+    expect(mode.value).toBe('latest')
+    fireEvent.click(screen.getByText('Add trigger'))
+    // A Dataset must be chosen, or the trigger is refused before it is sent.
+    expect(screen.getByText('Choose a Dataset.')).toBeTruthy()
+    expect(state.created).toHaveLength(0)
+  })
+
+  it('opens a stored trigger to edit and saves its new rule', async () => {
+    state.schedules = [
+      schedule({
+        kind: 'cron',
+        spec: { cron: '0 9 * * 1', timeZone: 'UTC' },
+      }),
+    ]
+    renderTriggers()
+
+    fireEvent.click(screen.getByText('Edit'))
+    const repeat = screen.getByLabelText<HTMLSelectElement>(/^Runs/)
+    expect(repeat.value).toBe('weekly')
+    fireEvent.change(screen.getByLabelText(/^On$/), { target: { value: '3' } })
+    fireEvent.click(screen.getByText('Save trigger'))
+
+    await vi.waitFor(() => expect(state.updated).toHaveLength(1))
+    expect(state.updated[0]).toMatchObject({
+      scheduleId: 'sched-1',
+      kind: 'cron',
+      spec: { cron: '0 9 * * 3', timeZone: 'UTC', missedRunPolicy: 'run_once' },
+    })
   })
 })

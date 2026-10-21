@@ -50,6 +50,8 @@ describe('checkTransformStatement', () => {
   it('rejects dangerous keywords', () => {
     for (const statement of [
       "SELECT pg_read_file('x')",
+      "SELECT query_to_xml('select 1', true, false, '')",
+      "SELECT dblink('x', 'y')",
       'SELECT pg_sleep(10)',
       "SELECT set_config('a', 'b', true)",
       "SELECT current_setting('x')",

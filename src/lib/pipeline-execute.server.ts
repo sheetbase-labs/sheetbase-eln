@@ -1,24 +1,25 @@
 /**
  * AUTO-02 — deterministic Pipeline execution (server-side).
  *
- * The transform SQL runs in a dedicated low-privilege `pipeline_worker`
- * session role with zero table grants, a temp-schema-only search_path and a
- * fixed statement timeout. Input Dataset Versions are materialized into
- * session temp tables by the (trusted) application connection first; the
- * transform can only ever see those temp tables and pg_catalog. Outputs land
+ * The transform SQL runs on its own connection that logs in as the
+ * `pipeline_sandbox` role (see ./pipeline-sandbox.server): zero grants, no
+ * role memberships, a temp-schema-only search_path and a statement timeout.
+ * Input Dataset Versions are materialized into session temp tables by the
+ * (trusted) application connection first and copied by value into the
+ * sandbox session; the transform can only ever see those temp tables and
+ * pg_catalog. Outputs land
  * through the canonical governed domain operations — commit_dataset_row_batch
  * and snapshot_dataset — executed with the run actor's JWT claims, exactly
  * like sheet-calculation.server.ts does for composed Sheet reads. The run is
  * started/completed/failed through the same RPC-only surface as the browser.
  *
- * Session model (one dedicated connection per execution, superuser by
- * default, e.g. DATABASE_URL): every governed RPC is SECURITY DEFINER and
- * derives identity from `request.jwt.claims`, so the orchestration stays on
- * the application role with the run actor's claims stamped transaction-locally
- * (`set_config(..., true)`). Only the transform momentarily switches to
- * `pipeline_worker` (`SET LOCAL ROLE` + `SET ROLE NONE` to return to the
- * session user), which needs no privileges beyond reading its own temp
- * tables.
+ * Session model (one orchestration connection per execution, e.g.
+ * DATABASE_URL): every governed RPC is SECURITY DEFINER and derives identity
+ * from `request.jwt.claims`, so the orchestration stays on the application
+ * role with the run actor's claims stamped transaction-locally
+ * (`set_config(..., true)`). Untrusted SQL never touches that connection: it
+ * runs on a second, separately authenticated sandbox connection, so a
+ * statement that resets its role has nowhere more privileged to go.
  *
  * Reproducibility: a run pins its definition version, parameters and input
  * Dataset Version ids. Re-running the same definition version with the same
@@ -34,6 +35,12 @@ import {
 import type { PythonTransformUsage } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
+import {
+  SandboxSession,
+  SandboxUnavailableError,
+  connectPipelineSandbox,
+} from './pipeline-sandbox.server'
+import type { ConnectSandbox } from './pipeline-sandbox.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
@@ -127,6 +134,8 @@ export interface PipelineExecuteDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
   connect: () => Promise<ExecConnection>
   executePython?: typeof executePythonTransform
+  /** Opens the sandbox login connection that runs transform SQL. */
+  sandbox?: ConnectSandbox
 }
 
 interface RunRow {
@@ -240,7 +249,7 @@ export async function runPipelineExecution(
     })
 
     // Materialize input Dataset Versions into session temp tables. The
-    // pipeline_worker role is granted SELECT on these tables only.
+    // The sandbox session receives copies of these tables, nothing else.
     const materializeStarted = Date.now()
     const materialized = await materializeInputs(conn, run)
     const materializeMs = Date.now() - materializeStarted
@@ -259,11 +268,14 @@ export async function runPipelineExecution(
 
     // Run the transform as the low-privilege role against the temp schema.
     const transformStarted = Date.now()
-    const transform = await executeSteps(
-      conn,
-      run,
-      config,
-      deps.executePython ?? executePythonTransform,
+    const transform = await withSandbox(conn, deps, (sandbox) =>
+      executeSteps(
+        conn,
+        run,
+        config,
+        deps.executePython ?? executePythonTransform,
+        sandbox,
+      ),
     )
     const transformMs = Date.now() - transformStarted
     if (transform.kind === 'cancelled') {
@@ -434,11 +446,9 @@ const defaultDeps: PipelineExecuteDeps = {
   async connect() {
     const client = new Client({
       connectionString: env.DATABASE_URL,
-      // Backstop for the transform's statement_timeout: the sandbox role can
-      // reach pg_catalog set_config and disarm the transaction-local GUC
-      // mid-statement, so a driver-level cap bounds every query on the
-      // execution connection. Generous enough for the output phase
-      // (commit + snapshot of up to 100k rows).
+      // A driver-level cap on every query of the execution connection (the
+      // transform itself runs on the sandbox connection). Generous enough for
+      // the output phase (commit + snapshot of up to 100k rows).
       query_timeout: (EXECUTION_TIMEOUT_SECONDS + 120) * 1000,
     })
     await client.connect()
@@ -904,12 +914,15 @@ export async function resumePipelineRun(
     const answered = new Map<string, Record<string, unknown>>([
       [prompt.step_id, answer as Record<string, unknown>],
     ])
-    const transform = await executeSteps(
-      conn,
-      run,
-      config,
-      deps.executePython ?? executePythonTransform,
-      answered,
+    const transform = await withSandbox(conn, deps, (sandbox) =>
+      executeSteps(
+        conn,
+        run,
+        config,
+        deps.executePython ?? executePythonTransform,
+        sandbox,
+        answered,
+      ),
     )
     if (transform.kind === 'waiting') {
       await pauseRun(conn, run, transform)
@@ -1140,12 +1153,15 @@ export async function expirePipelinePrompts(
           const answered = new Map<string, Record<string, unknown>>([
             [prompt.step_id, { decision: 'confirm', values: {} }],
           ])
-          const transform = await executeSteps(
-            conn,
-            run,
-            config,
-            deps.executePython ?? executePythonTransform,
-            answered,
+          const transform = await withSandbox(conn, deps, (sandbox) =>
+            executeSteps(
+              conn,
+              run,
+              config,
+              deps.executePython ?? executePythonTransform,
+              sandbox,
+              answered,
+            ),
           )
           if (transform.kind === 'rows') {
             const observeStage = (stage: PipelineStage, ms: number) =>
@@ -1351,8 +1367,6 @@ async function materializeInputs(
       )
     }
     await materializeInputRows(conn, input.name, version, columnDefs)
-    // The sandbox role may read exactly the temp tables it needs.
-    await conn.query(`GRANT SELECT ON pg_temp.${input.name} TO pipeline_worker`)
     result.push({
       name: input.name,
       datasetVersionId: version.id,
@@ -1538,12 +1552,36 @@ type TransformOutcome =
   | { kind: 'cancelled' }
   | { kind: 'error'; code: PipelineErrorCode; message: string }
 
+/**
+ * Run `fn` with the run's sandbox session and always discard the session
+ * afterwards. A statement that outlives its budget is terminated from the
+ * orchestration side, which the sandbox login cannot prevent.
+ */
+async function withSandbox<T>(
+  conn: ExecConnection,
+  deps: PipelineExecuteDeps,
+  fn: (sandbox: SandboxSession) => Promise<T>,
+): Promise<T> {
+  const sandbox = new SandboxSession(
+    deps.sandbox ?? connectPipelineSandbox,
+    async (pid) => {
+      await conn.query('SELECT pg_terminate_backend($1)', [pid])
+    },
+  )
+  try {
+    return await fn(sandbox)
+  } finally {
+    await sandbox.close()
+  }
+}
+
 /** Run ordered analysis steps without exposing the orchestration connection to Python. */
 async function executeSteps(
   conn: ExecConnection,
   run: RunRow,
   config: PipelineConfig,
   python: typeof executePythonTransform,
+  sandbox: SandboxSession,
   answered?: Map<string, Record<string, unknown>>,
 ): Promise<TransformOutcome> {
   const started = Date.now()
@@ -1622,7 +1660,13 @@ async function executeSteps(
       }
     }
     if (previous) await materializePrevious(conn, previous)
-    return executeTransform(conn, run, { ...config, transform: step })
+    // Hand the sandbox exactly the tables this step may read.
+    for (const input of config.inputs)
+      if (!sandbox.has(input.name)) await sandbox.copyTable(conn, input.name)
+    if (previous) await sandbox.copyTable(conn, 'previous')
+    if (answerValues && !sandbox.has('confirm_answer'))
+      await sandbox.copyTable(conn, 'confirm_answer')
+    return executeTransform(run, { ...config, transform: step }, sandbox)
   }
 
   for (const [index, step] of steps.entries()) {
@@ -1751,7 +1795,6 @@ async function provisionConfirmAnswer(
     'INSERT INTO pg_temp.confirm_answer (answer) VALUES ($1::jsonb)',
     [JSON.stringify(values)],
   )
-  await conn.query('GRANT SELECT ON pg_temp.confirm_answer TO pipeline_worker')
 }
 
 function quoteIdentifier(value: string): string {
@@ -1793,18 +1836,13 @@ async function materializePrevious(
       [JSON.stringify(rows)],
     )
   }
-  await conn.query('GRANT SELECT ON pg_temp.previous TO pipeline_worker')
 }
 
 async function executeTransform(
-  conn: ExecConnection,
   run: RunRow,
   config: PipelineConfig,
+  sandbox: SandboxSession,
 ): Promise<TransformOutcome> {
-  // A concurrent cancellation is honoured at the next safe point.
-  if (!(await isRunRunning(conn, run.id))) {
-    return { kind: 'cancelled' }
-  }
   const statement = config.transform.statement
   const check = checkTransformStatement(statement)
   if (!check.ok) {
@@ -1832,25 +1870,11 @@ async function executeTransform(
   const wrapped = wrapTransformStatement(substituted.statement)
 
   const started = Date.now()
-  // A transform SQL error aborts the transaction; keep the run's output
-  // phase (fail + logs) on a healthy transaction via a savepoint.
-  await conn.query('SAVEPOINT sb_pipeline_transform')
   try {
-    // Sandbox: pipeline_worker has zero table grants; search_path is pinned
-    // to the temp schema so unqualified names resolve only to the
-    // materialized input tables (and pg_catalog).
-    await conn.query('SET LOCAL ROLE pipeline_worker')
-    await conn.query('SET LOCAL search_path = pg_temp')
-    await conn.query(
-      `SET LOCAL statement_timeout = '${EXECUTION_TIMEOUT_SECONDS}s'`,
+    const result = await sandbox.run<Record<string, unknown>>(
+      wrapped,
+      EXECUTION_TIMEOUT_SECONDS,
     )
-    const result = await conn.query<Record<string, unknown>>(wrapped)
-    await conn.query(`SET LOCAL statement_timeout = '0'`)
-    // Return to the session user for the output phase.
-    await conn.query('SET ROLE NONE')
-    await conn.query("SET LOCAL search_path = ''")
-    await conn.query('RELEASE SAVEPOINT sb_pipeline_transform')
-
     const rows = result.rows
     if (rows.length > 100_000) {
       return {
@@ -1877,13 +1901,21 @@ async function executeTransform(
     }
     return { kind: 'rows', rows, durationMs: Date.now() - started }
   } catch (error) {
+    // The sandbox is a separate session, so a failed statement cannot poison
+    // the run's transaction: there is nothing to restore here.
+    if (error instanceof SandboxUnavailableError) {
+      return {
+        kind: 'error',
+        code: 'pipeline_internal',
+        message: error.message,
+      }
+    }
     const message = error instanceof Error ? error.message : String(error)
-    // Restore a healthy transaction so the failure can be recorded.
-    await conn
-      .query('ROLLBACK TO SAVEPOINT sb_pipeline_transform')
-      .catch(() => {})
-    await conn.query('SET ROLE NONE').catch(() => {})
-    if (/statement timeout/i.test(message)) {
+    if (
+      /statement timeout|terminating connection|connection terminated/i.test(
+        message,
+      )
+    ) {
       return {
         kind: 'error',
         code: 'transform_timed_out',

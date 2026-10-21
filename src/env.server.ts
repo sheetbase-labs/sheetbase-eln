@@ -8,6 +8,11 @@ export const env = createEnv({
   server: {
     DATABASE_URL: z.string().url(),
     FORMULA_DATABASE_URL: z.string().url(),
+    // Pipeline SQL sandbox login (`pipeline_sandbox`): the only credential
+    // untrusted transform SQL ever runs under. Optional so a deployment that
+    // has not provisioned the role fails pipeline SQL steps closed with a
+    // clear error instead of failing to boot.
+    PIPELINE_SANDBOX_DATABASE_URL: z.string().url().optional(),
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.string().url().default('http://localhost:3000'),
     // GitHub OAuth is optional locally: auth routes mount either way, and the

@@ -262,7 +262,7 @@ function PipelinesList() {
                 icon="pipeline"
                 render={<Link to="/pipelines/agents" />}
               >
-                Agent operations
+                Agent operations (experimental)
               </Button>
             </>
           }

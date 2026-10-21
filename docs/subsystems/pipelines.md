@@ -77,6 +77,15 @@ Rules:
   `fieldMapping`. Every non-nullable field must be produced; extra columns
   are rejected rather than silently dropped. Multi-valued fields expose
   their first value in v1 transforms.
+- **A `create` output makes its Dataset once.** The first run creates the
+  Dataset; later runs of the same pipeline add their rows to it and snapshot a
+  new Dataset Version (like `append`, so re-running the same data repeats rows;
+  replace and upsert are not offered yet). The
+  executor finds it by the pipeline's earlier `pipeline_run_outputs`, matching
+  schema version and name, under a lock on the definition. Changing the schema
+  version or the dataset name in a new version starts a new Dataset.
+- **Schema versions are `draft`, `active` or `retired`.** A create output builds
+  from an `active` one.
 
 ## Python, action and webhook configuration
 
@@ -168,7 +177,11 @@ those tables. Outputs are written with the run actor's JWT claims through the
 3. **Record** — succeeded runs carry named action results, queued webhook delivery
    ids, `rowCount`, optional output Dataset/Version ids
    and the output label in `result`; outputs are also normalized in
-   `pipeline_run_outputs` for reverse lookup from Dataset pages.
+   `pipeline_run_outputs` for reverse lookup from Dataset pages. `result` also
+   holds `resultPreview` (the first 50 rows and 40 columns, cells cut at 200
+   characters), so a pipeline with no Dataset output still shows what it
+   computed. A SQL step that names a missing table or column fails with the
+   tables and column keys available to it.
 
 ## Trigger reliability
 
@@ -237,6 +250,15 @@ the token. No external API credential scopes are widened by this endpoint.
 
 ## Product integration
 
+- **Authoring** (`/pipelines/$id/steps`): inputs take a description and can show
+  the columns of any example Dataset Version (a click puts one in the SQL); the
+  output is chosen in plain words, lists the columns the schema needs, matches a
+  differently named result column to a field (`fieldMapping`), and checks them
+  against the newest successful run's columns. The run page leads with the
+  result preview and a link to the Dataset and Dataset Version it wrote, or says
+  that nothing was saved.
+- **Agent operations** (`/pipelines/agents`) are **experimental** and outside the
+  v1 scope; the page says so.
 - **Dataset → Pipeline**: the `/datasets` Pipelines tab lists every published
   single-input Pipeline with a Run action pre-filled with the Dataset's
   latest Version id.

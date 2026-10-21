@@ -90,7 +90,8 @@ export async function retainExternalBytes(input: {
   const storageKey = generateStorageKey(input.workspaceId, fileObjectId)
 
   // Single transactional RPC: file record + file_objects row (RLS + events).
-  const created = (await input.rpc('create_file_upload', {
+  // create_file_upload RETURNS TABLE, so PostgREST answers with a one-row array.
+  const response = (await input.rpc('create_file_upload', {
     p_project_id: input.projectId,
     p_display_name: input.fileName.slice(0, 200),
     p_media_type: input.mediaType ?? 'application/octet-stream',
@@ -99,7 +100,8 @@ export async function retainExternalBytes(input: {
     p_checksum: null,
     p_storage_backend: env.FILE_STORAGE_BACKEND,
     p_file_object_id: fileObjectId,
-  })) as unknown as { record_id?: string }
+  })) as unknown as { record_id?: string } | Array<{ record_id?: string }>
+  const created = (Array.isArray(response) ? response.at(0) : response) ?? {}
   if (!created.record_id) {
     throw new Error('File retention was rejected by the file platform.')
   }

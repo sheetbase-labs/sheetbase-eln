@@ -186,7 +186,7 @@ interface DatasetTarget {
   }
 }
 
-async function loadDatasetFields(
+export async function loadDatasetFields(
   token: string,
   schemaVersionId: string,
 ): Promise<ExportField[]> {
@@ -218,7 +218,7 @@ function isQueryRowsResult(value: unknown): value is QueryRowsResult {
   )
 }
 
-function pagedRows(
+export function pagedRows(
   rpcName: string,
   args: Record<string, unknown>,
   token: string,

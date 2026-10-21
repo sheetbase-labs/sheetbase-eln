@@ -27,6 +27,7 @@ import { toRecord } from './notebook-data'
 import type { RegistryFilterValue, RegistryQuery } from './registry'
 import type { ModelFieldDefinition } from './model-fields'
 import { displayModelFieldValue, modelFieldColumnId } from './model-fields'
+import { listByIds } from '#/lib/chunk-ids'
 
 // ---------------------------------------------------------------------------
 // Sample properties (records.properties JSONB).
@@ -855,10 +856,13 @@ async function fetchSampleLinks(
   sourceIds: string[],
 ): Promise<SampleLinkWire[]> {
   if (sourceIds.length === 0) return []
-  return client.list<SampleLinkWire>(
-    'record_links',
-    `?source_record_id=in.(${sourceIds.join(',')})&link_type=eq.sample&target_kind=eq.sample&select=${DERIVED_LINK_SELECT}&order=created_at.asc`,
+  const links = await listByIds(sourceIds, (inList) =>
+    client.list<SampleLinkWire>(
+      'record_links',
+      `?source_record_id=in.(${inList})&link_type=eq.sample&target_kind=eq.sample&select=${DERIVED_LINK_SELECT}&order=created_at.asc`,
+    ),
   )
+  return links.sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
 /**
@@ -887,9 +891,11 @@ export async function fetchSampleDerivedSamples(
     .map(({ link }) => link.target_record_id)
     .filter((id): id is string => Boolean(id))
   const records = targetIds.length
-    ? await client.list<RecordWire>(
-        'records',
-        `?id=in.(${targetIds.join(',')})&select=id,identifier,title,status`,
+    ? await listByIds(targetIds, (inList) =>
+        client.list<RecordWire>(
+          'records',
+          `?id=in.(${inList})&select=id,identifier,title,status`,
+        ),
       )
     : []
   const byId = new Map(records.map((record) => [record.id, record]))
@@ -1077,9 +1083,11 @@ export async function fetchLinkedExperiments(
       status: 'unknown',
     }))
   }
-  const records = await client.list<RecordWire>(
-    'records',
-    `?id=in.(${sourceIds.join(',')})&select=id,identifier,title,status`,
+  const records = await listByIds(sourceIds, (inList) =>
+    client.list<RecordWire>(
+      'records',
+      `?id=in.(${inList})&select=id,identifier,title,status`,
+    ),
   )
   const byId = new Map(records.map((r) => [r.id, r]))
   return links.map((l) => {
@@ -1121,18 +1129,22 @@ export async function fetchLinkedFiles(
     }))
   }
   const [records, fileObjects] = await Promise.all([
-    client.list<RecordWire>(
-      'records',
-      `?id=in.(${targetIds.join(',')})&select=id,identifier,status`,
+    listByIds(targetIds, (inList) =>
+      client.list<RecordWire>(
+        'records',
+        `?id=in.(${inList})&select=id,identifier,status`,
+      ),
     ),
-    client.list<{
-      record_id: string
-      display_name: string
-      byte_size: string
-      status: string
-    }>(
-      'file_objects',
-      `?record_id=in.(${targetIds.join(',')})&select=record_id,display_name,byte_size,status`,
+    listByIds(targetIds, (inList) =>
+      client.list<{
+        record_id: string
+        display_name: string
+        byte_size: string
+        status: string
+      }>(
+        'file_objects',
+        `?record_id=in.(${inList})&select=record_id,display_name,byte_size,status`,
+      ),
     ),
   ])
   const fileByRecord = new Map(fileObjects.map((f) => [f.record_id, f]))

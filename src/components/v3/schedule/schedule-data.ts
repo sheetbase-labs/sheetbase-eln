@@ -9,6 +9,7 @@ import {
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { CalendarBookingSample, CalendarBookingWire } from '#/lib/calendar'
 import type { DataClient } from '#/lib/data-client'
+import { listByIds } from '#/lib/chunk-ids'
 
 /** UI port (roadmap-4/ui-app3): Schedule books instruments. ADR-0054 makes the
  * booking subject the instrument itself — a booking's resource_id is the
@@ -234,15 +235,17 @@ export async function fetchExperimentSamples(
     ),
   ]
   if (ids.length === 0) return []
-  const rows = await client.list<{
-    id: string
-    identifier: string
-    title: string
-  }>(
-    'records',
-    `?id=in.(${ids.map(encodeURIComponent).join(',')})&kind=eq.sample&deleted_at=is.null&select=id,identifier,title&order=identifier.asc`,
+  const rows = await listByIds(ids, (inList) =>
+    client.list<{
+      id: string
+      identifier: string
+      title: string
+    }>(
+      'records',
+      `?id=in.(${inList})&kind=eq.sample&deleted_at=is.null&select=id,identifier,title&order=identifier.asc`,
+    ),
   )
-  return rows
+  return rows.sort((a, b) => a.identifier.localeCompare(b.identifier))
 }
 
 export function useExperimentSamples(

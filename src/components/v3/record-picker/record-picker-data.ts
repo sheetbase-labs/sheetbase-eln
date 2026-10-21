@@ -13,6 +13,7 @@ import type { SearchResult } from '#/lib/search'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import type { Tone } from '#/components/v3/ui/status'
+import { listByIds } from '#/lib/chunk-ids'
 
 export type PickerKind = 'Sample' | 'Material' | 'Dataset' | 'Experiment'
 
@@ -155,17 +156,21 @@ export async function fetchPickerRecents(
   const [projectNames, records, datasets] = await Promise.all([
     fetchProjectNames(client),
     recordIds.length
-      ? client.list<RecentRecordRow>(
-          'records',
-          `?id=in.(${recordIds.join(',')})&deleted_at=is.null&archived_at=is.null` +
-            '&select=id,kind,identifier,title,status,project_id',
+      ? listByIds(recordIds, (ids) =>
+          client.list<RecentRecordRow>(
+            'records',
+            `?id=in.(${ids})&deleted_at=is.null&archived_at=is.null` +
+              '&select=id,kind,identifier,title,status,project_id',
+          ),
         )
       : Promise.resolve([]),
     datasetIds.length
-      ? client.list<RecentDatasetRow>(
-          'datasets',
-          `?id=in.(${datasetIds.join(',')})&lifecycle=eq.active` +
-            '&select=id,display_id,name,lifecycle,primary_project_id',
+      ? listByIds(datasetIds, (ids) =>
+          client.list<RecentDatasetRow>(
+            'datasets',
+            `?id=in.(${ids})&lifecycle=eq.active` +
+              '&select=id,display_id,name,lifecycle,primary_project_id',
+          ),
         )
       : Promise.resolve([]),
   ])

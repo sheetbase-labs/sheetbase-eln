@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { DataClientError, createDataClient } from '#/lib/data-client'
 import type { ChangeEventRecordWire } from '#/lib/notebook-data'
 import type { AuditEventWire } from '#/lib/audit-history'
+import { listByIds } from '#/lib/chunk-ids'
 
 /** UI port: shared access to `project_list_summary` for the Projects area.
  * The list and the detail layout/children all read the same cached query. */
@@ -186,13 +187,15 @@ export async function fetchProjectActivity(
       ? fetchWorkspaceMemberIdentities()
       : Promise.resolve([]),
     recordIds.length
-      ? projectDataClient.list<{
-          id: string
-          identifier: string
-          title: string
-        }>(
-          'records',
-          `?project_id=eq.${encodeURIComponent(projectId)}&id=in.(${recordIds.map(encodeURIComponent).join(',')})&select=id,identifier,title`,
+      ? listByIds(recordIds, (ids) =>
+          projectDataClient.list<{
+            id: string
+            identifier: string
+            title: string
+          }>(
+            'records',
+            `?project_id=eq.${encodeURIComponent(projectId)}&id=in.(${ids})&select=id,identifier,title`,
+          ),
         )
       : Promise.resolve([]),
   ])

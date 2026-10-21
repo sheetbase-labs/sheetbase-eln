@@ -14,6 +14,19 @@ export const env = createEnv({
     // sign-in screen reports "not configured" until both values are set.
     GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+    // Company single sign-on over OpenID Connect (any compliant IdP: Entra ID,
+    // Okta, Google Workspace, Keycloak). Active when issuer, client id and
+    // client secret are all set; the issuer must serve
+    // `/.well-known/openid-configuration`.
+    OIDC_ISSUER_URL: z.string().url().optional(),
+    OIDC_CLIENT_ID: z.string().min(1).optional(),
+    OIDC_CLIENT_SECRET: z.string().min(1).optional(),
+    OIDC_PROVIDER_NAME: z.string().min(1).default('Company SSO'),
+    // Email sign-in by one-time link. Needs SMTP_HOST (email delivery). Only
+    // people who already have an account can use it, plus anyone whose
+    // address is in EMAIL_LOGIN_ALLOWED_DOMAINS (comma-separated).
+    EMAIL_LOGIN_ENABLED: z.enum(['true', 'false']).default('false'),
+    EMAIL_LOGIN_ALLOWED_DOMAINS: z.string().optional(),
     // Server-only upstream for the data proxy. The browser only ever talks
     // to the same-origin /api/db boundary.
     POSTGREST_URL: z.string().url().default('http://localhost:3001'),
@@ -99,6 +112,9 @@ export function getDeploymentConfig() {
     POSTGREST_ADMIN_URL: env.POSTGREST_ADMIN_URL,
     GITHUB_CLIENT_ID: env.GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET: env.GITHUB_CLIENT_SECRET,
+    OIDC_ISSUER_URL: env.OIDC_ISSUER_URL,
+    OIDC_CLIENT_ID: env.OIDC_CLIENT_ID,
+    OIDC_CLIENT_SECRET: env.OIDC_CLIENT_SECRET,
     SHEETBASE_DEV_AUTH_FREE: env.SHEETBASE_DEV_AUTH_FREE,
   })
 }

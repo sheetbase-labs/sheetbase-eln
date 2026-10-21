@@ -303,14 +303,19 @@ export async function createAnalysisView(
   workspaceId: string,
   userId: string,
 ): Promise<AnalysisViewWire> {
-  return client.insert<AnalysisViewWire>('analysis_views', {
-    workspace_id: workspaceId,
-    owner_user_id: userId,
-    name: input.name,
-    spec: input.spec,
-    source_revisions: input.source_revisions,
-    export_settings: input.export_settings,
-  })
+  // PostgREST answers an insert with a one-row array; callers want the row.
+  const created = await client.insert<AnalysisViewWire | AnalysisViewWire[]>(
+    'analysis_views',
+    {
+      workspace_id: workspaceId,
+      owner_user_id: userId,
+      name: input.name,
+      spec: input.spec,
+      source_revisions: input.source_revisions,
+      export_settings: input.export_settings,
+    },
+  )
+  return Array.isArray(created) ? created[0] : created
 }
 
 /**

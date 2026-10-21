@@ -147,16 +147,21 @@ test('folds the raw event behind a disclosure that opens by keyboard', async ({
 }) => {
   const panel = await openHistory(page)
 
-  const summaries = panel.getByText('Raw event')
-  expect(await summaries.count()).toBeGreaterThan(0)
-  await expect(panel.locator('details[open]')).toHaveCount(0)
+  // The disclosure is a Collapsible: a button that reports its own state and
+  // keeps the payload out of the page until it is opened.
+  const triggers = panel.getByRole('button', { name: 'Raw event' })
+  expect(await triggers.count()).toBeGreaterThan(0)
+  const trigger = triggers.first()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  await expect(panel.getByRole('group', { name: 'Raw event payload' })).toHaveCount(0)
 
-  await summaries.first().focus()
+  await trigger.focus()
   await page.keyboard.press('Enter')
 
-  const open = panel.locator('details[open]')
-  await expect(open).toHaveCount(1)
-  await expect(open.locator('pre')).toContainText('"operation"')
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  const payload = panel.getByRole('group', { name: 'Raw event payload' })
+  await expect(payload).toHaveCount(1)
+  await expect(payload.locator('pre')).toContainText('"operation"')
 })
 
 test('continues the list with Load more, by keyboard', async ({ page }) => {

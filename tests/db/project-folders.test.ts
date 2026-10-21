@@ -138,4 +138,42 @@ describe('project folders', () => {
     )
     await expect(other).rejects.toMatchObject({ code: '42501' })
   })
+
+  it('renames a folder, refuses to delete a non-empty one, and deletes an empty one', async () => {
+    const lead = await asAuthenticated(LEAD)
+    const viewer = await asAuthenticated(VIEWER)
+    const { rows: parent } = await lead.query<{ id: string }>(
+      `SELECT * FROM api.create_project_folder($1, 'Outer')`,
+      [PROJECT],
+    )
+    const { rows: child } = await lead.query<{ id: string }>(
+      `SELECT * FROM api.create_project_folder($1, 'Inner', $2)`,
+      [PROJECT, parent[0]!.id],
+    )
+    const renamed = await lead.query<{ name: string }>(
+      `SELECT * FROM api.rename_project_folder($1, '  Outer renamed ')`,
+      [parent[0]!.id],
+    )
+    expect(renamed.rows[0]?.name).toBe('Outer renamed')
+    await expectDenied(
+      viewer.query(`SELECT * FROM api.rename_project_folder($1, 'x')`, [
+        parent[0]!.id,
+      ]),
+      '42501',
+    )
+    await lead.query(
+      `SELECT api.move_records_to_folder($1, ARRAY[$2]::uuid[], $3)`,
+      [PROJECT, RECORD, child[0]!.id],
+    )
+    await expect(
+      lead.query(`SELECT api.delete_project_folder($1)`, [child[0]!.id]),
+    ).rejects.toMatchObject({ code: '23503' })
+    // The outer folder holds no records itself, so it goes and the inner one moves up.
+    await lead.query(`SELECT api.delete_project_folder($1)`, [parent[0]!.id])
+    const up = await lead.query<{ parent_id: string | null }>(
+      `SELECT parent_id FROM api.folders WHERE id = $1`,
+      [child[0]!.id],
+    )
+    expect(up.rows[0]?.parent_id).toBeNull()
+  })
 })

@@ -10,9 +10,11 @@ import {
 
 import { ProjectsPage } from '#/components/v3/projects/projects-page'
 import type {
+  NewProjectInput,
   ProjectsSearch,
   ProjectRow,
 } from '#/components/v3/projects/projects-page'
+import { createClientOrganisation } from '#/lib/client-sharing'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import { toast } from '#/components/v3/ui/sonner'
 import {
@@ -198,8 +200,20 @@ function ProjectsIndexRoute() {
       ),
   })
 
+  const workspaceId = context.workspace?.id
   const create = useMutation({
-    mutationFn: createProject,
+    // A project for a client that does not exist yet creates the client first,
+    // so a workspace's first client project can be set up from this dialog.
+    mutationFn: async (input: NewProjectInput) => {
+      const { newClientName, ...details } = input
+      if (!newClientName) return createProject(details)
+      const client = await createClientOrganisation(dataClient, {
+        workspaceId: workspaceId ?? '',
+        name: newClientName,
+      })
+      void queryClient.invalidateQueries({ queryKey: ['clients', workspaceId] })
+      return createProject({ ...details, clientId: client.id })
+    },
     // The dialog closes and the row appears, but nothing said the write landed.
     // Same feedback the bulk archive/restore already gives.
     onSuccess: (_created, input) => {
@@ -276,6 +290,10 @@ function ProjectsIndexRoute() {
             : null
       }
       clientOptions={clientOptions}
+      canCreateClient={
+        context.workspace?.role === 'owner' ||
+        context.workspace?.role === 'admin'
+      }
       memberOptions={(members.data ?? []).map((member) => ({
         id: member.user_id,
         label: member.name,

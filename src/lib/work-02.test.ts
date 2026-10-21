@@ -41,6 +41,31 @@ describe('firstRunSteps', () => {
     expect(firstRunProgress(steps)).toEqual({ done: 1, total: 4 })
   })
 
+  it('asks a founder to invite a colleague and create the first project, not to wait to be added', () => {
+    const steps = firstRunSteps({ ...base, role: 'owner', memberCount: 1 })
+    expect(steps.map((step) => step.label)).toEqual([
+      'Account created',
+      'Invite a colleague',
+      'Set up your electronic signature',
+      'Create your first project',
+      'Create an experiment from a protocol',
+    ])
+    expect(steps[1]).toMatchObject({
+      done: false,
+      actionTo: '/settings/members?invite=admin',
+    })
+    expect(steps[3]).toMatchObject({
+      done: false,
+      actionTo: '/projects?new=true',
+    })
+    expect(steps[3].hint).not.toContain('someone adds you')
+  })
+
+  it('counts the invite step done once someone else has joined', () => {
+    const steps = firstRunSteps({ ...base, role: 'admin', memberCount: 3 })
+    expect(steps[1]).toMatchObject({ label: 'Invite a colleague', done: true })
+  })
+
   it('asks a viewer only for what a viewer can do', () => {
     const steps = firstRunSteps({ ...base, role: 'viewer' })
     expect(steps.map((step) => step.label)).toEqual([

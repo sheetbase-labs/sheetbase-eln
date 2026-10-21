@@ -115,6 +115,63 @@ const TOPICS: ReadonlyArray<{
     },
   },
   {
+    prefix: '/samples',
+    topic: {
+      title: 'Samples',
+      text: 'A sample is a tracked physical item with a location and quantity. Move, withdraw and quarantine it from its page; each change is recorded.',
+    },
+  },
+  {
+    prefix: '/materials',
+    topic: {
+      title: 'Materials',
+      text: 'Materials are the reagents and consumables you use, with their lots. Receive stock when it arrives; experiments link the lot they used.',
+    },
+  },
+  {
+    prefix: '/instruments',
+    topic: {
+      title: 'Instruments',
+      text: 'Register an instrument to book it and cite its data. Upload a file to bring a run in, or set up automatic intake.',
+    },
+  },
+  {
+    prefix: '/schedule',
+    topic: {
+      title: 'Schedule',
+      text: 'Book an instrument for an experiment, and see what is booked, due for calibration or waiting for a reading.',
+    },
+  },
+  {
+    prefix: '/inbox',
+    topic: {
+      title: 'Inbox',
+      text: 'Everything waiting on you: reviews to do, signatures asked of you and returned work. Open a row to act on it.',
+      more: RECORDS_MORE,
+    },
+  },
+  {
+    prefix: '/projects',
+    topic: {
+      title: 'Projects',
+      text: 'A project holds its experiments, samples, datasets and members. Open one to see its progress, milestones and recent activity.',
+    },
+  },
+  {
+    prefix: '/models',
+    topic: {
+      title: 'Models',
+      text: 'A model defines the fields, units and rules of a kind of dataset. Publish a version to use it; datasets keep their version until upgraded.',
+    },
+  },
+  {
+    prefix: '/import',
+    topic: {
+      title: 'Import',
+      text: 'Choose a dataset, drop a file, check the column mapping, then import. Nothing is written until you confirm the check.',
+    },
+  },
+  {
     prefix: '/client-portal',
     topic: {
       title: 'Client portal',

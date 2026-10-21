@@ -548,7 +548,7 @@ function SampleLayout() {
             </>
           }
           actions={
-            <span className="flex gap-2 max-md:hidden">
+            <span className="flex flex-wrap gap-2 max-md:hidden">
               <FavouriteToggle kind="record" objectId={sample.id} />
               {archived ? (
                 allowEdit ? (

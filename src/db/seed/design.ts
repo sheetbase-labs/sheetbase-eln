@@ -3737,6 +3737,20 @@ async function seedDesignProjectDetails(
       .returning({ id: schema.clients.id, code: schema.clients.code })
     for (const row of inserted) clientIds.set(row.code, row.id)
   }
+  // Continue the CL- sequence after the seeded codes, so a new client is not
+  // issued a code the seed already took.
+  const lastClient = Math.max(
+    ...DESIGN_CLIENTS.map((client) => Number(client.code.split('-')[1])),
+  )
+  await db.execute(sql`
+    INSERT INTO internal.id_sequences (workspace_id, kind, last_number)
+    VALUES (${PROCESS}, ${'display:client'}, ${lastClient})
+    ON CONFLICT (workspace_id, kind)
+    DO UPDATE SET last_number = greatest(
+      internal.id_sequences.last_number,
+      ${lastClient}
+    )
+  `)
 
   for (const project of DESIGN_PROJECT_DETAILS) {
     const clientId = project.clientCode

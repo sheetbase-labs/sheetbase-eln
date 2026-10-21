@@ -455,6 +455,20 @@ export async function duplicateExperiment(
     structureVersion = inserted.structureVersion
   }
 
+  // A repeat run follows the run it repeats, so the original's overview lists
+  // it under "Followed by". The copy exists either way, so a refused link does
+  // not fail the duplicate.
+  await client
+    .rpc('create_record_link', {
+      p_source_record_id: record.id,
+      p_target_kind: 'experiment',
+      p_target_identifier: input.source.identifier,
+      p_link_type: 'follows',
+      p_target_record_id: input.source.id,
+      p_label: null,
+    })
+    .catch(() => undefined)
+
   return { record }
 }
 

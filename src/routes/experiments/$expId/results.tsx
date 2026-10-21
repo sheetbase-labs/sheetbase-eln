@@ -334,11 +334,22 @@ function DecisionForm({
   return (
     <>
       <DialogBody>
-        <Field label="Decision">
-          <div className="flex gap-1.5">
+        {/* A group, not a Field: a label around three buttons would name the
+            first one after all of them. */}
+        <div className="flex flex-col gap-1.5">
+          <span id="decision-label" className="text-label font-medium">
+            Decision
+          </span>
+          <div
+            role="radiogroup"
+            aria-labelledby="decision-label"
+            className="flex gap-1.5"
+          >
             {DECISIONS.map((d) => (
               <Button
                 key={d.value}
+                role="radio"
+                aria-checked={decision === d.value}
                 variant={decision === d.value ? 'primary' : 'secondary'}
                 onClick={() => setDecision(d.value)}
               >
@@ -346,7 +357,7 @@ function DecisionForm({
               </Button>
             ))}
           </div>
-        </Field>
+        </div>
         <Field label="Note" hint="Optional.">
           <Input value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>

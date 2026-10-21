@@ -1,8 +1,13 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { DescriptionList, Muted, Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
+import { Button } from '#/components/v3/ui/button'
+import { toast } from '#/components/v3/ui/sonner'
+import { ObjectLink } from '#/components/v3/ui/object-link'
+import { RecordPickerDialog } from '#/components/v3/record-picker/record-picker'
 import {
   datasetIssueSummary,
   datasetValidation,
@@ -89,15 +94,12 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
             [
               'Experiment',
               dataset.experimentId ? (
-                <Link
-                  to="/experiments/$expId"
-                  params={{ expId: dataset.experimentId }}
-                  className="mono"
-                >
-                  {dataset.experimentId}
-                </Link>
+                <ObjectLink
+                  kind="experiment"
+                  identifier={dataset.experimentId}
+                />
               ) : (
-                'Not linked to an experiment'
+                <LinkToExperiment dataset={dataset} />
               ),
             ],
             ['Rows', <span className="num">{dataset.rows}</span>],
@@ -135,5 +137,54 @@ function DatasetOverviewPanel({ dataset }: { dataset: DatasetListRow }) {
         </Section>
       ) : null}
     </div>
+  )
+}
+
+/** The dataset's experiment link is written from the experiment's side, so
+ * choosing the experiment here writes the same `dataset` link the import does
+ * and every tab that reads it (the experiment's Datasets and Results, this
+ * Overview) shows it. */
+function LinkToExperiment({ dataset }: { dataset: DatasetListRow }) {
+  const [open, setOpen] = useState(false)
+  const queryClient = useQueryClient()
+  const link = useMutation({
+    mutationFn: async (items: { id: string; identifier: string }[]) => {
+      const experiment = items.at(0)
+      if (!experiment) return
+      await notebookDataClient.rpc('create_record_link', {
+        p_source_record_id: experiment.id,
+        p_target_kind: 'dataset',
+        p_target_identifier: dataset.id,
+        p_link_type: 'dataset',
+        p_target_record_id: null,
+      })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['ui-port'] })
+      toast('Dataset linked to the experiment')
+    },
+    onError: (error: unknown) =>
+      toast('Could not link the dataset', {
+        description:
+          error instanceof Error ? error.message : 'The link was refused.',
+      }),
+  })
+  return (
+    <span className="flex items-center gap-2">
+      <span className="text-fg-muted">Not linked to an experiment</span>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        Link to experiment…
+      </Button>
+      {open ? (
+        <RecordPickerDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="Link to an experiment"
+          allowed={['Experiment']}
+          confirmLabel={() => 'Link'}
+          onPick={(items) => link.mutate(items)}
+        />
+      ) : null}
+    </span>
   )
 }

@@ -19,7 +19,10 @@ import {
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { HomeQuiet, recentTone } from '#/components/v3/home/home-quiet'
-import { fetchProjectSummaries } from '#/components/v3/projects/project-data'
+import {
+  fetchProjectSummaries,
+  fetchWorkspaceMemberIdentities,
+} from '#/components/v3/projects/project-data'
 import {
   fetchCalendarBookings,
   fetchCalendarInstruments,
@@ -124,6 +127,8 @@ export interface FirstRunInput {
   hasExperiment: boolean
   /** The person's workspace role. Unset reads as an author. */
   role?: string
+  /** How many people are in the workspace; a founder starts alone. */
+  memberCount?: number
 }
 
 export interface FirstRunStep {
@@ -141,6 +146,9 @@ export interface FirstRunStep {
  */
 export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
   const project = input.projects.at(0)
+  // An owner or administrator is the one who adds people and starts the first
+  // project; nobody is going to add them, so their checklist says to do it.
+  const administers = input.role === 'owner' || input.role === 'admin'
   const readOnly = input.role === 'viewer' || input.role === 'client_viewer'
   const reviewOnly = input.role === 'reviewer'
   const steps: FirstRunStep[] = [
@@ -149,21 +157,47 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
       hint: input.accountHint ?? `You joined ${input.workspaceName}.`,
       done: true,
     },
+    ...(administers
+      ? [
+          {
+            label: 'Invite a colleague',
+            hint: 'Another administrator has to confirm your identity before you can sign, and your team joins by the link you send. Name the projects they join as you invite them.',
+            done: (input.memberCount ?? 1) > 1,
+            actionLabel: 'Invite a colleague',
+            actionTo: '/settings/members?invite=admin',
+          },
+        ]
+      : []),
     {
       label: 'Set up your electronic signature',
-      hint: 'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so a new workspace needs a second administrator.',
+      hint: administers
+        ? 'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so invite one above.'
+        : 'Required before you can author, review or approve records. Another owner or administrator must confirm your identity first, so a new workspace needs a second administrator.',
       done: input.signatureCertified,
       actionLabel: 'Set up signature',
       actionTo: '/settings/signatures',
     },
     {
-      label: 'Open your first project',
+      label:
+        administers && !project
+          ? 'Create your first project'
+          : 'Open your first project',
       hint: project
         ? `You were added to ${project.title}.`
-        : 'Your projects appear here once someone adds you.',
+        : administers
+          ? 'A project holds your experiments. You lead the one you create, and can add the team to it.'
+          : 'Your projects appear here once someone adds you.',
       done: input.hasOpenedProject,
-      actionLabel: project ? 'Open project' : 'Browse projects',
-      actionTo: project ? `/projects/${project.id}` : '/projects',
+      actionLabel: project
+        ? 'Open project'
+        : administers
+          ? 'Create project'
+          : 'Browse projects',
+      actionTo: project
+        ? `/projects/${project.id}`
+        : administers
+          ? '/projects?new=true'
+          : '/projects',
     },
     {
       label: 'Create an experiment from a protocol',
@@ -476,6 +510,14 @@ export function Home() {
     queryFn: () => fetchHomePeople(notebookDataClient, projectIds, userId),
     enabled: showFirstRun && projectsQuery.isSuccess,
   })
+  const membersQuery = useQuery({
+    queryKey: ['home-first-run-members', workspaceId, userId],
+    queryFn: () => fetchWorkspaceMemberIdentities(),
+    enabled:
+      showFirstRun &&
+      (onboarding?.workspace_role === 'owner' ||
+        onboarding?.workspace_role === 'admin'),
+  })
   const experimentsQuery = useQuery({
     queryKey: ['home-first-run-experiments', workspaceId, userId],
     queryFn: () =>
@@ -661,6 +703,7 @@ export function Home() {
     hasOpenedProject: projectOpensQuery.data ?? false,
     hasExperiment: (experimentsQuery.data?.length ?? 0) > 0,
     role: onboarding?.workspace_role,
+    memberCount: membersQuery.data?.length,
   })
   const progress = firstRunProgress(setupSteps)
 
@@ -1136,8 +1179,18 @@ export function Home() {
               </ul>
             ) : (
               <p className="m-0 text-label text-fg-muted">
-                Other projects in this workspace are visible once someone adds
-                you.
+                {onboarding?.workspace_role === 'owner' ||
+                onboarding?.workspace_role === 'admin' ? (
+                  <>
+                    You have no projects yet.{' '}
+                    <Link to="/projects" search={{ new: true }}>
+                      Create one
+                    </Link>{' '}
+                    to start work and add your team.
+                  </>
+                ) : (
+                  'Other projects in this workspace are visible once someone adds you.'
+                )}
               </p>
             )}
           </InspectorSection>

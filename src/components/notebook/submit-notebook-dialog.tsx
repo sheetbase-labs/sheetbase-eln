@@ -256,6 +256,22 @@ export function SubmitNotebookDialog({
     queryFn: () => fetchWorkspaceMembers(notebookDataClient, workspaceId!),
     enabled: open && Boolean(workspaceId),
   })
+  // A review decision is refused without Review access on the project, so
+  // anyone without it is shown but cannot be chosen. While the answer is
+  // unknown nobody is excluded; the server still refuses the decision.
+  const reviewAccess = useQuery({
+    queryKey: ['ui-port', 'project-review-candidates', projectId],
+    queryFn: () =>
+      notebookDataClient.rpc<Array<{ user_id: string }>>(
+        'project_review_candidates',
+        { p_project_id: projectId },
+      ),
+    enabled: open && Boolean(projectId),
+    staleTime: 30_000,
+  })
+  const canReview = (userId: string) =>
+    !reviewAccess.data ||
+    reviewAccess.data.some((row) => row.user_id === userId)
   const reviewers = reviewerCandidates(members.data ?? [])
   const shownReviewers =
     reviewers.length > 0
@@ -433,6 +449,19 @@ export function SubmitNotebookDialog({
     digestError: previewErrorMessage,
   })
   const blocked = submissionHasBlockingChecks(checks)
+  // A draft experiment is readable only by its creator and the workspace
+  // owners, so a reviewer outside that set would be assigned work they cannot
+  // open. Say so here rather than leave the reviewer with a dead end.
+  const draftExperiment =
+    record?.kind === 'experiment' && record.status === 'draft'
+  const unreadableReviewers = draftExperiment
+    ? selectedReviewerIds.filter(
+        (id) =>
+          id !== reviewerUserId &&
+          shownReviewers.find((member) => member.userId === id)?.role !==
+            'owner',
+      )
+    : []
   // NOTE-04 review fix: the evidence preview and its composition summary
   // render from the FROZEN snapshot, never from the live blocks, so the
   // dialog cannot claim "verified" while showing different content. The
@@ -507,7 +536,11 @@ export function SubmitNotebookDialog({
                 className="flex items-center gap-2 text-sm"
               >
                 <Checkbox
-                  disabled={submit.isPending}
+                  disabled={
+                    submit.isPending ||
+                    (!canReview(member.userId) &&
+                      !selectedReviewerIds.includes(member.userId))
+                  }
                   checked={selectedReviewerIds.includes(member.userId)}
                   onCheckedChange={() => toggleReviewer(member.userId)}
                 />
@@ -515,6 +548,12 @@ export function SubmitNotebookDialog({
                   {reviewerOptionLabel(
                     { ...member, name: reviewerNames[member.userId] },
                     reviewerUserId,
+                  )}
+                  {canReview(member.userId) ? null : (
+                    <span className="text-fg-muted">
+                      {' '}
+                      · no review access to this project
+                    </span>
                   )}
                 </span>
               </label>
@@ -723,6 +762,15 @@ export function SubmitNotebookDialog({
             </section>
           ) : null}
 
+          {unreadableReviewers.length > 0 ? (
+            <Notice tone="warn">
+              {unreadableReviewers
+                .map((id) => reviewerNames[id] ?? 'A reviewer')
+                .join(', ')}{' '}
+              cannot open a draft experiment. Start the experiment first, or
+              choose an owner as reviewer.
+            </Notice>
+          ) : null}
           {verified ? (
             <p className="text-fg-muted" role="status">
               Snapshot is ready to submit.
@@ -762,6 +810,8 @@ export function SubmitNotebookDialog({
               submit.isPending ||
               preview.isPending ||
               blocked ||
+              unreadableReviewers.length > 0 ||
+              selectedReviewerIds.some((id) => !canReview(id)) ||
               !verified ||
               !workflow ||
               (workflow.requires_signature &&

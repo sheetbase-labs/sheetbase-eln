@@ -255,6 +255,40 @@ describe('handleSseRequest — stream', () => {
     expect(body).toContain('id: 4')
   })
 
+  it('starts a connection with no cursor at the newest event instead of replaying history', async () => {
+    const readEvents = vi.fn(
+      async (_workspaceId: string, afterSeq: number) => ({
+        events: afterSeq === 0 ? [event(1), event(2)] : [],
+        hasMore: false,
+        earliestAvailableSeq: 1,
+      }),
+    )
+    const response = await handleSseRequest(
+      req(),
+      makeDeps({ readEvents, latestSequence: async () => 900 }),
+      { heartbeatIntervalMs: 100_000, sessionCheckIntervalMs: 100_000 },
+    )
+    const body = await readUntil(response, (b) => b.includes('event: hello'))
+    expect(body).toContain('"resumeFrom":900')
+    expect(body).not.toContain('id: 1')
+    expect(readEvents).toHaveBeenCalledWith('ws-1', 900, expect.any(Number))
+  })
+
+  it('still resumes from an explicit ?after cursor when a newest sequence is known', async () => {
+    const readEvents = vi.fn(async () => ({
+      events: [event(11)],
+      hasMore: false,
+      earliestAvailableSeq: 1,
+    }))
+    const response = await handleSseRequest(
+      new Request('http://localhost:3000/api/events?after=10'),
+      makeDeps({ readEvents, latestSequence: async () => 900 }),
+      { heartbeatIntervalMs: 100_000, sessionCheckIntervalMs: 100_000 },
+    )
+    const body = await readUntil(response, (b) => b.includes('id: 11'))
+    expect(body).toContain('"resumeFrom":10')
+  })
+
   it('sends a reset and closes when the requested history is unavailable', async () => {
     const response = await handleSseRequest(
       req({ headers: { 'last-event-id': '5' } }),

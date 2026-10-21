@@ -4,6 +4,7 @@ import {
   createFileRoute,
   redirect,
   useMatchRoute,
+  useNavigate,
 } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -64,7 +65,15 @@ function PipelineLayout() {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
 
-  const run = useRunLauncher(workspaceId)
+  const navigate = useNavigate()
+  const run = useRunLauncher(
+    workspaceId,
+    (started) =>
+      void navigate({
+        to: '/pipelines/$pipelineId/runs/$runId',
+        params: { pipelineId, runId: started.id },
+      }),
+  )
 
   const publish = useMutation({
     mutationFn: () => {

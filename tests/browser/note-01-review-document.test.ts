@@ -277,8 +277,8 @@ test('the annotated document fits the phone width and keeps its comment anchors 
     page.getByRole('region', { name: 'Revision comparison' }),
   ).toBeVisible()
   await expect(page.getByText('Compare revisions')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Document' })).toHaveAttribute(
-    'aria-pressed',
+  await expect(page.getByRole('tab', { name: 'Document' })).toHaveAttribute(
+    'aria-selected',
     'false',
   )
 })

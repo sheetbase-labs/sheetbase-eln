@@ -9,7 +9,7 @@ import type {
 } from '#/lib/notebook-data'
 import type { ActionBlockContext } from '#/lib/notebook-action-blocks'
 import { isEditableBlockType } from '#/lib/blocks/registry'
-import { richTextToPlainText } from '#/lib/blocks'
+import { isEmptyRichText, richTextToPlainText } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import {
   joinProsePayloads,
@@ -990,6 +990,13 @@ function NotebookDocumentContent({
           if (!block) return null
           const editable = isEditableBlockType(block.type) && !isReadOnly
           const isSelected = selectedId === block.id
+          // A notebook that is one empty text block (a new draft) opens that
+          // block for writing, so the page offers a place to type rather than
+          // blank space.
+          const opensForWriting =
+            orderedIds.length === 1 &&
+            block.type === 'rich_text' &&
+            isEmptyRichText(block.payload)
           const isActive = activeId === block.id
           const isDragging = draggingId === block.id
           const isMoving = movingId === block.id
@@ -1164,7 +1171,8 @@ function NotebookDocumentContent({
                         : undefined
                     }
                   />
-                ) : editable && (isSelected || hasUnsavedDraft) ? (
+                ) : editable &&
+                  (isSelected || hasUnsavedDraft || opensForWriting) ? (
                   <BlockEditor
                     block={block}
                     headingAnchorPrefix={`section-${block.id}`}

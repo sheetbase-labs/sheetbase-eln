@@ -148,14 +148,19 @@ for (const theme of ['light', 'dark'] as const) {
     const summary = page.getByRole('navigation', { name: 'Summary' })
     await expect(summary).toBeVisible({ timeout: 20000 })
     const totals = await page.evaluate(async () => {
+      // The Inbox totals come from the one Inbox predicate (QA2-Inbox-1), not
+      // from a state-only count of the work-item view.
+      const inbox = await fetch('/api/db/rpc/inbox_needs_action_counts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      }).then((response) => response.json())
       const resources = [
-        'my_work_items?kind=eq.review_requested&state=in.(needs_action,overdue)',
         'rpc/dataset_list_summary?issue_count=gt.0&archived_at=is.null',
         'records?kind=eq.experiment&status=eq.in_progress&deleted_at=is.null',
         'instrument_runs?started_at=gte.2026-09-24T23:00:00.000Z&started_at=lt.2026-09-25T23:00:00.000Z',
-        'my_work_items?state=in.(needs_action,overdue)',
       ]
-      return Promise.all(
+      const counted = await Promise.all(
         resources.map(async (resource) => {
           const response = await fetch(`/api/db/${resource}`, {
             headers: { prefer: 'count=exact', range: '0-0' },
@@ -169,6 +174,7 @@ for (const theme of ['light', 'dark'] as const) {
           return Number(range.split('/')[1])
         }),
       )
+      return [inbox[0].reviews, ...counted, inbox[0].total]
     })
     const labels = [
       'to review',
@@ -240,19 +246,24 @@ test('Home surfaces unavailable exact totals instead of zero or preview lengths'
     })
   })
   await page.goto('/')
-  await expect(page.getByRole('alert')).toContainText(
-    'Home could not be loaded',
-    { timeout: 20000 },
-  )
+  // Home degrades one section at a time: the counts say they are unavailable
+  // (a dash, never a zero or a preview length) and the rest of the page stays.
+  const notice = page.getByText('Part of Home could not be loaded.')
+  await expect(notice).toBeVisible({ timeout: 20000 })
+  await expect(page.getByText('Unavailable right now: Counts.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Summary' })).toHaveCount(0)
+  await expect(page.getByText('— datasets with errors')).toBeVisible()
+  await expect(page.getByText('0 datasets with errors')).toHaveCount(0)
+  await expect(
+    page.getByRole('heading', { name: 'Continue working' }),
+  ).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('home-count-error.png') })
   await page.unroute(unavailable)
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.getByRole('navigation', { name: 'Summary' })).toBeVisible({
     timeout: 20000,
   })
-  await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(notice).toHaveCount(0)
 })
 
 test('Home material attention opens the actual lot instead of the first registry row', async ({

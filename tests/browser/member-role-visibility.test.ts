@@ -22,7 +22,6 @@ const MEMBER = '00000000-0000-4000-8000-000000000311'
 const ADMIN_SECTIONS = [
   'General',
   'Members and roles',
-  'Electronic signatures',
   'Project access',
   'Audit and retention',
   'Diagnostics',

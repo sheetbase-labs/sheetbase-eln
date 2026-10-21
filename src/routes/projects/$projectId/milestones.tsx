@@ -50,7 +50,12 @@ import {
 } from '#/components/v3/projects/project-data'
 import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { DataClientError } from '#/lib/data-client'
-import { notebookDataClient } from '#/lib/notebook-data'
+import {
+  fetchRecordsForProject,
+  notebookDataClient,
+  notebookQueryKeys,
+} from '#/lib/notebook-data'
+import { statusLabel } from '../$projectId'
 import { fetchProjectPermissions } from '#/lib/workspace-access'
 import {
   createPlanFromProject,
@@ -206,6 +211,15 @@ function Milestones() {
     queryKey: [...PROJECTS_KEY, 'summary'],
     queryFn: () => fetchProjectSummaries(undefined),
   })
+  // Evidence is picked from this project's own records, not typed by identifier.
+  const projectRecords = useQuery({
+    queryKey: notebookQueryKeys.records(projectId),
+    queryFn: () => fetchRecordsForProject(notebookDataClient, projectId),
+    enabled: Boolean(projectId),
+  })
+  const evidenceChoices = (projectRecords.data ?? []).filter(
+    (r) => !r.archivedAt,
+  )
   const project = projects.data?.find((item) => item.id === projectId) ?? null
   const clientLabel = project?.clientCode ?? 'the client'
 
@@ -866,6 +880,7 @@ function Milestones() {
                   <ConditionItem
                     key={d.id}
                     condition={d}
+                    choices={evidenceChoices}
                     denied={denied}
                     busy={
                       setConditionStatus.isPending || linkCondition.isPending
@@ -1237,6 +1252,7 @@ function AddMilestoneDialog({
 
 function ConditionItem({
   condition,
+  choices,
   denied,
   busy,
   onToggle,
@@ -1248,6 +1264,7 @@ function ConditionItem({
     linkedRecordId: string | null
     linkedRecordIdentifier: string | null
   }
+  choices: { id: string; identifier: string; title: string; status: string }[]
   denied: boolean
   busy: boolean
   onToggle: () => void
@@ -1256,6 +1273,8 @@ function ConditionItem({
   const met = condition.status === 'delivered'
   const [linking, setLinking] = useState(false)
   const [identifier, setIdentifier] = useState('')
+  const linked = choices.find((r) => r.id === condition.linkedRecordId)
+  const linkedStatus = linked ? `· ${statusLabel(linked.status)}` : null
   return (
     <li className="flex flex-col gap-1 text-body">
       <div className="flex items-start gap-2">
@@ -1264,13 +1283,16 @@ function ConditionItem({
       </div>
       <div className="flex flex-wrap items-center gap-1.5 pl-1 text-label text-fg-muted">
         {condition.linkedRecordId ? (
-          <Link
-            to="/records/$recordId"
-            params={{ recordId: condition.linkedRecordId }}
-            className="text-accent-text underline"
-          >
-            {condition.linkedRecordIdentifier ?? 'Linked record'}
-          </Link>
+          <>
+            <Link
+              to="/records/$recordId"
+              params={{ recordId: condition.linkedRecordId }}
+              className="text-accent-text underline"
+            >
+              {condition.linkedRecordIdentifier ?? 'Linked record'}
+            </Link>
+            {linkedStatus ? <span>{linkedStatus}</span> : null}
+          </>
         ) : (
           <span>No record linked</span>
         )}
@@ -1287,13 +1309,19 @@ function ConditionItem({
       </div>
       {linking && !denied ? (
         <div className="flex items-center gap-1.5">
-          <Input
-            aria-label={`Record identifier for ${condition.name}`}
-            className="h-8 text-xs"
-            placeholder="e.g. EXP-0012"
+          <Select
+            aria-label={`Evidence record for ${condition.name}`}
+            className="h-8 min-w-0 flex-1 text-xs"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
-          />
+          >
+            <option value="">Choose a record in this project…</option>
+            {choices.map((r) => (
+              <option key={r.id} value={r.identifier}>
+                {r.identifier} · {r.title} · {statusLabel(r.status)}
+              </option>
+            ))}
+          </Select>
           <Button
             size="sm"
             variant="primary"

@@ -36,6 +36,7 @@ const linkCalls = vi.hoisted(() => ({
 // route tree is required. createFileRoute/redirect are stubbed so the route
 // module loads without a router context.
 vi.mock('@tanstack/react-router', () => ({
+  useRouter: () => ({ invalidate: async () => {} }),
   createFileRoute: () => () => ({
     useRouteContext: () => ({}),
     useParams: () => ({ projectId: 'p1', recordId: 'r1' }),

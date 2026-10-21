@@ -31,7 +31,7 @@ import {
   setExperimentStatus,
   startExperimentRecord,
 } from '#/lib/experiment-lifecycle'
-import { notebookDataClient } from '#/lib/notebook-data'
+import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import { experimentQueryKeys } from '../$expId'
 import type { useExperimentRecord } from '../$expId'
 
@@ -75,6 +75,11 @@ export function ExperimentLifecycleActions({
   const refresh = async () => {
     await queryClient.invalidateQueries({
       queryKey: experimentQueryKeys.record(e.id),
+    })
+    // The notebook reads the same record under its own key; a stale status
+    // there would put the old lifecycle into the next submission.
+    await queryClient.invalidateQueries({
+      queryKey: notebookQueryKeys.record(e.id),
     })
     await queryClient.invalidateQueries({
       queryKey: ['ui-port', 'experiments'],

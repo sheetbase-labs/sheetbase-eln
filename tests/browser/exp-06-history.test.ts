@@ -81,15 +81,12 @@ test('real history selection, category/actor counts and server CSV agree', async
     await expect(
       inspector.getByText('Corrected method', { exact: true }),
     ).toBeVisible()
-    await page.screenshot({
-      path: '.amp/in/artifacts/exp06-integrated-selected.png',
-    })
-    await page.getByRole('button', { name: /^text 1$/ }).click()
+    await page.getByRole('tab', { name: /^text 1$/ }).click()
     await expect(inspector).toHaveCount(0)
     await page
       .getByRole('combobox', { name: 'History actor' })
       .selectOption(userId)
-    await expect(page.getByRole('button', { name: /^all 2$/ })).toBeVisible()
+    await expect(page.getByRole('tab', { name: /^all 2$/ })).toBeVisible()
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('link', { name: 'Export audit trail' }).click()
     const download = await downloadPromise
@@ -97,7 +94,7 @@ test('real history selection, category/actor counts and server CSV agree', async
     const csv = await readFile(z.string().parse(await download.path()), 'utf8')
     expect(csv.trimEnd().split('\r\n')).toHaveLength(2)
     expect(csv).toContain(',Title,Original method,Corrected method,')
-    await page.getByRole('button', { name: /^signatures 0$/ }).click()
+    await page.getByRole('tab', { name: /^signatures 0$/ }).click()
     await expect(
       page.getByText('No signatures in this selection.'),
     ).toBeVisible()

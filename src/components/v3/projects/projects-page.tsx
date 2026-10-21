@@ -120,7 +120,10 @@ export interface ProjectsSearch {
   new?: boolean
 }
 
-export type NewProjectInput = ProjectDetailsInput
+export type NewProjectInput = ProjectDetailsInput & {
+  /** A client that does not exist yet: the route creates it, then the project. */
+  newClientName?: string | null
+}
 
 /**
  * UI port (branch roadmap-4/ui-app3): sheetbase-app-3's Projects screen, wired
@@ -144,6 +147,7 @@ export function ProjectsPage({
   createdProjectId = null,
   clientOptions = [],
   memberOptions = [],
+  canCreateClient = false,
 }: {
   projects: ProjectRow[]
   me: string
@@ -166,6 +170,8 @@ export function ProjectsPage({
   createdProjectId?: string | null
   clientOptions?: { id: string; label: string }[]
   memberOptions?: { id: string; label: string }[]
+  /** Workspace admins can add the client a project is for as they create it. */
+  canCreateClient?: boolean
 }) {
   const hasProjectAccess = useHasProjectAccess()
   const tab: ProjectsTab = search.tab ?? 'all'
@@ -996,6 +1002,7 @@ export function ProjectsPage({
         clientOptions={clientOptions}
         memberOptions={memberOptions}
         meId={meId}
+        canCreateClient={canCreateClient}
       />
     </div>
   )
@@ -1184,7 +1191,7 @@ function ProjectPeek({
             <span className="font-normal text-fg-muted">{p.experiments}</span>
             <Link
               to="/experiments"
-              search={{ q: p.name }}
+              search={{ project: p.uuid }}
               className="ml-auto font-normal"
             >
               All
@@ -1270,6 +1277,9 @@ function ProjectPeek({
   )
 }
 
+/** The Client select's value for "create the client as the project is made". */
+const NEW_CLIENT = '__new_client__'
+
 function NewProjectDialog({
   open,
   onOpenChange,
@@ -1279,6 +1289,7 @@ function NewProjectDialog({
   clientOptions,
   memberOptions,
   meId,
+  canCreateClient,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -1288,9 +1299,12 @@ function NewProjectDialog({
   clientOptions: { id: string; label: string }[]
   memberOptions: { id: string; label: string }[]
   meId?: string
+  canCreateClient: boolean
 }) {
   const [title, setTitle] = useState('')
   const [clientId, setClientId] = useState('')
+  const [newClientName, setNewClientName] = useState('')
+  const addingClient = clientId === NEW_CLIENT
   const [stage, setStage] = useState('')
   const [modality, setModality] = useState('')
   // The person creating a project leads it unless they pick someone else.
@@ -1313,9 +1327,11 @@ function NewProjectDialog({
             onSubmit={(e) => {
               e.preventDefault()
               if (!title.trim()) return
+              if (addingClient && !newClientName.trim()) return
               onCreate({
                 title: title.trim(),
-                clientId: clientId || null,
+                clientId: addingClient ? null : clientId || null,
+                newClientName: addingClient ? newClientName.trim() : null,
                 stage: stage || null,
                 modality: modality || null,
                 leadUserId: lead || null,
@@ -1346,8 +1362,21 @@ function NewProjectDialog({
                       {c.label}
                     </option>
                   ))}
+                  {canCreateClient ? (
+                    <option value={NEW_CLIENT}>New client…</option>
+                  ) : null}
                 </Select>
               </Field>
+              {addingClient ? (
+                <Field label="New client name" className="col-span-2">
+                  <Input
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    required
+                    placeholder="e.g. AAV Vector Partners"
+                  />
+                </Field>
+              ) : null}
               <Field label="Modality">
                 <Select
                   value={modality}
@@ -1432,7 +1461,11 @@ function NewProjectDialog({
             variant="primary"
             type="submit"
             form="new-project-form"
-            disabled={creating || !title.trim()}
+            disabled={
+              creating ||
+              !title.trim() ||
+              (addingClient && !newClientName.trim())
+            }
           >
             {creating ? 'Creating…' : 'Create project'}
           </Button>

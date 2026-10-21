@@ -88,9 +88,18 @@ function ProjectSamplesTab() {
       title="Samples"
       count={total}
       action={
-        <Link to="/samples" className="text-label text-link">
-          All samples
-        </Link>
+        <span className="flex items-center gap-3">
+          <Link
+            to="/samples"
+            search={{ new: true, project: projectId }}
+            className="text-label text-link"
+          >
+            Register sample
+          </Link>
+          <Link to="/samples" className="text-label text-link">
+            All samples
+          </Link>
+        </span>
       }
       cols={[
         {

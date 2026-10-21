@@ -28,6 +28,7 @@ import {
 export {
   EMPTY_RICH_TEXT_PAYLOAD,
   RichTextContent,
+  isEmptyRichText,
   isRichTextPayload,
   richTextToPlainText,
 } from './rich-text'

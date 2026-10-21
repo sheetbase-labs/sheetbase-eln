@@ -19,6 +19,7 @@ import {
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import {
+  fetchProjectActivity,
   fetchProjectMembers,
   useProjectMilestones,
   useProjectSummary,
@@ -31,6 +32,7 @@ import {
 } from '#/lib/notebook-data'
 import { ObjectLink } from '#/components/v3/ui/object-link'
 import { useUserNames } from '#/lib/user-names'
+import { describeAuditEvent } from '#/lib/audit-history'
 
 export const Route = createFileRoute('/projects/$projectId/')({
   component: ProjectOverview,
@@ -83,6 +85,16 @@ function ProjectOverview() {
     queryFn: () => fetchProjectMembers(projectId),
     staleTime: 60_000,
   })
+  const activityQuery = useQuery({
+    queryKey: ['project-activity', projectId],
+    queryFn: () => fetchProjectActivity(projectId),
+    staleTime: 30_000,
+  })
+  const allExperiments = records.filter(
+    (r) => r.kind === 'experiment' && !r.archivedAt,
+  )
+  const inReview = allExperiments.filter((r) => r.status === 'in_review')
+  const approved = allExperiments.filter((r) => r.status === 'approved')
   const memberSummary = membersQuery.data?.length
     ? `${membersQuery.data
         .slice(0, 3)
@@ -295,6 +307,60 @@ function ProjectOverview() {
       <Inspector aria-label="Project details" className="w-[320px] gap-0 p-0">
         <InspectorSection title="Details">
           <DescriptionList labelWidth={112} items={details} />
+        </InspectorSection>
+        <InspectorSection title="Review progress">
+          <div className="flex flex-col gap-1 text-label">
+            <span>
+              {approved.length} of {allExperiments.length} experiments approved
+            </span>
+            {inReview.length ? (
+              <span>
+                {inReview.length} awaiting review:{' '}
+                {inReview.slice(0, 3).map((r, n) => (
+                  <span key={r.id}>
+                    {n ? ', ' : ''}
+                    <ObjectLink
+                      kind="experiment"
+                      id={r.id}
+                      identifier={r.identifier}
+                    />
+                  </span>
+                ))}
+              </span>
+            ) : (
+              <span className="text-fg-muted">Nothing awaiting review.</span>
+            )}
+          </div>
+        </InspectorSection>
+        <InspectorSection title="Recent activity">
+          <div className="flex flex-col gap-2 text-label">
+            {(activityQuery.data ?? []).map((event) => {
+              const description = describeAuditEvent(event)
+              return (
+                <div key={event.id} className="flex gap-2">
+                  <time
+                    className="shrink-0 text-fg-muted"
+                    dateTime={event.createdAt}
+                  >
+                    {event.createdAt.slice(0, 10)}
+                  </time>
+                  <span>
+                    {event.currentActorName ?? 'Someone'} {description.action}{' '}
+                    {event.currentRecord
+                      ? `${event.currentRecord.identifier} · ${event.currentRecord.title}`
+                      : description.subject}
+                  </span>
+                </div>
+              )
+            })}
+            {!activityQuery.data?.length ? (
+              <span className="text-fg-muted">
+                {activityQuery.isLoading
+                  ? 'Loading activity…'
+                  : 'No recent activity.'}
+              </span>
+            ) : null}
+          </div>
         </InspectorSection>
       </Inspector>
     </>

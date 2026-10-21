@@ -338,6 +338,22 @@ export async function createProjectFolder(
   })
 }
 
+export async function renameProjectFolder(
+  folderId: string,
+  name: string,
+): Promise<ProjectFolder> {
+  return projectDataClient.rpc<ProjectFolder>('rename_project_folder', {
+    p_folder_id: folderId,
+    p_name: name,
+  })
+}
+
+export async function deleteProjectFolder(folderId: string): Promise<void> {
+  await projectDataClient.rpc<void>('delete_project_folder', {
+    p_folder_id: folderId,
+  })
+}
+
 export async function moveRecordsToFolder(
   projectId: string,
   recordIds: string[],

@@ -142,20 +142,31 @@ export function useModels(client: DataClient = notebookDataClient) {
           return reported?.id
         })
         .filter((id): id is string => Boolean(id))
-      const [fields, datasets] = await Promise.all([
-        reportedVersionIds.length
-          ? client.list<{ field_id: string; schema_version_id: string }>(
+      // The proxy refuses a query value over 500 characters, so a long id list
+      // is read in groups instead of one `in.(…)`.
+      const groups: string[][] = []
+      for (let i = 0; i < reportedVersionIds.length; i += 12)
+        groups.push(reportedVersionIds.slice(i, i + 12))
+      const [fieldGroups, datasetGroups] = await Promise.all([
+        Promise.all(
+          groups.map((ids) =>
+            client.list<{ field_id: string; schema_version_id: string }>(
               'dataset_schema_version_fields',
-              `?schema_version_id=in.(${reportedVersionIds.join(',')})&select=field_id,schema_version_id`,
-            )
-          : Promise.resolve([]),
-        reportedVersionIds.length
-          ? client.list<{ id: string; schema_version_id: string }>(
+              `?schema_version_id=in.(${ids.join(',')})&select=field_id,schema_version_id`,
+            ),
+          ),
+        ),
+        Promise.all(
+          groups.map((ids) =>
+            client.list<{ id: string; schema_version_id: string }>(
               'datasets',
-              `?schema_version_id=in.(${reportedVersionIds.join(',')})&select=id,schema_version_id`,
-            )
-          : Promise.resolve([]),
+              `?schema_version_id=in.(${ids.join(',')})&select=id,schema_version_id`,
+            ),
+          ),
+        ),
       ])
+      const fields = fieldGroups.flat()
+      const datasets = datasetGroups.flat()
       return buildModelRows(definitions, versions, fields, datasets)
     },
     staleTime: 15_000,

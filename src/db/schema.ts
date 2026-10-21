@@ -9426,6 +9426,11 @@ export const pipelineSchedules = api.table(
     lastEvaluatedSequence: bigint('last_evaluated_sequence', {
       mode: 'bigint',
     }),
+    /**
+     * Per-input watermark for `incremental` bindings: the Dataset Version id
+     * this trigger last started a run on, keyed by input name.
+     */
+    inputWatermarks: jsonb('input_watermarks').notNull().default({}),
     ...timestamps,
     createdByUserId: text('created_by_user_id').references(() => user.id, {
       onDelete: 'set null',
@@ -9434,13 +9439,48 @@ export const pipelineSchedules = api.table(
   (table) => [
     check(
       'chk_pipeline_schedules_kind',
-      sql`${table.kind} IN ('interval', 'daily', 'event')`,
+      sql`${table.kind} IN ('interval', 'daily', 'cron', 'event')`,
     ),
     unique('uq_pipeline_schedules_workspace_id').on(
       table.workspaceId,
       table.id,
     ),
     index('idx_pipeline_schedules_workspace').on(table.workspaceId),
+  ],
+)
+
+/**
+ * What a trigger did instead of starting a run: occurrences skipped because
+ * they were missed, nothing changed, a run was still going, or inputs could
+ * not be resolved. Runs themselves are the history (`pipeline_runs.schedule_id`).
+ */
+export const pipelineScheduleActivity = api.table(
+  'pipeline_schedule_activity',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: uuid('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    scheduleId: uuid('schedule_id')
+      .notNull()
+      .references(() => pipelineSchedules.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    occurrenceId: text('occurrence_id'),
+    message: text('message').notNull(),
+    detail: jsonb('detail').notNull().default({}),
+    occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      'chk_pipeline_schedule_activity_kind',
+      sql`${table.kind} IN ('skipped_missed', 'skipped_unchanged', 'skipped_overlap', 'skipped_no_version', 'input_unresolved', 'start_failed')`,
+    ),
+    index('idx_pipeline_schedule_activity_schedule').on(
+      table.scheduleId,
+      table.occurredAt.desc(),
+    ),
   ],
 )
 

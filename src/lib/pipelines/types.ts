@@ -8,7 +8,8 @@ export type PipelineVersionLifecycle = 'draft' | 'published' | 'retired'
 export type PipelineRunTrigger = 'manual' | 'scheduled' | 'event'
 export type PipelineRunStatus =
   'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled'
-export type PipelineScheduleKind = 'interval' | 'daily' | 'event'
+export type { PipelineScheduleKind } from '../pipeline-schedule'
+import type { PipelineScheduleKind } from '../pipeline-schedule'
 
 export interface PipelineDefinitionWire {
   id: string

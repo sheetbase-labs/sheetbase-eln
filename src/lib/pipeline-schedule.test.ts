@@ -5,6 +5,8 @@ import {
   nextRunAt,
   normalizeTriggerEventName,
   PIPELINE_TRIGGER_EVENTS,
+  specBindings,
+  upcomingRuns,
   validateScheduleSpec,
 } from './pipeline-schedule'
 
@@ -185,5 +187,115 @@ describe('nextRunAt', () => {
         timeZone: 'Mars/Olympus',
       }),
     ).not.toBeNull()
+  })
+})
+
+describe('cron triggers', () => {
+  it('validates the expression and the zone', () => {
+    expect(
+      validateScheduleSpec('cron', {
+        cron: '0 9 * * 1-5',
+        timeZone: 'Europe/London',
+      }),
+    ).toBeNull()
+    expect(validateScheduleSpec('cron', { cron: '0 9 * *' })).toEqual({
+      message:
+        'cron must be five fields: minute hour day-of-month month day-of-week',
+    })
+    expect(
+      validateScheduleSpec('cron', {
+        cron: '0 9 * * *',
+        timeZone: 'Nowhere/Land',
+      }),
+    ).toEqual({ message: 'timeZone must be a valid IANA time zone name' })
+    expect(validateScheduleSpec('cron', { cron: '0 0 31 2 *' })).toEqual({
+      message: 'cron never fires',
+    })
+  })
+
+  it('computes the next run and a run of previews', () => {
+    const from = new Date('2026-10-21T10:00:00Z')
+    const spec = { cron: '0 9 * * 1', timeZone: 'UTC' }
+    expect(nextRunAt('cron', spec, from)).toEqual(
+      new Date('2026-10-26T09:00:00Z'),
+    )
+    expect(upcomingRuns('cron', spec, from, 3)).toEqual([
+      new Date('2026-10-26T09:00:00Z'),
+      new Date('2026-11-02T09:00:00Z'),
+      new Date('2026-11-09T09:00:00Z'),
+    ])
+  })
+})
+
+describe('input bindings and the missed-run policy', () => {
+  const dataset = '3f2b8a52-7c1d-4a2e-9b1a-0d6f5e4c3b2a'
+  const version = '0e1d2c3b-4a59-4687-8a9b-0c1d2e3f4a5b'
+
+  it('accepts pinned, latest and incremental bindings on timed triggers', () => {
+    expect(
+      validateScheduleSpec('daily', {
+        dailyAt: '06:00',
+        missedRunPolicy: 'skip',
+        inputs: {
+          readings: { mode: 'incremental', datasetId: dataset },
+          reference: { mode: 'latest', datasetId: dataset },
+          baseline: { mode: 'pinned', versionId: version },
+        },
+      }),
+    ).toBeNull()
+  })
+
+  it('refuses incremental on an event trigger, which already runs on new data', () => {
+    expect(
+      validateScheduleSpec('event', {
+        eventType: 'dataset.versioned',
+        inputs: { readings: { mode: 'incremental', datasetId: dataset } },
+      }),
+    ).toEqual({
+      message: 'input readings: an event trigger already runs only on new data',
+    })
+  })
+
+  it('refuses malformed bindings and policies', () => {
+    const daily = { dailyAt: '06:00' }
+    expect(
+      validateScheduleSpec('daily', { ...daily, missedRunPolicy: 'later' }),
+    ).toEqual({ message: 'missedRunPolicy must be run_once or skip' })
+    expect(
+      validateScheduleSpec('daily', {
+        ...daily,
+        inputs: { Bad: { mode: 'latest', datasetId: dataset } },
+      }),
+    ).not.toBeNull()
+    expect(
+      validateScheduleSpec('daily', {
+        ...daily,
+        inputs: { readings: { mode: 'latest' } },
+      }),
+    ).toEqual({ message: 'input readings needs a Dataset' })
+    expect(
+      validateScheduleSpec('daily', {
+        ...daily,
+        inputs: { readings: { mode: 'pinned', versionId: 'nope' } },
+      }),
+    ).toEqual({ message: 'input readings needs a Dataset Version to pin' })
+    expect(
+      validateScheduleSpec('daily', {
+        ...daily,
+        inputs: { readings: { mode: 'sometimes' } },
+      }),
+    ).toEqual({ message: 'input readings has an unknown mode' })
+  })
+
+  it('reads legacy inputVersions as pinned and lets bindings win', () => {
+    expect(
+      specBindings({
+        inputVersions: { a: version, b: version },
+        inputs: { b: { mode: 'latest', datasetId: dataset } },
+      }),
+    ).toEqual({
+      a: { mode: 'pinned', versionId: version },
+      b: { mode: 'latest', datasetId: dataset },
+    })
   })
 })

@@ -14,6 +14,7 @@ import {
   removeStep,
   setConfirmPatch,
   setStepConfirm,
+  setStepLanguage,
   updateStep,
 } from '#/lib/pipelines/authoring'
 
@@ -71,9 +72,11 @@ export function StepsEditor({
                   value={step.language}
                   onChange={(e) =>
                     onChange(
-                      updateStep(steps, index, {
-                        language: e.target.value as PipelineStep['language'],
-                      }),
+                      setStepLanguage(
+                        steps,
+                        index,
+                        e.target.value as PipelineStep['language'],
+                      ),
                     )
                   }
                 >

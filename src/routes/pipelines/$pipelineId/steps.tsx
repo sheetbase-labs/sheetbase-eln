@@ -15,6 +15,7 @@ import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
 import {
   draftVersion,
   usePipelineOutputTargets,
+  usePythonRuntime,
   usePipelineVersions,
   useWorkspaceMemberNames,
 } from '#/components/v3/pipelines/pipelines-data'
@@ -28,6 +29,7 @@ import type {
   PipelineParameter,
   PipelineStep,
 } from '#/lib/pipelines/config'
+import { statementForLanguage } from '#/lib/pipelines/authoring'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -57,6 +59,7 @@ interface PipelineConfiguration {
   steps?: PipelineStep[]
   inputs?: PipelineInput[]
   transform?: { language?: string; statement?: string }
+  pythonRuntime?: string
   output?: {
     mode?: OutputMode
     schemaVersionId?: string
@@ -75,6 +78,7 @@ const EDITED_CONFIG_FIELDS = [
   'inputs',
   'transform',
   'output',
+  'pythonRuntime',
 ] as const
 
 function PipelineSteps() {
@@ -91,6 +95,7 @@ function PipelineSteps() {
 
   const [description, setDescription] = useState('')
   const [statement, setStatement] = useState('')
+  const [language, setLanguage] = useState('sql')
   const [datasetName, setDatasetName] = useState('')
   const [inputs, setInputs] = useState<PipelineInput[]>([])
   const [parameters, setParameters] = useState<PipelineParameter[]>([])
@@ -107,6 +112,7 @@ function PipelineSteps() {
   useEffect(() => {
     setDescription(sourceConfig.description ?? '')
     setStatement(sourceConfig.transform?.statement ?? '')
+    setLanguage(sourceConfig.transform?.language ?? 'sql')
     setDatasetName(sourceConfig.output?.datasetName ?? '')
     setInputs(sourceConfig.inputs ?? [])
     setParameters(sourceConfig.parameters ?? [])
@@ -119,6 +125,7 @@ function PipelineSteps() {
     sourceId,
     sourceConfig.description,
     sourceConfig.transform?.statement,
+    sourceConfig.transform?.language,
     sourceConfig.output?.datasetName,
     sourceConfig.output?.mode,
     sourceConfig.output?.schemaVersionId,
@@ -129,16 +136,34 @@ function PipelineSteps() {
     sourceConfig.steps,
   ])
 
+  // A saved version pins the immutable Python image it was written against, so
+  // the editor supplies it: the one installed now, or the version's existing pin
+  // when the runner cannot be reached.
+  const runtime = usePythonRuntime()
+  const usesPython =
+    language === 'python' || extraSteps.some((s) => s.language === 'python')
+  const pythonRuntime = usesPython
+    ? runtime.data?.available
+      ? runtime.data.runtime
+      : sourceConfig.pythonRuntime
+    : undefined
+  const pythonUnavailable =
+    usesPython && !pythonRuntime && !runtime.isLoading
+      ? (runtime.data?.message ??
+        'Python is not available yet. Ask your administrator to connect a Python runner.')
+      : null
+
   const builtConfig = useMemo<PipelineConfiguration>(
     () => ({
       ...sourceConfig,
+      pythonRuntime,
       configVersion: sourceConfig.configVersion ?? 1,
       description: description.trim() || null,
       parameters,
       ...(extraSteps.length ? { steps: extraSteps } : { steps: undefined }),
       inputs,
       transform: {
-        language: sourceConfig.transform?.language ?? 'sql',
+        language,
         statement: statement.trim(),
       },
       output: {
@@ -153,6 +178,8 @@ function PipelineSteps() {
     }),
     [
       sourceConfig,
+      pythonRuntime,
+      language,
       description,
       parameters,
       extraSteps,
@@ -181,7 +208,10 @@ function PipelineSteps() {
     [builtConfig],
   )
 
-  const canSave = statement.trim().length > 0 && configErrors.length === 0
+  const canSave =
+    statement.trim().length > 0 &&
+    configErrors.length === 0 &&
+    !pythonUnavailable
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
@@ -262,11 +292,38 @@ function PipelineSteps() {
               onChange={(e) => setDescription(e.target.value)}
             />
           </Field>
+          <Field label="Language">
+            <Select
+              aria-label="Transform language"
+              value={language}
+              onChange={(event) => {
+                const next = event.target.value
+                setStatement((current) =>
+                  next === 'sql' || next === 'python'
+                    ? statementForLanguage(current, next, {
+                        inputs,
+                        parameters,
+                      })
+                    : current,
+                )
+                setLanguage(next)
+              }}
+            >
+              <option value="sql">SQL</option>
+              <option value="python">Python</option>
+              {language === 'none' ? <option value="none">None</option> : null}
+            </Select>
+          </Field>
           <Field
             label="Transform"
-            hint="SQL over the declared inputs. Sheets are read as tables named by the input."
+            hint={
+              language === 'python'
+                ? 'Define transform(inputs, parameters) and return rows or a pandas DataFrame. Each input is a list of row dictionaries.'
+                : 'SQL over the declared inputs. Sheets are read as tables named by the input.'
+            }
           >
             <textarea
+              aria-label="Transform code"
               value={statement}
               onChange={(e) => setStatement(e.target.value)}
               rows={6}
@@ -274,6 +331,11 @@ function PipelineSteps() {
               className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
             />
           </Field>
+          {pythonUnavailable ? (
+            <Notice tone="bad" title="Python is not available">
+              {pythonUnavailable}
+            </Notice>
+          ) : null}
         </div>
       </Section>
 

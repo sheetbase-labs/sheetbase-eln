@@ -6,6 +6,7 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Section } from '#/components/v3/ui/layout'
 import { toast } from '#/components/v3/ui/sonner'
 import { SettingsSessions } from '#/components/v3/settings/settings-sessions'
+import { SettingsTwoFactor } from '#/components/v3/settings/settings-two-factor'
 import {
   SettingsBody,
   SettingsHeader,
@@ -173,6 +174,8 @@ function Profile() {
             </span>
           </div>
         </Section>
+
+        <SettingsTwoFactor />
 
         <Section title="Sessions">
           <SettingsSessions />

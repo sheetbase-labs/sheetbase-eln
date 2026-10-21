@@ -1,7 +1,7 @@
 /**
- * Journeys DATA-04 and DATA-05: an import refused for a bad row is fixed by
+ * Journeys DATA-04, DATA-05 and DATA-15: an import refused for a bad row is fixed by
  * uploading the corrected file, and a wrong value in a dataset is flagged and
- * corrected by importing it again into the same dataset.
+ * corrected by importing it again into the same dataset, and a record gains a late model field.
  */
 import { expect, test } from 'playwright/test'
 
@@ -88,4 +88,22 @@ test('DATA-05 a wrong value is flagged, and Correct by re-import opens the impor
   await expect(page.getByLabel('Import into dataset')).toHaveValue(
     ELISA_DATASET,
   )
+})
+
+const CELL_BANK_RECORD = '00000000-0000-4000-8000-000000000620'
+
+test('DATA-15 a field added to the model after the record was made can be filled in', async ({
+  page,
+}) => {
+  await open(page, `/models/cell_bank/records/${CELL_BANK_RECORD}`)
+  await waitForHydration(page)
+  const parent = uniqueName('CB-0010 HEK293 MCB')
+  await page.getByRole('button', { name: 'Edit details' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel(/^Parent bank/).fill(parent)
+  await dialog.getByRole('button', { name: /^save/i }).click()
+  await expect(page.getByText(parent)).toBeVisible()
+  await expect(
+    page.getByText(/added to this model after this record was created/),
+  ).toHaveCount(0)
 })

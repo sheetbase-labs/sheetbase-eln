@@ -15,6 +15,9 @@ enforces workspace RLS through PostgreSQL and writes a provenance receipt into
 | `GET /api/export/sheet-instance/$id`   | json, csv, tsv, xlsx, parquet         | Sheet Instance                  |
 | `GET /api/export/record/$id`           | json                                  | Record / Notebook document      |
 | `GET /api/export/revision/$id/package` | zip                                   | Submitted revision evidence ZIP |
+| `GET /api/export/record/$id/eln`       | .eln                                  | One experiment as an archive    |
+| `GET /api/export/project/$id/eln`      | .eln                                  | All experiments in a project    |
+| `POST /api/import/eln?projectId=$id`   | .eln body                             | Import experiments as drafts    |
 
 Downloads are plain GETs: session cookies authenticate them, so an anchor or
 `window.open` is enough in the browser.
@@ -124,3 +127,45 @@ records the action on their behalf.
 - The client-side evidence JSON download (`downloadRevisionEvidence` /
   `export_revision_evidence` RPC) was replaced by the evidence package; the
   same machine-readable content is now part of `evidence.json`.
+
+## .eln archives
+
+`.eln` is the ELN Consortium interchange format: a ZIP with one top-level
+folder and an RO-Crate 1.1 `ro-crate-metadata.json`, readable by other ELNs
+(eLabFTW, Chemotion, openBIS and others).
+
+```
+<name>/ro-crate-metadata.json      crate graph (root Dataset -> experiments)
+<name>/<EXP-001 Title>/experiment.json   native Sheetbase notebook document
+<name>/<EXP-001 Title>/files/…           attached files, with sha256 in the crate
+<name>/<EXP-001 Title>/datasets/…        cited Datasets as CSV (frozen version if pinned)
+<name>/<EXP-001 Title>/signatures.json   electronic signatures
+<name>/<EXP-001 Title>/audit.csv         full audit history of the record
+```
+
+Each experiment is a `Dataset` entity (`identifier`, `name`, `text`,
+`keywords`, `dateCreated`, status/kind as `PropertyValue`). Files and Datasets
+are `File` entities with `encodingFormat`, `contentSize` and `sha256`.
+Signatures are `Action` entities also typed `sheetbase:Signature`
+(`https://sheetbase.io/ns/eln#`) carrying meaning, signer role, auth method,
+revision id and the revision integrity digest, linked to a `Person`.
+
+- **Authorisation.** Reads use the caller's RLS-scoped token, so a caller
+  exports only what they can see; inaccessible or missing ids are `404`.
+- **Receipts.** Each exported experiment writes an `api.data_exports` receipt
+  (`object_type = record`, `format = eln`); a project export writes one per
+  experiment. If a receipt cannot be written the export fails.
+- **Limits.** At most 200 experiments per project archive (`413
+too_many_experiments`) and 256 MiB of attached-file bytes per archive; files
+  that are not active, are absent from storage or do not fit are left out of
+  the archive rather than failing it.
+- **Live, not evidence.** Like other live exports this is not immutable
+  evidence; use the revision evidence package for submitted revisions.
+- **Import.** `POST /api/import/eln?projectId=…` with the raw archive as the
+  body (max 64 MiB) creates one `draft` experiment per crate experiment, with
+  tags and rich-text blocks, plus a closing provenance paragraph naming the
+  original identifier. Blocks that reference workspace objects (files, Sheets,
+  Datasets, charts), attached files, signatures and audit history are **not**
+  imported and are listed in `warnings`; foreign crates import their `text`.
+  Entry names with `..`, absolute paths or backslashes, encrypted entries and
+  ZIP64 archives are refused.

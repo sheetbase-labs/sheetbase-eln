@@ -13,14 +13,17 @@ import {
 import { updateProfileNameFn } from '#/components/v3/settings/settings-profile-data'
 import { useTheme } from '#/components/v3/lib/theme'
 import { createDataClient } from '#/lib/data-client'
-import { setUserAppearance } from '#/lib/user-preferences'
+import { isUsableTimeZone, setDisplayTimeZone } from '#/lib/display-time-zone'
+import { setUserAppearance, setUserTimeZone } from '#/lib/user-preferences'
 import type { ThemePref } from '#/components/v3/lib/theme'
 import { cn } from '#/lib/utils'
 
 /** UI port (roadmap-4/ui-app3): your profile. The display name is saved through
- * Better Auth, or through the server when this deployment runs without sign-in;
- * the initials, job title and time zone app-3 shows have no field in this model
- * and are stated as gaps. Appearance and sessions are real. */
+ * Better Auth, or through the server when this deployment runs without sign-in.
+ * The time zone is yours alone: every time the app shows, audit and signature
+ * times included, is read on that clock (stored instants stay UTC). The
+ * initials and job title app-3 shows have no field here and are stated as
+ * gaps. Appearance and sessions are real. */
 export const Route = createFileRoute('/settings/profile')({
   component: Profile,
 })
@@ -44,6 +47,15 @@ function initialsOf(name: string): string {
 
 const appearanceClient = createDataClient()
 
+/** Every IANA zone the browser knows, for the time zone field's suggestions. */
+function knownTimeZones(): string[] {
+  const supported = (
+    Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
+  ).supportedValuesOf
+  const zones = supported ? supported('timeZone') : []
+  return zones.includes('UTC') ? zones : ['UTC', ...zones]
+}
+
 function Profile() {
   const { context } = Route.useRouteContext()
   const router = useRouter()
@@ -63,13 +75,23 @@ function Profile() {
     })
   }
   const [name, setName] = useState(user.name)
+  const savedTimeZone = context.timeZone
+  const [timeZone, setTimeZone] = useState(savedTimeZone)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     setName(user.name)
   }, [user.name])
+  useEffect(() => {
+    setTimeZone(savedTimeZone)
+  }, [savedTimeZone])
 
   const error = name.trim() ? undefined : 'Enter your full name.'
+  const zone = timeZone.trim()
+  const timeZoneError =
+    zone && !isUsableTimeZone(zone)
+      ? 'Use a time zone name such as Europe/London or America/New_York.'
+      : undefined
 
   return (
     <>
@@ -78,11 +100,15 @@ function Profile() {
         actions={
           <Button
             variant="primary"
-            disabled={busy || Boolean(error)}
+            disabled={busy || Boolean(error) || Boolean(timeZoneError)}
             onClick={async () => {
               setBusy(true)
               try {
                 await updateProfileNameFn({ data: { name: name.trim() } })
+                if (zone && zone !== savedTimeZone) {
+                  await setUserTimeZone(appearanceClient, zone)
+                  setDisplayTimeZone(zone)
+                }
                 // The shell and this form both read the name from the resolved
                 // route context, so re-resolve it rather than report a save the
                 // rest of the app has not seen.
@@ -123,6 +149,24 @@ function Profile() {
                 aria-invalid={Boolean(error) || undefined}
                 onChange={(e) => setName(e.target.value)}
               />
+            </Field>
+            <Field
+              label="Time zone"
+              hint="Times across Sheetbase, including audit and signature times, show on this clock. Stored times stay in UTC."
+              error={timeZoneError}
+            >
+              <Input
+                value={timeZone}
+                list="profile-time-zones"
+                placeholder="Europe/London"
+                aria-invalid={Boolean(timeZoneError) || undefined}
+                onChange={(e) => setTimeZone(e.target.value)}
+              />
+              <datalist id="profile-time-zones">
+                {knownTimeZones().map((zoneName) => (
+                  <option key={zoneName} value={zoneName} />
+                ))}
+              </datalist>
             </Field>
             <Field label="Email" hint="From your company sign-in.">
               <Input

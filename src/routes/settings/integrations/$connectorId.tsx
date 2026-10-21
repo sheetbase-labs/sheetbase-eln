@@ -1,3 +1,4 @@
+import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
@@ -160,8 +161,10 @@ function ConnectorDetailRoute() {
               managed by stewards.
             </p>
             <p className="m-0 border-t border-border pt-2 text-label text-fg-muted">
-              Registered {new Date(connector.created_at).toLocaleString()} ·
-              updated {new Date(connector.updated_at).toLocaleString()}
+              Registered{' '}
+              {formatNotebookDateTime(connector.created_at, { zone: true })} ·
+              updated{' '}
+              {formatNotebookDateTime(connector.updated_at, { zone: true })}
             </p>
           </Section>
 

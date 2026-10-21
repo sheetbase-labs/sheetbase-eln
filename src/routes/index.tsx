@@ -1,6 +1,7 @@
 import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
@@ -404,7 +405,7 @@ export function Home() {
     queryFn: () => fetchWorkspaceGeneral(notebookDataClient),
     enabled: Boolean(workspaceId),
   })
-  const timeZone = workspaceQuery.data?.timezone ?? 'UTC'
+  const timeZone = useDisplayTimeZone(workspaceQuery.data?.timezone)
   const now = new Date()
   const range = homeDayRange(now, timeZone)
   // R5-HOME-01: one booking read serves both the busy Home (today only) and

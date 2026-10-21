@@ -6,6 +6,7 @@ import {
   InspectorSection,
   InspectorSectionStack,
 } from '#/components/record'
+import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { Notice } from '#/components/v3/ui/alert'
 import { TabsRoot, TabsList, TabsPanel, TabsTab } from '#/components/v3/ui/tabs'
 import { cn } from '#/lib/utils'
@@ -104,8 +105,10 @@ export function formatCellValue(
     const parsed = new Date(String(value))
     if (!Number.isNaN(parsed.getTime())) {
       return field.logicalType === 'date'
-        ? parsed.toLocaleDateString()
-        : parsed.toLocaleString()
+        ? parsed.toLocaleDateString(undefined, {
+            timeZone: getDisplayTimeZone(),
+          })
+        : parsed.toLocaleString(undefined, { timeZone: getDisplayTimeZone() })
     }
   }
   return String(value)

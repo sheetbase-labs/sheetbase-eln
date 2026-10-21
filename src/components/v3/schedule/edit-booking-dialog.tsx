@@ -130,7 +130,7 @@ export function EditBookingDialog({
             </Field>
           </div>
           <p role="note" className="m-0 text-label text-fg-muted">
-            Times are in the booking’s time zone, {booking.timezone}.
+            Times are in {booking.timezone}.
           </p>
           <Field label="Notes">
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} />

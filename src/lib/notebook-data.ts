@@ -11,6 +11,7 @@
  * record > block. "Notebook" is the record's ordered blocks.
  */
 
+import { formatInstant } from '#/lib/display-time-zone'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 
@@ -540,19 +541,20 @@ export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   const parsed = Date.parse(iso)
   if (Number.isNaN(parsed)) return '—'
-  return new Date(parsed).toLocaleDateString('en-GB', ukDate)
+  return formatInstant(iso, ukDate)
 }
 
 /** Absolute date and time for notebook headers and the inspector. */
-export function formatNotebookDateTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const parsed = Date.parse(iso)
-  if (Number.isNaN(parsed)) return '—'
-  return new Date(parsed).toLocaleString('en-GB', {
+export function formatNotebookDateTime(
+  iso: string | null | undefined,
+  options: { zone?: boolean } = {},
+): string {
+  return formatInstant(iso, {
     ...ukDate,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
+    ...options,
   })
 }
 

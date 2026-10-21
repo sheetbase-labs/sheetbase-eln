@@ -13,6 +13,7 @@ import {
 import type { ConclusionVerdict } from '#/lib/conclusion-block'
 import { CALLOUT_STYLES } from './callout-styles'
 import {
+  formatNotebookDateTime,
   notebookDataClient,
   notebookQueryKeys,
   fetchFileObjectByRecordId,
@@ -471,7 +472,7 @@ function renderProcedureStep(payload: unknown): React.ReactNode {
         {note ? <p className="mt-1 text-xs text-fg-muted">{note}</p> : null}
         {completedAt ? (
           <p className="mt-1 text-xs text-fg-muted">
-            Completed {new Date(completedAt).toLocaleString()}
+            Completed {formatNotebookDateTime(completedAt, { zone: true })}
           </p>
         ) : null}
       </div>

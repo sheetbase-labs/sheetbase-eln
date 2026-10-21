@@ -2055,7 +2055,7 @@ export function ScientificSheetBlock({
             nativeButton={false}
             render={
               <a
-                href={`/datasets?dataset=${encodeURIComponent(tableId)}`}
+                href={`/datasets/${encodeURIComponent(tableId)}`}
                 role="link"
               />
             }

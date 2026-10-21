@@ -54,7 +54,7 @@ const items: RelatedWorkItem[] = [
     label: 'Assay data',
     identifier: null,
     reason: 'Derived from dataset Assay data',
-    destination: '/datasets?dataset=ds-1',
+    destination: '/datasets/ds-1',
   },
 ]
 
@@ -67,7 +67,7 @@ describe('RelatedWorkList', () => {
     const recordLink = screen.getByRole('link', { name: /Second run/ })
     expect(recordLink.getAttribute('href')).toBe('/records/rec-2')
     const datasetLink = screen.getByRole('link', { name: /Assay data/ })
-    expect(datasetLink.getAttribute('href')).toBe('/datasets?dataset=ds-1')
+    expect(datasetLink.getAttribute('href')).toBe('/datasets/ds-1')
   })
 })
 
@@ -91,6 +91,6 @@ describe('RelatedWorkPanel', () => {
     expect(screen.getByText('Second run')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: /Assay data/ }).getAttribute('href'),
-    ).toBe('/datasets?dataset=ds-1')
+    ).toBe('/datasets/ds-1')
   })
 })

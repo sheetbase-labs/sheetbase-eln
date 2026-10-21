@@ -20,7 +20,7 @@ export function recordPath(recordId: string): string {
 }
 
 export function datasetPath(datasetId: string): string {
-  return `/datasets?dataset=${encodeURIComponent(datasetId)}`
+  return `/datasets/${encodeURIComponent(datasetId)}`
 }
 
 export function sheetPath(sheetId: string): string {

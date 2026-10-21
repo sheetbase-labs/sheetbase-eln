@@ -54,6 +54,7 @@ import {
   createFileRoute,
   redirect,
   useNavigate,
+  useRouter,
 } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PanelLeft, PanelLeftClose, Save, Sigma, Trash2 } from 'lucide-react'
@@ -393,6 +394,7 @@ function AnalysisStudio() {
 
   const queryClient = useQueryClient()
   const navigate = useNavigate({ from: '/analysis/new' })
+  const router = useRouter()
 
   const saveMutation = useMutation({
     mutationFn: async (options?: { asNew?: boolean }) => {
@@ -707,7 +709,7 @@ function AnalysisStudio() {
                   chartSpecReady={comparePromoted}
                   onPromoteGuide={promoteCompareToChart}
                   onNavigateGuide={(href) => {
-                    window.location.assign(href)
+                    router.history.push(href)
                   }}
                 />
               </div>

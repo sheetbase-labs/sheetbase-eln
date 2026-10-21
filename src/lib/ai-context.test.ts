@@ -441,7 +441,7 @@ describe('dataset summaries', () => {
     const object = envelope.objects[0]
 
     expect(object.freshness).toBe('live')
-    expect(object.deepLink).toBe('/datasets?dataset=ds-1')
+    expect(object.deepLink).toBe('/datasets/ds-1')
     const headings = object.sections.map((s) => s.heading)
     expect(headings).toEqual(['identity', 'schema', 'sample_rows'])
     expect(object.sections[0].body).toContain('revision: 7')

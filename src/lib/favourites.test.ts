@@ -250,7 +250,7 @@ describe('resolveFavouriteItems', () => {
     expect(items.map((i) => [i.kind, i.label, i.destination])).toEqual([
       ['sheet', 'Dose response', '/sheets/s-1'],
       ['record', 'Buffer lot A', '/samples/r-1'],
-      ['dataset', 'Assay readouts', '/datasets?dataset=d-1'],
+      ['dataset', 'Assay readouts', '/datasets/d-1'],
       ['project', 'Stability study', '/projects/p-1'],
       ['notebook_template', 'PK study', '/templates?template=t-1'],
     ])

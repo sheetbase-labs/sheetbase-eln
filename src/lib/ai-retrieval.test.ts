@@ -622,7 +622,7 @@ describe('ai-retrieval contract', () => {
     expect(citation).toMatchObject({
       kind: 'dataset',
       stableId: DATASET_ID,
-      deepLink: `/datasets?dataset=${DATASET_ID}`,
+      deepLink: `/datasets/${DATASET_ID}`,
       versionPin: null,
       freshness: 'live',
       archived: false,

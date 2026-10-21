@@ -17,14 +17,22 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
   expirePipelinePrompts,
+  failStuckPipelineRun,
   resumePipelineRun,
   runPipelineExecution,
 } from '#/lib/pipeline-execute.server'
+import { runPipelineJobs } from '#/lib/pipeline-queue.server'
+import { handlePipelineExecute } from '#/lib/pipeline-run-requests.server'
 import type {
   PipelineExecuteDeps,
   PipelineExecuteReport,
 } from '#/lib/pipeline-execute.server'
-import { prepareTestDatabase, setActorJwt, testDatabaseName } from './helpers'
+import {
+  connectTestSandbox,
+  prepareTestDatabase,
+  setActorJwt,
+  testDatabaseName,
+} from './helpers'
 
 const WS = '0e020000-0000-4000-8000-000000000201'
 const OWNER = 'pipeline-confirm-owner'
@@ -151,7 +159,9 @@ function confirmConfig(
         statement:
           'SELECT batch, count(*) AS rows, min(value) AS values_seen FROM measurements GROUP BY batch ORDER BY batch',
         confirm: {
-          fields: [{ key: 'unit', label: 'Unit', type: 'text', required: true }],
+          fields: [
+            { key: 'unit', label: 'Unit', type: 'text', required: true },
+          ],
           askedUserIds: [OWNER],
           skipSteps: ['set_units'],
           noAnswer,
@@ -213,16 +223,20 @@ async function commitRows(
     [schemaVersionId],
   )
   const fieldId = Object.fromEntries(fields.rows.map((f) => [f.key, f.id]))
-  const committed = await rpc<Record<string, unknown>>(owner, 'commit_dataset_row_batch', {
-    p_dataset_id: inputDatasetId,
-    p_expected_dataset_revision: expectedRevision,
-    p_rows: rows.map((row) => ({
-      operation: 'create',
-      rowId: row.rowId,
-      values: { [fieldId.batch]: row.batch, [fieldId.value]: row.value },
-    })),
-    p_idempotency_key: idempotencyKey,
-  })
+  const committed = await rpc<Record<string, unknown>>(
+    owner,
+    'commit_dataset_row_batch',
+    {
+      p_dataset_id: inputDatasetId,
+      p_expected_dataset_revision: expectedRevision,
+      p_rows: rows.map((row) => ({
+        operation: 'create',
+        rowId: row.rowId,
+        values: { [fieldId.batch]: row.batch, [fieldId.value]: row.value },
+      })),
+      p_idempotency_key: idempotencyKey,
+    },
+  )
   if (committed.ok !== true)
     throw new Error(`commit failed: ${JSON.stringify(committed)}`)
 }
@@ -301,9 +315,7 @@ async function answer(
   return report
 }
 
-async function outputScaled(
-  outputDatasetVersionId: string,
-): Promise<number[]> {
+async function outputScaled(outputDatasetVersionId: string): Promise<number[]> {
   const { rows } = await migrator.query<{ numeric_value: string }>(
     `select v.numeric_value
        from api.dataset_version_values v
@@ -422,8 +434,16 @@ describe('PIPE-02.2 confirm steps', () => {
     await commitRows(
       owner,
       [
-        { rowId: '44444444-4444-4444-8444-444444444444', batch: 'C', value: 16 },
-        { rowId: '55555555-5555-4555-8555-555555555555', batch: 'C', value: 32 },
+        {
+          rowId: '44444444-4444-4444-8444-444444444444',
+          batch: 'C',
+          value: 16,
+        },
+        {
+          rowId: '55555555-5555-4555-8555-555555555555',
+          batch: 'C',
+          value: 32,
+        },
       ],
       await datasetRevision(),
       'confirm-rows-2',
@@ -458,6 +478,105 @@ describe('PIPE-02.2 confirm steps', () => {
     })
     expect(prompt.rows[0].answered_by_user_id).toBe(OWNER)
     expect(prompt.rows[0].answered_at).not.toBeNull()
+  })
+
+  it('queues a decision over HTTP and resumes it on a worker', async () => {
+    const runId = await runToWaiting(reaskVersionId, 21)
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    const post = (user: string, body: unknown) =>
+      handlePipelineExecute(
+        new Request('http://localhost/api/pipelines/execute', {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+        {
+          getSession: async () => ({ user: { id: user } }),
+          connect: async () => ({
+            ...(await execConnection(conn)()),
+            end: async () => {},
+          }),
+          wake: () => {},
+        },
+      )
+    // A decision that cannot apply is refused before anything is queued.
+    expect(
+      (await post(MEMBER, { runId, answer: { decision: 'confirm' } })).status,
+    ).toBe(409)
+    expect(
+      (await post(OWNER, { runId, answer: { decision: 'maybe' } })).status,
+    ).toBe(400)
+    const queued = await post(OWNER, {
+      runId,
+      answer: { decision: 'confirm', values: { unit: 'g/L' } },
+    })
+    expect(queued.status).toBe(202)
+    // The request only queued the resumption: the run is still waiting.
+    expect((await queued.json()).status).toBe('waiting')
+    // A second decision cannot queue another while one is pending.
+    expect(
+      (
+        await post(OWNER, {
+          runId,
+          answer: { decision: 'confirm', values: { unit: 'g/L' } },
+        })
+      ).status,
+    ).toBe(409)
+
+    const processed = await runPipelineJobs({
+      workerId: 'confirm-worker',
+      busyDelaySeconds: 0,
+      connect: async () => {
+        const queue = new PgClient({ connectionString: superuserTestUrl() })
+        await queue.connect()
+        return {
+          query: (text, values) => queue.query(text, values),
+          end: () => queue.end(),
+        }
+      },
+      execute: async (actorId, id) => {
+        const { deps, close } = await makeExecDeps(actorId)
+        try {
+          return await runPipelineExecution(actorId, id, {
+            ...deps,
+            sandbox: connectTestSandbox,
+          })
+        } finally {
+          await close()
+        }
+      },
+      resume: async (actorId, id, value) => {
+        const { deps, close } = await makeExecDeps(actorId)
+        try {
+          return await resumePipelineRun(actorId, id, value, {
+            ...deps,
+            sandbox: connectTestSandbox,
+          })
+        } finally {
+          await close()
+        }
+      },
+      failRun: async (id, code, message) => {
+        const { deps, close } = await makeExecDeps('system')
+        try {
+          await failStuckPipelineRun(deps, id, code, message)
+        } finally {
+          await close()
+        }
+      },
+    })
+    expect(processed).toBeGreaterThanOrEqual(1)
+    const { rows } = await migrator.query(
+      'select status, result from api.pipeline_runs where id = $1',
+      [runId],
+    )
+    expect(rows[0].status).toBe('succeeded')
+    const job = await migrator.query(
+      `select kind, state from internal.pipeline_run_jobs where run_id = $1 and kind = 'resume'`,
+      [runId],
+    )
+    expect(job.rows).toEqual([{ kind: 'resume', state: 'done' }])
+    await conn.end()
   })
 
   it('skips the configured dependent steps on a Skip decision', async () => {
@@ -560,7 +679,9 @@ describe('PIPE-02.2 confirm steps', () => {
       [runId],
     )
     expect(
-      logs.rows.some((row) => row.message.includes('attributed to the pipeline')),
+      logs.rows.some((row) =>
+        row.message.includes('attributed to the pipeline'),
+      ),
     ).toBe(true)
   })
 

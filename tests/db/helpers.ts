@@ -80,7 +80,7 @@ export async function resetTestDatabase(): Promise<void> {
       `DO $$ BEGIN
          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pipeline_sandbox') THEN
            CREATE ROLE pipeline_sandbox LOGIN NOINHERIT NOSUPERUSER NOCREATEDB
-             NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 8
+             NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 32
              PASSWORD 'pipeline-sandbox-dev-password';
          END IF;
        END $$`,

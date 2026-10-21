@@ -41,6 +41,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const conn of open) await conn.end().catch(() => {})
+  await admin?.end()
 })
 
 describe('pipeline_sandbox login', () => {

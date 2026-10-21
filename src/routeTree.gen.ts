@@ -86,6 +86,7 @@ import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$tem
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
 import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
+import { Route as ApiConnectorsPickupRouteImport } from './routes/api/connectors.pickup'
 import { Route as ApiConnectorsSourceRouteImport } from './routes/api/connectors.source'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
@@ -556,6 +557,11 @@ const ApiCollaborationMentionsRoute =
     path: '/api/collaboration/mentions',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiConnectorsPickupRoute = ApiConnectorsPickupRouteImport.update({
+  id: '/api/connectors/pickup',
+  path: '/api/connectors/pickup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiConnectorsSourceRoute = ApiConnectorsSourceRouteImport.update({
   id: '/api/connectors/source',
   path: '/api/connectors/source',
@@ -1085,6 +1091,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -1235,6 +1242,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -1397,6 +1405,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
@@ -1561,6 +1570,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -1711,6 +1721,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -1872,6 +1883,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
     | '/api/files/upload-authorize'
@@ -2001,6 +2013,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
+  ApiConnectorsPickupRoute: typeof ApiConnectorsPickupRoute
   ApiConnectorsSourceRoute: typeof ApiConnectorsSourceRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
@@ -2568,6 +2581,13 @@ declare module '@tanstack/react-router' {
       path: '/api/collaboration/mentions'
       fullPath: '/api/collaboration/mentions'
       preLoaderRoute: typeof ApiCollaborationMentionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/connectors/pickup': {
+      id: '/api/connectors/pickup'
+      path: '/api/connectors/pickup'
+      fullPath: '/api/connectors/pickup'
+      preLoaderRoute: typeof ApiConnectorsPickupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/connectors/source': {
@@ -3618,6 +3638,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
+  ApiConnectorsPickupRoute: ApiConnectorsPickupRoute,
   ApiConnectorsSourceRoute: ApiConnectorsSourceRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,

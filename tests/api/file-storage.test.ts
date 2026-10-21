@@ -9,7 +9,9 @@ import { config } from 'dotenv'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { zipSync, strToU8 } from 'fflate'
 import { Client } from 'pg'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { metrics } from '#/lib/metrics'
@@ -314,6 +316,50 @@ describe('SCI-003 file upload, download and isolation', () => {
       meta.fileRecordId,
     ])
     expect(extracted[0]?.extracted_text).toContain('virus stability run 07')
+  })
+
+  it('extracts searchable text from PDF and Office uploads', async () => {
+    const pdf = await PDFDocument.create()
+    const font = await pdf.embedFont(StandardFonts.Helvetica)
+    pdf.addPage().drawText('lyophilised capsid reference', {
+      x: 50,
+      y: 700,
+      font,
+      size: 12,
+    })
+    const docx = zipSync({
+      'word/document.xml': strToU8(
+        '<w:p><w:r><w:t>harvest buffer lot 22</w:t></w:r></w:p>',
+      ),
+    })
+    const cases = [
+      {
+        name: 'reference.pdf',
+        type: 'application/pdf',
+        bytes: await pdf.save(),
+        text: 'lyophilised capsid reference',
+      },
+      {
+        name: 'prep.docx',
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        bytes: docx,
+        text: 'harvest buffer lot 22',
+      },
+    ]
+    for (const { text, ...file } of cases) {
+      const { upRes, meta } = await authorizeAndUpload(
+        USER_A,
+        WS_A,
+        PROJECT_A,
+        file,
+      )
+      expect(upRes.status).toBe(200)
+      const { rows } = await admin.query<{ extracted_text: string | null }>(
+        `SELECT extracted_text FROM api.file_objects WHERE record_id=$1`,
+        [meta.fileRecordId],
+      )
+      expect(rows[0]?.extracted_text).toContain(text)
+    }
   })
 
   it('rejects an oversized upload and marks the file missing', async () => {

@@ -256,6 +256,7 @@ const recordLinkRow = ref('RecordLinksRow')
 const revisionRow = ref('RevisionsRow')
 const webhookSubscriptionRow = ref('WebhookSubscriptionsRow')
 const webhookDeliveryRow = ref('WebhookDeliveriesRow')
+const pipelineVersionRow = ref('PipelineDefinitionVersionsRow')
 
 const pgrstRow = (row: JsonSchema, description: string): JsonSchema => ({
   description: `${description} PostgREST returns a JSON array of composite rows by default.`,
@@ -1636,6 +1637,40 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
       ),
     },
     result: ref('WebhookEndpointHealthResult'),
+  },
+  create_pipeline_definition_version: {
+    summary: 'Create a draft pipeline version',
+    description:
+      'Creates the next version of a pipeline as a draft from a configuration. The configuration is validated exactly as the product validates it (`api.pipeline_config_errors`); a Python step must pin the runner’s runtime in `pythonRuntime` and may declare `pythonRequirements` and a per-step `contract`. Needs the caller’s own identity, so use a personal token: a service credential is refused. The draft is not runnable until a person publishes it.',
+    required: ['p_workspace_id', 'p_definition_id', 'p_configuration'],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_definition_id: uuid('Pipeline definition UUID.'),
+      p_configuration: jsonMap(
+        'Pipeline configuration, format version 1 (parameters, inputs, transform, steps, output, pythonRuntime, pythonRequirements).',
+      ),
+    },
+    result: pgrstRow(pipelineVersionRow, 'New draft version.'),
+  },
+  update_pipeline_definition_version_draft: {
+    summary: 'Replace the configuration of a draft pipeline version',
+    description:
+      'Replaces the configuration of a draft version, guarded by its `revision` so two editors cannot overwrite each other (a stale revision is refused). Published and retired versions are immutable. Needs a personal token.',
+    required: [
+      'p_workspace_id',
+      'p_version_id',
+      'p_expected_revision',
+      'p_configuration',
+    ],
+    properties: {
+      p_workspace_id: uuid('Workspace UUID.'),
+      p_version_id: uuid('Draft version UUID.'),
+      p_expected_revision: bigint(
+        'The `revision` last read from the draft; the update is refused if it moved.',
+      ),
+      p_configuration: jsonMap('Replacement configuration, format version 1.'),
+    },
+    result: pgrstRow(pipelineVersionRow, 'Updated draft version.'),
   },
 }
 

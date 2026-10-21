@@ -29,6 +29,8 @@ export const VALID_SCOPES = [
   'webhooks:write',
   'agent_operations:read',
   'agent_operations:write',
+  'pipelines:read',
+  'pipelines:write',
 ] as const
 
 export type Scope = (typeof VALID_SCOPES)[number]
@@ -120,5 +122,12 @@ export const SCOPE_GROUPS: ReadonlyArray<{
       'Submit and inspect typed proposals and bounded workflows. Safe drafts and delegated create/append writes may execute automatically; other writes, approval, execution, and workflow resume require a human session.',
     effective: true,
     scopes: ['agent_operations:read', 'agent_operations:write'],
+  },
+  {
+    title: 'Pipelines',
+    description:
+      'Read pipeline definitions, versions, runs, run logs and outputs; save a draft version (`pipelines:write`, personal tokens only). Publishing a version and starting a run stay with people.',
+    effective: true,
+    scopes: ['pipelines:read', 'pipelines:write'],
   },
 ]

@@ -1,8 +1,19 @@
 # Authentication
 
-GitHub sign-in via Better Auth. Identity tables live in `internal` (see
-decision record 0003); sessions are database-backed with signed, HTTP-only
-cookies.
+Sign-in via Better Auth. Identity tables live in `internal` (see decision
+record 0003); sessions are database-backed with signed, HTTP-only cookies.
+
+Three sign-in methods exist, and each appears on the sign-in screen only when
+the environment configures it:
+
+| Method                | Configure with                                                | Second factor                                |
+| --------------------- | ------------------------------------------------------------- | -------------------------------------------- |
+| Company OIDC SSO      | `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`     | The identity provider's own MFA              |
+| GitHub OAuth          | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`                    | GitHub's own two-factor                      |
+| Emailed one-time link | `EMAIL_LOGIN_ENABLED=true`, `SMTP_HOST`, optional domain list | Sheetbase TOTP, when the person turned it on |
+
+A released (staging or production) environment must configure at least one of
+GitHub or OIDC; `EMAIL_LOGIN_ENABLED` alone does not satisfy that rule.
 
 ## GitHub OAuth application setup (manual, once per environment)
 
@@ -24,6 +35,64 @@ product is single-user: the first GitHub account to sign in becomes the
 initial user (bootstrap: AUTH-002). No email or GitHub id is hard-coded
 anywhere.
 
+## Company single sign-on (OIDC)
+
+Any OpenID Connect provider works (Entra ID, Okta, Google Workspace, Keycloak).
+Register Sheetbase as a confidential web client with the authorisation-code flow
+and these values:
+
+- **Redirect URI:** `<BETTER_AUTH_URL>/api/auth/oauth2/callback/oidc`
+- **Scopes:** `openid email profile`
+
+Set `OIDC_ISSUER_URL` to the issuer, for example
+`https://login.example.com/realms/lab`. Sheetbase reads the endpoints from
+`<issuer>/.well-known/openid-configuration`, uses PKCE, and checks the issuer on
+the response. `OIDC_PROVIDER_NAME` is the label on the button (default
+`Company SSO`). The provider must release a verified email address: the first
+sign-in creates the account and its personal workspace, and later sign-ins match
+the same email. A person who used GitHub or an emailed link before is linked to
+their existing account only when the provider reports the email as verified.
+
+Multi-factor for SSO sign-ins is the identity provider's policy; Sheetbase does
+not add a second prompt.
+
+SAML is not built. Providers that only speak SAML can usually front it with an
+OIDC broker (Keycloak, Entra ID app registrations and Okta all offer one).
+
+## Emailed sign-in link
+
+Set `EMAIL_LOGIN_ENABLED=true` and configure SMTP (see `.env.example`); without
+`SMTP_HOST` the form is not shown. A person types their address and receives a
+single-use link that expires in 10 minutes. The link token is stored hashed.
+
+- The screen answers the same whether or not the address can sign in, so the
+  form cannot be used to find out who has an account.
+- Existing accounts can always use the link. A new account is created only if the
+  address's domain is in `EMAIL_LOGIN_ALLOWED_DOMAINS` (comma-separated); with
+  no list, only existing accounts can sign in this way.
+- This is not password sign-in. The password routes stay disabled (see below)
+  and the signing password remains a separate credential.
+
+## Two-factor (TOTP)
+
+Anyone can turn on an authenticator-app code in **Settings → Profile →
+Two-factor authentication**: scan the QR code (or copy the setup key), enter a
+first code to confirm, and save the backup codes, which are shown once. Setup
+is not active until that first code is accepted, so a typo cannot lock anyone
+out.
+
+Once on, an emailed sign-in link ends at `/sign-in/two-factor` instead of a
+session; the code (or a one-time backup code) starts it. Better Auth throttles
+code attempts and locks after repeated failures. An account that also has a
+signing password confirms that password to turn two-factor on or off; accounts
+without one are not asked. Better Auth encrypts the secret and backup
+codes with `BETTER_AUTH_SECRET`, so rotating that value invalidates enrolled
+authenticators.
+
+Two-factor does not apply to GitHub or OIDC sign-ins (those providers own MFA).
+It does not replace the signing password, which is still asked for when signing
+a record.
+
 ## Auth-free development surface
 
 The separate `dev.sheetbase.co.uk` environment does not use this OAuth flow.
@@ -35,19 +104,23 @@ the disposable database, storage and manual tunnel setup.
 
 ## Environment variables
 
-| Variable                                    | Notes                                                                                         |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`                        | Signs session cookies. 32+ characters, dev default in `.env.example`; rotate per environment. |
-| `BETTER_AUTH_URL`                           | Base URL Better Auth builds callbacks from. `http://localhost:3000` locally.                  |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | From the OAuth app above. Server-only.                                                        |
-| `POSTGREST_URL`                             | Server-only upstream for the same-origin data proxy. Never exposed to the browser.            |
-| `PGRST_JWT_SECRET`                          | Signs short-lived PostgREST JWTs minted by the proxy. 32+ characters, server-only.            |
+| Variable                                                  | Notes                                                                                         |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`                                      | Signs session cookies. 32+ characters, dev default in `.env.example`; rotate per environment. |
+| `BETTER_AUTH_URL`                                         | Base URL Better Auth builds callbacks from. `http://localhost:3000` locally.                  |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET`               | From the OAuth app above. Server-only.                                                        |
+| `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Company SSO. All three or none. Server-only. `OIDC_PROVIDER_NAME` sets the button label.      |
+| `EMAIL_LOGIN_ENABLED`, `EMAIL_LOGIN_ALLOWED_DOMAINS`      | Emailed sign-in link (needs `SMTP_HOST`). Domains may create new accounts.                    |
+| `POSTGREST_URL`                                           | Server-only upstream for the same-origin data proxy. Never exposed to the browser.            |
+| `PGRST_JWT_SECRET`                                        | Signs short-lived PostgREST JWTs minted by the proxy. 32+ characters, server-only.            |
 
 ## Routes
 
 - `/sign-in` — sign-in page and error recovery surface.
+- `/sign-in/two-factor` — the code prompt after an emailed link, for accounts with two-factor on.
 - `/api/auth/*` — Better Auth handler: `sign-in/social`, `callback/github`,
-  `get-session`, `sign-out`.
+  `sign-in/oauth2`, `oauth2/callback/oidc`, `sign-in/magic-link`,
+  `magic-link/verify`, `two-factor/*`, `get-session`, `sign-out`.
 - `/api/db/*` — same-origin PostgREST proxy (see [Data API boundary](#data-api-boundary)).
 
 ## Signing credential routes
@@ -132,7 +205,8 @@ port 465 and requires STARTTLS on other ports. It requires TLS 1.2 or later,
 validates certificates, and refuses plaintext fallback. The local handshake
 tests prove these controls, not production SMTP delivery or provider step-up.
 Missing SMTP configuration, a missing transport, or failed delivery must deny
-enrolment. GitHub OAuth is sign-in only, not fresh provider assurance. No IdP
+enrolment. GitHub OAuth, OIDC and emailed links are sign-in only, not fresh
+provider assurance. No IdP
 step-up is configured; unsupported provider requests fail closed. Live SMTP and
 IdP acceptance remain separate from the local password/transport proof.
 
@@ -180,6 +254,15 @@ verified email visible), expired state (start again), provider errors
 (generic retry). Raw provider payloads are never shown.
 
 ## Tests
+
+`tests/db/auth-email-2fa.test.ts` runs Better Auth's real HTTP handler against a
+real database with the mail sender injected: link sign-in for an existing
+account, no mail and no account for an unknown address, account and workspace
+creation for an allowed domain, single use, TOTP enrolment and confirmation, the
+hold at the code prompt (no session until a valid code), and the OIDC
+authorisation request (discovery stubbed). It does not call a live identity
+provider or SMTP server; the callback token exchange against a real IdP remains
+an acceptance step.
 
 `tests/db/auth-session.test.ts` proves session creation, expiry and
 unauthenticated access against a real database without live GitHub calls:

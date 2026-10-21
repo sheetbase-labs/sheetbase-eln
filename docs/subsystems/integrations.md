@@ -211,6 +211,68 @@ a technical disclosure.
 Out of scope remains: Snowflake/Databricks/BigQuery, SharePoint/OneDrive,
 LIMS/MES/ERP, CDC, schedulers and any write-path to external systems.
 
+## Instrument file pickup and parsers (INT-02)
+
+Result files on the computer attached to an instrument reach the ELN without
+anyone uploading them by hand.
+
+```
+results folder → scripts/instrument-agent.mjs → POST /api/connectors/pickup
+  → connector (type instrument, active) → raw file retained (file platform)
+  → parser → mapping → Dataset → connector run → instrument run + raw file
+```
+
+**Endpoint.** `POST /api/connectors/pickup?connector=<key>&fileName=<name>[&parser=<id>]`
+with the raw file as the body. Auth is `Authorization: Bearer <token>` where the
+token is the short-lived result of exchanging a **personal** API token at
+`/api/token` with scopes `files:write` and `datasets:write`. Personal tokens
+carry the creating member's identity, so RLS, viewer read-only and attribution
+match that person working in the app; revoking the token or the membership stops
+the agent. Service (`api_client`) credentials are refused with
+`personal_token_required`: the file and Dataset write RPCs are not granted to
+that role. Files are capped at 25 MiB and must be text; binary files are
+rejected with `unsupported_format` before anything is retained.
+
+**Where files go** is the connector's `config.pickup`, edited on the connector
+page under _Folder pickup_:
+
+| Key                          | Meaning                                                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `projectId` (required)       | Project that holds the retained raw file record.                                                                  |
+| `schemaVersionId` (required) | Published Dataset Schema Version rows are mapped to.                                                              |
+| `datasetId`                  | Append every file to this Dataset. Omit for a new Dataset per file.                                               |
+| `datasetNamePattern`         | Name of each new Dataset; `{connector}`, `{file}`, `{date}` are filled in.                                        |
+| `autoDetect`                 | Detect the format from content instead of using the connector's parser.                                           |
+| `instrumentId`               | Also record a completed instrument run holding the raw file (best effort; the response reports `instrumentLink`). |
+
+Responses: `201` for a new run, `200` when the same file content was already
+ingested (the run is replayed, not duplicated), and an error envelope otherwise.
+`4xx` other than `408/409/425/429` are permanent for that file; `5xx`, `429`
+and `409` (for example a stale Dataset revision when several files append to one
+Dataset) are worth retrying.
+
+**Agent.** `scripts/instrument-agent.mjs` is dependency-free Node 22 and can be
+copied to a lab PC on its own. It sends a file once its size and modified time
+have stopped changing, moves sent files to `processed/`, moves refused files to
+`failed/` with a `.error.txt` beside them, and leaves anything retryable in place
+with back-off. The credential is read from `SHEETBASE_CREDENTIAL` and is only
+ever sent to `/api/token`.
+
+**Parsers** (all pure text → table, identity stamped as `parserId@version`):
+
+| Parser                         | Reads                                                                                  |
+| ------------------------------ | -------------------------------------------------------------------------------------- |
+| `sheetbase.plate-reader-csv@1` | `# Key: value` header block, then a table.                                             |
+| `sheetbase.plate-grid-csv@1`   | Plate matrix (A–H × 1–12); one row per read well; several blocks add a `Plate` column. |
+| `sheetbase.qpcr-results-csv@1` | `[Results]` section (or a bare Well + Ct/Cq table) with `* Key = value` preamble.      |
+| `sheetbase.hplc-peaks-csv@1`   | `Key,Value` preamble then a retention-time/area peak table.                            |
+| `sheetbase.json-records@1`     | Array of row objects, or `{ metadata, rows }`.                                         |
+| `sheetbase.delimited@1`        | Plain CSV/TSV (fallback).                                                              |
+
+`detectParserId()` chooses between them from content; the identity actually used
+is recorded in the run, so a wrong guess is visible. Binary vendor formats
+(Excel, vendor-native) are not parsed: export the run as CSV, TSV or JSON.
+
 ## Product surface
 
 `/integrations` lists the workspace's connectors; `/integrations/$connectorId`

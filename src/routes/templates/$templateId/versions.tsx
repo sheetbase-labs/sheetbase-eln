@@ -1,3 +1,4 @@
+import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -461,7 +462,7 @@ function TemplateVersions() {
               <span className="font-medium">Published</span>
               <span className="block text-fg-muted">
                 {selected.publishedAt
-                  ? `${selected.publishedByUserId ? names.userLabel(selected.publishedByUserId) : '—'} · ${selected.publishedAt.slice(0, 16).replace('T', ' ')}`
+                  ? `${selected.publishedByUserId ? names.userLabel(selected.publishedByUserId) : '—'} · ${formatNotebookDateTime(selected.publishedAt, { zone: true })}`
                   : 'Not published yet.'}
               </span>
             </li>
@@ -473,7 +474,7 @@ function TemplateVersions() {
                     ? names.userLabel(selected.signedByUserId)
                     : '—'}{' '}
                   · {selected.signedMeaning ?? '—'} ·{' '}
-                  {selected.signedAt.slice(0, 16).replace('T', ' ')}
+                  {formatNotebookDateTime(selected.signedAt, { zone: true })}
                 </span>
               </li>
             ) : (

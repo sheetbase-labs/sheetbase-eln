@@ -107,7 +107,7 @@ import {
   workflowStepsFor,
 } from '#/lib/reviews'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
-import { formatDate } from '#/lib/notebook-data'
+import { formatDate, formatNotebookDateTime } from '#/lib/notebook-data'
 import {
   fetchReviewCheckResults,
   reviewCheckQueryKeys,
@@ -2529,7 +2529,7 @@ export function SignaturePanel({
                     `Historical signer ${sig.signer_user_id.slice(0, 8)}`}
                 </span>
                 <span className="text-muted-foreground">
-                  {formatDate(sig.signed_at)}
+                  {formatNotebookDateTime(sig.signed_at, { zone: true })}
                 </span>
               </div>
               <p className="mt-1 text-muted-foreground">

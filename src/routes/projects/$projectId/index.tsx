@@ -259,8 +259,18 @@ function ProjectOverview() {
           title="Recent experiments"
           count={project.experimentCount}
           action={
-            <span className="text-label text-fg-muted">
-              {project.experimentCount} in this project
+            <span className="flex items-center gap-3">
+              <span className="text-label text-fg-muted">
+                {project.experimentCount} in this project
+              </span>
+              {project.experimentCount ? (
+                <Button
+                  nativeButton={false}
+                  render={<a href={`/api/export/project/${projectId}/eln`} />}
+                >
+                  Export as .eln
+                </Button>
+              ) : null}
             </span>
           }
         >

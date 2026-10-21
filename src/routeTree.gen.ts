@@ -82,16 +82,19 @@ import { Route as SettingsSignaturesRouteImport } from './routes/settings/signat
 import { Route as SettingsUsageRouteImport } from './routes/settings/usage'
 import { Route as SheetsSheetIdRouteImport } from './routes/sheets/$sheetId'
 import { Route as SheetsNewRouteImport } from './routes/sheets/new'
+import { Route as SignInTwoFactorRouteImport } from './routes/sign-in_.two-factor'
 import { Route as TemplatesTemplateIdRouteImport } from './routes/templates/$templateId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCollaborationAuthRouteImport } from './routes/api/collaboration/auth'
 import { Route as ApiCollaborationMentionsRouteImport } from './routes/api/collaboration/mentions'
+import { Route as ApiConnectorsPickupRouteImport } from './routes/api/connectors.pickup'
 import { Route as ApiConnectorsSourceRouteImport } from './routes/api/connectors.source'
 import { Route as ApiDbSplatRouteImport } from './routes/api/db/$'
 import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/upload-authorize'
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiImportCommitRouteImport } from './routes/api/import/commit'
+import { Route as ApiImportElnRouteImport } from './routes/api/import/eln'
 import { Route as ApiImportFilesRouteImport } from './routes/api/import/files'
 import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
 import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
@@ -166,7 +169,9 @@ import { Route as PipelinesPipelineIdRunsIndexRouteImport } from './routes/pipel
 import { Route as PipelinesPipelineIdRunsRunIdRouteImport } from './routes/pipelines/$pipelineId/runs/$runId'
 import { Route as RecordsRecordIdEvidenceRevisionIdRouteImport } from './routes/records/$recordId/evidence/$revisionId'
 import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
+import { Route as ApiExportProjectIdElnRouteImport } from './routes/api/export/project/$id/eln'
 import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
+import { Route as ApiExportRecordIdElnRouteImport } from './routes/api/export/record/$id/eln'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
 
@@ -535,6 +540,11 @@ const SheetsNewRoute = SheetsNewRouteImport.update({
   path: '/sheets/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignInTwoFactorRoute = SignInTwoFactorRouteImport.update({
+  id: '/sign-in_/two-factor',
+  path: '/sign-in/two-factor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TemplatesTemplateIdRoute = TemplatesTemplateIdRouteImport.update({
   id: '/$templateId',
   path: '/$templateId',
@@ -556,6 +566,11 @@ const ApiCollaborationMentionsRoute =
     path: '/api/collaboration/mentions',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiConnectorsPickupRoute = ApiConnectorsPickupRouteImport.update({
+  id: '/api/connectors/pickup',
+  path: '/api/connectors/pickup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiConnectorsSourceRoute = ApiConnectorsSourceRouteImport.update({
   id: '/api/connectors/source',
   path: '/api/connectors/source',
@@ -584,6 +599,11 @@ const ApiHealthReadyRoute = ApiHealthReadyRouteImport.update({
 const ApiImportCommitRoute = ApiImportCommitRouteImport.update({
   id: '/api/import/commit',
   path: '/api/import/commit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiImportElnRoute = ApiImportElnRouteImport.update({
+  id: '/api/import/eln',
+  path: '/api/import/eln',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiImportFilesRoute = ApiImportFilesRouteImport.update({
@@ -990,9 +1010,19 @@ const ApiClientPortalRecordsRecordIdPdfRoute =
     path: '/api/client-portal/records/$recordId/pdf',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiExportProjectIdElnRoute = ApiExportProjectIdElnRouteImport.update({
+  id: '/api/export/project/$id/eln',
+  path: '/api/export/project/$id/eln',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiExportRecordIdAuditRoute = ApiExportRecordIdAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => ApiExportRecordIdRoute,
+} as any)
+const ApiExportRecordIdElnRoute = ApiExportRecordIdElnRouteImport.update({
+  id: '/eln',
+  path: '/eln',
   getParentRoute: () => ApiExportRecordIdRoute,
 } as any)
 const ApiExportRevisionIdPackageRoute =
@@ -1077,6 +1107,7 @@ export interface FileRoutesByFullPath {
   '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
+  '/sign-in/two-factor': typeof SignInTwoFactorRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
@@ -1085,12 +1116,14 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
@@ -1165,7 +1198,9 @@ export interface FileRoutesByFullPath {
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/project/$id/eln': typeof ApiExportProjectIdElnRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
+  '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
@@ -1228,6 +1263,7 @@ export interface FileRoutesByTo {
   '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
+  '/sign-in/two-factor': typeof SignInTwoFactorRoute
   '/analysis': typeof AnalysisIndexRoute
   '/help': typeof HelpIndexRoute
   '/import': typeof ImportIndexRoute
@@ -1235,12 +1271,14 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
@@ -1314,7 +1352,9 @@ export interface FileRoutesByTo {
   '/models/$modelId/records': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/project/$id/eln': typeof ApiExportProjectIdElnRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
+  '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
@@ -1389,6 +1429,7 @@ export interface FileRoutesById {
   '/settings/usage': typeof SettingsUsageRoute
   '/sheets/$sheetId': typeof SheetsSheetIdRoute
   '/sheets/new': typeof SheetsNewRoute
+  '/sign-in_/two-factor': typeof SignInTwoFactorRoute
   '/templates/$templateId': typeof TemplatesTemplateIdRouteWithChildren
   '/analysis/': typeof AnalysisIndexRoute
   '/help/': typeof HelpIndexRoute
@@ -1397,12 +1438,14 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/collaboration/auth': typeof ApiCollaborationAuthRoute
   '/api/collaboration/mentions': typeof ApiCollaborationMentionsRoute
+  '/api/connectors/pickup': typeof ApiConnectorsPickupRoute
   '/api/connectors/source': typeof ApiConnectorsSourceRoute
   '/api/db/$': typeof ApiDbSplatRoute
   '/api/files/upload-authorize': typeof ApiFilesUploadAuthorizeRoute
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
@@ -1477,7 +1520,9 @@ export interface FileRoutesById {
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/project/$id/eln': typeof ApiExportProjectIdElnRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
+  '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
@@ -1553,6 +1598,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
+    | '/sign-in/two-factor'
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
@@ -1561,12 +1607,14 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/import/commit'
+    | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
     | '/api/parsers/request-update'
@@ -1641,7 +1689,9 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/project/$id/eln'
     | '/api/export/record/$id/audit'
+    | '/api/export/record/$id/eln'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
   fileRoutesByTo: FileRoutesByTo
@@ -1704,6 +1754,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
+    | '/sign-in/two-factor'
     | '/analysis'
     | '/help'
     | '/import'
@@ -1711,12 +1762,14 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/import/commit'
+    | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
     | '/api/parsers/request-update'
@@ -1790,7 +1843,9 @@ export interface FileRouteTypes {
     | '/models/$modelId/records'
     | '/pipelines/$pipelineId/runs'
     | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/project/$id/eln'
     | '/api/export/record/$id/audit'
+    | '/api/export/record/$id/eln'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
   id:
@@ -1864,6 +1919,7 @@ export interface FileRouteTypes {
     | '/settings/usage'
     | '/sheets/$sheetId'
     | '/sheets/new'
+    | '/sign-in_/two-factor'
     | '/templates/$templateId'
     | '/analysis/'
     | '/help/'
@@ -1872,12 +1928,14 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/collaboration/auth'
     | '/api/collaboration/mentions'
+    | '/api/connectors/pickup'
     | '/api/connectors/source'
     | '/api/db/$'
     | '/api/files/upload-authorize'
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/import/commit'
+    | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
     | '/api/parsers/request-update'
@@ -1952,7 +2010,9 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/project/$id/eln'
     | '/api/export/record/$id/audit'
+    | '/api/export/record/$id/eln'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
   fileRoutesById: FileRoutesById
@@ -1998,15 +2058,18 @@ export interface RootRouteChildren {
   ReviewRevisionIdRoute: typeof ReviewRevisionIdRoute
   SheetsSheetIdRoute: typeof SheetsSheetIdRoute
   SheetsNewRoute: typeof SheetsNewRoute
+  SignInTwoFactorRoute: typeof SignInTwoFactorRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCollaborationAuthRoute: typeof ApiCollaborationAuthRoute
   ApiCollaborationMentionsRoute: typeof ApiCollaborationMentionsRoute
+  ApiConnectorsPickupRoute: typeof ApiConnectorsPickupRoute
   ApiConnectorsSourceRoute: typeof ApiConnectorsSourceRoute
   ApiDbSplatRoute: typeof ApiDbSplatRoute
   ApiFilesUploadAuthorizeRoute: typeof ApiFilesUploadAuthorizeRoute
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
   ApiImportCommitRoute: typeof ApiImportCommitRoute
+  ApiImportElnRoute: typeof ApiImportElnRoute
   ApiImportFilesRoute: typeof ApiImportFilesRoute
   ApiImportReviewRoute: typeof ApiImportReviewRoute
   ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
@@ -2025,6 +2088,7 @@ export interface RootRouteChildren {
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
   ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
   ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
+  ApiExportProjectIdElnRoute: typeof ApiExportProjectIdElnRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
   ApiExportRevisionIdPdfRoute: typeof ApiExportRevisionIdPdfRoute
 }
@@ -2542,6 +2606,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SheetsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign-in_/two-factor': {
+      id: '/sign-in_/two-factor'
+      path: '/sign-in/two-factor'
+      fullPath: '/sign-in/two-factor'
+      preLoaderRoute: typeof SignInTwoFactorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/templates/$templateId': {
       id: '/templates/$templateId'
       path: '/$templateId'
@@ -2568,6 +2639,13 @@ declare module '@tanstack/react-router' {
       path: '/api/collaboration/mentions'
       fullPath: '/api/collaboration/mentions'
       preLoaderRoute: typeof ApiCollaborationMentionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/connectors/pickup': {
+      id: '/api/connectors/pickup'
+      path: '/api/connectors/pickup'
+      fullPath: '/api/connectors/pickup'
+      preLoaderRoute: typeof ApiConnectorsPickupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/connectors/source': {
@@ -2610,6 +2688,13 @@ declare module '@tanstack/react-router' {
       path: '/api/import/commit'
       fullPath: '/api/import/commit'
       preLoaderRoute: typeof ApiImportCommitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/import/eln': {
+      id: '/api/import/eln'
+      path: '/api/import/eln'
+      fullPath: '/api/import/eln'
+      preLoaderRoute: typeof ApiImportElnRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/import/files': {
@@ -3130,11 +3215,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiClientPortalRecordsRecordIdPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/project/$id/eln': {
+      id: '/api/export/project/$id/eln'
+      path: '/api/export/project/$id/eln'
+      fullPath: '/api/export/project/$id/eln'
+      preLoaderRoute: typeof ApiExportProjectIdElnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/export/record/$id/audit': {
       id: '/api/export/record/$id/audit'
       path: '/audit'
       fullPath: '/api/export/record/$id/audit'
       preLoaderRoute: typeof ApiExportRecordIdAuditRouteImport
+      parentRoute: typeof ApiExportRecordIdRoute
+    }
+    '/api/export/record/$id/eln': {
+      id: '/api/export/record/$id/eln'
+      path: '/eln'
+      fullPath: '/api/export/record/$id/eln'
+      preLoaderRoute: typeof ApiExportRecordIdElnRouteImport
       parentRoute: typeof ApiExportRecordIdRoute
     }
     '/api/export/revision/$id/package': {
@@ -3565,10 +3664,12 @@ const RecordsRecordIdRouteWithChildren = RecordsRecordIdRoute._addFileChildren(
 
 interface ApiExportRecordIdRouteChildren {
   ApiExportRecordIdAuditRoute: typeof ApiExportRecordIdAuditRoute
+  ApiExportRecordIdElnRoute: typeof ApiExportRecordIdElnRoute
 }
 
 const ApiExportRecordIdRouteChildren: ApiExportRecordIdRouteChildren = {
   ApiExportRecordIdAuditRoute: ApiExportRecordIdAuditRoute,
+  ApiExportRecordIdElnRoute: ApiExportRecordIdElnRoute,
 }
 
 const ApiExportRecordIdRouteWithChildren =
@@ -3615,15 +3716,18 @@ const rootRouteChildren: RootRouteChildren = {
   ReviewRevisionIdRoute: ReviewRevisionIdRoute,
   SheetsSheetIdRoute: SheetsSheetIdRoute,
   SheetsNewRoute: SheetsNewRoute,
+  SignInTwoFactorRoute: SignInTwoFactorRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCollaborationAuthRoute: ApiCollaborationAuthRoute,
   ApiCollaborationMentionsRoute: ApiCollaborationMentionsRoute,
+  ApiConnectorsPickupRoute: ApiConnectorsPickupRoute,
   ApiConnectorsSourceRoute: ApiConnectorsSourceRoute,
   ApiDbSplatRoute: ApiDbSplatRoute,
   ApiFilesUploadAuthorizeRoute: ApiFilesUploadAuthorizeRoute,
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
   ApiImportCommitRoute: ApiImportCommitRoute,
+  ApiImportElnRoute: ApiImportElnRoute,
   ApiImportFilesRoute: ApiImportFilesRoute,
   ApiImportReviewRoute: ApiImportReviewRoute,
   ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
@@ -3643,6 +3747,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPipelinesWebhookDefinitionIdRoute: ApiPipelinesWebhookDefinitionIdRoute,
   ApiClientPortalRecordsRecordIdPdfRoute:
     ApiClientPortalRecordsRecordIdPdfRoute,
+  ApiExportProjectIdElnRoute: ApiExportProjectIdElnRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
   ApiExportRevisionIdPdfRoute: ApiExportRevisionIdPdfRoute,
 }

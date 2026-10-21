@@ -8,16 +8,27 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type * as UserPreferences from '#/lib/user-preferences'
 import { Route } from './profile'
 
 const sonner = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 const profileData = vi.hoisted(() => ({ updateProfileNameFn: vi.fn() }))
+const preferences = vi.hoisted(() => ({
+  setUserTimeZone: vi.fn(async () => {}),
+}))
 const router = vi.hoisted(() => ({ invalidate: vi.fn(async () => {}) }))
 
+vi.mock('#/lib/user-preferences', async (importActual) => ({
+  ...(await importActual<typeof UserPreferences>()),
+  setUserTimeZone: preferences.setUserTimeZone,
+}))
 vi.mock('#/components/v3/ui/sonner', () => ({ toast: sonner.toast }))
 vi.mock('#/components/v3/settings/settings-profile-data', () => profileData)
+vi.mock('#/components/v3/settings/settings-two-factor', () => ({
+  SettingsTwoFactor: () => null,
+}))
 vi.mock('#/components/v3/settings/settings-sessions', () => ({
   SettingsSessions: () => null,
 }))
@@ -35,6 +46,7 @@ vi.mock('@tanstack/react-router', () => ({
           email: 'owner@sheetbase.test',
         },
         workspace: { id: 'ws', role: 'owner' },
+        timeZone: 'Europe/London',
       },
     }),
   }),
@@ -94,5 +106,41 @@ describe('Profile settings', () => {
       }),
     )
     expect(router.invalidate).not.toHaveBeenCalled()
+  })
+
+  it('saves the time zone to the person’s own profile', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+
+    const zone = screen.getByRole('combobox', { name: /Time zone/ })
+    expect(screen.getByDisplayValue('Europe/London')).toBe(zone)
+    await user.clear(zone)
+    await user.type(zone, 'America/New_York')
+    await user.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() =>
+      expect(preferences.setUserTimeZone).toHaveBeenCalledWith(
+        expect.anything(),
+        'America/New_York',
+      ),
+    )
+    expect(sonner.toast).toHaveBeenCalledWith('Changes saved')
+  })
+
+  it('refuses a time zone name that does not exist', async () => {
+    const user = userEvent.setup()
+    renderRoute()
+
+    const zone = screen.getByRole('combobox', { name: /Time zone/ })
+    await user.clear(zone)
+    await user.type(zone, 'Mars/Olympus')
+
+    expect(screen.getByText(/Use a time zone name such as/)).toBeTruthy()
+    expect(
+      screen
+        .getByRole('button', { name: 'Save changes' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
+    expect(preferences.setUserTimeZone).not.toHaveBeenCalled()
   })
 })

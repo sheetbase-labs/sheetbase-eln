@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { Button, buttonVariants } from '#/components/v3/ui/button'
 import {
   Table,
@@ -56,6 +57,8 @@ export function ExperimentHistory({
     queryKey: workspaceGeneralQueryKey,
     queryFn: () => fetchWorkspaceGeneral(),
   })
+  // The person's own zone; the workspace's only when they have not set one.
+  const displayZone = useDisplayTimeZone(workspace.data?.timezone)
   if (history.isPending || workspace.isPending)
     return (
       <p className="p-6 text-fg-muted" role="status">
@@ -85,7 +88,7 @@ export function ExperimentHistory({
       identifier={identifier}
       events={history.data.events}
       snapshotBefore={history.data.snapshotBefore}
-      timeZone={workspace.data.timezone}
+      timeZone={displayZone}
     />
   )
 }

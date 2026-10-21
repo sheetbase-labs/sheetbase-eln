@@ -12,6 +12,7 @@
  */
 import type { DataClient } from './data-client'
 import { DataClientError } from './data-client'
+import { getDisplayTimeZone } from './display-time-zone'
 import type { AuditEventWire } from './audit-history'
 
 export type JsonObject = Record<string, unknown>
@@ -635,6 +636,7 @@ export function formatDate(timestamp: string | null | undefined): string {
   const date = new Date(timestamp)
   if (!Number.isFinite(date.getTime())) return '—'
   return new Intl.DateTimeFormat('en-GB', {
+    timeZone: getDisplayTimeZone(),
     day: '2-digit',
     month: 'short',
     year: 'numeric',

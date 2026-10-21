@@ -1,3 +1,4 @@
+import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
@@ -248,7 +249,7 @@ export function AgentProposalsPanel({
                       </Status>
                     </TableCell>
                     <TableCell className="text-fg-muted">
-                      {p.created_at.slice(0, 16).replace('T', ' ')}
+                      {formatNotebookDateTime(p.created_at, { zone: true })}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -387,7 +388,7 @@ export function AgentProposalsPanel({
                     {statusLabel(e.event_type)}
                   </span>{' '}
                   <span className="text-fg-muted">
-                    {e.created_at.slice(0, 16).replace('T', ' ')}
+                    {formatNotebookDateTime(e.created_at, { zone: true })}
                   </span>
                 </li>
               ))}
@@ -488,7 +489,7 @@ export function AgentWorkflowsPanel({
                   {w.used_operations} / {w.max_operations}
                 </TableCell>
                 <TableCell className="text-fg-muted">
-                  {w.created_at.slice(0, 16).replace('T', ' ')}
+                  {formatNotebookDateTime(w.created_at, { zone: true })}
                 </TableCell>
               </TableRow>
             ))}
@@ -621,7 +622,7 @@ export function AgentWorkflowsPanel({
                     {statusLabel(e.event_type)}
                   </span>{' '}
                   <span className="text-fg-muted">
-                    {e.created_at.slice(0, 16).replace('T', ' ')}
+                    {formatNotebookDateTime(e.created_at, { zone: true })}
                   </span>
                 </li>
               ))}
@@ -877,7 +878,8 @@ export function AgentPoliciesPanel({
                       ) : null}
                       {p.signed_at ? (
                         <span className="block text-label text-fg-muted">
-                          Signed {p.signed_at.slice(0, 10)}
+                          Signed{' '}
+                          {formatNotebookDateTime(p.signed_at, { zone: true })}
                           {p.signed_meaning ? ` · ${p.signed_meaning}` : ''}
                         </span>
                       ) : null}

@@ -23,7 +23,7 @@ import { ExplainPanel } from '#/components/assist/explain-panel'
 import { RichTextContent, isRichTextPayload, validateBlock } from '#/lib/blocks'
 import type { BlockValidationError, RichTextPayload } from '#/lib/blocks'
 import { summarizeBlockPayload } from '#/lib/blocks/registry'
-import { notebookDataClient } from '#/lib/notebook-data'
+import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import type {
   NotebookBlock,
   NotebookRecord,
@@ -1621,7 +1621,10 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
         </div>
         <p className="flex items-center gap-1.5 text-xs text-fg-muted">
           <Pin className="size-3" />
-          Pinned {new Date(String(block.payload.pinnedAt)).toLocaleString()}
+          Pinned{' '}
+          {formatNotebookDateTime(String(block.payload.pinnedAt), {
+            zone: true,
+          })}
         </p>
       </div>
     )

@@ -7,6 +7,7 @@ import {
   useNavigate,
 } from '@tanstack/react-router'
 
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import { Button } from '#/components/v3/ui/button'
 import {
   Dialog,
@@ -164,7 +165,7 @@ export function Schedule() {
     queryFn: () => fetchWorkspaceGeneral(),
     enabled: Boolean(workspaceId),
   })
-  const timeZone = workspaceQuery.data?.timezone ?? 'UTC'
+  const timeZone = useDisplayTimeZone(workspaceQuery.data?.timezone)
   const today = useMemo(() => homeIsoDay(new Date(), timeZone), [timeZone])
   const [view, setView] = useState<'week' | 'day'>('week')
   const [anchor, setAnchor] = useState<string>(today)

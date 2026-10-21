@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 
@@ -19,10 +20,12 @@ import type { ReleaseInfo } from '#/lib/help'
  * UI port (roadmap-4/ui-app3): the redesigned sign-in, outside the app shell
  * like the client portal.
  *
- * R5-SHELL-05 — the product signs in with GitHub OAuth through Better Auth
- * (the real provider) and nothing else: there is no password sign-in (the
+ * R5-SHELL-05 — the product signs in through Better Auth with company OIDC
+ * single sign-on, GitHub OAuth, or an emailed one-time link, each shown only
+ * when the environment configures it. There is no password sign-in (the
  * Better Auth password HTTP routes are disabled), and no sign-in attempt
- * limit. The only re-authentication path in the product is REV-03's signing
+ * limit. Two-factor (TOTP) is asked for after an emailed link, on its own
+ * page. The only re-authentication path in the product is REV-03's signing
  * password step-up, which is a step-up, not a sign-in. So of the design's
  * five states:
  *
@@ -31,9 +34,10 @@ import type { ReleaseInfo } from '#/lib/help'
  *     here with `next` when its step-up loses the session, and the SSO
  *     callback returns them to the review.
  *   - `password` — deliberately absent: no email/password form exists, and
- *     none is rendered (a dead form is worse than a plain statement).
- *   - `sso-only` — this is the product's actual state; company SSO is the
- *     only method.
+ *     none is rendered (a dead form is worse than a plain statement). The
+ *     emailed link is a one-time link, not a password.
+ *   - `sso-only` — company SSO (and GitHub) only, when no email sign-in is
+ *     configured.
  *   - `locked` — deliberately absent for sign-in: there is no sign-in attempt
  *     lock. The one lock in the product is the signing-password lock (three
  *     wrong attempts, 15 minutes, self-lifting); it is stated where it
@@ -56,11 +60,13 @@ export type SignInState = (typeof states)[number]
 const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
   // Server-only module (reads process env and the DB client); a static import
   // would pull it into the browser bundle, so it is loaded inside the handler.
-  const { isDevAuthFreeEnabled, isGithubConfigured } =
-    await import('#/lib/auth')
+  const { isDevAuthFreeEnabled, getAuthMethods } = await import('#/lib/auth')
+  const methods = getAuthMethods()
   return {
     devAuthFree: isDevAuthFreeEnabled(),
-    githubEnabled: isGithubConfigured,
+    githubEnabled: methods.github,
+    oidcName: methods.oidc?.name ?? null,
+    emailLinkEnabled: methods.emailLink,
   }
 })
 
@@ -117,6 +123,10 @@ export interface SignInSurfaceProps {
   error?: string
   devAuthFree: boolean
   githubEnabled: boolean
+  /** Display name of the company OIDC provider, or `null` when none is configured. */
+  oidcName?: string | null
+  /** Whether people can ask for an emailed one-time sign-in link. */
+  emailLinkEnabled?: boolean
   release: ReleaseInfo | undefined
   /** EXP-05.5 — drafts this device kept for the person who signed out. */
   retainedDrafts: number
@@ -128,13 +138,18 @@ export function SignInSurface({
   error,
   devAuthFree,
   githubEnabled,
+  oidcName = null,
+  emailLinkEnabled = false,
   release,
   retainedDrafts,
 }: SignInSurfaceProps) {
-  const [redirecting, setRedirecting] = useState(false)
+  const [redirecting, setRedirecting] = useState<'github' | 'oidc' | null>(null)
   const [ssoError, setSsoError] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [linkState, setLinkState] = useState<'idle' | 'sending' | 'sent'>(
+    'idle',
+  )
   const message = describeSignInError(error)
-  const provider = 'GitHub'
 
   const title =
     state === 'signed-out'
@@ -143,36 +158,72 @@ export function SignInSurface({
         ? 'Sign in again to finish signing'
         : 'Sign in to Sheetbase'
 
-  async function sso() {
-    setRedirecting(true)
+  async function sso(method: 'github' | 'oidc') {
+    const provider =
+      method === 'github' ? 'GitHub' : (oidcName ?? 'your company')
+    setRedirecting(method)
     setSsoError(null)
     try {
-      const res = await fetch('/api/auth/sign-in/social', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          provider: 'github',
-          // The router already validated `?next=`; the surface validates again
-          // so a callback URL can never reach the provider unvalidated.
-          callbackURL: safeNextPath(next) ?? '/',
-        }),
-      })
+      const res = await fetch(
+        method === 'github'
+          ? '/api/auth/sign-in/social'
+          : '/api/auth/sign-in/oauth2',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            ...(method === 'github'
+              ? { provider: 'github' }
+              : { providerId: 'oidc' }),
+            // The router already validated `?next=`; the surface validates again
+            // so a callback URL can never reach the provider unvalidated.
+            callbackURL: safeNextPath(next) ?? '/',
+          }),
+        },
+      )
       const data = (await res.json()) as { url?: string }
       if (data.url) {
         window.location.href = data.url
         return
       }
       setSsoError(
-        'GitHub sign-in did not start. Try again, and contact the workspace owner if it keeps failing.',
+        `${provider} sign-in did not start. Try again, and contact the workspace owner if it keeps failing.`,
       )
     } catch {
       setSsoError(
-        'Could not reach GitHub to start sign-in. Check your connection and try again.',
+        `Could not reach ${provider} to start sign-in. Check your connection and try again.`,
       )
     }
-    setRedirecting(false)
+    setRedirecting(null)
   }
+
+  async function sendLink(event: FormEvent) {
+    event.preventDefault()
+    setLinkState('sending')
+    setSsoError(null)
+    try {
+      const res = await fetch('/api/auth/sign-in/magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          email: email.trim(),
+          callbackURL: safeNextPath(next) ?? '/',
+          errorCallbackURL: '/sign-in',
+        }),
+      })
+      if (!res.ok) throw new Error(String(res.status))
+      setLinkState('sent')
+    } catch {
+      setSsoError(
+        'The sign-in link could not be requested. Check the address and your connection, then try again.',
+      )
+      setLinkState('idle')
+    }
+  }
+
+  const anyMethod = githubEnabled || oidcName !== null || emailLinkEnabled
 
   return (
     <div className="flex min-h-dvh flex-col bg-surface-muted">
@@ -214,8 +265,9 @@ export function SignInSurface({
               </Notice>
             ) : state === 'password' ? (
               <Notice tone="info" title="Password sign-in is not available.">
-                Sheetbase signs in with your company account. A password is
-                asked for only when you sign a record.
+                Sheetbase signs in with your company account or an emailed
+                one-time link. A password is asked for only when you sign a
+                record.
               </Notice>
             ) : null}
 
@@ -241,29 +293,90 @@ export function SignInSurface({
                   Released deployments require company sign-in.
                 </p>
               </div>
-            ) : githubEnabled ? (
+            ) : anyMethod ? (
               <>
                 <div className="flex flex-col gap-2">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="w-full"
-                    disabled={redirecting}
-                    onClick={() => void sso()}
-                  >
-                    {redirecting ? (
-                      <Icon name="clock" size={16} />
-                    ) : (
-                      <ProviderGlyph />
-                    )}
-                    {redirecting
-                      ? `Redirecting to ${provider}…`
-                      : `Continue with ${provider}`}
-                  </Button>
-                  <p className="m-0 text-center text-label text-fg-muted">
-                    Use your company account.
-                  </p>
+                  {oidcName !== null ? (
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      className="w-full"
+                      disabled={redirecting !== null}
+                      onClick={() => void sso('oidc')}
+                    >
+                      {redirecting === 'oidc' ? (
+                        <Icon name="clock" size={16} />
+                      ) : null}
+                      {redirecting === 'oidc'
+                        ? `Redirecting to ${oidcName}…`
+                        : `Continue with ${oidcName}`}
+                    </Button>
+                  ) : null}
+                  {githubEnabled ? (
+                    <Button
+                      variant={oidcName !== null ? 'secondary' : 'primary'}
+                      size="lg"
+                      className="w-full"
+                      disabled={redirecting !== null}
+                      onClick={() => void sso('github')}
+                    >
+                      {redirecting === 'github' ? (
+                        <Icon name="clock" size={16} />
+                      ) : (
+                        <ProviderGlyph />
+                      )}
+                      {redirecting === 'github'
+                        ? 'Redirecting to GitHub…'
+                        : 'Continue with GitHub'}
+                    </Button>
+                  ) : null}
+                  {githubEnabled || oidcName !== null ? (
+                    <p className="m-0 text-center text-label text-fg-muted">
+                      Use your company account.
+                    </p>
+                  ) : null}
                 </div>
+                {emailLinkEnabled ? (
+                  linkState === 'sent' ? (
+                    <Notice tone="info" title="Check your email.">
+                      If {email.trim()} can sign in to Sheetbase, a one-time
+                      link is on its way. It expires in 10 minutes.
+                    </Notice>
+                  ) : (
+                    <form
+                      className="flex flex-col gap-2 border-t border-border-subtle pt-3"
+                      onSubmit={(event) => void sendLink(event)}
+                    >
+                      <label
+                        htmlFor="sign-in-email"
+                        className="text-label text-fg-muted"
+                      >
+                        Or sign in with an emailed link
+                      </label>
+                      <input
+                        id="sign-in-email"
+                        type="email"
+                        name="email"
+                        autoComplete="email"
+                        required
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        className="h-9 rounded-md border border-border bg-surface px-3 text-body"
+                      />
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        size="lg"
+                        className="w-full"
+                        disabled={linkState === 'sending' || !email.trim()}
+                      >
+                        {linkState === 'sending'
+                          ? 'Sending…'
+                          : 'Email me a sign-in link'}
+                      </Button>
+                    </form>
+                  )
+                ) : null}
                 <p className="m-0 border-t border-border-subtle pt-3 text-label text-fg-muted">
                   Invited to a workspace? Sign in, then open the invitation link
                   you were sent. If you have no link, ask the person who manages
@@ -272,9 +385,9 @@ export function SignInSurface({
               </>
             ) : (
               <p className="text-body leading-6 text-fg-muted">
-                GitHub sign-in is not configured for this environment yet. See
-                docs/operations/authentication.md to create the OAuth
-                application and set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET.
+                No sign-in method is configured for this environment yet. See
+                docs/operations/authentication.md to set up company OIDC, GitHub
+                or email sign-in.
               </p>
             )}
           </section>
@@ -315,7 +428,8 @@ export function SignInSurface({
 }
 
 function SignIn() {
-  const { devAuthFree, githubEnabled } = Route.useLoaderData()
+  const { devAuthFree, githubEnabled, oidcName, emailLinkEnabled } =
+    Route.useLoaderData()
   const { state, next, error } = Route.useSearch()
   const help = useHelp()
   // EXP-05.5: the drafts this device kept when its last user signed out.
@@ -328,6 +442,8 @@ function SignIn() {
       error={error}
       devAuthFree={devAuthFree}
       githubEnabled={githubEnabled}
+      oidcName={oidcName}
+      emailLinkEnabled={emailLinkEnabled}
       release={help?.release}
       retainedDrafts={retainedDrafts}
     />

@@ -16,10 +16,7 @@ import {
   OversizeError,
 } from '#/lib/file-storage'
 import { FILE_MAX_BYTES, validateUploadRequest } from '#/lib/file-policy'
-import {
-  extractTextFromStream,
-  isTextExtractableMediaType,
-} from '#/lib/file-text'
+import { extractDocumentText, isSearchableMediaType } from '#/lib/file-text'
 import { env } from '#/env.server'
 
 import {
@@ -134,7 +131,7 @@ function asRow<T>(body: T | { error: unknown }): T | undefined {
 }
 
 /**
- * SRCH-01.3 — after a successful upload, extract text for the text formats and
+ * SRCH-01.3 — after a successful upload, extract text for text, PDF and Office files and
  * store it on the file object through the membership-checked RPC. Best effort:
  * an extraction failure must not fail the upload.
  */
@@ -146,10 +143,10 @@ async function persistExtractedFileText(
   token: string,
   request: Request,
 ): Promise<void> {
-  if (!isTextExtractableMediaType(mediaType)) return
+  if (!isSearchableMediaType(mediaType)) return
   try {
     const { stream } = await storage.getStream(storageKey)
-    const text = await extractTextFromStream(stream)
+    const text = await extractDocumentText(stream, mediaType)
     if (text.trim().length === 0) return
     await postgrestRpc(
       'record_file_text',

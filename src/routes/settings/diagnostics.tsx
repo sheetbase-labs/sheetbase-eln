@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -642,6 +643,7 @@ function formatTime(value: string | null): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString('en-GB', {
+    timeZone: getDisplayTimeZone(),
     day: '2-digit',
     month: 'short',
     hour: '2-digit',

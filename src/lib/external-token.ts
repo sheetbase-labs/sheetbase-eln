@@ -290,6 +290,32 @@ export async function resolveExternalToken(
   method: string,
   path: ProxyPath,
 ): Promise<{ workspaceId: string }> {
+  const claims = await verifyExternalCredential(db, token, secret)
+
+  const required = requiredScopes(method, path)
+  for (const scope of required) {
+    if (!hasScope(claims.scopes, scope)) {
+      throw new ExternalTokenError(
+        'insufficient_scope',
+        `Credential lacks scope: ${scope}`,
+      )
+    }
+  }
+
+  return { workspaceId: claims.workspace_id }
+}
+
+/**
+ * Verifies the bearer token and that its credential is still live (not
+ * revoked or expired, and for personal tokens the creator still an active
+ * member). Scope enforcement is left to the caller: the /api/db proxy maps a
+ * method + path to scopes, byte routes such as instrument pickup name theirs.
+ */
+export async function verifyExternalCredential(
+  db: Db,
+  token: string,
+  secret: string,
+): Promise<ExternalClaims> {
   const claims = await verifyApiClientToken(token, secret)
 
   const row = await db.query.apiCredentials.findFirst({
@@ -339,17 +365,7 @@ export async function resolveExternalToken(
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
-  const required = requiredScopes(method, path)
-  for (const scope of required) {
-    if (!hasScope(claims.scopes, scope)) {
-      throw new ExternalTokenError(
-        'insufficient_scope',
-        `Credential lacks scope: ${scope}`,
-      )
-    }
-  }
-
-  return { workspaceId: claims.workspace_id }
+  return claims
 }
 
 /** Extracts a bearer token from an Authorization header, or null. */

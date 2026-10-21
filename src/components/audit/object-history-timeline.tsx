@@ -90,7 +90,7 @@ function toEntry(group: {
     ) : undefined,
     time: formatRelativeTime(group.primary.createdAt),
     dateTime: group.primary.createdAt,
-    detail: formatNotebookDateTime(group.primary.createdAt),
+    detail: formatNotebookDateTime(group.primary.createdAt, { zone: true }),
     changes: described.changes,
     related: group.related.map((related) => {
       const relatedDescribed = describeAuditEvent(related)

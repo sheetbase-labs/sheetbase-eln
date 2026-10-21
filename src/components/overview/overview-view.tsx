@@ -430,7 +430,7 @@ export function ExperimentOverview({
                   'Not recorded'
                 ),
               ],
-              ['Started', record.createdAt.slice(0, 10)],
+              ['Started', formatNotebookDateTime(record.createdAt)],
               ['Planned end', plannedEnd ?? 'Not recorded'],
               [
                 'Decision',

@@ -60,3 +60,15 @@ export async function setActiveWorkspace(
 ): Promise<void> {
   await client.rpc('set_active_workspace', { p_workspace_id: workspaceId })
 }
+
+/**
+ * Set the zone this person reads times in (`user_preferences.timezone`).
+ * Stored instants stay UTC; the database validates the name against its zone
+ * list and refuses an unknown one.
+ */
+export async function setUserTimeZone(
+  client: DataClient,
+  timeZone: string,
+): Promise<void> {
+  await client.rpc('set_user_profile', { p_timezone: timeZone })
+}

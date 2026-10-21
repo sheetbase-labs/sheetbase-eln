@@ -24,6 +24,9 @@ const deploymentInputSchema = z.object({
   POSTGREST_ADMIN_URL: z.string().url(),
   GITHUB_CLIENT_ID: z.string().min(1).optional(),
   GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
+  OIDC_ISSUER_URL: z.string().url().optional(),
+  OIDC_CLIENT_ID: z.string().min(1).optional(),
+  OIDC_CLIENT_SECRET: z.string().min(1).optional(),
   SHEETBASE_DEV_AUTH_FREE: z.boolean().default(false),
   /** Test seam: pins the application's notion of now (see src/lib/clock.ts). */
   SHEETBASE_NOW: z.string().datetime({ offset: true }).optional(),
@@ -77,9 +80,34 @@ export function validateDeploymentConfig(
         `${parsed.SHEETBASE_ENV} requires an HTTPS BETTER_AUTH_URL`,
       )
     }
-    if (!parsed.GITHUB_CLIENT_ID || !parsed.GITHUB_CLIENT_SECRET) {
+    const github = Boolean(
+      parsed.GITHUB_CLIENT_ID || parsed.GITHUB_CLIENT_SECRET,
+    )
+    const oidc = Boolean(
+      parsed.OIDC_ISSUER_URL ||
+      parsed.OIDC_CLIENT_ID ||
+      parsed.OIDC_CLIENT_SECRET,
+    )
+    if (github && !(parsed.GITHUB_CLIENT_ID && parsed.GITHUB_CLIENT_SECRET)) {
       throw new Error(
         `${parsed.SHEETBASE_ENV} requires both GitHub OAuth credentials`,
+      )
+    }
+    if (
+      oidc &&
+      !(
+        parsed.OIDC_ISSUER_URL &&
+        parsed.OIDC_CLIENT_ID &&
+        parsed.OIDC_CLIENT_SECRET
+      )
+    ) {
+      throw new Error(
+        `${parsed.SHEETBASE_ENV} requires OIDC_ISSUER_URL, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together`,
+      )
+    }
+    if (!github && !oidc) {
+      throw new Error(
+        `${parsed.SHEETBASE_ENV} requires GitHub OAuth or OIDC sign-in credentials`,
       )
     }
     for (const [name, value] of [

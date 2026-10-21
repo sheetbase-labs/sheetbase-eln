@@ -1,3 +1,4 @@
+import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useState } from 'react'
 
 import { Button } from '#/components/v3/ui/button'
@@ -161,7 +162,7 @@ export function readPromptAnswer(
 }
 
 function formatMoment(iso: string | null): string {
-  return iso ? iso.slice(0, 16).replace('T', ' ') : ''
+  return iso ? formatNotebookDateTime(iso, { zone: true }) : ''
 }
 
 export interface RunPromptPanelProps {

@@ -1,3 +1,4 @@
+import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -65,7 +66,7 @@ export function deliveryOutcome(delivery: PipelineRunDeliveryWire): string {
   switch (delivery.status) {
     case 'delivered': {
       const sentAt = delivery.delivered_at ?? delivery.created_at
-      return `Sent ${sentAt.slice(0, 16).replace('T', ' ')}`
+      return `Sent ${formatNotebookDateTime(sentAt, { zone: true })}`
     }
     case 'pending':
       return 'Queued for delivery.'

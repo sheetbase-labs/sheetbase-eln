@@ -1,20 +1,44 @@
 /**
- * Better Auth server instance. GitHub OAuth activates when both credentials
- * are configured; without them the handler still mounts and the sign-in
- * screen explains that sign-in is not configured (docs/operations/authentication.md).
+ * Better Auth server instance. Sign-in methods activate from configuration:
+ * GitHub OAuth (both credentials), company OIDC single sign-on (issuer, client
+ * id and secret) and email sign-in by one-time link (EMAIL_LOGIN_ENABLED plus
+ * SMTP). Without any, the handler still mounts and the sign-in screen explains
+ * that sign-in is not configured (docs/operations/authentication.md).
+ *
+ * Two-factor (TOTP) is available to every account and enforced on email-link
+ * sign-in; GitHub and OIDC sign-ins rely on the provider's own MFA.
  */
 import { betterAuth } from 'better-auth'
+import type { BetterAuthPlugin } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { createAuthMiddleware } from 'better-auth/api'
+import { genericOAuth } from 'better-auth/plugins/generic-oauth'
+import { magicLink } from 'better-auth/plugins/magic-link'
+import { twoFactor as twoFactorPlugin } from 'better-auth/plugins/two-factor'
+import { eq } from 'drizzle-orm'
 import { AsyncLocalStorage } from 'node:async_hooks'
 
 import { db } from '#/db/client.server'
-import { account, session, user, verification } from '#/db/schema'
+import { account, session, twoFactor, user, verification } from '#/db/schema'
 import { env } from '#/env.server'
+import type { OidcConfig } from '#/lib/auth-methods'
+import {
+  OIDC_PROVIDER_ID,
+  mayCreateByEmailLink,
+  parseAllowedDomains,
+  readAuthMethods,
+  readOidcConfig,
+} from '#/lib/auth-methods'
+import {
+  createSmtpTransport,
+  readSmtpConfig,
+} from '#/lib/email-delivery.server'
 import { bootstrapWorkspaceForUser } from '#/lib/bootstrap'
+import { safeNextPath } from '#/lib/sign-in-redirect'
 import { getDevSession, isDevAuthFreeEnabled } from '#/lib/dev-auth'
 import type { AppSession } from '#/lib/dev-auth'
 
-const authSchema = { user, session, account, verification }
+const authSchema = { user, session, account, verification, twoFactor }
 
 // Only a spent independent authorization can establish this server-only scope.
 // Better Auth generates and consumes its own reset token; no token reaches HTTP,
@@ -25,7 +49,75 @@ const passwordRecovery = new AsyncLocalStorage<{
   redeem: (token: string) => Promise<void>
 }>()
 
-export function createAuth(database: typeof db = db) {
+/** Seams for tests and alternative deployments; production reads configuration. */
+export interface AuthDeps {
+  oidc?: OidcConfig | null
+  emailLink?: boolean
+  emailLinkAllowedDomains?: string[]
+  sendEmail?: (message: {
+    to: string
+    subject: string
+    body: string
+  }) => Promise<void>
+}
+
+async function sendConfiguredEmail(message: {
+  to: string
+  subject: string
+  body: string
+}) {
+  const config = readSmtpConfig()
+  if (!config) return
+  await (await createSmtpTransport(config)).send(message)
+}
+
+/** TOTP is the second factor for email-link sign-in; Better Auth's own gate covers password-style paths only. */
+function twoFactorWithEmailLink() {
+  const plugin = twoFactorPlugin({
+    issuer: 'Sheetbase',
+    // Accounts with a signing credential still confirm it before changing
+    // their second factor; everyone else (SSO, GitHub, email link) does not
+    // have one to confirm.
+    allowPasswordless: true,
+    // Better Auth's own gate (attempt counter plus lock) is the throttle.
+    totpOptions: { digits: 6, period: 30 },
+  })
+  const challenge = plugin.hooks.after[0]
+  return {
+    ...plugin,
+    hooks: {
+      after: [
+        ...plugin.hooks.after,
+        {
+          // Magic-link verification ends in a redirect, not a JSON reply. Run
+          // the standard challenge (drops the half-open session and sets the
+          // challenge cookie), then send the browser to the code prompt.
+          matcher: (context: { path?: string }) =>
+            context.path === '/magic-link/verify',
+          handler: createAuthMiddleware(async (ctx) => {
+            if (!ctx.context.newSession?.user.twoFactorEnabled) return
+            const held = (await challenge.handler({
+              ...ctx,
+              returnHeaders: true,
+            })) as unknown as { headers: Headers }
+            const next = safeNextPath(ctx.query?.callbackURL)
+            const redirect = ctx.redirect(
+              `/sign-in/two-factor${next ? `?next=${encodeURIComponent(next)}` : ''}`,
+            )
+            const headers = new Headers(redirect.headers)
+            for (const cookie of held.headers.getSetCookie()) {
+              headers.append('set-cookie', cookie)
+            }
+            redirect.headers = headers
+            throw redirect
+          }),
+        },
+      ],
+    },
+  }
+}
+
+export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
   const socialProviders =
     env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
       ? {
@@ -36,7 +128,71 @@ export function createAuth(database: typeof db = db) {
         }
       : {}
 
+  const oidc = deps.oidc === undefined ? readOidcConfig(env) : deps.oidc
+  const emailLink =
+    deps.emailLink ??
+    readAuthMethods({ ...env, SMTP_HOST: process.env.SMTP_HOST }).emailLink
+  const allowedDomains =
+    deps.emailLinkAllowedDomains ??
+    parseAllowedDomains(env.EMAIL_LOGIN_ALLOWED_DOMAINS)
+  const sendEmail = deps.sendEmail ?? sendConfiguredEmail
+
+  const plugins: BetterAuthPlugin[] = [twoFactorWithEmailLink()]
+  if (oidc) {
+    plugins.push(
+      genericOAuth({
+        config: [
+          {
+            providerId: OIDC_PROVIDER_ID,
+            discoveryUrl: `${oidc.issuerUrl}/.well-known/openid-configuration`,
+            clientId: oidc.clientId,
+            clientSecret: oidc.clientSecret,
+            scopes: ['openid', 'email', 'profile'],
+            pkce: true,
+            requireIssuerValidation: true,
+          },
+        ],
+      }),
+    )
+  }
+  if (emailLink) {
+    plugins.push(
+      magicLink({
+        expiresIn: 60 * 10,
+        storeToken: 'hashed',
+        sendMagicLink: async ({ email, url }) => {
+          // Answer the same whether or not the address may sign in, so the
+          // form never reveals who has an account. A new address is only let
+          // in from an allowed domain.
+          const known = await database
+            .select({ id: user.id })
+            .from(user)
+            .where(eq(user.email, email.toLowerCase()))
+            .limit(1)
+          if (
+            known.length === 0 &&
+            !mayCreateByEmailLink(email, allowedDomains)
+          ) {
+            return
+          }
+          await sendEmail({
+            to: email,
+            subject: 'Your Sheetbase sign-in link',
+            body: [
+              'Use this link to sign in to Sheetbase. It works once and expires in 10 minutes.',
+              '',
+              url,
+              '',
+              'If you did not ask to sign in, ignore this email; nothing was changed.',
+            ].join('\n'),
+          })
+        },
+      }),
+    )
+  }
+
   return betterAuth({
+    plugins,
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
     database: drizzleAdapter(database, { provider: 'pg', schema: authSchema }),
@@ -185,3 +341,8 @@ export { isDevAuthFreeEnabled }
 export const isGithubConfigured = Boolean(
   env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET,
 )
+
+/** The sign-in methods this environment offers, for the sign-in screen. */
+export function getAuthMethods() {
+  return readAuthMethods({ ...env, SMTP_HOST: process.env.SMTP_HOST })
+}

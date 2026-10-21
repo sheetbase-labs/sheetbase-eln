@@ -92,6 +92,7 @@ import { Route as ApiFilesUploadAuthorizeRouteImport } from './routes/api/files/
 import { Route as ApiHealthLiveRouteImport } from './routes/api/health/live'
 import { Route as ApiHealthReadyRouteImport } from './routes/api/health/ready'
 import { Route as ApiImportCommitRouteImport } from './routes/api/import/commit'
+import { Route as ApiImportElnRouteImport } from './routes/api/import/eln'
 import { Route as ApiImportFilesRouteImport } from './routes/api/import/files'
 import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
 import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
@@ -166,7 +167,9 @@ import { Route as PipelinesPipelineIdRunsIndexRouteImport } from './routes/pipel
 import { Route as PipelinesPipelineIdRunsRunIdRouteImport } from './routes/pipelines/$pipelineId/runs/$runId'
 import { Route as RecordsRecordIdEvidenceRevisionIdRouteImport } from './routes/records/$recordId/evidence/$revisionId'
 import { Route as ApiClientPortalRecordsRecordIdPdfRouteImport } from './routes/api/client-portal/records/$recordId/pdf'
+import { Route as ApiExportProjectIdElnRouteImport } from './routes/api/export/project/$id/eln'
 import { Route as ApiExportRecordIdAuditRouteImport } from './routes/api/export/record/$id/audit'
+import { Route as ApiExportRecordIdElnRouteImport } from './routes/api/export/record/$id/eln'
 import { Route as ApiExportRevisionIdPackageRouteImport } from './routes/api/export/revision/$id/package'
 import { Route as ApiExportRevisionIdPdfRouteImport } from './routes/api/export/revision/$id/pdf'
 
@@ -586,6 +589,11 @@ const ApiImportCommitRoute = ApiImportCommitRouteImport.update({
   path: '/api/import/commit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiImportElnRoute = ApiImportElnRouteImport.update({
+  id: '/api/import/eln',
+  path: '/api/import/eln',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiImportFilesRoute = ApiImportFilesRouteImport.update({
   id: '/api/import/files',
   path: '/api/import/files',
@@ -990,9 +998,19 @@ const ApiClientPortalRecordsRecordIdPdfRoute =
     path: '/api/client-portal/records/$recordId/pdf',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiExportProjectIdElnRoute = ApiExportProjectIdElnRouteImport.update({
+  id: '/api/export/project/$id/eln',
+  path: '/api/export/project/$id/eln',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiExportRecordIdAuditRoute = ApiExportRecordIdAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => ApiExportRecordIdRoute,
+} as any)
+const ApiExportRecordIdElnRoute = ApiExportRecordIdElnRouteImport.update({
+  id: '/eln',
+  path: '/eln',
   getParentRoute: () => ApiExportRecordIdRoute,
 } as any)
 const ApiExportRevisionIdPackageRoute =
@@ -1091,6 +1109,7 @@ export interface FileRoutesByFullPath {
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
@@ -1165,7 +1184,9 @@ export interface FileRoutesByFullPath {
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/project/$id/eln': typeof ApiExportProjectIdElnRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
+  '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
@@ -1241,6 +1262,7 @@ export interface FileRoutesByTo {
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
@@ -1314,7 +1336,9 @@ export interface FileRoutesByTo {
   '/models/$modelId/records': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/project/$id/eln': typeof ApiExportProjectIdElnRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
+  '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
@@ -1403,6 +1427,7 @@ export interface FileRoutesById {
   '/api/health/live': typeof ApiHealthLiveRoute
   '/api/health/ready': typeof ApiHealthReadyRoute
   '/api/import/commit': typeof ApiImportCommitRoute
+  '/api/import/eln': typeof ApiImportElnRoute
   '/api/import/files': typeof ApiImportFilesRoute
   '/api/import/review': typeof ApiImportReviewRoute
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
@@ -1477,7 +1502,9 @@ export interface FileRoutesById {
   '/models/$modelId/records/': typeof ModelsModelIdRecordsIndexRoute
   '/pipelines/$pipelineId/runs/': typeof PipelinesPipelineIdRunsIndexRoute
   '/api/client-portal/records/$recordId/pdf': typeof ApiClientPortalRecordsRecordIdPdfRoute
+  '/api/export/project/$id/eln': typeof ApiExportProjectIdElnRoute
   '/api/export/record/$id/audit': typeof ApiExportRecordIdAuditRoute
+  '/api/export/record/$id/eln': typeof ApiExportRecordIdElnRoute
   '/api/export/revision/$id/package': typeof ApiExportRevisionIdPackageRoute
   '/api/export/revision/$id/pdf': typeof ApiExportRevisionIdPdfRoute
 }
@@ -1567,6 +1594,7 @@ export interface FileRouteTypes {
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/import/commit'
+    | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
     | '/api/parsers/request-update'
@@ -1641,7 +1669,9 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/project/$id/eln'
     | '/api/export/record/$id/audit'
+    | '/api/export/record/$id/eln'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
   fileRoutesByTo: FileRoutesByTo
@@ -1717,6 +1747,7 @@ export interface FileRouteTypes {
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/import/commit'
+    | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
     | '/api/parsers/request-update'
@@ -1790,7 +1821,9 @@ export interface FileRouteTypes {
     | '/models/$modelId/records'
     | '/pipelines/$pipelineId/runs'
     | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/project/$id/eln'
     | '/api/export/record/$id/audit'
+    | '/api/export/record/$id/eln'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
   id:
@@ -1878,6 +1911,7 @@ export interface FileRouteTypes {
     | '/api/health/live'
     | '/api/health/ready'
     | '/api/import/commit'
+    | '/api/import/eln'
     | '/api/import/files'
     | '/api/import/review'
     | '/api/parsers/request-update'
@@ -1952,7 +1986,9 @@ export interface FileRouteTypes {
     | '/models/$modelId/records/'
     | '/pipelines/$pipelineId/runs/'
     | '/api/client-portal/records/$recordId/pdf'
+    | '/api/export/project/$id/eln'
     | '/api/export/record/$id/audit'
+    | '/api/export/record/$id/eln'
     | '/api/export/revision/$id/package'
     | '/api/export/revision/$id/pdf'
   fileRoutesById: FileRoutesById
@@ -2007,6 +2043,7 @@ export interface RootRouteChildren {
   ApiHealthLiveRoute: typeof ApiHealthLiveRoute
   ApiHealthReadyRoute: typeof ApiHealthReadyRoute
   ApiImportCommitRoute: typeof ApiImportCommitRoute
+  ApiImportElnRoute: typeof ApiImportElnRoute
   ApiImportFilesRoute: typeof ApiImportFilesRoute
   ApiImportReviewRoute: typeof ApiImportReviewRoute
   ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
@@ -2025,6 +2062,7 @@ export interface RootRouteChildren {
   ApiFilesFileIdUploadRoute: typeof ApiFilesFileIdUploadRoute
   ApiPipelinesWebhookDefinitionIdRoute: typeof ApiPipelinesWebhookDefinitionIdRoute
   ApiClientPortalRecordsRecordIdPdfRoute: typeof ApiClientPortalRecordsRecordIdPdfRoute
+  ApiExportProjectIdElnRoute: typeof ApiExportProjectIdElnRoute
   ApiExportRevisionIdPackageRoute: typeof ApiExportRevisionIdPackageRoute
   ApiExportRevisionIdPdfRoute: typeof ApiExportRevisionIdPdfRoute
 }
@@ -2612,6 +2650,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiImportCommitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/import/eln': {
+      id: '/api/import/eln'
+      path: '/api/import/eln'
+      fullPath: '/api/import/eln'
+      preLoaderRoute: typeof ApiImportElnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/import/files': {
       id: '/api/import/files'
       path: '/api/import/files'
@@ -3130,11 +3175,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiClientPortalRecordsRecordIdPdfRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/export/project/$id/eln': {
+      id: '/api/export/project/$id/eln'
+      path: '/api/export/project/$id/eln'
+      fullPath: '/api/export/project/$id/eln'
+      preLoaderRoute: typeof ApiExportProjectIdElnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/export/record/$id/audit': {
       id: '/api/export/record/$id/audit'
       path: '/audit'
       fullPath: '/api/export/record/$id/audit'
       preLoaderRoute: typeof ApiExportRecordIdAuditRouteImport
+      parentRoute: typeof ApiExportRecordIdRoute
+    }
+    '/api/export/record/$id/eln': {
+      id: '/api/export/record/$id/eln'
+      path: '/eln'
+      fullPath: '/api/export/record/$id/eln'
+      preLoaderRoute: typeof ApiExportRecordIdElnRouteImport
       parentRoute: typeof ApiExportRecordIdRoute
     }
     '/api/export/revision/$id/package': {
@@ -3565,10 +3624,12 @@ const RecordsRecordIdRouteWithChildren = RecordsRecordIdRoute._addFileChildren(
 
 interface ApiExportRecordIdRouteChildren {
   ApiExportRecordIdAuditRoute: typeof ApiExportRecordIdAuditRoute
+  ApiExportRecordIdElnRoute: typeof ApiExportRecordIdElnRoute
 }
 
 const ApiExportRecordIdRouteChildren: ApiExportRecordIdRouteChildren = {
   ApiExportRecordIdAuditRoute: ApiExportRecordIdAuditRoute,
+  ApiExportRecordIdElnRoute: ApiExportRecordIdElnRoute,
 }
 
 const ApiExportRecordIdRouteWithChildren =
@@ -3624,6 +3685,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthLiveRoute: ApiHealthLiveRoute,
   ApiHealthReadyRoute: ApiHealthReadyRoute,
   ApiImportCommitRoute: ApiImportCommitRoute,
+  ApiImportElnRoute: ApiImportElnRoute,
   ApiImportFilesRoute: ApiImportFilesRoute,
   ApiImportReviewRoute: ApiImportReviewRoute,
   ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
@@ -3643,6 +3705,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPipelinesWebhookDefinitionIdRoute: ApiPipelinesWebhookDefinitionIdRoute,
   ApiClientPortalRecordsRecordIdPdfRoute:
     ApiClientPortalRecordsRecordIdPdfRoute,
+  ApiExportProjectIdElnRoute: ApiExportProjectIdElnRoute,
   ApiExportRevisionIdPackageRoute: ApiExportRevisionIdPackageRoute,
   ApiExportRevisionIdPdfRoute: ApiExportRevisionIdPdfRoute,
 }

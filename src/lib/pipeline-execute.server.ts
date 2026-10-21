@@ -34,6 +34,7 @@ import {
 import type { PythonTransformUsage } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
+import { recordRunManifest } from './pipeline-manifest.server'
 import {
   SandboxSession,
   SandboxUnavailableError,
@@ -538,6 +539,31 @@ async function finishExecution(
     },
   })
   const finished = await completeRun(conn, run, completion)
+  // The evidence is written in the transaction that completes the run: a run
+  // either succeeds with a manifest or does not succeed. It is written by the
+  // executor itself, not under the request role: the output phase ran as
+  // `authenticated`, which can neither read the materialized temp tables to
+  // digest them nor insert evidence.
+  await conn.query('SET LOCAL ROLE NONE')
+  await recordRunManifest(conn, {
+    run: { ...run, definition_version_id: run.definition_version_id },
+    inputNames: config.inputs.map((input) => input.name),
+    steps: listSteps(config),
+    output: {
+      mode: config.output.mode,
+      datasetId: output.datasetId,
+      datasetVersionId: output.datasetVersionId,
+      label: output.label,
+    },
+    rows: transform.rows,
+    actions: (config.actions ?? []).map((action) => ({
+      name: action.name,
+      operation: action.operation,
+    })),
+    finishedAt: finished?.finished_at
+      ? new Date(finished.finished_at).toISOString()
+      : null,
+  })
   return { ok: true, run: finished }
 }
 
@@ -1556,6 +1582,22 @@ async function withSandbox<T>(
   }
 }
 
+/** The ordered steps a run executes: the analysis step first, then any chained steps. */
+function listSteps(config: PipelineConfig): PipelineStep[] {
+  return [
+    ...(config.transform.language === 'none'
+      ? []
+      : [
+          {
+            name: 'analysis',
+            language: config.transform.language,
+            statement: config.transform.statement,
+          },
+        ]),
+    ...(config.steps ?? []),
+  ]
+}
+
 /** Run ordered analysis steps without exposing the orchestration connection to Python. */
 async function executeSteps(
   conn: ExecConnection,
@@ -1580,18 +1622,7 @@ async function executeSteps(
     if (!usage) return
     usages.push(usage)
   }
-  const steps: PipelineStep[] = [
-    ...(config.transform.language === 'none'
-      ? []
-      : [
-          {
-            name: 'analysis',
-            language: config.transform.language,
-            statement: config.transform.statement,
-          },
-        ]),
-    ...(config.steps ?? []),
-  ]
+  const steps = listSteps(config)
 
   const runStep = async (
     index: number,

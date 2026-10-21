@@ -100,6 +100,8 @@ Copy `.env.example` to `.env.local` and fill in values. Production uses
 - `DATABASE_URL` — app DB connection (dev: localhost, prod: Docker service name `postgres`)
 - `MIGRATION_DATABASE_URL` — drizzle-kit DDL (dedicated `migrator` role)
 - `FORMULA_DATABASE_URL` — formula writer (dedicated `formula_runtime` role)
+- `PIPELINE_SANDBOX_DATABASE_URL` — pipeline SQL sandbox (dedicated `pipeline_sandbox` login with no grants)
+- `PIPELINE_MANIFEST_SIGNING_KEY` — optional Ed25519 key (PKCS#8 PEM) that signs pipeline run manifests
 - `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` — session auth
 - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` — OAuth
 - `PGRST_JWT_SECRET` — PostgREST JWT signing
@@ -117,7 +119,7 @@ See `.env.example` for all variables and documentation.
 - **Public traffic:** Cloudflare Tunnel routes `app.sheetbase.co.uk` →
   `http://localhost:3000` on the VPS.
 - **Deploy:** GitHub Actions (`.github/workflows/deploy.yml`) is **manual** — it runs on
-  `workflow_dispatch` only (Actions → *Deploy to production*, which asks you to type
+  `workflow_dispatch` only (Actions → _Deploy to production_, which asks you to type
   `deploy` to confirm): build immutable Docker image → push to GHCR → SSH deploy via
   Tailscale. Pushes to `main` run **CI** and **Security** only; they do not deploy.
 - **Deploy controller:** `scripts/deploy.ts` validates `@sha256` image
@@ -152,10 +154,10 @@ Set `SHEETBASE_APP_IMAGE` to a previous `@sha256` digest and run `pnpm deploy:ap
 
 The Hostinger VPS is the shared delivery target. It has two separate Docker surfaces; do not combine their Compose projects, databases, volumes, or environment files.
 
-| Surface     | Public URL                    | Purpose                                | How it deploys                                               |
-| ----------- | ----------------------------- | -------------------------------------- | ------------------------------------------------------------ |
-| Production  | `https://app.sheetbase.co.uk` | Real authenticated app                 | Manual dispatch of `.github/workflows/deploy.yml` (Actions → *Deploy to production*) |
-| Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual dispatch of `.github/workflows/deploy-dev.yml`        |
+| Surface     | Public URL                    | Purpose                                | How it deploys                                                                       |
+| ----------- | ----------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------ |
+| Production  | `https://app.sheetbase.co.uk` | Real authenticated app                 | Manual dispatch of `.github/workflows/deploy.yml` (Actions → _Deploy to production_) |
+| Development | `https://dev.sheetbase.co.uk` | Disposable, auth-free demo environment | Manual dispatch of `.github/workflows/deploy-dev.yml`                                |
 
 ### Development environment
 

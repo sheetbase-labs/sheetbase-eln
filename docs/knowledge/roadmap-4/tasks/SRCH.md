@@ -75,8 +75,10 @@ matching line; include-archived option; "did you mean" for near-miss IDs.
    maintained record search vector, and searched by `api.search_file_contents`,
    which returns the file, the matching line and its number; DB tests cover a
    member, a viewer and an outsider, and the upload test proves extraction.
-   PDF text needs a text-layer parser dependency (`pdf-lib` only writes); that
-   half is tracked separately so the format is not faked.
+   PDF text-layer extraction (`unpdf`) and docx, xlsx and pptx extraction
+   (`fflate` unzip plus the XML text runs) now run at upload through the same
+   path, in `src/lib/file-text.ts`. xlsx indexes strings, not numbers; a scanned
+   PDF with no text layer stays unsearchable by content (no OCR).
 
 4. "Did you mean": trigram similarity (`pg_trgm`) on identifiers when there are
    no results; include-archived flag.

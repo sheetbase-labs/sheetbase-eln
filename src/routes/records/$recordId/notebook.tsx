@@ -1263,6 +1263,13 @@ export function StickyRecordHeader({
                   Export evidence
                 </DropdownMenuItem>
               ) : null}
+              {record.kind === 'experiment' ? (
+                <DropdownMenuItem
+                  render={<a href={`/api/export/record/${record.id}/eln`} />}
+                >
+                  Export as .eln
+                </DropdownMenuItem>
+              ) : null}
               {!historicalRevisionId && !lockedAt ? (
                 <DropdownMenuItem onClick={() => setLinkOpen(true)}>
                   Link records…

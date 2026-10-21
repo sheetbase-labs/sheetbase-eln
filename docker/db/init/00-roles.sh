@@ -9,6 +9,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   -v auth_pass="$POSTGREST_AUTHENTICATOR_PASSWORD" \
   -v migrator_pass="$MIGRATOR_PASSWORD" \
   -v formula_pass="$FORMULA_WRITER_PASSWORD" \
+  -v sandbox_pass="$PIPELINE_SANDBOX_PASSWORD" \
   -v db_name="$POSTGRES_DB" <<'SQL'
 -- PostgREST request roles (switched to by authenticator per request).
 CREATE ROLE anon NOLOGIN NOINHERIT;
@@ -32,10 +33,23 @@ GRANT formula_writer TO migrator WITH ADMIN OPTION;
 CREATE ROLE formula_runtime LOGIN NOINHERIT PASSWORD :'formula_pass';
 GRANT formula_writer TO formula_runtime;
 
--- AUTO-02 sandbox: Pipeline transform SQL runs as this zero-grant role
--- (temp-schema-only search_path, no table grants). The app connection
--- (superuser) assumes it momentarily; it never logs in.
+-- Legacy AUTO-02 role, kept so existing databases and grants stay valid. The
+-- executor no longer switches into it: that was a same-session role switch a
+-- statement could undo.
 CREATE ROLE pipeline_worker NOLOGIN NOINHERIT;
+
+-- Pipeline SQL sandbox: transform SQL runs on its own connection that logs in
+-- as this role. It owns nothing, holds no grants, is a member of no role and
+-- cannot create objects outside its own temp schema, so a statement that
+-- resets the session role lands on the same unprivileged login. The caps
+-- below are GUCs only a superuser can change, so a statement cannot lift them.
+CREATE ROLE pipeline_sandbox LOGIN NOINHERIT NOSUPERUSER NOCREATEDB
+  NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 32
+  PASSWORD :'sandbox_pass';
+ALTER ROLE pipeline_sandbox SET temp_file_limit = '1GB';
+ALTER ROLE pipeline_sandbox SET statement_timeout = '90s';
+ALTER ROLE pipeline_sandbox SET idle_session_timeout = '10min';
+ALTER ROLE pipeline_sandbox SET search_path = pg_temp;
 
 -- Narrowly controlled service operations (AUTH-003 token exchange, workers).
 CREATE ROLE service_role NOLOGIN NOINHERIT;

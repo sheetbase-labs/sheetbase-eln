@@ -35,7 +35,8 @@ evidence.
 
 Keep separate staging and production scopes for:
 
-- `DATABASE_URL`, `MIGRATION_DATABASE_URL`, and `FORMULA_DATABASE_URL`;
+- `DATABASE_URL`, `MIGRATION_DATABASE_URL`, `FORMULA_DATABASE_URL`, and `PIPELINE_SANDBOX_DATABASE_URL`;
+- `PIPELINE_MANIFEST_SIGNING_KEY` (see [Pipeline execution](pipeline-execution.md));
 - `BETTER_AUTH_SECRET` and at least one sign-in provider: `GITHUB_CLIENT_ID` with `GITHUB_CLIENT_SECRET`, or `OIDC_ISSUER_URL` with `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` (see [Authentication](authentication.md));
 - `PGRST_DB_URI` and `PGRST_JWT_SECRET`;
 - future object-storage credentials when the S3 backend is implemented.

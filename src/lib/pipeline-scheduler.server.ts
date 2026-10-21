@@ -36,9 +36,8 @@ import { metrics } from '#/lib/metrics'
 import {
   expirePipelinePrompts,
   releaseSettledRunArtefacts,
-  runPipelineExecution,
 } from './pipeline-execute.server'
-import type { PipelineExecuteDeps } from './pipeline-execute.server'
+import { enqueuePipelineRun, wakePipelineWorker } from './pipeline-queue.server'
 import {
   nextRunAt,
   normalizeTriggerEventName,
@@ -68,7 +67,11 @@ export interface SchedulerConnection {
 
 export interface PipelineSchedulerDeps {
   connect: () => Promise<SchedulerConnection>
-  /** Reuse the server executor for a started run. */
+  /**
+   * Hand a started run to the execution queue. Runs are queued by the database
+   * when they start, so the default only wakes a local worker; nothing executes
+   * inside the sweep.
+   */
   run: (actor: string, runId: string) => Promise<unknown>
 }
 
@@ -96,6 +99,8 @@ interface RunRow {
   id: string
   status: string
   started_at: string
+  /** A worker holds the run, or it is queued: it is not stale however old it is. */
+  job_live: boolean
 }
 
 interface StaleRun {
@@ -241,7 +246,7 @@ async function sweepTimedSchedule(
         } else if (
           prior &&
           prior.status === 'running' &&
-          !isStale(prior.started_at)
+          (prior.job_live || !isStale(prior.started_at))
         ) {
           // In-flight (fresh) execution: never double-start.
           await conn.query(
@@ -571,9 +576,11 @@ async function latestRunForOccurrence(
   conn: SchedulerConnection,
   workspaceId: string,
   occurrenceId: string,
-): Promise<{ id: string; status: string; started_at: string } | null> {
+): Promise<RunRow | null> {
   const { rows } = await conn.query<RunRow>(
-    `SELECT id, status, started_at FROM api.pipeline_runs
+    `SELECT id, status, started_at,
+            internal.pipeline_run_job_is_live(id) AS job_live
+       FROM api.pipeline_runs
       WHERE workspace_id = $1 AND trigger_occurrence_id = $2
       ORDER BY started_at DESC LIMIT 1`,
     [workspaceId, occurrenceId],
@@ -605,6 +612,7 @@ async function recoverStaleRuns(
       WHERE schedule_id = $1
         AND status = 'running'
         AND started_at < clock_timestamp() - ($2 || ' seconds')::interval
+        AND NOT internal.pipeline_run_job_is_live(id)
       ORDER BY started_at
       LIMIT ${MAX_STALE_RECOVERIES_PER_SWEEP}`,
     [schedule.id, STALE_THRESHOLD_SECONDS],
@@ -843,12 +851,14 @@ export function startPipelineScheduler(): void {
 
   const deps: PipelineSchedulerDeps = {
     connect: defaultConnect,
-    run: async (actor, runId) => {
-      const execDeps: PipelineExecuteDeps = {
-        getSession: async () => ({ user: { id: actor } }),
-        connect: defaultConnect,
+    run: async (_actor, runId) => {
+      const conn = await defaultConnect()
+      try {
+        await enqueuePipelineRun(conn, runId)
+      } finally {
+        await conn.end().catch(() => {})
       }
-      return runPipelineExecution(actor, runId, execDeps)
+      wakePipelineWorker()
     },
   }
 

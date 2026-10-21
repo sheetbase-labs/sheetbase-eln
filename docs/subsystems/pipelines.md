@@ -125,21 +125,34 @@ The optional JSON payload supports the same references and is delivered as
 transaction as the ELN changes. The delivery engine supplies signing, retries,
 rate limits and replay. Receivers must deduplicate by `X-Sheetbase-Event-Id`.
 
-## Execution boundary (AUTO-02)
+## Execution boundary (AUTO-02, hardened by ADR-0056)
 
-SQL steps run server-side (`src/lib/pipeline-execute.server.ts`) inside a
-dedicated **`pipeline_worker`** session role with:
+SQL steps run server-side (`src/lib/pipeline-execute.server.ts`), but the
+untrusted statement never touches the connection that holds the run's
+authority. It runs on its own connection that logs in as **`pipeline_sandbox`**
+(`src/lib/pipeline-sandbox.server.ts`, `PIPELINE_SANDBOX_DATABASE_URL`):
 
-- zero table grants (the transform can only read its own temp tables),
-- a `search_path` pinned to the session temp schema,
-- a fixed `statement_timeout` (60s) and a 100,000-row result cap,
-- static statement validation as defense-in-depth.
+- no table or schema grants and no role memberships, so there is no role to
+  reset to: `set_config('role', ...)` or `RESET ROLE` lands on the same
+  unprivileged login and `SET ROLE authenticated` is refused,
+- not a superuser, no `CREATEROLE`/`CREATEDB`/`BYPASSRLS`, a connection limit,
+  and a `temp_file_limit` that only a superuser can change,
+- a `search_path` pinned to the session temp schema and a 60s
+  `statement_timeout`. A statement can raise its own timeout, so a watchdog on
+  the orchestration side terminates the sandbox backend if a statement outlives
+  its budget,
+- a 100,000-row result cap.
 
-Input Dataset Versions are materialized into session temp tables by the
-trusted application connection; the sandbox role is granted SELECT on exactly
-those tables. Outputs are written with the run actor's JWT claims through the
-**same governed RPCs the browser uses** — `commit_dataset_row_batch` then
-`snapshot_dataset` — never through a second writer.
+Input Dataset Versions are materialized into temp tables by the trusted
+application connection and copied **by value** (as JSON text, so wide integers
+and numerics keep their precision) into the sandbox session, which is discarded
+when the run's steps finish. The static statement checks are authoring feedback
+and defence in depth, not the boundary: a quoted schema name such as
+`"api"."workspaces"` passes them and is stopped by PostgreSQL. A deployment
+without `PIPELINE_SANDBOX_DATABASE_URL` fails SQL steps closed. Outputs are
+written with the run actor's JWT claims through the **same governed RPCs the
+browser uses** — `commit_dataset_row_batch` then `snapshot_dataset` — never
+through a second writer.
 
 ## Run lifecycle
 
@@ -156,19 +169,76 @@ those tables. Outputs are written with the run actor's JWT claims through the
    and dedupe by occurrence: one running + one succeeded run per occurrence,
    and a crashed occurrence (started but never executed) is reconciled by the
    sweep and retried as a linked attempt.
-2. **Execute** — `POST /api/pipelines/execute` runs the transform and
-   completes/fails the run. Cancellation is honoured at the next safe point
-   (`cancel_pipeline_run`); in-flight execution finishes. Only the run actor
-   can finalize a run; the executor re-stamps the run actor's identity after
-   the transform (so the output phase never inherits claims the transform
-   chose) and performs the output Dataset creation through the **canonical
-   RLS-gated writer path** (`authenticated` role, `datasets_insert_writer`
-   policy) — never a privileged second writer. A driver-level query timeout
-   backs up the statement timeout.
+2. **Queue and execute** — every started run is queued in the same
+   transaction that created it (see [Execution queue](#execution-queue)).
+   `POST /api/pipelines/execute` only makes sure the run is queued and answers
+   `202`; a worker executes it and completes or fails the run. Cancellation is
+   honoured at the next safe point (`cancel_pipeline_run`); in-flight execution
+   finishes. Only the run actor can finalize a run; the executor re-stamps the
+   run actor's identity after the transform (so the output phase never inherits
+   claims the transform chose) and performs the output Dataset creation through
+   the **canonical RLS-gated writer path** (`authenticated` role,
+   `datasets_insert_writer` policy) — never a privileged second writer. A
+   driver-level query timeout backs up the statement timeout.
 3. **Record** — succeeded runs carry named action results, queued webhook delivery
    ids, `rowCount`, optional output Dataset/Version ids
    and the output label in `result`; outputs are also normalized in
    `pipeline_run_outputs` for reverse lookup from Dataset pages.
+
+## Execution queue
+
+Nothing executes inside an HTTP request or a sweep. `internal.pipeline_run_jobs`
+holds one job per started run; a trigger on `api.pipeline_runs` inserts it in the
+same transaction, so a run cannot exist without something that will execute it
+(a closed tab or a restart no longer orphans a run). A decision on a waiting run
+becomes a `resume` job, after the route has checked the decision.
+
+- **Claiming.** Workers (`src/lib/pipeline-queue.server.ts`, started with the
+  server) take the oldest ready job with `FOR UPDATE SKIP LOCKED` under a
+  120s lease that a heartbeat renews. Any number of workers, on any number of
+  replicas, can run at once and never take the same job.
+- **Failure.** A worker that dies stops heartbeating; its lease expires and
+  another worker re-claims the job. Errors that leave the run `running` retry
+  with backoff (10s, 40s, 90s), and after three attempts the job is abandoned and
+  the run is failed (`worker_lost` or `job_failed`) instead of staying `running`.
+- **Staleness.** A run whose job is queued (for under an hour) or leased is not
+  stale however old it is, so the 900s reconciliation no longer fails a run
+  that is merely waiting its turn.
+- **One run per workspace at a time.** Two concurrent output phases in one
+  workspace deadlock on the workspace row, so each run's transaction takes a
+  workspace advisory lock first. A worker that finds the workspace busy defers
+  the job without spending an attempt. Different workspaces run in parallel.
+- **Following a run.** `GET /api/pipelines/execute?runId=` returns the run and
+  its queue state (`queued`, `claimed`, `done`, `dead`); `api.get_pipeline_run_job`
+  does the same over PostgREST. Queued runs keep the run status `running`.
+- **Operating it.** `SHEETBASE_PIPELINE_WORKER=false` keeps a replica from
+  working the queue; `PIPELINE_WORKER_CONCURRENCY` (default 2, max 8) sets how
+  many jobs a worker runs at once. See
+  [Pipeline execution operations](../operations/pipeline-execution.md).
+
+Resumed runs and expiry-applied proposals re-enter the same executor, which is
+idempotent for settled runs, so a re-claimed job is safe.
+
+## Run manifests
+
+A succeeded run writes `api.pipeline_run_manifests` in the transaction that
+completes it (`src/lib/pipeline-manifest.server.ts`): the pinned definition
+version with a digest of its configuration, each input Dataset Version with a
+digest of the exact rows the transform saw, the parameters, the steps (statement
+digests), recorded decisions, and the output Dataset Version with an
+order-independent digest of the rows written. The manifest is hashed (SHA-256
+over canonical JSON), signed with the Ed25519 key in
+`PIPELINE_MANIFEST_SIGNING_KEY` when one is set, and **chained** to the
+workspace's previous manifest. The table is immutable (update, delete and
+truncate are refused) and readable by the workspace.
+
+`GET /api/pipelines/manifest?runId=` returns the manifest, the public key and the
+server's own verification; `node scripts/verify-pipeline-manifest.mjs` re-checks
+the digest, signature and chain link from a saved response alone.
+
+A manifest covers inputs, definition and outputs. It does not capture effects:
+actions and webhooks are recorded by name, and a replay reproduces inputs, not
+side effects. Failed and cancelled runs have no manifest.
 
 ## Trigger reliability
 

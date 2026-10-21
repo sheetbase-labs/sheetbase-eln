@@ -3,16 +3,14 @@ import { Client } from 'pg'
 import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
 import { createRateLimiter } from './rate-limit'
-import { runPipelineExecution } from './pipeline-execute.server'
-import type {
-  ExecConnection,
-  PipelineExecuteReport,
-} from './pipeline-execute.server'
+import { enqueuePipelineRun, wakePipelineWorker } from './pipeline-queue.server'
+import type { ExecConnection } from './pipeline-execute.server'
 
 export interface PipelineWebhookDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
   connect: () => Promise<ExecConnection>
-  execute: (actor: string, runId: string) => Promise<PipelineExecuteReport>
+  /** Make sure the run is queued for a worker; it never executes inline. */
+  enqueue: (runId: string) => Promise<void>
 }
 const connect = async (): Promise<ExecConnection> => {
   const client = new Client({
@@ -31,8 +29,15 @@ const connect = async (): Promise<ExecConnection> => {
 const defaults: PipelineWebhookDeps = {
   getSession: getAppSession,
   connect,
-  execute: (actor, runId) =>
-    runPipelineExecution(actor, runId, { getSession: getAppSession, connect }),
+  enqueue: async (runId) => {
+    const conn = await connect()
+    try {
+      await enqueuePipelineRun(conn, runId)
+    } finally {
+      await conn.end().catch(() => {})
+    }
+    wakePipelineWorker()
+  },
 }
 const deliveryLimit = createRateLimiter({ maxRequests: 120, windowSeconds: 60 })
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -268,14 +273,8 @@ export async function handlePipelineWebhook(
     return error(500, 'The pipeline run could not be created.')
   if (previousStatus && previousStatus !== 'running')
     return reply({ runId, status: previousStatus })
-  const report = await deps.execute(actor, runId)
-  if (report.errorCode === 'run_not_running')
-    return reply({ runId, status: 'running' }, 202)
-  return reply(
-    {
-      runId,
-      status: report.run?.status ?? (report.ok ? 'succeeded' : 'failed'),
-    },
-    report.ok ? 200 : 422,
-  )
+  // The run is queued, not executed here: a worker picks it up, so a slow
+  // pipeline never holds the sender's request open and a restart cannot lose it.
+  await deps.enqueue(runId)
+  return reply({ runId, status: 'running' }, 202)
 }

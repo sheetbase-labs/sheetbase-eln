@@ -18,7 +18,15 @@ import { createHash } from 'node:crypto'
 import { handlePipelineWebhook } from '#/lib/pipeline-webhook.server'
 import type { Client } from 'pg'
 import { Client as PgClient } from 'pg'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import {
   failStuckPipelineRun,
@@ -26,6 +34,8 @@ import {
   resumePipelineRun,
   runPipelineExecution,
 } from '#/lib/pipeline-execute.server'
+import { verifyRunManifest } from '#/lib/pipeline-manifest.server'
+import type { RunManifest } from '#/lib/pipeline-manifest.server'
 import {
   claimPipelineJob,
   heartbeatPipelineJob,
@@ -38,6 +48,7 @@ import type {
 } from '#/lib/pipeline-queue.server'
 import {
   handlePipelineExecute,
+  handlePipelineManifest,
   handlePipelineRunState,
 } from '#/lib/pipeline-run-requests.server'
 import type { PipelineExecuteDeps } from '#/lib/pipeline-execute.server'
@@ -53,6 +64,17 @@ import {
   TEST_DATABASE,
   testDatabaseName,
 } from './helpers'
+
+// Manifests are signed with a key the deployment supplies; the executor reads it
+// from the environment, so it must exist before the modules above load.
+const signingKey = vi.hoisted(() => {
+  const crypto = process.getBuiltinModule('node:crypto')
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519')
+  process.env.PIPELINE_MANIFEST_SIGNING_KEY = privateKey
+    .export({ type: 'pkcs8', format: 'pem' })
+    .toString()
+  return publicKey.export({ type: 'spki', format: 'pem' }).toString()
+})
 
 const WS = '0e010000-0000-4000-8000-000000000101'
 const OWNER = 'pipeline-owner-a'
@@ -525,7 +547,7 @@ describe('Pipeline execution (AUTO-02)', () => {
     const report = await runPipelineExecution(OWNER, run.id, deps)
     await close()
 
-    expect(report.ok).toBe(true)
+    expect(report, JSON.stringify(report)).toMatchObject({ ok: true })
     expect(report.run?.status).toBe('succeeded')
     expect(report.run?.result).toMatchObject({
       rowCount: 3,
@@ -2543,6 +2565,211 @@ describe('Pipeline run queue (PIPE-EXEC)', () => {
       job: { state: 'done', attempts: 1 },
     })
     expect((await post()).status).toBe(200)
+    await conn.end()
+  })
+})
+
+describe('Pipeline run manifests (PIPE-EXEC)', () => {
+  interface ManifestRow {
+    run_id: string
+    sequence: string
+    manifest: RunManifest
+    manifest_digest: string
+    previous_digest: string | null
+    signature: string | null
+    key_id: string | null
+  }
+  const manifests = async (): Promise<ManifestRow[]> =>
+    (
+      await migrator.query<ManifestRow>(
+        `select m.run_id, m.sequence::text as sequence, m.manifest, m.manifest_digest,
+                m.previous_digest, m.signature, m.key_id
+           from api.pipeline_run_manifests m where m.workspace_id = $1 order by m.sequence`,
+        [WS],
+      )
+    ).rows
+
+  it('records a signed manifest for a succeeded run, in the run transaction', async () => {
+    const runId = await startQueuedRun(201)
+    await processQueue()
+    expect(await runStatus(runId)).toBe('succeeded')
+    const row = (await manifests()).find((m) => m.run_id === runId)!
+    expect(row).toBeDefined()
+    const { manifest } = row
+    expect(manifest).toMatchObject({
+      schema: 'sheetbase.pipeline-run-manifest/1',
+      run: {
+        id: runId,
+        workspaceId: WS,
+        actorUserId: OWNER,
+        triggerKind: 'manual',
+      },
+      definition: {
+        versionId: pipelineVersionId,
+        versionNumber: expect.any(Number),
+      },
+      parameters: { factor: 201 },
+      executor: { sandboxRole: 'pipeline_sandbox' },
+    })
+    // The pinned input, with a digest of exactly the rows the transform saw.
+    expect(manifest.inputs).toHaveLength(1)
+    expect(manifest.inputs[0]).toMatchObject({
+      name: 'measurements',
+      datasetVersionId: inputDatasetVersionId,
+      rowCount: 3,
+    })
+    expect(manifest.inputs[0].contentDigest).toMatch(/^[0-9a-f]{64}$/)
+    // The output is the Dataset Version the run produced, with its row digest.
+    const run = await migrator.query(
+      'select result from api.pipeline_runs where id = $1',
+      [runId],
+    )
+    expect(manifest.outputs).toMatchObject({
+      datasetVersionId: run.rows[0].result.outputDatasetVersionId,
+      rowCount: 3,
+    })
+    expect(manifest.steps).toHaveLength(1)
+    expect(row.key_id).toMatch(/^[0-9a-f]{16}$/)
+    expect(
+      verifyRunManifest(
+        {
+          manifest,
+          manifestDigest: row.manifest_digest,
+          previousDigest: row.previous_digest,
+          signature: row.signature,
+        },
+        signingKey,
+      ),
+    ).toMatchObject({ digestMatches: true, signatureValid: true })
+  })
+
+  it('gives the same pinned input the same digest and different outputs different digests', async () => {
+    await startQueuedRun(202)
+    await startQueuedRun(203)
+    await processQueue()
+    const byFactor = async (factor: string) =>
+      (
+        await migrator.query(
+          `select m.manifest from api.pipeline_run_manifests m
+             join api.pipeline_runs r on r.id = m.run_id
+            where r.parameters->>'factor' = $1`,
+          [factor],
+        )
+      ).rows[0].manifest as RunManifest
+    const [first, second] = await Promise.all([
+      byFactor('202'),
+      byFactor('203'),
+    ])
+    expect(first.inputs[0].contentDigest).toBe(second.inputs[0].contentDigest)
+    expect(first.outputs.contentDigest).not.toBe(second.outputs.contentDigest)
+  })
+
+  it('chains each workspace manifest to the one before it', async () => {
+    await processQueue()
+    const rows = await manifests()
+    expect(rows.length).toBeGreaterThan(2)
+    rows.forEach((row, index) => {
+      expect(Number(row.sequence)).toBe(index + 1)
+      expect(row.previous_digest).toBe(
+        index === 0 ? null : rows[index - 1].manifest_digest,
+      )
+      expect(
+        verifyRunManifest(
+          {
+            manifest: row.manifest,
+            manifestDigest: row.manifest_digest,
+            previousDigest: row.previous_digest,
+            signature: row.signature,
+          },
+          signingKey,
+          index === 0 ? null : rows[index - 1].manifest_digest,
+        ),
+      ).toEqual({ digestMatches: true, signatureValid: true, chainValid: true })
+    })
+  })
+
+  it('cannot be edited, removed or truncated, even by the migration owner', async () => {
+    const [row] = await manifests()
+    await expect(
+      migrator.query(
+        `update api.pipeline_run_manifests set manifest_digest = repeat('0', 64) where run_id = $1`,
+        [row.run_id],
+      ),
+    ).rejects.toMatchObject({ message: /immutable/ })
+    await expect(
+      migrator.query(
+        'delete from api.pipeline_run_manifests where run_id = $1',
+        [row.run_id],
+      ),
+    ).rejects.toMatchObject({ message: /immutable/ })
+    await expect(
+      migrator.query('truncate api.pipeline_run_manifests'),
+    ).rejects.toMatchObject({ message: /immutable/ })
+    // A run that has a manifest cannot be deleted out from under it.
+    await expect(
+      migrator.query('delete from api.pipeline_runs where id = $1', [
+        row.run_id,
+      ]),
+    ).rejects.toBeDefined()
+  })
+
+  it('is readable by the workspace and writable by no application role', async () => {
+    const [row] = await manifests()
+    const member = await actor(MEMBER, WS)
+    const visible = await member.query(
+      'select run_id from api.pipeline_run_manifests where run_id = $1',
+      [row.run_id],
+    )
+    expect(visible.rows).toHaveLength(1)
+    await expect(
+      member.query(
+        `update api.pipeline_run_manifests set signature = null where run_id = $1`,
+        [row.run_id],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+    await expect(
+      member.query('delete from api.pipeline_run_manifests'),
+    ).rejects.toMatchObject({ code: '42501' })
+  })
+
+  it('serves the manifest with the key and the server-side verification', async () => {
+    const [row] = await manifests()
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    const get = async (runId: string, user = OWNER) =>
+      handlePipelineManifest(
+        new Request(`http://localhost/api/pipelines/manifest?runId=${runId}`),
+        {
+          getSession: async () => ({ user: { id: user } }),
+          connect: async () => ({
+            ...(await execConnection(conn)()),
+            end: async () => {},
+          }),
+        },
+      )
+    const response = await get(row.run_id)
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body).toMatchObject({
+      runId: row.run_id,
+      sequence: 1,
+      manifestDigest: row.manifest_digest,
+      keyId: row.key_id,
+      signatureAlgorithm: 'ed25519',
+      verification: {
+        digestMatches: true,
+        signatureValid: true,
+        chainValid: true,
+      },
+    })
+    expect(body.publicKey).toBe(signingKey)
+    // A run that never succeeded has no manifest.
+    const failed = await startQueuedRun(204)
+    await migrator.query(
+      `update internal.pipeline_run_jobs set state = 'done', finished_at = now(), claimed_by = null, lease_expires_at = null where run_id = $1`,
+      [failed],
+    )
+    expect((await get(failed)).status).toBe(404)
     await conn.end()
   })
 })

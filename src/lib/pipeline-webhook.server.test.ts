@@ -6,7 +6,10 @@ import type { ExecConnection } from './pipeline-execute.server'
 
 vi.mock('#/env.server', () => ({ env: {} }))
 vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
-vi.mock('./pipeline-execute.server', () => ({ runPipelineExecution: vi.fn() }))
+vi.mock('./pipeline-queue.server', () => ({
+  enqueuePipelineRun: vi.fn(),
+  wakePipelineWorker: vi.fn(),
+}))
 const definition = '00000000-0000-4000-8000-000000000001'
 const token = 'a'.repeat(43)
 const url = `http://localhost/api/pipelines/webhook/${definition}`
@@ -54,7 +57,7 @@ function setup(
   const deps: PipelineWebhookDeps = {
     getSession: vi.fn(async () => ({ user: { id: 'owner' } })),
     connect: vi.fn(async () => conn),
-    execute: vi.fn(async () => ({ ok: true })),
+    enqueue: vi.fn(async () => {}),
   }
   return { deps, query, conn }
 }
@@ -89,7 +92,7 @@ describe('pipeline webhook boundary', () => {
           )
         ).status,
       ).toBe(401)
-      expect(deps.execute).not.toHaveBeenCalled()
+      expect(deps.enqueue).not.toHaveBeenCalled()
     }
   })
   it('rechecks the credential owner permissions', async () => {
@@ -97,36 +100,36 @@ describe('pipeline webhook boundary', () => {
     expect(
       (await handlePipelineWebhook(delivery(), definition, deps)).status,
     ).toBe(403)
-    expect(deps.execute).not.toHaveBeenCalled()
+    expect(deps.enqueue).not.toHaveBeenCalled()
   })
   it('starts a canonical event run under the credential owner', async () => {
     const { deps, query } = setup()
     expect(
       (await handlePipelineWebhook(delivery(), definition, deps)).status,
-    ).toBe(200)
+    ).toBe(202)
     expect(
       query.mock.calls.find(([sql]) => sql.includes('start_pipeline_run')),
     ).toBeDefined()
-    expect(deps.execute).toHaveBeenCalledWith('owner', 'new-run')
+    expect(deps.enqueue).toHaveBeenCalledWith('new-run')
   })
   it('replays the original occurrence without resolving the latest version', async () => {
     const { deps, query } = setup({ existing: true })
     expect(
       (await handlePipelineWebhook(delivery(), definition, deps)).status,
-    ).toBe(200)
+    ).toBe(202)
     expect(
       query.mock.calls.some(([sql]) =>
         sql.includes('FROM api.pipeline_definition_versions'),
       ),
     ).toBe(false)
-    expect(deps.execute).toHaveBeenCalledWith('owner', 'existing-run')
+    expect(deps.enqueue).toHaveBeenCalledWith('existing-run')
   })
   it('rejects reuse of a key with different payload', async () => {
     const { deps } = setup({ existing: true, mismatch: true })
     expect(
       (await handlePipelineWebhook(delivery(), definition, deps)).status,
     ).toBe(409)
-    expect(deps.execute).not.toHaveBeenCalled()
+    expect(deps.enqueue).not.toHaveBeenCalled()
   })
   it('bounds payload bytes before connecting', async () => {
     const { deps } = setup()

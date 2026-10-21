@@ -25,6 +25,15 @@ const pipelineSchedulerMiddleware = createMiddleware().server(
   },
 )
 
+// PIPE-EXEC: the pipeline run worker. Claims queued runs from the durable
+// queue and executes them; every replica can run one. Set
+// SHEETBASE_PIPELINE_WORKER=false on a replica that should only serve requests.
+const pipelineWorkerMiddleware = createMiddleware().server(async ({ next }) => {
+  const { startPipelineWorker } = await import('#/lib/pipeline-queue.server')
+  startPipelineWorker()
+  return next()
+})
+
 // WORK-03.4: email outbox + daily digest sweep.
 const emailSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
   const { startEmailScheduler } = await import('#/lib/email-scheduler.server')
@@ -127,6 +136,7 @@ export const startInstance = createStart(() => ({
   requestMiddleware: [
     securityHeadersMiddleware,
     pipelineSchedulerMiddleware,
+    pipelineWorkerMiddleware,
     emailSchedulerMiddleware,
     datasetRetentionSchedulerMiddleware,
     sampleHoldSchedulerMiddleware,

@@ -158,10 +158,63 @@ export async function cancelPipelineRun(
   })
 }
 
+/** How long a client follows a run before giving up and pointing at the run page. */
+const RUN_FOLLOW_LIMIT_MS = 30 * 60_000
+
+async function readRunError(
+  response: Response,
+  fallback: string,
+): Promise<Error> {
+  let message = `${fallback} (${response.status})`
+  try {
+    const body = (await response.json()) as { error?: { message?: string } }
+    if (body.error?.message) message = body.error.message
+  } catch {
+    // keep the generic message
+  }
+  return new Error(message)
+}
+
 /**
- * Execute a started run through the same-origin server route. The server
- * runs the transform SQL in the sandboxed pipeline_worker role and completes
- * or fails the run. Returns the finished run row.
+ * Follow a queued run to the end: poll the run and its queue state until no job
+ * is open (a worker finished with it) and return the run as it then stands.
+ */
+async function followRun(runId: string): Promise<PipelineRunWire> {
+  const deadline = Date.now() + RUN_FOLLOW_LIMIT_MS
+  let delay = 750
+  for (;;) {
+    const response = await fetch(
+      `/api/pipelines/execute?runId=${encodeURIComponent(runId)}`,
+    )
+    if (!response.ok)
+      throw await readRunError(response, 'Following the run failed')
+    const state = (await response.json()) as {
+      run: PipelineRunWire
+      job: { state: string; lastError: string | null } | null
+    }
+    const open = state.job?.state === 'queued' || state.job?.state === 'claimed'
+    if (!open) {
+      if (state.job?.state === 'dead')
+        throw new Error(
+          state.run.error_message ??
+            state.job.lastError ??
+            'The pipeline run could not be executed.',
+        )
+      return state.run
+    }
+    if (Date.now() > deadline)
+      throw new Error(
+        'The run is still queued or running. Open the run page to follow it.',
+      )
+    await new Promise((resolve) => setTimeout(resolve, delay))
+    delay = Math.min(delay * 1.4, 4_000)
+  }
+}
+
+/**
+ * Queue a started run through the same-origin server route and follow it to the
+ * end. A worker executes it on the sandboxed pipeline connection and completes
+ * or fails it; nothing runs inside the request. Returns the finished run row.
  */
 export async function executePipelineRun(
   runId: string,
@@ -171,19 +224,9 @@ export async function executePipelineRun(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ runId }),
   })
-  if (!response.ok) {
-    let message = `Pipeline execution failed (${response.status})`
-    try {
-      const body = (await response.json()) as {
-        error?: { message?: string }
-      }
-      if (body.error?.message) message = body.error.message
-    } catch {
-      // keep the generic message
-    }
-    throw new Error(message)
-  }
-  return (await response.json()) as PipelineRunWire
+  if (!response.ok)
+    throw await readRunError(response, 'Pipeline execution failed')
+  return followRun(runId)
 }
 
 // ---------------------------------------------------------------------------
@@ -405,17 +448,9 @@ export async function answerPipelineRunPrompt(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ runId, answer }),
   })
-  if (!response.ok) {
-    let message = `Answering the run failed (${response.status})`
-    try {
-      const body = (await response.json()) as { error?: { message?: string } }
-      if (body.error?.message) message = body.error.message
-    } catch {
-      // keep the generic message
-    }
-    throw new Error(message)
-  }
-  return (await response.json()) as PipelineRunWire
+  if (!response.ok)
+    throw await readRunError(response, 'Answering the run failed')
+  return followRun(runId)
 }
 
 export async function listPipelineSchedules(

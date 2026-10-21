@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   addParameter,
   addStep,
+  checkOutputFit,
+  columnForField,
+  setFieldColumn,
   defaultConfirm,
   moveStep,
   parseDefault,
@@ -115,5 +118,40 @@ describe('suggestPipelineKey', () => {
 
   it('has no suggestion for a name with nothing usable', () => {
     expect(suggestPipelineKey('  !!! ')).toBe('')
+  })
+})
+
+describe('output column mapping', () => {
+  it('maps a differently named result column onto a schema field', () => {
+    const mapping = setFieldColumn(null, 'od', 'optical_density')
+    expect(mapping).toEqual({ optical_density: 'od' })
+    expect(columnForField(mapping, 'od')).toBe('optical_density')
+    expect(columnForField(mapping, 'sample')).toBe('')
+  })
+
+  it('replaces a field’s column, and clears it for a blank or same-named column', () => {
+    const first = setFieldColumn({ a: 'od', keep: 'sample' }, 'od', 'b')
+    expect(first).toEqual({ keep: 'sample', b: 'od' })
+    expect(setFieldColumn(first, 'od', '')).toEqual({ keep: 'sample' })
+    expect(setFieldColumn({ keep: 'sample' }, 'sample', 'sample')).toBeNull()
+  })
+
+  it('finds required fields nothing feeds and columns nothing takes', () => {
+    const fields = [
+      { key: 'sample', required: true },
+      { key: 'od', required: true },
+      { key: 'note', required: false },
+    ]
+    expect(checkOutputFit(fields, null, ['sample', 'od'])).toEqual({
+      missing: [],
+      unmatched: [],
+    })
+    expect(
+      checkOutputFit(fields, { density: 'od' }, ['sample', 'density', 'extra']),
+    ).toEqual({ missing: [], unmatched: ['extra'] })
+    expect(checkOutputFit(fields, null, ['sample'])).toEqual({
+      missing: ['od'],
+      unmatched: [],
+    })
   })
 })

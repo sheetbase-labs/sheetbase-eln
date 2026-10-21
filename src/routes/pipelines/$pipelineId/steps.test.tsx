@@ -45,10 +45,40 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
     data: [] as PipelineDefinitionVersionWire[],
   }),
   useWorkspaceMemberNames: () => ({ data: {} }),
+  usePipelineDefinition: () => ({ data: { name: 'Viability summary' } }),
+  useDefinitionRuns: () => ({ data: [] }),
+  useSchemaVersionFields: (id: string) => ({
+    isLoading: false,
+    data: id
+      ? [
+          { key: 'sample', label: 'Sample', type: 'text', required: true },
+          { key: 'od', label: 'OD', type: 'decimal', required: true },
+        ]
+      : [],
+  }),
+  useDatasetVersionChoices: () => ({
+    data: [{ id: 'dv-1', label: 'DS-0001 · Readings — import' }],
+  }),
+  useDatasetVersionFields: (id: string) => ({
+    isLoading: false,
+    data: id
+      ? [
+          { key: 'batch', label: 'Batch', type: 'text', required: false },
+          { key: 'value', label: 'Value', type: 'decimal', required: false },
+        ]
+      : [],
+  }),
   usePipelineOutputTargets: () => ({
     isError: false,
     data: {
-      datasets: [{ id: DATASET, name: 'Readings', displayId: 'DS-0001' }],
+      datasets: [
+        {
+          id: DATASET,
+          name: 'Readings',
+          displayId: 'DS-0001',
+          schemaVersionId: SCHEMA_VERSION,
+        },
+      ],
       schemaVersions: [{ id: SCHEMA_VERSION, label: 'Plate reader v2' }],
     },
   }),
@@ -152,5 +182,61 @@ describe('Steps editor output', () => {
         name: 'Create draft v1',
       }).disabled,
     ).toBe(false)
+  })
+})
+
+describe('Steps editor guided building', () => {
+  it('starts a new dataset output from the pipeline’s own name', () => {
+    renderSteps()
+    fireEvent.change(screen.getByLabelText('Output mode'), {
+      target: { value: 'create' },
+    })
+    expect(screen.getByLabelText<HTMLInputElement>('Dataset name').value).toBe(
+      'Viability summary',
+    )
+    expect(
+      screen.getByLabelText<HTMLInputElement>('Dataset version label').value,
+    ).toBe('Viability summary')
+  })
+
+  it('shows the columns the result must produce and saves a column matching', async () => {
+    renderSteps()
+    fireEvent.change(document.querySelector('textarea')!, {
+      target: { value: 'select 1' },
+    })
+    fireEvent.change(screen.getByLabelText('Output mode'), {
+      target: { value: 'create' },
+    })
+    fireEvent.change(screen.getByLabelText('Dataset schema version'), {
+      target: { value: SCHEMA_VERSION },
+    })
+    expect(screen.getByLabelText('Result column for sample')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Result column for od'), {
+      target: { value: 'optical_density' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
+    await waitFor(() => expect(rpc).toHaveBeenCalled())
+    const args = rpc.mock.calls[0][1] as {
+      p_configuration: { output: Record<string, unknown> }
+    }
+    expect(args.p_configuration.output.fieldMapping).toEqual({
+      optical_density: 'od',
+    })
+  })
+
+  it('lets an author see an example dataset’s columns and put one in the SQL', () => {
+    renderSteps()
+    const sql = document.querySelector<HTMLTextAreaElement>('textarea')!
+    fireEvent.change(sql, { target: { value: 'select  from readings' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add input' }))
+    fireEvent.change(screen.getByLabelText('Input 1 name'), {
+      target: { value: 'readings' },
+    })
+    fireEvent.change(screen.getByLabelText('Input 1 example dataset'), {
+      target: { value: 'dv-1' },
+    })
+    sql.setSelectionRange(7, 7)
+    fireEvent.click(screen.getByRole('button', { name: /^batch/ }))
+    expect(sql.value).toBe('select readings.batch from readings')
   })
 })

@@ -205,14 +205,26 @@ describe('pipeline output targets', () => {
     const c = listing({
       dataset_schema_versions: [{ id: 'sv-1', schema_id: 's-1', version: 2 }],
       dataset_schema_definitions: [{ id: 's-1', name: 'Viability' }],
-      datasets: [{ id: 'd-1', name: 'Runs', display_id: 'DS-0001' }],
+      datasets: [
+        {
+          id: 'd-1',
+          name: 'Runs',
+          display_id: 'DS-0001',
+          schema_version_id: 'sv-1',
+        },
+      ],
     })
     const targets = await fetchPipelineOutputTargets(c)
     expect(targets.schemaVersions).toEqual([
       { id: 'sv-1', label: 'Viability v2' },
     ])
     expect(targets.datasets).toEqual([
-      { id: 'd-1', name: 'Runs', displayId: 'DS-0001' },
+      {
+        id: 'd-1',
+        name: 'Runs',
+        displayId: 'DS-0001',
+        schemaVersionId: 'sv-1',
+      },
     ])
     const queries = vi.mocked(c.list).mock.calls.map((call) => call[1])
     expect(queries.join(' ')).toContain('lifecycle=eq.active')

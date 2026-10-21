@@ -351,7 +351,13 @@ export function useDatasetVersionChoices(
 }
 
 export interface PipelineOutputTargets {
-  datasets: Array<{ id: string; name: string; displayId: string | null }>
+  datasets: Array<{
+    id: string
+    name: string
+    displayId: string | null
+    /** The schema version the Dataset was made from; its fields are what an append must produce. */
+    schemaVersionId: string
+  }>
   schemaVersions: Array<{ id: string; label: string }>
 }
 
@@ -362,9 +368,14 @@ export async function fetchPipelineOutputTargets(
   client: DataClient,
 ): Promise<PipelineOutputTargets> {
   const [datasets, versions, definitions] = await Promise.all([
-    client.list<{ id: string; name: string; display_id: string | null }>(
+    client.list<{
+      id: string
+      name: string
+      display_id: string | null
+      schema_version_id: string
+    }>(
       'datasets',
-      '?select=id,name,display_id&lifecycle=eq.active&order=name.asc',
+      '?select=id,name,display_id,schema_version_id&lifecycle=eq.active&order=name.asc',
     ),
     client.list<{ id: string; schema_id: string; version: number }>(
       'dataset_schema_versions',
@@ -381,6 +392,7 @@ export async function fetchPipelineOutputTargets(
       id: d.id,
       name: d.name,
       displayId: d.display_id,
+      schemaVersionId: d.schema_version_id,
     })),
     schemaVersions: versions
       .map((v) => ({
@@ -429,6 +441,29 @@ export async function fetchSchemaVersionFields(
     type: r.logical_type,
     required: !r.nullable,
   }))
+}
+
+/** The columns a Dataset Version has, by way of its schema version: what a SQL
+ * step reading it as an input can name. Disabled until a version is chosen. */
+export function useDatasetVersionFields(
+  datasetVersionId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'version-fields', datasetVersionId],
+    queryFn: async (): Promise<SchemaFieldInfo[]> => {
+      const versions = await client.list<{ schema_version_id: string }>(
+        'dataset_versions',
+        `?select=schema_version_id&id=eq.${encodeURIComponent(datasetVersionId)}`,
+      )
+      const schemaVersionId = versions[0]?.schema_version_id
+      return schemaVersionId
+        ? fetchSchemaVersionFields(client, schemaVersionId)
+        : []
+    },
+    enabled: datasetVersionId.length > 0,
+    staleTime: 60_000,
+  })
 }
 
 /** The fields of one schema version; disabled until a version is chosen. */

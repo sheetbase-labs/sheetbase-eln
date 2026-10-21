@@ -26,7 +26,6 @@
  * input digest replays the prior success (idempotent); a retry links a new
  * attempt to the failed run.
  */
-import { Client } from 'pg'
 import {
   PipelinePythonError,
   executePythonTransform,
@@ -43,8 +42,6 @@ import {
 import type { ConnectSandbox } from './pipeline-sandbox.server'
 import type { QueryResultRow } from 'pg'
 
-import { env } from '#/env.server'
-import { getAppSession } from '#/lib/auth'
 import { metrics, sizeBucketFor } from '#/lib/metrics'
 import type { PipelineStage } from '#/lib/metrics'
 import type { PipelineConfig, PipelineStep } from './pipelines/config'
@@ -72,6 +69,7 @@ import {
 export type PipelineErrorCode =
   | 'workspace_membership_required'
   | 'run_not_found'
+  | 'workspace_busy'
   | 'run_not_running'
   | 'invalid_configuration'
   | 'invalid_run_request'
@@ -232,6 +230,14 @@ export async function runPipelineExecution(
         errorMessage: 'This run is already executing.',
       }
     }
+    if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'workspace_busy',
+        errorMessage: 'Another pipeline in this workspace is running.',
+      }
+    }
     await conn.query('SAVEPOINT sb_pipeline_work')
     workStarted = true
     enforceDeadline = true
@@ -372,94 +378,6 @@ export async function runPipelineExecution(
     metrics.pipelineActiveRuns.dec()
     await conn.end()
   }
-}
-
-// ---------------------------------------------------------------------------
-// HTTP route.
-// ---------------------------------------------------------------------------
-
-export async function handlePipelineExecute(
-  request: Request,
-  deps: PipelineExecuteDeps = defaultDeps,
-): Promise<Response> {
-  const session = await deps.getSession(request.headers)
-  if (!session) {
-    return responseError(401, 'unauthenticated', 'Authentication is required.')
-  }
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return responseError(
-      400,
-      'invalid_request',
-      'A JSON request body is required.',
-    )
-  }
-  const runId =
-    body &&
-    typeof body === 'object' &&
-    'runId' in body &&
-    typeof body.runId === 'string'
-      ? body.runId
-      : null
-  if (!runId || !/^[0-9a-f-]{36}$/i.test(runId)) {
-    return responseError(400, 'invalid_request', 'A valid runId is required.')
-  }
-  // PIPE-02: an answer resumes a waiting run instead of starting it.
-  let answerBody: unknown
-  if (body !== null && typeof body === 'object' && 'answer' in body)
-    answerBody = body.answer
-  const hasAnswer = answerBody !== undefined
-  const report = hasAnswer
-    ? await resumePipelineRun(session.user.id, runId, answerBody, deps)
-    : await runPipelineExecution(session.user.id, runId, deps)
-  if (!report.ok) {
-    const status = !hasAnswer
-      ? report.errorCode === 'run_not_found'
-        ? 404
-        : 422
-      : report.errorCode === 'run_not_found'
-        ? 404
-        : report.errorCode === 'invalid_answer'
-          ? 400
-          : 409
-    return responseError(
-      status,
-      report.errorCode ?? 'execution_failed',
-      report.errorMessage ?? 'Execution failed.',
-    )
-  }
-  return Response.json(report.run)
-}
-
-function responseError(
-  status: number,
-  code: string,
-  message: string,
-): Response {
-  return Response.json({ error: { code, message } }, { status })
-}
-
-const defaultDeps: PipelineExecuteDeps = {
-  getSession: getAppSession,
-  async connect() {
-    const client = new Client({
-      connectionString: env.DATABASE_URL,
-      // A driver-level cap on every query of the execution connection (the
-      // transform itself runs on the sandbox connection). Generous enough for
-      // the output phase (commit + snapshot of up to 100k rows).
-      query_timeout: (EXECUTION_TIMEOUT_SECONDS + 120) * 1000,
-    })
-    await client.connect()
-    return {
-      query: async (text, values = []) => client.query(text, values),
-      begin: () => client.query('BEGIN').then(() => undefined),
-      commit: () => client.query('COMMIT').then(() => undefined),
-      rollback: () => client.query('ROLLBACK').then(() => undefined),
-      end: () => client.end(),
-    }
-  },
 }
 
 // ---------------------------------------------------------------------------
@@ -752,6 +670,85 @@ async function endWaitingRun(
   )
 }
 
+type ResumeCheck =
+  | { ok: false; report: PipelineExecuteReport }
+  | { ok: true; run: RunRow; prompt: PromptRow; config: PipelineConfig }
+
+function refuse(
+  errorCode: PipelineErrorCode,
+  errorMessage: string,
+): { ok: false; report: PipelineExecuteReport } {
+  return { ok: false, report: { ok: false, errorCode, errorMessage } }
+}
+
+/** The checks a decision must pass before it may resume a waiting run. */
+async function checkResumable(
+  conn: ExecConnection,
+  actor: string,
+  runId: string,
+  answer: unknown,
+): Promise<ResumeCheck> {
+  const run = await loadRun(conn, runId)
+  if (!run) return refuse('run_not_found', 'Pipeline run not found.')
+  await assertMember(conn, run.workspace_id, actor)
+  if (run.status !== 'waiting')
+    return refuse('run_not_waiting', 'This run is not waiting for a decision.')
+  const prompt = await loadOpenPrompt(conn, run.id)
+  if (!prompt)
+    return refuse(
+      'prompt_not_found',
+      'No open decision was found for this run.',
+    )
+  if (!prompt.asked_user_ids.includes(actor))
+    return refuse('confirm_not_asked', 'You were not asked to decide this run.')
+  const config = parseConfig(run.configuration)
+  const step = findPipelineConfirmStep(config, prompt.step_id)
+  if (!step?.confirm)
+    return refuse(
+      'invalid_configuration',
+      'The waiting step is not a confirm step in this version.',
+    )
+  const answerError = validateConfirmAnswer(step.confirm, answer)
+  if (answerError) return refuse('invalid_answer', answerError)
+  return { ok: true, run, prompt, config }
+}
+
+/**
+ * Check a decision without recording it, so the route can refuse a bad one
+ * immediately and only queue a resumption that has a chance to apply.
+ */
+export async function validatePipelineResume(
+  actor: string,
+  runId: string,
+  answer: unknown,
+  deps: PipelineExecuteDeps,
+): Promise<
+  | { ok: true; workspaceId: string }
+  | { ok: false; report: PipelineExecuteReport }
+> {
+  const conn = await deps.connect()
+  try {
+    await conn.begin()
+    const checked = await checkResumable(conn, actor, runId, answer)
+    return checked.ok
+      ? { ok: true, workspaceId: checked.run.workspace_id }
+      : checked
+  } catch (error) {
+    return {
+      ok: false,
+      report: {
+        ok: false,
+        errorCode:
+          error instanceof PipelineStepError ? error.code : 'pipeline_internal',
+        errorMessage: error instanceof Error ? error.message : String(error),
+      },
+    }
+  } finally {
+    await conn.rollback().catch(() => {})
+    await conn.end().catch(() => {})
+  }
+}
+
 /**
  * Answer an open prompt and resume the run from the confirm step with the same
  * pinned inputs. The answering person must be a workspace writer they were
@@ -769,60 +766,12 @@ export async function resumePipelineRun(
   const startedAt = Date.now()
   let workStarted = false
   try {
-    const run = await loadRun(conn, runId)
-    if (!run) {
+    const checked = await checkResumable(conn, actor, runId, answer)
+    if (!checked.ok) {
       await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'run_not_found',
-        errorMessage: 'Pipeline run not found.',
-      }
+      return checked.report
     }
-    await assertMember(conn, run.workspace_id, actor)
-    if (run.status !== 'waiting') {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'run_not_waiting',
-        errorMessage: 'This run is not waiting for a decision.',
-      }
-    }
-    const prompt = await loadOpenPrompt(conn, run.id)
-    if (!prompt) {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'prompt_not_found',
-        errorMessage: 'No open decision was found for this run.',
-      }
-    }
-    if (!prompt.asked_user_ids.includes(actor)) {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'confirm_not_asked',
-        errorMessage: 'You were not asked to decide this run.',
-      }
-    }
-    const config = parseConfig(run.configuration)
-    const step = findPipelineConfirmStep(config, prompt.step_id)
-    if (!step?.confirm) {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'invalid_configuration',
-        errorMessage: 'The waiting step is not a confirm step in this version.',
-      }
-    }
-    const answerError = validateConfirmAnswer(step.confirm, answer)
-    if (answerError) {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'invalid_answer',
-        errorMessage: answerError,
-      }
-    }
+    const { run, prompt, config } = checked
     const decision = answer as PipelineConfirmAnswerInput
 
     await setRunActorClaims(conn, run)
@@ -836,6 +785,14 @@ export async function resumePipelineRun(
         ok: false,
         errorCode: 'run_not_running',
         errorMessage: 'This run is already executing.',
+      }
+    }
+    if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'workspace_busy',
+        errorMessage: 'Another pipeline in this workspace is running.',
       }
     }
     await conn.query('SAVEPOINT sb_pipeline_work')
@@ -1129,6 +1086,11 @@ export async function expirePipelinePrompts(
           ? confirmNoAnswerOutcome(step.confirm)
           : 'fail'
         if (outcome === 'apply' && step?.confirm) {
+          if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
+            // Another pipeline is writing here; the next sweep applies it.
+            await conn.rollback()
+            continue
+          }
           await conn.query(
             `UPDATE api.pipeline_runs SET status = 'running', result = '{}'::jsonb
               WHERE id = $1 AND status = 'waiting'`,
@@ -1256,6 +1218,25 @@ export async function expirePipelinePrompts(
 // ---------------------------------------------------------------------------
 // Steps.
 // ---------------------------------------------------------------------------
+
+/**
+ * One pipeline writes to a workspace at a time. Every run's transaction takes a
+ * shared lock on the workspace row early (foreign keys on its logs) and the
+ * output phase then asks for it exclusively (display-id assignment), so two runs
+ * in one workspace deadlock. A transaction-scoped advisory lock taken before any
+ * of that turns the clash into a wait the queue can defer, never a failed run.
+ * Runs in different workspaces still execute side by side.
+ */
+async function tryWorkspaceExecutionLock(
+  conn: ExecConnection,
+  workspaceId: string,
+): Promise<boolean> {
+  const { rows } = await conn.query<{ acquired: boolean }>(
+    'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+    [`pipeline-workspace:${workspaceId}`],
+  )
+  return rows[0]?.acquired !== false
+}
 
 async function loadRun(
   conn: ExecConnection,
@@ -2354,10 +2335,33 @@ async function failRun(
 }
 
 /** Fail the run when it is still running (used by the generic catch path). */
+/**
+ * Fail a run that nothing can execute any more (its job was abandoned). Acts as
+ * the run's own actor, like every other write the executor makes, and is a no-op
+ * once the run has settled.
+ */
+export async function failStuckPipelineRun(
+  deps: PipelineExecuteDeps,
+  runId: string,
+  code: string,
+  message: string,
+): Promise<void> {
+  const conn = await deps.connect()
+  try {
+    await conn.begin()
+    await failRunIfRunning(conn, runId, code, message)
+    await conn.commit()
+  } catch {
+    await conn.rollback().catch(() => {})
+  } finally {
+    await conn.end().catch(() => {})
+  }
+}
+
 async function failRunIfRunning(
   conn: ExecConnection,
   runId: string,
-  code: PipelineErrorCode,
+  code: string,
   message: string,
 ): Promise<void> {
   const run = await loadRun(conn, runId)

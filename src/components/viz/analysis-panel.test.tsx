@@ -13,6 +13,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AnalysisPanel, AnalysisResultTable } from './analysis-panel'
@@ -229,6 +230,79 @@ describe('AnalysisPanel', () => {
     fireEvent.change(select, { target: { value: '' } })
     rerender(tree([DATASET]))
     expect(select.value).toBe('')
+  })
+
+  it('synchronises studio source changes without losing a loaded snapshot', async () => {
+    const other = { ...DATASET, datasetId: 'other', name: 'Other dataset' }
+    const snapshotId = '22222222-2222-4222-8222-222222222222'
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(['dataset-version-summaries', DATASET.datasetId], [])
+    mockFetchDefinitions.mockResolvedValue([
+      {
+        id: 'pinned',
+        workspace_id: 'ws-1',
+        owner_user_id: 'user-1',
+        name: 'Pinned recovery',
+        definition: {
+          definitionVersion: 1,
+          kind: 'descriptive',
+          datasets: [
+            { datasetId: DATASET.datasetId, datasetVersionId: snapshotId },
+          ],
+          value: { fieldId: FIELD_RECOVERY },
+        },
+        source_revisions: [],
+        version: 1,
+        created_at: '',
+        updated_at: '',
+      },
+    ])
+    function Studio() {
+      const [source, setSource] = useState(other.datasetId)
+      return (
+        <QueryClientProvider client={client}>
+          <label>
+            Studio source
+            <select
+              value={source}
+              onChange={(event) => setSource(event.target.value)}
+            >
+              {[DATASET, other].map((dataset) => (
+                <option key={dataset.datasetId} value={dataset.datasetId}>
+                  {dataset.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <AnalysisPanel
+            datasets={[DATASET, other]}
+            workspaceId="ws-1"
+            userId="user-1"
+            initialDatasetId={source}
+            onDatasetChange={setSource}
+          />
+        </QueryClientProvider>
+      )
+    }
+    render(<Studio />)
+    const studio = screen.getByLabelText<HTMLSelectElement>('Studio source')
+    const panel = screen.getByLabelText<HTMLSelectElement>('Analysis dataset')
+    fireEvent.click(await screen.findByRole('button', { name: 'Load' }))
+    await waitFor(() => expect(studio.value).toBe(DATASET.datasetId))
+    expect(panel.value).toBe(DATASET.datasetId)
+    expect(screen.getByText(/Reading snapshot/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Update' })).toBeTruthy()
+
+    fireEvent.change(panel, { target: { value: other.datasetId } })
+    expect(studio.value).toBe(other.datasetId)
+    expect(screen.queryByText(/Reading snapshot/)).toBeNull()
+    expect(screen.queryByLabelText('Measured value column')).toBeNull()
+
+    fireEvent.change(studio, { target: { value: DATASET.datasetId } })
+    await waitFor(() => expect(panel.value).toBe(DATASET.datasetId))
+    expect(screen.queryByText(/Reading snapshot/)).toBeNull()
   })
 
   it('surfaces an honest execution error for an empty dataset', async () => {

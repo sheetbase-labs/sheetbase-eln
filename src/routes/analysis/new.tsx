@@ -69,7 +69,7 @@ import { Button } from '#/components/v3/ui/button'
 import { returnLabel } from '#/lib/return-to'
 import { Notice } from '#/components/v3/ui/alert'
 import { Tabs } from '#/components/v3/ui/tabs'
-import { Input } from '#/components/v3/ui/input'
+import { Field, Input } from '#/components/v3/ui/input'
 import { Skeleton } from '#/components/v3/ui/skeleton'
 import { Inspector as InspectorPanel } from '#/components/v3/ui/layout'
 import { Select } from '#/components/v3/ui/select'
@@ -230,6 +230,7 @@ function AnalysisStudio() {
     search.dataset ?? null,
   )
   const [spec, setSpec] = useState<ChartSpec | null>(null)
+  const [inspectorOpen, setInspectorOpen] = useState(false)
   // The snapshot named by `?snapshot=` belongs to the dataset named by
   // `?dataset=`; choosing another dataset leaves it behind.
   const [snapshotId, setSnapshotId] = useState<string | null>(
@@ -649,6 +650,19 @@ function AnalysisStudio() {
               label: STUDIO_MODE_LABEL[value],
             }))}
           />
+          {inspector ? (
+            <Button
+              type="button"
+              size="sm"
+              icon="info"
+              className="xl:hidden"
+              aria-haspopup="dialog"
+              aria-expanded={inspectorOpen}
+              onClick={() => setInspectorOpen(true)}
+            >
+              Chart settings
+            </Button>
+          ) : null}
           {mode === 'chart' && selectedSource && spec ? (
             <Button
               type="button"
@@ -695,6 +709,7 @@ function AnalysisStudio() {
               workspaceId={workspaceId}
               userId={userId}
               initialDatasetId={selectedDatasetId}
+              onDatasetChange={setSelectedDatasetId}
               initialSnapshotId={activeSnapshotId}
               initialDefinitionId={search.definition}
               experimentId={search.experiment}
@@ -807,7 +822,12 @@ function AnalysisStudio() {
         )}
       </div>
       {inspector ? (
-        <InspectorPanel label="Chart settings" className="w-[340px] gap-0 p-0">
+        <InspectorPanel
+          label="Chart settings"
+          open={inspectorOpen}
+          onOpenChange={setInspectorOpen}
+          className="w-[340px] gap-0 p-0"
+        >
           <div className="flex flex-col gap-5 overflow-auto p-4">
             {inspector}
           </div>
@@ -910,7 +930,9 @@ export function AnalysisStudioHeader({
               aria-label="Select data source"
               value={selectedDatasetId ?? ''}
               onChange={(e) => onSelect(e.target.value)}
-              className="h-8 w-56 bg-surface"
+              size="sm"
+              title={datasets.find((d) => d.id === selectedDatasetId)?.name}
+              className="w-64 bg-surface [&_select]:truncate"
             >
               {datasets.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -1109,15 +1131,9 @@ function AnalysisInspector({
   const settings = (
     <InspectorSectionStack>
       <InspectorSection title="Axis scaling">
-        <div>
+        <div className="grid gap-3">
           {(['x', 'y'] as const).map((axis) => (
-            <div key={axis}>
-              <label
-                className="text-label text-fg-muted"
-                htmlFor={`inspector-${axis}-scale`}
-              >
-                {axis.toUpperCase()}-axis scale
-              </label>
+            <Field key={axis} label={`${axis.toUpperCase()}-axis scale`}>
               <Select
                 id={`inspector-${axis}-scale`}
                 value={spec.display.axes[axis].scale}
@@ -1131,7 +1147,7 @@ function AnalysisInspector({
                   </option>
                 ))}
               </Select>
-            </div>
+            </Field>
           ))}
         </div>
       </InspectorSection>

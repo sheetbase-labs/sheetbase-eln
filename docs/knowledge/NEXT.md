@@ -83,7 +83,7 @@ separate evidence. Do not turn a passing targeted test into programme acceptance
 The integrated branch implements the four groups above. The final local runs
 use PostgreSQL 18, PostgREST 14.5, Node 22.23.2 and disposable test databases:
 
-- `pnpm test --maxWorkers=4`: 6,195 passed, 11 skipped.
+- `pnpm test --maxWorkers=4`: 6,197 passed, 11 skipped.
 - `PIPELINE_ACCEPTANCE_PYTHON=/tmp/sheetbase-acceptance-python/bin/python pnpm test:db --maxWorkers=2`:
   1,867 passed across 251 files, including installed SDKs, real SQL/Python output,
   TLS SMTP credential enrolment, collaboration authority and populated recovery.
@@ -100,6 +100,12 @@ use PostgreSQL 18, PostgREST 14.5, Node 22.23.2 and disposable test databases:
   the response fault; it is not a concurrent database-write acceptance test.
 - `pnpm typecheck`, `pnpm lint`, `pnpm check` and `pnpm build` pass. Lint reports
   33 existing warnings and no errors. Fresh and warm `.agents/setup` runs pass.
+- Studio UI follow-up: source selectors stay synchronised without dropping a
+  saved snapshot pin. Compact controls and spaced axis fields were inspected
+  at 1440px and 390px. The narrow toolbar now opens settings without covering
+  Cite; Escape closes the drawer and restores focus. The full scientific
+  workflow passes again after these changes. A local browser probe also checks
+  that a data-service failure disables Run; this is fault-injected evidence.
 
 Live analysis now refuses changed page revisions, schema metadata or exclusion
 flags during loading instead of presenting a mixed population or stale result.

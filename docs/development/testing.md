@@ -182,3 +182,53 @@ and their dependent calculation results through the live-event stream.
 The browser proof inserts a short-lived Better Auth session directly, just as
 the OAuth callback would after provider consent. It never contacts GitHub and
 removes its user, workspace, generated resources and events after the run.
+
+## Installed SDK and pipeline acceptance
+
+Use the PostgreSQL 18 roles and environment from the
+[orb setup](orb-setup.md). Install the locked Node dependencies through the
+trusted GitHub Packages npmrc. Keep its credential outside the repository.
+Put PostgREST **14.5**, `uv`, `npm`, and Python 3.10 or newer on `PATH`.
+Package builds need access to the configured Python package index or its cache.
+
+Run the following tests in **one Vitest invocation**. Separate concurrent DB
+invocations reuse worker database names and can terminate each other's sessions.
+
+```sh
+uv venv /tmp/sheetbase-acceptance-python
+uv pip install --python /tmp/sheetbase-acceptance-python/bin/python pandas numpy
+PIPELINE_ACCEPTANCE_PYTHON=/tmp/sheetbase-acceptance-python/bin/python \
+  pnpm test:db tests/db/sdk-installed.test.ts tests/db/webhook-recovery.test.ts \
+  tests/db/webhooks.test.ts tests/db/webhook-admin.test.ts \
+  tests/db/pipelines.test.ts tests/db/pipeline-confirm.test.ts \
+  tests/db/pipeline-propose-mode.test.ts tests/db/pipeline-sandbox.test.ts
+```
+
+`sdk-installed.test.ts` builds and packs the TypeScript SDK, installs its tarball
+in a temporary directory, and installs the Python wheel into a fresh virtual
+environment. It starts the actual Vite application and PostgREST on loopback
+ports against its disposable database. Neither SDK uses a mocked transport.
+The tests prove row commits, idempotent replay, stale-revision refusal and retry,
+workspace and scope isolation, live personal-token permissions and membership,
+service-credential revocation with a cached JWT, and denial of human attestation.
+The test removes its temporary package installations and stops both servers.
+It does not publish either package or use an external receiver.
+
+The Python case in `pipelines.test.ts` runs the existing worker source
+with the selected interpreter, then chains its actual rows through the real SQL
+sandbox. A draft trial leaves no runs, logs, or manifests. A published run
+stores a Dataset Version with checked values and a verified signed manifest. The runtime pin in this
+test identifies the local worker source, **not an OCI image**. Docker isolation,
+broker authentication, and availability of deployed digest-pinned images need
+the separate container acceptance in `docs/operations/pipeline-python.md`.
+Without `PIPELINE_ACCEPTANCE_PYTHON`, the worker uses `python3`, which must have
+pandas and NumPy installed. Missing packages fail the case rather than skip it.
+The same invocation covers SQL trial, confirm/resume, proposal, queue recovery,
+output, and manifest tests. A passing local run does not establish hosted CI or release
+acceptance.
+
+`webhook-recovery.test.ts` uses real PostgreSQL for retained-event reconciliation,
+overlapping-worker ownership, rollback, and LISTEN reconnection. Only its
+outbound HTTP adapter is simulated. It verifies receiver deduplication after an
+accepted delivery loses its result commit. HTTPS egress policy has separate
+tests in `src/lib/webhook-http.server.test.ts`.

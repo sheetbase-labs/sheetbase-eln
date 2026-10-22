@@ -5,6 +5,7 @@
  * Factory functions (`fromXxx`) handle snake_case JSON → TypeScript mapping.
  * Optional/nullable fields are marked with `?`.
  */
+import { StaleVersionError, ValidationError } from "./errors.js";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -384,6 +385,15 @@ export interface CommitResult {
 }
 
 export function fromCommitResult(d: Record<string, any>): CommitResult {
+  // The canonical batch RPC returns validation refusals with HTTP 200.
+  // Only a stale dataset revision can be repaired by rereading the dataset.
+  if (d.ok === false) {
+    const errors: unknown[] = Array.isArray(d.errors) ? d.errors : [];
+    if (errors.some((error) => typeof error === "object" && error !== null && "code" in error && error.code === "stale_dataset_revision")) {
+      throw new StaleVersionError("stale_version", JSON.stringify(errors));
+    }
+    throw new ValidationError("validation_error", JSON.stringify(errors));
+  }
   return {
     ok: d.ok,
     datasetId: d.datasetId,

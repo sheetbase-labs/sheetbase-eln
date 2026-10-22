@@ -15,6 +15,9 @@
  *  - permissions fail closed for viewer/member authoring.
  */
 import { createHash } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { z } from 'zod'
 import { handlePipelineWebhook } from '#/lib/pipeline-webhook.server'
 import type { Client } from 'pg'
 import { Client as PgClient } from 'pg'
@@ -2192,6 +2195,160 @@ describe('Pipeline workflow extensions', () => {
       [run.id],
     )
     expect(outputs.rows[0].count).toBe(0)
+  })
+
+  it('executes the real Python worker and SQL sandbox for trial and published run with a signed manifest', async () => {
+    // This pin identifies the local worker source, NOT an OCI image. This
+    // acceptance exercises computation, not Docker isolation or broker auth.
+    const runtime = `local-worker-contract@sha256:${createHash('sha256').update(readFileSync('docker/pipeline-python/worker.py')).digest('hex')}`
+    const config = {
+      configVersion: 1,
+      parameters: [],
+      inputs: [],
+      pythonRuntime: runtime,
+      transform: {
+        language: 'python',
+        statement:
+          'import pandas as pd\ndef transform(inputs, parameters):\n    print("real Python executed")\n    return pd.DataFrame({"batch": ["A", "B"], "value": [7, 19]})',
+      },
+      steps: [
+        {
+          name: 'scale',
+          language: 'sql',
+          statement:
+            'select batch, value, value * 3 as scaled from previous order by value',
+        },
+      ],
+      output: {
+        mode: 'create',
+        schemaVersionId,
+        datasetName: 'Real Python output',
+        datasetLabel: 'Real Python acceptance',
+        fieldMapping: null,
+      },
+    }
+    const realPython: NonNullable<
+      PipelineExecuteDeps['executePython']
+    > = async (input) => {
+      const result = spawnSync(
+        process.env.PIPELINE_ACCEPTANCE_PYTHON ?? 'python3',
+        ['-I', 'docker/pipeline-python/worker.py'],
+        {
+          input: JSON.stringify(input),
+          encoding: 'utf8',
+          timeout: 30_000,
+          env: { PATH: process.env.PATH },
+        },
+      )
+      expect(result.status, result.stderr).toBe(0)
+      const body = z
+        .object({
+          rows: z.array(z.record(z.string(), z.unknown())),
+          logs: z.array(z.string()),
+        })
+        .parse(JSON.parse(result.stdout))
+      expect(body.logs).toContain('real Python executed')
+      expect(body.rows).toEqual([
+        { batch: 'A', value: 7 },
+        { batch: 'B', value: 19 },
+      ])
+      return { ...body, runtime }
+    }
+    const before = (
+      await migrator.query(`select
+        (select count(*) from api.pipeline_runs)::int as runs,
+        (select count(*) from api.pipeline_run_logs)::int as logs,
+        (select count(*) from api.pipeline_run_manifests)::int as manifests`)
+    ).rows[0]
+    const trialDeps = await makeExecDeps(OWNER)
+    trialDeps.deps.executePython = realPython
+    try {
+      const trial = await tryPipelineDraft(
+        OWNER,
+        {
+          workspaceId: WS,
+          configuration: config,
+          inputVersions: {},
+          parameters: {},
+        },
+        trialDeps.deps,
+      )
+      expect(trial).toMatchObject({
+        ok: true,
+        wouldWrite: 'create',
+        preview: {
+          columns: ['batch', 'value', 'scaled'],
+          rows: [
+            ['A', '7', '21'],
+            ['B', '19', '57'],
+          ],
+          rowCount: 2,
+        },
+      })
+    } finally {
+      await trialDeps.close()
+    }
+    expect(
+      (
+        await migrator.query(`select
+        (select count(*) from api.pipeline_runs)::int as runs,
+        (select count(*) from api.pipeline_run_logs)::int as logs,
+        (select count(*) from api.pipeline_run_manifests)::int as manifests`)
+      ).rows[0],
+    ).toEqual(before)
+    const run = await workflow(config)
+    const execution = await makeExecDeps(OWNER)
+    execution.deps.executePython = realPython
+    try {
+      const report = await runPipelineExecution(OWNER, run.id, execution.deps)
+      expect(report).toMatchObject({
+        ok: true,
+        run: {
+          status: 'succeeded',
+          result: {
+            resultPreview: {
+              rows: [
+                ['A', '7', '21'],
+                ['B', '19', '57'],
+              ],
+            },
+          },
+        },
+      })
+    } finally {
+      await execution.close()
+    }
+    const stored = (
+      await migrator.query(
+        `select manifest,manifest_digest,previous_digest,signature
+        from api.pipeline_run_manifests where run_id=$1`,
+        [run.id],
+      )
+    ).rows[0]
+    expect(
+      stored.manifest.steps.map((step: { language: string }) => step.language),
+    ).toEqual(['python', 'sql'])
+    expect(stored.manifest.outputs.rowCount).toBe(2)
+    const values = await migrator.query(
+      `select v.numeric_value from api.dataset_version_values v
+        join api.dataset_schema_version_fields f on f.field_id=v.field_id
+        where v.dataset_version_id=$1 and f.key='scaled' order by v.numeric_value`,
+      [stored.manifest.outputs.datasetVersionId],
+    )
+    expect(values.rows.map((row) => Number(row.numeric_value))).toEqual([
+      21, 57,
+    ])
+    expect(
+      verifyRunManifest(
+        {
+          manifest: stored.manifest,
+          manifestDigest: stored.manifest_digest,
+          previousDigest: stored.previous_digest,
+          signature: stored.signature,
+        },
+        signingKey,
+      ),
+    ).toMatchObject({ digestMatches: true, signatureValid: true })
   })
 
   it('rolls back a new dataset if a later webhook target is unavailable', async () => {

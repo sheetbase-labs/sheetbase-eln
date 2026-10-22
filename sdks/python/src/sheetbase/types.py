@@ -7,10 +7,13 @@ to ``None``.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
+
+from sheetbase.errors import StaleVersionError, ValidationError
 
 
 def _parse_dt(v: Optional[str]) -> Optional[datetime]:
@@ -393,6 +396,13 @@ class CommitResult:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> CommitResult:
+        # Batch validation refusals are HTTP 200, not transport errors.
+        # A row conflict cannot be repaired by rereading the dataset revision.
+        if d.get("ok") is False:
+            errors = d.get("errors") or []
+            if any(error.get("code") == "stale_dataset_revision" for error in errors):
+                raise StaleVersionError("stale_version", json.dumps(errors))
+            raise ValidationError("validation_error", json.dumps(errors))
         return cls(
             ok=d["ok"],
             dataset_id=UUID(d["datasetId"]),

@@ -112,6 +112,7 @@ const pythonResources = [
   'agent_operations',
   'catalogues',
   'datasets',
+  'pipelines',
   'projects',
   'records',
   'search',
@@ -123,6 +124,7 @@ const typescriptResources = [
   'agent-operations',
   'catalogues',
   'datasets',
+  'pipelines',
   'projects',
   'records',
   'search',
@@ -144,6 +146,10 @@ const resourceFiles: Partial<
   datasets: {
     python: 'sdks/python/src/sheetbase/resources/datasets.py',
     typescript: 'sdks/typescript/src/resources/datasets.ts',
+  },
+  pipelines: {
+    python: 'sdks/python/src/sheetbase/resources/pipelines.py',
+    typescript: 'sdks/typescript/src/resources/pipelines.ts',
   },
   projects: {
     python: 'sdks/python/src/sheetbase/resources/projects.py',

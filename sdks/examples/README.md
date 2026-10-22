@@ -7,15 +7,17 @@ authoritative in Sheetbase.
 
 ## Python
 
-| Example | Workflow |
-| --- | --- |
+| Example                                                        | Workflow                                                                                                                                |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | [`python/analysis_roundtrip.py`](python/analysis_roundtrip.py) | Download a dataset into pandas, analyse it, upload derived results as new rows, then snapshot an immutable Dataset Version as evidence. |
-| [`python/frozen_evidence.py`](python/frozen_evidence.py) | List Dataset Versions, download the frozen version as a DataFrame, and compare it against live rows without mutating anything. |
+| [`python/frozen_evidence.py`](python/frozen_evidence.py)       | List Dataset Versions, download the frozen version as a DataFrame, and compare it against live rows without mutating anything.          |
+
+| [`python/push_step.py`](python/push_step.py) | Save a local script as a draft of a pipeline step, trigger the published pipeline and read the step's printed output from the run logs. |
 
 ## TypeScript
 
-| Example | Workflow |
-| --- | --- |
+| Example                                                      | Workflow                                                                                                                              |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | [`typescript/bulk-transfer.ts`](typescript/bulk-transfer.ts) | Bulk-upload records with batched, revision-chained commits; download them back expanded; read record revision history for provenance. |
 
 Run the Python examples against a reachable Sheetbase deployment:

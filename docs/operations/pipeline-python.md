@@ -109,9 +109,14 @@ file into the runner.
 The protocol has two bearer-authenticated endpoints:
 
 - `GET /runtime` verifies the configured image is installed and returns
-  `{ "runtime": "repository@sha256:..." }` for definition authoring.
-- `POST /execute` receives `{ statement, inputs, parameters, runtime? }` and
-  returns `{ rows, logs, runtime }`. When supplied, `runtime` must match the
+  `{ "runtime": "repository@sha256:...", "python"?, "packages"? }` for definition
+  authoring. The interpreter version and installed packages come from running
+  the worker's `inspect` mode once in the same locked-down container; they are
+  omitted, not an error, if that cannot be read.
+- `POST /execute` receives
+  `{ statement, inputs, parameters, runtime?, requirements?, contract? }` and
+  returns `{ rows, logs, runtime, files, environment? }`. A failure returns
+  `{ error, code, logs?, line? }`. When supplied, `runtime` must match the
   runner's fixed image before any container is created. Pipeline execution must
   supply the saved definition's runtime pin; changing the installed image does
   not silently change the meaning of an existing definition.
@@ -126,6 +131,7 @@ scientist-provided content and should be rendered as text.
 
 ```sh
 node_modules/.bin/vitest run src/lib/pipeline-python.server.test.ts
+node_modules/.bin/vitest run scripts/pipeline-python-worker.test.ts scripts/pipeline-python-runner-contract.test.ts
 node --test scripts/test-pipeline-python-runner.mjs
 PIPELINE_PYTHON_TEST_IMAGE='repository@sha256:<installed-image-digest>' \
   node --test scripts/test-pipeline-python-container.mjs

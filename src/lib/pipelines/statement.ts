@@ -4,8 +4,8 @@
  * A Pipeline transform is exactly one deterministic SELECT (optionally with a
  * leading WITH) over the materialized input temp tables. The static checks
  * here are defense-in-depth and better errors; the actual security boundary
- * is the low-privilege `pipeline_worker` session role (zero table grants,
- * temp-schema-only search_path, fixed statement_timeout) that executes the
+ * is the `pipeline_sandbox` login role on its own connection (zero table grants, no role memberships,
+ * temp-schema-only search_path, statement timeout and temp-file cap) that executes the
  * statement server-side. A statement that trips any check is refused
  * outright — fail closed.
  */
@@ -59,6 +59,8 @@ const BLOCKED_FUNCTION_PREFIXES = [
   'current_setting',
   'set_config',
   'to_reg',
+  '[a-z_]*_to_xml',
+  'dblink',
   'pg_read',
   'pg_write',
 ]

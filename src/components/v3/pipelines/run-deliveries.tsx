@@ -1,3 +1,4 @@
+import { eventLabel } from '#/lib/pipeline-schedule-form'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted } from '#/components/v3/ui/layout'
@@ -137,7 +138,7 @@ export function RunDeliveriesPanel({
                     <TableRow key={delivery.id}>
                       <TableCell>
                         {deliveryChannel(delivery)}
-                        <Muted>{delivery.event_type}</Muted>
+                        <Muted>{eventLabel(delivery.event_type)}</Muted>
                       </TableCell>
                       <TableCell>
                         <Status tone={state.tone}>{state.label}</Status>

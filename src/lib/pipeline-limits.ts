@@ -16,7 +16,7 @@ export const INPUT_FIELD_LIMIT = 256
 export const RESULT_CELL_LIMIT = 1_000_000
 
 /** Per-run execution timeout in seconds. The statement_timeout is set to this
- * value inside the pipeline_worker transaction. */
+ * value on the pipeline_sandbox session. */
 export const EXECUTION_TIMEOUT_SECONDS = 60
 
 /** Maximum Python request or result payload in bytes (32 MiB). Mirrored by the

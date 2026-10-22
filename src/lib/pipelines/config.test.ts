@@ -346,3 +346,82 @@ describe('Confirm steps (PIPE-02)', () => {
     expect(validateConfirmAnswer(confirm, null)).toContain('object')
   })
 })
+
+describe('Python requirements and contracts', () => {
+  const RUNTIME = `registry.example/py@sha256:${'c'.repeat(64)}`
+  function pythonConfig(extra: Record<string, unknown> = {}): PipelineConfig {
+    return {
+      ...validConfig(),
+      pythonRuntime: RUNTIME,
+      transform: {
+        language: 'python',
+        statement: 'def transform(i, p): return []',
+      },
+      ...extra,
+    }
+  }
+
+  it('accepts pinned requirements and a contract on a Python transform', () => {
+    expect(
+      validatePipelineConfig(
+        pythonConfig({
+          pythonRequirements: ['scipy==1.15.3'],
+          transform: {
+            language: 'python',
+            statement: 'def transform(i, p): return []',
+            contract: { output: { columns: [{ name: 'a', type: 'text' }] } },
+          },
+        }),
+      ),
+    ).toEqual([])
+  })
+
+  it('refuses an unpinned requirement', () => {
+    const errors = validatePipelineConfig(
+      pythonConfig({ pythonRequirements: ['scipy>=1'] }),
+    )
+    expect(errors).toMatchObject([{ field: 'pythonRequirements' }])
+  })
+
+  it('refuses requirements when no step uses Python', () => {
+    const errors = validatePipelineConfig({
+      ...validConfig(),
+      pythonRequirements: ['scipy==1.15.3'],
+    })
+    expect(errors.map((e) => e.field)).toEqual(['pythonRequirements'])
+  })
+
+  it('refuses a contract on a SQL step, and a malformed one on a Python step', () => {
+    const sql = validatePipelineConfig({
+      ...validConfig(),
+      transform: {
+        language: 'sql',
+        statement: 'select 1',
+        contract: { output: { columns: [] } },
+      },
+    })
+    expect(sql).toMatchObject([{ field: 'transform.contract' }])
+    const steps = validatePipelineConfig(
+      pythonConfig({
+        steps: [
+          {
+            name: 'tidy',
+            language: 'python',
+            statement: 'def transform(i, p): return []',
+            contract: { output: { columns: [{ name: 'a', type: 'float' }] } },
+          },
+          {
+            name: 'plain',
+            language: 'sql',
+            statement: 'select 1',
+            contract: {},
+          },
+        ],
+      }),
+    )
+    expect(steps.map((e) => e.field)).toEqual([
+      'steps[0].contract',
+      'steps[1].contract',
+    ])
+  })
+})

@@ -12,7 +12,10 @@ import {
   listPipelineRunLogs,
   listPipelineRunOutputs,
   listPipelineRunPrompts,
+  listLatestScheduleRuns,
   listPipelineSchedules,
+  listScheduleActivity,
+  listScheduleRuns,
   startPipelineRun,
 } from '#/lib/pipelines/data'
 import type { StartPipelineRunInput } from '#/lib/pipelines/data'
@@ -157,6 +160,12 @@ export const pipelineDataQueryKeys = {
   runDeliveries: (id: string) =>
     ['ui-port', 'pipelines', 'run-deliveries', id] as const,
   schedules: (id: string) => ['ui-port', 'pipelines', 'schedules', id] as const,
+  scheduleRuns: (id: string) =>
+    ['ui-port', 'pipelines', 'schedule-runs', id] as const,
+  scheduleActivity: (id: string) =>
+    ['ui-port', 'pipelines', 'schedule-activity', id] as const,
+  latestScheduleRuns: (ids: string) =>
+    ['ui-port', 'pipelines', 'latest-schedule-runs', ids] as const,
 }
 
 export function usePipelineRows(client: DataClient = notebookDataClient) {
@@ -272,9 +281,105 @@ export async function resolveRunForWorkItem(
   return null
 }
 
+/** Dataset id → "DS-0001 · Name", for runs that point at the Datasets they wrote. */
+export function useDatasetNames(
+  datasetIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const ids = [...new Set(datasetIds)].sort()
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'dataset-names', ids] as const,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const rows = await listByIds(ids, (inList) =>
+        client.list<{ id: string; name: string; display_id: string | null }>(
+          'datasets',
+          `?select=id,name,display_id&id=in.(${inList})`,
+        ),
+      )
+      return Object.fromEntries(
+        rows.map((d) => [
+          d.id,
+          d.display_id ? `${d.display_id} · ${d.name}` : d.name,
+        ]),
+      )
+    },
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+  })
+}
+
+/** A Dataset Version a run was pinned to, with the dataset's readable name. */
+export interface RunInputInfo {
+  datasetVersionId: string
+  datasetId: string
+  datasetName: string
+  versionLabel: string
+}
+
+/** Dataset Version id → where it came from, for the inputs a run used. */
+export function useRunInputs(
+  versionIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const ids = [...new Set(versionIds)].sort()
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'run-inputs', ids] as const,
+    queryFn: async (): Promise<Record<string, RunInputInfo>> => {
+      const versions = await listByIds(ids, (inList) =>
+        client.list<{ id: string; dataset_id: string; label: string }>(
+          'dataset_versions',
+          `?select=id,dataset_id,label&id=in.(${inList})`,
+        ),
+      )
+      const datasets = await listByIds(
+        [...new Set(versions.map((v) => v.dataset_id))],
+        (inList) =>
+          client.list<{ id: string; name: string; display_id: string | null }>(
+            'datasets',
+            `?select=id,name,display_id&id=in.(${inList})`,
+          ),
+      )
+      const nameOf = new Map(
+        datasets.map((d) => [
+          d.id,
+          d.display_id ? `${d.display_id} · ${d.name}` : d.name,
+        ]),
+      )
+      return Object.fromEntries(
+        versions.map((v) => [
+          v.id,
+          {
+            datasetVersionId: v.id,
+            datasetId: v.dataset_id,
+            datasetName: nameOf.get(v.dataset_id) ?? 'Dataset',
+            versionLabel: v.label,
+          },
+        ]),
+      )
+    },
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+  })
+}
+
 export interface DatasetVersionChoice {
   id: string
   label: string
+  /** The Dataset Schema the version's dataset follows; empty when unknown. */
+  schemaId: string
+  schemaName: string
+}
+
+/** The distinct schemas a list of choices follows, by name. */
+export function schemasOf(
+  choices: DatasetVersionChoice[],
+): Array<{ id: string; name: string }> {
+  const seen = new Map<string, string>()
+  for (const choice of choices)
+    if (choice.schemaId) seen.set(choice.schemaId, choice.schemaName)
+  return [...seen]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Dataset Versions a run input can be pinned to, newest first per dataset. */
@@ -285,22 +390,36 @@ export function useDatasetVersionChoices(
   return useQuery({
     queryKey: ['ui-port', 'pipelines', 'dataset-version-choices'] as const,
     queryFn: async (): Promise<DatasetVersionChoice[]> => {
-      const [versions, datasets] = await Promise.all([
-        client.list<{
-          id: string
-          dataset_id: string
-          label: string
-          created_at: string
-        }>(
-          'dataset_versions',
-          '?select=id,dataset_id,label,created_at&order=created_at.desc&limit=500',
-        ),
-        client.list<{ id: string; name: string; display_id: string | null }>(
-          'datasets',
-          '?select=id,name,display_id&order=name.asc',
-        ),
-      ])
+      const [versions, datasets, schemaVersions, schemaDefinitions] =
+        await Promise.all([
+          client.list<{
+            id: string
+            dataset_id: string
+            schema_version_id?: string
+            label: string
+            created_at: string
+          }>(
+            'dataset_versions',
+            '?select=id,dataset_id,schema_version_id,label,created_at&order=created_at.desc&limit=500',
+          ),
+          client.list<{ id: string; name: string; display_id: string | null }>(
+            'datasets',
+            '?select=id,name,display_id&order=name.asc',
+          ),
+          client.list<{ id: string; schema_id: string }>(
+            'dataset_schema_versions',
+            '?select=id,schema_id',
+          ),
+          client.list<{ id: string; name: string }>(
+            'dataset_schema_definitions',
+            '?select=id,name&order=name.asc',
+          ),
+        ])
       const byId = new Map(datasets.map((d) => [d.id, d]))
+      const schemaOfVersion = new Map(
+        schemaVersions.map((v) => [v.id, v.schema_id]),
+      )
+      const schemaNames = new Map(schemaDefinitions.map((d) => [d.id, d.name]))
       return versions
         .map((v) => {
           const dataset = byId.get(v.dataset_id)
@@ -309,14 +428,17 @@ export function useDatasetVersionChoices(
               ? `${dataset.display_id} · ${dataset.name}`
               : dataset.name
             : 'Dataset'
+          const schemaId = schemaOfVersion.get(v.schema_version_id ?? '') ?? ''
           return {
             id: v.id,
             label: `${name} — ${v.label} (${v.created_at.slice(0, 10)})`,
+            schemaId,
+            schemaName: schemaNames.get(schemaId) ?? '',
             sort: name,
           }
         })
         .sort((a, b) => a.sort.localeCompare(b.sort))
-        .map(({ id, label }) => ({ id, label }))
+        .map(({ sort: _sort, ...choice }) => choice)
     },
     enabled,
     staleTime: 30_000,
@@ -324,47 +446,130 @@ export function useDatasetVersionChoices(
 }
 
 export interface PipelineOutputTargets {
-  datasets: Array<{ id: string; name: string; displayId: string | null }>
+  datasets: Array<{
+    id: string
+    name: string
+    displayId: string | null
+    /** The schema version the Dataset was made from; its fields are what an append must produce. */
+    schemaVersionId: string
+  }>
   schemaVersions: Array<{ id: string; label: string }>
 }
 
 /** What a pipeline output can write to: the active Datasets it can append to
- * and the published Dataset Schema Versions it can create one from. */
+ * and the active Dataset Schema Versions it can create one from. (A schema
+ * version is draft, active or retired; there is no "published" state.) */
+export async function fetchPipelineOutputTargets(
+  client: DataClient,
+): Promise<PipelineOutputTargets> {
+  const [datasets, versions, definitions] = await Promise.all([
+    client.list<{
+      id: string
+      name: string
+      display_id: string | null
+      schema_version_id: string
+    }>(
+      'datasets',
+      '?select=id,name,display_id,schema_version_id&lifecycle=eq.active&order=name.asc',
+    ),
+    client.list<{ id: string; schema_id: string; version: number }>(
+      'dataset_schema_versions',
+      '?select=id,schema_id,version&lifecycle=eq.active&order=version.desc',
+    ),
+    client.list<{ id: string; name: string }>(
+      'dataset_schema_definitions',
+      '?select=id,name&order=name.asc',
+    ),
+  ])
+  const nameById = new Map(definitions.map((d) => [d.id, d.name]))
+  return {
+    datasets: datasets.map((d) => ({
+      id: d.id,
+      name: d.name,
+      displayId: d.display_id,
+      schemaVersionId: d.schema_version_id,
+    })),
+    schemaVersions: versions
+      .map((v) => ({
+        id: v.id,
+        label: `${nameById.get(v.schema_id) ?? 'Schema'} v${v.version}`,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+  }
+}
+
 export function usePipelineOutputTargets(
   client: DataClient = notebookDataClient,
 ) {
   return useQuery({
     queryKey: ['ui-port', 'pipelines', 'output-targets'] as const,
-    queryFn: async (): Promise<PipelineOutputTargets> => {
-      const [datasets, versions, definitions] = await Promise.all([
-        client.list<{ id: string; name: string; display_id: string | null }>(
-          'datasets',
-          '?select=id,name,display_id&lifecycle=eq.active&order=name.asc',
-        ),
-        client.list<{ id: string; schema_id: string; version: number }>(
-          'dataset_schema_versions',
-          '?select=id,schema_id,version&lifecycle=eq.published&order=version.desc',
-        ),
-        client.list<{ id: string; name: string }>(
-          'dataset_schema_definitions',
-          '?select=id,name&order=name.asc',
-        ),
-      ])
-      const nameById = new Map(definitions.map((d) => [d.id, d.name]))
-      return {
-        datasets: datasets.map((d) => ({
-          id: d.id,
-          name: d.name,
-          displayId: d.display_id,
-        })),
-        schemaVersions: versions
-          .map((v) => ({
-            id: v.id,
-            label: `${nameById.get(v.schema_id) ?? 'Schema'} v${v.version}`,
-          }))
-          .sort((a, b) => a.label.localeCompare(b.label)),
-      }
+    queryFn: () => fetchPipelineOutputTargets(client),
+    staleTime: 60_000,
+  })
+}
+
+/** One column of a Dataset Schema Version, as a pipeline sees it: the key a
+ * SQL step reads (inputs) or a result column must be called (outputs). */
+export interface SchemaFieldInfo {
+  key: string
+  label: string
+  type: string
+  required: boolean
+}
+
+export async function fetchSchemaVersionFields(
+  client: DataClient,
+  schemaVersionId: string,
+): Promise<SchemaFieldInfo[]> {
+  const rows = await client.list<{
+    key: string
+    label: string
+    logical_type: string
+    nullable: boolean
+  }>(
+    'dataset_schema_version_fields',
+    `?select=key,label,logical_type,nullable&schema_version_id=eq.${encodeURIComponent(schemaVersionId)}&lifecycle=eq.active&order=display_order.asc`,
+  )
+  return rows.map((r) => ({
+    key: r.key,
+    label: r.label,
+    type: r.logical_type,
+    required: !r.nullable,
+  }))
+}
+
+/** The columns a Dataset Version has, by way of its schema version: what a SQL
+ * step reading it as an input can name. Disabled until a version is chosen. */
+export function useDatasetVersionFields(
+  datasetVersionId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'version-fields', datasetVersionId],
+    queryFn: async (): Promise<SchemaFieldInfo[]> => {
+      const versions = await client.list<{ schema_version_id: string }>(
+        'dataset_versions',
+        `?select=schema_version_id&id=eq.${encodeURIComponent(datasetVersionId)}`,
+      )
+      const schemaVersionId = versions[0]?.schema_version_id
+      return schemaVersionId
+        ? fetchSchemaVersionFields(client, schemaVersionId)
+        : []
     },
+    enabled: datasetVersionId.length > 0,
+    staleTime: 60_000,
+  })
+}
+
+/** The fields of one schema version; disabled until a version is chosen. */
+export function useSchemaVersionFields(
+  schemaVersionId: string,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'schema-fields', schemaVersionId],
+    queryFn: () => fetchSchemaVersionFields(client, schemaVersionId),
+    enabled: schemaVersionId.length > 0,
     staleTime: 60_000,
   })
 }
@@ -570,6 +775,40 @@ export function useWorkspaceMemberNames(
   })
 }
 
+/**
+ * What the Python runner offers right now (`GET /api/pipelines/runtime`): the
+ * immutable image a saved version has to pin, the interpreter, and the packages
+ * baked into it. A Python step cannot be saved without this identity, so the
+ * Steps editor reads it before it lets anyone choose Python.
+ */
+export interface PythonRuntimeInfo {
+  available: boolean
+  /** `repository@sha256:…`, the identity a version pins. */
+  runtime?: string
+  /** Interpreter version, e.g. `3.12.8`. */
+  python?: string
+  /** Installed distributions, normalised name → version. */
+  packages?: Record<string, string>
+  /** Why Python is not available, in words for the author. */
+  message?: string
+}
+
+export function usePythonRuntime() {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'python-runtime'] as const,
+    queryFn: async (): Promise<PythonRuntimeInfo> => {
+      const response = await fetch('/api/pipelines/runtime', {
+        credentials: 'same-origin',
+      })
+      if (!response.ok)
+        return { available: false, message: 'Python could not be checked.' }
+      return (await response.json()) as PythonRuntimeInfo
+    },
+    staleTime: 60_000,
+    retry: false,
+  })
+}
+
 export function useSchedules(
   definitionId: string,
   client: DataClient = notebookDataClient,
@@ -577,6 +816,46 @@ export function useSchedules(
   return useQuery({
     queryKey: pipelineDataQueryKeys.schedules(definitionId),
     queryFn: () => listPipelineSchedules(client, definitionId),
+  })
+}
+
+/** The newest run each trigger started, for the Last run column. */
+export function useLatestScheduleRuns(
+  scheduleIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const key = scheduleIds.join(',')
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.latestScheduleRuns(key),
+    queryFn: () => listLatestScheduleRuns(client, scheduleIds),
+    enabled: scheduleIds.length > 0,
+    staleTime: 15_000,
+  })
+}
+
+/** The runs one trigger started: its history. */
+export function useScheduleRuns(
+  scheduleId: string,
+  enabled: boolean,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.scheduleRuns(scheduleId),
+    queryFn: () => listScheduleRuns(client, scheduleId),
+    enabled,
+  })
+}
+
+/** What one trigger did instead of running. */
+export function useScheduleActivity(
+  scheduleId: string,
+  enabled: boolean,
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: pipelineDataQueryKeys.scheduleActivity(scheduleId),
+    queryFn: () => listScheduleActivity(client, scheduleId),
+    enabled,
   })
 }
 

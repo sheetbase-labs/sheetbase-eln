@@ -123,6 +123,36 @@
       "typescript": "generic"
     },
     {
+      "resource": "pipeline_definition_versions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "pipeline_definitions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "pipeline_run_logs",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "pipeline_run_outputs",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "pipeline_runs",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "projects",
       "methods": ["GET", "HEAD", "POST", "PATCH"],
       "python": "generic",
@@ -259,6 +289,12 @@
     {
       "name": "create_and_link_sheet_record",
       "resource": "sheets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "create_pipeline_definition_version",
+      "resource": "pipelines",
       "python": "resource",
       "typescript": "resource"
     },
@@ -523,6 +559,12 @@
     {
       "name": "update_block_payload",
       "resource": "records",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "update_pipeline_definition_version_draft",
+      "resource": "pipelines",
       "python": "resource",
       "typescript": "resource"
     },

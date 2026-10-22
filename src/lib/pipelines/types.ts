@@ -1,14 +1,18 @@
+import type { ResultPreview } from './result-preview'
 /**
  * AUTO-01/02/03 — Pipeline wire types. PostgREST snake_case shapes; see
  * docs/subsystems/pipelines.md for the contract.
  */
+
+import type { PipelineScheduleKind } from '../pipeline-schedule'
+
+export type { PipelineScheduleKind }
 
 export type PipelineLifecycle = 'active' | 'retired'
 export type PipelineVersionLifecycle = 'draft' | 'published' | 'retired'
 export type PipelineRunTrigger = 'manual' | 'scheduled' | 'event'
 export type PipelineRunStatus =
   'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled'
-export type PipelineScheduleKind = 'interval' | 'daily' | 'event'
 
 export interface PipelineDefinitionWire {
   id: string
@@ -114,7 +118,54 @@ export interface PipelineScheduleWire {
   next_run_at: string | null
   last_evaluated_at: string | null
   last_evaluated_sequence: number | string | null
+  /** `incremental` inputs: the Dataset Version last started on, by input. */
+  input_watermarks: Record<string, string>
   created_at: string
   updated_at: string
   created_by_user_id: string | null
+}
+
+/** One line of what a trial of a draft did; nothing of it is stored. */
+export interface PipelineTrialLogEntry {
+  level: 'info' | 'warning' | 'error'
+  stage: string
+  message: string
+}
+
+/** The answer to "Try draft": a preview of the result, or why there is none. */
+export type PipelineTrialWire =
+  | {
+      ok: true
+      /** Set when the draft stopped at a step that waits for a person. */
+      stoppedAt?: { step: string; reason: 'confirm' }
+      preview: ResultPreview
+      logs: PipelineTrialLogEntry[]
+      durationMs: number
+      /** What a real run would do with the result; a trial does none of it. */
+      wouldWrite: 'create' | 'append' | 'none'
+    }
+  | {
+      ok: false
+      errorCode: string
+      errorMessage: string
+      logs: PipelineTrialLogEntry[]
+    }
+
+export type PipelineScheduleActivityKind =
+  | 'skipped_missed'
+  | 'skipped_unchanged'
+  | 'skipped_overlap'
+  | 'skipped_no_version'
+  | 'input_unresolved'
+  | 'start_failed'
+
+/** What a trigger did instead of starting a run. */
+export interface PipelineScheduleActivityWire {
+  id: string
+  schedule_id: string
+  kind: PipelineScheduleActivityKind
+  occurrence_id: string | null
+  message: string
+  detail: { count?: number } & Record<string, unknown>
+  occurred_at: string
 }

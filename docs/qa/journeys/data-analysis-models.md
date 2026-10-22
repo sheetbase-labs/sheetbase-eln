@@ -16,6 +16,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 ---
 
 ### J-DAT-01 Dataset shows "N columns missing units" and the user wants it fixed
+
 - **Persona / goal:** Lab scientist who must submit an experiment; the dataset blocks it on units.
 - **Entry:** Datasets list, selected row shows the status "1 column missing a unit" and the inspector button "Open and fix" (`routes/datasets.tsx:350-362`, text from `components/v3/datasets/datasets-data.ts:90-96,107-119`).
 - **Path:**
@@ -29,6 +30,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S1 (blocks experiment submission, a regulated step).
 
 ### J-DAT-02 A value is flagged out of range and needs correcting
+
 - **Persona / goal:** Analyst who sees a red value in the rows grid and wants to correct or exclude it.
 - **Entry:** Rows grid; a flagged value shows `text-danger-text` and the inspector card "Out of range · System rule" (`rows.tsx:211-217,405-436`; `value-actions:231-289`).
 - **Path:**
@@ -42,6 +44,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S1 (a regulated correction has no route).
 
 ### J-DAT-03 Dataset has no snapshot, or the Create snapshot button is disabled
+
 - **Persona / goal:** Writer who opened Data on a dataset with no snapshot, or who wants to freeze rows before an edit.
 - **Entry:** Data tab empty state "No snapshot to read rows from" (`rows.tsx:252-274`); Snapshots tab with a disabled "Create snapshot" (`snapshots.tsx:283-292`).
 - **Path:**
@@ -57,6 +60,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2.
 
 ### J-DAT-04 Retention warning says a snapshot will be pruned
+
 - **Persona / goal:** Dataset owner who sees a prune warning and wants to keep the rows.
 - **Entry:** Warn notice at the top of Snapshots with action "Keep <label>" (`snapshots.tsx:245-267`).
 - **Path:**
@@ -71,6 +75,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S3 (copy only).
 
 ### J-DAT-05 Compare has fewer than two snapshots, or compares a removed snapshot
+
 - **Persona / goal:** Reviewer who wants to see what changed between two imports.
 - **Entry:** Compare tab, or "Compare snapshots" in the Snapshots inspector.
 - **Path:**
@@ -84,6 +89,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S3 for the empty state, S2 for the tombstone error.
 
 ### J-DAT-06 "Request repeat" is disabled in the value inspector
+
 - **Persona / goal:** Writer who wants a repeat measurement for a bad value.
 - **Entry:** Inspector for a selected value; "Request repeat" is greyed out (`value-actions:302-313`).
 - **Path:**
@@ -98,6 +104,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2.
 
 ### J-DAT-07 Record reading: "No planned rows to fill"
+
 - **Persona / goal:** Bench scientist who opened Record reading to log a value.
 - **Entry:** `/readings/new`, warn notice "No planned rows to fill" (`readings/new:282-286`).
 - **Path:**
@@ -112,6 +119,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2.
 
 ### J-DAT-08 Record reading: "No numeric fields" and "No sample field"
+
 - **Persona / goal:** Scientist who picked a dataset whose schema is unsuited to bench entry.
 - **Entry:** Warn notices "No numeric fields" and "No sample field" (`readings/new:328-339`).
 - **Path:**
@@ -125,6 +133,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2 (the unlinked save is arguably S1 for evidence; see J-DAT-09 for the same pattern).
 
 ### J-DAT-09 Record reading: value out of range, and save errors
+
 - **Persona / goal:** Scientist entering a result that may break the field's range.
 - **Entry:** Warn notice "Out of range: This value will be recorded and flagged for review, not rejected." (`readings/new:407-411`).
 - **Path:**
@@ -139,6 +148,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2.
 
 ### J-DAT-10 Analysis home or a saved analysis has an invalid or unreadable spec
+
 - **Persona / goal:** Analyst who opens Analysis, or opens a saved view whose spec no longer validates.
 - **Entry:** `/analysis` list, or `/analysis/$analysisId` showing "This saved spec is not valid" (`routes/analysis/$analysisId.tsx:203-208`).
 - **Path:**
@@ -153,6 +163,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2 (S1 if one malformed spec can break the shared list).
 
 ### J-DAT-11 Analysis banner says "Sources changed" (stale), or the analysis is cited
+
 - **Persona / goal:** Analyst whose dataset has moved on since the analysis was saved.
 - **Entry:** Warn notice in the read-only view (`$analysisId.tsx:164-168`), status "Sources changed" (`$analysisId.tsx:141-142`).
 - **Path:**
@@ -167,6 +178,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2.
 
 ### J-DAT-12 Dataset model has no version, or no fields
+
 - **Persona / goal:** Model owner who just created a model and opened its tabs.
 - **Entry:** Fields tab "No version yet" (`routes/models/$modelId/fields.tsx:121-124`), Versions tab "No versions yet" (`routes/models/$modelId/versions.tsx:156-166`), Datasets tab "No datasets use this model" (`routes/models/$modelId/datasets.tsx:73-77`).
 - **Path:**
@@ -182,6 +194,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2.
 
 ### J-DAT-13 Editing a model draft: stale save, locked draft, publish gating
+
 - **Persona / goal:** Model owner editing a draft that a colleague also edits, then publishing it.
 - **Entry:** `/models/$modelId/edit`; banners for conflict, lock and approval (`edit.tsx:493-516`).
 - **Path:**
@@ -196,6 +209,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S3.
 
 ### J-DAT-14 Record-model versions: start a draft, save a stale draft, publish
+
 - **Persona / goal:** Owner of a workspace record model (for example a Sample type) changing its fields.
 - **Entry:** `/models/<key>/versions`, no draft, or a draft with errors (`components/v3/models/record-model-versions.tsx:196-228`).
 - **Path:**
@@ -210,6 +224,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2.
 
 ### J-DAT-15 Experiment tabs for datasets and results are empty, or a result dataset has issues
+
 - **Persona / goal:** Scientist wrapping up an experiment who expects to see produced datasets and analyses and then record a decision.
 - **Entry:** Experiment > Datasets ("No datasets linked"), Results ("No cited analyses", "No datasets"), Overview (`routes/experiments/$expId/datasets.tsx:12-13`, `-links-tab.tsx:65-71`, `results.tsx:179-205`, `components/overview/overview-view.tsx:380-384`).
 - **Path:**
@@ -225,6 +240,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2.
 
 ### J-DAT-16 Sheet: "Calculation results are stale", a formula that fails, or the sheet cannot load
+
 - **Persona / goal:** Scientist working in a sheet with local columns and calculations.
 - **Entry:** Footer text of the sheet workspace, "Calculation results are stale. Recalculate after edits." (`sheet-ws:2151-2155`; status from `sheet-ws:1673-1675`).
 - **Path:**
@@ -238,6 +254,7 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 - **Severity:** S2.
 
 ### J-DAT-17 Sheet shows "N open cell conflicts"
+
 - **Persona / goal:** User whose offline edits collided with someone else's on the same cell.
 - **Entry:** Footer status "N open cell conflict(s)" with "Review first conflict" (`sheet-ws:2093-2110`).
 - **Path:**
@@ -255,24 +272,24 @@ Shorthand: `rows.tsx` = `routes/datasets/$datasetId/rows.tsx`,
 
 ## Summary
 
-| ID | Title | Verdict | Severity |
-| --- | --- | --- | --- |
-| J-DAT-01 | Dataset "missing units": "Open and fix" cannot fix | dead-end | S1 |
-| J-DAT-02 | Out-of-range value needs correcting | partial | S1 |
-| J-DAT-03 | No snapshot / Create snapshot disabled | partial | S2 |
-| J-DAT-04 | Retention warning to Keep a snapshot | complete | S3 |
-| J-DAT-05 | Compare with fewer than two snapshots, or a removed one | partial | S3 (S2 for tombstones) |
-| J-DAT-06 | "Request repeat" disabled | partial | S2 |
-| J-DAT-07 | Record reading: "No planned rows to fill" | dead-end | S2 |
-| J-DAT-08 | Record reading: "No numeric fields" / "No sample field" | dead-end | S2 |
-| J-DAT-09 | Record reading: out of range and save errors | partial | S2 |
-| J-DAT-10 | Invalid saved analysis spec; analysis list failure | partial | S2 |
-| J-DAT-11 | Analysis "Sources changed" / cited analysis | partial | S2 |
-| J-DAT-12 | Dataset model has no version or fields | partial | S2 |
-| J-DAT-13 | Model draft: stale save, lock, publish | complete | S3 |
-| J-DAT-14 | Record-model versions: stale save, publish gating | partial | S2 |
-| J-DAT-15 | Experiment datasets/results empty or with issues | partial | S2 |
-| J-DAT-16 | Sheet: stale calculation, formula, load failure | dead-end | S2 |
-| J-DAT-17 | Sheet cell conflicts | partial | S3 |
+| ID       | Title                                                   | Verdict  | Severity               |
+| -------- | ------------------------------------------------------- | -------- | ---------------------- |
+| J-DAT-01 | Dataset "missing units": "Open and fix" cannot fix      | dead-end | S1                     |
+| J-DAT-02 | Out-of-range value needs correcting                     | partial  | S1                     |
+| J-DAT-03 | No snapshot / Create snapshot disabled                  | partial  | S2                     |
+| J-DAT-04 | Retention warning to Keep a snapshot                    | complete | S3                     |
+| J-DAT-05 | Compare with fewer than two snapshots, or a removed one | partial  | S3 (S2 for tombstones) |
+| J-DAT-06 | "Request repeat" disabled                               | partial  | S2                     |
+| J-DAT-07 | Record reading: "No planned rows to fill"               | dead-end | S2                     |
+| J-DAT-08 | Record reading: "No numeric fields" / "No sample field" | dead-end | S2                     |
+| J-DAT-09 | Record reading: out of range and save errors            | partial  | S2                     |
+| J-DAT-10 | Invalid saved analysis spec; analysis list failure      | partial  | S2                     |
+| J-DAT-11 | Analysis "Sources changed" / cited analysis             | partial  | S2                     |
+| J-DAT-12 | Dataset model has no version or fields                  | partial  | S2                     |
+| J-DAT-13 | Model draft: stale save, lock, publish                  | complete | S3                     |
+| J-DAT-14 | Record-model versions: stale save, publish gating       | partial  | S2                     |
+| J-DAT-15 | Experiment datasets/results empty or with issues        | partial  | S2                     |
+| J-DAT-16 | Sheet: stale calculation, formula, load failure         | dead-end | S2                     |
+| J-DAT-17 | Sheet cell conflicts                                    | partial  | S3                     |
 
 Counts: complete 2, partial 11, dead-end 4 (17 journeys).

@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { getAppSession } from '#/lib/auth'
-import { getPythonRuntime } from '#/lib/pipeline-python.server'
+import { getPythonRuntimeInfo } from '#/lib/pipeline-python.server'
 
 export const Route = createFileRoute('/api/pipelines/runtime')({
   server: {
@@ -11,7 +11,7 @@ export const Route = createFileRoute('/api/pipelines/runtime')({
         try {
           return Response.json({
             available: true,
-            runtime: await getPythonRuntime(),
+            ...(await getPythonRuntimeInfo()),
           })
         } catch {
           return Response.json({

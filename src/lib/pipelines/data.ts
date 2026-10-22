@@ -16,7 +16,10 @@ import type {
   PipelineRunOutputWire,
   PipelineRunPromptWire,
   PipelineRunWire,
+  PipelineScheduleKind,
+  PipelineScheduleActivityWire,
   PipelineScheduleWire,
+  PipelineTrialWire,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -158,10 +161,63 @@ export async function cancelPipelineRun(
   })
 }
 
+/** How long a client follows a run before giving up and pointing at the run page. */
+const RUN_FOLLOW_LIMIT_MS = 30 * 60_000
+
+async function readRunError(
+  response: Response,
+  fallback: string,
+): Promise<Error> {
+  let message = `${fallback} (${response.status})`
+  try {
+    const body = (await response.json()) as { error?: { message?: string } }
+    if (body.error?.message) message = body.error.message
+  } catch {
+    // keep the generic message
+  }
+  return new Error(message)
+}
+
 /**
- * Execute a started run through the same-origin server route. The server
- * runs the transform SQL in the sandboxed pipeline_worker role and completes
- * or fails the run. Returns the finished run row.
+ * Follow a queued run to the end: poll the run and its queue state until no job
+ * is open (a worker finished with it) and return the run as it then stands.
+ */
+async function followRun(runId: string): Promise<PipelineRunWire> {
+  const deadline = Date.now() + RUN_FOLLOW_LIMIT_MS
+  let delay = 750
+  for (;;) {
+    const response = await fetch(
+      `/api/pipelines/execute?runId=${encodeURIComponent(runId)}`,
+    )
+    if (!response.ok)
+      throw await readRunError(response, 'Following the run failed')
+    const state = (await response.json()) as {
+      run: PipelineRunWire
+      job: { state: string; lastError: string | null } | null
+    }
+    const open = state.job?.state === 'queued' || state.job?.state === 'claimed'
+    if (!open) {
+      if (state.job?.state === 'dead')
+        throw new Error(
+          state.run.error_message ??
+            state.job.lastError ??
+            'The pipeline run could not be executed.',
+        )
+      return state.run
+    }
+    if (Date.now() > deadline)
+      throw new Error(
+        'The run is still queued or running. Open the run page to follow it.',
+      )
+    await new Promise((resolve) => setTimeout(resolve, delay))
+    delay = Math.min(delay * 1.4, 4_000)
+  }
+}
+
+/**
+ * Queue a started run through the same-origin server route and follow it to the
+ * end. A worker executes it on the sandboxed pipeline connection and completes
+ * or fails it; nothing runs inside the request. Returns the finished run row.
  */
 export async function executePipelineRun(
   runId: string,
@@ -171,19 +227,29 @@ export async function executePipelineRun(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ runId }),
   })
-  if (!response.ok) {
-    let message = `Pipeline execution failed (${response.status})`
-    try {
-      const body = (await response.json()) as {
-        error?: { message?: string }
-      }
-      if (body.error?.message) message = body.error.message
-    } catch {
-      // keep the generic message
-    }
-    throw new Error(message)
-  }
-  return (await response.json()) as PipelineRunWire
+  if (!response.ok)
+    throw await readRunError(response, 'Pipeline execution failed')
+  return followRun(runId)
+}
+
+/**
+ * Try a draft: run the configuration the editor holds on the chosen inputs and
+ * get a preview back. Nothing is saved, published or recorded.
+ */
+export async function tryPipelineDraft(input: {
+  workspaceId: string
+  configuration: unknown
+  inputVersions: Record<string, string>
+  parameters: Record<string, unknown>
+}): Promise<PipelineTrialWire> {
+  const response = await fetch('/api/pipelines/try-draft', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok)
+    throw await readRunError(response, 'Trying the draft failed')
+  return (await response.json()) as PipelineTrialWire
 }
 
 // ---------------------------------------------------------------------------
@@ -195,7 +261,7 @@ export async function createPipelineSchedule(
   input: {
     workspaceId: string
     definitionId: string
-    kind: 'interval' | 'daily' | 'event'
+    kind: PipelineScheduleKind
     spec: Record<string, unknown>
     enabled?: boolean
   },
@@ -214,7 +280,7 @@ export async function updatePipelineSchedule(
   input: {
     workspaceId: string
     scheduleId: string
-    kind?: 'interval' | 'daily' | 'event' | null
+    kind?: PipelineScheduleKind | null
     spec?: Record<string, unknown> | null
     enabled?: boolean | null
   },
@@ -258,7 +324,7 @@ const OUTPUT_FIELDS =
   'id,workspace_id,run_id,dataset_id,dataset_version_id,label,created_at'
 
 const SCHEDULE_FIELDS =
-  'id,workspace_id,definition_id,kind,spec,enabled,last_run_at,next_run_at,last_evaluated_at,last_evaluated_sequence,created_at,updated_at,created_by_user_id'
+  'id,workspace_id,definition_id,kind,spec,enabled,last_run_at,next_run_at,last_evaluated_at,last_evaluated_sequence,input_watermarks,created_at,updated_at,created_by_user_id'
 
 const PROMPT_FIELDS =
   'id,workspace_id,run_id,step_id,form_schema,asked_user_ids,answer,answered_by_user_id,answered_at,expires_at,created_at'
@@ -405,17 +471,9 @@ export async function answerPipelineRunPrompt(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ runId, answer }),
   })
-  if (!response.ok) {
-    let message = `Answering the run failed (${response.status})`
-    try {
-      const body = (await response.json()) as { error?: { message?: string } }
-      if (body.error?.message) message = body.error.message
-    } catch {
-      // keep the generic message
-    }
-    throw new Error(message)
-  }
-  return (await response.json()) as PipelineRunWire
+  if (!response.ok)
+    throw await readRunError(response, 'Answering the run failed')
+  return followRun(runId)
 }
 
 export async function listPipelineSchedules(
@@ -428,6 +486,49 @@ export async function listPipelineSchedules(
   return client.list<PipelineScheduleWire>(
     'pipeline_schedules',
     `?select=${SCHEDULE_FIELDS}${filter}&order=created_at.asc`,
+  )
+}
+
+/** Runs one trigger started, newest first: the trigger's run history. */
+export async function listScheduleRuns(
+  client: DataClient,
+  scheduleId: string,
+  limit = 25,
+): Promise<PipelineRunWire[]> {
+  return client.list<PipelineRunWire>(
+    'pipeline_runs',
+    `?select=${RUN_FIELDS}&schedule_id=eq.${encodeURIComponent(scheduleId)}&order=started_at.desc&limit=${limit}`,
+  )
+}
+
+/** The newest run each of these triggers started, keyed by trigger id. */
+export async function listLatestScheduleRuns(
+  client: DataClient,
+  scheduleIds: string[],
+): Promise<Map<string, PipelineRunWire>> {
+  const latest = new Map<string, PipelineRunWire>()
+  if (scheduleIds.length === 0) return latest
+  const runs = await client.list<PipelineRunWire>(
+    'pipeline_runs',
+    `?select=${RUN_FIELDS}&schedule_id=in.(${scheduleIds.map(encodeURIComponent).join(',')})&order=started_at.desc&limit=200`,
+  )
+  for (const run of runs) {
+    if (run.schedule_id && !latest.has(run.schedule_id)) {
+      latest.set(run.schedule_id, run)
+    }
+  }
+  return latest
+}
+
+/** What one trigger did instead of running (skips, unresolved inputs). */
+export async function listScheduleActivity(
+  client: DataClient,
+  scheduleId: string,
+  limit = 25,
+): Promise<PipelineScheduleActivityWire[]> {
+  return client.list<PipelineScheduleActivityWire>(
+    'pipeline_schedule_activity',
+    `?select=id,schedule_id,kind,occurrence_id,message,detail,occurred_at&schedule_id=eq.${encodeURIComponent(scheduleId)}&order=occurred_at.desc&limit=${limit}`,
   )
 }
 

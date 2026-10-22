@@ -130,6 +130,27 @@ class HttpTransport:
             return _table_head(resp)
         return self._handle_response(resp)
 
+    def send_with_bearer(
+        self,
+        method: str,
+        path: str,
+        bearer: str,
+        *,
+        json_body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> tuple[int, Any]:
+        """Call an endpoint authenticated by its own secret (a pipeline webhook).
+
+        A 422 carrying a ``runId`` is a settled run that failed, so it is returned.
+        """
+        hdrs = {"Authorization": f"Bearer {bearer}", "User-Agent": f"sheetbase-py/{__version__}"}
+        if headers:
+            hdrs.update(headers)
+        resp = self._client.request(
+            method, f"{self.base_url}{path}", json=json_body, headers=hdrs, timeout=self.timeout
+        )
+        return _bearer_result(resp)
+
     def get(
         self,
         path: str,
@@ -323,6 +344,27 @@ class AsyncHttpTransport:
             return _table_head(resp)
         return HttpTransport._handle_response(resp)
 
+    async def send_with_bearer(
+        self,
+        method: str,
+        path: str,
+        bearer: str,
+        *,
+        json_body: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> tuple[int, Any]:
+        """Call an endpoint authenticated by its own secret (a pipeline webhook).
+
+        A 422 carrying a ``runId`` is a settled run that failed, so it is returned.
+        """
+        hdrs = {"Authorization": f"Bearer {bearer}", "User-Agent": f"sheetbase-py/{__version__}"}
+        if headers:
+            hdrs.update(headers)
+        resp = await self._client.request(
+            method, f"{self.base_url}{path}", json=json_body, headers=hdrs, timeout=self.timeout
+        )
+        return _bearer_result(resp)
+
     async def get(
         self,
         path: str,
@@ -385,6 +427,24 @@ class AsyncHttpTransport:
 
     async def __aexit__(self, *args: Any) -> None:
         await self.close()
+
+
+def _bearer_result(resp: httpx.Response) -> tuple[int, Any]:
+    body = _safe_json(resp)
+    if resp.status_code < 400 or (resp.status_code == 422 and body and "runId" in body):
+        return resp.status_code, body
+    message = body.get("error") if body else None
+    status = resp.status_code
+    category = (
+        "unauthenticated" if status == 401
+        else "permission_denied" if status == 403
+        else "not_found" if status == 404
+        else "conflict" if status == 409
+        else "rate_limited" if status == 429
+        else "server_error" if status >= 500
+        else "validation_error"
+    )
+    raise data_path_error(category, message if isinstance(message, str) else f"HTTP {status}")
 
 
 def _safe_json(resp: httpx.Response) -> Optional[dict[str, Any]]:

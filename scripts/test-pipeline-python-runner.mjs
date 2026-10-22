@@ -82,6 +82,7 @@ test('passes code only on stdin and records trusted runtime identity', async () 
     rows: [{ n: 3 }],
     logs: ['done'],
     runtime: image,
+    files: [],
   })
   assert.equal(calls[1].options.input, JSON.stringify(job))
   assert.equal(calls[1].options.timeoutMs, 60_000)

@@ -14,6 +14,7 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import {
   declaredRunInputs,
+  schemasOf,
   useDatasetVersionChoices,
 } from '#/components/v3/pipelines/pipelines-data'
 import type { PipelineParameter } from '#/lib/pipelines/config'
@@ -62,25 +63,34 @@ export function parameterError(
  * request instead of refusing it with "missing input".
  */
 export function RunDialog({
-  pipelineKey,
+  pipelineName,
   version,
   busy,
   onClose,
   onSubmit,
   initial,
+  trial,
 }: {
-  pipelineKey: string
+  pipelineName: string
   version: PipelineDefinitionVersionWire
   busy: boolean
   onClose: () => void
   onSubmit: (details: RunDetails) => void
   initial?: Partial<RunDetails>
+  /** Set to try an unsaved draft: the dialog then promises that nothing is kept. */
+  trial?: boolean
 }) {
   const { inputs, parameters } = declaredRunInputs(version)
   const choices = useDatasetVersionChoices(inputs.length > 0)
   const [pinned, setPinned] = useState<Record<string, string>>(
     initial?.inputVersions ?? {},
   )
+  // Each input starts narrowed to the schema it declares, if any; "Any schema"
+  // shows every Dataset Version.
+  const [schemaFilter, setSchemaFilter] = useState<Record<string, string>>(() =>
+    Object.fromEntries(inputs.map((i) => [i.name, i.schemaId ?? ''])),
+  )
+  const schemas = schemasOf(choices.data ?? [])
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       parameters.map((p) => {
@@ -102,8 +112,14 @@ export function RunDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title={`Run ${pipelineKey} with…`}
-          description={`Version v${version.version}. Each input is pinned to the Dataset Version you choose, so the run can be repeated exactly.`}
+          title={
+            trial ? `Try ${pipelineName} with…` : `Run ${pipelineName} with…`
+          }
+          description={
+            trial
+              ? 'Runs the draft as it is now on the Dataset Versions you choose and shows what it would produce. Nothing is saved, published or recorded.'
+              : `Version v${version.version}. Each input is pinned to the Dataset Version you choose, so the run can be repeated exactly.`
+          }
         />
         <DialogBody>
           {choices.isError ? (
@@ -119,33 +135,72 @@ export function RunDialog({
               Version, never a live sheet.
             </Notice>
           ) : null}
-          {inputs.map((input) => (
-            <Field
-              key={input.name}
-              label={
-                <>
-                  Input <span className="mono">{input.name}</span>
-                </>
-              }
-              required
-              hint={input.description}
-            >
-              <Select
-                aria-label={`Dataset Version for ${input.name}`}
-                value={pinned[input.name] ?? ''}
-                onChange={(e) =>
-                  setPinned((cur) => ({ ...cur, [input.name]: e.target.value }))
+          {inputs.map((input) => {
+            const filter = schemaFilter[input.name] ?? ''
+            const offered = (choices.data ?? []).filter(
+              (choice) =>
+                !filter ||
+                choice.schemaId === filter ||
+                choice.id === pinned[input.name],
+            )
+            const filterName = schemas.find((s) => s.id === filter)?.name
+            return (
+              <Field
+                key={input.name}
+                label={
+                  <>
+                    Input <span className="mono">{input.name}</span>
+                  </>
+                }
+                required
+                hint={
+                  filter && choices.isSuccess && offered.length === 0
+                    ? `No Dataset Version follows ${filterName ?? 'that schema'} yet. Choose Any schema to see them all.`
+                    : input.description
                 }
               >
-                <option value="">Choose a Dataset Version…</option>
-                {(choices.data ?? []).map((choice) => (
-                  <option key={choice.id} value={choice.id}>
-                    {choice.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ))}
+                <div className="flex flex-col gap-1.5">
+                  {schemas.length > 1 || filter ? (
+                    <Select
+                      size="sm"
+                      aria-label={`Schema for ${input.name}`}
+                      value={filter}
+                      onChange={(e) =>
+                        setSchemaFilter((cur) => ({
+                          ...cur,
+                          [input.name]: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Any schema</option>
+                      {schemas.map((schema) => (
+                        <option key={schema.id} value={schema.id}>
+                          {schema.name}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : null}
+                  <Select
+                    aria-label={`Dataset Version for ${input.name}`}
+                    value={pinned[input.name] ?? ''}
+                    onChange={(e) =>
+                      setPinned((cur) => ({
+                        ...cur,
+                        [input.name]: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Choose a Dataset Version…</option>
+                    {offered.map((choice) => (
+                      <option key={choice.id} value={choice.id}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </Field>
+            )
+          })}
           {parameters.map((parameter) => {
             const raw = values[parameter.name] ?? ''
             const error =
@@ -214,7 +269,7 @@ export function RunDialog({
               })
             }
           >
-            Run
+            {trial ? 'Try draft' : 'Run'}
           </Button>
         </DialogFooter>
       </DialogContent>

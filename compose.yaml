@@ -15,6 +15,7 @@ services:
       POSTGREST_AUTHENTICATOR_PASSWORD: ${POSTGREST_AUTHENTICATOR_PASSWORD:?Set POSTGREST_AUTHENTICATOR_PASSWORD in .env.local}
       MIGRATOR_PASSWORD: ${MIGRATOR_PASSWORD:?Set MIGRATOR_PASSWORD in .env.local}
       FORMULA_WRITER_PASSWORD: ${FORMULA_WRITER_PASSWORD:?Set FORMULA_WRITER_PASSWORD in .env.local}
+      PIPELINE_SANDBOX_PASSWORD: ${PIPELINE_SANDBOX_PASSWORD:?Set PIPELINE_SANDBOX_PASSWORD in .env.local}
     # Local development and the test layers only: more connection slots for the
     # parallel suites, and durability settings that trade crash-safety for speed
     # on a disposable database (the shared environments never use this file).

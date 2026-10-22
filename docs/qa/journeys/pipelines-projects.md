@@ -17,6 +17,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 ---
 
 ### J-PIP-01 Create a pipeline and reach its first version
+
 - **Persona / goal:** Pipeline author; register a pipeline and get a runnable version.
 - **Entry:** Pipelines list, "New pipeline" dialog (`P:477-598`).
 - **Path:**
@@ -30,6 +31,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S3
 
 ### J-PIP-02 "Run now" is disabled and does not say why
+
 - **Persona / goal:** Scientist; run a pipeline they just opened.
 - **Entry:** disabled "Run now" button on the list inspector (`P:400-412`) or the pipeline header (`PD:148-156`).
 - **Path:**
@@ -42,6 +44,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S2
 
 ### J-PIP-03 Steps editor: "This version cannot be saved yet" that the page cannot fix
+
 - **Persona / goal:** Pipeline author; save a draft whose output keeps a dataset.
 - **Entry:** red Notice "This version cannot be saved yet" on the Steps tab (`PS:351-359`).
 - **Path:**
@@ -55,6 +58,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S1
 
 ### J-PIP-04 "Run now" on a pipeline that declares inputs
+
 - **Persona / goal:** Scientist; run a published pipeline against the latest data.
 - **Entry:** "Run now" (`P:241-267`, `PD:65-85`), then toast "Could not start the run".
 - **Path:**
@@ -69,6 +73,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S1
 
 ### J-PIP-05 Trigger warning: "no published version, so its triggers will not fire"
+
 - **Persona / goal:** Pipeline author; make a schedule actually run.
 - **Entry:** warn Notice on Triggers (`PT:280-285`), or a row reading "No published version" (`PT:205-206`).
 - **Path:**
@@ -81,6 +86,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S3
 
 ### J-PIP-06 A run failed: what now?
+
 - **Persona / goal:** Pipeline owner; recover from a failed run.
 - **Entry:** Pipelines "Needs attention" tab (`P:106`), list inspector "Recent runs" link (`P:449-466`), or the failed run page.
 - **Path:**
@@ -95,6 +101,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S2
 
 ### J-PIP-07 "This run is waiting for you": answer the confirm prompt
+
 - **Persona / goal:** Asked reviewer; decide a paused step.
 - **Entry:** warn Banner "This run is waiting for you." (`PR:236-242`).
 - **Path:**
@@ -110,6 +117,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S3
 
 ### J-PIP-08 Inbox hand-off for a failed or waiting run
+
 - **Persona / goal:** Asked person; act on an Inbox "Waiting for your decision" or "Failed" item.
 - **Entry:** Inbox row of kind `run_waiting` / `run_failed` (`inbox.tsx:83-98`), inspector "Open" (`inbox.tsx:664-666`).
 - **Path:**
@@ -123,6 +131,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S2
 
 ### J-PIP-09 Not found, unreadable and failed reads render blank pages
+
 - **Persona / goal:** Anyone following a link to a pipeline, run or project that is gone, unshared, or whose read failed.
 - **Entry:** `/pipelines`, `/pipelines/<id>`, `/pipelines/<id>/runs/<id>`, `/projects/<id>`.
 - **Path:**
@@ -137,6 +146,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S2
 
 ### J-PIP-10 A user without pipeline rights tries to create, save, publish, run or trigger
+
 - **Persona / goal:** Workspace member without `pipelines.manage`.
 - **Entry:** any enabled pipeline control.
 - **Path:**
@@ -149,6 +159,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S2
 
 ### J-PIP-11 Agent proposals: pending, failed, and workflows that stop
+
 - **Persona / goal:** Steward or ordinary member reviewing agent work on `/pipelines/agents`.
 - **Entry:** Proposals tab group "Awaiting approval" (`AG:154`), a Notice, or a workflow status.
 - **Path:**
@@ -164,6 +175,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S2
 
 ### J-PIP-12 "No service credentials": delegating agent writes
+
 - **Persona / goal:** Workspace owner or Data Steward; let an agent credential append rows without a human each time.
 - **Entry:** warn Notice "No service credentials" on the Policies tab (`AG:729-745`).
 - **Path:**
@@ -177,6 +189,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S3
 
 ### J-PIP-13 Notebook pipeline-output block: absent, unreadable or read-only proposal
+
 - **Persona / goal:** Notebook author or reader; accept a pipeline's proposed update, or pin a run's output.
 - **Entry:** block states in `pipeline-output-block-preview.tsx` and `-editor.tsx`.
 - **Path:**
@@ -192,6 +205,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S2
 
 ### J-PIP-14 Milestone is Late / At risk: how does the owner clear it?
+
 - **Persona / goal:** Project editor; get a late milestone back on track or mark it done.
 - **Entry:** red Notice "Late" or amber "At risk" (`MS:530-540`), row/timeline status.
 - **Path:**
@@ -206,6 +220,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S1
 
 ### J-PIP-15 Milestones page: empty plan, or edit controls disabled while permissions load or are denied
+
 - **Persona / goal:** Project member planning deliverables.
 - **Entry:** disabled "Add a milestone" / "Add milestone" / "Start from a template…" (`MS:625-631`, `MS:673-688`).
 - **Path:**
@@ -220,6 +235,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S2
 
 ### J-PIP-16 Project-scoped empty lists and the project list
+
 - **Persona / goal:** Project member on a new project; start populating samples, datasets and files.
 - **Entry:** project tabs "No samples yet", "No datasets yet", "No files yet" (`samples.tsx:139-143`, `datasets.tsx:57-61`, `files.tsx:268-272`).
 - **Path:**
@@ -234,6 +250,7 @@ Path shorthand (all under `/home/user/workspace/repo`):
 - **Severity:** S3
 
 ### J-PIP-17 Schedule: instrument bookings that fail to load or cannot be cancelled
+
 - **Persona / goal:** Scientist; see and book instrument time.
 - **Entry:** `/schedule` (`schedule.tsx`).
 - **Path:**
@@ -250,24 +267,24 @@ Path shorthand (all under `/home/user/workspace/repo`):
 
 ## Summary
 
-| ID | Title | Verdict | Severity |
-| --- | --- | --- | --- |
-| J-PIP-01 | Create a pipeline and reach its first version | partial | S3 |
-| J-PIP-02 | "Run now" disabled without a reason | partial | S2 |
-| J-PIP-03 | Steps editor "cannot be saved yet" that cannot be fixed | dead-end | S1 |
-| J-PIP-04 | "Run now" on a pipeline with declared inputs | dead-end | S1 |
-| J-PIP-05 | Trigger warning "no published version" | partial | S3 |
-| J-PIP-06 | A run failed: what now | dead-end | S2 |
-| J-PIP-07 | "This run is waiting for you" prompt | partial | S3 |
-| J-PIP-08 | Inbox hand-off for failed or waiting run | partial | S2 |
-| J-PIP-09 | Not found, unreadable and failed reads render blank | dead-end | S2 |
-| J-PIP-10 | No pipeline rights: controls live, refusal is a toast | partial | S2 |
-| J-PIP-11 | Agent proposals pending, failed, workflows that stop | partial | S2 |
-| J-PIP-12 | "No service credentials": delegating agent writes | complete | S3 |
-| J-PIP-13 | Notebook pipeline-output block states | partial | S2 |
-| J-PIP-14 | Milestone Late / At risk and Mark done | dead-end | S1 |
-| J-PIP-15 | Milestones page empty / denied / load failure | partial | S2 |
-| J-PIP-16 | Project-scoped empty lists | partial | S3 |
-| J-PIP-17 | Schedule load failure and cancelling others' bookings | partial | S2 |
+| ID       | Title                                                   | Verdict  | Severity |
+| -------- | ------------------------------------------------------- | -------- | -------- |
+| J-PIP-01 | Create a pipeline and reach its first version           | partial  | S3       |
+| J-PIP-02 | "Run now" disabled without a reason                     | partial  | S2       |
+| J-PIP-03 | Steps editor "cannot be saved yet" that cannot be fixed | dead-end | S1       |
+| J-PIP-04 | "Run now" on a pipeline with declared inputs            | dead-end | S1       |
+| J-PIP-05 | Trigger warning "no published version"                  | partial  | S3       |
+| J-PIP-06 | A run failed: what now                                  | dead-end | S2       |
+| J-PIP-07 | "This run is waiting for you" prompt                    | partial  | S3       |
+| J-PIP-08 | Inbox hand-off for failed or waiting run                | partial  | S2       |
+| J-PIP-09 | Not found, unreadable and failed reads render blank     | dead-end | S2       |
+| J-PIP-10 | No pipeline rights: controls live, refusal is a toast   | partial  | S2       |
+| J-PIP-11 | Agent proposals pending, failed, workflows that stop    | partial  | S2       |
+| J-PIP-12 | "No service credentials": delegating agent writes       | complete | S3       |
+| J-PIP-13 | Notebook pipeline-output block states                   | partial  | S2       |
+| J-PIP-14 | Milestone Late / At risk and Mark done                  | dead-end | S1       |
+| J-PIP-15 | Milestones page empty / denied / load failure           | partial  | S2       |
+| J-PIP-16 | Project-scoped empty lists                              | partial  | S3       |
+| J-PIP-17 | Schedule load failure and cancelling others' bookings   | partial  | S2       |
 
 Counts: complete 1, partial 11, dead-end 5. Severity: S1 3, S2 9, S3 5.

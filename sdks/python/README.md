@@ -154,6 +154,7 @@ Token-path errors use `TokenError` with a `.code` attribute (`invalid_credential
 | `client.catalogues`       | Schema/sheet-definition/template reads and notebook-template instantiate/upgrade RPCs                                                                                                                                                                                           |
 | `client.agent_operations` | Agent proposal and workflow create/advance/usage/cancel RPCs plus audit-table reads                                                                                                                                                                                             |
 | `client.webhooks`         | Subscription create/update/delete/secret rotation, delivery pagination/replay and table reads                                                                                                                                                                                   |
+| `client.pipelines`        | List pipelines, versions, runs, run logs and outputs; trigger through the pipeline webhook; wait_for_run; create_draft, save_draft, sync_step                                                                                                                                   |
 
 Agent operation, workflow, provenance and budget dictionaries remain in the
 canonical contract shape and are validated by the server. The SDK deliberately
@@ -163,6 +164,36 @@ All public table operations are also available through `table_get`,
 `table_head`, `table_post` and `table_patch`. `table_head` returns
 `Content-Range`, a parsed total count when present, and the request id. Use
 `headers={"Prefer": "count=exact"}` when an exact total is required.
+
+### Pipelines and local Python
+
+```python
+from sheetbase import SheetbaseClient, notebook_to_python
+
+with SheetbaseClient(base_url, credential, ["pipelines:read", "pipelines:write"]) as client:
+    run = client.pipelines.trigger(
+        definition_id=pipeline_id,
+        webhook_token=webhook_secret,  # the pipeline's own secret, shown once in the app
+        idempotency_key="batch-42",
+        parameters={"study": "S1"},
+    )
+    settled = client.pipelines.wait_for_run(run["runId"])
+    for entry in client.pipelines.run_logs(run["runId"]):
+        print(entry["stage"], entry["detail"].get("logs", []))
+
+    # Save local code as a draft of one step; a person reviews and publishes it.
+    client.pipelines.sync_step(
+        workspace_id=workspace_id,
+        definition_id=pipeline_id,
+        code=notebook_to_python(open("analysis.ipynb").read()),
+        step="analyse",
+        requirements=["pandas==2.2.2"],
+    )
+```
+
+Saving a draft needs a personal token. The same is available from the shell:
+`sheetbase push-step analysis.py --workspace ... --pipeline ... --step analyse`
+with `SHEETBASE_URL` and `SHEETBASE_CREDENTIAL` set.
 
 ## Pagination
 

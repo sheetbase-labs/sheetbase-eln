@@ -14,6 +14,7 @@ of the findings below are that gap.
 ---
 
 ### J-NBK-01 Start a new notebook from a template
+
 - **Persona / goal:** Scientist who wants a notebook that already has its sections, sheets and parameters from a published template.
 - **Entry:** `/sheets/new` card "From a template" ("Start from a notebook template that already has its sheets and fields.") (`routes/sheets/new.tsx:61-66`), or `/templates` directly.
 - **Path:**
@@ -28,6 +29,7 @@ of the findings below are that gap.
 - **Severity:** S1 (a core reuse feature, and the product's template-versioning story, has no entry point).
 
 ### J-NBK-02 "New template version" banner on a locked notebook
+
 - **Persona / goal:** Author of a signed notebook sees "Template X has a new version" and wants to take it.
 - **Entry:** `NotebookTemplateUpgradeBanner` ("…This notebook stays on v1 until you choose." with button "Review v2") (`components/notebook/notebook-template-upgrade-banner.tsx:181-184`).
 - **Path:**
@@ -41,6 +43,7 @@ of the findings below are that gap.
 - **Severity:** S2.
 
 ### J-NBK-03 Publish or retire a template version
+
 - **Persona / goal:** Template author wants to publish a draft, or retire an old version.
 - **Entry:** `/templates/$templateId/versions`, "Publish v{n}…" or "Retire v{n}…" (`routes/templates/$templateId/versions.tsx:395-427`).
 - **Path:**
@@ -53,6 +56,7 @@ of the findings below are that gap.
 - **Severity:** S2.
 
 ### J-NBK-04 Open a protocol that needs editing or review
+
 - **Persona / goal:** Protocol author (or QA) lands on a draft protocol and wants to edit it or send it for review so a version is frozen.
 - **Entry:** `/protocols` empty tab ("No protocols in {tab}") or `/protocols/$protocolId` Version history empty state "No frozen versions yet — A version is frozen when the protocol is submitted for review." (`routes/protocols/$protocolId.tsx:319-323`, `:399-403`).
 - **Path:**
@@ -66,6 +70,7 @@ of the findings below are that gap.
 - **Severity:** S2 (protocol versions gate experiment starts, see J-NBK-05).
 
 ### J-NBK-05 Start an experiment against a protocol whose version is not acknowledged
+
 - **Persona / goal:** Operator ticks "Start the experiment now" with a protocol version selected.
 - **Entry:** `/experiments/new`, hint "Only effective versions can start an experiment." (`routes/experiments/new.tsx:385-387`).
 - **Path:**
@@ -79,6 +84,7 @@ of the findings below are that gap.
 - **Severity:** S2.
 
 ### J-NBK-06 Submit for review from the notebook header
+
 - **Persona / goal:** Author freezes the notebook for review. Variants: a view-only member; an author with unsaved edits.
 - **Entry:** header "Submit" button, then `SubmitNotebookDialog` (`routes/records/$recordId/notebook.tsx:1126-1141`).
 - **Path:**
@@ -92,6 +98,7 @@ of the findings below are that gap.
 - **Severity:** S2.
 
 ### J-NBK-07 Submit under a workflow that needs an authored signature, not certified
+
 - **Persona / goal:** Author submits under a workflow flagged "Authored signature required".
 - **Entry:** `SubmitNotebookDialog` Authored signature fieldset (`submit-notebook-dialog.tsx:456-488`).
 - **Path:**
@@ -105,6 +112,7 @@ of the findings below are that gap.
 - **Severity:** S1 (blocks submission in the regulated workflow).
 
 ### J-NBK-08 Sign from the notebook, signature not certified
+
 - **Persona / goal:** Approved reviewer or approver clicks Sign.
 - **Entry:** Notice "Certification is required before you can sign. Your electronic signature is not certified for this workspace…" (`components/notebook/sign-notebook-dialog.tsx:199-216`; the review page equivalent is `routes/review/$revisionId.tsx:2561-2569`).
 - **Path:**
@@ -119,6 +127,7 @@ of the findings below are that gap.
 - **Severity:** S2.
 
 ### J-NBK-09 Sign blocked because review checks have not passed
+
 - **Persona / goal:** Assigned reviewer, or a witness, wants to sign but checks are missing or failing.
 - **Entry:** Notebook dialog: "Signing requires the revision's review checks to have passed for this digest. Run the checks and resolve any blocking failures before signing." (`components/notebook/sign-notebook-dialog.tsx:187-191`); review page equivalent `routes/review/$revisionId.tsx:2599-2603`.
 - **Path:**
@@ -131,6 +140,7 @@ of the findings below are that gap.
 - **Severity:** S1 (a witnessed signature cannot be completed without out-of-band help).
 
 ### J-NBK-10 Sign dialog with no eligible meaning, or an expired session
+
 - **Persona / goal:** Any user who clicks Sign (shown to everyone once approved or locked) and hits a refusal.
 - **Entry:** `SignNotebookDialog` blocked body, and the step-up error path.
 - **Path:**
@@ -144,6 +154,7 @@ of the findings below are that gap.
 - **Severity:** S2.
 
 ### J-NBK-11 Review actions disabled, or the revision was superseded
+
 - **Persona / goal:** Reviewer or author on `/review/$revisionId` who cannot Approve, Reject, Request changes or Withdraw.
 - **Entry:** disabled decision buttons; banners "You do not have permission to act on this review." and "This revision has been superseded by a newer submission. No review actions are available." (`routes/review/$revisionId.tsx:1031`, `:1013`).
 - **Path:**
@@ -157,6 +168,7 @@ of the findings below are that gap.
 - **Severity:** S2.
 
 ### J-NBK-12 Reviewer opens an Inbox review item
+
 - **Persona / goal:** Assigned reviewer clicks a "Review requested" row, or a witness request, in `/inbox`.
 - **Entry:** Inbox row Open (`routes/inbox.tsx:125-153`, `:556-587`).
 - **Path:**
@@ -170,6 +182,7 @@ of the findings below are that gap.
 - **Severity:** S3.
 
 ### J-NBK-13 Review returned for changes: author resubmits
+
 - **Persona / goal:** Author whose submission was returned wants to address comments and resubmit.
 - **Entry:** `ReturnedCommentsBanner`: "Returned for changes by {name} · {date} · N comments to resolve before you resubmit" (`routes/review/$revisionId.tsx:1047-1100`).
 - **Path:**
@@ -183,6 +196,7 @@ of the findings below are that gap.
 - **Severity:** S3.
 
 ### J-NBK-14 Edit while offline, reconnect, edits do not sync
+
 - **Persona / goal:** Scientist who edited a block, Sheet row, cell or comment offline and reconnects.
 - **Entry:** Notice "Some edits could not sync" (`components/offline/offline-replay.tsx:119-147`), mounted at `routes/records/$recordId/notebook.tsx:747-751`.
 - **Path:**
@@ -197,6 +211,7 @@ of the findings below are that gap.
 - **Severity:** S1 (user-authored scientific data stuck on the device indefinitely, with held calculations).
 
 ### J-NBK-15 Offline: submit, sign and keep working
+
 - **Persona / goal:** User loses connectivity mid-notebook.
 - **Entry:** `OfflineBanner` "You're offline. Keep working: edits are saved on this device and sync when you reconnect." (`components/offline/offline-banner.tsx:60-68`).
 - **Path:**
@@ -210,6 +225,7 @@ of the findings below are that gap.
 - **Severity:** S3.
 
 ### J-NBK-16 Block save conflict versus block save failure
+
 - **Persona / goal:** Author editing a block whose save is rejected.
 - **Entry:** the footer under the editor, `AutosaveFooter` (`components/notebook/block-editor.tsx:364-400`).
 - **Path:**
@@ -223,6 +239,7 @@ of the findings below are that gap.
 - **Severity:** S2.
 
 ### J-NBK-17 Open an archived notebook
+
 - **Persona / goal:** Owner who opens an archived notebook and wants to edit it.
 - **Entry:** `ArchivedBanner`: "This notebook is archived. It is read-only until restored." (`routes/records/$recordId/notebook.tsx:1486-1500`, mounted `:803`).
 - **Path:**
@@ -239,24 +256,24 @@ of the findings below are that gap.
 
 ## Summary
 
-| ID | Title | Verdict | Severity |
-| --- | --- | --- | --- |
-| J-NBK-01 | Start a new notebook from a template | dead-end | S1 |
-| J-NBK-02 | "New template version" banner on a locked notebook | dead-end | S2 |
-| J-NBK-03 | Publish or retire a template version | partial | S2 |
-| J-NBK-04 | Open a protocol that needs editing or review | dead-end | S2 |
-| J-NBK-05 | Start an experiment against an unacknowledged protocol version | partial | S2 |
-| J-NBK-06 | Submit for review from the notebook header | partial | S2 |
-| J-NBK-07 | Submit under an authored-signature workflow, not certified | partial | S1 |
-| J-NBK-08 | Sign from the notebook, signature not certified | partial | S2 |
-| J-NBK-09 | Sign blocked because review checks have not passed | dead-end | S1 |
-| J-NBK-10 | Sign dialog with no eligible meaning or expired session | dead-end | S2 |
-| J-NBK-11 | Review actions disabled or revision superseded | partial | S2 |
-| J-NBK-12 | Reviewer opens an Inbox review item | partial | S3 |
-| J-NBK-13 | Review returned for changes: author resubmits | complete | S3 |
-| J-NBK-14 | Edit offline, reconnect, edits do not sync | dead-end | S1 |
-| J-NBK-15 | Offline: submit, sign and keep working | complete | S3 |
-| J-NBK-16 | Block save conflict versus block save failure | partial | S2 |
-| J-NBK-17 | Open an archived notebook | dead-end | S2 |
+| ID       | Title                                                          | Verdict  | Severity |
+| -------- | -------------------------------------------------------------- | -------- | -------- |
+| J-NBK-01 | Start a new notebook from a template                           | dead-end | S1       |
+| J-NBK-02 | "New template version" banner on a locked notebook             | dead-end | S2       |
+| J-NBK-03 | Publish or retire a template version                           | partial  | S2       |
+| J-NBK-04 | Open a protocol that needs editing or review                   | dead-end | S2       |
+| J-NBK-05 | Start an experiment against an unacknowledged protocol version | partial  | S2       |
+| J-NBK-06 | Submit for review from the notebook header                     | partial  | S2       |
+| J-NBK-07 | Submit under an authored-signature workflow, not certified     | partial  | S1       |
+| J-NBK-08 | Sign from the notebook, signature not certified                | partial  | S2       |
+| J-NBK-09 | Sign blocked because review checks have not passed             | dead-end | S1       |
+| J-NBK-10 | Sign dialog with no eligible meaning or expired session        | dead-end | S2       |
+| J-NBK-11 | Review actions disabled or revision superseded                 | partial  | S2       |
+| J-NBK-12 | Reviewer opens an Inbox review item                            | partial  | S3       |
+| J-NBK-13 | Review returned for changes: author resubmits                  | complete | S3       |
+| J-NBK-14 | Edit offline, reconnect, edits do not sync                     | dead-end | S1       |
+| J-NBK-15 | Offline: submit, sign and keep working                         | complete | S3       |
+| J-NBK-16 | Block save conflict versus block save failure                  | partial  | S2       |
+| J-NBK-17 | Open an archived notebook                                      | dead-end | S2       |
 
 Counts: complete 2, partial 8, dead-end 7. Severity: S1 x4 (01, 07, 09, 14), S2 x10, S3 x3.

@@ -1,34 +1,54 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
-import { Select } from '#/components/v3/ui/select'
 import { ParametersEditor } from '#/components/v3/pipelines/parameters-editor'
+import {
+  PythonPackagesEditor,
+  PythonStepEditor,
+} from '#/components/v3/pipelines/python-editor'
+import { SqlEditor } from '#/components/v3/pipelines/sql-editor'
 import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
+import { InputsEditor } from '#/components/v3/pipelines/inputs-editor'
+import { OutputEditor } from '#/components/v3/pipelines/output-editor'
+import { RunDialog } from '#/components/v3/pipelines/run-dialog'
+import type { RunDetails } from '#/components/v3/pipelines/run-dialog'
+import { TrialPanel } from '#/components/v3/pipelines/trial-panel'
+import type {
+  OutputDraft,
+  OutputMode,
+} from '#/components/v3/pipelines/output-editor'
 import {
   draftVersion,
-  usePipelineOutputTargets,
+  usePythonRuntime,
+  useDefinitionRuns,
+  usePipelineDefinition,
   usePipelineVersions,
   useWorkspaceMemberNames,
 } from '#/components/v3/pipelines/pipelines-data'
-import {
-  INPUT_NAME_RE,
-  MAX_INPUTS,
-  validatePipelineConfig,
-} from '#/lib/pipelines/config'
+import { validatePipelineConfig } from '#/lib/pipelines/config'
+import { readResultPreview } from '#/lib/pipelines/result-preview'
 import type {
   PipelineInput,
   PipelineParameter,
   PipelineStep,
 } from '#/lib/pipelines/config'
+import { statementForLanguage } from '#/lib/pipelines/authoring'
+import { unmetRequirements } from '#/lib/pipelines/python'
+import type { PythonContract } from '#/lib/pipelines/python'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { tryPipelineDraft } from '#/lib/pipelines/data'
+import type {
+  PipelineDefinitionVersionWire,
+  PipelineTrialWire,
+} from '#/lib/pipelines/types'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (RM-125): the pipeline Steps editor. Edits the stored configuration
@@ -48,22 +68,26 @@ export const Route = createFileRoute('/pipelines/$pipelineId/steps')({
   component: PipelineSteps,
 })
 
-type OutputMode = 'create' | 'append' | 'none'
-
 interface PipelineConfiguration {
   configVersion?: number
   description?: string | null
   parameters?: PipelineParameter[]
   steps?: PipelineStep[]
   inputs?: PipelineInput[]
-  transform?: { language?: string; statement?: string }
+  transform?: {
+    language?: string
+    statement?: string
+    contract?: PythonContract
+  }
+  pythonRuntime?: string
+  pythonRequirements?: string[]
   output?: {
     mode?: OutputMode
     schemaVersionId?: string
     datasetId?: string
     datasetName?: string
     datasetLabel?: string
-    fieldMapping?: unknown
+    fieldMapping?: Record<string, string> | null
   }
 }
 
@@ -75,6 +99,8 @@ const EDITED_CONFIG_FIELDS = [
   'inputs',
   'transform',
   'output',
+  'pythonRuntime',
+  'pythonRequirements',
 ] as const
 
 function PipelineSteps() {
@@ -91,6 +117,11 @@ function PipelineSteps() {
 
   const [description, setDescription] = useState('')
   const [statement, setStatement] = useState('')
+  const [language, setLanguage] = useState('sql')
+  const [transformContract, setTransformContract] = useState<
+    PythonContract | undefined
+  >()
+  const [requirements, setRequirements] = useState<string[]>([])
   const [datasetName, setDatasetName] = useState('')
   const [inputs, setInputs] = useState<PipelineInput[]>([])
   const [parameters, setParameters] = useState<PipelineParameter[]>([])
@@ -100,13 +131,22 @@ function PipelineSteps() {
   const [schemaVersionId, setSchemaVersionId] = useState('')
   const [datasetId, setDatasetId] = useState('')
   const [datasetLabel, setDatasetLabel] = useState('')
-  const targets = usePipelineOutputTargets()
+  const [fieldMapping, setFieldMapping] = useState<Record<
+    string,
+    string
+  > | null>(null)
+  const definition = usePipelineDefinition(pipelineId)
+  const runs = useDefinitionRuns(list)
+  const transformRef = useRef<HTMLTextAreaElement>(null)
 
   const sourceId = source?.id
   const sourceConfig = (source?.configuration ?? {}) as PipelineConfiguration
   useEffect(() => {
     setDescription(sourceConfig.description ?? '')
     setStatement(sourceConfig.transform?.statement ?? '')
+    setLanguage(sourceConfig.transform?.language ?? 'sql')
+    setTransformContract(sourceConfig.transform?.contract)
+    setRequirements(sourceConfig.pythonRequirements ?? [])
     setDatasetName(sourceConfig.output?.datasetName ?? '')
     setInputs(sourceConfig.inputs ?? [])
     setParameters(sourceConfig.parameters ?? [])
@@ -115,31 +155,59 @@ function PipelineSteps() {
     setSchemaVersionId(sourceConfig.output?.schemaVersionId ?? '')
     setDatasetId(sourceConfig.output?.datasetId ?? '')
     setDatasetLabel(sourceConfig.output?.datasetLabel ?? '')
+    setFieldMapping(sourceConfig.output?.fieldMapping ?? null)
   }, [
     sourceId,
     sourceConfig.description,
     sourceConfig.transform?.statement,
+    sourceConfig.transform?.language,
+    sourceConfig.transform?.contract,
+    sourceConfig.pythonRequirements,
     sourceConfig.output?.datasetName,
     sourceConfig.output?.mode,
     sourceConfig.output?.schemaVersionId,
     sourceConfig.output?.datasetId,
     sourceConfig.output?.datasetLabel,
+    sourceConfig.output?.fieldMapping,
     sourceConfig.inputs,
     sourceConfig.parameters,
     sourceConfig.steps,
   ])
 
+  // A saved version pins the immutable Python image it was written against, so
+  // the editor supplies it: the one installed now, or the version's existing pin
+  // when the runner cannot be reached.
+  const runtime = usePythonRuntime()
+  const usesPython =
+    language === 'python' || extraSteps.some((s) => s.language === 'python')
+  const pythonRuntime = usesPython
+    ? runtime.data?.available
+      ? runtime.data.runtime
+      : sourceConfig.pythonRuntime
+    : undefined
+  const pythonUnavailable =
+    usesPython && !pythonRuntime && !runtime.isLoading
+      ? (runtime.data?.message ??
+        'Python is not available yet. Ask your administrator to connect a Python runner.')
+      : null
+
   const builtConfig = useMemo<PipelineConfiguration>(
     () => ({
       ...sourceConfig,
+      pythonRuntime,
+      pythonRequirements:
+        usesPython && requirements.length ? requirements : undefined,
       configVersion: sourceConfig.configVersion ?? 1,
       description: description.trim() || null,
       parameters,
       ...(extraSteps.length ? { steps: extraSteps } : { steps: undefined }),
       inputs,
       transform: {
-        language: sourceConfig.transform?.language ?? 'sql',
+        language,
         statement: statement.trim(),
+        ...(language === 'python' && transformContract
+          ? { contract: transformContract }
+          : {}),
       },
       output: {
         ...(sourceConfig.output ?? {}),
@@ -149,10 +217,16 @@ function PipelineSteps() {
           outputMode === 'create' ? schemaVersionId || undefined : undefined,
         datasetId: outputMode === 'append' ? datasetId || undefined : undefined,
         datasetLabel: datasetLabel.trim() || undefined,
+        fieldMapping: outputMode === 'none' ? undefined : fieldMapping,
       },
     }),
     [
       sourceConfig,
+      pythonRuntime,
+      usesPython,
+      requirements,
+      transformContract,
+      language,
       description,
       parameters,
       extraSteps,
@@ -163,6 +237,7 @@ function PipelineSteps() {
       schemaVersionId,
       datasetId,
       datasetLabel,
+      fieldMapping,
     ],
   )
 
@@ -171,17 +246,90 @@ function PipelineSteps() {
   // round-trip. Only the keys this page edits are shown; the server stays
   // authoritative for the rest.
   const configErrors = useMemo(
-    () =>
-      validatePipelineConfig(builtConfig).filter((error) =>
+    () => [
+      ...validatePipelineConfig(builtConfig).filter((error) =>
         EDITED_CONFIG_FIELDS.some(
           (field) =>
-            error.field === field || error.field.startsWith(`${field}.`),
+            error.field === field ||
+            error.field.startsWith(`${field}.`) ||
+            error.field.startsWith(`${field}[`),
         ),
       ),
-    [builtConfig],
+      // The runner only ever has the packages baked into its image, so a
+      // declaration it cannot meet is caught here rather than at the first run.
+      ...(usesPython && runtime.data?.packages
+        ? unmetRequirements(requirements, runtime.data.packages).map(
+            (message) => ({
+              code: 'invalid_value' as const,
+              field: 'pythonRequirements',
+              message,
+            }),
+          )
+        : []),
+    ],
+    [builtConfig, usesPython, requirements, runtime.data?.packages],
   )
 
-  const canSave = statement.trim().length > 0 && configErrors.length === 0
+  const canSave =
+    statement.trim().length > 0 &&
+    configErrors.length === 0 &&
+    !pythonUnavailable
+  const outputDraft: OutputDraft = {
+    mode: outputMode,
+    datasetName,
+    schemaVersionId,
+    datasetId,
+    datasetLabel,
+    fieldMapping,
+  }
+  const updateOutput = (patch: Partial<OutputDraft>) => {
+    if (patch.mode !== undefined) {
+      setOutputMode(patch.mode)
+      // A new dataset starts with the pipeline's own name and a label to match.
+      if (patch.mode !== 'none' && !datasetLabel.trim()) {
+        setDatasetLabel(definition.data?.name ?? '')
+      }
+      if (patch.mode === 'create' && !datasetName.trim()) {
+        setDatasetName(definition.data?.name ?? '')
+      }
+    }
+    if (patch.datasetName !== undefined) setDatasetName(patch.datasetName)
+    if (patch.schemaVersionId !== undefined)
+      setSchemaVersionId(patch.schemaVersionId)
+    if (patch.datasetId !== undefined) setDatasetId(patch.datasetId)
+    if (patch.datasetLabel !== undefined) setDatasetLabel(patch.datasetLabel)
+    if (patch.fieldMapping !== undefined) setFieldMapping(patch.fieldMapping)
+  }
+  // Errors the contract reports for the output, shown beside their control.
+  const outputErrors = useMemo(() => {
+    const byField: Record<string, string> = {}
+    for (const error of configErrors) {
+      if (error.field.startsWith('output.')) {
+        byField[error.field.slice('output.'.length)] ??= error.message
+      }
+    }
+    return byField
+  }, [configErrors])
+  // The columns of the newest successful run: suggestions and a fit check.
+  const lastResultColumns = useMemo(() => {
+    for (const run of runs.data ?? []) {
+      if (run.status !== 'succeeded') continue
+      const preview = readResultPreview(run.result)
+      if (preview) return preview.columns
+    }
+    return []
+  }, [runs.data])
+  // Put a column reference into the SQL where the cursor is.
+  const insertIntoTransform = (text: string) => {
+    const el = transformRef.current
+    const start = el?.selectionStart ?? statement.length
+    const end = el?.selectionEnd ?? statement.length
+    setStatement(statement.slice(0, start) + text + statement.slice(end))
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(start + text.length, start + text.length)
+    })
+  }
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
@@ -207,6 +355,54 @@ function PipelineSteps() {
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : 'Couldn’t save it.'),
   })
+
+  // Try draft: run what is on screen, unsaved, and show the result inline.
+  const [trialDialog, setTrialDialog] = useState(false)
+  const [trialDetails, setTrialDetails] = useState<RunDetails | null>(null)
+  const [trialResult, setTrialResult] = useState<{
+    report: PipelineTrialWire
+    ranWith: string
+  } | null>(null)
+  const configKey = JSON.stringify(builtConfig)
+  const tryDraft = useMutation({
+    mutationFn: (details: RunDetails) =>
+      tryPipelineDraft({
+        workspaceId,
+        configuration: builtConfig,
+        inputVersions: details.inputVersions,
+        parameters: details.parameters,
+      }),
+    onSuccess: (report) => {
+      setTrialDialog(false)
+      setTrialResult({ report, ranWith: configKey })
+    },
+    onError: (error: unknown) => {
+      setTrialDialog(false)
+      toast.error(
+        error instanceof Error ? error.message : 'Couldn’t try the draft.',
+      )
+    },
+  })
+  const startTrial = () => {
+    const { inputs: declared, parameters: declaredParameters } = builtConfig
+    if (!declared?.length && !declaredParameters?.length) {
+      const empty = { inputVersions: {}, parameters: {} }
+      setTrialDetails(empty)
+      tryDraft.mutate(empty)
+      return
+    }
+    setTrialDialog(true)
+  }
+  const submitTrial = (details: RunDetails) => {
+    setTrialDetails(details)
+    tryDraft.mutate(details)
+  }
+  // The dialog reads what the draft declares, not what was last saved.
+  const draftAsVersion = {
+    id: draft?.id ?? 'draft',
+    version: draft?.version ?? 0,
+    configuration: builtConfig,
+  } as unknown as PipelineDefinitionVersionWire
 
   const publish = useMutation({
     mutationFn: () => {
@@ -254,31 +450,84 @@ function PipelineSteps() {
         )}
       </div>
 
-      <Section title="Step">
+      <Section title="Inputs" count={inputs.length}>
+        <InputsEditor
+          inputs={inputs}
+          onChange={setInputs}
+          onInsert={insertIntoTransform}
+        />
+      </Section>
+
+      <Section title="Parameters" count={parameters.length}>
+        <ParametersEditor parameters={parameters} onChange={setParameters} />
+      </Section>
+
+      <Section title="Transform">
         <div className="flex flex-col gap-4">
-          <Field label="Description">
+          <Field label="Description" hint="What this pipeline is for.">
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </Field>
-          <Field
-            label="Transform"
-            hint="SQL over the declared inputs. Sheets are read as tables named by the input."
-          >
-            <textarea
-              value={statement}
-              onChange={(e) => setStatement(e.target.value)}
-              rows={6}
-              spellCheck={false}
-              className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
-            />
+          <Field label="Language">
+            <Select
+              aria-label="Transform language"
+              value={language}
+              onChange={(event) => {
+                const next = event.target.value
+                setStatement((current) =>
+                  next === 'sql' || next === 'python'
+                    ? statementForLanguage(current, next, {
+                        inputs,
+                        parameters,
+                      })
+                    : current,
+                )
+                setLanguage(next)
+              }}
+            >
+              <option value="sql">SQL</option>
+              <option value="python">Python</option>
+              {language === 'none' ? <option value="none">None</option> : null}
+            </Select>
           </Field>
+          {language === 'python' ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-label font-medium text-fg">Transform</span>
+              <PythonStepEditor
+                label="Transform"
+                statement={statement}
+                onStatementChange={setStatement}
+                contract={transformContract}
+                onContractChange={setTransformContract}
+                inputs={inputs}
+                parameters={parameters}
+                hasPrevious={false}
+                runtime={runtime.data}
+                requirements={requirements}
+              />
+            </div>
+          ) : (
+            <Field
+              label="Transform"
+              hint="SQL over the declared inputs. Sheets are read as tables named by the input."
+            >
+              <SqlEditor
+                ref={transformRef}
+                aria-label="Transform code"
+                value={statement}
+                onChange={(e) => setStatement(e.target.value)}
+                rows={6}
+              />
+            </Field>
+          )}
+          {pythonUnavailable ? (
+            <Notice tone="bad" title="Python is not available">
+              {pythonUnavailable}
+            </Notice>
+          ) : null}
         </div>
-      </Section>
-
-      <Section title="Parameters" count={parameters.length}>
-        <ParametersEditor parameters={parameters} onChange={setParameters} />
       </Section>
 
       <Section title="Further steps" count={extraSteps.length}>
@@ -286,180 +535,45 @@ function PipelineSteps() {
           steps={extraSteps}
           members={members.data ?? {}}
           onChange={setExtraSteps}
+          python={{
+            runtime: runtime.data,
+            inputs,
+            parameters,
+            requirements,
+            // The transform's result arrives as `previous`, unless there is none.
+            transformRuns: language !== 'none',
+          }}
         />
       </Section>
 
-      <Section title="Inputs" count={inputs.length}>
-        {inputs.length ? (
-          <div className="flex flex-col gap-2">
-            {inputs.map((input, index) => (
-              <div key={index} className="flex flex-wrap items-center gap-2">
-                <Input
-                  className="mono h-8 w-[200px] text-xs"
-                  aria-label={`Input ${index + 1} name`}
-                  placeholder="e.g. readings"
-                  value={input.name}
-                  onChange={(event) =>
-                    setInputs((current) =>
-                      current.map((item, position) =>
-                        position === index
-                          ? { ...item, name: event.target.value }
-                          : item,
-                      ),
-                    )
-                  }
-                />
-                <label className="flex items-center gap-1.5 text-body">
-                  <Checkbox
-                    aria-label={`Input ${index + 1} required`}
-                    checked={input.required}
-                    onCheckedChange={(on) =>
-                      setInputs((current) =>
-                        current.map((item, position) =>
-                          position === index
-                            ? { ...item, required: Boolean(on) }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                  Required
-                </label>
-                <Button
-                  size="sm"
-                  variant="quiet"
-                  aria-label={`Remove input ${index + 1}`}
-                  onClick={() =>
-                    setInputs((current) =>
-                      current.filter((_, position) => position !== index),
-                    )
-                  }
-                >
-                  Remove
-                </Button>
-                {input.name && !INPUT_NAME_RE.test(input.name) ? (
-                  <span role="alert" className="text-label text-danger-text">
-                    Lower-case letters, numbers and _, starting with a letter.
-                  </span>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="m-0 text-label text-fg-muted">No inputs declared.</p>
-        )}
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            icon="plus"
-            disabled={inputs.length >= MAX_INPUTS}
-            onClick={() =>
-              setInputs((current) => [
-                ...current,
-                { name: '', required: false },
-              ])
-            }
-          >
-            Add input
-          </Button>
-          <span className="text-label text-fg-muted">
-            Each input is a table the transform reads by name; up to{' '}
-            {MAX_INPUTS}.
-          </span>
-        </div>
-      </Section>
+      {usesPython ? (
+        <Section title="Python packages" count={requirements.length}>
+          <PythonPackagesEditor
+            requirements={requirements}
+            onChange={setRequirements}
+            runtime={runtime.data}
+          />
+        </Section>
+      ) : null}
 
       <Section title="Output">
-        <div className="flex flex-col gap-4">
-          <Field
-            label="Mode"
-            hint="What the run leaves behind. Keep a dataset to make each successful run write a new Dataset Version."
-          >
-            <Select
-              aria-label="Output mode"
-              value={outputMode}
-              onChange={(event) =>
-                setOutputMode(event.target.value as OutputMode)
-              }
-            >
-              <option value="none">None — keep no dataset output</option>
-              <option value="create">Create a new dataset</option>
-              <option value="append">Append to an existing dataset</option>
-            </Select>
-          </Field>
-          {outputMode === 'create' ? (
-            <>
-              <Field label="Dataset name">
-                <Input
-                  aria-label="Dataset name"
-                  value={datasetName}
-                  onChange={(e) => setDatasetName(e.target.value)}
-                />
-              </Field>
-              <Field
-                label="Dataset schema version"
-                hint="The published schema the new dataset is built from."
-              >
-                <Select
-                  aria-label="Dataset schema version"
-                  value={schemaVersionId}
-                  onChange={(e) => setSchemaVersionId(e.target.value)}
-                >
-                  <option value="">Choose a schema version…</option>
-                  {(targets.data?.schemaVersions ?? []).map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </>
-          ) : null}
-          {outputMode === 'append' ? (
-            <Field
-              label="Dataset"
-              hint="The dataset each run adds a version to."
-            >
-              <Select
-                aria-label="Dataset"
-                value={datasetId}
-                onChange={(e) => setDatasetId(e.target.value)}
-              >
-                <option value="">Choose a dataset…</option>
-                {(targets.data?.datasets ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.displayId ? `${d.displayId} · ${d.name}` : d.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : null}
-          {outputMode !== 'none' ? (
-            <Field
-              label="Dataset version label"
-              hint="Names each version a run writes, for example “Weekly readings”."
-            >
-              <Input
-                aria-label="Dataset version label"
-                value={datasetLabel}
-                onChange={(e) => setDatasetLabel(e.target.value)}
-              />
-            </Field>
-          ) : (
-            <p className="m-0 text-label text-fg-muted">
-              The run keeps its result in the run record only.
-            </p>
-          )}
-          {outputMode !== 'none' && targets.isError ? (
-            <Notice tone="bad" title="Couldn’t load datasets and schemas">
-              The choices above come from the workspace’s datasets.{' '}
-              <Button size="sm" onClick={() => void targets.refetch()}>
-                Try again
-              </Button>
-            </Notice>
-          ) : null}
-        </div>
+        <OutputEditor
+          value={outputDraft}
+          onChange={updateOutput}
+          resultColumns={lastResultColumns}
+          fieldErrors={outputErrors}
+        />
       </Section>
+
+      {trialResult ? (
+        <TrialPanel
+          result={trialResult.report}
+          stale={trialResult.ranWith !== configKey}
+          onTryAgain={() =>
+            trialDetails ? tryDraft.mutate(trialDetails) : startTrial()
+          }
+        />
+      ) : null}
 
       {configErrors.length ? (
         <Notice tone="bad" title="This version cannot be saved yet">
@@ -485,6 +599,13 @@ function PipelineSteps() {
                 ? 'Save as draft'
                 : 'Create draft v1'}
         </Button>
+        <Button
+          icon="play"
+          disabled={tryDraft.isPending || !canSave}
+          onClick={startTrial}
+        >
+          {tryDraft.isPending ? 'Trying…' : 'Try draft'}
+        </Button>
         {draft ? (
           <Button
             disabled={publish.isPending || !canSave}
@@ -502,6 +623,17 @@ function PipelineSteps() {
           Pipeline runs
         </Button>
       </div>
+      {trialDialog ? (
+        <RunDialog
+          trial
+          pipelineName={definition.data?.name ?? 'this pipeline'}
+          version={draftAsVersion}
+          initial={trialDetails ?? undefined}
+          busy={tryDraft.isPending}
+          onClose={() => setTrialDialog(false)}
+          onSubmit={submitTrial}
+        />
+      ) : null}
     </div>
   )
 }

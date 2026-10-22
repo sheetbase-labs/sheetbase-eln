@@ -18,12 +18,40 @@ import { createHash } from 'node:crypto'
 import { handlePipelineWebhook } from '#/lib/pipeline-webhook.server'
 import type { Client } from 'pg'
 import { Client as PgClient } from 'pg'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import {
+  failStuckPipelineRun,
   releaseSettledRunArtefacts,
+  resumePipelineRun,
   runPipelineExecution,
+  tryPipelineDraft,
 } from '#/lib/pipeline-execute.server'
+import { verifyRunManifest } from '#/lib/pipeline-manifest.server'
+import type { RunManifest } from '#/lib/pipeline-manifest.server'
+import {
+  claimPipelineJob,
+  heartbeatPipelineJob,
+  reapAbandonedJobs,
+  runPipelineJobs,
+} from '#/lib/pipeline-queue.server'
+import type {
+  PipelineWorkerDeps,
+  QueueConnection,
+} from '#/lib/pipeline-queue.server'
+import {
+  handlePipelineExecute,
+  handlePipelineManifest,
+  handlePipelineRunState,
+} from '#/lib/pipeline-run-requests.server'
 import type { PipelineExecuteDeps } from '#/lib/pipeline-execute.server'
 import { sweepPipelines } from '#/lib/pipeline-scheduler.server'
 import type {
@@ -31,11 +59,23 @@ import type {
   SchedulerConnection,
 } from '#/lib/pipeline-scheduler.server'
 import {
+  connectTestSandbox,
   prepareTestDatabase,
   setActorJwt,
   TEST_DATABASE,
   testDatabaseName,
 } from './helpers'
+
+// Manifests are signed with a key the deployment supplies; the executor reads it
+// from the environment, so it must exist before the modules above load.
+const signingKey = vi.hoisted(() => {
+  const crypto = process.getBuiltinModule('node:crypto')
+  const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519')
+  process.env.PIPELINE_MANIFEST_SIGNING_KEY = privateKey
+    .export({ type: 'pkcs8', format: 'pem' })
+    .toString()
+  return publicKey.export({ type: 'spki', format: 'pem' }).toString()
+})
 
 const WS = '0e010000-0000-4000-8000-000000000101'
 const OWNER = 'pipeline-owner-a'
@@ -156,9 +196,104 @@ async function makeExecDeps(actorId: string): Promise<{
     deps: {
       getSession: async () => ({ user: { id: actorId } }),
       connect: execConnection(conn),
+      sandbox: connectTestSandbox,
     },
     close: async () => conn.end(),
   }
+}
+
+/** A queue worker wired to the test database, acting as each job's actor. */
+function workerDeps(workerId: string): PipelineWorkerDeps {
+  const execDeps = async (actorId: string) => {
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    return {
+      conn,
+      deps: {
+        getSession: async () => ({ user: { id: actorId } }),
+        connect: async () => ({
+          ...(await execConnection(conn)()),
+          end: async () => conn.end(),
+        }),
+        sandbox: connectTestSandbox,
+      } satisfies PipelineExecuteDeps,
+    }
+  }
+  return {
+    workerId,
+    busyDelaySeconds: 0,
+    connect: async (): Promise<QueueConnection> => {
+      const conn = new PgClient({ connectionString: superuserTestUrl() })
+      await conn.connect()
+      return {
+        query: (text, values) => conn.query(text, values),
+        end: () => conn.end(),
+      }
+    },
+    execute: async (actorId, runId) =>
+      runPipelineExecution(actorId, runId, (await execDeps(actorId)).deps),
+    resume: async (actorId, runId, answer) =>
+      resumePipelineRun(actorId, runId, answer, (await execDeps(actorId)).deps),
+    failRun: async (runId, code, message) =>
+      failStuckPipelineRun(
+        (await execDeps('system')).deps,
+        runId,
+        code,
+        message,
+      ),
+  }
+}
+
+/** Drain the queue the way a worker would. */
+async function processQueue(workerId = 'test-worker'): Promise<number> {
+  return runPipelineJobs(workerDeps(workerId), { concurrency: 2 })
+}
+
+async function startQueuedRun(factor: number): Promise<string> {
+  const owner = await actor(OWNER, WS)
+  const run = await rpc<{ id: string }>(owner, 'start_pipeline_run', {
+    p_workspace_id: WS,
+    p_definition_version_id: pipelineVersionId,
+    p_trigger_kind: 'manual',
+    p_parameters: { factor },
+    p_input_versions: { measurements: inputDatasetVersionId },
+  })
+  return run.id
+}
+
+/**
+ * Model a worker that died mid-run: the run is old and its job's lease lapsed
+ * (a job that is still queued or leased is live, so never stale).
+ */
+async function crashWorker(runId: string): Promise<void> {
+  await migrator.query(
+    `update api.pipeline_runs set started_at = now() - interval '1000 seconds' where id = $1`,
+    [runId],
+  )
+  await migrator.query(
+    `update internal.pipeline_run_jobs
+        set state = 'claimed', claimed_by = 'crashed-worker', attempts = 1,
+            claimed_at = now() - interval '20 minutes',
+            lease_expires_at = now() - interval '10 minutes'
+      where run_id = $1 and state in ('queued', 'claimed')`,
+    [runId],
+  )
+}
+
+async function jobFor(runId: string) {
+  const { rows } = await migrator.query(
+    `select * from internal.pipeline_run_jobs where run_id = $1 order by enqueued_at desc limit 1`,
+    [runId],
+  )
+  return rows[0]
+}
+
+async function runStatus(runId: string): Promise<string> {
+  const { rows } = await migrator.query(
+    'select status from api.pipeline_runs where id = $1',
+    [runId],
+  )
+  return rows[0].status
 }
 
 function schedulerConnection(conn: Client): SchedulerConnection {
@@ -413,7 +548,7 @@ describe('Pipeline execution (AUTO-02)', () => {
     const report = await runPipelineExecution(OWNER, run.id, deps)
     await close()
 
-    expect(report.ok).toBe(true)
+    expect(report, JSON.stringify(report)).toMatchObject({ ok: true })
     expect(report.run?.status).toBe('succeeded')
     expect(report.run?.result).toMatchObject({
       rowCount: 3,
@@ -434,6 +569,173 @@ describe('Pipeline execution (AUTO-02)', () => {
     expect(
       rows.map((r) => Number(r.numeric_value)).sort((a, b) => a - b),
     ).toEqual([20, 40, 80])
+  })
+
+  describe('Try draft', () => {
+    const counts = async () => {
+      const { rows } = await migrator.query(
+        `select (select count(*) from api.pipeline_runs where workspace_id = $1)::int as runs,
+                (select count(*) from api.datasets where workspace_id = $1)::int as datasets,
+                (select count(*) from api.dataset_versions where workspace_id = $1)::int as versions,
+                (select count(*) from api.pipeline_run_logs where workspace_id = $1)::int as logs`,
+        [WS],
+      )
+      return rows[0]
+    }
+
+    it('previews an unsaved configuration and records nothing', async () => {
+      const before = await counts()
+      const { deps, close } = await makeExecDeps(OWNER)
+      const report = await tryPipelineDraft(
+        OWNER,
+        {
+          workspaceId: WS,
+          configuration: pipelineConfig(
+            'SELECT batch, value * {{factor}} AS scaled FROM measurements',
+          ),
+          inputVersions: { measurements: inputDatasetVersionId },
+          parameters: { factor: 3 },
+        },
+        deps,
+      )
+      await close()
+      expect(report, JSON.stringify(report)).toMatchObject({
+        ok: true,
+        wouldWrite: 'create',
+      })
+      if (!report.ok) return
+      expect(report.preview.columns).toEqual(['batch', 'scaled'])
+      expect(report.preview.rowCount).toBe(3)
+      expect(
+        report.preview.rows.map((row) => Number(row[1])).sort((a, b) => a - b),
+      ).toEqual([6, 12, 24])
+      expect(await counts()).toEqual(before)
+    })
+
+    it('names the available columns when the SQL is wrong, still recording nothing', async () => {
+      const before = await counts()
+      const { deps, close } = await makeExecDeps(OWNER)
+      const report = await tryPipelineDraft(
+        OWNER,
+        {
+          workspaceId: WS,
+          configuration: pipelineConfig('SELECT bogus FROM measurements'),
+          inputVersions: { measurements: inputDatasetVersionId },
+          parameters: { factor: 1 },
+        },
+        deps,
+      )
+      await close()
+      expect(report).toMatchObject({
+        ok: false,
+        errorCode: 'transform_failed',
+      })
+      if (!report.ok)
+        expect(report.errorMessage).toMatch(/Available: .*measurements\(/)
+      expect(await counts()).toEqual(before)
+    })
+
+    it('checks the same request a run would, and keeps viewers out', async () => {
+      const { deps, close } = await makeExecDeps(OWNER)
+      const missing = await tryPipelineDraft(
+        OWNER,
+        {
+          workspaceId: WS,
+          configuration: pipelineConfig('SELECT 1 AS x'),
+          inputVersions: {},
+          parameters: { factor: 1 },
+        },
+        deps,
+      )
+      const viewer = await tryPipelineDraft(
+        VIEWER,
+        {
+          workspaceId: WS,
+          configuration: pipelineConfig('SELECT 1 AS x'),
+          inputVersions: { measurements: inputDatasetVersionId },
+          parameters: { factor: 1 },
+        },
+        deps,
+      )
+      await close()
+      expect(missing).toMatchObject({
+        ok: false,
+        errorCode: 'invalid_run_request',
+      })
+      expect(viewer).toMatchObject({
+        ok: false,
+        errorCode: 'workspace_membership_required',
+      })
+    })
+  })
+
+  it('reuses its created Dataset on later runs, adding a Dataset Version each time', async () => {
+    const owner = await actor(OWNER, WS)
+    // Its own pipeline, so the Dataset it creates is not the one other tests
+    // (and the scheduler tests' event triggers) read and write.
+    const definition = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition',
+      {
+        p_workspace_id: WS,
+        p_key: 'reuse_scale_values',
+        p_name: 'Reuse scale values',
+      },
+    )
+    const version = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: definition.id,
+        p_configuration: pipelineConfig(
+          'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+        ),
+      },
+    )
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: version.id,
+    })
+    const runWith = async (factor: number) => {
+      const run = await rpc<{ id: string }>(owner, 'start_pipeline_run', {
+        p_workspace_id: WS,
+        p_definition_version_id: version.id,
+        p_trigger_kind: 'manual',
+        p_parameters: { factor },
+        p_input_versions: { measurements: inputDatasetVersionId },
+      })
+      const { deps, close } = await makeExecDeps(OWNER)
+      const report = await runPipelineExecution(OWNER, run.id, deps)
+      await close()
+      expect(report.run?.status).toBe('succeeded')
+      return report.run!.result as {
+        outputDatasetId: string
+        outputDatasetVersionId: string
+      }
+    }
+    const first = await runWith(5)
+    const second = await runWith(6)
+    expect(second.outputDatasetId).toBe(first.outputDatasetId)
+    expect(second.outputDatasetVersionId).not.toBe(first.outputDatasetVersionId)
+
+    // One Dataset with a Dataset Version per run; the later version also holds
+    // the earlier run's rows (a create output adds rows, like append).
+    const versions = await migrator.query(
+      `select count(*)::int as versions,
+              (select count(*)::int from api.dataset_rows where dataset_id = $1) as rows
+         from api.dataset_versions where dataset_id = $1`,
+      [first.outputDatasetId],
+    )
+    expect(versions.rows[0]).toEqual({ versions: 2, rows: 6 })
+    const datasets = await migrator.query(
+      `select count(distinct o.dataset_id)::int as count
+         from api.pipeline_run_outputs o
+         join api.pipeline_runs r on r.id = o.run_id
+        where r.definition_version_id = $1`,
+      [version.id],
+    )
+    expect(datasets.rows[0].count).toBe(1)
   })
 
   it('replays a prior success idempotently for the same canonical inputs', async () => {
@@ -650,6 +952,49 @@ describe('Pipeline execution (AUTO-02)', () => {
     await close()
     expect(report.ok).toBe(false)
     expect(report.errorCode).toBe('transform_failed')
+    // The failure names the columns the input does have.
+    expect(report.errorMessage).toMatch(
+      /Available: measurements\(batch, value, scaled\)/,
+    )
+  })
+
+  it('keeps a transform that slips past the statement filter inside the sandbox login', async () => {
+    const owner = await actor(OWNER, WS)
+    const def = await rpc<{ id: string }>(owner, 'create_pipeline_definition', {
+      p_workspace_id: WS,
+      p_key: 'sandbox_escape',
+      p_name: 'Sandbox escape',
+    })
+    // A quoted schema name slips past the static filter's schema check; only the
+    // sandbox login stands between this statement and the data.
+    const version = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: def.id,
+        p_configuration: pipelineConfig(
+          `SELECT w.name AS leaked FROM measurements m, "api"."workspaces" w`,
+        ),
+      },
+    )
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: version.id,
+    })
+    const run = await rpc<{ id: string }>(owner, 'start_pipeline_run', {
+      p_workspace_id: WS,
+      p_definition_version_id: version.id,
+      p_trigger_kind: 'manual',
+      p_parameters: { factor: 1 },
+      p_input_versions: { measurements: inputDatasetVersionId },
+    })
+    const { deps, close } = await makeExecDeps(OWNER)
+    const report = await runPipelineExecution(OWNER, run.id, deps)
+    await close()
+    expect(report.ok).toBe(false)
+    expect(report.errorCode).toBe('transform_failed')
+    expect(report.errorMessage).toMatch(/permission denied/)
   })
 
   it('fails a run when an input Dataset Version is missing', async () => {
@@ -901,12 +1246,39 @@ describe('Pipeline execution (AUTO-02)', () => {
       ['aaac0000-0000-4000-8000-000000000001', bulkDatasetId],
     )
 
+    // Its own pipeline: a create output reuses its Dataset, and this output
+    // must not pile its 1,500 rows onto the one the other tests read.
+    const bulkDefinition = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition',
+      {
+        p_workspace_id: WS,
+        p_key: 'bulk_scale_values',
+        p_name: 'Bulk scale values',
+      },
+    )
+    const bulkVersion = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: bulkDefinition.id,
+        p_configuration: pipelineConfig(
+          'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+        ),
+      },
+    )
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: bulkVersion.id,
+    })
+
     const run = await rpc<{ id: string; status: string }>(
       owner,
       'start_pipeline_run',
       {
         p_workspace_id: WS,
-        p_definition_version_id: pipelineVersionId,
+        p_definition_version_id: bulkVersion.id,
         p_trigger_kind: 'manual',
         p_parameters: { factor: 3 },
         p_input_versions: {
@@ -1298,10 +1670,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     // Age the crashed occurrence stale, then sweep normally WITHOUT touching
     // next_run_at: the stale occurrence must be recovered and retried with
     // its own trigger_occurrence_id.
-    await migrator.query(
-      `update api.pipeline_runs set started_at = now() - interval '1000 seconds' where id = $1`,
-      [crashedRunId],
-    )
+    await crashWorker(crashedRunId)
     const deps = await makeSweepDeps(conn)
     expect(await sweepPipelines(deps)).toBeGreaterThanOrEqual(1)
     await conn.end()
@@ -1499,10 +1868,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
 
     // Age the crashed run stale, then sweep normally: the evt occurrence is
     // recovered as a linked retry; no duplicate occurrence is created.
-    await migrator.query(
-      `update api.pipeline_runs set started_at = now() - interval '1000 seconds' where id = $1`,
-      [crashedRunId],
-    )
+    await crashWorker(crashedRunId)
     const deps = await makeSweepDeps(conn)
     await sweepPipelines(deps)
     await conn.end()
@@ -1577,6 +1943,14 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       [failingSchedule.id],
     )
 
+    // A new event trigger starts from the workspace's current change
+    // sequence, so the event below is the first thing it sees.
+    const { rows: startCursor } = await migrator.query(
+      `select last_evaluated_sequence from api.pipeline_schedules where id = $1`,
+      [failingSchedule.id],
+    )
+    expect(startCursor[0].last_evaluated_sequence).not.toBeNull()
+
     const conn = new PgClient({ connectionString: superuserTestUrl() })
     await conn.connect()
     const deps = await makeSweepDeps(conn)
@@ -1587,7 +1961,9 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       `select last_evaluated_sequence from api.pipeline_schedules where id = $1`,
       [failingSchedule.id],
     )
-    expect(cursor[0].last_evaluated_sequence).toBeNull()
+    expect(cursor[0].last_evaluated_sequence).toBe(
+      startCursor[0].last_evaluated_sequence,
+    )
     const { rows: failures } = await migrator.query(
       `select status, attempt from api.pipeline_trigger_failures
         where schedule_id = $1 order by created_at desc limit 1`,
@@ -1675,10 +2051,7 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
     )
     expect(crashed).toHaveLength(1)
     expect(crashed[0].definition_version_id).toBe(v1.id)
-    await migrator.query(
-      `update api.pipeline_runs set started_at = now() - interval '1000 seconds' where id = $1`,
-      [crashed[0].id],
-    )
+    await crashWorker(crashed[0].id)
 
     // Publish V2 (a NEW version) AFTER the crash.
     const v2 = await rpc<{ id: string }>(
@@ -2126,14 +2499,8 @@ describe('Pipeline workflow extensions', () => {
         clients.push(conn)
         return execConnection(conn)()
       },
-      execute: async (user: string, id: string) => {
-        const { deps, close } = await makeExecDeps(user)
-        try {
-          return await runPipelineExecution(user, id, deps)
-        } finally {
-          await close()
-        }
-      },
+      // The run is already queued by the database; the worker executes it.
+      enqueue: async () => {},
     }
     const request = () =>
       new Request(
@@ -2155,15 +2522,21 @@ describe('Pipeline workflow extensions', () => {
       pipelineDefinitionId,
       webhookDeps,
     )
-    expect(first.status).toBe(200)
-    const result = await first.json()
-    expect(result.status).toBe('succeeded')
+    // The webhook answers as soon as the run is queued, without executing it.
+    expect(first.status).toBe(202)
+    const accepted = await first.json()
+    expect(accepted.status).toBe('running')
+    await processQueue()
     const repeated = await handlePipelineWebhook(
       request(),
       pipelineDefinitionId,
       webhookDeps,
     )
-    expect(await repeated.json()).toEqual(result)
+    expect(repeated.status).toBe(200)
+    expect(await repeated.json()).toEqual({
+      runId: accepted.runId,
+      status: 'succeeded',
+    })
   })
 
   it('separates deliberate manual invocations while rejecting changed inputs for the same invocation', async () => {
@@ -2183,5 +2556,429 @@ describe('Pipeline workflow extensions', () => {
     const two = await invoke(`manual:${crypto.randomUUID()}`)
     expect(one.id).not.toBe(two.id)
     await expect(invoke(key, 4)).rejects.toMatchObject({ code: 'SB034' })
+  })
+})
+
+describe('Pipeline run queue (PIPE-EXEC)', () => {
+  beforeEach(async () => {
+    // Earlier suites leave their (already finished) runs' jobs queued.
+    await migrator.query(
+      `update internal.pipeline_run_jobs
+          set state = 'done', finished_at = now(), claimed_by = null, lease_expires_at = null
+        where state in ('queued', 'claimed')`,
+    )
+  })
+
+  it('queues a run in the same transaction that starts it', async () => {
+    const runId = await startQueuedRun(101)
+    const job = await jobFor(runId)
+    expect(job).toMatchObject({
+      kind: 'execute',
+      state: 'queued',
+      attempts: 0,
+      actor_user_id: OWNER,
+      workspace_id: WS,
+    })
+    expect(await runStatus(runId)).toBe('running')
+  })
+
+  it('executes a queued run on a worker and settles the job', async () => {
+    const runId = await startQueuedRun(102)
+    expect(await processQueue()).toBe(1)
+    expect(await runStatus(runId)).toBe('succeeded')
+    expect(await jobFor(runId)).toMatchObject({
+      state: 'done',
+      attempts: 1,
+      claimed_by: null,
+      last_error: null,
+    })
+  })
+
+  it('never hands one job to two workers', async () => {
+    const runIds = await Promise.all(
+      [103, 104, 105, 106, 107, 108].map(startQueuedRun),
+    )
+    const [a, b] = await Promise.all([
+      processQueue('worker-a'),
+      processQueue('worker-b'),
+    ])
+    // Passes over a busy workspace are deferred and counted too.
+    expect(a + b).toBeGreaterThanOrEqual(runIds.length)
+    for (const id of runIds) {
+      expect(await runStatus(id)).toBe('succeeded')
+      expect((await jobFor(id)).attempts).toBe(1)
+    }
+  })
+
+  it('lets another worker take a job whose lease expired, and the first worker lose it', async () => {
+    const runId = await startQueuedRun(109)
+    const conn = await workerDeps('a').connect()
+    const first = await claimPipelineJob(conn, 'worker-a', 60)
+    expect(first?.runId).toBe(runId)
+    // Nothing else is ready while the lease is held.
+    expect(await claimPipelineJob(conn, 'worker-b', 60)).toBeNull()
+    await migrator.query(
+      `update internal.pipeline_run_jobs set lease_expires_at = now() - interval '1 second' where id = $1`,
+      [first!.id],
+    )
+    const second = await claimPipelineJob(conn, 'worker-b', 60)
+    expect(second).toMatchObject({ id: first!.id, attempts: 2 })
+    expect(await heartbeatPipelineJob(conn, first!.id, 'worker-a')).toBe(false)
+    expect(await heartbeatPipelineJob(conn, first!.id, 'worker-b')).toBe(true)
+    await conn.end()
+  })
+
+  it('fails the run visibly when a job is abandoned with no attempts left', async () => {
+    const runId = await startQueuedRun(110)
+    const conn = await workerDeps('a').connect()
+    const job = await claimPipelineJob(conn, 'worker-a', 60)
+    await migrator.query(
+      `update internal.pipeline_run_jobs
+          set attempts = max_attempts, lease_expires_at = now() - interval '1 second'
+        where id = $1`,
+      [job!.id],
+    )
+    expect(await claimPipelineJob(conn, 'worker-b', 60)).toBeNull()
+    expect(await reapAbandonedJobs(conn, workerDeps('b'))).toBe(1)
+    await conn.end()
+    expect(await jobFor(runId)).toMatchObject({ state: 'dead' })
+    const { rows } = await migrator.query(
+      'select status, error_code from api.pipeline_runs where id = $1',
+      [runId],
+    )
+    expect(rows[0]).toEqual({ status: 'failed', error_code: 'worker_lost' })
+  })
+
+  it('retries a worker error with backoff, then abandons and fails the run', async () => {
+    const runId = await startQueuedRun(111)
+    const deps = {
+      ...workerDeps('flaky'),
+      execute: async () => {
+        throw new Error('connection reset')
+      },
+    }
+    expect(await runPipelineJobs(deps)).toBe(1)
+    let job = await jobFor(runId)
+    expect(job).toMatchObject({
+      state: 'queued',
+      attempts: 1,
+      last_error: 'connection reset',
+    })
+    // Backoff: not claimable until its delay has passed.
+    expect(await runPipelineJobs(deps)).toBe(0)
+    for (const attempt of [2, 3]) {
+      await migrator.query(
+        `update internal.pipeline_run_jobs set available_at = now() where id = $1`,
+        [job.id],
+      )
+      expect(await runPipelineJobs(deps)).toBe(1)
+      job = await jobFor(runId)
+      expect(job.attempts).toBe(attempt)
+    }
+    expect(job.state).toBe('dead')
+    const { rows } = await migrator.query(
+      'select status, error_code from api.pipeline_runs where id = $1',
+      [runId],
+    )
+    expect(rows[0]).toEqual({ status: 'failed', error_code: 'job_failed' })
+  })
+
+  it('does not reconcile a long-queued run as stale while its job is live', async () => {
+    const runId = await startQueuedRun(112)
+    await migrator.query(
+      `update api.pipeline_runs set started_at = now() - interval '2 hours' where id = $1`,
+      [runId],
+    )
+    const owner = await actor(OWNER, WS)
+    const again = () =>
+      rpc(owner, 'start_pipeline_run', {
+        p_workspace_id: WS,
+        p_definition_version_id: pipelineVersionId,
+        p_trigger_kind: 'manual',
+        p_parameters: { factor: 112 },
+        p_input_versions: { measurements: inputDatasetVersionId },
+      })
+    await expect(again()).rejects.toMatchObject({ code: 'SB044' })
+    expect(await runStatus(runId)).toBe('running')
+    // With nothing serving the job for over an hour it stops counting as live,
+    // and the original staleness reconciliation frees the run.
+    await migrator.query(
+      `update internal.pipeline_run_jobs set enqueued_at = now() - interval '2 hours' where run_id = $1`,
+      [runId],
+    )
+    await again()
+    const { rows } = await migrator.query(
+      'select status, error_code from api.pipeline_runs where id = $1',
+      [runId],
+    )
+    expect(rows[0]).toEqual({
+      status: 'failed',
+      error_code: 'stale_run_reconciled',
+    })
+  })
+
+  it('queues over HTTP without executing, then reports the run and its job', async () => {
+    const runId = await startQueuedRun(113)
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    const deps = {
+      getSession: async () => ({ user: { id: OWNER } }),
+      connect: async () => ({
+        ...(await execConnection(conn)()),
+        end: async () => {},
+      }),
+      wake: () => {},
+    }
+    const post = (user = OWNER) =>
+      handlePipelineExecute(
+        new Request('http://localhost/api/pipelines/execute', {
+          method: 'POST',
+          body: JSON.stringify({ runId }),
+        }),
+        { ...deps, getSession: async () => ({ user: { id: user } }) },
+      )
+    const queued = await post()
+    expect(queued.status).toBe(202)
+    expect((await queued.json()).status).toBe('running')
+    // Nothing ran inside the request.
+    const logs = await migrator.query(
+      'select count(*)::int as n from api.pipeline_run_logs where run_id = $1',
+      [runId],
+    )
+    expect(logs.rows[0].n).toBe(0)
+    // Posting again is idempotent: still one open job.
+    expect((await post()).status).toBe(202)
+    const open = await migrator.query(
+      `select count(*)::int as n from internal.pipeline_run_jobs
+        where run_id = $1 and state in ('queued', 'claimed')`,
+      [runId],
+    )
+    expect(open.rows[0].n).toBe(1)
+    // A viewer may not queue, and a stranger cannot see the run at all.
+    expect((await post(VIEWER)).status).toBe(422)
+
+    const state = async () =>
+      (
+        await handlePipelineRunState(
+          new Request(`http://localhost/api/pipelines/execute?runId=${runId}`),
+          deps,
+        )
+      ).json()
+    expect(await state()).toMatchObject({
+      run: { status: 'running' },
+      job: { state: 'queued', kind: 'execute' },
+    })
+    await processQueue()
+    expect(await state()).toMatchObject({
+      run: { status: 'succeeded' },
+      job: { state: 'done', attempts: 1 },
+    })
+    expect((await post()).status).toBe(200)
+    await conn.end()
+  })
+})
+
+describe('Pipeline run manifests (PIPE-EXEC)', () => {
+  interface ManifestRow {
+    run_id: string
+    sequence: string
+    manifest: RunManifest
+    manifest_digest: string
+    previous_digest: string | null
+    signature: string | null
+    key_id: string | null
+  }
+  const manifests = async (): Promise<ManifestRow[]> =>
+    (
+      await migrator.query<ManifestRow>(
+        `select m.run_id, m.sequence::text as sequence, m.manifest, m.manifest_digest,
+                m.previous_digest, m.signature, m.key_id
+           from api.pipeline_run_manifests m where m.workspace_id = $1 order by m.sequence`,
+        [WS],
+      )
+    ).rows
+
+  it('records a signed manifest for a succeeded run, in the run transaction', async () => {
+    const runId = await startQueuedRun(201)
+    await processQueue()
+    expect(await runStatus(runId)).toBe('succeeded')
+    const row = (await manifests()).find((m) => m.run_id === runId)!
+    expect(row).toBeDefined()
+    const { manifest } = row
+    expect(manifest).toMatchObject({
+      schema: 'sheetbase.pipeline-run-manifest/1',
+      run: {
+        id: runId,
+        workspaceId: WS,
+        actorUserId: OWNER,
+        triggerKind: 'manual',
+      },
+      definition: {
+        versionId: pipelineVersionId,
+        versionNumber: expect.any(Number),
+      },
+      parameters: { factor: 201 },
+      executor: { sandboxRole: 'pipeline_sandbox' },
+    })
+    // The pinned input, with a digest of exactly the rows the transform saw.
+    expect(manifest.inputs).toHaveLength(1)
+    expect(manifest.inputs[0]).toMatchObject({
+      name: 'measurements',
+      datasetVersionId: inputDatasetVersionId,
+      rowCount: 3,
+    })
+    expect(manifest.inputs[0].contentDigest).toMatch(/^[0-9a-f]{64}$/)
+    // The output is the Dataset Version the run produced, with its row digest.
+    const run = await migrator.query(
+      'select result from api.pipeline_runs where id = $1',
+      [runId],
+    )
+    expect(manifest.outputs).toMatchObject({
+      datasetVersionId: run.rows[0].result.outputDatasetVersionId,
+      rowCount: 3,
+    })
+    expect(manifest.steps).toHaveLength(1)
+    expect(row.key_id).toMatch(/^[0-9a-f]{16}$/)
+    expect(
+      verifyRunManifest(
+        {
+          manifest,
+          manifestDigest: row.manifest_digest,
+          previousDigest: row.previous_digest,
+          signature: row.signature,
+        },
+        signingKey,
+      ),
+    ).toMatchObject({ digestMatches: true, signatureValid: true })
+  })
+
+  it('gives the same pinned input the same digest and different outputs different digests', async () => {
+    await startQueuedRun(202)
+    await startQueuedRun(203)
+    await processQueue()
+    const byFactor = async (factor: string) =>
+      (
+        await migrator.query(
+          `select m.manifest from api.pipeline_run_manifests m
+             join api.pipeline_runs r on r.id = m.run_id
+            where r.parameters->>'factor' = $1`,
+          [factor],
+        )
+      ).rows[0].manifest as RunManifest
+    const [first, second] = await Promise.all([
+      byFactor('202'),
+      byFactor('203'),
+    ])
+    expect(first.inputs[0].contentDigest).toBe(second.inputs[0].contentDigest)
+    expect(first.outputs.contentDigest).not.toBe(second.outputs.contentDigest)
+  })
+
+  it('chains each workspace manifest to the one before it', async () => {
+    await processQueue()
+    const rows = await manifests()
+    expect(rows.length).toBeGreaterThan(2)
+    rows.forEach((row, index) => {
+      expect(Number(row.sequence)).toBe(index + 1)
+      expect(row.previous_digest).toBe(
+        index === 0 ? null : rows[index - 1].manifest_digest,
+      )
+      expect(
+        verifyRunManifest(
+          {
+            manifest: row.manifest,
+            manifestDigest: row.manifest_digest,
+            previousDigest: row.previous_digest,
+            signature: row.signature,
+          },
+          signingKey,
+          index === 0 ? null : rows[index - 1].manifest_digest,
+        ),
+      ).toEqual({ digestMatches: true, signatureValid: true, chainValid: true })
+    })
+  })
+
+  it('cannot be edited, removed or truncated, even by the migration owner', async () => {
+    const [row] = await manifests()
+    await expect(
+      migrator.query(
+        `update api.pipeline_run_manifests set manifest_digest = repeat('0', 64) where run_id = $1`,
+        [row.run_id],
+      ),
+    ).rejects.toMatchObject({ message: /immutable/ })
+    await expect(
+      migrator.query(
+        'delete from api.pipeline_run_manifests where run_id = $1',
+        [row.run_id],
+      ),
+    ).rejects.toMatchObject({ message: /immutable/ })
+    await expect(
+      migrator.query('truncate api.pipeline_run_manifests'),
+    ).rejects.toMatchObject({ message: /immutable/ })
+    // A run that has a manifest cannot be deleted out from under it.
+    await expect(
+      migrator.query('delete from api.pipeline_runs where id = $1', [
+        row.run_id,
+      ]),
+    ).rejects.toBeDefined()
+  })
+
+  it('is readable by the workspace and writable by no application role', async () => {
+    const [row] = await manifests()
+    const member = await actor(MEMBER, WS)
+    const visible = await member.query(
+      'select run_id from api.pipeline_run_manifests where run_id = $1',
+      [row.run_id],
+    )
+    expect(visible.rows).toHaveLength(1)
+    await expect(
+      member.query(
+        `update api.pipeline_run_manifests set signature = null where run_id = $1`,
+        [row.run_id],
+      ),
+    ).rejects.toMatchObject({ code: '42501' })
+    await expect(
+      member.query('delete from api.pipeline_run_manifests'),
+    ).rejects.toMatchObject({ code: '42501' })
+  })
+
+  it('serves the manifest with the key and the server-side verification', async () => {
+    const [row] = await manifests()
+    const conn = new PgClient({ connectionString: superuserTestUrl() })
+    await conn.connect()
+    const get = async (runId: string, user = OWNER) =>
+      handlePipelineManifest(
+        new Request(`http://localhost/api/pipelines/manifest?runId=${runId}`),
+        {
+          getSession: async () => ({ user: { id: user } }),
+          connect: async () => ({
+            ...(await execConnection(conn)()),
+            end: async () => {},
+          }),
+        },
+      )
+    const response = await get(row.run_id)
+    expect(response.status).toBe(200)
+    const body = await response.json()
+    expect(body).toMatchObject({
+      runId: row.run_id,
+      sequence: 1,
+      manifestDigest: row.manifest_digest,
+      keyId: row.key_id,
+      signatureAlgorithm: 'ed25519',
+      verification: {
+        digestMatches: true,
+        signatureValid: true,
+        chainValid: true,
+      },
+    })
+    expect(body.publicKey).toBe(signingKey)
+    // A run that never succeeded has no manifest.
+    const failed = await startQueuedRun(204)
+    await migrator.query(
+      `update internal.pipeline_run_jobs set state = 'done', finished_at = now(), claimed_by = null, lease_expires_at = null where run_id = $1`,
+      [failed],
+    )
+    expect((await get(failed)).status).toBe(404)
+    await conn.end()
   })
 })

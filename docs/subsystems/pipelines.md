@@ -33,7 +33,7 @@ under [ADR-0046](../knowledge/decisions/0046-python-and-eln-pipeline-actions.md)
 | Run                      | `api.pipeline_runs`                | Pins version + parameters + input versions; digest idempotency   |
 | Run log                  | `api.pipeline_run_logs`            | Append-only stage/error log per run                              |
 | Run output               | `api.pipeline_run_outputs`         | Normalized provenance: which Dataset Version a run produced      |
-| Schedule / event trigger | `api.pipeline_schedules`           | interval / daily / dataset-version-created                       |
+| Schedule / event trigger | `api.pipeline_schedules`           | interval / daily / cron / catalogue events                       |
 
 ## Configuration format (v1)
 
@@ -77,6 +77,15 @@ Rules:
   `fieldMapping`. Every non-nullable field must be produced; extra columns
   are rejected rather than silently dropped. Multi-valued fields expose
   their first value in v1 transforms.
+- **A `create` output makes its Dataset once.** The first run creates the
+  Dataset; later runs of the same pipeline add their rows to it and snapshot a
+  new Dataset Version (like `append`, so re-running the same data repeats rows;
+  replace and upsert are not offered yet). The
+  executor finds it by the pipeline's earlier `pipeline_run_outputs`, matching
+  schema version and name, under a lock on the definition. Changing the schema
+  version or the dataset name in a new version starts a new Dataset.
+- **Schema versions are `draft`, `active` or `retired`.** A create output builds
+  from an `active` one.
 
 ## Python, action and webhook configuration
 
@@ -92,6 +101,28 @@ pandas DataFrame. Any Python step requires `pythonRuntime` to contain the exact
 `repository@sha256:...` runtime image. The editor discovers availability from
 `GET /api/pipelines/runtime`; an unavailable or mismatched pin fails closed.
 See the [Python runtime runbook](../operations/pipeline-python.md).
+
+### Python step editor, contract and test-run
+
+A Python step is edited with a starter that shows the `transform` signature,
+inline checks (a missing `transform`, imports of packages the step does not
+declare) and a **Packages** section. `pythonRequirements` pins packages as
+`name==version`. Nothing is installed while a pipeline runs: the runner checks
+the pinned image provides exactly those versions and refuses the run
+otherwise. `GET /api/pipelines/runtime` reports the interpreter and packages the
+image has, which the editor offers as choices.
+
+Each Python step may declare a `contract`: the columns it reads from each input
+and the DataFrame it returns (`text`, `integer`, `decimal`, `boolean`, `date`,
+`timestamp`, `json`, with `nullable` and `additionalColumns`). The worker checks
+inputs before the code runs and outputs after, naming the first few offenders.
+
+**Test run** (`POST /api/pipelines/python-test`, writers only, rate limited)
+runs the unsaved code on pasted or uploaded sample rows in the same isolated
+container. Nothing is stored. The reply carries the rows, inferred columns,
+printed output, the environment and, on failure, the message and line. A real
+run records the same `logs`, `environment` and `line` in its log entry, shown in
+the run view.
 
 `output.mode: "none"` skips Dataset creation and snapshotting. The `actions`
 array contains up to twenty `{ name, operation, arguments }` ELN actions. The
@@ -125,21 +156,34 @@ The optional JSON payload supports the same references and is delivered as
 transaction as the ELN changes. The delivery engine supplies signing, retries,
 rate limits and replay. Receivers must deduplicate by `X-Sheetbase-Event-Id`.
 
-## Execution boundary (AUTO-02)
+## Execution boundary (AUTO-02, hardened by ADR-0056)
 
-SQL steps run server-side (`src/lib/pipeline-execute.server.ts`) inside a
-dedicated **`pipeline_worker`** session role with:
+SQL steps run server-side (`src/lib/pipeline-execute.server.ts`), but the
+untrusted statement never touches the connection that holds the run's
+authority. It runs on its own connection that logs in as **`pipeline_sandbox`**
+(`src/lib/pipeline-sandbox.server.ts`, `PIPELINE_SANDBOX_DATABASE_URL`):
 
-- zero table grants (the transform can only read its own temp tables),
-- a `search_path` pinned to the session temp schema,
-- a fixed `statement_timeout` (60s) and a 100,000-row result cap,
-- static statement validation as defense-in-depth.
+- no table or schema grants and no role memberships, so there is no role to
+  reset to: `set_config('role', ...)` or `RESET ROLE` lands on the same
+  unprivileged login and `SET ROLE authenticated` is refused,
+- not a superuser, no `CREATEROLE`/`CREATEDB`/`BYPASSRLS`, a connection limit,
+  and a `temp_file_limit` that only a superuser can change,
+- a `search_path` pinned to the session temp schema and a 60s
+  `statement_timeout`. A statement can raise its own timeout, so a watchdog on
+  the orchestration side terminates the sandbox backend if a statement outlives
+  its budget,
+- a 100,000-row result cap.
 
-Input Dataset Versions are materialized into session temp tables by the
-trusted application connection; the sandbox role is granted SELECT on exactly
-those tables. Outputs are written with the run actor's JWT claims through the
-**same governed RPCs the browser uses** — `commit_dataset_row_batch` then
-`snapshot_dataset` — never through a second writer.
+Input Dataset Versions are materialized into temp tables by the trusted
+application connection and copied **by value** (as JSON text, so wide integers
+and numerics keep their precision) into the sandbox session, which is discarded
+when the run's steps finish. The static statement checks are authoring feedback
+and defence in depth, not the boundary: a quoted schema name such as
+`"api"."workspaces"` passes them and is stopped by PostgreSQL. A deployment
+without `PIPELINE_SANDBOX_DATABASE_URL` fails SQL steps closed. Outputs are
+written with the run actor's JWT claims through the **same governed RPCs the
+browser uses** — `commit_dataset_row_batch` then `snapshot_dataset` — never
+through a second writer.
 
 ## Run lifecycle
 
@@ -156,19 +200,101 @@ those tables. Outputs are written with the run actor's JWT claims through the
    and dedupe by occurrence: one running + one succeeded run per occurrence,
    and a crashed occurrence (started but never executed) is reconciled by the
    sweep and retried as a linked attempt.
-2. **Execute** — `POST /api/pipelines/execute` runs the transform and
-   completes/fails the run. Cancellation is honoured at the next safe point
-   (`cancel_pipeline_run`); in-flight execution finishes. Only the run actor
-   can finalize a run; the executor re-stamps the run actor's identity after
-   the transform (so the output phase never inherits claims the transform
-   chose) and performs the output Dataset creation through the **canonical
-   RLS-gated writer path** (`authenticated` role, `datasets_insert_writer`
-   policy) — never a privileged second writer. A driver-level query timeout
-   backs up the statement timeout.
+2. **Queue and execute** — every started run is queued in the same
+   transaction that created it (see [Execution queue](#execution-queue)).
+   `POST /api/pipelines/execute` only makes sure the run is queued and answers
+   `202`; a worker executes it and completes or fails the run. Cancellation is
+   honoured at the next safe point (`cancel_pipeline_run`); in-flight execution
+   finishes. Only the run actor can finalize a run; the executor re-stamps the
+   run actor's identity after the transform (so the output phase never inherits
+   claims the transform chose) and performs the output Dataset creation through
+   the **canonical RLS-gated writer path** (`authenticated` role,
+   `datasets_insert_writer` policy) — never a privileged second writer. A
+   driver-level query timeout backs up the statement timeout.
 3. **Record** — succeeded runs carry named action results, queued webhook delivery
    ids, `rowCount`, optional output Dataset/Version ids
    and the output label in `result`; outputs are also normalized in
-   `pipeline_run_outputs` for reverse lookup from Dataset pages.
+   `pipeline_run_outputs` for reverse lookup from Dataset pages. `result` also
+   holds `resultPreview` (the first 50 rows and 40 columns, cells cut at 200
+   characters), so a pipeline with no Dataset output still shows what it
+   computed. A SQL step that names a missing table or column fails with the
+   tables and column keys available to it.
+
+## Try draft
+
+`POST /api/pipelines/try-draft` runs the configuration open in the Steps editor,
+saved or not, against Dataset Versions chosen for that try, and answers with a
+preview of the result (`PipelineTrialWire`). It exists so a mistake in the SQL
+costs nothing: no version has to be saved or published to see what a statement
+does.
+
+It uses the run engine, not a copy of it: the same membership check (workspace
+writers; viewers get `403`), the same configuration and run-request validation,
+the same materialised inputs, the same sandbox login, statement timeout and row
+and cell limits, and the same missing-column hint. It differs only in what it
+leaves out. The work happens in one transaction that is always rolled back, and
+no run row exists, so there is no run, no log row, no output Dataset, no action,
+no notification, no manifest and no Python artefact. A step that waits for a
+person is not paused: the try stops there and shows what that step proposed.
+Because nothing is queued and nobody follows it afterwards, it executes inside
+the request (the person is waiting for the answer) and is rate limited per
+person (30 a minute). The endpoint takes `{ workspaceId, configuration,
+inputVersions, parameters }`.
+
+## Execution queue
+
+Nothing executes inside an HTTP request or a sweep. `internal.pipeline_run_jobs`
+holds one job per started run; a trigger on `api.pipeline_runs` inserts it in the
+same transaction, so a run cannot exist without something that will execute it
+(a closed tab or a restart no longer orphans a run). A decision on a waiting run
+becomes a `resume` job, after the route has checked the decision.
+
+- **Claiming.** Workers (`src/lib/pipeline-queue.server.ts`, started with the
+  server) take the oldest ready job with `FOR UPDATE SKIP LOCKED` under a
+  120s lease that a heartbeat renews. Any number of workers, on any number of
+  replicas, can run at once and never take the same job.
+- **Failure.** A worker that dies stops heartbeating; its lease expires and
+  another worker re-claims the job. Errors that leave the run `running` retry
+  with backoff (10s, 40s, 90s), and after three attempts the job is abandoned and
+  the run is failed (`worker_lost` or `job_failed`) instead of staying `running`.
+- **Staleness.** A run whose job is queued (for under an hour) or leased is not
+  stale however old it is, so the 900s reconciliation no longer fails a run
+  that is merely waiting its turn.
+- **One run per workspace at a time.** Two concurrent output phases in one
+  workspace deadlock on the workspace row, so each run's transaction takes a
+  workspace advisory lock first. A worker that finds the workspace busy defers
+  the job without spending an attempt. Different workspaces run in parallel.
+- **Following a run.** `GET /api/pipelines/execute?runId=` returns the run and
+  its queue state (`queued`, `claimed`, `done`, `dead`); `api.get_pipeline_run_job`
+  does the same over PostgREST. Queued runs keep the run status `running`.
+- **Operating it.** `SHEETBASE_PIPELINE_WORKER=false` keeps a replica from
+  working the queue; `PIPELINE_WORKER_CONCURRENCY` (default 2, max 8) sets how
+  many jobs a worker runs at once. See
+  [Pipeline execution operations](../operations/pipeline-execution.md).
+
+Resumed runs and expiry-applied proposals re-enter the same executor, which is
+idempotent for settled runs, so a re-claimed job is safe.
+
+## Run manifests
+
+A succeeded run writes `api.pipeline_run_manifests` in the transaction that
+completes it (`src/lib/pipeline-manifest.server.ts`): the pinned definition
+version with a digest of its configuration, each input Dataset Version with a
+digest of the exact rows the transform saw, the parameters, the steps (statement
+digests), recorded decisions, and the output Dataset Version with an
+order-independent digest of the rows written. The manifest is hashed (SHA-256
+over canonical JSON), signed with the Ed25519 key in
+`PIPELINE_MANIFEST_SIGNING_KEY` when one is set, and **chained** to the
+workspace's previous manifest. The table is immutable (update, delete and
+truncate are refused) and readable by the workspace.
+
+`GET /api/pipelines/manifest?runId=` returns the manifest, the public key and the
+server's own verification; `node scripts/verify-pipeline-manifest.mjs` re-checks
+the digest, signature and chain link from a saved response alone.
+
+A manifest covers inputs, definition and outputs. It does not capture effects:
+actions and webhooks are recorded by name, and a replay reproduces inputs, not
+side effects. Failed and cancelled runs have no manifest.
 
 ## Trigger reliability
 
@@ -197,25 +323,63 @@ those tables. Outputs are written with the run actor's JWT claims through the
 
 - **Manual** — from the Pipeline definition page (Run/Retry buttons) or from
   a Dataset's Pipelines tab.
-- **Schedule** — interval (every N minutes) or daily (HH:MM in an **explicit
-  IANA time zone**, default UTC — never the server's zone) schedules run the
-  **latest published version** with the schedule's fixed inputs and
-  parameters. Evaluated by the server sweep (`pipeline-scheduler.server.ts`)
-  every 60s; schedule rows are locked only for the start decision so a long
-  run never blocks the next tick.
+- **Schedule** — four kinds: `interval` (every N minutes), `daily` (HH:MM),
+  `cron` (five fields: minute, hour, day of month, month, day of week; 0 and 7
+  are Sunday; when both day fields are restricted either may match) and
+  `event`. The form's weekday, weekly and monthly presets are stored as `cron`.
+  Clock-time kinds run on an **explicit IANA time zone** (default UTC — never
+  the server's zone), so 09:00 stays 09:00 across daylight-saving changes; the
+  form starts on the person's own zone and previews the next three runs.
+  Schedules run the **latest published version**. Evaluated by the server
+  sweep (`pipeline-scheduler.server.ts`) every 60s; schedule rows are locked
+  only for the start decision so a long run never blocks the next tick. The
+  cron maths lives twice, in `src/lib/pipeline-cron.ts` and
+  `api.pipeline_cron_next`, and `tests/db/pipeline-scheduling.test.ts` holds
+  them to the same answers.
+- **Input bindings** — `spec.inputs` says how each pipeline input picks its
+  Dataset Version, per input:
+  - `pinned` — one exact version, every run (what `inputVersions` always did;
+    still read, and `inputs` wins where both name an input);
+  - `latest` — the Dataset's newest version when the run starts;
+  - `incremental` — as `latest`, but the run only happens when the Dataset has
+    a version newer than the last one this trigger ran on. The watermark is
+    `pipeline_schedules.input_watermarks`, moved when the run starts (a failed
+    run is retried on the same inputs, not skipped). With several incremental
+    inputs, a run happens when any has new data. Not offered on event triggers,
+    which already run only on new data.
+    The form defaults new triggers to `latest`: pinning is the opt-in.
+- **Missed runs** — `spec.missedRunPolicy`: `run_once` (default; catch up with
+  one run when a late sweep finds a tick overdue) or `skip` (a tick more than
+  5 minutes late is dropped and the schedule carries on from now). For event
+  triggers the same setting decides what resuming a paused trigger does with
+  events that arrived meanwhile: process them, or ignore them. Pausing never
+  builds a backlog of timed runs; a resumed timed trigger carries on from now.
+  A new tick is also skipped while a run this trigger started earlier is still
+  working.
+- **Activity** — everything a trigger declines to do is written to
+  `api.pipeline_schedule_activity` (`skipped_missed`, `skipped_unchanged`,
+  `skipped_overlap`, `skipped_no_version`, `input_unresolved`, `start_failed`)
+  and shown in the trigger's History beside the runs it started
+  (`pipeline_runs.schedule_id`). A skip that repeats every tick updates one
+  row and counts, rather than writing a row a minute.
+- **Where runs go** — the sweep starts each run through
+  `api.start_pipeline_run` and hands it to `deps.run`; that single seam is where
+  a durable job queue plugs in.
 - **Event** — catalogue event schedules fire when the platform sweep
   observes a matching `change_events` row (optionally filtered to one
   Dataset for `dataset.versioned`). Any stable record/dataset/sheet/review
   event can trigger (`dataset.versioned`, `record.created`, `review.decided`,
   … — see `PIPELINE_TRIGGER_EVENTS` in `src/lib/pipeline-schedule.ts`).
-  Delivery is a polling approximation, but **at-least-once**: the cursor
-  advances only with a durable disposition, failures are recorded in
+  A new event trigger starts at the workspace's current change sequence — it
+  watches what happens from now on and does not replay history. Delivery is a
+  polling approximation, but **at-least-once**: the cursor advances only with a durable disposition, failures are recorded in
   `api.pipeline_trigger_failures` and retried, and abandonment after the
   budget is explicit and visible. Trigger configuration stores the canonical
   catalogue name (wire aliases and the legacy `dataset_version_created`
   spelling are accepted at intake and normalized). Only `dataset.versioned`
   supplies an input version; other events fire with the schedule's
-  configured inputs. See the [event catalogue](../api/event-catalogue.md)
+  configured inputs, and the other inputs follow their bindings (pinned, or
+  the Dataset's latest version when the run starts). See the [event catalogue](../api/event-catalogue.md)
   for the full vocabulary.
 
 ## Incoming webhook triggers
@@ -235,8 +399,34 @@ key return a conflict. A failed run can be retried explicitly from Run history.
 Session-authenticated GET reads settings; same-origin PUT rotates or disables
 the token. No external API credential scopes are widened by this endpoint.
 
+## SDKs and local files
+
+`client.pipelines` (TypeScript) and `client.pipelines` (Python, sync and async)
+list pipelines, versions, runs, logs and outputs with `pipelines:read`, and
+trigger a run through the webhook above using the pipeline's own secret (not the
+API credential). `pipelines:write` saves draft versions through
+`create_pipeline_definition_version` and
+`update_pipeline_definition_version_draft`; both are limited to a personal token,
+so a service credential is refused by the database. Drafts are never published
+or run by the SDK.
+
+`syncStep` / `sync_step` and `sheetbase push-step analysis.py|.ipynb
+--workspace ... --pipeline ... [--step name] [--requirements requirements.txt]
+[--runtime image]` put a local script or notebook (code cells in order, magics
+commented out) into the main transform or a named step of the open draft, or
+start a draft from the latest version. See `sdks/examples/python/push_step.py`.
+
 ## Product integration
 
+- **Authoring** (`/pipelines/$id/steps`): inputs take a description and can show
+  the columns of any example Dataset Version (a click puts one in the SQL); the
+  output is chosen in plain words, lists the columns the schema needs, matches a
+  differently named result column to a field (`fieldMapping`), and checks them
+  against the newest successful run's columns. The run page leads with the
+  result preview and a link to the Dataset and Dataset Version it wrote, or says
+  that nothing was saved.
+- **Agent operations** (`/pipelines/agents`) are **experimental** and outside the
+  v1 scope; the page says so.
 - **Dataset → Pipeline**: the `/datasets` Pipelines tab lists every published
   single-input Pipeline with a Run action pre-filled with the Dataset's
   latest Version id.

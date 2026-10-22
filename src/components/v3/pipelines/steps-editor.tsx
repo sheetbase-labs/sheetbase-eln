@@ -1,10 +1,15 @@
+import { SqlEditor } from '#/components/v3/pipelines/sql-editor'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
+import { PythonStepEditor } from '#/components/v3/pipelines/python-editor'
+import type { PythonRuntimeInfo } from '#/components/v3/pipelines/pipelines-data'
 import { CONFIRM_NO_ANSWER_OUTCOMES } from '#/lib/pipelines/config'
 import type {
   ConfirmNoAnswerOutcome,
+  PipelineInput,
+  PipelineParameter,
   PipelineStep,
 } from '#/lib/pipelines/config'
 import {
@@ -14,6 +19,8 @@ import {
   removeStep,
   setConfirmPatch,
   setStepConfirm,
+  setStepContract,
+  setStepLanguage,
   updateStep,
 } from '#/lib/pipelines/authoring'
 
@@ -32,11 +39,25 @@ export function StepsEditor({
   steps,
   members,
   onChange,
+  python,
 }: {
   steps: PipelineStep[]
   /** User id → display name for the people a confirm can ask. */
   members: Record<string, string>
   onChange: (steps: PipelineStep[]) => void
+  /**
+   * What a Python step needs to be written and tested: the declared inputs and
+   * parameters, the runtime it will be pinned to and the pipeline's packages.
+   * Without it a Python step gets a plain code box.
+   */
+  python?: {
+    runtime?: PythonRuntimeInfo
+    inputs: PipelineInput[]
+    parameters: PipelineParameter[]
+    requirements?: string[]
+    /** Whether the main transform runs, so the first step reads its result. */
+    transformRuns: boolean
+  }
 }) {
   const memberIds = Object.keys(members)
   return (
@@ -71,9 +92,17 @@ export function StepsEditor({
                   value={step.language}
                   onChange={(e) =>
                     onChange(
-                      updateStep(steps, index, {
-                        language: e.target.value as PipelineStep['language'],
-                      }),
+                      setStepLanguage(
+                        steps,
+                        index,
+                        e.target.value as PipelineStep['language'],
+                        {
+                          inputs: python?.inputs ?? [],
+                          parameters: python?.parameters ?? [],
+                          hasPrevious:
+                            index > 0 || (python?.transformRuns ?? false),
+                        },
+                      ),
                     )
                   }
                 >
@@ -108,18 +137,35 @@ export function StepsEditor({
                   Remove
                 </Button>
               </div>
-              <textarea
-                aria-label={`Step ${n} code`}
-                value={step.statement}
-                rows={4}
-                spellCheck={false}
-                onChange={(e) =>
-                  onChange(
-                    updateStep(steps, index, { statement: e.target.value }),
-                  )
-                }
-                className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
-              />
+              {step.language === 'python' && python ? (
+                <PythonStepEditor
+                  label={`Step ${n}`}
+                  statement={step.statement}
+                  onStatementChange={(statement) =>
+                    onChange(updateStep(steps, index, { statement }))
+                  }
+                  contract={step.contract}
+                  onContractChange={(contract) =>
+                    onChange(setStepContract(steps, index, contract))
+                  }
+                  inputs={python.inputs}
+                  parameters={python.parameters}
+                  hasPrevious={index > 0 || python.transformRuns}
+                  runtime={python.runtime}
+                  requirements={python.requirements}
+                />
+              ) : (
+                <SqlEditor
+                  aria-label={`Step ${n} code`}
+                  value={step.statement}
+                  rows={4}
+                  onChange={(e) =>
+                    onChange(
+                      updateStep(steps, index, { statement: e.target.value }),
+                    )
+                  }
+                />
+              )}
               <label className="flex items-center gap-2 text-body">
                 <Checkbox
                   aria-label={`Step ${n} waits for a person`}

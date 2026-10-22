@@ -23,6 +23,7 @@ Standing observations that several journeys rely on:
 ---
 
 ### J-SAM-01 Quarantined sample: "View release basis"
+
 - **Persona / goal:** Scientist or steward who finds a sample in quarantine and needs to know why it cannot be released.
 - **Entry:** Sample detail, amber banner "In quarantine since {date}." (`components/v3/samples/sample-state-banner.tsx:28`, copy from `sample-state.ts:183-192`).
 - **Path:**
@@ -35,6 +36,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S1
 
 ### J-SAM-02 Release refused by release checks
+
 - **Persona / goal:** Scientist who has resolved the quarantine reason and presses "Release…".
 - **Entry:** Header `Release…` (`$sampleId.tsx:406-413`) opens a notes-only dialog (`$sampleId.tsx:529-537`).
 - **Path:**
@@ -47,6 +49,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S1
 
 ### J-SAM-03 Quarantined sample, user cannot release
+
 - **Persona / goal:** Technician, viewer or other non-releasing role who sees a quarantined sample and needs it released.
 - **Entry:** Same banner as J-SAM-01.
 - **Path:**
@@ -58,6 +61,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S2
 
 ### J-SAM-04 Hold limit passed or sample expired
+
 - **Persona / goal:** Scientist who wants to use the remaining volume of a past-hold sample, or tidy it up.
 - **Entry:** Red banner "Hold limit passed on {date} ({n} days at {condition})." or "Expired on {date}." (`sample-state.ts:195-219`).
 - **Path:**
@@ -71,8 +75,9 @@ Standing observations that several journeys rely on:
 - **Severity:** S1
 
 ### J-SAM-05 Sample with no hold date recorded
+
 - **Persona / goal:** Technician registering a time-limited sample who wants hold-time tracking.
-- **Entry:** Detail inspector "Hold time" section: "No hold or expiry date recorded." (`sample-hold-meter.tsx:166-172`); Details tab "Hold limit  —" (`index.tsx:369`).
+- **Entry:** Detail inspector "Hold time" section: "No hold or expiry date recorded." (`sample-hold-meter.tsx:166-172`); Details tab "Hold limit —" (`index.tsx:369`).
 - **Path:**
   1. The Register sample dialog has Project, Name, Type, Quantity, Unit, Storage location only (`routes/samples.tsx:441-497`).
   2. No Edit action exists on detail (`editSample` is uncalled).
@@ -82,6 +87,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S2
 
 ### J-SAM-06 Sample not found or not visible
+
 - **Persona / goal:** User following a shared link, bookmark or ID to a sample.
 - **Entry:** `/samples/<uuid-or-SMP-id>`.
 - **Path:**
@@ -93,6 +99,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S2
 
 ### J-SAM-07 Withdraw button disabled
+
 - **Persona / goal:** Scientist withdrawing volume for an experiment.
 - **Entry:** `Withdraw volume…` on an available sample (`$sampleId.tsx:398-405`, or Usage tab `usage.tsx:259-265`).
 - **Path:**
@@ -106,6 +113,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S2
 
 ### J-SAM-08 Aliquot, derive or split a sample
+
 - **Persona / goal:** Scientist who needs to aliquot a vial into child tubes with their own labels.
 - **Entry:** Dialog field "Into: New container, print label" in the withdraw dialog (`withdraw-dialog.tsx:437-455`).
 - **Path:**
@@ -118,6 +126,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S2
 
 ### J-SAM-09 Registry tab is empty
+
 - **Persona / goal:** Steward checking Quarantine, Reserved or Consumed tabs.
 - **Entry:** `/samples?tab=quarantine` (and others) with no matching rows.
 - **Path:**
@@ -130,6 +139,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S3
 
 ### J-SAM-10 Registry larger than 200 samples
+
 - **Persona / goal:** Technician looking for sample SMP-0301 by ID or name.
 - **Entry:** `/samples`, search box "Search by ID, name, location".
 - **Path:**
@@ -142,6 +152,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S1
 
 ### J-SAM-11 Register sample: no project, or the write fails
+
 - **Persona / goal:** New user registering the first sample.
 - **Entry:** `Register sample` (header, shell command at `components/v3/shell/app-shell.tsx:607`, empty state).
 - **Path:**
@@ -155,6 +166,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S2
 
 ### J-SAM-12 Scan: code not found
+
 - **Persona / goal:** Technician scanning a tube whose label is unknown to the system.
 - **Entry:** `/scan` (Scan label button on Samples and Materials).
 - **Path:**
@@ -168,6 +180,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S2
 
 ### J-SAM-13 Printed label QR code scanned outside the app
+
 - **Persona / goal:** Technician scanning the printed label with a phone camera before using the sample.
 - **Entry:** QR payload `https://<host>/r/<identifier>` (`components/v3/samples/sample-label-card.tsx:12,73`).
 - **Path:**
@@ -180,6 +193,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S1
 
 ### J-SAM-14 "Open" from a lineage row, notebook material block, inbox or home
+
 - **Persona / goal:** User following a link to a child sample or an expiring lot.
 - **Entry:** Lineage row title (`lineage.tsx:143-146`), notebook material "Open" (`components/notebook/block-preview.tsx:560-565`), inbox `material_expiring` (`routes/inbox.tsx:151`), home "Open lot" (`lib/home-quiet.ts:90-94`).
 - **Path:**
@@ -193,6 +207,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S2
 
 ### J-SAM-15 Materials registry empty or lot cannot be received
+
 - **Persona / goal:** Steward setting up inventory, or a user with no project access.
 - **Entry:** `/materials` with no lots in the current tab or in total.
 - **Path:**
@@ -205,6 +220,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S1
 
 ### J-SAM-16 Quarantine a lot, then restore it
+
 - **Persona / goal:** Steward isolating a suspect reagent lot and later reinstating it.
 - **Entry:** Inspector `Quarantine` / `Restore` (`materials.tsx:490-508`).
 - **Path:**
@@ -218,6 +234,7 @@ Standing observations that several journeys rely on:
 - **Severity:** S2
 
 ### J-SAM-17 Withdraw volume from an available sample (control)
+
 - **Persona / goal:** Scientist consuming 50 µL of an available aliquot for an experiment.
 - **Entry:** Sample detail, `Withdraw volume…` (`$sampleId.tsx:398-405`).
 - **Path:**
@@ -243,24 +260,24 @@ Standing observations that several journeys rely on:
 
 ## Summary
 
-| ID | Title | Verdict | Severity |
-| --- | --- | --- | --- |
-| J-SAM-01 | Quarantined sample: "View release basis" | dead-end | S1 |
-| J-SAM-02 | Release refused by release checks | dead-end | S1 |
-| J-SAM-03 | Quarantined sample, user cannot release | partial | S2 |
-| J-SAM-04 | Hold limit passed or sample expired | dead-end | S1 |
-| J-SAM-05 | Sample with no hold date recorded | dead-end | S2 |
-| J-SAM-06 | Sample not found or not visible | dead-end | S2 |
-| J-SAM-07 | Withdraw button disabled | partial | S2 |
-| J-SAM-08 | Aliquot, derive or split a sample | partial | S2 |
-| J-SAM-09 | Registry tab is empty | partial | S3 |
-| J-SAM-10 | Registry larger than 200 samples | dead-end | S1 |
-| J-SAM-11 | Register sample: no project, or the write fails | dead-end | S2 |
-| J-SAM-12 | Scan: code not found | partial | S2 |
-| J-SAM-13 | Printed label QR code scanned outside the app | dead-end | S1 |
-| J-SAM-14 | "Open" from lineage, notebook, inbox or home | dead-end | S2 |
-| J-SAM-15 | Materials registry empty or lot cannot be received | dead-end | S1 |
-| J-SAM-16 | Quarantine a lot, then restore it | partial | S2 |
-| J-SAM-17 | Withdraw volume from an available sample (control) | complete | S3 |
+| ID       | Title                                              | Verdict  | Severity |
+| -------- | -------------------------------------------------- | -------- | -------- |
+| J-SAM-01 | Quarantined sample: "View release basis"           | dead-end | S1       |
+| J-SAM-02 | Release refused by release checks                  | dead-end | S1       |
+| J-SAM-03 | Quarantined sample, user cannot release            | partial  | S2       |
+| J-SAM-04 | Hold limit passed or sample expired                | dead-end | S1       |
+| J-SAM-05 | Sample with no hold date recorded                  | dead-end | S2       |
+| J-SAM-06 | Sample not found or not visible                    | dead-end | S2       |
+| J-SAM-07 | Withdraw button disabled                           | partial  | S2       |
+| J-SAM-08 | Aliquot, derive or split a sample                  | partial  | S2       |
+| J-SAM-09 | Registry tab is empty                              | partial  | S3       |
+| J-SAM-10 | Registry larger than 200 samples                   | dead-end | S1       |
+| J-SAM-11 | Register sample: no project, or the write fails    | dead-end | S2       |
+| J-SAM-12 | Scan: code not found                               | partial  | S2       |
+| J-SAM-13 | Printed label QR code scanned outside the app      | dead-end | S1       |
+| J-SAM-14 | "Open" from lineage, notebook, inbox or home       | dead-end | S2       |
+| J-SAM-15 | Materials registry empty or lot cannot be received | dead-end | S1       |
+| J-SAM-16 | Quarantine a lot, then restore it                  | partial  | S2       |
+| J-SAM-17 | Withdraw volume from an available sample (control) | complete | S3       |
 
 Verdict counts: dead-end 9, partial 7, complete 1.

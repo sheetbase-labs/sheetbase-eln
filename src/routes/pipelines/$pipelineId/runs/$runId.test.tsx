@@ -19,6 +19,7 @@ import type * as pipelineDataModule from '#/components/v3/pipelines/pipelines-da
 import type { PipelineRunDeliveryWire } from '#/components/v3/pipelines/pipelines-data'
 import type * as pipelineLibData from '#/lib/pipelines/data'
 import type {
+  PipelineRunOutputWire,
   PipelineRunPromptWire,
   PipelineRunWire,
 } from '#/lib/pipelines/types'
@@ -31,6 +32,7 @@ interface RunPageState {
   promptsLoading?: boolean
   memberNames: Record<string, string>
   deliveries: PipelineRunDeliveryWire[]
+  outputs: PipelineRunOutputWire[]
   runError: boolean
   refetch: () => void
   versions: Array<{ id: string; version: number; lifecycle?: string }>
@@ -41,6 +43,7 @@ const state = vi.hoisted((): RunPageState => ({
   prompts: [],
   memberNames: {},
   deliveries: [],
+  outputs: [],
   runError: false,
   refetch: () => {},
   versions: [{ id: 'v-1', version: 5 }],
@@ -94,7 +97,10 @@ vi.mock('#/components/v3/pipelines/pipelines-data', async (importOriginal) => ({
     refetch: state.refetch,
   }),
   useRunLogs: () => ({ data: [] }),
-  useRunOutputs: () => ({ data: [] }),
+  useRunOutputs: () => ({ data: state.outputs }),
+  useDatasetNames: () => ({
+    data: { 'ds-1': 'DS-0001 · Viability summary' },
+  }),
   useRunPrompts: () => ({
     data: state.prompts,
     isLoading: state.promptsLoading,
@@ -221,6 +227,7 @@ afterEach(() => {
   state.promptsLoading = undefined
   state.memberNames = {}
   state.deliveries = []
+  state.outputs = []
   state.runError = false
   dataLayer.launch.mockReset()
 })
@@ -514,9 +521,77 @@ describe('the run’s notification deliveries', () => {
   it('still explains a failed run that recorded no error message', () => {
     state.run = run({ status: 'failed' })
     renderRun()
-    expect(screen.getByText('Run failed')).toBeTruthy()
+    expect(screen.getByText('The run failed')).toBeTruthy()
     expect(screen.getByText(/No error message was recorded/)).toBeTruthy()
     expect(screen.getByRole('link', { name: 'See the log' })).toBeTruthy()
+  })
+
+  it('shows the rows a run computed and where they were saved', () => {
+    state.run = run({
+      status: 'succeeded',
+      result: {
+        rowCount: 2,
+        resultPreview: {
+          columns: ['sample', 'viability'],
+          rows: [
+            ['A', 0.91],
+            ['B', null],
+          ],
+          rowCount: 2,
+          truncated: false,
+        },
+      },
+    })
+    state.outputs = [
+      {
+        id: 'out-1',
+        workspace_id: 'ws-1',
+        run_id: 'run-1',
+        dataset_id: 'ds-1',
+        dataset_version_id: 'dv-9',
+        label: 'Weekly viability',
+        created_at: '2026-10-10T09:11:00.000Z',
+      },
+    ]
+    renderRun()
+    expect(screen.getByRole('table', { name: 'Result preview' })).toBeTruthy()
+    expect(screen.getByText('0.91')).toBeTruthy()
+    expect(screen.getByText(/2 rows saved/)).toBeTruthy()
+    expect(screen.getByText('DS-0001 · Viability summary')).toBeTruthy()
+    expect(screen.getByText(/Weekly viability/)).toBeTruthy()
+    expect(screen.getByText('Open dataset')).toBeTruthy()
+  })
+
+  it('says plainly when a succeeded run saved nothing, and still shows the answer', () => {
+    state.run = run({
+      status: 'succeeded',
+      result: {
+        rowCount: 1,
+        resultPreview: {
+          columns: ['n'],
+          rows: [[4]],
+          rowCount: 1,
+          truncated: false,
+        },
+      },
+    })
+    state.outputs = []
+    renderRun()
+    expect(screen.getByText('Nothing was saved.')).toBeTruthy()
+    expect(screen.getByRole('table', { name: 'Result preview' })).toBeTruthy()
+    expect(screen.getByText('Set an output')).toBeTruthy()
+  })
+
+  it('sends a failed SQL run to the editor instead of offering a retry that cannot work', () => {
+    state.run = run({
+      status: 'failed',
+      error_code: 'transform_failed',
+      error_message: 'Transform failed: column "x" does not exist',
+    })
+    renderRun()
+    expect(screen.getByText('The transform could not run')).toBeTruthy()
+    expect(screen.getByText('Edit pipeline')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Retry this run' })).toBeNull()
   })
 
   it('offers no retry for a succeeded run', () => {

@@ -10,6 +10,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './pipelines'
+import type * as notebookDataModule from '#/lib/notebook-data'
 import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
 import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
 
@@ -45,7 +46,8 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children?: ReactNode }) => <a href="#">{children}</a>,
 }))
 
-vi.mock('#/lib/notebook-data', () => ({
+vi.mock('#/lib/notebook-data', async (importOriginal) => ({
+  ...(await importOriginal<typeof notebookDataModule>()),
   notebookDataClient: { list: async () => [] },
 }))
 
@@ -109,6 +111,18 @@ describe('Pipelines list states', () => {
     expect(screen.getAllByRole('button', { name: /New pipeline/ }).length).toBe(
       2,
     )
+  })
+
+  it('suggests the key from the name until the key is typed by hand', async () => {
+    renderList()
+    fireEvent.click(screen.getAllByRole('button', { name: /New pipeline/ })[0])
+    const name = await screen.findByLabelText(/^Name/)
+    const key = screen.getByLabelText<HTMLInputElement>(/^Key/)
+    fireEvent.change(name, { target: { value: 'Viability summary' } })
+    expect(key.value).toBe('viability_summary')
+    fireEvent.change(key, { target: { value: 'my_key' } })
+    fireEvent.change(name, { target: { value: 'Something else' } })
+    expect(key.value).toBe('my_key')
   })
 
   it('counts a waiting run under Needs attention', () => {

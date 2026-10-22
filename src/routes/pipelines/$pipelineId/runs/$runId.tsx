@@ -22,9 +22,6 @@ import {
   Muted,
   PageHeader,
 } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
 import { ProjectListFailure } from '#/components/v3/projects/project-list'
@@ -32,16 +29,23 @@ import { useRunLauncher } from '#/components/v3/pipelines/use-run-launcher'
 import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
 import { AddRunToNotebook } from '#/components/v3/pipelines/add-run-to-notebook'
 import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
+import { RunLog } from '#/components/v3/pipelines/run-log'
+import { RunResult } from '#/components/v3/pipelines/run-result'
+import { explainRunError } from '#/lib/pipelines/run-errors'
 import {
   answerPipelineRunPrompt,
   cancelPipelineRun,
 } from '#/lib/pipelines/data'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
-import { notebookDataClient } from '#/lib/notebook-data'
-import { runCitationLines } from '#/lib/pipelines/run-notebook'
+import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
+import { triggerLabel } from '#/lib/pipeline-schedule-form'
+import { runCitation } from '#/lib/pipelines/run-notebook'
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   pipelineDataQueryKeys,
   readDeliveryIds,
+  useDatasetNames,
+  useRunInputs,
   runDuration,
   runStatus,
   usePipelineDefinition,
@@ -67,31 +71,12 @@ function RunPage() {
   const run = usePipelineRun(runId)
   const logs = useRunLogs(runId)
   const outputs = useRunOutputs(runId)
-  type RunOutput = NonNullable<typeof outputs.data>[number]
-  const outputColumns: RegistryColumn<RunOutput>[] = [
-    { id: 'label', header: 'Label', cell: ({ row }) => row.original.label },
-    {
-      id: 'dataset',
-      header: 'Dataset',
-      cell: ({ row }) => (
-        <Link
-          to="/datasets/$datasetId/snapshots"
-          params={{ datasetId: row.original.dataset_id }}
-        >
-          <span className="mono">{row.original.dataset_id.slice(0, 8)}</span>
-        </Link>
-      ),
-    },
-    {
-      id: 'snapshot',
-      header: 'Snapshot',
-      cell: ({ row }) => (
-        <span className="mono">
-          {row.original.dataset_version_id.slice(0, 8)}
-        </span>
-      ),
-    },
-  ]
+  const datasetNames = useDatasetNames(
+    (outputs.data ?? []).map((o) => o.dataset_id),
+  )
+  const runInputs = useRunInputs(Object.values(run.data?.input_versions ?? {}))
+  // Re-render when the person's time zone is applied or changed.
+  useDisplayTimeZone()
   const prompts = useRunPrompts(runId)
   const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
@@ -229,6 +214,7 @@ function RunPage() {
   }
 
   const status = runStatus(r.status)
+  const guidance = explainRunError(r.error_code)
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -249,8 +235,10 @@ function RunPage() {
             <span className="text-fg">
               <Status tone={status.tone}>{status.label}</Status>
             </span>
-            <span>{r.trigger_kind} trigger</span>
-            <span>Started {r.started_at.slice(0, 16).replace('T', ' ')}</span>
+            <span>Started {triggerLabel(r.trigger_kind).toLowerCase()}</span>
+            <span>
+              Started {formatNotebookDateTime(r.started_at, { zone: true })}
+            </span>
             <span>Took {runDuration(r)}</span>
           </>
         }
@@ -264,7 +252,7 @@ function RunPage() {
                   disabled={launcher.pending}
                   onClick={() =>
                     launcher.launch({
-                      pipelineKey: `run ${r.id.slice(0, 8)}`,
+                      pipelineName: definition.data?.name ?? 'this pipeline',
                       version: currentPublished,
                       rerunOn: r,
                     })
@@ -273,30 +261,63 @@ function RunPage() {
                   Retry on current version (v{currentPublished.version})
                 </Button>
               ) : null}
-              <Button
-                size="sm"
-                icon="play"
-                disabled={!version || launcher.pending}
-                onClick={() =>
-                  version &&
-                  launcher.launch({
-                    pipelineKey: `run ${r.id.slice(0, 8)}`,
-                    version,
-                    retryOf: r,
-                  })
-                }
-              >
-                {canRerunOnCurrent
-                  ? `Retry on v${version?.version ?? ''}`
-                  : 'Retry this run'}
-              </Button>
+              {guidance.fix ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/pipelines/$pipelineId/steps"
+                      params={{ pipelineId }}
+                    />
+                  }
+                >
+                  Edit pipeline
+                </Button>
+              ) : null}
+              {guidance.retryHelps || r.status === 'cancelled' ? (
+                <Button
+                  size="sm"
+                  icon="play"
+                  disabled={!version || launcher.pending}
+                  onClick={() =>
+                    version &&
+                    launcher.launch({
+                      pipelineName: definition.data?.name ?? 'this pipeline',
+                      version,
+                      retryOf: r,
+                    })
+                  }
+                >
+                  {canRerunOnCurrent
+                    ? `Retry on v${version?.version ?? ''}`
+                    : 'Retry this run'}
+                </Button>
+              ) : null}
             </>
           ) : r.status === 'succeeded' ? (
             <AddRunToNotebook
-              lines={runCitationLines(r, {
-                pipelineKey: definition.data?.key ?? pipelineId.slice(0, 8),
+              paragraphs={runCitation(r, {
+                pipeline: {
+                  id: pipelineId,
+                  name: definition.data?.name ?? 'pipeline',
+                },
                 versionNumber: version?.version ?? null,
-                outputs: outputs.data ?? [],
+                inputs: Object.entries(r.input_versions).map(
+                  ([name, versionId]) => ({
+                    name,
+                    datasetVersionId: versionId,
+                    datasetId: runInputs.data?.[versionId]?.datasetId,
+                    datasetName: runInputs.data?.[versionId]?.datasetName,
+                    versionLabel: runInputs.data?.[versionId]?.versionLabel,
+                  }),
+                ),
+                outputs: (outputs.data ?? []).map((output) => ({
+                  label: output.label,
+                  datasetVersionId: output.dataset_version_id,
+                  datasetId: output.dataset_id,
+                  datasetName: datasetNames.data?.[output.dataset_id],
+                })),
               })}
             />
           ) : r.status === 'running' ? (
@@ -331,17 +352,18 @@ function RunPage() {
       />
 
       {r.status === 'failed' ? (
-        <Banner tone="bad" icon="warn" title={r.error_code ?? 'Run failed'}>
-          {r.error_message ??
-            'No error message was recorded for this run. The log below shows how far it got.'}{' '}
+        <Banner tone="bad" icon="warn" title={guidance.title}>
+          {r.error_message
+            ? `${r.error_message.replace(/[.\s]+$/, '')}.`
+            : 'No error message was recorded for this run. The log below shows how far it got.'}{' '}
+          {guidance.hint}{' '}
           <a href="#run-log" className="underline">
             See the log
           </a>
-          . Retry runs it again on the same version with the same inputs
-          {canRerunOnCurrent
-            ? `; Retry on current version uses the same inputs on v${String(currentPublished.version)}`
-            : ''}
           .
+          {canRerunOnCurrent
+            ? ` Retry on current version runs the same inputs on v${String(currentPublished.version)}.`
+            : ''}
         </Banner>
       ) : null}
 
@@ -381,27 +403,14 @@ function RunPage() {
             </Notice>
           ) : null}
 
-          {outputs.data?.length ? (
-            <section>
-              <h2 className="mb-1.5 font-sans text-label font-semibold">
-                Outputs kept
-              </h2>
-              <TableBox>
-                <RegistryGrid
-                  label="Run outputs"
-                  rows={outputs.data}
-                  columns={outputColumns}
-                  getRowId={(o) => o.id}
-                  selectable={false}
-                />
-              </TableBox>
-            </section>
-          ) : (
-            <Notice icon="info">
-              This run kept no dataset snapshot; temporary tables were deleted
-              when it ended.
-            </Notice>
-          )}
+          {r.status === 'succeeded' ? (
+            <RunResult
+              run={r}
+              pipelineId={pipelineId}
+              outputs={outputs.data ?? []}
+              datasetNames={datasetNames.data ?? {}}
+            />
+          ) : null}
 
           <RunDeliveriesPanel
             deliveries={deliveries.data ?? []}
@@ -412,29 +421,7 @@ function RunPage() {
 
           <section id="run-log">
             <h2 className="mb-1.5 font-sans text-label font-semibold">Log</h2>
-            {logs.data?.length ? (
-              <ol className="m-0 flex list-none flex-col gap-1 rounded-md border border-border bg-surface p-3 font-mono text-caption">
-                {logs.data.map((l) => (
-                  <li key={l.id} className="flex gap-2">
-                    <span className="text-fg-muted">{l.at.slice(11, 19)}</span>
-                    <span
-                      className={
-                        l.level === 'error'
-                          ? 'text-danger-text'
-                          : l.level === 'warning'
-                            ? 'text-warning-text'
-                            : undefined
-                      }
-                    >
-                      {l.stage}
-                    </span>
-                    <span>{l.message}</span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <Muted>No log lines recorded.</Muted>
-            )}
+            <RunLog logs={logs.data ?? []} />
           </section>
         </div>
 
@@ -452,9 +439,9 @@ function RunPage() {
               )}
               <Muted className="mt-1.5">
                 {prompt.answered_at
-                  ? `Answered ${prompt.answered_at.slice(0, 16).replace('T', ' ')}`
+                  ? `Answered ${formatNotebookDateTime(prompt.answered_at, { zone: true })}`
                   : prompt.expires_at
-                    ? `Expires ${prompt.expires_at.slice(0, 16).replace('T', ' ')}`
+                    ? `Expires ${formatNotebookDateTime(prompt.expires_at, { zone: true })}`
                     : 'No expiry set.'}
               </Muted>
             </InspectorSection>
@@ -463,10 +450,24 @@ function RunPage() {
             {Object.keys(r.input_versions).length ? (
               <DescriptionList
                 labelWidth={90}
-                items={Object.entries(r.input_versions).map(([k, v]) => [
-                  k,
-                  v.slice(0, 8),
-                ])}
+                items={Object.entries(r.input_versions).map(([k, v]) => {
+                  const info = runInputs.data?.[v]
+                  return [
+                    k,
+                    info ? (
+                      <Link
+                        key={k}
+                        to="/datasets/$datasetId/snapshots"
+                        params={{ datasetId: info.datasetId }}
+                        className="underline"
+                      >
+                        {info.datasetName} · {info.versionLabel}
+                      </Link>
+                    ) : (
+                      v.slice(0, 8)
+                    ),
+                  ]
+                })}
               />
             ) : (
               <Muted>No inputs pinned.</Muted>

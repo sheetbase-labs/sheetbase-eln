@@ -20,17 +20,42 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: {
-    list: async (resource: string) =>
-      resource === 'dataset_versions'
-        ? [
+    list: async (resource: string) => {
+      switch (resource) {
+        case 'dataset_versions':
+          return [
             {
               id: 'dv-1',
               dataset_id: 'ds-1',
+              schema_version_id: 'sv-1',
               label: 'Weekly',
               created_at: '2026-10-01T00:00:00Z',
             },
+            {
+              id: 'dv-2',
+              dataset_id: 'ds-2',
+              schema_version_id: 'sv-2',
+              label: 'Batch 7',
+              created_at: '2026-10-02T00:00:00Z',
+            },
           ]
-        : [{ id: 'ds-1', name: 'Readings', display_id: 'DS-0001' }],
+        case 'dataset_schema_versions':
+          return [
+            { id: 'sv-1', schema_id: 'sch-1' },
+            { id: 'sv-2', schema_id: 'sch-2' },
+          ]
+        case 'dataset_schema_definitions':
+          return [
+            { id: 'sch-1', name: 'Plate reader' },
+            { id: 'sch-2', name: 'Bioreactor' },
+          ]
+        default:
+          return [
+            { id: 'ds-1', name: 'Readings', display_id: 'DS-0001' },
+            { id: 'ds-2', name: 'Run data', display_id: 'DS-0002' },
+          ]
+      }
+    },
   },
 }))
 
@@ -58,7 +83,7 @@ describe('RunDialog', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <RunDialog
-          pipelineKey="glucose_trend"
+          pipelineName="glucose_trend"
           version={version({
             inputs: [{ name: 'readings', required: true }],
             parameters: [
@@ -91,6 +116,83 @@ describe('RunDialog', () => {
       inputVersions: { readings: 'dv-1' },
       parameters: { threshold: 5 },
     })
+  })
+})
+
+describe('RunDialog schema filter', () => {
+  const renderDialog = (inputSchema?: string) =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RunDialog
+          pipelineName="glucose_trend"
+          version={version({
+            inputs: [
+              {
+                name: 'readings',
+                required: true,
+                ...(inputSchema ? { schemaId: inputSchema } : {}),
+              },
+            ],
+          })}
+          busy={false}
+          onClose={() => {}}
+          onSubmit={() => {}}
+        />
+      </QueryClientProvider>,
+    )
+
+  it('offers only Dataset Versions that follow the schema the input declares', async () => {
+    renderDialog('sch-1')
+    const picker = await screen.findByLabelText('Dataset Version for readings')
+    await screen.findByRole('option', { name: /DS-0001 · Readings — Weekly/ })
+    expect(screen.queryByRole('option', { name: /Batch 7/ })).toBeNull()
+    expect(picker).toBeTruthy()
+  })
+
+  it('lets the person widen the list to any schema', async () => {
+    renderDialog('sch-1')
+    await userEvent.selectOptions(
+      await screen.findByLabelText('Schema for readings'),
+      '',
+    )
+    expect(
+      await screen.findByRole('option', {
+        name: /DS-0002 · Run data — Batch 7/,
+      }),
+    ).toBeTruthy()
+  })
+
+  it('shows everything when the input declares no schema', async () => {
+    renderDialog()
+    expect(
+      await screen.findByRole('option', {
+        name: /DS-0001 · Readings — Weekly/,
+      }),
+    ).toBeTruthy()
+    expect(
+      await screen.findByRole('option', {
+        name: /DS-0002 · Run data — Batch 7/,
+      }),
+    ).toBeTruthy()
+  })
+
+  it('says it is a trial, with nothing kept, when trying a draft', async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RunDialog
+          trial
+          pipelineName="glucose_trend"
+          version={version({ inputs: [], parameters: [] })}
+          busy={false}
+          onClose={() => {}}
+          onSubmit={() => {}}
+        />
+      </QueryClientProvider>,
+    )
+    expect(
+      screen.getByText(/Nothing is saved, published or recorded/),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Try draft' })).toBeTruthy()
   })
 })
 

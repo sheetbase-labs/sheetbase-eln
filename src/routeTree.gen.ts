@@ -100,7 +100,10 @@ import { Route as ApiImportReviewRouteImport } from './routes/api/import/review'
 import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parsers/request-update'
 import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
+import { Route as ApiPipelinesManifestRouteImport } from './routes/api/pipelines/manifest'
+import { Route as ApiPipelinesPythonTestRouteImport } from './routes/api/pipelines/python-test'
 import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
+import { Route as ApiPipelinesTryDraftRouteImport } from './routes/api/pipelines/try-draft'
 import { Route as ApiSignaturesStepUpRouteImport } from './routes/api/signatures/step-up'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
 import { Route as DatasetsDatasetIdIndexRouteImport } from './routes/datasets/$datasetId/index'
@@ -631,9 +634,24 @@ const ApiPipelinesExecuteRoute = ApiPipelinesExecuteRouteImport.update({
   path: '/api/pipelines/execute',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPipelinesManifestRoute = ApiPipelinesManifestRouteImport.update({
+  id: '/api/pipelines/manifest',
+  path: '/api/pipelines/manifest',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPipelinesPythonTestRoute = ApiPipelinesPythonTestRouteImport.update({
+  id: '/api/pipelines/python-test',
+  path: '/api/pipelines/python-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPipelinesRuntimeRoute = ApiPipelinesRuntimeRouteImport.update({
   id: '/api/pipelines/runtime',
   path: '/api/pipelines/runtime',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPipelinesTryDraftRoute = ApiPipelinesTryDraftRouteImport.update({
+  id: '/api/pipelines/try-draft',
+  path: '/api/pipelines/try-draft',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSignaturesStepUpRoute = ApiSignaturesStepUpRouteImport.update({
@@ -1129,7 +1147,10 @@ export interface FileRoutesByFullPath {
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
+  '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
+  '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/api/pipelines/try-draft': typeof ApiPipelinesTryDraftRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
@@ -1284,7 +1305,10 @@ export interface FileRoutesByTo {
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
+  '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
+  '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/api/pipelines/try-draft': typeof ApiPipelinesTryDraftRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
@@ -1451,7 +1475,10 @@ export interface FileRoutesById {
   '/api/parsers/request-update': typeof ApiParsersRequestUpdateRoute
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
+  '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
+  '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
+  '/api/pipelines/try-draft': typeof ApiPipelinesTryDraftRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
   '/datasets/$datasetId/rows': typeof DatasetsDatasetIdRowsRoute
@@ -1620,7 +1647,10 @@ export interface FileRouteTypes {
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
     | '/api/pipelines/execute'
+    | '/api/pipelines/manifest'
+    | '/api/pipelines/python-test'
     | '/api/pipelines/runtime'
+    | '/api/pipelines/try-draft'
     | '/api/signatures/step-up'
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
@@ -1775,7 +1805,10 @@ export interface FileRouteTypes {
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
     | '/api/pipelines/execute'
+    | '/api/pipelines/manifest'
+    | '/api/pipelines/python-test'
     | '/api/pipelines/runtime'
+    | '/api/pipelines/try-draft'
     | '/api/signatures/step-up'
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
@@ -1941,7 +1974,10 @@ export interface FileRouteTypes {
     | '/api/parsers/request-update'
     | '/api/parsers/validate'
     | '/api/pipelines/execute'
+    | '/api/pipelines/manifest'
+    | '/api/pipelines/python-test'
     | '/api/pipelines/runtime'
+    | '/api/pipelines/try-draft'
     | '/api/signatures/step-up'
     | '/datasets/$datasetId/compare'
     | '/datasets/$datasetId/rows'
@@ -2075,7 +2111,10 @@ export interface RootRouteChildren {
   ApiParsersRequestUpdateRoute: typeof ApiParsersRequestUpdateRoute
   ApiParsersValidateRoute: typeof ApiParsersValidateRoute
   ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
+  ApiPipelinesManifestRoute: typeof ApiPipelinesManifestRoute
+  ApiPipelinesPythonTestRoute: typeof ApiPipelinesPythonTestRoute
   ApiPipelinesRuntimeRoute: typeof ApiPipelinesRuntimeRoute
+  ApiPipelinesTryDraftRoute: typeof ApiPipelinesTryDraftRoute
   ApiSignaturesStepUpRoute: typeof ApiSignaturesStepUpRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
   ApiCollaborationResolveRoomsRoute: typeof ApiCollaborationResolveRoomsRoute
@@ -2732,11 +2771,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPipelinesExecuteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pipelines/manifest': {
+      id: '/api/pipelines/manifest'
+      path: '/api/pipelines/manifest'
+      fullPath: '/api/pipelines/manifest'
+      preLoaderRoute: typeof ApiPipelinesManifestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pipelines/python-test': {
+      id: '/api/pipelines/python-test'
+      path: '/api/pipelines/python-test'
+      fullPath: '/api/pipelines/python-test'
+      preLoaderRoute: typeof ApiPipelinesPythonTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/pipelines/runtime': {
       id: '/api/pipelines/runtime'
       path: '/api/pipelines/runtime'
       fullPath: '/api/pipelines/runtime'
       preLoaderRoute: typeof ApiPipelinesRuntimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pipelines/try-draft': {
+      id: '/api/pipelines/try-draft'
+      path: '/api/pipelines/try-draft'
+      fullPath: '/api/pipelines/try-draft'
+      preLoaderRoute: typeof ApiPipelinesTryDraftRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/signatures/step-up': {
@@ -3733,7 +3793,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiParsersRequestUpdateRoute: ApiParsersRequestUpdateRoute,
   ApiParsersValidateRoute: ApiParsersValidateRoute,
   ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
+  ApiPipelinesManifestRoute: ApiPipelinesManifestRoute,
+  ApiPipelinesPythonTestRoute: ApiPipelinesPythonTestRoute,
   ApiPipelinesRuntimeRoute: ApiPipelinesRuntimeRoute,
+  ApiPipelinesTryDraftRoute: ApiPipelinesTryDraftRoute,
   ApiSignaturesStepUpRoute: ApiSignaturesStepUpRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,
   ApiCollaborationResolveRoomsRoute: ApiCollaborationResolveRoomsRoute,

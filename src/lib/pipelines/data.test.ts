@@ -1,12 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from '../data-client'
 import {
+  answerPipelineRunPrompt,
   cancelPipelineRun,
   createPipelineDefinition,
   createPipelineDefinitionVersion,
   createPipelineSchedule,
   deletePipelineSchedule,
+  executePipelineRun,
   getPipelineDefinition,
   listPipelineDefinitionVersions,
   listPipelineDefinitions,
@@ -203,5 +205,93 @@ describe('pipeline data client', () => {
       inputName: 'measurements',
       hasParameters: true,
     })
+  })
+})
+
+describe('following a queued run', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  const state = (job: unknown, status = 'running') =>
+    Response.json({ run: { id: 'run-1', status }, job })
+
+  it('queues the run, then polls until its job settles and returns the run', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ id: 'run-1' }, { status: 202 }))
+      .mockResolvedValueOnce(state({ state: 'queued', lastError: null }))
+      .mockResolvedValueOnce(state({ state: 'claimed', lastError: null }))
+      .mockResolvedValueOnce(
+        state({ state: 'done', lastError: null }, 'succeeded'),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    const pending = executePipelineRun('run-1')
+    await vi.runAllTimersAsync()
+    await expect(pending).resolves.toMatchObject({ status: 'succeeded' })
+    expect(fetchMock.mock.calls[0]).toEqual([
+      '/api/pipelines/execute',
+      expect.objectContaining({ method: 'POST' }),
+    ])
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      '/api/pipelines/execute?runId=run-1',
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('reports a job the workers gave up on', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ id: 'run-1' }, { status: 202 }))
+        .mockResolvedValueOnce(
+          Response.json({
+            run: {
+              id: 'run-1',
+              status: 'failed',
+              error_message: 'worker lost',
+            },
+            job: { state: 'dead', lastError: 'gave up' },
+          }),
+        ),
+    )
+    await expect(executePipelineRun('run-1')).rejects.toThrow('worker lost')
+  })
+
+  it('surfaces a refused request without polling', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      Response.json(
+        {
+          error: {
+            code: 'run_not_found',
+            message: 'Pipeline run not found.',
+          },
+        },
+        { status: 404 },
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(executePipelineRun('run-1')).rejects.toThrow(
+      'Pipeline run not found.',
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('follows a decision to the end the same way', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ id: 'run-1' }, { status: 202 }))
+        .mockResolvedValueOnce(
+          state({ state: 'done', lastError: null }, 'succeeded'),
+        ),
+    )
+    await expect(
+      answerPipelineRunPrompt('run-1', { decision: 'confirm' }),
+    ).resolves.toMatchObject({ status: 'succeeded' })
   })
 })

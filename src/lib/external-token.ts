@@ -166,6 +166,13 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
   agent_workflows: { read: 'agent_operations:read' },
   agent_workflow_steps: { read: 'agent_operations:read' },
   agent_workflow_events: { read: 'agent_operations:read' },
+  // Pipelines are readable by API keys: what a definition is, which versions
+  // exist, and what every run did. Run logs can hold what a step printed.
+  pipeline_definitions: { read: 'pipelines:read' },
+  pipeline_definition_versions: { read: 'pipelines:read' },
+  pipeline_runs: { read: 'pipelines:read' },
+  pipeline_run_logs: { read: 'pipelines:read' },
+  pipeline_run_outputs: { read: 'pipelines:read' },
 }
 
 /**
@@ -242,6 +249,11 @@ export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
   advance_agent_workflow: ['agent_operations:write'],
   report_agent_workflow_usage: ['agent_operations:write'],
   cancel_agent_workflow: ['agent_operations:write'],
+
+  // Draft authoring only. A draft is the author's working copy; publishing a
+  // version and starting a run remain human actions in the product.
+  create_pipeline_definition_version: ['pipelines:write'],
+  update_pipeline_definition_version_draft: ['pipelines:write'],
 }
 
 const READ_METHODS = new Set(['GET', 'HEAD'])

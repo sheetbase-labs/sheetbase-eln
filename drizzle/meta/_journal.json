@@ -3240,6 +3240,34 @@
       "when": 1799503577810,
       "tag": "0559_auth_two_factor",
       "breakpoints": true
+    },
+    {
+      "idx": 560,
+      "version": "7",
+      "when": 1799504577810,
+      "tag": "0560_pipeline_run_queue",
+      "breakpoints": true
+    },
+    {
+      "idx": 561,
+      "version": "7",
+      "when": 1799505577810,
+      "tag": "0561_pipeline_run_manifests",
+      "breakpoints": true
+    },
+    {
+      "idx": 562,
+      "version": "7",
+      "when": 1799506577810,
+      "tag": "0562_pipeline_scheduling",
+      "breakpoints": true
+    },
+    {
+      "idx": 563,
+      "version": "7",
+      "when": 1799507577810,
+      "tag": "0563_pipelines_api_scopes",
+      "breakpoints": true
     }
   ]
 }

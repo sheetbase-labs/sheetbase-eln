@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { Banner } from '#/components/v3/ui/alert'
 import { PageHeader } from '#/components/v3/ui/layout'
 import { Tabs } from '#/components/v3/ui/tabs'
 import {
@@ -284,8 +285,11 @@ function AgentsRoute() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
-        trail={[{ label: 'Agents' }]}
-        title="Agents"
+        trail={[
+          { label: 'Pipelines', link: { to: '/pipelines' } },
+          { label: 'Agents' },
+        ]}
+        title="Agents (experimental)"
         meta={
           <>
             <span>{workflows.length} workflows</span>
@@ -326,6 +330,15 @@ function AgentsRoute() {
           />
         }
       />
+      <Banner
+        tone="info"
+        icon="info"
+        title="Experimental, outside the v1 scope."
+      >
+        Agent operations let an automated agent propose changes for a person to
+        approve. The screens and rules may still change, and nothing in
+        pipelines depends on them.
+      </Banner>
       {error instanceof Error ? (
         <p
           role="alert"

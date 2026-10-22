@@ -1,31 +1,32 @@
 /**
  * AUTO-02 — deterministic Pipeline execution (server-side).
  *
- * The transform SQL runs in a dedicated low-privilege `pipeline_worker`
- * session role with zero table grants, a temp-schema-only search_path and a
- * fixed statement timeout. Input Dataset Versions are materialized into
- * session temp tables by the (trusted) application connection first; the
- * transform can only ever see those temp tables and pg_catalog. Outputs land
+ * The transform SQL runs on its own connection that logs in as the
+ * `pipeline_sandbox` role (see ./pipeline-sandbox.server): zero grants, no
+ * role memberships, a temp-schema-only search_path and a statement timeout.
+ * Input Dataset Versions are materialized into session temp tables by the
+ * (trusted) application connection first and copied by value into the
+ * sandbox session; the transform can only ever see those temp tables and
+ * pg_catalog. Outputs land
  * through the canonical governed domain operations — commit_dataset_row_batch
  * and snapshot_dataset — executed with the run actor's JWT claims, exactly
  * like sheet-calculation.server.ts does for composed Sheet reads. The run is
  * started/completed/failed through the same RPC-only surface as the browser.
  *
- * Session model (one dedicated connection per execution, superuser by
- * default, e.g. DATABASE_URL): every governed RPC is SECURITY DEFINER and
- * derives identity from `request.jwt.claims`, so the orchestration stays on
- * the application role with the run actor's claims stamped transaction-locally
- * (`set_config(..., true)`). Only the transform momentarily switches to
- * `pipeline_worker` (`SET LOCAL ROLE` + `SET ROLE NONE` to return to the
- * session user), which needs no privileges beyond reading its own temp
- * tables.
+ * Session model (one orchestration connection per execution, e.g.
+ * DATABASE_URL): every governed RPC is SECURITY DEFINER and derives identity
+ * from `request.jwt.claims`, so the orchestration stays on the application
+ * role with the run actor's claims stamped transaction-locally
+ * (`set_config(..., true)`). Untrusted SQL never touches that connection: it
+ * runs on a second, separately authenticated sandbox connection, so a
+ * statement that resets its role has nowhere more privileged to go.
  *
  * Reproducibility: a run pins its definition version, parameters and input
  * Dataset Version ids. Re-running the same definition version with the same
  * input digest replays the prior success (idempotent); a retry links a new
  * attempt to the failed run.
  */
-import { Client } from 'pg'
+import { buildResultPreview } from '#/lib/pipelines/result-preview'
 import {
   PipelinePythonError,
   executePythonTransform,
@@ -34,10 +35,15 @@ import {
 import type { PythonTransformUsage } from './pipeline-python.server'
 import { queuePipelineNotifications } from './pipeline-notifications.server'
 import { executePipelineActions } from './pipeline-actions.server'
+import { recordRunManifest } from './pipeline-manifest.server'
+import {
+  SandboxSession,
+  SandboxUnavailableError,
+  connectPipelineSandbox,
+} from './pipeline-sandbox.server'
+import type { ConnectSandbox } from './pipeline-sandbox.server'
 import type { QueryResultRow } from 'pg'
 
-import { env } from '#/env.server'
-import { getAppSession } from '#/lib/auth'
 import { metrics, sizeBucketFor } from '#/lib/metrics'
 import type { PipelineStage } from '#/lib/metrics'
 import type { PipelineConfig, PipelineStep } from './pipelines/config'
@@ -49,7 +55,11 @@ import {
   confirmNoAnswerOutcome,
   validateConfirmAnswer,
 } from './pipelines/config'
-import type { PipelineRunWire } from './pipelines/types'
+import type {
+  PipelineRunWire,
+  PipelineTrialLogEntry,
+  PipelineTrialWire,
+} from './pipelines/types'
 import {
   checkTransformStatement,
   substituteParameters,
@@ -65,6 +75,7 @@ import {
 export type PipelineErrorCode =
   | 'workspace_membership_required'
   | 'run_not_found'
+  | 'workspace_busy'
   | 'run_not_running'
   | 'invalid_configuration'
   | 'invalid_run_request'
@@ -127,6 +138,8 @@ export interface PipelineExecuteDeps {
   getSession: (headers: Headers) => Promise<{ user: { id: string } } | null>
   connect: () => Promise<ExecConnection>
   executePython?: typeof executePythonTransform
+  /** Opens the sandbox login connection that runs transform SQL. */
+  sandbox?: ConnectSandbox
 }
 
 interface RunRow {
@@ -147,7 +160,14 @@ interface RunRow {
   version_number: number
   configuration: Record<string, unknown>
   definition_name: string
+  /**
+   * Set for a trial of a draft: nothing is recorded against the run, because
+   * there is none. Log lines are collected here instead of written.
+   */
+  trial?: TrialLogEntry[]
 }
+
+type TrialLogEntry = PipelineTrialLogEntry
 
 interface SchemaFieldRow {
   field_id: string
@@ -223,6 +243,14 @@ export async function runPipelineExecution(
         errorMessage: 'This run is already executing.',
       }
     }
+    if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'workspace_busy',
+        errorMessage: 'Another pipeline in this workspace is running.',
+      }
+    }
     await conn.query('SAVEPOINT sb_pipeline_work')
     workStarted = true
     enforceDeadline = true
@@ -240,7 +268,7 @@ export async function runPipelineExecution(
     })
 
     // Materialize input Dataset Versions into session temp tables. The
-    // pipeline_worker role is granted SELECT on these tables only.
+    // The sandbox session receives copies of these tables, nothing else.
     const materializeStarted = Date.now()
     const materialized = await materializeInputs(conn, run)
     const materializeMs = Date.now() - materializeStarted
@@ -259,11 +287,14 @@ export async function runPipelineExecution(
 
     // Run the transform as the low-privilege role against the temp schema.
     const transformStarted = Date.now()
-    const transform = await executeSteps(
-      conn,
-      run,
-      config,
-      deps.executePython ?? executePythonTransform,
+    const transform = await withSandbox(conn, deps, (sandbox) =>
+      executeSteps(
+        conn,
+        run,
+        config,
+        deps.executePython ?? executePythonTransform,
+        sandbox,
+      ),
     )
     const transformMs = Date.now() - transformStarted
     if (transform.kind === 'cancelled') {
@@ -282,7 +313,13 @@ export async function runPipelineExecution(
     if (transform.kind === 'error') {
       observeStage('transform', transformMs)
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
-      await failRun(conn, run, transform.code, transform.message)
+      await failRun(
+        conn,
+        run,
+        transform.code,
+        transform.message,
+        transform.detail,
+      )
       await conn.commit()
       metrics.pipelineRuns.inc({
         trigger_kind: run.trigger_kind,
@@ -363,93 +400,110 @@ export async function runPipelineExecution(
 }
 
 // ---------------------------------------------------------------------------
-// HTTP route.
+// Try draft — run a configuration that is not saved, published or recorded.
 // ---------------------------------------------------------------------------
 
-export async function handlePipelineExecute(
-  request: Request,
-  deps: PipelineExecuteDeps = defaultDeps,
-): Promise<Response> {
-  const session = await deps.getSession(request.headers)
-  if (!session) {
-    return responseError(401, 'unauthenticated', 'Authentication is required.')
-  }
-  let body: unknown
+export interface PipelineTrialInput {
+  workspaceId: string
+  /** The configuration as the editor holds it: nothing needs to be saved. */
+  configuration: Record<string, unknown>
+  inputVersions: Record<string, string>
+  parameters: Record<string, unknown>
+}
+
+export type PipelineTrialReport = PipelineTrialWire
+
+/**
+ * Run a draft configuration against chosen input Dataset Versions exactly as a
+ * real run would up to the point of writing: same membership check, same
+ * materialised inputs, same sandbox login, timeout and row limits. Then stop.
+ * The whole thing happens in a transaction that is always rolled back, with no
+ * run row, no log rows, no output Dataset, no actions or notifications and no
+ * manifest. A confirm step is not paused for a person: the trial shows what the
+ * step proposed and ends there.
+ */
+export async function tryPipelineDraft(
+  actor: string,
+  input: PipelineTrialInput,
+  deps: PipelineExecuteDeps,
+): Promise<PipelineTrialReport> {
+  const logs: TrialLogEntry[] = []
+  const conn = await deps.connect()
+  const startedAt = Date.now()
+  const fail = (
+    errorCode: PipelineErrorCode,
+    errorMessage: string,
+  ): PipelineTrialReport => ({ ok: false, errorCode, errorMessage, logs })
   try {
-    body = await request.json()
-  } catch {
-    return responseError(
-      400,
-      'invalid_request',
-      'A JSON request body is required.',
+    await conn.begin()
+    await assertMember(conn, input.workspaceId, actor)
+    await setActorClaims(conn, actor, input.workspaceId)
+    const config = parseConfig(input.configuration)
+    const requestErrors = validatePipelineRunRequest(
+      config,
+      input.parameters,
+      input.inputVersions,
     )
-  }
-  const runId =
-    body &&
-    typeof body === 'object' &&
-    'runId' in body &&
-    typeof body.runId === 'string'
-      ? body.runId
-      : null
-  if (!runId || !/^[0-9a-f-]{36}$/i.test(runId)) {
-    return responseError(400, 'invalid_request', 'A valid runId is required.')
-  }
-  // PIPE-02: an answer resumes a waiting run instead of starting it.
-  let answerBody: unknown
-  if (body !== null && typeof body === 'object' && 'answer' in body)
-    answerBody = body.answer
-  const hasAnswer = answerBody !== undefined
-  const report = hasAnswer
-    ? await resumePipelineRun(session.user.id, runId, answerBody, deps)
-    : await runPipelineExecution(session.user.id, runId, deps)
-  if (!report.ok) {
-    const status = !hasAnswer
-      ? report.errorCode === 'run_not_found'
-        ? 404
-        : 422
-      : report.errorCode === 'run_not_found'
-        ? 404
-        : report.errorCode === 'invalid_answer'
-          ? 400
-          : 409
-    return responseError(
-      status,
-      report.errorCode ?? 'execution_failed',
-      report.errorMessage ?? 'Execution failed.',
-    )
-  }
-  return Response.json(report.run)
-}
-
-function responseError(
-  status: number,
-  code: string,
-  message: string,
-): Response {
-  return Response.json({ error: { code, message } }, { status })
-}
-
-const defaultDeps: PipelineExecuteDeps = {
-  getSession: getAppSession,
-  async connect() {
-    const client = new Client({
-      connectionString: env.DATABASE_URL,
-      // Backstop for the transform's statement_timeout: the sandbox role can
-      // reach pg_catalog set_config and disarm the transaction-local GUC
-      // mid-statement, so a driver-level cap bounds every query on the
-      // execution connection. Generous enough for the output phase
-      // (commit + snapshot of up to 100k rows).
-      query_timeout: (EXECUTION_TIMEOUT_SECONDS + 120) * 1000,
-    })
-    await client.connect()
-    return {
-      query: async (text, values = []) => client.query(text, values),
-      begin: () => client.query('BEGIN').then(() => undefined),
-      commit: () => client.query('COMMIT').then(() => undefined),
-      rollback: () => client.query('ROLLBACK').then(() => undefined),
-      end: () => client.end(),
+    if (requestErrors.length > 0) {
+      return fail('invalid_run_request', requestErrors[0].message)
     }
-  },
+    const run: RunRow = {
+      id: randomUuid(),
+      workspace_id: input.workspaceId,
+      definition_version_id: '',
+      trigger_kind: 'manual',
+      status: 'running',
+      attempt: 1,
+      retry_of_run_id: null,
+      trigger_occurrence_id: null,
+      schedule_id: null,
+      input_digest: null,
+      parameters: input.parameters,
+      input_versions: input.inputVersions,
+      actor_user_id: actor,
+      actor_credential_id: null,
+      version_number: 0,
+      configuration: input.configuration,
+      definition_name: 'draft',
+      trial: logs,
+    }
+    const materialized = await materializeInputs(conn, run)
+    await log(conn, run, 'info', 'inputs', 'Inputs read.', {
+      inputs: materialized.map((m) => ({ name: m.name, rows: m.rowCount })),
+    })
+    const outcome = await withSandbox(conn, deps, (sandbox) =>
+      executeSteps(
+        conn,
+        run,
+        config,
+        deps.executePython ?? executePythonTransform,
+        sandbox,
+      ),
+    )
+    if (outcome.kind === 'error') return fail(outcome.code, outcome.message)
+    if (outcome.kind === 'cancelled')
+      return fail('run_cancelled', 'The trial was cancelled.')
+    const waiting = outcome.kind === 'waiting'
+    return {
+      ok: true,
+      ...(waiting
+        ? { stoppedAt: { step: outcome.step.name, reason: 'confirm' as const } }
+        : {}),
+      preview: buildResultPreview(waiting ? outcome.proposal : outcome.rows),
+      logs,
+      durationMs: Date.now() - startedAt,
+      wouldWrite: config.output.mode,
+    }
+  } catch (error) {
+    return fail(
+      error instanceof PipelineStepError ? error.code : 'pipeline_internal',
+      error instanceof Error ? error.message : String(error),
+    )
+  } finally {
+    // A trial leaves nothing behind, whatever happened.
+    await conn.rollback().catch(() => {})
+    await conn.end().catch(() => {})
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -576,6 +630,7 @@ async function finishExecution(
   const completion = {
     actions: actionResults,
     rowCount: transform.rows.length,
+    resultPreview: buildResultPreview(transform.rows),
     // PIPE-04.3: the run's peak measured Python payload usage (omitted when no
     // Python step ran). Stored on the run so the UI can show storage/limits.
     pythonUsage: transform.usage,
@@ -610,6 +665,31 @@ async function finishExecution(
     },
   })
   const finished = await completeRun(conn, run, completion)
+  // The evidence is written in the transaction that completes the run: a run
+  // either succeeds with a manifest or does not succeed. It is written by the
+  // executor itself, not under the request role: the output phase ran as
+  // `authenticated`, which can neither read the materialized temp tables to
+  // digest them nor insert evidence.
+  await conn.query('SET LOCAL ROLE NONE')
+  await recordRunManifest(conn, {
+    run: { ...run, definition_version_id: run.definition_version_id },
+    inputNames: config.inputs.map((input) => input.name),
+    steps: listSteps(config),
+    output: {
+      mode: config.output.mode,
+      datasetId: output.datasetId,
+      datasetVersionId: output.datasetVersionId,
+      label: output.label,
+    },
+    rows: transform.rows,
+    actions: (config.actions ?? []).map((action) => ({
+      name: action.name,
+      operation: action.operation,
+    })),
+    finishedAt: finished?.finished_at
+      ? new Date(finished.finished_at).toISOString()
+      : null,
+  })
   return { ok: true, run: finished }
 }
 
@@ -742,6 +822,85 @@ async function endWaitingRun(
   )
 }
 
+type ResumeCheck =
+  | { ok: false; report: PipelineExecuteReport }
+  | { ok: true; run: RunRow; prompt: PromptRow; config: PipelineConfig }
+
+function refuse(
+  errorCode: PipelineErrorCode,
+  errorMessage: string,
+): { ok: false; report: PipelineExecuteReport } {
+  return { ok: false, report: { ok: false, errorCode, errorMessage } }
+}
+
+/** The checks a decision must pass before it may resume a waiting run. */
+async function checkResumable(
+  conn: ExecConnection,
+  actor: string,
+  runId: string,
+  answer: unknown,
+): Promise<ResumeCheck> {
+  const run = await loadRun(conn, runId)
+  if (!run) return refuse('run_not_found', 'Pipeline run not found.')
+  await assertMember(conn, run.workspace_id, actor)
+  if (run.status !== 'waiting')
+    return refuse('run_not_waiting', 'This run is not waiting for a decision.')
+  const prompt = await loadOpenPrompt(conn, run.id)
+  if (!prompt)
+    return refuse(
+      'prompt_not_found',
+      'No open decision was found for this run.',
+    )
+  if (!prompt.asked_user_ids.includes(actor))
+    return refuse('confirm_not_asked', 'You were not asked to decide this run.')
+  const config = parseConfig(run.configuration)
+  const step = findPipelineConfirmStep(config, prompt.step_id)
+  if (!step?.confirm)
+    return refuse(
+      'invalid_configuration',
+      'The waiting step is not a confirm step in this version.',
+    )
+  const answerError = validateConfirmAnswer(step.confirm, answer)
+  if (answerError) return refuse('invalid_answer', answerError)
+  return { ok: true, run, prompt, config }
+}
+
+/**
+ * Check a decision without recording it, so the route can refuse a bad one
+ * immediately and only queue a resumption that has a chance to apply.
+ */
+export async function validatePipelineResume(
+  actor: string,
+  runId: string,
+  answer: unknown,
+  deps: PipelineExecuteDeps,
+): Promise<
+  | { ok: true; workspaceId: string }
+  | { ok: false; report: PipelineExecuteReport }
+> {
+  const conn = await deps.connect()
+  try {
+    await conn.begin()
+    const checked = await checkResumable(conn, actor, runId, answer)
+    return checked.ok
+      ? { ok: true, workspaceId: checked.run.workspace_id }
+      : checked
+  } catch (error) {
+    return {
+      ok: false,
+      report: {
+        ok: false,
+        errorCode:
+          error instanceof PipelineStepError ? error.code : 'pipeline_internal',
+        errorMessage: error instanceof Error ? error.message : String(error),
+      },
+    }
+  } finally {
+    await conn.rollback().catch(() => {})
+    await conn.end().catch(() => {})
+  }
+}
+
 /**
  * Answer an open prompt and resume the run from the confirm step with the same
  * pinned inputs. The answering person must be a workspace writer they were
@@ -759,60 +918,12 @@ export async function resumePipelineRun(
   const startedAt = Date.now()
   let workStarted = false
   try {
-    const run = await loadRun(conn, runId)
-    if (!run) {
+    const checked = await checkResumable(conn, actor, runId, answer)
+    if (!checked.ok) {
       await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'run_not_found',
-        errorMessage: 'Pipeline run not found.',
-      }
+      return checked.report
     }
-    await assertMember(conn, run.workspace_id, actor)
-    if (run.status !== 'waiting') {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'run_not_waiting',
-        errorMessage: 'This run is not waiting for a decision.',
-      }
-    }
-    const prompt = await loadOpenPrompt(conn, run.id)
-    if (!prompt) {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'prompt_not_found',
-        errorMessage: 'No open decision was found for this run.',
-      }
-    }
-    if (!prompt.asked_user_ids.includes(actor)) {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'confirm_not_asked',
-        errorMessage: 'You were not asked to decide this run.',
-      }
-    }
-    const config = parseConfig(run.configuration)
-    const step = findPipelineConfirmStep(config, prompt.step_id)
-    if (!step?.confirm) {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'invalid_configuration',
-        errorMessage: 'The waiting step is not a confirm step in this version.',
-      }
-    }
-    const answerError = validateConfirmAnswer(step.confirm, answer)
-    if (answerError) {
-      await conn.rollback()
-      return {
-        ok: false,
-        errorCode: 'invalid_answer',
-        errorMessage: answerError,
-      }
-    }
+    const { run, prompt, config } = checked
     const decision = answer as PipelineConfirmAnswerInput
 
     await setRunActorClaims(conn, run)
@@ -826,6 +937,14 @@ export async function resumePipelineRun(
         ok: false,
         errorCode: 'run_not_running',
         errorMessage: 'This run is already executing.',
+      }
+    }
+    if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
+      await conn.rollback()
+      return {
+        ok: false,
+        errorCode: 'workspace_busy',
+        errorMessage: 'Another pipeline in this workspace is running.',
       }
     }
     await conn.query('SAVEPOINT sb_pipeline_work')
@@ -904,12 +1023,15 @@ export async function resumePipelineRun(
     const answered = new Map<string, Record<string, unknown>>([
       [prompt.step_id, answer as Record<string, unknown>],
     ])
-    const transform = await executeSteps(
-      conn,
-      run,
-      config,
-      deps.executePython ?? executePythonTransform,
-      answered,
+    const transform = await withSandbox(conn, deps, (sandbox) =>
+      executeSteps(
+        conn,
+        run,
+        config,
+        deps.executePython ?? executePythonTransform,
+        sandbox,
+        answered,
+      ),
     )
     if (transform.kind === 'waiting') {
       await pauseRun(conn, run, transform)
@@ -927,7 +1049,13 @@ export async function resumePipelineRun(
     }
     if (transform.kind === 'error') {
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
-      await failRun(conn, run, transform.code, transform.message)
+      await failRun(
+        conn,
+        run,
+        transform.code,
+        transform.message,
+        transform.detail,
+      )
       await conn.commit()
       metrics.pipelineRuns.inc({
         trigger_kind: run.trigger_kind,
@@ -1116,6 +1244,11 @@ export async function expirePipelinePrompts(
           ? confirmNoAnswerOutcome(step.confirm)
           : 'fail'
         if (outcome === 'apply' && step?.confirm) {
+          if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
+            // Another pipeline is writing here; the next sweep applies it.
+            await conn.rollback()
+            continue
+          }
           await conn.query(
             `UPDATE api.pipeline_runs SET status = 'running', result = '{}'::jsonb
               WHERE id = $1 AND status = 'waiting'`,
@@ -1140,12 +1273,15 @@ export async function expirePipelinePrompts(
           const answered = new Map<string, Record<string, unknown>>([
             [prompt.step_id, { decision: 'confirm', values: {} }],
           ])
-          const transform = await executeSteps(
-            conn,
-            run,
-            config,
-            deps.executePython ?? executePythonTransform,
-            answered,
+          const transform = await withSandbox(conn, deps, (sandbox) =>
+            executeSteps(
+              conn,
+              run,
+              config,
+              deps.executePython ?? executePythonTransform,
+              sandbox,
+              answered,
+            ),
           )
           if (transform.kind === 'rows') {
             const observeStage = (stage: PipelineStage, ms: number) =>
@@ -1176,7 +1312,13 @@ export async function expirePipelinePrompts(
             await pauseRun(conn, run, transform)
           } else if (transform.kind === 'error') {
             await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
-            await failRun(conn, run, transform.code, transform.message)
+            await failRun(
+              conn,
+              run,
+              transform.code,
+              transform.message,
+              transform.detail,
+            )
             metrics.pipelineRuns.inc({
               trigger_kind: run.trigger_kind,
               outcome: 'failed',
@@ -1240,6 +1382,25 @@ export async function expirePipelinePrompts(
 // ---------------------------------------------------------------------------
 // Steps.
 // ---------------------------------------------------------------------------
+
+/**
+ * One pipeline writes to a workspace at a time. Every run's transaction takes a
+ * shared lock on the workspace row early (foreign keys on its logs) and the
+ * output phase then asks for it exclusively (display-id assignment), so two runs
+ * in one workspace deadlock. A transaction-scoped advisory lock taken before any
+ * of that turns the clash into a wait the queue can defer, never a failed run.
+ * Runs in different workspaces still execute side by side.
+ */
+async function tryWorkspaceExecutionLock(
+  conn: ExecConnection,
+  workspaceId: string,
+): Promise<boolean> {
+  const { rows } = await conn.query<{ acquired: boolean }>(
+    'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
+    [`pipeline-workspace:${workspaceId}`],
+  )
+  return rows[0]?.acquired !== false
+}
 
 async function loadRun(
   conn: ExecConnection,
@@ -1351,8 +1512,6 @@ async function materializeInputs(
       )
     }
     await materializeInputRows(conn, input.name, version, columnDefs)
-    // The sandbox role may read exactly the temp tables it needs.
-    await conn.query(`GRANT SELECT ON pg_temp.${input.name} TO pipeline_worker`)
     result.push({
       name: input.name,
       datasetVersionId: version.id,
@@ -1536,7 +1695,55 @@ type TransformOutcome =
       durationMs: number
     }
   | { kind: 'cancelled' }
-  | { kind: 'error'; code: PipelineErrorCode; message: string }
+  | {
+      kind: 'error'
+      code: PipelineErrorCode
+      message: string
+      /** Extra context for the failure log: what a Python step printed, and where it failed. */
+      detail?: Record<string, unknown>
+    }
+
+/**
+ * Run `fn` with the run's sandbox session and always discard the session
+ * afterwards. A statement that outlives its budget is terminated from the
+ * orchestration side, which the sandbox login cannot prevent.
+ */
+async function withSandbox<T>(
+  conn: ExecConnection,
+  deps: PipelineExecuteDeps,
+  fn: (sandbox: SandboxSession) => Promise<T>,
+): Promise<T> {
+  const sandbox = new SandboxSession(
+    deps.sandbox ?? connectPipelineSandbox,
+    async (pid) => {
+      await conn.query('SELECT pg_terminate_backend($1)', [pid])
+    },
+  )
+  try {
+    return await fn(sandbox)
+  } finally {
+    await sandbox.close()
+  }
+}
+
+/** The ordered steps a run executes: the analysis step first, then any chained steps. */
+function listSteps(config: PipelineConfig): PipelineStep[] {
+  return [
+    ...(config.transform.language === 'none'
+      ? []
+      : [
+          {
+            name: 'analysis',
+            language: config.transform.language,
+            statement: config.transform.statement,
+            ...(config.transform.contract
+              ? { contract: config.transform.contract }
+              : {}),
+          },
+        ]),
+    ...(config.steps ?? []),
+  ]
+}
 
 /** Run ordered analysis steps without exposing the orchestration connection to Python. */
 async function executeSteps(
@@ -1544,6 +1751,7 @@ async function executeSteps(
   run: RunRow,
   config: PipelineConfig,
   python: typeof executePythonTransform,
+  sandbox: SandboxSession,
   answered?: Map<string, Record<string, unknown>>,
 ): Promise<TransformOutcome> {
   const started = Date.now()
@@ -1561,18 +1769,7 @@ async function executeSteps(
     if (!usage) return
     usages.push(usage)
   }
-  const steps: PipelineStep[] = [
-    ...(config.transform.language === 'none'
-      ? []
-      : [
-          {
-            name: 'analysis',
-            language: config.transform.language,
-            statement: config.transform.statement,
-          },
-        ]),
-    ...(config.steps ?? []),
-  ]
+  const steps = listSteps(config)
 
   const runStep = async (
     index: number,
@@ -1592,11 +1789,13 @@ async function executeSteps(
         const result = await python({
           // PIPE-04.2: the artefact key is the run, so every Python step's files land in
           // one per-run directory the run releases when it settles.
-          artefactKey: run.id,
+          artefactKey: run.trial ? undefined : run.id,
           statement: step.statement,
           inputs,
           parameters: run.parameters,
           runtime: config.pythonRuntime,
+          requirements: config.pythonRequirements,
+          contract: step.contract,
         })
         await log(
           conn,
@@ -1604,7 +1803,12 @@ async function executeSteps(
           'info',
           'python',
           `Python step ${index + 1} completed.`,
-          { runtime: result.runtime, logs: result.logs },
+          {
+            step: step.name,
+            runtime: result.runtime,
+            environment: result.environment,
+            logs: result.logs,
+          },
         )
         recordUsage(result.usage)
         return {
@@ -1613,16 +1817,35 @@ async function executeSteps(
           durationMs: Date.now() - started,
         }
       } catch (error) {
+        const failure = error instanceof PipelinePythonError ? error : null
+        const message =
+          error instanceof Error ? error.message : 'Python execution failed.'
         return {
           kind: 'error',
           code: pythonErrorCode(error),
+          // A traceback-free message still needs to say where: point at the line.
           message:
-            error instanceof Error ? error.message : 'Python execution failed.',
+            failure?.line && !/\bline \d+/.test(message)
+              ? `${message} (line ${failure.line} of step ${step.name})`
+              : message,
+          // The step's own output survives the rollback because it travels with the
+          // failure log, which is written after it.
+          detail: {
+            step: step.name,
+            ...(failure?.logs.length ? { logs: failure.logs } : {}),
+            ...(failure?.line ? { line: failure.line } : {}),
+          },
         }
       }
     }
     if (previous) await materializePrevious(conn, previous)
-    return executeTransform(conn, run, { ...config, transform: step })
+    // Hand the sandbox exactly the tables this step may read.
+    for (const input of config.inputs)
+      if (!sandbox.has(input.name)) await sandbox.copyTable(conn, input.name)
+    if (previous) await sandbox.copyTable(conn, 'previous')
+    if (answerValues && !sandbox.has('confirm_answer'))
+      await sandbox.copyTable(conn, 'confirm_answer')
+    return executeTransform(run, { ...config, transform: step }, sandbox, conn)
   }
 
   for (const [index, step] of steps.entries()) {
@@ -1637,7 +1860,8 @@ async function executeSteps(
       )
       continue
     }
-    if (!(await isRunRunning(conn, run.id))) return { kind: 'cancelled' }
+    if (!(await isRunRunning(conn, run.id, run.trial !== undefined)))
+      return { kind: 'cancelled' }
     const outcome = await runStep(index, step)
     if (outcome.kind !== 'rows') return outcome
     let cells = 0
@@ -1751,7 +1975,6 @@ async function provisionConfirmAnswer(
     'INSERT INTO pg_temp.confirm_answer (answer) VALUES ($1::jsonb)',
     [JSON.stringify(values)],
   )
-  await conn.query('GRANT SELECT ON pg_temp.confirm_answer TO pipeline_worker')
 }
 
 function quoteIdentifier(value: string): string {
@@ -1793,18 +2016,14 @@ async function materializePrevious(
       [JSON.stringify(rows)],
     )
   }
-  await conn.query('GRANT SELECT ON pg_temp.previous TO pipeline_worker')
 }
 
 async function executeTransform(
-  conn: ExecConnection,
   run: RunRow,
   config: PipelineConfig,
+  sandbox: SandboxSession,
+  conn: ExecConnection,
 ): Promise<TransformOutcome> {
-  // A concurrent cancellation is honoured at the next safe point.
-  if (!(await isRunRunning(conn, run.id))) {
-    return { kind: 'cancelled' }
-  }
   const statement = config.transform.statement
   const check = checkTransformStatement(statement)
   if (!check.ok) {
@@ -1832,25 +2051,11 @@ async function executeTransform(
   const wrapped = wrapTransformStatement(substituted.statement)
 
   const started = Date.now()
-  // A transform SQL error aborts the transaction; keep the run's output
-  // phase (fail + logs) on a healthy transaction via a savepoint.
-  await conn.query('SAVEPOINT sb_pipeline_transform')
   try {
-    // Sandbox: pipeline_worker has zero table grants; search_path is pinned
-    // to the temp schema so unqualified names resolve only to the
-    // materialized input tables (and pg_catalog).
-    await conn.query('SET LOCAL ROLE pipeline_worker')
-    await conn.query('SET LOCAL search_path = pg_temp')
-    await conn.query(
-      `SET LOCAL statement_timeout = '${EXECUTION_TIMEOUT_SECONDS}s'`,
+    const result = await sandbox.run<Record<string, unknown>>(
+      wrapped,
+      EXECUTION_TIMEOUT_SECONDS,
     )
-    const result = await conn.query<Record<string, unknown>>(wrapped)
-    await conn.query(`SET LOCAL statement_timeout = '0'`)
-    // Return to the session user for the output phase.
-    await conn.query('SET ROLE NONE')
-    await conn.query("SET LOCAL search_path = ''")
-    await conn.query('RELEASE SAVEPOINT sb_pipeline_transform')
-
     const rows = result.rows
     if (rows.length > 100_000) {
       return {
@@ -1877,31 +2082,67 @@ async function executeTransform(
     }
     return { kind: 'rows', rows, durationMs: Date.now() - started }
   } catch (error) {
+    // The sandbox is a separate session, so a failed statement cannot poison
+    // the run's transaction: there is nothing to restore here.
+    if (error instanceof SandboxUnavailableError) {
+      return {
+        kind: 'error',
+        code: 'pipeline_internal',
+        message: error.message,
+      }
+    }
     const message = error instanceof Error ? error.message : String(error)
-    // Restore a healthy transaction so the failure can be recorded.
-    await conn
-      .query('ROLLBACK TO SAVEPOINT sb_pipeline_transform')
-      .catch(() => {})
-    await conn.query('SET ROLE NONE').catch(() => {})
-    if (/statement timeout/i.test(message)) {
+    if (
+      /statement timeout|terminating connection|connection terminated/i.test(
+        message,
+      )
+    ) {
       return {
         kind: 'error',
         code: 'transform_timed_out',
         message: `Transform exceeded the ${EXECUTION_TIMEOUT_SECONDS}s execution limit.`,
       }
     }
+    const hint = /does not exist/i.test(message)
+      ? await availableColumnsHint(conn)
+      : ''
     return {
       kind: 'error',
       code: 'transform_failed',
-      message: `Transform failed: ${truncate(message, 500)}`,
+      message: `Transform failed: ${truncate(message, 500)}${hint}`,
     }
+  }
+}
+
+/**
+ * When a transform names a table or column that is not there, say what is:
+ * the declared inputs (and `previous`) with their column keys. Best effort;
+ * the failure is reported either way.
+ */
+async function availableColumnsHint(conn: ExecConnection): Promise<string> {
+  try {
+    const { rows } = await conn.query<{ table_name: string; columns: string }>(
+      `SELECT c.table_name, string_agg(c.column_name, ', ' ORDER BY c.ordinal_position) AS columns
+         FROM information_schema.columns c
+        WHERE c.table_schema = pg_my_temp_schema()::regnamespace::text
+          AND c.column_name NOT LIKE '\\_sb\\_%'
+        GROUP BY c.table_name
+        ORDER BY c.table_name`,
+    )
+    if (rows.length === 0) return ''
+    const listing = rows.map((r) => `${r.table_name}(${r.columns})`).join('; ')
+    return `. Available: ${truncate(listing, 600)}`
+  } catch {
+    return ''
   }
 }
 
 async function isRunRunning(
   conn: ExecConnection,
   runId: string,
+  trial = false,
 ): Promise<boolean> {
+  if (trial) return true
   const { rows } = await conn.query<{ status: string }>(
     `SELECT status FROM api.pipeline_runs WHERE id = $1`,
     [runId],
@@ -1955,13 +2196,22 @@ async function writeOutput(
   let datasetId: string
   let schemaVersionId: string
   if (output.mode === 'create') {
-    const created = await createDataset(
-      conn,
-      run.workspace_id,
-      output.schemaVersionId!,
-      output.datasetName!,
-      run.actor_user_id,
-    )
+    // "Create" makes the Dataset once. Later runs of the same pipeline add a
+    // new Dataset Version to it instead of making another one every time.
+    const created =
+      (await findOwnOutputDataset(
+        conn,
+        run,
+        output.schemaVersionId!,
+        output.datasetName!,
+      )) ??
+      (await createDataset(
+        conn,
+        run.workspace_id,
+        output.schemaVersionId!,
+        output.datasetName!,
+        run.actor_user_id,
+      ))
     if (!created) {
       return {
         ok: false,
@@ -2084,6 +2334,50 @@ async function writeOutput(
     commitMs,
     snapshotMs,
   }
+}
+
+/**
+ * The Dataset this pipeline's earlier runs created for the same output (same
+ * schema version and name), if it is still active. A lock on the definition
+ * makes two runs that start together agree on one Dataset instead of each
+ * creating its own. Changing the schema version or the name in a new version
+ * deliberately starts a new Dataset.
+ */
+async function findOwnOutputDataset(
+  conn: ExecConnection,
+  run: RunRow,
+  schemaVersionId: string,
+  name: string,
+): Promise<{ id: string } | null> {
+  const { rows: definition } = await conn.query<{ definition_id: string }>(
+    `SELECT definition_id FROM api.pipeline_definition_versions WHERE id = $1`,
+    [run.definition_version_id],
+  )
+  const definitionId = definition[0]?.definition_id
+  if (!definitionId) return null
+  await conn.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+    `pipeline-output:${definitionId}`,
+  ])
+  const { rows } = await conn.query<{ id: string }>(
+    `SELECT d.id
+       FROM api.datasets d
+      WHERE d.workspace_id = $1
+        AND d.schema_version_id = $2
+        AND d.name = $3
+        AND d.lifecycle = 'active'
+        AND EXISTS (
+          SELECT 1
+            FROM api.pipeline_run_outputs o
+            JOIN api.pipeline_runs r ON r.id = o.run_id
+            JOIN api.pipeline_definition_versions v
+              ON v.id = r.definition_version_id
+           WHERE o.dataset_id = d.id AND v.definition_id = $4
+        )
+      ORDER BY d.created_at
+      LIMIT 1`,
+    [run.workspace_id, schemaVersionId, name.trim(), definitionId],
+  )
+  return rows[0] ?? null
 }
 
 async function createDataset(
@@ -2303,6 +2597,7 @@ async function failRun(
   run: RunRow,
   code: PipelineErrorCode,
   message: string,
+  detail: Record<string, unknown> = {},
 ): Promise<void> {
   await conn.query(
     `SELECT api.append_pipeline_run_log($1, $2, 'error', 'failure', $3, $4::jsonb)`,
@@ -2310,7 +2605,7 @@ async function failRun(
       run.workspace_id,
       run.id,
       truncate(message, 2000),
-      JSON.stringify({ code }),
+      JSON.stringify({ ...detail, code }),
     ],
   )
   await conn.query(`SELECT api.fail_pipeline_run($1, $2, $3, $4)`, [
@@ -2322,10 +2617,33 @@ async function failRun(
 }
 
 /** Fail the run when it is still running (used by the generic catch path). */
+/**
+ * Fail a run that nothing can execute any more (its job was abandoned). Acts as
+ * the run's own actor, like every other write the executor makes, and is a no-op
+ * once the run has settled.
+ */
+export async function failStuckPipelineRun(
+  deps: PipelineExecuteDeps,
+  runId: string,
+  code: string,
+  message: string,
+): Promise<void> {
+  const conn = await deps.connect()
+  try {
+    await conn.begin()
+    await failRunIfRunning(conn, runId, code, message)
+    await conn.commit()
+  } catch {
+    await conn.rollback().catch(() => {})
+  } finally {
+    await conn.end().catch(() => {})
+  }
+}
+
 async function failRunIfRunning(
   conn: ExecConnection,
   runId: string,
-  code: PipelineErrorCode,
+  code: string,
   message: string,
 ): Promise<void> {
   const run = await loadRun(conn, runId)
@@ -2366,6 +2684,10 @@ async function log(
   message: string,
   detail: Record<string, unknown> = {},
 ): Promise<void> {
+  if (run.trial) {
+    run.trial.push({ level, stage, message: truncate(message, 2000) })
+    return
+  }
   await conn.query(
     `SELECT api.append_pipeline_run_log($1, $2, $3, $4, $5, $6::jsonb)`,
     [

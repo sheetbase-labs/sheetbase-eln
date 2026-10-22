@@ -86,7 +86,7 @@ describe('DatasetRunPipeline', () => {
     )
     expect(mocks.launch).toHaveBeenCalledWith(
       expect.objectContaining({
-        pipelineKey: 'reads',
+        pipelineName: 'Pipeline reads',
         initial: { inputVersions: { raw: 'snap-1' } },
       }),
     )

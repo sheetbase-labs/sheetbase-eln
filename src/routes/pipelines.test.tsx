@@ -10,6 +10,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './pipelines'
+import type * as notebookDataModule from '#/lib/notebook-data'
 import type * as pipelinesDataModule from '#/components/v3/pipelines/pipelines-data'
 import type { PipelineListRow } from '#/components/v3/pipelines/pipelines-data'
 
@@ -46,7 +47,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('#/lib/notebook-data')>()),
+  ...(await importOriginal<typeof notebookDataModule>()),
   notebookDataClient: { list: async () => [] },
 }))
 

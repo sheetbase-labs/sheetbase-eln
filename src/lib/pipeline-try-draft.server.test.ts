@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { handlePipelineTryDraft } from './pipeline-run-requests.server'
+import type { PipelineRunRequestDeps } from './pipeline-run-requests.server'
+
 const trial = vi.hoisted(() => ({ run: vi.fn() }))
 vi.mock('./pipeline-execute.server', () => ({
   tryPipelineDraft: trial.run,
@@ -7,9 +10,6 @@ vi.mock('./pipeline-execute.server', () => ({
 }))
 vi.mock('#/env.server', () => ({ env: { DATABASE_URL: 'postgres://unused' } }))
 vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
-
-import { handlePipelineTryDraft } from './pipeline-run-requests.server'
-import type { PipelineRunRequestDeps } from './pipeline-run-requests.server'
 
 const WS = '0e010000-0000-4000-8000-000000000101'
 let userCounter = 0

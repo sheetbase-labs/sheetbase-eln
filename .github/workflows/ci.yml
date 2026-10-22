@@ -57,6 +57,24 @@ jobs:
       - name: GitHub Packages auth
         run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
       - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install acceptance runtimes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common curl ca-certificates
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-18 postgresql-client-18
+          sudo systemctl stop postgresql
+          echo '/usr/lib/postgresql/18/bin' >> "$GITHUB_PATH"
+          curl -fL https://github.com/PostgREST/postgrest/releases/download/v14.5/postgrest-v14.5-linux-static-x86-64.tar.xz -o /tmp/postgrest.tar.xz
+          tar -xJf /tmp/postgrest.tar.xz -C /tmp
+          sudo install -m 0755 /tmp/postgrest /usr/local/bin/postgrest
+          python -m pip install uv
+          uv venv /tmp/sheetbase-acceptance-python
+          uv pip install --python /tmp/sheetbase-acceptance-python/bin/python pandas numpy
+          echo 'PIPELINE_ACCEPTANCE_PYTHON=/tmp/sheetbase-acceptance-python/bin/python' >> "$GITHUB_ENV"
       - name: Prepare disposable services
         run: |
           cp .env.example .env.local
@@ -66,7 +84,9 @@ jobs:
       - name: Unit and component tests
         run: pnpm test --maxWorkers=4
       - name: Database contract tests
-        run: pnpm test:db --maxWorkers=4
+        run: pnpm test:db --maxWorkers=2
+      - name: API acceptance on isolated databases
+        run: pnpm test:api
       - name: Migrate and seed the acceptance workspace
         run: |
           pnpm db:migrate
@@ -83,6 +103,8 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Complete scientific workflow
         run: pnpm exec playwright test tests/browser/journeys/complete-scientific-workflow.test.ts --project=browser --workers=1
+      - name: Native signing acceptance
+        run: pnpm exec playwright test --config playwright.signatures.config.ts --workers=1
       - name: Upload acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4

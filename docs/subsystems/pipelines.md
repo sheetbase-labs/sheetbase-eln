@@ -220,6 +220,27 @@ through a second writer.
    computed. A SQL step that names a missing table or column fails with the
    tables and column keys available to it.
 
+## Try draft
+
+`POST /api/pipelines/try-draft` runs the configuration open in the Steps editor,
+saved or not, against Dataset Versions chosen for that try, and answers with a
+preview of the result (`PipelineTrialWire`). It exists so a mistake in the SQL
+costs nothing: no version has to be saved or published to see what a statement
+does.
+
+It uses the run engine, not a copy of it: the same membership check (workspace
+writers; viewers get `403`), the same configuration and run-request validation,
+the same materialised inputs, the same sandbox login, statement timeout and row
+and cell limits, and the same missing-column hint. It differs only in what it
+leaves out. The work happens in one transaction that is always rolled back, and
+no run row exists, so there is no run, no log row, no output Dataset, no action,
+no notification, no manifest and no Python artefact. A step that waits for a
+person is not paused: the try stops there and shows what that step proposed.
+Because nothing is queued and nobody follows it afterwards, it executes inside
+the request (the person is waiting for the answer) and is rate limited per
+person (30 a minute). The endpoint takes `{ workspaceId, configuration,
+inputVersions, parameters }`.
+
 ## Execution queue
 
 Nothing executes inside an HTTP request or a sweep. `internal.pipeline_run_jobs`

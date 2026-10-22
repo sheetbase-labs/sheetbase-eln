@@ -18,7 +18,9 @@ its own `sheetbase_test_<worker>`, so files run in parallel (about a minute for
 the whole layer). The local Postgres runs with `synchronous_commit`, `fsync` and
 `full_page_writes` off: it is a disposable development database, and those
 settings halve the layer's runtime. API contracts use `pnpm test:api` against the running PostgREST
-stack. Browser workflows use `pnpm test:browser` (two workers); the Playwright
+stack created for each test file, with a fresh random migrated database and an
+ephemeral PostgREST process. No pre-running PostgREST or application is needed
+for this layer. Browser workflows use `pnpm test:browser` (two workers); the Playwright
 configuration starts an isolated application server and the tests create and
 remove their own authenticated fixtures.
 
@@ -73,8 +75,9 @@ pnpm exec playwright test tests/browser/journeys/complete-scientific-workflow.te
 ```
 
 The test creates a project, independent reviewer and experiment, imports 96 fresh
-observations through the UI, analyses the imported snapshot, saves and reloads
-the analysis, cites it in the notebook, submits it, approves and signs it as the
+observations through the UI, declares their source units, analyses the imported
+snapshot, saves the analysis and immediately cites it without reloading.
+It submits the notebook, approves and signs it as the
 reviewer, then reopens the frozen result. It asserts n = 96 and mean = 48.5 for
 observations 1 through 96. Those expectations do not use the analysis kernel.
 It retains a screenshot of the signed evidence and a trace on failure.

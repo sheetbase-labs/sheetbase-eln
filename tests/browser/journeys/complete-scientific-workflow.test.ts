@@ -131,7 +131,7 @@ test('an imported plate analysis remains reconstructable after independent revie
       .getByLabel('Model for the new dataset')
       .selectOption({ label: 'ELISA and turbidity v1' })
     await page.getByLabel('New dataset name').fill(datasetName)
-    // Consecutive observations 1..96 have n=96 and mean/median=48.5.
+    // Consecutive observations 1..96 in ×10¹¹ cp/mL have n=96 and mean/median=48.5.
     // The expectation is independent of the application's statistics code.
     const csv = [
       'Sample,Plate,Well,Dilution,Capsid titre',
@@ -147,6 +147,9 @@ test('an imported plate analysis remains reconstructable after independent revie
     })
     await expect(page).toHaveURL(/\/import\/[0-9a-f-]{36}/)
     await waitForHydration(page)
+    await page
+      .getByLabel('Source unit for Capsid titre', { exact: true })
+      .fill('×10¹¹ cp/mL')
     await page.getByRole('button', { name: 'Continue', exact: true }).click()
     await page.getByRole('button', { name: 'Import 96 rows' }).click()
     await expect(page.getByText('This import is committed')).toBeVisible()
@@ -174,11 +177,9 @@ test('an imported plate analysis remains reconstructable after independent revie
     const analysisTitle = uniqueName('Plate titre summary')
     await page.getByLabel('Analysis name').fill(analysisTitle)
     await page.getByRole('button', { name: 'Save', exact: true }).click()
-    await page
-      .getByRole('listitem')
-      .filter({ hasText: analysisTitle })
-      .getByRole('button', { name: 'Load', exact: true })
-      .click()
+    await expect(
+      page.getByRole('button', { name: 'Update', exact: true }),
+    ).toBeVisible()
     await page.getByRole('button', { name: 'Cite in a notebook…' }).click()
     const citation = page.getByRole('dialog')
     await citation.getByRole('combobox').fill(experimentTitle)
@@ -238,6 +239,9 @@ test('an imported plate analysis remains reconstructable after independent revie
       body: await reviewerPage.locator('main').innerText(),
       contentType: 'text/plain',
     })
+    await reviewerPage
+      .getByLabel('Signature meaning')
+      .selectOption('reviewed-and-approved')
     await reviewerPage.getByLabel('Signing password').fill(password)
     await reviewerPage.getByLabel(/Type your name/).fill(reviewer.name)
     const signed = reviewerPage.waitForResponse((response) =>
@@ -249,7 +253,17 @@ test('an imported plate analysis remains reconstructable after independent revie
     expect((await signed).ok()).toBe(true)
 
     await open(page, `/experiments/${experimentId}/notebook`)
-    await expect(page.getByText(/signed.*locked/i).first()).toBeVisible()
+    await expect(
+      page.getByRole('status').filter({
+        hasText: 'Scientific evidence is frozen',
+      }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Amend', exact: true }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /Insert block/ }),
+    ).toHaveCount(0)
     await expect(
       frozen.getByRole('cell', { name: '48.5', exact: true }).first(),
     ).toBeVisible()
@@ -261,8 +275,10 @@ test('an imported plate analysis remains reconstructable after independent revie
     await expect(
       frozen.getByRole('cell', { name: '48.5', exact: true }).first(),
     ).toBeVisible()
+    const evidenceScreenshot = testInfo.outputPath('signed-plate-evidence.png')
+    await page.screenshot({ path: evidenceScreenshot, fullPage: true })
     await testInfo.attach('signed-plate-evidence', {
-      body: await page.screenshot({ fullPage: true }),
+      path: evidenceScreenshot,
       contentType: 'image/png',
     })
   } finally {

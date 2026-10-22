@@ -78,6 +78,43 @@ Existing task and subsystem contracts retain ownership.
 Local checks, hosted CI, scientist usability observation and deployment are
 separate evidence. Do not turn a passing targeted test into programme acceptance.
 
+### Local acceptance for this closure
+
+The integrated branch implements the four groups above. The final local runs
+use PostgreSQL 18, PostgREST 14.5, Node 22.23.2 and disposable test databases:
+
+- `pnpm test --maxWorkers=4`: 6,195 passed, 11 skipped.
+- `PIPELINE_ACCEPTANCE_PYTHON=/tmp/sheetbase-acceptance-python/bin/python pnpm test:db --maxWorkers=2`:
+  1,867 passed across 251 files, including installed SDKs, real SQL/Python output,
+  TLS SMTP credential enrolment, collaboration authority and populated recovery.
+- `pnpm test:api`: 144 passed across 18 files, with per-file database and
+  PostgREST isolation rather than destructive fixture cleanup.
+- The complete scientific workflow in [testing.md](../development/testing.md)
+  passes in Chromium. It imports 96 observations, saves and immediately cites
+  the pinned analysis, submits, independently reviews and signs, then reloads
+  the frozen notebook with n = 96 and mean = 48.5 unchanged.
+- `pnpm exec playwright test --config playwright.signatures.config.ts --workers=1`:
+  all three native signing, witness, signature-history and amendment tests pass.
+  A temporary browser probe also verifies that a changed-revision response
+  removes the prior statistics and displays the reload error. This probe injects
+  the response fault; it is not a concurrent database-write acceptance test.
+- `pnpm typecheck`, `pnpm lint`, `pnpm check` and `pnpm build` pass. Lint reports
+  33 existing warnings and no errors. Fresh and warm `.agents/setup` runs pass.
+
+Live analysis now refuses changed page revisions, schema metadata or exclusion
+flags during loading instead of presenting a mixed population or stale result.
+Submission integrity binds signatures to the exact frozen snapshot, without
+rewriting historical evidence.
+
+The browser proof also exposes a separate traversal gap: canonical imported
+Datasets can appear as unavailable name-only record links in the notebook
+Relationships and Lineage panels. The frozen analysis still reconstructs its
+values and has an Open dataset link. Those panels currently resolve
+`api.records`, not canonical `api.datasets`; closing that identity boundary
+needs permission-preserving Dataset traversal, not a duplicate Dataset record.
+The screenshot also retains existing low-contrast frozen content and clipped
+sidebar text. This is not whole-application usability or visual acceptance.
+
 ## Important boundaries
 
 - **Whole-workflow acceptance:** unit and source evidence do not prove a complete
@@ -97,9 +134,13 @@ separate evidence. Do not turn a passing targeted test into programme acceptance
   meanings and audit verification have implementations. Their existence is not
   identity-provider or production enrolment acceptance. ADR-0044 and wider
   organisational/institutional deployment work remain separately gated.
-- **Earlier follow-ups:** live AI provider acceptance, SDK publication, off-host
-  recovery and populated restore evidence were not re-audited here. Consult
-  their original task/handoff before treating them as complete.
+- **External acceptance:** existing Liveblocks tokens and sockets are not
+  immediately revoked by the new grant checks. Hosted-provider behaviour,
+  external SMTP delivery, OAuth/IdP, OCI pipeline isolation, SDK publication,
+  off-host recovery and populated Docker/application recovery remain unproved.
+  The local PostgreSQL replacement drill is not a fresh-host traffic-switch
+  rehearsal. Operators still own target selection, key custody, retention,
+  RPO/RTO and alert delivery. No deployment or production write is part of this PR.
 
 ## When taking a task
 

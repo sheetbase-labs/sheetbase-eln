@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
 import { Field, Input } from '#/components/v3/ui/input'
+import { Select } from '#/components/v3/ui/select'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
@@ -22,7 +23,6 @@ import type {
 } from '#/components/v3/pipelines/output-editor'
 import {
   draftVersion,
-  usePipelineOutputTargets,
   usePythonRuntime,
   useDefinitionRuns,
   usePipelineDefinition,

@@ -1727,7 +1727,7 @@ async function executeSteps(
     if (previous) await sandbox.copyTable(conn, 'previous')
     if (answerValues && !sandbox.has('confirm_answer'))
       await sandbox.copyTable(conn, 'confirm_answer')
-    return executeTransform(run, { ...config, transform: step }, sandbox)
+    return executeTransform(run, { ...config, transform: step }, sandbox, conn)
   }
 
   for (const [index, step] of steps.entries()) {
@@ -1903,6 +1903,7 @@ async function executeTransform(
   run: RunRow,
   config: PipelineConfig,
   sandbox: SandboxSession,
+  conn: ExecConnection,
 ): Promise<TransformOutcome> {
   const statement = config.transform.statement
   const check = checkTransformStatement(statement)

@@ -101,6 +101,7 @@ import { Route as ApiParsersRequestUpdateRouteImport } from './routes/api/parser
 import { Route as ApiParsersValidateRouteImport } from './routes/api/parsers/validate'
 import { Route as ApiPipelinesExecuteRouteImport } from './routes/api/pipelines/execute'
 import { Route as ApiPipelinesManifestRouteImport } from './routes/api/pipelines/manifest'
+import { Route as ApiPipelinesPythonTestRouteImport } from './routes/api/pipelines/python-test'
 import { Route as ApiPipelinesRuntimeRouteImport } from './routes/api/pipelines/runtime'
 import { Route as ApiSignaturesStepUpRouteImport } from './routes/api/signatures/step-up'
 import { Route as ApiTokenIndexRouteImport } from './routes/api/token/index'
@@ -637,6 +638,11 @@ const ApiPipelinesManifestRoute = ApiPipelinesManifestRouteImport.update({
   path: '/api/pipelines/manifest',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPipelinesPythonTestRoute = ApiPipelinesPythonTestRouteImport.update({
+  id: '/api/pipelines/python-test',
+  path: '/api/pipelines/python-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPipelinesRuntimeRoute = ApiPipelinesRuntimeRouteImport.update({
   id: '/api/pipelines/runtime',
   path: '/api/pipelines/runtime',
@@ -1136,6 +1142,7 @@ export interface FileRoutesByFullPath {
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
+  '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
@@ -1292,6 +1299,7 @@ export interface FileRoutesByTo {
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
+  '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
@@ -1460,6 +1468,7 @@ export interface FileRoutesById {
   '/api/parsers/validate': typeof ApiParsersValidateRoute
   '/api/pipelines/execute': typeof ApiPipelinesExecuteRoute
   '/api/pipelines/manifest': typeof ApiPipelinesManifestRoute
+  '/api/pipelines/python-test': typeof ApiPipelinesPythonTestRoute
   '/api/pipelines/runtime': typeof ApiPipelinesRuntimeRoute
   '/api/signatures/step-up': typeof ApiSignaturesStepUpRoute
   '/datasets/$datasetId/compare': typeof DatasetsDatasetIdCompareRoute
@@ -1630,6 +1639,7 @@ export interface FileRouteTypes {
     | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/manifest'
+    | '/api/pipelines/python-test'
     | '/api/pipelines/runtime'
     | '/api/signatures/step-up'
     | '/datasets/$datasetId/compare'
@@ -1786,6 +1796,7 @@ export interface FileRouteTypes {
     | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/manifest'
+    | '/api/pipelines/python-test'
     | '/api/pipelines/runtime'
     | '/api/signatures/step-up'
     | '/datasets/$datasetId/compare'
@@ -1953,6 +1964,7 @@ export interface FileRouteTypes {
     | '/api/parsers/validate'
     | '/api/pipelines/execute'
     | '/api/pipelines/manifest'
+    | '/api/pipelines/python-test'
     | '/api/pipelines/runtime'
     | '/api/signatures/step-up'
     | '/datasets/$datasetId/compare'
@@ -2088,6 +2100,7 @@ export interface RootRouteChildren {
   ApiParsersValidateRoute: typeof ApiParsersValidateRoute
   ApiPipelinesExecuteRoute: typeof ApiPipelinesExecuteRoute
   ApiPipelinesManifestRoute: typeof ApiPipelinesManifestRoute
+  ApiPipelinesPythonTestRoute: typeof ApiPipelinesPythonTestRoute
   ApiPipelinesRuntimeRoute: typeof ApiPipelinesRuntimeRoute
   ApiSignaturesStepUpRoute: typeof ApiSignaturesStepUpRoute
   ApiTokenIndexRoute: typeof ApiTokenIndexRoute
@@ -2750,6 +2763,13 @@ declare module '@tanstack/react-router' {
       path: '/api/pipelines/manifest'
       fullPath: '/api/pipelines/manifest'
       preLoaderRoute: typeof ApiPipelinesManifestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pipelines/python-test': {
+      id: '/api/pipelines/python-test'
+      path: '/api/pipelines/python-test'
+      fullPath: '/api/pipelines/python-test'
+      preLoaderRoute: typeof ApiPipelinesPythonTestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/pipelines/runtime': {
@@ -3754,6 +3774,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiParsersValidateRoute: ApiParsersValidateRoute,
   ApiPipelinesExecuteRoute: ApiPipelinesExecuteRoute,
   ApiPipelinesManifestRoute: ApiPipelinesManifestRoute,
+  ApiPipelinesPythonTestRoute: ApiPipelinesPythonTestRoute,
   ApiPipelinesRuntimeRoute: ApiPipelinesRuntimeRoute,
   ApiSignaturesStepUpRoute: ApiSignaturesStepUpRoute,
   ApiTokenIndexRoute: ApiTokenIndexRoute,

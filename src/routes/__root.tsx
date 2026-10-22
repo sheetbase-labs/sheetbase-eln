@@ -5,6 +5,7 @@ import {
   Scripts,
   createRootRouteWithContext,
   useMatches,
+  useRouter,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
@@ -12,6 +13,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { LiveEventProvider } from '../components/live'
 import { ShellProvider } from '../components/shell'
 import { AppShell as V3AppShell } from '#/components/v3/shell/app-shell'
+import { WorkspaceHost } from '#/components/workspace/workspace-host'
 import { SessionExpiredBanner } from '#/components/v3/shell/session-expired-banner'
 import { AccessBlocked } from '#/components/v3/shell/access-blocked'
 import { Toaster } from '#/components/v3/ui/sonner'
@@ -35,7 +37,8 @@ import type { ThemePref } from '#/lib/theme-cookie'
 import { capabilitiesFromEnv } from '#/lib/capabilities'
 import type { Capabilities } from '#/lib/capabilities'
 
-interface RouterContext {
+export interface RouterContext {
+  workspacePane?: boolean
   queryClient: QueryClient
   auth: CurrentContext | null
   shellCounts: ShellCounts
@@ -114,7 +117,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // stream returns 401; no false `live` state.
   component: RootRouteComponent,
   shellComponent: RootDocument,
-  beforeLoad: async () => {
+  beforeLoad: async ({ context }) => {
+    if (context.workspacePane) return context
     const {
       context: auth,
       capabilities,
@@ -145,8 +149,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
  * active child route (e.g. `/sign-in`) inside the provider.
  */
 function RootRouteComponent() {
+  const context = Route.useRouteContext()
+  return context.workspacePane ? <Outlet /> : <AppRoot />
+}
+
+function AppRoot() {
+  const resolvedRootContext = Route.useRouteContext()
   const { auth, shellCounts, shellPinned, shellNotifications } =
-    Route.useRouteContext()
+    resolvedRootContext
   // Hydration restores the dehydrated route context without re-running
   // `beforeLoad`, so the first browser render sets the display zone here. It
   // is a no-op when `beforeLoad` already did.
@@ -249,7 +259,9 @@ function RootRouteComponent() {
               </ShellProvider>
             ) : (
               <V3AppShell data={appShellData}>
-                <Outlet />
+                <WorkspaceHost context={resolvedRootContext}>
+                  <Outlet />
+                </WorkspaceHost>
               </V3AppShell>
             )}
           </CollaborationProvider>
@@ -276,6 +288,15 @@ function initialsOf(name: string): string {
  * policy keeps 'unsafe-inline'.
  */
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+  return router.options.context.workspacePane ? (
+    children
+  ) : (
+    <AppDocument>{children}</AppDocument>
+  )
+}
+
+function AppDocument({ children }: { children: React.ReactNode }) {
   // R5-SHELL-02: the server read the `sb-theme` cookie, so the first paint
   // already carries the person's choice. `system` cannot be resolved on the
   // server (the device setting is not sent), so it is left unclassed here and

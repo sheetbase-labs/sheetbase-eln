@@ -41,7 +41,7 @@ test('AUTO-07 a pipeline with a parameter runs on a schedule that supplies it', 
   page,
 }) => {
   const id = await startPipeline(page, uniqueName('Nightly summary'))
-  await page.getByLabel('Transform').fill('select 1 as plates')
+  await page.getByLabel('Transform code').fill('select 1 as plates')
   await page.getByRole('button', { name: 'Add parameter' }).click()
   await page.getByLabel('Parameter 1 name').fill('plate_size')
   await page.getByLabel('Parameter 1 type').selectOption('integer')
@@ -67,7 +67,7 @@ test('AUTO-08 a run waiting for a person is answered from the Inbox', async ({
 }) => {
   const name = uniqueName('Confirm before keeping')
   await startPipeline(page, name)
-  await page.getByLabel('Transform').fill('select 1 as plates')
+  await page.getByLabel('Transform code').fill('select 1 as plates')
   await page.getByRole('button', { name: 'Add step' }).click()
   await page.getByLabel('Step 1 name').fill('review_plates')
   await page.getByLabel('Step 1 code').fill('select 2 as plates')

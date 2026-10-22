@@ -322,7 +322,6 @@ function PipelineSteps() {
     })
   }
 
-
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
 

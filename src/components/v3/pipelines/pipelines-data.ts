@@ -308,6 +308,60 @@ export function useDatasetNames(
   })
 }
 
+/** A Dataset Version a run was pinned to, with the dataset's readable name. */
+export interface RunInputInfo {
+  datasetVersionId: string
+  datasetId: string
+  datasetName: string
+  versionLabel: string
+}
+
+/** Dataset Version id → where it came from, for the inputs a run used. */
+export function useRunInputs(
+  versionIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const ids = [...new Set(versionIds)].sort()
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'run-inputs', ids] as const,
+    queryFn: async (): Promise<Record<string, RunInputInfo>> => {
+      const versions = await listByIds(ids, (inList) =>
+        client.list<{ id: string; dataset_id: string; label: string }>(
+          'dataset_versions',
+          `?select=id,dataset_id,label&id=in.(${inList})`,
+        ),
+      )
+      const datasets = await listByIds(
+        [...new Set(versions.map((v) => v.dataset_id))],
+        (inList) =>
+          client.list<{ id: string; name: string; display_id: string | null }>(
+            'datasets',
+            `?select=id,name,display_id&id=in.(${inList})`,
+          ),
+      )
+      const nameOf = new Map(
+        datasets.map((d) => [
+          d.id,
+          d.display_id ? `${d.display_id} · ${d.name}` : d.name,
+        ]),
+      )
+      return Object.fromEntries(
+        versions.map((v) => [
+          v.id,
+          {
+            datasetVersionId: v.id,
+            datasetId: v.dataset_id,
+            datasetName: nameOf.get(v.dataset_id) ?? 'Dataset',
+            versionLabel: v.label,
+          },
+        ]),
+      )
+    },
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+  })
+}
+
 export interface DatasetVersionChoice {
   id: string
   label: string

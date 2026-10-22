@@ -15,6 +15,8 @@ import {
   useRowFocus,
 } from '#/components/v3/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
+import { formatNotebookDateTime } from '#/lib/notebook-data'
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   currentVersion,
   draftVersion,
@@ -47,6 +49,7 @@ interface ConfigShape {
 }
 
 function PipelineOverview() {
+  useDisplayTimeZone()
   const { pipelineId } = Route.useParams()
   const versions = usePipelineVersions(pipelineId)
   const list = versions.data ?? []
@@ -121,7 +124,7 @@ function PipelineOverview() {
       header: 'Published',
       cell: ({ row }) =>
         row.original.published_at
-          ? row.original.published_at.slice(0, 10)
+          ? formatNotebookDateTime(row.original.published_at, { zone: true })
           : '—',
       meta: { cellClassName: 'text-fg-muted' },
     },
@@ -149,7 +152,7 @@ function PipelineOverview() {
         >
           <Muted>
             {shown.published_at
-              ? `Published ${shown.published_at.slice(0, 10)}. `
+              ? `Published ${formatNotebookDateTime(shown.published_at, { zone: true })}. `
               : 'Not published. '}
             New runs pin the exact input snapshots they used.
           </Muted>

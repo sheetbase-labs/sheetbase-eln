@@ -15,12 +15,17 @@ import { RecordPicker } from '#/components/v3/record-picker/record-picker'
 import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { addRunToNotebook } from '#/lib/pipelines/run-notebook'
+import type { CitationParagraph } from '#/lib/pipelines/run-notebook'
 
 /**
- * Cite a pipeline run in an experiment's notebook: the run's id, version,
- * inputs and kept snapshots go in as a block. Nothing is signed or submitted.
+ * Cite a pipeline run in an experiment's notebook: the pipeline, run time,
+ * inputs and kept datasets go in as a block of text with links to each. Nothing is signed or submitted.
  */
-export function AddRunToNotebook({ lines }: { lines: string[] }) {
+export function AddRunToNotebook({
+  paragraphs,
+}: {
+  paragraphs: CitationParagraph[]
+}) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [target, setTarget] = useState<PickerItem | null>(null)
@@ -32,7 +37,7 @@ export function AddRunToNotebook({ lines }: { lines: string[] }) {
     try {
       const { identifier } = await addRunToNotebook(notebookDataClient, {
         recordId: target.id,
-        lines,
+        paragraphs,
       })
       toast('Added to notebook', {
         description: `${identifier ?? 'The notebook'} now cites this run.`,
@@ -67,7 +72,7 @@ export function AddRunToNotebook({ lines }: { lines: string[] }) {
           <DialogContent className="w-[min(560px,calc(100vw-32px))]">
             <DialogHeader
               title="Add this run to a notebook"
-              description="Inserts a block naming the run, its inputs and the snapshots it kept. The notebook's own signing covers it."
+              description="Inserts a block linking the pipeline, the run, the datasets it read and the ones it kept. The notebook's own signing covers it."
             />
             <DialogBody>
               <div className="min-h-[220px] rounded-md border border-border">

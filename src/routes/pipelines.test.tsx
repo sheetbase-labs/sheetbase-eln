@@ -45,7 +45,8 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children?: ReactNode }) => <a href="#">{children}</a>,
 }))
 
-vi.mock('#/lib/notebook-data', () => ({
+vi.mock('#/lib/notebook-data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('#/lib/notebook-data')>()),
   notebookDataClient: { list: async () => [] },
 }))
 

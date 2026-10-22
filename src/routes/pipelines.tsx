@@ -46,7 +46,8 @@ import { Tabs } from '#/components/v3/ui/tabs'
 import { toast } from '#/components/v3/ui/sonner'
 import { createPipelineDefinition } from '#/lib/pipelines/data'
 import { suggestPipelineKey } from '#/lib/pipelines/authoring'
-import { notebookDataClient } from '#/lib/notebook-data'
+import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   pipelineDataQueryKeys,
   runStatus,
@@ -111,6 +112,8 @@ function inTab(
 }
 
 function PipelinesList() {
+  // Re-render when the person's time zone is applied or changed.
+  useDisplayTimeZone()
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const search = Route.useSearch()
@@ -457,7 +460,9 @@ function PipelinesList() {
                     {runStatus(sel.lastRun.status).label}
                   </Status>{' '}
                   <span className="num text-fg-muted">
-                    {sel.lastRun.started_at.slice(0, 16).replace('T', ' ')}
+                    {formatNotebookDateTime(sel.lastRun.started_at, {
+                      zone: true,
+                    })}
                   </span>
                 </Link>
               ) : (

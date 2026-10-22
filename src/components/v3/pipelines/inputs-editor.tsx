@@ -6,6 +6,7 @@ import { Select } from '#/components/v3/ui/select'
 import { INPUT_NAME_RE, MAX_INPUTS } from '#/lib/pipelines/config'
 import type { PipelineInput } from '#/lib/pipelines/config'
 import {
+  schemasOf,
   useDatasetVersionChoices,
   useDatasetVersionFields,
 } from '#/components/v3/pipelines/pipelines-data'
@@ -129,7 +130,15 @@ function InputRow({
           size="sm"
           aria-label={`Input ${n} example dataset`}
           value={example}
-          onChange={(event) => setExample(event.target.value)}
+          onChange={(event) => {
+            setExample(event.target.value)
+            // The example's schema is what this input will usually be given, so
+            // the Run dialog narrows its list to it unless the author chose one.
+            const schemaId = (choices.data ?? []).find(
+              (choice) => choice.id === event.target.value,
+            )?.schemaId
+            if (schemaId && !input.schemaId) onPatch({ schemaId })
+          }}
         >
           <option value="">Choose a Dataset Version…</option>
           {(choices.data ?? []).map((choice) => (
@@ -138,6 +147,28 @@ function InputRow({
             </option>
           ))}
         </Select>
+      </label>
+      <label className="flex flex-col gap-0.5 text-label text-fg-muted">
+        Expected dataset schema
+        <Select
+          size="sm"
+          aria-label={`Input ${n} expected schema`}
+          value={input.schemaId ?? ''}
+          onChange={(event) =>
+            onPatch({ schemaId: event.target.value || undefined })
+          }
+        >
+          <option value="">Any schema</option>
+          {schemasOf(choices.data ?? []).map((schema) => (
+            <option key={schema.id} value={schema.id}>
+              {schema.name}
+            </option>
+          ))}
+        </Select>
+        <span>
+          The Run dialog lists Dataset Versions that follow it. Other datasets
+          can still be chosen.
+        </span>
       </label>
       {example ? (
         fields.isLoading ? (

@@ -14,6 +14,7 @@ import { Field, Input } from '#/components/v3/ui/input'
 import { Select } from '#/components/v3/ui/select'
 import {
   declaredRunInputs,
+  schemasOf,
   useDatasetVersionChoices,
 } from '#/components/v3/pipelines/pipelines-data'
 import type { PipelineParameter } from '#/lib/pipelines/config'
@@ -84,6 +85,12 @@ export function RunDialog({
   const [pinned, setPinned] = useState<Record<string, string>>(
     initial?.inputVersions ?? {},
   )
+  // Each input starts narrowed to the schema it declares, if any; "Any schema"
+  // shows every Dataset Version.
+  const [schemaFilter, setSchemaFilter] = useState<Record<string, string>>(() =>
+    Object.fromEntries(inputs.map((i) => [i.name, i.schemaId ?? ''])),
+  )
+  const schemas = schemasOf(choices.data ?? [])
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       parameters.map((p) => {
@@ -128,33 +135,72 @@ export function RunDialog({
               Version, never a live sheet.
             </Notice>
           ) : null}
-          {inputs.map((input) => (
-            <Field
-              key={input.name}
-              label={
-                <>
-                  Input <span className="mono">{input.name}</span>
-                </>
-              }
-              required
-              hint={input.description}
-            >
-              <Select
-                aria-label={`Dataset Version for ${input.name}`}
-                value={pinned[input.name] ?? ''}
-                onChange={(e) =>
-                  setPinned((cur) => ({ ...cur, [input.name]: e.target.value }))
+          {inputs.map((input) => {
+            const filter = schemaFilter[input.name] ?? ''
+            const offered = (choices.data ?? []).filter(
+              (choice) =>
+                !filter ||
+                choice.schemaId === filter ||
+                choice.id === pinned[input.name],
+            )
+            const filterName = schemas.find((s) => s.id === filter)?.name
+            return (
+              <Field
+                key={input.name}
+                label={
+                  <>
+                    Input <span className="mono">{input.name}</span>
+                  </>
+                }
+                required
+                hint={
+                  filter && choices.isSuccess && offered.length === 0
+                    ? `No Dataset Version follows ${filterName ?? 'that schema'} yet. Choose Any schema to see them all.`
+                    : input.description
                 }
               >
-                <option value="">Choose a Dataset Version…</option>
-                {(choices.data ?? []).map((choice) => (
-                  <option key={choice.id} value={choice.id}>
-                    {choice.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ))}
+                <div className="flex flex-col gap-1.5">
+                  {schemas.length > 1 || filter ? (
+                    <Select
+                      size="sm"
+                      aria-label={`Schema for ${input.name}`}
+                      value={filter}
+                      onChange={(e) =>
+                        setSchemaFilter((cur) => ({
+                          ...cur,
+                          [input.name]: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Any schema</option>
+                      {schemas.map((schema) => (
+                        <option key={schema.id} value={schema.id}>
+                          {schema.name}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : null}
+                  <Select
+                    aria-label={`Dataset Version for ${input.name}`}
+                    value={pinned[input.name] ?? ''}
+                    onChange={(e) =>
+                      setPinned((cur) => ({
+                        ...cur,
+                        [input.name]: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Choose a Dataset Version…</option>
+                    {offered.map((choice) => (
+                      <option key={choice.id} value={choice.id}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </Field>
+            )
+          })}
           {parameters.map((parameter) => {
             const raw = values[parameter.name] ?? ''
             const error =

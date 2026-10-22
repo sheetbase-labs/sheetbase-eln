@@ -74,12 +74,14 @@ export const Route = createFileRoute('/datasets/$datasetId/rows')({
     row?: string
     field?: string
     snapshot?: string
+    live?: boolean
   } => ({
     q: typeof search.q === 'string' ? search.q : undefined,
     flagged: search.flagged === true || search.flagged === 'true' || undefined,
     row: typeof search.row === 'string' ? search.row : undefined,
     field: typeof search.field === 'string' ? search.field : undefined,
     snapshot: typeof search.snapshot === 'string' ? search.snapshot : undefined,
+    live: search.live === true || search.live === 'true' || undefined,
   }),
   component: Rows,
 })
@@ -110,6 +112,17 @@ function Rows() {
     versions.data?.at(0)
 
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
+  // A value link is a live inspection, not a claim about a frozen snapshot.
+  const liveValue = Boolean(search.live && search.row && !search.snapshot)
+  const valueContext = useQuery({
+    queryKey: ['ui-port', 'dataset-value', datasetId, search.row],
+    queryFn: () =>
+      notebookDataClient.rpc<Omit<RowValuePayload, 'datasetVersionId'> | null>(
+        'dataset_value_context',
+        { p_dataset_id: datasetId, p_row_id: search.row },
+      ),
+    enabled: liveValue,
+  })
 
   const rowsQuery = useInfiniteQuery({
     queryKey: ['ui-port', 'dataset-rows', version?.id],
@@ -124,9 +137,9 @@ function Rows() {
       lastPage.offset + lastPage.rows.length < lastPage.totalCount
         ? lastPage.offset + lastPage.rows.length
         : undefined,
-    enabled: Boolean(version),
+    enabled: Boolean(version) && !liveValue,
   })
-  const payload = rowsQuery.data?.pages.at(0)
+  const payload = liveValue ? valueContext.data : rowsQuery.data?.pages.at(0)
 
   const fieldsQuery = useQuery({
     queryKey: ['ui-port', 'dataset-fields', payload?.schemaVersionId],
@@ -151,7 +164,9 @@ function Rows() {
   )
 
   const q = (search.q ?? '').trim().toLowerCase()
-  const rows = rowsQuery.data?.pages.flatMap((page) => page.rows) ?? []
+  const rows = liveValue
+    ? (valueContext.data?.rows ?? [])
+    : (rowsQuery.data?.pages.flatMap((page) => page.rows) ?? [])
   // The flagged filter reads only the rows loaded so far, so its count must
   // too — otherwise "(12)" sits beside "Showing 9 of 162" as a contradiction.
   // The count converges on the dataset total as "Load more" extends the window.
@@ -232,6 +247,9 @@ function Rows() {
 
   const refresh = (versionId: string | undefined) => {
     void queryClient.invalidateQueries({
+      queryKey: ['ui-port', 'dataset-value', datasetId],
+    })
+    void queryClient.invalidateQueries({
       queryKey: ['ui-port', 'dataset-flags', datasetId],
     })
     void queryClient.invalidateQueries({
@@ -249,7 +267,7 @@ function Rows() {
   // identifier. When neither resolves, the action stays disabled.
   const sourceSample = useRowSourceSample(selected, fields)
 
-  if (!version) {
+  if (!version && !liveValue) {
     return (
       <div className="px-6 py-4">
         <EmptyState
@@ -288,6 +306,20 @@ function Rows() {
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col">
+        {liveValue ? (
+          <div
+            role="status"
+            className="border-b border-border-subtle px-4 py-2 text-label text-fg-muted md:px-6"
+          >
+            {valueContext.isError
+              ? 'Could not load this value. Reload to try again.'
+              : valueContext.isLoading
+                ? 'Loading the linked value…'
+                : valueContext.data
+                  ? 'Live dataset value · selected by stable row and field'
+                  : 'This row is no longer available or you do not have access.'}
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-2 md:px-6">
           <label className="block w-full sm:w-[220px]">
             <span className="sr-only">Search rows</span>
@@ -315,7 +347,9 @@ function Rows() {
           </label>
           <span className="flex-1" />
           <Muted className="max-lg:hidden">
-            Snapshot {version.label} · read-only; values change only by import
+            {liveValue
+              ? 'Live value · read-only'
+              : `Snapshot ${version?.label} · read-only; values change only by import`}
           </Muted>
           <Button
             size="sm"
@@ -458,6 +492,7 @@ function Rows() {
                 </span>
               </div>
               <ValueActions
+                key={`${datasetId}:${selected.rowId}:${selectedField.field_id}`}
                 datasetId={datasetId}
                 rowId={selected.rowId}
                 fieldId={selectedField.field_id}
@@ -466,7 +501,7 @@ function Rows() {
                 flags={selectedFlags}
                 canWrite={canWrite}
                 sourceSample={sourceSample.data ?? null}
-                onChanged={() => refresh(version.id)}
+                onChanged={() => refresh(version?.id)}
               />
               <Muted className="mt-2">
                 To correct this value, import the corrected rows into the

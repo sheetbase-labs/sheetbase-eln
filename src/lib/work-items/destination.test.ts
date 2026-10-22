@@ -19,6 +19,25 @@ function item(kind: WorkItemKind, overrides: Partial<WorkItem> = {}): WorkItem {
 }
 
 describe('itemLink', () => {
+  it('opens the exact live flagged value, not the dataset with the most issues', () => {
+    expect(
+      itemLink(
+        item('data_issue', {
+          recordId: null,
+          datasetId: 'dataset-b',
+          rowId: 'row-903',
+          fieldId: 'titre',
+          sourceType: 'dataset_value_flag',
+          sourceId: 'flag-3',
+        }),
+      ),
+    ).toEqual({
+      to: '/datasets/$datasetId/rows',
+      params: { datasetId: 'dataset-b' },
+      search: { row: 'row-903', field: 'titre', live: true },
+    })
+  })
+
   it('opens a review request on the exact revision under review', () => {
     expect(itemLink(item('review_requested', { revisionId: 'rev-1' }))).toEqual(
       { to: '/review/$revisionId', params: { revisionId: 'rev-1' } },

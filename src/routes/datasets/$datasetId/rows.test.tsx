@@ -25,6 +25,7 @@ interface RowsSearch {
   row?: string
   field?: string
   snapshot?: string
+  live?: boolean
 }
 
 const fixtures = vi.hoisted(() => {
@@ -182,6 +183,42 @@ afterEach(() => {
 })
 
 describe('dataset rows grid', () => {
+  it('opens a linked live value outside the snapshot window without requiring a snapshot', async () => {
+    fixtures.search = { row: 'r-903', field: 'f-2', live: true }
+    dataClient.rpc.mockImplementation(async (name: string) => {
+      if (name === 'dataset_version_list') return []
+      if (name === 'dataset_value_context')
+        return {
+          datasetId: 'ds-1',
+          schemaVersionId: 'schema-live',
+          totalCount: 1,
+          offset: 0,
+          limit: 1,
+          rows: [
+            {
+              rowId: 'r-903',
+              revision: 6,
+              values: { 'f-1': 'live-903', 'f-2': 17.25 },
+            },
+          ],
+        }
+      return []
+    })
+    renderGrid()
+    expect(await screen.findByText(/Live dataset value/)).toBeTruthy()
+    expect((await screen.findAllByText('17.25')).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Showing 1 of 1 rows/)).toBeTruthy()
+    expect(screen.queryByText('No snapshot to read rows from')).toBeNull()
+    expect(dataClient.rpc).toHaveBeenCalledWith('dataset_value_context', {
+      p_dataset_id: 'ds-1',
+      p_row_id: 'r-903',
+    })
+    expect(dataClient.rpc).not.toHaveBeenCalledWith(
+      'query_dataset_version_rows',
+      expect.anything(),
+    )
+  })
+
   it('reaches every row of the snapshot through Load more', async () => {
     const user = userEvent.setup()
     renderGrid()

@@ -41,12 +41,17 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/readings/new')({
   // The page that linked here hands over the sample or dataset in view and where
   // to return to, so the form opens on them and Cancel goes back.
-  validateSearch: (search: Record<string, unknown>): CreateContextSearch => {
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): CreateContextSearch & { plannedKey?: string } => {
     const { sample, dataset, returnTo } = parseCreateContext(search)
     return {
       ...(sample ? { sample } : {}),
       ...(dataset ? { dataset } : {}),
       ...(returnTo ? { returnTo } : {}),
+      ...(typeof search.plannedKey === 'string' && search.plannedKey
+        ? { plannedKey: search.plannedKey }
+        : {}),
     }
   },
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -70,37 +75,43 @@ function NewReading() {
   const queryClient = useQueryClient()
 
   const samples = useQuery({
-    queryKey: readingQueryKeys.samples,
-    queryFn: () => listReadingSamples(notebookDataClient),
+    queryKey: [...readingQueryKeys.samples, search.sample],
+    queryFn: () => listReadingSamples(notebookDataClient, search.sample),
     staleTime: 30_000,
   })
   const datasets = useQuery({
-    queryKey: readingQueryKeys.datasets,
-    queryFn: () => listReadingDatasets(notebookDataClient),
+    queryKey: [...readingQueryKeys.datasets, search.dataset],
+    queryFn: () => listReadingDatasets(notebookDataClient, search.dataset),
     staleTime: 30_000,
   })
   const plannedRows = useQuery({
-    queryKey: readingQueryKeys.plannedRows,
-    queryFn: () => listReadingPlannedRows(notebookDataClient),
+    queryKey: [
+      ...readingQueryKeys.plannedRows,
+      search.dataset,
+      search.plannedKey,
+    ],
+    queryFn: () =>
+      listReadingPlannedRows(
+        notebookDataClient,
+        search.dataset,
+        search.plannedKey,
+      ),
     staleTime: 30_000,
   })
 
-  const sampleRows = samples.data ?? []
+  const listedSamples = samples.data ?? []
   const datasetRows = datasets.data ?? []
   const allPlannedRows = plannedRows.data ?? []
 
   const [sampleId, setSampleId] = useState(search.sample ?? '')
   const [datasetId, setDatasetId] = useState(search.dataset ?? '')
-  const [plannedKey, setPlannedKey] = useState('')
+  const [plannedKey, setPlannedKey] = useState(search.plannedKey ?? '')
   const [measurementFieldId, setMeasurementFieldId] = useState('')
   const [value, setValue] = useState('')
   const [dilutionValue, setDilutionValue] = useState('')
   const [note, setNote] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
   const [touched, setTouched] = useState(false)
-
-  const effectiveSampleId = sampleId || sampleRows.at(0)?.id || ''
-  const sample = sampleRows.find((s) => s.id === effectiveSampleId)
 
   // Only datasets that actually have a fillable planned row are offered, so an
   // empty selection can never pretend a reading will land somewhere.
@@ -114,6 +125,26 @@ function NewReading() {
   const datasetPlannedRows = allPlannedRows.filter(
     (row) => row.dataset_id === effectiveDatasetId,
   )
+  const effectivePlannedKey =
+    plannedKey || datasetPlannedRows.at(0)?.planned_key || ''
+  const selectedPlan = datasetPlannedRows.find(
+    (row) => row.planned_key === effectivePlannedKey,
+  )
+  const planSample = useQuery({
+    queryKey: ['readings', 'plan-sample', selectedPlan?.sample_id],
+    queryFn: () =>
+      listReadingSamples(notebookDataClient, selectedPlan!.sample_id!),
+    enabled:
+      Boolean(selectedPlan?.sample_id) &&
+      !listedSamples.some((s) => s.id === selectedPlan?.sample_id),
+    staleTime: 30_000,
+  })
+  const sampleRows = listedSamples.some((s) => s.id === selectedPlan?.sample_id)
+    ? listedSamples
+    : [...listedSamples, ...(planSample.data ?? [])]
+  const effectiveSampleId =
+    selectedPlan?.sample_id || sampleId || sampleRows.at(0)?.id || ''
+  const sample = sampleRows.find((s) => s.id === effectiveSampleId)
 
   const fieldsQuery = useQuery({
     queryKey: readingQueryKeys.fields(dataset?.schema_version_id ?? ''),
@@ -146,13 +177,13 @@ function NewReading() {
   )
   const sampleBinding = useMemo(() => sampleBindingField(fields), [fields])
   const effectiveMeasurementFieldId =
-    measurementFieldId || measurementOptions.at(0)?.field_id || ''
+    measurementFieldId ||
+    selectedPlan?.measurement_field_id ||
+    measurementOptions.at(0)?.field_id ||
+    ''
   const measurementField = fields.find(
     (field) => field.field_id === effectiveMeasurementFieldId,
   )
-
-  const effectivePlannedKey =
-    plannedKey || datasetPlannedRows.at(0)?.planned_key || ''
 
   const parsed = Number.parseFloat(value.replace(',', '.'))
   const parsedDilution = Number.parseFloat(dilutionValue.replace(',', '.'))
@@ -163,7 +194,7 @@ function NewReading() {
     (Number.isFinite(parsedDilution) && parsedDilution > 0)
   const canSubmit =
     Boolean(sample) &&
-    Boolean(effectivePlannedKey) &&
+    Boolean(selectedPlan) &&
     Boolean(measurementField) &&
     valueValid &&
     dilutionValid
@@ -264,6 +295,8 @@ function NewReading() {
   const saveBlockedReason = (() => {
     if (canSubmit || save.isPending) return null
     if (!sample) return 'Choose a sample to record against.'
+    if (plannedKey && !selectedPlan && !plannedRows.isLoading)
+      return 'This planned row is no longer available. It may already have been recorded. Return to the dataset to check.'
     if (noPlans || !effectivePlannedKey)
       return 'Save is unavailable until a dataset has a planned row to fill.'
     if (!measurementField)
@@ -293,7 +326,7 @@ function NewReading() {
           <Select
             value={effectiveSampleId}
             onChange={(e) => setSampleId(e.target.value)}
-            disabled={samples.isLoading}
+            disabled={samples.isLoading || Boolean(selectedPlan?.sample_id)}
           >
             {sampleRows.length === 0 ? (
               <option value="">No samples yet</option>

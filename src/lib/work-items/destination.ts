@@ -38,6 +38,11 @@ export type WorkItemLink =
     }
   | { to: '/pipelines'; search: { q: string | undefined } }
   | { to: '/datasets' }
+  | {
+      to: '/datasets/$datasetId/rows'
+      params: { datasetId: string }
+      search: { row: string; field: string; live: true }
+    }
   | { to: '/promotions' }
   | { to: '/materials'; search?: { selected: string } }
 
@@ -132,7 +137,14 @@ export function itemLink(item: WorkItem): WorkItemLink {
     item.identifier === 'column_promotion'
   )
     return { to: '/promotions' }
-  if (item.kind === 'data_issue') return { to: '/datasets' }
+  if (item.kind === 'data_issue')
+    return item.datasetId && item.rowId && item.fieldId
+      ? {
+          to: '/datasets/$datasetId/rows',
+          params: { datasetId: item.datasetId },
+          search: { row: item.rowId, field: item.fieldId, live: true },
+        }
+      : { to: '/datasets' }
   if (item.kind === 'material_expiring')
     return item.recordId
       ? { to: '/materials', search: { selected: item.recordId } }

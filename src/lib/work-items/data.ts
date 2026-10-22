@@ -7,12 +7,12 @@
  * following bucket. The list is invalidated by change events in
  * `src/lib/live-events.ts`.
  */
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
 import { DataClientError } from '../data-client'
 import type { DataClient } from '../data-client'
 import { notebookDataClient } from '../notebook-data'
-import type { InboxCounts } from './predicate'
+import type { InboxCounts, InboxTab, WorkItemType } from './predicate'
 
 export type WorkItemKind =
   | 'review_requested'
@@ -57,6 +57,9 @@ export interface WorkItemWire {
   parser_version_id?: string | null
   connector_id?: string | null
   revision_id?: string | null
+  dataset_id?: string | null
+  row_id?: string | null
+  field_id?: string | null
 }
 
 /** A resolved work item ready to render. */
@@ -75,6 +78,9 @@ export interface WorkItem {
   parserVersionId?: string | null
   connectorId?: string | null
   revisionId?: string | null
+  datasetId?: string | null
+  rowId?: string | null
+  fieldId?: string | null
 }
 
 const KINDS: readonly WorkItemKind[] = [
@@ -142,6 +148,9 @@ export function toWorkItem(
     dueAt,
     state,
     createdAt: row.created_at,
+    datasetId: row.dataset_id,
+    rowId: row.row_id,
+    fieldId: row.field_id,
     ...(row.revision_id ? { revisionId: row.revision_id } : {}),
     ...(row.source_type
       ? {
@@ -255,6 +264,45 @@ export function useWorkItems(client: DataClient = notebookDataClient) {
     queryKey: workItemsQueryKeys.list(),
     queryFn: () => fetchWorkItems(client),
     staleTime: 30_000,
+    retry: false,
+  })
+}
+
+export interface InboxPage {
+  items: WorkItem[]
+  total: number
+  offset: number
+  tabs: Partial<Record<InboxTab, number>>
+  types: Partial<Record<WorkItemType, number>>
+}
+
+/** Seen/tab/type predicates run before the page window, with exact counts. */
+export async function fetchInboxPage(
+  client: DataClient,
+  tab: InboxTab,
+  type: WorkItemType | undefined,
+  offset = 0,
+): Promise<InboxPage> {
+  const page = await fetchWithTimeout(
+    client.rpc<Omit<InboxPage, 'items'> & { items: WorkItemWire[] }>(
+      'inbox_work_items_page',
+      { p_tab: tab, p_type: type ?? null, p_limit: 100, p_offset: offset },
+    ),
+  )
+  return { ...page, items: page.items.map((row) => toWorkItem(row)) }
+}
+
+export function useInboxPage(tab: InboxTab, type?: WorkItemType) {
+  return useInfiniteQuery({
+    queryKey: ['work-items', 'page', tab, type],
+    queryFn: ({ pageParam }) =>
+      fetchInboxPage(notebookDataClient, tab, type, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (last) =>
+      last.offset + last.items.length < last.total
+        ? last.offset + last.items.length
+        : undefined,
+    staleTime: 15_000,
     retry: false,
   })
 }

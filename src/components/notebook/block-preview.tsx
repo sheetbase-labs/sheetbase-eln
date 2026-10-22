@@ -41,8 +41,7 @@ import { useUnsyncedBlock } from '#/components/offline/offline-edits'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { sheetInstanceEmbedErrorMessage } from './notebook-sheet-block'
 import {
-  fetchCanonicalDataset,
-  fetchDatasetRows,
+  resolveDatasetRef,
   fetchFrozenAnalysisRows,
   frozenPinsDatasetVersion,
   materialiseFrozenChart,
@@ -1176,6 +1175,7 @@ function PinnedFrozenChartPreview({
       spec,
       frozen,
       rows: pinned.data.rows,
+      flags: pinned.data.flags,
     })
     return (
       <ChartRenderer
@@ -1696,15 +1696,12 @@ function LiveAnalysisExecution({
 }) {
   const parts = analysisBlockParts(definition)
   const resolvedQuery = useQuery({
-    queryKey: ['analysis-block-dataset', datasetId] as const,
-    queryFn: async () => {
-      const source = await fetchCanonicalDataset(sciDataClient, datasetId)
-      if (!source) return null
-      return {
-        source,
-        ...(await fetchDatasetRows(sciDataClient, source.datasetId)),
-      }
-    },
+    queryKey: [
+      'analysis-block-dataset',
+      datasetId,
+      definition.datasets[0]?.datasetVersionId,
+    ] as const,
+    queryFn: () => resolveDatasetRef(sciDataClient, definition.datasets[0]),
     enabled: Boolean(datasetId),
     staleTime: 10_000,
   })
@@ -1715,6 +1712,7 @@ function LiveAnalysisExecution({
           parts.statistic,
           resolvedQuery.data.source.columns,
           resolvedQuery.data.rows,
+          resolvedQuery.data.flags,
         )
       : null
 
@@ -1739,6 +1737,12 @@ function LiveAnalysisExecution({
           sources={chartSourcesFromSpec(parts.chart)}
           hideTitle
         />
+      ) : null}
+      {definition.datasets[0]?.datasetVersionId ? (
+        <p className="text-xs text-fg-muted">
+          Reading Dataset Version {definition.datasets[0].datasetVersionId}. All
+          snapshot values are included; flags do not exclude rows.
+        </p>
       ) : null}
       {!parts.statistic ? null : executed && executed.ok ? (
         <AnalysisResultTable result={executed.result} />
@@ -1777,13 +1781,19 @@ function FrozenAnalysisPreview({
   // Dataset Version — the block stores references, never source rows.
   const pin = frozen.datasetProvenance.at(0)
   const rowsQuery = useQuery({
-    queryKey: ['analysis-frozen-version-rows', pin?.datasetVersionId] as const,
+    queryKey: [
+      'analysis-frozen-version-rows',
+      pin?.datasetVersionId,
+      pin?.rowCount,
+      frozen.exclusionPolicy,
+    ] as const,
     queryFn: () => {
       if (!pin) throw new Error('No pinned Dataset Version')
       return fetchFrozenAnalysisRows(
         sciDataClient,
         pin.datasetVersionId,
         pin.rowCount,
+        frozen.exclusionPolicy,
       )
     },
     enabled: Boolean(pin),
@@ -1794,6 +1804,7 @@ function FrozenAnalysisPreview({
     id: c.fieldId,
     label: c.label,
     logicalType: c.logicalType,
+    unit: c.unit,
   }))
   // R5-STUDIO-01: a snapshot that recorded a method version this build cannot
   // reproduce is reported, never silently re-executed under the current method.
@@ -1806,7 +1817,7 @@ function FrozenAnalysisPreview({
       : null
   const executed =
     parts.statistic && pinnedRows
-      ? runAnalysis(parts.statistic, columns, pinnedRows)
+      ? runAnalysis(parts.statistic, columns, pinnedRows, rowsQuery.data?.flags)
       : null
   // The chart is rebuilt the same way: the pinned Version's rows through the
   // chart's own spec, never a live re-read.
@@ -1823,6 +1834,7 @@ function FrozenAnalysisPreview({
             columns,
           },
           rows: pinnedRows,
+          flags: rowsQuery.data?.flags,
           truncated: false,
           totalCount: pin.rowCount,
         })
@@ -1841,6 +1853,11 @@ function FrozenAnalysisPreview({
         </Badge>
         <span className="text-xs text-fg-muted">
           Provenance: {provenanceParts.join(', ')}
+        </span>
+        <span className="text-xs text-fg-muted">
+          {frozen.exclusionPolicy === 'exclude_bound_fields'
+            ? 'Flag policy: exclude rows flagged on analysed fields, using the flags captured in the Dataset Version.'
+            : 'Flag policy: include all snapshot values.'}
         </span>
         {/* NOTE-03: the frozen evidence pins a Dataset Version; the open
         affordance still targets the canonical Dataset by stable UUID. */}

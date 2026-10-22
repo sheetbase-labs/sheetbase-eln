@@ -127,10 +127,11 @@ unit symbol. This layer does not invent unit conversion.
 
 ## Large data
 
-Live reads cap at 10 000 rows (`SCI_ANALYSIS_ROW_LIMIT`). Datasets at or
+Live and frozen reads cap at 100 000 rows (`SCI_ANALYSIS_ROW_LIMIT`). Datasets at or
 below that envelope are fetched in full for analysis; scatter marks may be
 evenly sampled to a chart-wide 4000-point display budget after statistics.
-Above 10 000 rows the chart reports `dataset_too_large`. Sampling is
+Filters and flag exclusions run before transformations, statistics and display sampling.
+Above 100 000 source rows the chart reports `dataset_too_large`. Sampling is
 deterministic and disclosed (`totalCount`, `sampledCount`, `analysisCount`).
 OLS, grouped statistics and violin density use the full analysis set, not
 only displayed marks. Fit lines are not sampled.
@@ -143,6 +144,25 @@ snapshots a Dataset Version and stores provenance (`datasetId`,
 PL/pgSQL plot builder. Frozen rendering loads pinned Version rows and runs
 `materialiseChart`. Later Dataset edits change the live graph and leave
 frozen evidence unchanged. Submission stamps `frozen.revisionId`.
+
+Selecting a Dataset Version reads its original schema, labels, logical types
+and storage units, even after the live Dataset advances or is archived.
+Freezing a selected Version retains that exact Version rather than creating
+a snapshot of the current live Dataset. A combined chart and statistic must
+name the same Dataset and Version.
+
+Frozen charts and analyses record `exclusionPolicy` in the existing evidence
+payload. Live sources record `exclude_bound_fields`: a flag on any referenced
+chart field or analysed statistic field excludes that row. Reconstruction reads
+the reasons and flags from `dataset_version_flags`, never from live review state.
+Flags on unrelated fields do not exclude observations.
+
+Selected snapshots retain the existing all-values exploration behaviour and
+record `include_flagged`. The snapshot banner and frozen provenance state this
+policy explicitly. Older frozen payloads with no policy retain their original
+all-values interpretation. Changing a live flag therefore cannot change either
+population. Units come from `quantity.storageUnit`; a preferred display unit
+does not relabel values without conversion.
 
 ## Notebook and Studio
 

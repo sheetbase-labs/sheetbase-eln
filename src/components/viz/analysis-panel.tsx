@@ -161,11 +161,6 @@ export function AnalysisPanel({
   })
   const definitions = definitionsQuery.data ?? []
 
-  const selectedDataset = useMemo(
-    () => datasets.find((d) => d.datasetId === selectedDatasetId) ?? null,
-    [datasets, selectedDatasetId],
-  )
-
   // Dataset rows for execution — read-only canonical rows through the same
   // /api/db boundary as every chart surface.
   const rowsQuery = useQuery({
@@ -194,6 +189,13 @@ export function AnalysisPanel({
     enabled: Boolean(selectedDatasetId),
     staleTime: 10_000,
   })
+
+  // Bind and label the fields of the examined version, not today's schema.
+  const selectedDataset =
+    rowsQuery.data?.source ??
+    (snapshotId
+      ? null
+      : (datasets.find((d) => d.datasetId === selectedDatasetId) ?? null))
 
   // A definition is runnable once it validates structurally and its dataset
   // is selected; execution errors surface per-run below.
@@ -308,11 +310,7 @@ export function AnalysisPanel({
           name: draft.name.trim(),
           definition: draft.definition,
           source_revisions: captureDefinitionSourceRevisions(
-            datasets.filter((d) =>
-              draft.definition!.datasets.some(
-                (ref) => ref.datasetId === d.datasetId,
-              ),
-            ),
+            selectedDataset ? [selectedDataset] : [],
             draft.definition,
           ),
         },
@@ -320,7 +318,8 @@ export function AnalysisPanel({
         userId,
       )
     },
-    onSuccess: () => {
+    onSuccess: (saved) => {
+      if (saved) loadDefinition(saved)
       void queryClient.invalidateQueries({
         queryKey: analysisDefinitionQueryKeys.all,
       })
@@ -459,10 +458,10 @@ export function AnalysisPanel({
           </div>
         </div>
 
-        {draft.definition ? (
+        {draft.definition && selectedDataset ? (
           <AnalysisDefinitionControls
             definition={draft.definition}
-            table={selectedDataset!}
+            table={selectedDataset}
             onChange={updateDefinition}
           />
         ) : null}

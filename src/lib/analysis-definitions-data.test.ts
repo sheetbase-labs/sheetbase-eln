@@ -51,7 +51,7 @@ function clientMock(): DataClient {
     list: vi.fn().mockResolvedValue([]),
     count: vi.fn().mockResolvedValue(0),
     rpc: vi.fn(),
-    insert: vi.fn().mockResolvedValue({ id: 'new-id', version: 1 }),
+    insert: vi.fn().mockResolvedValue([{ id: 'new-id', version: 1 }]),
     patch: vi.fn().mockResolvedValue([{ id: 'existing', version: 7 }]),
     remove: vi.fn().mockResolvedValue([]),
   }
@@ -89,12 +89,13 @@ describe('captureDefinitionSourceRevisions', () => {
 
 describe('save/delete wrappers', () => {
   it('inserts with workspace + owner attribution on create', async () => {
-    await createAnalysisDefinition(
+    const saved = await createAnalysisDefinition(
       client,
       { name: 'Recovery fit', definition, source_revisions: [] },
       'ws-1',
       'user-1',
     )
+    expect(saved).toEqual({ id: 'new-id', version: 1 })
     expect(client.insert).toHaveBeenCalledWith('analysis_definitions', {
       workspace_id: 'ws-1',
       owner_user_id: 'user-1',

@@ -51,6 +51,7 @@ vi.mock('@tanstack/react-query', () => {
   }
 })
 vi.mock('#/lib/chart-data', () => ({
+  SCI_ANALYSIS_ROW_LIMIT: 100_000,
   useLiveChartDataset: () => ({
     datasetQuery: { data: null, isLoading: false },
   }),

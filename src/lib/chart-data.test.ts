@@ -20,6 +20,7 @@ import type { CanonicalDatasetSource, ResolvedDataset } from './chart-data'
 import { CHART_PALETTE } from './chart-spec'
 import type { ChartSpec, FrozenChart } from './chart-spec'
 import type { DataClient } from './data-client'
+import { runAnalysis } from './analysis-definition'
 
 const DATASET_ID = '00000000-0000-4000-8000-000000000170'
 
@@ -143,6 +144,75 @@ function pagedRowsClient(total: number): {
 }
 
 describe('fetchDatasetRows', () => {
+  it.each([10_000, 10_001, 20_160, 100_000])(
+    'analyses and reconstructs all %i rows, sampling only display marks',
+    async (count) => {
+      const { client } = pagedRowsClient(count)
+      const live = await fetchDatasetRows(client, DATASET_ID)
+      const frozen = await fetchFrozenAnalysisRows(client, 'ver-1', count)
+      expect(live.truncated).toBe(false)
+      expect(frozen.matchesProvenance).toBe(true)
+      expect(frozen.rows).toEqual(live.rows)
+      const rows = live.rows.map((row) => ({
+        ...row,
+        c1: row.n,
+        c2: 3 * Number(row.n) + 7,
+      }))
+      const chart = materialiseLiveChart(
+        lineSpec({
+          fields: {
+            ...lineSpec().fields,
+            x: { fieldId: 'c1' },
+            y: { fieldId: 'c2' },
+            series: null,
+          },
+          overlays: { errorBars: null, fit: { method: 'ols', degree: 1 } },
+        }),
+        { source: makeSource(), rows, totalCount: count, truncated: false },
+      )
+      expect(chart.state.kind).toBe('ok')
+      expect(chart.fit?.n).toBe(count)
+      expect(chart.fit?.coefficients[0]).toBeCloseTo(7, 5)
+      expect(chart.fit?.coefficients[1]).toBeCloseTo(3, 8)
+      expect(chart.sampling?.analysisCount).toBe(count)
+      expect(chart.sampling?.sampledCount).toBeLessThanOrEqual(4000)
+      const analysis = runAnalysis(
+        {
+          definitionVersion: 1,
+          kind: 'descriptive',
+          datasets: [{ datasetId: DATASET_ID }],
+          value: { fieldId: 'c2' },
+        },
+        makeSource().columns,
+        rows,
+      )
+      expect(analysis.ok).toBe(true)
+      if (analysis.ok && analysis.result.kind === 'descriptive') {
+        expect(analysis.result.rows[0].stats.n).toBe(count)
+        expect(analysis.result.rows[0].stats.mean).toBe(
+          (3 * (count + 1)) / 2 + 7,
+        )
+      }
+      // A tail-only filter must run before the fit and before display sampling.
+      const filtered = materialiseLiveChart(
+        lineSpec({
+          fields: {
+            ...lineSpec().fields,
+            x: { fieldId: 'c1' },
+            y: { fieldId: 'c2' },
+            series: null,
+          },
+          filters: [{ fieldId: 'c1', op: 'gt', value: count - 9000 }],
+          overlays: { errorBars: null, fit: { method: 'ols', degree: 1 } },
+        }),
+        { source: makeSource(), rows, totalCount: count, truncated: false },
+      )
+      expect(filtered.fit?.n).toBe(9000)
+      expect(filtered.rows[0].c1).toBe(count - 8999)
+      expect(filtered.sampling?.analysisCount).toBe(9000)
+    },
+  )
+
   it('pages through query_dataset_rows until the authoritative total is loaded', async () => {
     const { client, calls } = pagedRowsClient(2500)
     const result = await fetchDatasetRows(client, DATASET_ID)
@@ -175,13 +245,13 @@ describe('fetchDatasetRows', () => {
   })
 
   it('stops at the hard ceiling and flags truncation above it', async () => {
-    const { client, calls } = pagedRowsClient(15_000)
+    const { client, calls } = pagedRowsClient(100_001)
     const result = await fetchDatasetRows(client, DATASET_ID)
     expect(result.truncated).toBe(true)
-    expect(result.totalCount).toBe(15_000)
+    expect(result.totalCount).toBe(100_001)
     expect(result.rows).toHaveLength(SCI_ANALYSIS_ROW_LIMIT)
-    expect(calls).toHaveLength(10)
-    expect(calls[9].p_offset).toBe(9000)
+    expect(calls).toHaveLength(100)
+    expect(calls[99].p_offset).toBe(99_000)
   })
 
   it('returns a single page without follow-ups under the page size', async () => {
@@ -237,7 +307,25 @@ describe('resolveDatasetRef on a snapshot', () => {
                 revision: 4,
               },
             ]
-          : [],
+          : table === 'dataset_versions'
+            ? [
+                {
+                  id: 'ver-9',
+                  dataset_id: DATASET_ID,
+                  schema_version_id: 'sv-old',
+                  source_dataset_revision: 2,
+                },
+              ]
+            : table === 'dataset_schema_versions'
+              ? [{ id: 'sv-old', version: 1 }]
+              : [
+                  {
+                    field_id: 'c2',
+                    label: 'Original titer',
+                    logical_type: 'decimal',
+                    quantity: { symbol: 'mg/L' },
+                  },
+                ],
       rpc: async (name: string, args: Record<string, unknown>) => {
         rpcCalls.push({ name, args })
         return {
@@ -254,6 +342,14 @@ describe('resolveDatasetRef on a snapshot', () => {
 
     expect(resolved?.rows).toEqual([{ c1: 0, c2: 7.2, __sheetbaseRowId: 'r1' }])
     expect(resolved?.flags).toEqual([])
+    expect(resolved?.source.schemaVersionId).toBe('sv-old')
+    expect(resolved?.source.revision).toBe(2)
+    expect(resolved?.source.columns[0]).toEqual({
+      id: 'c2',
+      label: 'Original titer',
+      logicalType: 'decimal',
+      unit: { symbol: 'mg/L' },
+    })
     expect(rpcCalls.map((call) => call.name)).toEqual([
       'query_dataset_version_rows',
     ])

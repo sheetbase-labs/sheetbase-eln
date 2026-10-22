@@ -91,13 +91,17 @@ export async function createAnalysisDefinition(
   workspaceId: string,
   userId: string,
 ): Promise<AnalysisDefinitionWire> {
-  return client.insert<AnalysisDefinitionWire>('analysis_definitions', {
-    workspace_id: workspaceId,
-    owner_user_id: userId,
-    name: input.name,
-    definition: input.definition,
-    source_revisions: input.source_revisions,
-  })
+  const created = await client.insert<AnalysisDefinitionWire[]>(
+    'analysis_definitions',
+    {
+      workspace_id: workspaceId,
+      owner_user_id: userId,
+      name: input.name,
+      definition: input.definition,
+      source_revisions: input.source_revisions,
+    },
+  )
+  return created[0]
 }
 
 /**

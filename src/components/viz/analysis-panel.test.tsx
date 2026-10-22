@@ -23,6 +23,7 @@ import type * as definitionsData from '#/lib/analysis-definitions-data'
 import {
   deleteAnalysisDefinition,
   fetchAnalysisDefinitions,
+  saveAnalysisDefinition,
 } from '#/lib/analysis-definitions-data'
 import type * as chartData from '#/lib/chart-data'
 import { fetchCanonicalDataset, fetchDatasetRows } from '#/lib/chart-data'
@@ -34,9 +35,7 @@ vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
   return {
     ...actual,
     fetchAnalysisDefinitions: vi.fn(),
-    saveAnalysisDefinition: vi
-      .fn()
-      .mockResolvedValue({ id: 'saved', version: 1 }),
+    saveAnalysisDefinition: vi.fn(),
     deleteAnalysisDefinition: vi.fn().mockResolvedValue(undefined),
   }
 })
@@ -89,6 +88,19 @@ function wrapper() {
 }
 
 beforeEach(() => {
+  vi.mocked(saveAnalysisDefinition).mockImplementation(
+    async (_client, input, workspaceId, userId) => ({
+      id: input.id ?? 'saved',
+      workspace_id: workspaceId,
+      owner_user_id: userId,
+      name: input.name,
+      definition: input.definition,
+      source_revisions: input.source_revisions,
+      version: 1,
+      created_at: '',
+      updated_at: '',
+    }),
+  )
   mockFetchDefinitions.mockResolvedValue([])
   mockFetchDataset.mockResolvedValue(DATASET)
   // Rows are keyed by stable field_id, exactly as query_dataset_rows returns.
@@ -133,6 +145,67 @@ async function runDescriptive() {
 }
 
 describe('AnalysisPanel', () => {
+  it('authors and saves against the examined snapshot schema and revision', async () => {
+    const snapshotId = '22222222-2222-4222-8222-222222222222'
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(['dataset-version-summaries', DATASET.datasetId], [])
+    client.setQueryData(
+      ['analysis-definition-rows', DATASET.datasetId, snapshotId],
+      {
+        source: {
+          ...DATASET,
+          revision: 2,
+          schemaVersionNumber: 3,
+          columns: [
+            {
+              id: FIELD_RECOVERY,
+              label: 'Original recovery',
+              logicalType: 'decimal',
+            },
+          ],
+        },
+        rows: [{ [FIELD_RECOVERY]: 7 }, { [FIELD_RECOVERY]: 13 }],
+        flags: [],
+        truncated: false,
+        totalCount: 2,
+      },
+    )
+    render(
+      <QueryClientProvider client={client}>
+        <AnalysisPanel
+          datasets={[DATASET]}
+          workspaceId="ws-1"
+          userId="user-1"
+          initialDatasetId={DATASET.datasetId}
+          initialSnapshotId={snapshotId}
+        />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: /Descriptive \/ ANOVA/i }),
+    )
+    expect(
+      screen.getByRole('option', { name: 'Original recovery' }),
+    ).toBeTruthy()
+    expect(
+      screen.getByLabelText<HTMLSelectElement>('Measured value column').value,
+    ).toBe(FIELD_RECOVERY)
+    fireEvent.change(screen.getByLabelText('Analysis name'), {
+      target: { value: 'Original recovery' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }))
+    await waitFor(() => expect(saveAnalysisDefinition).toHaveBeenCalledOnce())
+    const input = vi.mocked(saveAnalysisDefinition).mock.calls[0][1]
+    expect(input.definition.datasets).toEqual([
+      { datasetId: DATASET.datasetId, datasetVersionId: snapshotId },
+    ])
+    expect(input.source_revisions).toEqual([
+      { datasetId: DATASET.datasetId, revision: 2, schemaVersionNumber: 3 },
+    ])
+  })
+
   it('runs a grouped descriptive analysis against live rows', async () => {
     await runDescriptive()
     // Groups appear in codepoint-sorted order with computed statistics.
@@ -178,7 +251,7 @@ describe('AnalysisPanel', () => {
     expect(alert.textContent).toMatch(/dataset has no rows/i)
   })
 
-  it('enables saving only with a name and persists through the data layer', async () => {
+  it('adopts a saved analysis immediately for citation and subsequent updates', async () => {
     await runDescriptive()
     const save = screen.getByRole('button', {
       name: /^Save$/,
@@ -189,9 +262,17 @@ describe('AnalysisPanel', () => {
     })
     expect(save.hasAttribute('disabled')).toBe(false)
     fireEvent.click(save)
-    const { saveAnalysisDefinition } =
-      await import('#/lib/analysis-definitions-data')
     await waitFor(() => expect(saveAnalysisDefinition).toHaveBeenCalledOnce())
+    expect(
+      await screen.findByRole('button', { name: /Cite in a notebook/ }),
+    ).toBeTruthy()
+    expect(screen.getByText('median')).toBeTruthy()
+    expect(
+      screen.getByLabelText<HTMLSelectElement>('Analysis dataset').value,
+    ).toBe(DATASET.datasetId)
+    fireEvent.click(screen.getByRole('button', { name: /^Update$/ }))
+    await waitFor(() => expect(saveAnalysisDefinition).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(saveAnalysisDefinition).mock.calls[1][1].id).toBe('saved')
   })
 
   it('lists saved analyses and loads one back into the editor', async () => {

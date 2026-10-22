@@ -23,9 +23,15 @@ import { useQuery } from '@tanstack/react-query'
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { queryDatasetVersionRows } from './dataset-product'
+import type { DatasetVersionWire } from './dataset-product'
 import { toBlock } from './notebook-data'
 import type { BlockWire, NotebookBlock } from './notebook-data'
-import { materialiseChart, materialiseFacetedCharts } from './chart-spec'
+import {
+  chartSpecReferencedFieldIds,
+  chartUnitSymbol,
+  materialiseChart,
+  materialiseFacetedCharts,
+} from './chart-spec'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 import { fetchActiveDatasetFlags, filterRowsByFlags } from './dataset-flags'
 import type { DatasetValueFlag } from './dataset-flags'
@@ -39,7 +45,7 @@ import type {
 } from './chart-spec'
 
 /** Maximum rows fetched for live/frozen analysis. Display may sample. */
-export const SCI_ANALYSIS_ROW_LIMIT = 10_000
+export const SCI_ANALYSIS_ROW_LIMIT = 100_000
 
 /** query_dataset_rows / query_dataset_version_rows accept ≤1000 per call. */
 const ROW_PAGE_SIZE = 1000
@@ -137,13 +143,24 @@ export interface ResolvedDataset {
 export async function fetchCanonicalDataset(
   client: DataClient,
   datasetId: string,
+  datasetVersionId?: string,
 ): Promise<CanonicalDatasetSource | null> {
   const datasets = await client.list<DatasetResourceWire>(
     'datasets',
-    `?id=eq.${encodeURIComponent(datasetId)}&lifecycle=eq.active&limit=1`,
+    `?id=eq.${encodeURIComponent(datasetId)}${datasetVersionId ? '' : '&lifecycle=eq.active'}&limit=1`,
   )
   const dataset = datasets.at(0)
   if (!dataset) return null
+  if (datasetVersionId) {
+    const versions = await client.list<DatasetVersionWire>(
+      'dataset_versions',
+      `?id=eq.${encodeURIComponent(datasetVersionId)}&dataset_id=eq.${encodeURIComponent(datasetId)}&limit=1`,
+    )
+    const version = versions.at(0)
+    if (!version || version.dataset_id !== datasetId) return null
+    dataset.schema_version_id = version.schema_version_id
+    dataset.revision = version.source_dataset_revision
+  }
   const [fields, versions] = await Promise.all([
     client.list<DatasetVersionFieldWire>(
       'dataset_schema_version_fields',
@@ -197,6 +214,8 @@ async function fetchRowsPaged(
       Math.min(ROW_PAGE_SIZE, SCI_ANALYSIS_ROW_LIMIT - offset),
       offset,
     )
+    if (page.rows.length === 0 || page.totalCount !== totalCount)
+      throw new Error('Dataset changed while paging; reload before analysing')
     rows.push(...page.rows)
     offset = rows.length
   }
@@ -255,16 +274,19 @@ export async function resolveChartDataset(
 
 /**
  * The rows a Dataset reference names: the live rows, or the frozen rows of the
- * snapshot when it pins a Dataset Version. Columns always come from the
- * dataset, so a snapshot older than a column reports that field as missing
- * rather than plotting nothing silently. Flags are live review state and do not
- * apply to a snapshot, whose values are fixed.
+ * snapshot when it pins a Dataset Version. Snapshot columns come from that
+ * Version's schema. The existing snapshot exploration policy includes all
+ * values, not current live flags; freeze records this policy explicitly.
  */
 export async function resolveDatasetRef(
   client: DataClient,
   ref: DatasetRef,
 ): Promise<ResolvedDataset | null> {
-  const source = await fetchCanonicalDataset(client, ref.datasetId)
+  const source = await fetchCanonicalDataset(
+    client,
+    ref.datasetId,
+    ref.datasetVersionId,
+  )
   if (!source) return null
   if (ref.datasetVersionId) {
     const paged = await fetchDatasetVersionRows(client, ref.datasetVersionId)
@@ -305,9 +327,14 @@ export async function fetchDatasetVersionRows(
  * rather than re-deriving it.
  */
 export function chartUsedFieldIds(spec: ChartSpec): string[] {
-  return Object.values(spec.fields)
-    .map((binding) => binding?.fieldId)
-    .filter((fieldId): fieldId is string => typeof fieldId === 'string')
+  return [
+    ...new Set([
+      ...Object.values(spec.fields).flatMap((binding) =>
+        binding ? [binding.fieldId] : [],
+      ),
+      ...chartSpecReferencedFieldIds(spec),
+    ]),
+  ]
 }
 
 /**
@@ -388,18 +415,8 @@ export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
     ),
     xLabel: columns[0]?.label ?? 'x',
     yLabel: columns[1]?.label ?? 'y',
-    xUnit:
-      typeof columns[0]?.unit === 'object' &&
-      columns[0]?.unit &&
-      'symbol' in columns[0].unit
-        ? String((columns[0].unit as { symbol: string }).symbol)
-        : undefined,
-    yUnit:
-      typeof columns[1]?.unit === 'object' &&
-      columns[1]?.unit &&
-      'symbol' in columns[1].unit
-        ? String((columns[1].unit as { symbol: string }).symbol)
-        : undefined,
+    xUnit: chartUnitSymbol(columns[0]?.unit),
+    yUnit: chartUnitSymbol(columns[1]?.unit),
   }
 }
 
@@ -414,6 +431,7 @@ export function reconstructFrozenVisualisation(input: {
   spec: ChartSpec
   frozen: FrozenChart
   rows: Record<string, unknown>[]
+  flags?: DatasetValueFlag[]
 }): {
   chart: MaterialisedChart
   facets: { panels: FacetedChart[]; total: number } | null
@@ -424,9 +442,14 @@ export function reconstructFrozenVisualisation(input: {
     logicalType: column.logicalType,
     unit: column.unit,
   }))
-  const chart = materialiseChart(input.spec, columns, input.rows)
+  const rows = filterRowsByFlags(
+    input.rows,
+    input.flags ?? [],
+    chartUsedFieldIds(input.spec),
+  )
+  const chart = materialiseChart(input.spec, columns, rows)
   if (!input.spec.fields.facet) return { chart, facets: null }
-  const facets = materialiseFacetedCharts(input.spec, columns, input.rows)
+  const facets = materialiseFacetedCharts(input.spec, columns, rows)
   return { chart, facets }
 }
 
@@ -460,10 +483,12 @@ export async function fetchFrozenAnalysisRows(
   client: DataClient,
   datasetVersionId: string,
   expectedRowCount: number,
+  exclusionPolicy?: 'include_flagged' | 'exclude_bound_fields',
 ): Promise<{
   rows: Record<string, unknown>[]
   totalCount: number
   matchesProvenance: boolean
+  flags: DatasetValueFlag[]
 }> {
   if (expectedRowCount > SCI_ANALYSIS_ROW_LIMIT) {
     throw new Error(
@@ -484,6 +509,15 @@ export async function fetchFrozenAnalysisRows(
   return {
     rows: paged.rows,
     totalCount: paged.totalCount,
+    flags:
+      exclusionPolicy === 'exclude_bound_fields'
+        ? await client.rpc<DatasetValueFlag[]>(
+            'analysis_dataset_version_flags',
+            {
+              p_dataset_version_id: datasetVersionId,
+            },
+          )
+        : [],
     matchesProvenance:
       !paged.truncated && paged.totalCount === expectedRowCount,
   }
@@ -513,8 +547,18 @@ export function useFrozenPinnedRows(frozen: FrozenChart | null) {
   const versionId = frozen ? frozenPinsDatasetVersion(frozen) : null
   const expected = frozen?.datasetProvenance[0]?.rowCount ?? 0
   const query = useQuery({
-    queryKey: chartQueryKeys.versionRows(versionId ?? ''),
-    queryFn: () => fetchFrozenAnalysisRows(sciDataClient, versionId!, expected),
+    queryKey: [
+      ...chartQueryKeys.versionRows(versionId ?? ''),
+      expected,
+      frozen?.exclusionPolicy,
+    ],
+    queryFn: () =>
+      fetchFrozenAnalysisRows(
+        sciDataClient,
+        versionId!,
+        expected,
+        frozen?.exclusionPolicy,
+      ),
     enabled: Boolean(versionId),
   })
   return query

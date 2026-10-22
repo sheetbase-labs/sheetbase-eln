@@ -118,10 +118,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await actor?.end()
   if (!admin) return
-  await admin.query('DELETE FROM api.data_exports WHERE object_id=$1', [
-    recordId,
-  ])
-  await admin.query('DELETE FROM api.records WHERE id=$1', [recordId])
   await admin.end()
 })
 

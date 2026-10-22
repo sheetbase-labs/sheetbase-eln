@@ -23,47 +23,6 @@ const SECRET = process.env.PGRST_JWT_SECRET ?? ''
 
 let admin: Client
 
-async function clean(): Promise<void> {
-  await admin.query(
-    `DELETE FROM api.record_links WHERE source_record_id IN
-       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))
-       OR target_record_id IN
-       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.blocks WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.revisions WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(
-    `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
-    USER_A,
-    USER_B,
-  ])
-  await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
-}
-
 function proxy(
   path: string,
   userId: string,
@@ -141,7 +100,6 @@ beforeAll(async () => {
       process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
   })
   await admin.connect()
-  await clean()
   await admin.query(
     `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES
       ($1,'SCI 007 API A','sci-007-api-a@test.invalid',true),
@@ -180,7 +138,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (admin) {
-    await clean()
     await admin.end()
   }
 })

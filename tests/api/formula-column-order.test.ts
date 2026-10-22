@@ -264,39 +264,8 @@ describe('formula write E2E: column ordering fix', () => {
         },
       ])
     } finally {
-      try {
-        if (resource && /^sheet_[a-z2-7]{26}$/.test(resource))
-          await admin.query(`DROP TABLE IF EXISTS api.${resource}`)
-        await admin.query(
-          'DELETE FROM api.formula_definitions WHERE workspace_id=$1',
-          [workspaceId],
-        )
-        await admin.query(
-          'DELETE FROM api.scientific_tables WHERE workspace_id=$1',
-          [workspaceId],
-        )
-        await admin.query(
-          'UPDATE api.records SET locked_at=null,locked_by_revision_id=null WHERE workspace_id=$1',
-          [workspaceId],
-        )
-        await admin.query('DELETE FROM api.revisions WHERE workspace_id=$1', [
-          workspaceId,
-        ])
-        await admin.query('DELETE FROM api.records WHERE workspace_id=$1', [
-          workspaceId,
-        ])
-        await admin.query('DELETE FROM api.projects WHERE workspace_id=$1', [
-          workspaceId,
-        ])
-        await admin.query('DELETE FROM api.workspaces WHERE id=$1', [
-          workspaceId,
-        ])
-        await admin.query('DELETE FROM internal."user" WHERE id=$1', [userId])
-        await admin.query("SELECT pg_notify('pgrst','reload schema')")
-      } finally {
-        await writer.end()
-        await admin.end()
-      }
+      await writer.end()
+      await admin.end()
     }
   })
 })

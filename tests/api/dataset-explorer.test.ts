@@ -20,7 +20,7 @@ const OWNER_A = 'data-007-api-owner-a'
 const OWNER_B = 'data-007-api-owner-b'
 const NUMERIC_FIELD = '6d000000-0000-4000-8000-000000000007'
 const SECRET = process.env.PGRST_JWT_SECRET ?? ''
-const CLEANUP_TABLES = [
+const GUARDED_TABLES = [
   'datasets',
   'dataset_versions',
   'dataset_version_rows',
@@ -31,50 +31,6 @@ const CLEANUP_TABLES = [
 ]
 let admin: Client
 let datasetId: string
-
-async function clean(): Promise<void> {
-  // Published schema/snapshot immutability applies to cleanup too. As in
-  // the Sheet Definition API fixtures, suspend guards only inside this
-  // fixture-deletion transaction and restore them before committing.
-  await admin.query('BEGIN')
-  try {
-    for (const table of CLEANUP_TABLES)
-      await admin.query(`ALTER TABLE api.${table} DISABLE TRIGGER USER`)
-    await admin.query(
-      'DELETE FROM api.datasets WHERE workspace_id IN ($1,$2)',
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      `DELETE FROM api.dataset_schema_version_fields WHERE schema_version_id IN
-       (SELECT v.id FROM api.dataset_schema_versions v JOIN api.dataset_schema_definitions d
-        ON d.id=v.schema_id WHERE d.workspace_id IN ($1,$2))`,
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      `DELETE FROM api.dataset_schema_versions WHERE schema_id IN
-       (SELECT id FROM api.dataset_schema_definitions WHERE workspace_id IN ($1,$2))`,
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      'DELETE FROM api.dataset_schema_definitions WHERE workspace_id IN ($1,$2)',
-      [WS_A, WS_B],
-    )
-    for (const table of CLEANUP_TABLES)
-      await admin.query(`ALTER TABLE api.${table} ENABLE TRIGGER USER`)
-    await admin.query('DELETE FROM api.workspaces WHERE id IN ($1,$2)', [
-      WS_A,
-      WS_B,
-    ])
-    await admin.query('DELETE FROM internal."user" WHERE id IN ($1,$2)', [
-      OWNER_A,
-      OWNER_B,
-    ])
-    await admin.query('COMMIT')
-  } catch (error) {
-    await admin.query('ROLLBACK')
-    throw error
-  }
-}
 
 function proxy(
   path: string,
@@ -117,7 +73,6 @@ beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
   admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()
-  await clean()
   for (const [id, name, email] of [
     [OWNER_A, 'Owner A', 'data-007-a@test.invalid'],
     [OWNER_B, 'Owner B', 'data-007-b@test.invalid'],
@@ -196,12 +151,11 @@ beforeAll(async () => {
 afterAll(async () => {
   if (admin) {
     try {
-      await clean()
       const guards = await admin.query<{ enabled: boolean }>(
         `SELECT bool_and(tgenabled='O') enabled FROM pg_trigger
          WHERE tgrelid IN (SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
           WHERE n.nspname='api' AND c.relname=ANY($1::text[])) AND NOT tgisinternal`,
-        [CLEANUP_TABLES],
+        [GUARDED_TABLES],
       )
       expect(guards.rows[0].enabled).toBe(true)
     } finally {

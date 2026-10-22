@@ -3,7 +3,7 @@
  * lifecycle, dataset reference integrity, stale-calculation guards and
  * durable-event parity all travel through the same-origin /api/db PostgREST
  * proxy to a running PostgREST instance. The admin connection is used only for
- * fixture setup, cleanup and change-event verification.
+ * fixture setup and change-event verification.
  */
 import { randomUUID } from 'node:crypto'
 import { config } from 'dotenv'
@@ -25,107 +25,6 @@ const USER_B = 'sci-004-api-owner-b'
 const SECRET = process.env.PGRST_JWT_SECRET ?? ''
 
 let admin: Client
-
-async function clean(): Promise<void> {
-  await admin.query(
-    `DELETE FROM api.review_submissions WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  // Drop generated scientific tables in these workspaces before removing the
-  // blocks they reference (scientific_tables.block_id is ON DELETE RESTRICT).
-  const generated = await admin.query<{ resource_name: string }>(
-    `SELECT resource_name FROM api.scientific_tables WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  for (const row of generated.rows) {
-    if (/^sheet_[a-z2-7]{26}$/.test(row.resource_name)) {
-      await admin.query(`DROP TABLE IF EXISTS api.${row.resource_name}`)
-    }
-  }
-  await admin.query(
-    `DELETE FROM api.scientific_tables WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.record_links WHERE source_record_id IN
-      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.blocks WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.revisions WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  // Immutable evidence is removed only by transactional fixture teardown.
-  // All guards are restored before committing, including on failure.
-  await admin.query('BEGIN')
-  try {
-    const tables = [
-      'dataset_version_flags',
-      'dataset_version_values',
-      'dataset_version_rows',
-      'dataset_versions',
-      'dataset_schema_version_fields',
-      'dataset_schema_versions',
-    ]
-    for (const table of tables)
-      await admin.query(`ALTER TABLE api.${table} DISABLE TRIGGER USER`)
-    for (const table of [
-      'dataset_version_flags',
-      'dataset_version_values',
-      'dataset_version_rows',
-    ]) {
-      await admin.query(
-        `DELETE FROM api.${table} WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id IN ($1,$2))`,
-        [WS_A, WS_B],
-      )
-    }
-    await admin.query(
-      `DELETE FROM api.dataset_versions WHERE workspace_id IN ($1,$2)`,
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      `DELETE FROM api.datasets WHERE workspace_id IN ($1,$2)`,
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      `DELETE FROM api.dataset_schema_definitions WHERE workspace_id IN ($1,$2)`,
-      [WS_A, WS_B],
-    )
-    for (const table of tables)
-      await admin.query(`ALTER TABLE api.${table} ENABLE TRIGGER USER`)
-    await admin.query('COMMIT')
-  } catch (error) {
-    await admin.query('ROLLBACK')
-    throw error
-  }
-  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(
-    `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
-    USER_A,
-    USER_B,
-  ])
-  await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
-}
 
 function proxy(
   path: string,
@@ -245,14 +144,12 @@ function chartPayload(
 
 beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
-  // Revision fixture cleanup is intentionally reserved for the migration
-  // owner; ordinary application and request roles cannot mutate frozen rows.
+  // Fixture setup uses the migration owner, never the request-role connection.
   admin = new Client({
     connectionString:
       process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
   })
   await admin.connect()
-  await clean()
   await admin.query(
     `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES
       ($1,'SCI 004 API A','sci-004-api-a@test.invalid',true),
@@ -298,7 +195,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (admin) {
-    await clean()
     await admin.end()
   }
 })

@@ -64,40 +64,11 @@ function request(path: string, token: string, init: RequestInit = {}): Request {
   })
 }
 
-async function clean(): Promise<void> {
-  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(
-    `DELETE FROM api.record_models WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM internal.api_credentials WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
-    OWNER_A,
-    OWNER_B,
-  ])
-  await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
-}
-
 beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
   admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()
   database = drizzle(process.env.DATABASE_URL ?? '', { schema })
-  await clean()
 
   await admin.query(
     `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES
@@ -162,12 +133,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (admin) {
-    try {
-      await clean()
-    } finally {
-      await admin.end()
-      await database.$client.end()
-    }
+    await admin.end()
+    await database.$client.end()
   }
 })
 
@@ -221,7 +188,10 @@ describe('MDL-01 record_models public API exposure', () => {
 
   it('exposes model records generically through api.records, scoped', async () => {
     const own = await proxy(
-      request('records?kind=eq.cell_bank&select=id,kind,identifier,title', tokenA),
+      request(
+        'records?kind=eq.cell_bank&select=id,kind,identifier,title',
+        tokenA,
+      ),
       'records',
     )
     expect(own.status).toBe(200)
@@ -235,7 +205,10 @@ describe('MDL-01 record_models public API exposure', () => {
     ])
 
     const other = await proxy(
-      request('records?kind=eq.cell_bank&select=id,kind,identifier,title', tokenB),
+      request(
+        'records?kind=eq.cell_bank&select=id,kind,identifier,title',
+        tokenB,
+      ),
       'records',
     )
     expect(other.status).toBe(200)

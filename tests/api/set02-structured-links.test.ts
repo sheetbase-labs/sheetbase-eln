@@ -168,50 +168,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (!admin) return
-  // Delete only this test's random fixtures. Published-schema guards apply
-  // to cleanup, so suspend them transactionally, then restore before commit.
-  await admin.query('BEGIN')
-  try {
-    for (const table of [
-      'datasets',
-      'dataset_schema_versions',
-      'dataset_schema_version_fields',
-    ])
-      await admin.query(`ALTER TABLE api.${table} DISABLE TRIGGER USER`)
-    await admin.query(
-      'DELETE FROM api.datasets WHERE workspace_id IN ($1,$2)',
-      [workspaceId, otherWorkspaceId],
-    )
-    await admin.query(
-      `DELETE FROM api.dataset_schema_version_fields WHERE schema_version_id IN (SELECT v.id FROM api.dataset_schema_versions v JOIN api.dataset_schema_definitions d ON d.id=v.schema_id WHERE d.workspace_id IN ($1,$2))`,
-      [workspaceId, otherWorkspaceId],
-    )
-    await admin.query(
-      `DELETE FROM api.dataset_schema_versions WHERE schema_id IN (SELECT id FROM api.dataset_schema_definitions WHERE workspace_id IN ($1,$2))`,
-      [workspaceId, otherWorkspaceId],
-    )
-    await admin.query(
-      'DELETE FROM api.dataset_schema_definitions WHERE workspace_id IN ($1,$2)',
-      [workspaceId, otherWorkspaceId],
-    )
-    for (const table of [
-      'datasets',
-      'dataset_schema_versions',
-      'dataset_schema_version_fields',
-    ])
-      await admin.query(`ALTER TABLE api.${table} ENABLE TRIGGER USER`)
-    await admin.query('DELETE FROM api.workspaces WHERE id IN ($1,$2)', [
-      workspaceId,
-      otherWorkspaceId,
-    ])
-    await admin.query('DELETE FROM internal."user" WHERE id=$1', [userId])
-    await admin.query('COMMIT')
-  } catch (error) {
-    await admin.query('ROLLBACK')
-    throw error
-  } finally {
-    await admin.end()
-  }
+  await admin.end()
 })
 
 describe('SET02 native structured link authority', () => {

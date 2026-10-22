@@ -1,7 +1,7 @@
 /**
  * SCI-003 API contract proof. The file byte routes (authorize/upload/download)
  * and the metadata RPCs go through the real PostgREST + database; the admin
- * connection is used only for fixture setup, cleanup, storage-object
+ * connection is used only for fixture setup, storage-object
  * manipulation, and durable-event verification. A local filesystem
  * ObjectStorage backed by a temp dir stands in for the object-storage service.
  */
@@ -142,56 +142,6 @@ function downloadRequest(fileRecordId: string) {
   )
 }
 
-async function clean() {
-  await admin.query(
-    `DELETE FROM api.review_submissions WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM internal.revision_file_objects WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.revisions WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(
-    `DELETE FROM api.file_objects WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.record_links WHERE source_record_id IN
-      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.blocks WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(
-    `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
-    USER_A,
-    USER_B,
-  ])
-  await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
-}
-
 beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
   admin = new Client({
@@ -199,7 +149,6 @@ beforeAll(async () => {
       process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
   })
   await admin.connect()
-  await clean()
   storageDir = await mkdtemp(join(tmpdir(), 'sheetbase-sci003-api-'))
   storage = new LocalFileStorage(storageDir)
   setObjectStorageForTesting(storage)
@@ -249,7 +198,6 @@ beforeAll(async () => {
 afterAll(async () => {
   setObjectStorageForTesting(null)
   if (admin) {
-    await clean()
     await admin.end()
   }
   if (storageDir) await rm(storageDir, { recursive: true, force: true })

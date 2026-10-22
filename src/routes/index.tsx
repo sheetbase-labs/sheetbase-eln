@@ -2,6 +2,7 @@ import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
+import { reagentPath } from '#/lib/navigation'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Icon } from '#/components/v3/icons'
@@ -1324,8 +1325,11 @@ export function Home() {
                     </span>
                     <div className="min-w-0">
                       <Link
-                        to="/materials"
-                        search={{ selected: material.recordId ?? undefined }}
+                        to={
+                          material.recordId
+                            ? reagentPath(material.recordId)
+                            : '/materials'
+                        }
                       >
                         {material.identifier ?? material.title}
                       </Link>{' '}

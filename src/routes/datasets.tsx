@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -16,11 +16,8 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import {
-  DescriptionList,
-  Inspector,
-  InspectorSection,
-} from '#/components/v3/ui/layout'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import { datasetPath } from '#/lib/navigation'
 import {
   ListHeader,
   ListToolbar,
@@ -34,7 +31,6 @@ import {
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { Tabs } from '#/components/v3/ui/tabs'
 import {
-  datasetIssueSummary,
   datasetValidation,
   useDatasetSummaries,
 } from '#/components/v3/datasets/datasets-data'
@@ -99,6 +95,23 @@ function DatasetsList() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const workspace = useWorkspaceNavigation()
+  const openDataset = useCallback(
+    (row: DatasetListRow, event?: React.MouseEvent) => {
+      event?.stopPropagation()
+      if (
+        event &&
+        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
+      )
+        return
+      const href = datasetPath(row.uuid)
+      if (workspace) {
+        event?.preventDefault()
+        workspace.open(href, { beside: true, title: row.name })
+      } else if (!event) void navigate({ href })
+    },
+    [workspace, navigate],
+  )
   const query = useDatasetSummaries()
   const rows = query.data ?? []
   const tab: DatasetTab =
@@ -144,15 +157,6 @@ function DatasetsList() {
       (r) =>
         !q || [r.id, r.name, r.model].some((v) => v.toLowerCase().includes(q)),
     )
-  // With nothing chosen, open the worst offender: the design's inspector shows
-  // the dataset with the most issues, which is also the one worth triaging.
-  const defaultSel = visible.reduce<DatasetListRow | undefined>(
-    (best, r) => (!best || r.issues > best.issues ? r : best),
-    undefined,
-  )
-  const sel =
-    visible.find((r) => r.uuid === (selected ?? search.dataset)) ?? defaultSel
-
   const columns = useMemo<RegistryColumn<DatasetListRow>[]>(
     () => [
       {
@@ -165,9 +169,9 @@ function DatasetsList() {
         header: 'Name',
         cell: ({ row }) => (
           <Link
-            to="/datasets/$datasetId/rows"
+            to="/datasets/$datasetId"
             params={{ datasetId: row.original.uuid }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => openDataset(row.original, event)}
           >
             {row.original.name}
           </Link>
@@ -196,11 +200,11 @@ function DatasetsList() {
         },
       },
     ],
-    [],
+    [openDataset],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
-    sel?.uuid ?? null,
+    selected,
     setSelected,
   )
 
@@ -272,6 +276,7 @@ function DatasetsList() {
               getRowId={(d) => d.uuid}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onRowClick={openDataset}
               isLoading={query.isLoading}
             />
           ) : null}
@@ -287,8 +292,12 @@ function DatasetsList() {
                   d.experimentId ? ` · ${d.experimentId}` : ''
                 }`,
                 status: <Status tone={v.tone}>{v.label}</Status>,
-                onSelect: () => setSelected(d.uuid),
-                selected: d.uuid === sel?.uuid,
+                link: {
+                  to: '/datasets/$datasetId',
+                  params: { datasetId: d.uuid },
+                  onClick: (event: React.MouseEvent) => openDataset(d, event),
+                },
+                selected: d.uuid === selected,
               }
             })}
           />
@@ -333,81 +342,6 @@ function DatasetsList() {
           ) : null}
         </div>
       </div>
-
-      {sel ? (
-        <Inspector
-          aria-label="Dataset summary"
-          className="w-inspector gap-0 p-0"
-        >
-          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-            <span className="mono text-label text-fg-muted">{sel.id}</span>
-            <div className="text-doc font-semibold">{sel.name}</div>
-            <div className="text-label">
-              <Status tone={datasetValidation(sel).tone}>
-                {datasetValidation(sel).label}
-              </Status>
-            </div>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <Button
-                variant={sel.issues > 0 ? 'primary' : undefined}
-                size="sm"
-                nativeButton={false}
-                render={
-                  <Link
-                    to="/datasets/$datasetId/rows"
-                    params={{ datasetId: sel.uuid }}
-                  />
-                }
-              >
-                Open dataset
-              </Button>
-              {sel.missingUnit > 0 ? (
-                <Button
-                  size="sm"
-                  nativeButton={false}
-                  render={<Link to="/models" search={{ q: sel.model }} />}
-                >
-                  Set unit on model
-                </Button>
-              ) : null}
-              {sel.issues > 0 ? (
-                <Button
-                  size="sm"
-                  nativeButton={false}
-                  render={<Link to="/import" search={{ dataset: sel.uuid }} />}
-                >
-                  Re-import
-                </Button>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex flex-col gap-[18px] px-4 py-3.5">
-            {sel.issues > 0 ? (
-              <InspectorSection title="Issues">
-                <p className="m-0 text-label leading-[18px]">
-                  {datasetIssueSummary(sel)}
-                </p>
-              </InspectorSection>
-            ) : null}
-            <InspectorSection title="Details">
-              <DescriptionList
-                labelWidth={80}
-                items={[
-                  ['Rows', String(sel.rows)],
-                  ['Model', sel.model],
-                  ['Experiment', sel.experimentId ?? '—'],
-                  [
-                    'Owner',
-                    sel.createdByUserId === context.user.id
-                      ? context.user.name
-                      : '—',
-                  ],
-                ]}
-              />
-            </InspectorSection>
-          </div>
-        </Inspector>
-      ) : null}
     </div>
   )
 }

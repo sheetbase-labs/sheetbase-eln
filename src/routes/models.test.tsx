@@ -1,8 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Route } from './models'
+import { WorkspaceNavigationContext } from '#/components/workspace/workspace-navigation'
+import type { WorkspaceNavigation } from '#/components/workspace/workspace-navigation'
 import type * as ModelCreate from '#/components/v3/models/model-create-dialog'
 import type { ModelRow } from '#/components/v3/models/models-data'
 import { DataClientError } from '#/lib/data-client'
@@ -40,8 +49,18 @@ vi.mock('@tanstack/react-router', () => ({
     useSearch: () => seen.search,
     options: config,
   }),
-  Link: ({ children, to }: { children?: React.ReactNode; to?: unknown }) => (
-    <a href={typeof to === 'string' ? to : '#'}>{children}</a>
+  Link: ({
+    children,
+    to,
+    onClick,
+  }: {
+    children?: React.ReactNode
+    to?: unknown
+    onClick?: React.MouseEventHandler<HTMLAnchorElement>
+  }) => (
+    <a href={typeof to === 'string' ? to : '#'} onClick={onClick}>
+      {children}
+    </a>
   ),
   Outlet: () => <div data-testid="outlet" />,
   redirect: (options: unknown) => options,
@@ -106,7 +125,7 @@ beforeEach(() => {
   rows.value = [model()]
 })
 
-function renderRoute() {
+function renderRoute(workspace: WorkspaceNavigation | null = null) {
   const Component = Route.options.component
   if (!Component) throw new Error('Models route component required')
   render(
@@ -115,12 +134,30 @@ function renderRoute() {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Component />
+      <WorkspaceNavigationContext value={workspace}>
+        <Component />
+      </WorkspaceNavigationContext>
     </QueryClientProvider>,
   )
 }
 
 describe('models route create flow', () => {
+  it('opens the actual model page beside and leaves modified links native', () => {
+    const open = vi.fn()
+    renderRoute({ open })
+    const link = screen.getByRole('link', { name: 'Cell bank' })
+    expect(fireEvent.click(link)).toBe(false)
+    expect(open).toHaveBeenCalledWith('/models/def-1', {
+      beside: true,
+      title: 'Cell bank',
+    })
+    for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey']) {
+      expect(fireEvent.click(link, { [modifier]: true })).toBe(true)
+    }
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(screen.queryByLabelText('Model details')).toBeNull()
+  })
+
   it('offers New model to a role that holds schema.edit', () => {
     renderRoute()
     expect(screen.getByRole('button', { name: 'New model' })).toBeTruthy()

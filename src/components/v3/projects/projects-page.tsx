@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import { projectPath } from '#/lib/navigation'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
 import { copyText } from '#/components/v3/ui/copy-button'
@@ -17,11 +19,6 @@ import {
 import { Status } from '#/components/v3/ui/status'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
-import {
-  DescriptionList,
-  Inspector,
-  InspectorSection,
-} from '#/components/v3/ui/layout'
 import {
   Dialog,
   DialogBody,
@@ -65,15 +62,7 @@ import { Select } from '#/components/v3/ui/select'
 import { Chip } from '#/components/v3/ui/chip'
 import { modalities, stages } from './options'
 import type { ProjectDetailsInput } from './project-data'
-import {
-  fetchProjectMembers,
-  fetchProjectActivity,
-  useProjectMilestones,
-  projectDataClient,
-  PROJECTS_KEY,
-} from './project-data'
-import { fetchRecordsForProject, notebookQueryKeys } from '#/lib/notebook-data'
-import { describeAuditEvent } from '#/lib/audit-history'
+import { projectDataClient, PROJECTS_KEY } from './project-data'
 import type { ProjectRow } from './types'
 import { cn } from '#/lib/utils'
 
@@ -173,6 +162,24 @@ export function ProjectsPage({
   /** Workspace admins can add the client a project is for as they create it. */
   canCreateClient?: boolean
 }) {
+  const workspace = useWorkspaceNavigation()
+  const navigate = useNavigate()
+  const openProject = (project: ProjectRow, event?: React.MouseEvent) => {
+    event?.stopPropagation()
+    if (
+      event &&
+      (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
+    )
+      return
+    const href = projectPath(project.uuid)
+    if (workspace) {
+      event?.preventDefault()
+      workspace.open(href, { beside: true, title: project.name })
+    } else if (!event) {
+      if (onOpenProject) onOpenProject(project)
+      else void navigate({ href })
+    }
+  }
   const hasProjectAccess = useHasProjectAccess()
   const tab: ProjectsTab = search.tab ?? 'all'
   const archived: ArchivedMode = search.archived ?? archivedModeFor(tab)
@@ -180,7 +187,6 @@ export function ProjectsPage({
   const group = search.group ?? 'none'
   const hidden = new Set(search.fields?.split(',').filter(Boolean) ?? [])
   const [checked, setChecked] = useState<Set<string>>(new Set())
-  const [active, setActive] = useState<string | null>(null)
   const [draftQ, setDraftQ] = useState(search.q ?? '')
   const [confirmArchive, setConfirmArchive] = useState(false)
   // A create intent arrives from the URL (`?new=true`: the shell's New →
@@ -283,7 +289,6 @@ export function ProjectsPage({
     )
   const archivedHidden =
     archived === 'exclude' ? base.filter((p) => p.archived).length : 0
-  const activeRow = rows.find((p) => p.id === active) ?? null
   const filterCount =
     (archived === 'exclude' ? 1 : 0) +
     (search.stage ? 1 : 0) +
@@ -737,6 +742,7 @@ export function ProjectsPage({
                   link: {
                     to: '/projects/$projectId',
                     params: { projectId: p.uuid },
+                    onClick: (event: React.MouseEvent) => openProject(p, event),
                   },
                 }))}
               />
@@ -792,9 +798,9 @@ export function ProjectsPage({
                         ...list.map((p) => (
                           <TableRow
                             key={p.id}
-                            selected={active === p.id}
+                            selected={checked.has(p.id)}
                             className="cursor-pointer"
-                            onClick={() => onOpenProject?.(p)}
+                            onClick={() => openProject(p)}
                           >
                             {canBulkArchive ? (
                               <TableCell
@@ -822,12 +828,13 @@ export function ProjectsPage({
                               className={cn(
                                 stickyCol,
                                 'max-xl:h-auto max-xl:py-1',
-                                active === p.id && 'font-medium',
+                                checked.has(p.id) && 'font-medium',
                               )}
                             >
                               <Link
                                 to="/projects/$projectId"
                                 params={{ projectId: p.uuid }}
+                                onClick={(event) => openProject(p, event)}
                                 className="cursor-pointer text-inherit underline-offset-2 hover:underline"
                               >
                                 {p.name}
@@ -859,10 +866,10 @@ export function ProjectsPage({
                                 <Button
                                   variant="quiet"
                                   icon="chevronRight"
-                                  aria-label={`Quick view of ${p.name}`}
+                                  aria-label={`Open ${p.name}`}
                                   onClick={(event) => {
                                     event.stopPropagation()
-                                    setActive(p.id)
+                                    openProject(p)
                                   }}
                                 />
                               </span>
@@ -980,15 +987,6 @@ export function ProjectsPage({
         </ConfirmDialogContent>
       </ConfirmDialog>
 
-      {activeRow ? (
-        <ProjectPeek
-          p={activeRow}
-          meId={meId}
-          memberOptions={memberOptions}
-          onClose={() => setActive(null)}
-        />
-      ) : null}
-
       <NewProjectDialog
         open={newProjectOpen}
         onOpenChange={(open) => {
@@ -1090,190 +1088,6 @@ function EmptyProjects({
         </Button>
       </div>
     </div>
-  )
-}
-
-function ProjectPeek({
-  p,
-  onClose,
-  meId,
-  memberOptions,
-}: {
-  p: ProjectRow
-  onClose: () => void
-  meId?: string
-  memberOptions: { id: string; label: string }[]
-}) {
-  const members = useQuery({
-    queryKey: ['project-members', p.uuid],
-    queryFn: () => fetchProjectMembers(p.uuid),
-  })
-  const milestones = useProjectMilestones(p.uuid)
-  const records = useQuery({
-    queryKey: notebookQueryKeys.records(p.uuid),
-    queryFn: () => fetchRecordsForProject(projectDataClient, p.uuid),
-  })
-  const activity = useQuery({
-    queryKey: ['project-activity', p.uuid],
-    queryFn: () => fetchProjectActivity(p.uuid),
-  })
-  const experiments = (records.data ?? [])
-    .filter((record) => record.kind === 'experiment')
-    .slice(0, 4)
-  const milestone = milestones.data?.find(
-    (item) => item.status !== 'delivered' && item.status !== 'cancelled',
-  )
-  const memberSummary = members.data?.length
-    ? `${members.data
-        .slice(0, 3)
-        .map((member) => member.name)
-        .join(
-          ', ',
-        )}${members.data.length > 3 ? ` +${members.data.length - 3}` : ''}`
-    : '—'
-  const date = (value: string, year = false, timeZone = 'UTC') =>
-    new Date(value).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      ...(year ? { year: 'numeric' as const } : {}),
-      timeZone,
-    })
-  const details: [string, React.ReactNode][] = [
-    ['Client', p.client],
-    ['Modality', p.modality],
-    ['Stage', p.stage],
-    ['Lead', p.lead],
-    ['Members', memberSummary],
-    ['Started', p.started ? date(p.started, true) : '—'],
-    ...(milestone
-      ? [
-          [
-            'Milestone',
-            `${milestone.name}${milestone.dueAt ? ` · ${date(milestone.dueAt, false, milestone.timezone)}` : ''}`,
-          ] as [string, React.ReactNode],
-        ]
-      : []),
-  ]
-  return (
-    <Inspector aria-label="Project details" width={320}>
-      <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-        <div className="flex items-center gap-1.5">
-          <span className="mono text-fg-muted">{p.id}</span>
-          <span className="flex-1" />
-          <Button
-            size="icon"
-            variant="quiet"
-            aria-label="Close details"
-            onClick={onClose}
-          >
-            <Icon name="x" size={12} />
-          </Button>
-        </div>
-        <div className="font-heading text-doc font-semibold">{p.name}</div>
-        <div className="flex items-center gap-2.5 text-label">
-          <Status tone={p.status.tone}>{p.status.label}</Status>
-          <Link
-            to="/projects/$projectId"
-            params={{ projectId: p.uuid }}
-            className="ml-auto"
-          >
-            Open project
-          </Link>
-        </div>
-      </div>
-      <InspectorSection title="Details">
-        <DescriptionList labelWidth={112} items={details} />
-      </InspectorSection>
-      <InspectorSection
-        title={
-          <span className="flex items-center gap-2">
-            Experiments{' '}
-            <span className="font-normal text-fg-muted">{p.experiments}</span>
-            <Link
-              to="/experiments"
-              search={{ project: p.uuid }}
-              className="ml-auto font-normal"
-            >
-              All
-            </Link>
-          </span>
-        }
-      >
-        <div className="flex flex-col gap-2">
-          {experiments.map((record) => (
-            <Link
-              key={record.id}
-              to="/experiments/$expId"
-              params={{ expId: record.id }}
-              className="flex flex-col gap-1 text-label"
-            >
-              <span>
-                <span className="mono">{record.identifier}</span> {record.title}
-              </span>
-              <span className="text-fg-muted">
-                {record.status.replaceAll('_', ' ')}
-              </span>
-            </Link>
-          ))}
-          {!experiments.length ? (
-            <span className="text-label text-fg-muted">
-              {records.isLoading
-                ? 'Loading experiments…'
-                : 'No experiments yet.'}
-            </span>
-          ) : null}
-        </div>
-      </InspectorSection>
-      <InspectorSection title="Recent activity">
-        <div className="flex flex-col gap-2 text-label">
-          {(activity.data ?? []).map((event) => {
-            const description = describeAuditEvent(event)
-            const actor =
-              event.actorUserId && event.actorUserId === meId
-                ? 'You'
-                : (event.currentActorName ??
-                  memberOptions.find(
-                    (member) => member.id === event.actorUserId,
-                  )?.label ??
-                  (event.actorUserId ? 'Unknown actor' : 'No recorded actor'))
-            return (
-              <div key={event.id} className="flex gap-2">
-                <time
-                  className="shrink-0 text-fg-muted"
-                  dateTime={event.createdAt}
-                >
-                  {date(event.createdAt)}
-                </time>
-                <span>
-                  {actor} {description.action}{' '}
-                  {event.currentRecord ? (
-                    <span title="Current record identity">
-                      {event.currentRecord.identifier} ·{' '}
-                      {event.currentRecord.title}
-                    </span>
-                  ) : (
-                    description.subject
-                  )}
-                </span>
-              </div>
-            )
-          })}
-          {!activity.data?.length ? (
-            <span className="text-fg-muted">
-              {activity.isLoading ? 'Loading activity…' : 'No recent activity.'}
-            </span>
-          ) : null}
-          {members.error ||
-          milestones.error ||
-          records.error ||
-          activity.error ? (
-            <p role="alert" className="m-0 text-danger-text">
-              Some project details could not be loaded.
-            </p>
-          ) : null}
-        </div>
-      </InspectorSection>
-    </Inspector>
   )
 }
 

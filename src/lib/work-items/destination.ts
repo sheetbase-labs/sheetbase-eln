@@ -5,7 +5,7 @@
  * review page for the exact revision, an approval waiting for a signature opens
  * that review with the signing meaning chosen, access and agent items open the
  * screen that decides them, and a sample or instrument opens its own page.
- * The Inbox list, its inspector and the keyboard Open shortcut all read this
+ * The Inbox list and the keyboard Open shortcut both read this
  * one function, so they cannot send a person to different places.
  */
 import type { WorkItem } from './data'
@@ -44,7 +44,8 @@ export type WorkItemLink =
       search: { row: string; field: string; live: true }
     }
   | { to: '/promotions' }
-  | { to: '/materials'; search?: { selected: string } }
+  | { to: '/materials' }
+  | { to: '/materials/$lotId'; params: { lotId: string } }
 
 export function itemLink(item: WorkItem): WorkItemLink {
   const review = (
@@ -147,7 +148,7 @@ export function itemLink(item: WorkItem): WorkItemLink {
       : { to: '/datasets' }
   if (item.kind === 'material_expiring')
     return item.recordId
-      ? { to: '/materials', search: { selected: item.recordId } }
+      ? { to: '/materials/$lotId', params: { lotId: item.recordId } }
       : { to: '/materials' }
   return record()
 }

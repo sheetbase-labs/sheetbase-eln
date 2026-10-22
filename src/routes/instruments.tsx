@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { WorkspaceAdminsLine } from '#/components/v3/settings/workspace-admins-line'
 import {
   Link,
@@ -13,6 +13,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Dot } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector, Muted } from '#/components/v3/ui/layout'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import { objectPath } from '#/lib/navigation'
 import {
   RegistryGrid,
   useRowFocus,
@@ -175,6 +177,24 @@ export function calibrationState(
 function InstrumentsList() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const workspace = useWorkspaceNavigation()
+  const openInstrument = useCallback(
+    (row: InstrumentRow, event?: React.MouseEvent) => {
+      event?.stopPropagation()
+      if (
+        event &&
+        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
+      )
+        return
+      const href = objectPath('instrument', row.id)
+      if (!href) return
+      if (workspace) {
+        event?.preventDefault()
+        workspace.open(href, { beside: true, title: row.name })
+      } else if (!event) void navigate({ href })
+    },
+    [workspace, navigate],
+  )
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const query = useInstruments()
@@ -297,7 +317,7 @@ function InstrumentsList() {
               <Link
                 to="/instruments/$instrumentId"
                 params={{ instrumentId: row.original.id }}
-                onClick={(event) => event.stopPropagation()}
+                onClick={(event) => openInstrument(row.original, event)}
               >
                 {row.original.name}
               </Link>
@@ -383,7 +403,14 @@ function InstrumentsList() {
     // Rebuilt with the evidence the cells read — the owner labels, and the
     // calibration and intake maps — so a late arrival cannot leave a stale
     // cell behind.
-    [names, latest, lastImports, readiness, parserReadiness.isSuccess],
+    [
+      names,
+      latest,
+      lastImports,
+      readiness,
+      parserReadiness.isSuccess,
+      openInstrument,
+    ],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -554,12 +581,12 @@ function InstrumentsList() {
                       .filter(Boolean)
                       .join(' · '),
                     selected: i.id === sel?.id,
-                    onSelect: () =>
-                      void navigate({
-                        to: '/instruments',
-                        search: (s) => ({ ...s, selected: i.id }),
-                        replace: true,
-                      }),
+                    link: {
+                      to: '/instruments/$instrumentId',
+                      params: { instrumentId: i.id },
+                      onClick: (event: React.MouseEvent) =>
+                        openInstrument(i, event),
+                    },
                     status:
                       c.state === 'overdue' ? (
                         <span className="text-danger-text">
@@ -590,6 +617,7 @@ function InstrumentsList() {
                 getRowId={(i) => i.id}
                 rowSelection={rowSelection}
                 onRowSelectionChange={onRowSelectionChange}
+                onRowClick={openInstrument}
                 isLoading={query.isLoading}
               />
             </>

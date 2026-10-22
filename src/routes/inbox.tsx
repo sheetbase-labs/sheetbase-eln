@@ -6,7 +6,7 @@ import {
   useRouter,
   useSearch,
 } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from '#/components/v3/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
 
@@ -14,11 +14,8 @@ import { Button } from '#/components/v3/ui/button'
 import { LoadMore } from '#/components/v3/ui/load-more'
 import { Dot, Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
-import {
-  Inspector,
-  InspectorSection,
-  DescriptionList,
-} from '#/components/v3/ui/layout'
+import { Checkbox } from '#/components/v3/ui/checkbox'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
 import { Kbd } from '#/components/v3/ui/kbd'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { ListHeader } from '#/components/v3/inventory/list'
@@ -163,39 +160,6 @@ export function runLink(runId: string) {
   return { to: '/pipelines/runs/$runId' as const, params: { runId } }
 }
 
-/** The run a failed or waiting item is about; null for any other kind. */
-function useItemRun(item: WorkItem | undefined) {
-  const isRun = item?.kind === 'run_failed' || item?.kind === 'run_waiting'
-  return useQuery({
-    queryKey: [
-      'inbox',
-      'item-run',
-      item?.kind,
-      item?.sourceId,
-      item?.identifier,
-    ],
-    queryFn: () => (item ? resolveRunForWorkItem(item) : null),
-    enabled: isRun,
-    staleTime: 30_000,
-  })
-}
-
-/** The record page for an item, when it names one. */
-export function recordLink(item: WorkItem) {
-  return item.recordId
-    ? { to: '/records/$recordId' as const, params: { recordId: item.recordId } }
-    : { to: '/inbox' as const }
-}
-
-/**
- * MOB-01.2 — reviewing and signing need more room than a phone has. The item
- * still opens the full record there, with the reason stated rather than a
- * silently narrower screen.
- */
-export function reviewNeedsLargerScreen(item: WorkItem): boolean {
-  return item.kind === 'review_requested' || item.kind === 'witness_requested'
-}
-
 function Inbox() {
   const search = useSearch({ from: '/inbox' })
   const tab = search.tab ?? 'needs-action'
@@ -221,6 +185,7 @@ function Inbox() {
 
   const queryClient = useQueryClient()
   const router = useRouter()
+  const workspace = useWorkspaceNavigation()
 
   const groups = useMemo(() => groupWorkItems(items), [items])
   const visible = items
@@ -263,7 +228,6 @@ function Inbox() {
   )
   const selected =
     orderedRows.find((i) => rowKey(i) === selectedKey) ?? orderedRows[0]
-  const selectedRun = useItemRun(selected)
   const selectedCount = orderedRows.filter((item) =>
     selection.has(rowKey(item)),
   ).length
@@ -373,21 +337,26 @@ function Inbox() {
     },
     [setSelectedKey],
   )
+  const openItem = useCallback(
+    async (item: WorkItem) => {
+      const runId =
+        item.kind === 'run_failed' || item.kind === 'run_waiting'
+          ? await resolveRunForWorkItem(item).catch(() => null)
+          : null
+      const destination = runId ? runLink(runId) : itemLink(item)
+      if (workspace) {
+        const { href } = router.buildLocation(destination)
+        workspace.open(href, { beside: true, title: item.title })
+      } else void navigate(destination)
+    },
+    [navigate, router, workspace],
+  )
   const openSelected = useCallback(() => {
     const item =
       rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
       rowsRef.current.at(0)
-    if (!item) return
-    if (item.kind === 'run_failed' || item.kind === 'run_waiting') {
-      void resolveRunForWorkItem(item)
-        .catch(() => null)
-        .then((runId) =>
-          navigate((runId ? runLink(runId) : itemLink(item)) as never),
-        )
-      return
-    }
-    void navigate(itemLink(item) as never)
-  }, [navigate])
+    if (item) void openItem(item)
+  }, [openItem])
   const selectCurrent = useCallback((add: boolean) => {
     const item =
       rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
@@ -619,14 +588,36 @@ function Inbox() {
                           // `key` still drives selection.
                           key={`${key}#${index}`}
                           role="listitem"
+                          className="flex items-center"
                           aria-current={selected === i ? true : undefined}
                         >
+                          <Checkbox
+                            className="ml-4 md:ml-6"
+                            aria-label={`Select ${i.title}`}
+                            checked={selection.has(key)}
+                            onCheckedChange={(checked) =>
+                              setSelection((current) => {
+                                const next = new Set(current)
+                                if (checked) next.add(key)
+                                else next.delete(key)
+                                return next
+                              })
+                            }
+                          />
                           <button
                             type="button"
                             aria-pressed={selection.has(key)}
                             onFocus={() => setSelectedKey(key)}
                             onClick={(event) => {
                               setSelectedKey(key)
+                              if (
+                                !event.ctrlKey &&
+                                !event.metaKey &&
+                                !event.shiftKey
+                              ) {
+                                void openItem(i)
+                                return
+                              }
                               setSelection(
                                 (current) =>
                                   new Set([
@@ -710,58 +701,6 @@ function Inbox() {
           ) : null}
         </div>
       </div>
-
-      {shown.length ? (
-        <Inspector aria-label="Item details" className="w-[320px]">
-          <InspectorSection title="Item">
-            <DescriptionList
-              labelWidth={96}
-              items={[
-                ['Kind', labelFor(selected.kind, selected.state)],
-                [
-                  'Record',
-                  <span className="mono">{selected.identifier ?? '—'}</span>,
-                ],
-                ['Reason', selected.reason],
-                ['Due', selected.dueAt ? selected.dueAt.slice(0, 10) : '—'],
-              ]}
-            />
-          </InspectorSection>
-          <InspectorSection title="Actions">
-            {reviewNeedsLargerScreen(selected) ? (
-              <>
-                {/* MOB-01.2: on a phone a review or signing item opens the full
-                    record, and says why it is not the review surface. */}
-                <Link
-                  {...recordLink(selected)}
-                  className="text-label md:hidden"
-                >
-                  Open record
-                </Link>
-                <Link
-                  {...itemLink(selected)}
-                  className="text-label max-md:hidden"
-                >
-                  Open
-                </Link>
-                <p className="mt-1 text-label text-fg-muted md:hidden">
-                  Reviewing and signing need a larger screen. Open the record
-                  here, or continue on a desktop.
-                </p>
-              </>
-            ) : (
-              <Link
-                {...(selectedRun.data
-                  ? runLink(selectedRun.data)
-                  : itemLink(selected))}
-                className="text-label"
-              >
-                {selectedRun.data ? 'Open the run' : 'Open'}
-              </Link>
-            )}
-          </InspectorSection>
-        </Inspector>
-      ) : null}
     </div>
   )
 }

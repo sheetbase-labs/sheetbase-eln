@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -16,7 +16,8 @@ import {
 } from '#/components/v3/projects/project-access'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import { samplePath } from '#/lib/navigation'
 import {
   RegistryGrid,
   rightAligned,
@@ -130,6 +131,23 @@ function SamplesList() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const workspace = useWorkspaceNavigation()
+  const openSample = useCallback(
+    (row: SampleListRow, event?: React.MouseEvent) => {
+      event?.stopPropagation()
+      if (
+        event &&
+        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
+      )
+        return
+      const href = samplePath(row.uuid)
+      if (workspace) {
+        event?.preventDefault()
+        workspace.open(href, { beside: true, title: row.name })
+      } else if (!event) void navigate({ href })
+    },
+    [workspace, navigate],
+  )
   const page = useSamplePage()
   const projects = useProjectNames()
   const queryClient = useQueryClient()
@@ -167,9 +185,7 @@ function SamplesList() {
     ([id, title]) => ({ id, title }),
   )
   const locations = distinctLocations(rows.map((r) => r.location))
-  const sel =
-    visible.find((r) => r.uuid === (selected ?? search.selected)) ??
-    visible.at(0)
+  const sel = visible.find((r) => r.uuid === (selected ?? search.selected))
 
   // `?selected=<sample>` names a sample, not a tab: move to the tab that holds
   // it rather than selecting the first row of the wrong list.
@@ -207,9 +223,7 @@ function SamplesList() {
           <Link
             to="/samples/$sampleId"
             params={{ sampleId: row.original.uuid }}
-            onClick={(event) => event.stopPropagation()}
-            // The selected row is the one the inspector shows, and the
-            // bespoke body gave that row's name the medium weight.
+            onClick={(event) => openSample(row.original, event)}
             className={
               row.original.uuid === sel?.uuid ? 'font-medium' : undefined
             }
@@ -236,7 +250,7 @@ function SamplesList() {
         ),
       },
     ],
-    [sel?.uuid],
+    [sel?.uuid, openSample],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -408,6 +422,7 @@ function SamplesList() {
               getRowId={(s) => s.uuid}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onRowClick={openSample}
               isLoading={page.isLoading}
             />
           ) : null}
@@ -419,7 +434,11 @@ function SamplesList() {
               title: s.name,
               sub: `${s.quantity} · ${s.location}`,
               status: <Status tone={s.status.tone}>{s.status.label}</Status>,
-              onSelect: () => setSelected(s.uuid),
+              link: {
+                to: '/samples/$sampleId',
+                params: { sampleId: s.uuid },
+                onClick: (event: React.MouseEvent) => openSample(s, event),
+              },
               selected: s.uuid === sel?.uuid,
             }))}
           />
@@ -463,56 +482,6 @@ function SamplesList() {
           {visible.length} of {counts[tab]} {tabLabel[tab].toLowerCase()}
         </ListFooter>
       </div>
-
-      {sel ? (
-        <Inspector aria-label="Sample summary" className="gap-0 p-0">
-          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-            <span className="mono text-fg-muted">{sel.id}</span>
-            <div className="font-heading text-doc font-semibold">
-              {sel.name}
-            </div>
-            <div className="text-label">
-              <Status tone={sel.status.tone}>
-                {sel.status.label}
-                {sel.quantity !== '—' ? ` · ${sel.quantity}` : ''}
-              </Status>
-            </div>
-            <div className="mt-1.5">
-              <Button
-                size="sm"
-                variant="primary"
-                nativeButton={false}
-                render={
-                  <Link
-                    to="/samples/$sampleId"
-                    params={{ sampleId: sel.uuid }}
-                  />
-                }
-              >
-                Open sample
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4 px-4 py-3.5">
-            {/* The registry's inspector is a top-level section of the page, so
-                its heading is an H2 (H1 → H2, no skipped level). */}
-            <section>
-              <h2 className="mb-1.5 font-sans text-label font-semibold">
-                Key properties
-              </h2>
-              <DescriptionList
-                labelWidth={104}
-                items={[
-                  ['Type', sel.type],
-                  ['Quantity', sel.quantity],
-                  ['Location', sel.location],
-                  ['Project', sel.project],
-                ]}
-              />
-            </section>
-          </div>
-        </Inspector>
-      ) : null}
 
       <RegisterSampleDialog
         open={Boolean(search.new)}

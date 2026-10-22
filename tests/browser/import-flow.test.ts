@@ -167,6 +167,11 @@ async function uploadFixture(page: Page, name: string, content: string) {
   await page
     .getByLabel('Laboratory file')
     .setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) })
+  if (name === FIXTURE_NAME) {
+    await page
+      .getByLabel('Source unit for capsid titre', { exact: true })
+      .fill('×10¹⁰ vg/mL')
+  }
 }
 
 test.describe('DSET-05 import flow', () => {

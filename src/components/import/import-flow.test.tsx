@@ -10,6 +10,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
@@ -27,6 +28,7 @@ import type * as ParserSettingsModule from '#/lib/parser-settings'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
 import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { ImportRequestError } from '#/lib/import/data'
+import type { ImportSearch } from './import-search'
 
 import {
   ImportMapCheckFlow,
@@ -190,7 +192,11 @@ function uploadResponse(
       rowCount: 2,
       sheetNames: ['Sheet 1'],
     },
-    savedMapping: null,
+    savedMapping: {
+      sources: [
+        { source: 'raw', fieldId: 'field-1', unit: 'NTU', sourceUnit: 'NTU' },
+      ],
+    },
     ...overrides,
   }
 }
@@ -568,6 +574,93 @@ describe('ImportUploadFlow context', () => {
 })
 
 describe('ImportMapCheckFlow', () => {
+  it('requires a worksheet and source-unit declaration, then pins both in the resumable review', async () => {
+    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
+    importData.fetchImportFile.mockImplementation(
+      async ({ sheetName }: { sheetName?: string }) =>
+        uploadResponse({
+          savedMapping: {
+            sources: [{ source: 'raw', fieldId: 'field-1', unit: 'NTU' }],
+          },
+          sheet: {
+            name: sheetName ?? 'Cover',
+            headers: ['raw', 'dilution'],
+            sampleRows: [{ raw: '12.75', dilution: '1:10' }],
+            rowCount: 1,
+            sheetNames: ['Cover', 'Measurements'],
+          },
+        }),
+    )
+    importData.reviewImport.mockResolvedValue(reviewResponse())
+    let latest: ImportSearch = { dataset: 'ds-1' }
+    function Flow() {
+      const [search, setSearch] = useState(latest)
+      return (
+        <ImportMapCheckFlow
+          importId="file-1"
+          search={search}
+          onSearch={(next) => {
+            latest = next
+            setSearch(next)
+          }}
+        />
+      )
+    }
+    const user = userEvent.setup()
+    const { unmount } = renderFlow(<Flow />)
+    await screen.findByLabelText('Worksheet')
+    expect(screen.queryByRole('table', { name: 'Column mapping' })).toBeNull()
+    await user.selectOptions(screen.getByLabelText('Worksheet'), 'Measurements')
+    const unit = await screen.findByLabelText<HTMLInputElement>(
+      'Source unit for raw',
+    )
+    expect(unit.value).toBe('') // The old target-unit label is not a source declaration.
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Continue' })
+        .disabled,
+    ).toBe(true)
+    await user.type(unit, 'g/L')
+    expect(
+      await screen.findByText(
+        /source unit g\/L does not match storage unit NTU/,
+      ),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', { name: 'Continue' })
+        .disabled,
+    ).toBe(true)
+    await user.clear(unit)
+    await user.type(unit, 'NTU')
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await screen.findByRole('table', { name: 'Rows to import' })
+    expect(latest).toMatchObject({
+      step: 'check',
+      sheet: 'Measurements',
+      units: 'raw:NTU,dilution:',
+    })
+    expect(importData.reviewImport.mock.calls.at(-1)?.[0]).toMatchObject({
+      sheetName: 'Measurements',
+      mapping: {
+        sheetName: 'Measurements',
+        sources: [
+          expect.objectContaining({ source: 'raw', sourceUnit: 'NTU' }),
+          expect.anything(),
+        ],
+      },
+    })
+    unmount()
+    renderFlow(
+      <ImportMapCheckFlow
+        importId="file-1"
+        search={latest}
+        onSearch={vi.fn()}
+      />,
+    )
+    expect(
+      await screen.findByRole('table', { name: 'Rows to import' }),
+    ).toBeTruthy()
+  })
+
   it('reloads at the map step with the linked mapping, without reviewing', async () => {
     vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
     importData.fetchImportFile.mockResolvedValue(uploadResponse())
@@ -653,8 +746,8 @@ describe('ImportMapCheckFlow', () => {
     expect(reviewArgs.fileId).toBe('file-1')
     expect(reviewArgs.datasetId).toBe('ds-1')
     expect(reviewArgs.mapping.sources).toEqual([
-      { source: 'raw', fieldId: 'field-1', unit: 'NTU' },
-      { source: 'dilution', fieldId: null, unit: null },
+      { source: 'raw', fieldId: 'field-1', unit: 'NTU', sourceUnit: 'NTU' },
+      { source: 'dilution', fieldId: null, unit: null, sourceUnit: null },
     ])
     expect(
       await screen.findByRole('button', { name: 'Import 2 rows' }),
@@ -838,7 +931,7 @@ describe('a committed import', () => {
     outcome: { added: 2 },
     mapping: {
       sources: [
-        { source: 'raw', fieldId: 'field-1', unit: 'NTU' },
+        { source: 'raw', fieldId: 'field-1', unit: 'NTU', sourceUnit: 'NTU' },
         { source: 'dilution', fieldId: null, unit: null },
       ],
     },
@@ -901,6 +994,8 @@ describe('a committed import', () => {
           instrument: 'inst-1',
           parser: 'sheetbase.plate-reader-csv',
           map: 'raw:field-1',
+          units: 'raw:NTU',
+          sheet: undefined,
         },
       }),
     )

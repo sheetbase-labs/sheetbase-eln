@@ -20,7 +20,38 @@ export interface ImportTargetField {
 
 export type ImportColumnMapping =
   | { source: string; kind: 'ignore' }
-  | { source: string; kind: 'field'; field: ImportTargetField }
+  | {
+      source: string
+      kind: 'field'
+      field: ImportTargetField
+      sourceUnit?: string | null
+    }
+
+/** Header annotations are suggestions, not a conversion or target-unit guess. */
+export function importHeaderUnit(header: string): string | null {
+  return (
+    /(?:\(([^()]+)\)|\[([^[\]]+)\])\s*$/
+      .exec(header)
+      ?.slice(1)
+      .find(Boolean)
+      ?.trim() ?? null
+  )
+}
+
+/** No conversion engine exists here. Fail closed instead of relabelling. */
+export function importUnitError(
+  field: ImportTargetField,
+  sourceUnit?: string | null,
+): string | null {
+  if (field.logicalType !== 'integer' && field.logicalType !== 'decimal')
+    return null
+  const source = sourceUnit?.trim() || null
+  const target = field.unit ?? null
+  if (source === target) return null
+  if (!source)
+    return `Declare the source unit for ${field.label}. The Dataset stores ${target}; confirm that unit only if the file already uses it.`
+  return `${field.label}: source unit ${source} does not match storage unit ${target ?? '(unitless)'}. Convert the source values to ${target ?? 'a unitless value'} before uploading, or choose a field with the correct storage unit. No automatic conversion is available.`
+}
 
 export interface ImportRowError {
   row: number
@@ -145,6 +176,11 @@ export function mapImportSheet(
       if (mapping.kind === 'ignore') continue
       const raw = sourceRow[mapping.source] ?? ''
       try {
+        const unitError = importUnitError(
+          mapping.field,
+          mapping.sourceUnit ?? importHeaderUnit(mapping.source),
+        )
+        if (unitError) throw new Error(unitError)
         const coerced = coerceImportValue(mapping.field, raw)
         if (mapping.field.kind === 'record-title') {
           title = typeof coerced === 'string' ? coerced : String(coerced ?? '')

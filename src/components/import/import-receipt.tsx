@@ -26,10 +26,14 @@ import type { ImportSearch } from './import-search'
 export function findCommittedReceipt(
   receipts: readonly DatasetImportRecord[] | undefined,
   fileId: string,
+  sheetName?: string,
 ): DatasetImportRecord | null {
   return (
     receipts?.find(
-      (receipt) => receipt.status === 'committed' && receipt.file_id === fileId,
+      (receipt) =>
+        receipt.status === 'committed' &&
+        receipt.file_id === fileId &&
+        (!sheetName || receipt.mapping?.sheetName === sheetName),
     ) ?? null
   )
 }
@@ -51,6 +55,13 @@ export function carriedOverSettings(
     if (entry.fieldId) values[entry.source] = entry.fieldId
   }
   const map = serializeImportMapping(values)
+  const units = serializeImportMapping(
+    Object.fromEntries(
+      (receipt.mapping?.sources ?? []).flatMap((entry) =>
+        entry.sourceUnit ? [[entry.source, entry.sourceUnit]] : [],
+      ),
+    ),
+  )
   return {
     step: 'map',
     dataset: receipt.dataset_id,
@@ -58,6 +69,8 @@ export function carriedOverSettings(
     instrument: receipt.instrument_id ?? undefined,
     parser: text(receipt.parser_provenance.key),
     map: map || undefined,
+    units: units || undefined,
+    sheet: receipt.mapping?.sheetName,
   }
 }
 
@@ -160,6 +173,16 @@ export function ImportReceipt({
                 ? `${parserName}${typeof parserVersion === 'number' ? ` v${parserVersion}` : ''}`
                 : 'Mapped by hand'}
             </dd>
+            <dt className="text-fg-muted">Worksheet</dt>
+            <dd className="m-0">
+              {text(receipt.source_provenance.sheetName) ??
+                receipt.mapping?.sheetName ??
+                'Not recorded'}
+            </dd>
+            <dt className="text-fg-muted">SHA-256</dt>
+            <dd className="m-0 break-all font-mono text-xs">
+              {text(receipt.source_provenance.checksum) ?? 'Not recorded'}
+            </dd>
             <dt className="text-fg-muted">Rows</dt>
             <dd className="m-0">
               {outcome.length
@@ -195,7 +218,8 @@ export function ImportReceipt({
                   <TableRow>
                     <TableHead className="first:pl-3">File column</TableHead>
                     <TableHead>Dataset field</TableHead>
-                    <TableHead>Unit</TableHead>
+                    <TableHead>Source unit</TableHead>
+                    <TableHead>Storage unit</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -205,6 +229,9 @@ export function ImportReceipt({
                         {entry.source}
                       </TableCell>
                       <TableCell>{entry.fieldId}</TableCell>
+                      <TableCell>
+                        {entry.sourceUnit ?? 'Not declared'}
+                      </TableCell>
                       <TableCell>{entry.unit ?? '—'}</TableCell>
                     </TableRow>
                   ))}

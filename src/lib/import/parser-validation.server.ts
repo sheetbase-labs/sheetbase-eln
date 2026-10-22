@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { getObjectStorage } from '#/lib/file-storage'
 import type { ObjectStorage } from '#/lib/file-storage'
-import { IMPORT_LIMITS, parseImportBytes } from '#/lib/import-parse'
+import {
+  IMPORT_LIMITS,
+  parseImportBytes,
+  selectImportSheet,
+} from '#/lib/import-parse'
 import { mapImportSheet } from '#/lib/import-mapping'
 import { getParser } from '#/lib/connectors/registry'
 import {
@@ -42,8 +46,10 @@ const mappingSchema = z
         source: z.string(),
         fieldId: z.uuid().nullable(),
         unit: z.string().nullable(),
+        sourceUnit: z.string().nullable().optional(),
       }),
     ),
+    sheetName: z.string().min(1).optional(),
   })
   .strict()
 
@@ -218,6 +224,7 @@ export async function handleParserValidation(
     )
   }
   let rowCount = 0
+  let sheetName: string | null = null
   let headers: string[] = []
   const errors: string[] = []
   try {
@@ -225,13 +232,23 @@ export async function handleParserValidation(
     const text = file.format === 'xlsx' ? null : new TextDecoder().decode(bytes)
     if (executeEngine && text === null)
       throw new Error('This engine requires a retained text file.')
+    const selectedSheet =
+      typeof version.mapping.sheetName === 'string'
+        ? version.mapping.sheetName
+        : undefined
+    if (!executeEngine && preview.sheets.length > 1 && !selectedSheet) {
+      throw new Error(
+        'Set sheetName in this parser version’s column mapping to choose the retained test worksheet.',
+      )
+    }
     const sheet =
       executeEngine && text !== null
         ? { name: 'Engine output', ...executeEngine(text) }
-        : preview.sheets.at(0)
-    if (!sheet || sheet.rows.length === 0)
+        : selectImportSheet(preview, selectedSheet)
+    if (sheet.rows.length === 0)
       throw new Error('The test file has no data rows.')
     headers = sheet.headers
+    sheetName = sheet.name
     rowCount = sheet.rows.length
     const matched = signature.success
       ? recogniseImportParser(
@@ -302,6 +319,7 @@ export async function handleParserValidation(
     ok: errors.length === 0,
     fileId: file.id,
     checksum,
+    sheetName,
     rowCount,
     headers,
     errors,

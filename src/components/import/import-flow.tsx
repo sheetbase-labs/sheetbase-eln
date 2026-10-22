@@ -32,6 +32,8 @@ import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
 import { formatFileSize } from '#/lib/format-numbers'
 import {
   datasetFieldsFromColumns,
+  importHeaderUnit,
+  importUnitError,
   suggestImportMappings,
 } from '#/lib/import-mapping'
 import type { ImportTargetField } from '#/lib/import-mapping'
@@ -134,9 +136,15 @@ export function commitIdempotencyKey(
   datasetId: string,
   mapping: ImportMappingDocument,
 ): string {
-  const canonical = mapping.sources
-    .map((source) => `${source.source}=${source.fieldId ?? ''}`)
-    .join('|')
+  const canonical = JSON.stringify([
+    mapping.sheetName,
+    mapping.sources.map((source) => [
+      source.source,
+      source.fieldId,
+      source.unit,
+      source.sourceUnit,
+    ]),
+  ])
   let hash = 2166136261
   for (let index = 0; index < canonical.length; index += 1) {
     hash ^= canonical.charCodeAt(index)
@@ -494,13 +502,40 @@ export function ImportMapCheckFlow({
   search: ImportSearch
   onSearch: (next: ImportSearch) => void
 }) {
+  return (
+    <ImportMapCheckContent
+      key={`${importId}:${search.sheet ?? ''}:${search.dataset ?? ''}`}
+      importId={importId}
+      search={search}
+      onSearch={onSearch}
+    />
+  )
+}
+
+function ImportMapCheckContent({
+  importId,
+  search,
+  onSearch,
+}: {
+  importId: string
+  search: ImportSearch
+  onSearch: (next: ImportSearch) => void
+}) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const step: 'map' | 'check' = search.step === 'check' ? 'check' : 'map'
   const file = useQuery({
-    queryKey: importQueryKeys.file(importId),
+    queryKey: [
+      ...importQueryKeys.file(importId),
+      search.sheet ?? '',
+      search.dataset ?? '',
+    ],
     queryFn: () =>
-      fetchImportFile({ fileId: importId, datasetId: search.dataset }),
+      fetchImportFile({
+        fileId: importId,
+        datasetId: search.dataset,
+        sheetName: search.sheet,
+      }),
     staleTime: Infinity,
   })
   const datasets = useQuery({
@@ -518,7 +553,7 @@ export function ImportMapCheckFlow({
     enabled: Boolean(datasetId),
     staleTime: 15_000,
   })
-  const receipt = findCommittedReceipt(receipts.data, importId)
+  const receipt = findCommittedReceipt(receipts.data, importId, search.sheet)
   const dataset =
     (datasets.data ?? []).find((item) => item.id === datasetId) ?? null
   const fields = useMemo(
@@ -538,8 +573,9 @@ export function ImportMapCheckFlow({
     )
   }, [file.data])
 
-  const [manual, setManual] = useState(false)
+  const [manual, setManual] = useState(search.parser === 'manual')
   const [mappingValues, setMappingValues] = useState<Record<string, string>>({})
+  const [sourceUnits, setSourceUnits] = useState<Record<string, string>>({})
   const [mappingReady, setMappingReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -569,23 +605,53 @@ export function ImportMapCheckFlow({
     setMappingValues(
       initialMappingValues(headers, fields, file.data.savedMapping, urlMapping),
     )
+    const pinned = parseImportMapping(search.units)
+    setSourceUnits(
+      Object.fromEntries(
+        headers.map((source) => [
+          source,
+          Object.hasOwn(pinned, source)
+            ? pinned[source]
+            : (file.data.savedMapping?.sources.find(
+                (entry) => entry.source === source,
+              )?.sourceUnit ??
+              importHeaderUnit(source) ??
+              ''),
+        ]),
+      ),
+    )
     setMappingReady(true)
-  }, [mappingReady, file.data, dataset, headers, fields, urlMapping])
-
+  }, [
+    mappingReady,
+    file.data,
+    dataset,
+    headers,
+    fields,
+    urlMapping,
+    search.units,
+  ])
   const mappingDocument = useMemo<ImportMappingDocument>(
     () => ({
+      sheetName: file.data?.sheet?.name,
       sources: headers.map((source) => {
         const fieldId = mappingValues[source] ?? ''
         return {
           source,
           fieldId: fieldId || null,
-          unit: fieldId
-            ? (fields.find((field) => field.id === fieldId)?.unit ?? null)
-            : null,
+          unit: fields.find((field) => field.id === fieldId)?.unit ?? null,
+          sourceUnit: sourceUnits[source] || null,
         }
       }),
     }),
-    [fields, headers, mappingValues],
+    [file.data, fields, headers, mappingValues, sourceUnits],
+  )
+  const unitErrors = mappingDocument.sources.flatMap((entry) => {
+    const field = fields.find((item) => item.id === entry.fieldId)
+    const message = field ? importUnitError(field, entry.sourceUnit) : null
+    return message ? [message] : []
+  })
+  const worksheetReady = Boolean(
+    search.sheet || file.data?.sheet?.sheetNames.length === 1,
   )
   const mappedCount = Object.values(mappingValues).filter(Boolean).length
   const parsed = Boolean(file.data?.parsed)
@@ -599,6 +665,7 @@ export function ImportMapCheckFlow({
   const showMapping =
     step === 'map' &&
     parsed &&
+    worksheetReady &&
     Boolean(dataset) &&
     Boolean(activeParser || manual)
   const showReview =
@@ -613,6 +680,7 @@ export function ImportMapCheckFlow({
   const showParserChoice =
     step === 'map' &&
     parsed &&
+    worksheetReady &&
     Boolean(datasetId) &&
     !datasetUnavailable &&
     !activeParser &&
@@ -626,6 +694,8 @@ export function ImportMapCheckFlow({
       importId,
       datasetId,
       search.map ?? '',
+      search.units ?? '',
+      search.sheet ?? '',
       activeParser?.key ?? '',
       activeParser?.parserVersionId ?? '',
     ],
@@ -639,7 +709,13 @@ export function ImportMapCheckFlow({
         sheetName: file.data?.sheet?.name ?? null,
       }),
     enabled:
-      step === 'check' && parsed && Boolean(datasetId) && mappedCount > 0,
+      step === 'check' &&
+      parsed &&
+      worksheetReady &&
+      mappingReady &&
+      Boolean(datasetId) &&
+      mappedCount > 0 &&
+      unitErrors.length === 0,
   })
 
   function writeSearch(next: ImportSearch) {
@@ -670,7 +746,14 @@ export function ImportMapCheckFlow({
           )
         }
       }
-      writeSearch({ ...search, step: 'check' })
+      writeSearch({
+        ...search,
+        step: 'check',
+        sheet: file.data.sheet?.name,
+        map: serializeImportMapping(mappingValues, true),
+        units: serializeImportMapping(sourceUnits, true),
+        parser: manual ? 'manual' : activeParser?.key,
+      })
     } finally {
       setBusy(false)
     }
@@ -825,7 +908,13 @@ export function ImportMapCheckFlow({
             {step === 'map' ? (
               <Button
                 variant="primary"
-                disabled={busy || mappedCount === 0 || !mappingReady}
+                disabled={
+                  busy ||
+                  mappedCount === 0 ||
+                  !mappingReady ||
+                  !worksheetReady ||
+                  unitErrors.length > 0
+                }
                 onClick={() => void continueToReview()}
               >
                 {busy ? 'Checking…' : 'Continue'}
@@ -842,7 +931,12 @@ export function ImportMapCheckFlow({
                 <Button
                   variant="primary"
                   disabled={
-                    busy || !review.data || review.data.errors.length > 0
+                    busy ||
+                    !review.data ||
+                    review.isFetching ||
+                    !worksheetReady ||
+                    unitErrors.length > 0 ||
+                    review.data.errors.length > 0
                   }
                   onClick={() => void runCommit()}
                 >
@@ -1027,7 +1121,10 @@ export function ImportMapCheckFlow({
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => setManual(true)}
+                onClick={() => {
+                  setManual(true)
+                  writeSearch({ ...search, parser: 'manual' })
+                }}
               >
                 Map columns by hand for this file
               </Button>
@@ -1052,6 +1149,52 @@ export function ImportMapCheckFlow({
           </div>
         ) : null}
 
+        {file.data?.sheet ? (
+          <div className="mb-4 grid max-w-[420px] gap-1 text-label text-fg-muted">
+            <label htmlFor="import-worksheet">Worksheet</label>
+            <Select
+              id="import-worksheet"
+              value={
+                search.sheet ??
+                (file.data.sheet.sheetNames.length === 1
+                  ? file.data.sheet.name
+                  : '')
+              }
+              onChange={(event) =>
+                writeSearch({
+                  ...search,
+                  step: 'map',
+                  sheet: event.target.value || undefined,
+                  map: undefined,
+                  units: undefined,
+                  parser: undefined,
+                })
+              }
+            >
+              <option value="">Choose a worksheet</option>
+              {file.data.sheet.sheetNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+            <span>
+              {worksheetReady
+                ? `${file.data.sheet.rowCount.toLocaleString()} data rows in ${file.data.sheet.name}`
+                : 'Choose the measurements sheet. A cover sheet is not selected automatically.'}
+            </span>
+          </div>
+        ) : null}
+        {unitErrors.length > 0 && worksheetReady ? (
+          <Banner tone="warn" title="Check source units" className="mb-4">
+            {unitErrors.map((message) => (
+              <p key={message} className="m-0">
+                {message}
+              </p>
+            ))}
+          </Banner>
+        ) : null}
+
         {showMapping ? (
           <div className="grid gap-4">
             <div className="grid max-w-[420px] gap-1 text-label text-fg-muted">
@@ -1062,7 +1205,7 @@ export function ImportMapCheckFlow({
                 onChange={(event) => {
                   const next = event.target.value
                   setManual(next === '')
-                  writeSearch({ ...search, parser: next || undefined })
+                  writeSearch({ ...search, parser: next || 'manual' })
                 }}
               >
                 <option value="">No parser — map by hand</option>
@@ -1083,12 +1226,24 @@ export function ImportMapCheckFlow({
               headers={headers}
               fields={fields}
               mappingValues={mappingValues}
+              sourceUnits={sourceUnits}
+              onUnit={(source, unit) => {
+                const next = { ...sourceUnits, [source]: unit }
+                setSourceUnits(next)
+                writeSearch({
+                  ...search,
+                  units: serializeImportMapping(next, true),
+                })
+              }}
               parser={activeParser}
               sheet={file.data?.sheet ?? null}
               onMap={(source, fieldId) => {
                 const next = { ...mappingValues, [source]: fieldId }
                 setMappingValues(next)
-                writeSearch({ ...search, map: serializeImportMapping(next) })
+                writeSearch({
+                  ...search,
+                  map: serializeImportMapping(next, true),
+                })
               }}
             />
           </div>
@@ -1146,6 +1301,8 @@ function MapTable({
   headers,
   fields,
   mappingValues,
+  sourceUnits,
+  onUnit,
   parser,
   sheet,
   onMap,
@@ -1153,6 +1310,8 @@ function MapTable({
   headers: string[]
   fields: ImportTargetField[]
   mappingValues: Record<string, string>
+  sourceUnits: Record<string, string>
+  onUnit: (source: string, unit: string) => void
   parser: ImportParserSummary | null
   sheet: ImportSheetPreview | null
   onMap: (source: string, fieldId: string) => void
@@ -1165,13 +1324,18 @@ function MapTable({
         Columns {mappedCount} of {headers.length} mapped
         {parser ? ` · continue to save this as ${parser.label}’s default` : ''}
       </p>
+      <p className="m-0 text-label text-fg-muted">
+        Declare the units already used in the file. Values are not converted
+        automatically. Leave unitless columns blank.
+      </p>
       <div className="overflow-auto rounded-md border">
         <Table aria-label="Column mapping">
           <TableHeader>
             <TableRow>
               <TableHead>File column</TableHead>
               <TableHead>Dataset field</TableHead>
-              <TableHead>Unit</TableHead>
+              <TableHead>Source unit</TableHead>
+              <TableHead>Storage unit</TableHead>
               <TableHead>Example values</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Note</TableHead>
@@ -1181,6 +1345,9 @@ function MapTable({
             {headers.map((header) => {
               const fieldId = mappingValues[header] ?? ''
               const field = fields.find((item) => item.id === fieldId)
+              const unitError = field
+                ? importUnitError(field, sourceUnits[header])
+                : null
               const examples = columnExamples(header, sampleRows)
               return (
                 <TableRow key={header}>
@@ -1200,14 +1367,33 @@ function MapTable({
                     </Select>
                   </TableCell>
                   <TableCell className="text-fg-muted">
+                    {field &&
+                    ['integer', 'decimal'].includes(field.logicalType) ? (
+                      <Input
+                        aria-label={`Source unit for ${header}`}
+                        value={sourceUnits[header] ?? ''}
+                        onChange={(event) => onUnit(header, event.target.value)}
+                        placeholder={field.unit ? 'Declare unit' : 'Unitless'}
+                      />
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell className="text-fg-muted">
                     {field?.unit ?? '—'}
                   </TableCell>
                   <TableCell className="font-mono text-xs text-fg-muted">
                     {examples.length > 0 ? examples.join(', ') : '—'}
                   </TableCell>
                   <TableCell>
-                    <Status tone={fieldId ? 'ok' : 'stored'}>
-                      {fieldId ? 'Mapped' : 'Skipped'}
+                    <Status
+                      tone={unitError ? 'warn' : fieldId ? 'ok' : 'stored'}
+                    >
+                      {unitError
+                        ? 'Check units'
+                        : fieldId
+                          ? 'Mapped'
+                          : 'Skipped'}
                     </Status>
                   </TableCell>
                   <TableCell className="text-fg-muted">

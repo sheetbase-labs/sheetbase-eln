@@ -156,38 +156,47 @@ export function detectDelimiter(text: string): ImportDelimiter {
 export function parseDelimited(text: string, delimiter: ImportDelimiter) {
   const rows: string[][] = []
   let row: string[] = []
-  let cell = ''
+  let parts: string[] = []
+  let start = 0
   let quoted = false
+  const finishCell = (end: number) => {
+    const tail = text.slice(start, end)
+    row.push(parts.length ? parts.join('') + tail : tail)
+    parts = []
+  }
   for (let index = 0; index < text.length; index++) {
     const character = text.charAt(index)
     if (quoted) {
       if (character === '"') {
+        parts.push(text.slice(start, index))
         if (text[index + 1] === '"') {
-          cell += '"'
+          parts.push('"')
           index++
         } else quoted = false
-      } else cell += character
+        start = index + 1
+      }
       continue
     }
     if (character === '"') {
-      if (cell)
+      if (index > start || parts.some(Boolean))
         throw new ImportParseError(`Malformed CSV near character ${index + 1}.`)
       quoted = true
+      start = index + 1
     } else if (character === delimiter) {
-      row.push(cell)
-      cell = ''
+      finishCell(index)
+      start = index + 1
     } else if (character === '\n' || character === '\r') {
+      finishCell(index)
       if (character === '\r' && text[index + 1] === '\n') index++
-      row.push(cell)
       rows.push(row)
       row = []
-      cell = ''
-    } else cell += character
+      start = index + 1
+    }
   }
   if (quoted)
     throw new ImportParseError('Malformed CSV: quoted field is not closed.')
-  if (cell || row.length) {
-    row.push(cell)
+  if (start < text.length || parts.length || row.length) {
+    finishCell(text.length)
     rows.push(row)
   }
   return rows
@@ -223,7 +232,7 @@ function matrixToSheet(
     usable.splice(0, firstRow)
     if (!usable.length) throw new ImportParseError('Import contains no data.')
   }
-  const width = Math.max(...usable.map((row) => row.length))
+  const width = usable.reduce((max, row) => Math.max(max, row.length), 0)
   const rawHeaders = header
     ? usable.shift()!
     : Array.from({ length: width }, (_, index) => `Column ${index + 1}`)

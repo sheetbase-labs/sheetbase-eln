@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto'
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { ObjectStorage } from '#/lib/file-storage'
-import { handleImportCommit, handleImportFileRead } from './server'
+import {
+  handleImportCommit,
+  handleImportFileRead,
+  handleImportReview,
+} from './server'
+import { sniffImportFormat, zipStore } from '#/lib/import-parse'
 
 const { rpc, select, resolve, parserFailure } = vi.hoisted(() => ({
   rpc: vi.fn(),
@@ -28,8 +33,12 @@ const PARSER_ID = '44444444-4444-4444-8444-444444444444'
 const PARSER_VERSION_ID = '55555555-5555-4555-8555-555555555555'
 const CSV = 'sample\nS1\nS2\nS3\n'
 
-function fixture(csv: string = CSV, parserVersions: unknown[] = []) {
-  const bytes = new TextEncoder().encode(csv)
+function fixture(
+  csv: string | Uint8Array = CSV,
+  parserVersions: unknown[] = [],
+  filename = 'cov.csv',
+) {
+  const bytes = typeof csv === 'string' ? new TextEncoder().encode(csv) : csv
   const checksum = createHash('sha256').update(bytes).digest('hex')
   const storage: ObjectStorage = {
     putStream: vi.fn(),
@@ -56,12 +65,12 @@ function fixture(csv: string = CSV, parserVersions: unknown[] = []) {
             id: FILE_ID,
             workspace_id: WORKSPACE,
             dataset_id: DATASET_ID,
-            filename: 'cov.csv',
+            filename,
             media_type: 'text/csv',
             byte_size: bytes.byteLength,
             checksum,
             storage_key: `${WORKSPACE}/x/y`,
-            format: 'csv',
+            format: sniffImportFormat(filename),
             status: 'parsed',
             parse_error: null,
           },
@@ -123,7 +132,7 @@ function fixture(csv: string = CSV, parserVersions: unknown[] = []) {
   return storage
 }
 
-function request() {
+function request(overrides: Record<string, unknown> = {}) {
   return new Request('http://app.invalid/api/import/commit', {
     method: 'POST',
     body: JSON.stringify({
@@ -131,6 +140,7 @@ function request() {
       datasetId: DATASET_ID,
       mapping: { sources: [{ source: 'sample', fieldId: 'f1', unit: null }] },
       idempotencyKey: 'key-1',
+      ...overrides,
     }),
   })
 }
@@ -145,6 +155,73 @@ beforeEach(() => {
       sessionId: 'session-1',
       token: 'scoped-token',
     },
+  })
+})
+
+it('selects measurements after a workbook cover through resume, review and commit, without changing raw identity', async () => {
+  const workbook = zipStore({
+    'xl/workbook.xml':
+      '<workbook><sheets><sheet name="Cover" r:id="rId1"/><sheet name="Measurements" r:id="rId2"/></sheets></workbook>',
+    'xl/_rels/workbook.xml.rels':
+      '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>',
+    'xl/worksheets/sheet1.xml':
+      '<worksheet><row><c t="inlineStr"><is><t>Instrument run cover</t></is></c></row></worksheet>',
+    'xl/worksheets/sheet2.xml':
+      '<worksheet><row><c t="inlineStr"><is><t>sample</t></is></c></row><row><c t="inlineStr"><is><t>MEASURED-17</t></is></c></row></worksheet>',
+  })
+  const storage = fixture(new Uint8Array(workbook), [], 'instrument.xlsx')
+  const read = await handleImportFileRead(
+    new Request(
+      `http://app.invalid/api/import/files?fileId=${FILE_ID}&sheetName=Measurements`,
+    ),
+    undefined,
+    storage,
+  )
+  expect(await read.json()).toMatchObject({
+    fileId: FILE_ID,
+    checksum: createHash('sha256')
+      .update(new Uint8Array(workbook))
+      .digest('hex'),
+    sheet: {
+      name: 'Measurements',
+      sheetNames: ['Cover', 'Measurements'],
+      sampleRows: [{ sample: 'MEASURED-17' }],
+    },
+  })
+  const missing = await handleImportReview(request(), undefined, storage)
+  expect(missing.status).toBe(422)
+  expect(await missing.json()).toMatchObject({
+    error: { code: 'worksheet_required' },
+  })
+  const invalid = await handleImportCommit(
+    request({ sheetName: 'Missing' }),
+    undefined,
+    storage,
+  )
+  expect(invalid.status).toBe(422)
+  const review = await handleImportReview(
+    request({ sheetName: 'Measurements' }),
+    undefined,
+    storage,
+  )
+  expect(await review.json()).toMatchObject({
+    ok: true,
+    rows: expect.arrayContaining([
+      expect.objectContaining({ values: { sample: 'MEASURED-17' } }),
+    ]),
+  })
+  await handleImportCommit(
+    request({ sheetName: 'Measurements' }),
+    undefined,
+    storage,
+  )
+  const args = rpc.mock.calls.find(
+    ([name]) => name === 'commit_dataset_import',
+  )?.[1]
+  expect(args).toMatchObject({
+    p_file_id: FILE_ID,
+    p_mapping: { sheetName: 'Measurements' },
+    p_rows: [expect.objectContaining({ values: { f1: 'MEASURED-17' } })],
   })
 })
 

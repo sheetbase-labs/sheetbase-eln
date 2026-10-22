@@ -103,6 +103,80 @@ beforeEach(() => {
 })
 
 describe('server-authoritative retained parser validation', () => {
+  it('validates a named measurements worksheet after a cover and records that interpretation', async () => {
+    const workbookBytes = new TextEncoder().encode(
+      JSON.stringify({
+        sheets: [
+          { name: 'Cover', rows: [{ title: 'Instrument report' }] },
+          { name: 'Measurements', rows: [{ sample: 'A17', ntu: 17.25 }] },
+        ],
+      }),
+    )
+    const digest = createHash('sha256').update(workbookBytes).digest('hex')
+    getStream.mockImplementation(async () => ({
+      byteSize: workbookBytes.length,
+      stream: new ReadableStream({
+        start(controller) {
+          controller.enqueue(workbookBytes)
+          controller.close()
+        },
+      }),
+    }))
+    let mapping: Record<string, unknown> = {}
+    select.mockImplementation(async (resource) => ({
+      status: 200,
+      body:
+        resource === 'parser_versions'
+          ? [
+              {
+                ...version,
+                mapping,
+                signature: { requiredHeaders: ['sample', 'ntu'] },
+                parsers: { ...version.parsers, format: 'json' },
+              },
+            ]
+          : resource === 'datasets'
+            ? [
+                {
+                  id: 'dataset-a',
+                  workspace_id: WORKSPACE,
+                  schema_version_id: 'schema-a',
+                  revision: 1,
+                  lifecycle: 'active',
+                },
+              ]
+            : resource === 'dataset_schema_version_fields'
+              ? []
+              : [
+                  {
+                    ...file,
+                    dataset_id: 'dataset-a',
+                    filename: 'workbook.json',
+                    format: 'json',
+                    checksum: digest,
+                    byte_size: String(workbookBytes.length),
+                  },
+                ],
+    }))
+    const missing = await handleParserValidation(request(), undefined, storage)
+    expect(await missing.json()).toMatchObject({
+      ok: false,
+      validation: { errors: [expect.stringContaining('Set sheetName')] },
+    })
+    mapping = { sources: [], sheetName: 'Measurements' }
+    const selected = await handleParserValidation(request(), undefined, storage)
+    expect(await selected.json()).toMatchObject({
+      ok: true,
+      validation: {
+        sheetName: 'Measurements',
+        rowCount: 1,
+        checksum: digest,
+        headers: ['sample', 'ntu'],
+        errors: [],
+      },
+    })
+  })
+
   it('rejects browser-supplied results/status before reading bytes or writing evidence', async () => {
     for (const extra of [
       { result: { ok: true } },

@@ -20,7 +20,7 @@ function Harness({ initial }: { initial: string }) {
 describe('SqlEditor', () => {
   it('stays an ordinary labelled textarea holding the statement', () => {
     render(<Harness initial="select 1" />)
-    const field = screen.getByLabelText('Transform code') as HTMLTextAreaElement
+    const field = screen.getByLabelText<HTMLTextAreaElement>('Transform code')
     expect(field.tagName).toBe('TEXTAREA')
     expect(field.value).toBe('select 1')
     fireEvent.change(field, { target: { value: 'select 2' } })

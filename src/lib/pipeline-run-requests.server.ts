@@ -16,10 +16,10 @@ import {
   tryPipelineDraft,
   validatePipelineResume,
 } from './pipeline-execute.server'
-import type { PipelineTrialReport } from './pipeline-execute.server'
 import type {
   ExecConnection,
   PipelineExecuteDeps,
+  PipelineTrialReport,
 } from './pipeline-execute.server'
 import {
   enqueuePipelineResume,

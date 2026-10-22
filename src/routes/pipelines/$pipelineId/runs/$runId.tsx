@@ -37,10 +37,9 @@ import {
   cancelPipelineRun,
 } from '#/lib/pipelines/data'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
-import { notebookDataClient } from '#/lib/notebook-data'
+import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import { triggerLabel } from '#/lib/pipeline-schedule-form'
 import { runCitation } from '#/lib/pipelines/run-notebook'
-import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   pipelineDataQueryKeys,

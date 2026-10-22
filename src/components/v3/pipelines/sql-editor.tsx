@@ -26,7 +26,7 @@ const TOKEN_CLASS: Record<SqlTokenKind, string | undefined> = {
 export const SqlEditor = forwardRef<
   HTMLTextAreaElement,
   Omit<React.ComponentProps<'textarea'>, 'value'> & { value: string }
->(function SqlEditor({ value, className, rows = 6, ...props }, ref) {
+>(function SqlEditorField({ value, className, rows = 6, ...props }, ref) {
   // One spare line so a trailing newline in the textarea has height underneath too.
   const behind = value.endsWith('\n') ? `${value} ` : value
   const box =

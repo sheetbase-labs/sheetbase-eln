@@ -38,6 +38,7 @@ import {
 } from '#/lib/pipelines/data'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { triggerLabel } from '#/lib/pipeline-schedule-form'
 import { runCitation } from '#/lib/pipelines/run-notebook'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
@@ -235,7 +236,7 @@ function RunPage() {
             <span className="text-fg">
               <Status tone={status.tone}>{status.label}</Status>
             </span>
-            <span>{r.trigger_kind} trigger</span>
+            <span>Started {triggerLabel(r.trigger_kind).toLowerCase()}</span>
             <span>
               Started {formatNotebookDateTime(r.started_at, { zone: true })}
             </span>

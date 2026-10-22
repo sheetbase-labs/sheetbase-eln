@@ -126,11 +126,37 @@ const EVENT_LABELS: Record<string, string> = {
   'notebook.template.created': 'A notebook template is created',
   'notebook.template.updated': 'A notebook template is edited',
   'notebook.template.versioned': 'A notebook template gets a new version',
+  'pipeline.run.completed': 'A pipeline run finishes',
+  'pipeline.run.created': 'A pipeline run starts',
+  'pipeline.run.updated': 'A pipeline run changes',
 }
 
-/** An event in the words a scientist uses; the catalogue name when unknown. */
+/**
+ * An event in the words a scientist uses. A name the table does not know is
+ * spelled out ("sheet.row.moved" becomes "Sheet row moved") rather than shown
+ * as a code.
+ */
 export function eventLabel(name: string): string {
-  return EVENT_LABELS[name] ?? name
+  const known = EVENT_LABELS[name]
+  if (known) return known
+  const words = name.replace(/[._]+/g, ' ').trim()
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : name
+}
+
+/** How a run was started, in words, for lists and headers. */
+export function triggerLabel(kind: string): string {
+  switch (kind) {
+    case 'manual':
+      return 'By hand'
+    case 'scheduled':
+      return 'On a schedule'
+    case 'event':
+      return 'When something happened'
+    case 'webhook':
+      return 'By a webhook'
+    default:
+      return kind
+  }
 }
 
 /** Every event a trigger can listen for, as `[name, label]`. */

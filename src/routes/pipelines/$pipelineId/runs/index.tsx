@@ -4,6 +4,7 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { TableBox } from '#/components/v3/ui/table'
+import { triggerLabel } from '#/lib/pipeline-schedule-form'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
@@ -58,7 +59,7 @@ function PipelineRuns() {
     {
       id: 'trigger',
       header: 'Trigger',
-      cell: ({ row }) => row.original.trigger_kind,
+      cell: ({ row }) => triggerLabel(row.original.trigger_kind),
     },
     {
       id: 'status',

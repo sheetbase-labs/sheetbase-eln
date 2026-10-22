@@ -6,16 +6,12 @@
  */
 
 import { and, eq, inArray, isNull } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/node-postgres'
 
+import { db as database } from '#/db/client.server'
 import * as schema from '#/db/schema'
-import { env } from '#/env.server'
+import { collaborationObjectState } from '#/lib/collaboration/access.server'
 import { parseRoomId } from '#/lib/collaboration/room-ids'
 import { datasetPath, recordPath, sheetPath } from '#/lib/navigation'
-
-function db() {
-  return drizzle(env.DATABASE_URL, { schema })
-}
 
 /**
  * Resolves profile info for users who share at least one workspace membership
@@ -27,7 +23,6 @@ export async function resolveUsersForCaller(
 ): Promise<Array<{ id: string; name: string; avatar: string | null }>> {
   const unique = [...new Set(userIds)].filter(Boolean).slice(0, 100)
   if (unique.length === 0) return []
-  const database = db()
 
   const callerWorkspaces = await database
     .select({ workspaceId: schema.workspaceMemberships.workspaceId })
@@ -83,7 +78,6 @@ async function roomObjectInfo(
   workspaceId: string,
   objectId: string,
 ): Promise<RoomObjectInfo | null> {
-  const database = db()
   switch (kind) {
     case 'record': {
       const row = await database.query.records.findFirst({
@@ -122,23 +116,6 @@ async function roomObjectInfo(
   }
 }
 
-/** True when the caller holds an unsuspended membership in an active workspace. */
-export async function isActiveMember(
-  userId: string,
-  workspaceId: string,
-): Promise<boolean> {
-  const database = db()
-  const row = await database.query.workspaceMemberships.findFirst({
-    where: and(
-      eq(schema.workspaceMemberships.userId, userId),
-      eq(schema.workspaceMemberships.workspaceId, workspaceId),
-    ),
-    columns: { suspendedAt: true },
-    with: { workspace: { columns: { status: true } } },
-  })
-  return Boolean(row && !row.suspendedAt && row.workspace.status === 'active')
-}
-
 /**
  * Resolves room display info for rooms the caller can access. Rooms that do
  * not parse, belong to other workspaces, or sit in inactive workspaces are
@@ -153,7 +130,15 @@ export async function resolveRoomsForCaller(
   for (const roomId of unique) {
     const parsed = parseRoomId(roomId)
     if (!parsed.ok) continue
-    if (!(await isActiveMember(callerId, parsed.workspaceId))) continue
+    if (
+      (await collaborationObjectState(
+        parsed.kind,
+        parsed.workspaceId,
+        parsed.objectId,
+        callerId,
+      )) === 'denied'
+    )
+      continue
     const info = await roomObjectInfo(
       parsed.kind,
       parsed.workspaceId,
@@ -175,9 +160,16 @@ export async function mentionSuggestionsForRoom(
 ): Promise<string[]> {
   const parsed = parseRoomId(room)
   if (!parsed.ok) return []
-  if (!(await isActiveMember(callerId, parsed.workspaceId))) return []
+  if (
+    (await collaborationObjectState(
+      parsed.kind,
+      parsed.workspaceId,
+      parsed.objectId,
+      callerId,
+    )) === 'denied'
+  )
+    return []
 
-  const database = db()
   const rows = await database
     .select({
       id: schema.user.id,
@@ -192,9 +184,21 @@ export async function mentionSuggestionsForRoom(
     .where(eq(schema.workspaceMemberships.workspaceId, parsed.workspaceId))
 
   const query = text.trim().toLowerCase()
-  return rows
+  const candidates = rows
     .filter((r) => !r.suspendedAt && r.id !== callerId)
     .filter((r) => (query ? r.name.toLowerCase().includes(query) : true))
-    .slice(0, 20)
-    .map((r) => r.id)
+  const suggestions: string[] = []
+  for (const candidate of candidates) {
+    if (
+      (await collaborationObjectState(
+        parsed.kind,
+        parsed.workspaceId,
+        parsed.objectId,
+        candidate.id,
+      )) !== 'denied'
+    )
+      suggestions.push(candidate.id)
+    if (suggestions.length === 20) break
+  }
+  return suggestions
 }

@@ -3268,6 +3268,13 @@
       "when": 1799507577810,
       "tag": "0563_pipelines_api_scopes",
       "breakpoints": true
+    },
+    {
+      "idx": 564,
+      "version": "7",
+      "when": 1799507577811,
+      "tag": "0564_collaboration_current_authority",
+      "breakpoints": true
     }
   ]
 }

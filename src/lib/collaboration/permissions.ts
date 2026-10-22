@@ -1,7 +1,7 @@
 /**
- * Collaboration permission mapping (COLLAB). Sheetbase is authoritative: the
- * only inputs to a Liveblocks grant are the workspace membership row and the
- * object's existence inside that workspace. Nothing here is client-trusted.
+ * Workspace-role ceiling for collaboration grants. access.server.ts also
+ * intersects these scopes with current canonical object authority/lifecycle.
+ * This mapping alone never authorizes a room.
  *
  * Matrix (docs/subsystems/collaboration.md is normative):
  *

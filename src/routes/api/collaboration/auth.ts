@@ -47,7 +47,10 @@ const handler = async ({ request }: { request: Request }) => {
   // Grant exactly this room; scopes carry no storage or feed access.
   session.allow(room as string, [...resolved.permissions.permissions])
   const { status, body } = await session.authorize()
-  return new Response(body, { status })
+  return new Response(body, {
+    status,
+    headers: { 'Cache-Control': 'private, no-store' },
+  })
 }
 
 export const Route = createFileRoute('/api/collaboration/auth')({

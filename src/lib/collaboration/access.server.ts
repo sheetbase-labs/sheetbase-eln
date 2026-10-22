@@ -1,19 +1,20 @@
 /**
  * Server-side collaboration access resolution (COLLAB). The single gate in
  * front of Liveblocks: every room-auth request is resolved against the
- * Better Auth session, the workspace membership row and the object's actual
- * existence inside that workspace. Client-supplied identity is never trusted.
+ * Better Auth session and current canonical object authority/lifecycle.
+ * Client-supplied identity is never trusted.
  *
  * Deps are injectable so tests exercise the real decision logic against
  * stubbed stores (same pattern as request-auth.ts).
  */
 
 import { and, eq } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/node-postgres'
 
+import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
 import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
+import { getScopedClient } from '#/lib/admin-platform'
 import { parseRoomId } from '#/lib/collaboration/room-ids'
 import {
   accessForMembership,
@@ -46,14 +47,14 @@ export interface CollaborationAuthDeps {
     workspaceId: string,
   ) => Promise<{ role: string; suspendedAt: Date | null } | null>
   /**
-   * Canonical object lifecycle for the id inside that workspace. 'denied'
-   * covers soft-deleted records and unknown ids; archived/locked objects map
-   * to 'read_only'; everything else is 'writable'.
+   * Current canonical authority intersected with lifecycle. No read access
+   * means denied; lack of Edit or archived/locked state means read_only.
    */
   objectState: (
     kind: 'record' | 'sheet' | 'dataset',
     workspaceId: string,
     objectId: string,
+    userId: string,
   ) => Promise<'writable' | 'read_only' | 'denied'>
   /** Stored profile image for a user, if any (never scientific content). */
   getUserAvatar: (userId: string) => Promise<string | null>
@@ -65,7 +66,6 @@ export interface CollaborationAuthDeps {
 export const realCollaborationAuthDeps: CollaborationAuthDeps = {
   getSession: getAppSession,
   getMembership: async (userId, workspaceId) => {
-    const db = drizzle(env.DATABASE_URL, { schema })
     const row = await db.query.workspaceMemberships.findFirst({
       where: and(
         eq(schema.workspaceMemberships.userId, userId),
@@ -74,46 +74,8 @@ export const realCollaborationAuthDeps: CollaborationAuthDeps = {
     })
     return row ? { role: row.role, suspendedAt: row.suspendedAt } : null
   },
-  objectState: async (kind, workspaceId, objectId) => {
-    const db = drizzle(env.DATABASE_URL, { schema })
-    switch (kind) {
-      case 'record': {
-        const row = await db.query.records.findFirst({
-          where: and(
-            eq(schema.records.id, objectId),
-            eq(schema.records.workspaceId, workspaceId),
-          ),
-          columns: { archivedAt: true, deletedAt: true, lockedAt: true },
-        })
-        if (!row || row.deletedAt) return 'denied'
-        return row.archivedAt || row.lockedAt ? 'read_only' : 'writable'
-      }
-      case 'sheet': {
-        const row = await db.query.sheetInstances.findFirst({
-          where: and(
-            eq(schema.sheetInstances.id, objectId),
-            eq(schema.sheetInstances.workspaceId, workspaceId),
-          ),
-          columns: { lifecycle: true },
-        })
-        if (!row) return 'denied'
-        return row.lifecycle === 'archived' ? 'read_only' : 'writable'
-      }
-      case 'dataset': {
-        const row = await db.query.datasets.findFirst({
-          where: and(
-            eq(schema.datasets.id, objectId),
-            eq(schema.datasets.workspaceId, workspaceId),
-          ),
-          columns: { lifecycle: true },
-        })
-        if (!row) return 'denied'
-        return row.lifecycle === 'archived' ? 'read_only' : 'writable'
-      }
-    }
-  },
+  objectState: collaborationObjectState,
   getWorkspaceStatus: async (workspaceId) => {
-    const db = drizzle(env.DATABASE_URL, { schema })
     const row = await db.query.workspaces.findFirst({
       where: eq(schema.workspaces.id, workspaceId),
       columns: { status: true },
@@ -121,6 +83,26 @@ export const realCollaborationAuthDeps: CollaborationAuthDeps = {
     return row?.status ?? null
   },
   getUserAvatar: lookupAvatar,
+}
+
+/** Shared by room grants, room resolution and mention eligibility. */
+export async function collaborationObjectState(
+  kind: 'record' | 'sheet' | 'dataset',
+  workspaceId: string,
+  objectId: string,
+  userId: string,
+): Promise<'writable' | 'read_only' | 'denied'> {
+  const { client, release } = await getScopedClient(workspaceId, userId)
+  try {
+    const { rows } = await client.query<{ state: string }>(
+      'select api.collaboration_object_state($1, $2) as state',
+      [kind, objectId],
+    )
+    const state = rows[0]?.state
+    return state === 'writable' || state === 'read_only' ? state : 'denied'
+  } finally {
+    await release()
+  }
 }
 
 /** True when the Liveblocks substrate is configured at all. */
@@ -183,14 +165,12 @@ export async function resolveRoomAccess(
     }
   }
 
-  // Object lifecycle inside exactly this workspace. This closes the
-  // cross-workspace guess (unknown ids => denied) and feeds the canonical
-  // lifecycle into the grant: deleted objects are refused outright, while
-  // archived/locked objects can only ever yield read-only collaboration.
+  // Re-evaluate current authority on every grant; never cache this decision.
   const state = await deps.objectState(
     parsed.kind,
     parsed.workspaceId,
     parsed.objectId,
+    session.user.id,
   )
   if (state === 'denied') {
     return {
@@ -242,7 +222,6 @@ export async function resolveRoomAccess(
 
 /** Resolves the stored profile image for a user, if any. */
 async function lookupAvatar(userId: string): Promise<string | null> {
-  const db = drizzle(env.DATABASE_URL, { schema })
   const row = await db.query.user.findFirst({
     where: eq(schema.user.id, userId),
     columns: { image: true },

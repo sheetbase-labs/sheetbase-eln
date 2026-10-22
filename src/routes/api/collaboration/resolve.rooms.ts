@@ -19,7 +19,12 @@ const handler = async ({ request }: { request: Request }) => {
     session.user.id,
     ids.split(',').filter(Boolean),
   )
-  return Response.json({ rooms })
+  return Response.json(
+    { rooms },
+    {
+      headers: { 'Cache-Control': 'private, no-store' },
+    },
+  )
 }
 
 export const Route = createFileRoute('/api/collaboration/resolve/rooms')({

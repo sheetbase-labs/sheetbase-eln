@@ -1,5 +1,5 @@
 import { expect, test } from 'playwright/test'
-import { open, signIn, withAdminDb } from './journeys/helpers'
+import { open, signIn, uniqueName, withAdminDb } from './journeys/helpers'
 
 test.use({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 2 })
 test.setTimeout(90_000)
@@ -118,6 +118,7 @@ test('actual pages stay independent through splitting, navigation, arrangement a
         first &&
         second &&
         second.y >= first.y + first.height &&
+        second.y + second.height <= 1000 &&
         Math.abs(second.x - first.x) < 2,
       )
     })
@@ -128,4 +129,77 @@ test('actual pages stay independent through splitting, navigation, arrangement a
     .click()
   await expect(panes).toHaveCount(1)
   expect(errors).toEqual([])
+})
+
+test('unsaved chart edits refuse close and navigation, then a saved pane can close', async ({
+  page,
+}) => {
+  const datasetId = await withAdminDb(async (db) => {
+    const result = await db.query<{ id: string }>(
+      `select id from api.datasets where workspace_id = '00000000-0000-4000-8000-000000000300' and name = 'ELISA capsid titre and turbidity' and lifecycle = 'active' limit 1`,
+    )
+    if (!result.rows[0]) throw new Error('Seeded ELISA dataset required')
+    return result.rows[0].id
+  })
+  await signIn(page)
+  await open(page, `/analysis/new?dataset=${datasetId}`)
+  const workspace = page.getByRole('region', { name: 'Workspace', exact: true })
+  await expect(
+    workspace.getByRole('heading', { name: 'Analysis Studio', exact: true }),
+  ).toBeVisible()
+  await expect(
+    workspace.getByLabel('Y axis field', { exact: true }),
+  ).toBeVisible()
+  await workspace
+    .getByRole('button', { name: 'Split right', exact: true })
+    .click()
+  const panes = workspace.locator('[data-workspace-pane]')
+  await expect(panes).toHaveCount(2)
+  const field = panes.nth(1).getByLabel('Y axis field', { exact: true })
+  const original = await field.inputValue()
+  await field.selectOption({ label: 'Turbidity' })
+  expect(await field.inputValue()).not.toBe(original)
+  await expect(
+    panes.nth(0).getByLabel('Y axis field', { exact: true }),
+  ).toHaveValue(original)
+  await panes
+    .nth(1)
+    .getByRole('button', { name: 'Close Analysis Studio pane' })
+    .click()
+  await expect(panes).toHaveCount(2)
+  await expect(
+    page
+      .getByText('Save pending edits before closing or leaving this page.')
+      .first(),
+  ).toBeVisible()
+  await page.getByRole('link', { name: 'Samples', exact: true }).click()
+  await expect(
+    panes.nth(1).getByRole('heading', { name: 'Analysis Studio', exact: true }),
+  ).toBeVisible()
+  await expect(field).not.toHaveValue(original)
+  await panes
+    .nth(1)
+    .getByRole('button', { name: 'Chart settings', exact: true })
+    .click()
+  const settings = page.getByRole('dialog', {
+    name: 'Chart settings',
+    exact: true,
+  })
+  await settings.getByRole('tab', { name: /^Views/ }).click()
+  await settings.getByLabel('Analysis view name').fill(uniqueName('Pane draft'))
+  await settings
+    .getByRole('button', { name: 'Save analysis view', exact: true })
+    .click()
+  await expect(
+    page.getByText('Analysis view saved', { exact: true }),
+  ).toBeVisible()
+  await settings.getByRole('button', { name: 'Close', exact: true }).click()
+  await panes
+    .nth(1)
+    .getByRole('button', { name: 'Close Analysis Studio pane' })
+    .click()
+  await expect(panes).toHaveCount(1)
+  await expect(
+    panes.nth(0).getByLabel('Y axis field', { exact: true }),
+  ).toHaveValue(original)
 })

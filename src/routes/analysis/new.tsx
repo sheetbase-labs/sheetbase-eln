@@ -22,6 +22,7 @@ import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { RecordPicker } from '#/components/v3/record-picker/record-picker'
 import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
 import { insertBlock } from '#/lib/notebook-mutations'
+import { stableStringify } from '#/lib/notebook-submission'
 import { DataClientError } from '#/lib/data-client'
 import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
@@ -53,6 +54,7 @@ import {
   Link,
   createFileRoute,
   redirect,
+  useBlocker,
   useNavigate,
   useRouter,
 } from '@tanstack/react-router'
@@ -269,6 +271,23 @@ function AnalysisStudio() {
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
   )
+  const [cleanChart, setCleanChart] = useState('')
+  const chartDraft = stableStringify([spec, viewName, exportSettings])
+  const chartDirty = cleanChart !== '' && cleanChart !== chartDraft
+  useBlocker({
+    shouldBlockFn: () => chartDirty,
+    enableBeforeUnload: false,
+  })
+  useEffect(() => {
+    if (!chartDirty) return
+    // Memory-history blockers cannot protect a browser reload or tab close.
+    const guard = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', guard)
+    return () => window.removeEventListener('beforeunload', guard)
+  }, [chartDirty])
   // A saved view whose dataset differs from the current selection is applied
   // by the dataset-change effect below; until then it waits here, so loading
   // it does not have its spec overwritten by the default rebuild.
@@ -325,6 +344,13 @@ function AnalysisStudio() {
       setViewName(pending.name)
       setSpec(pending.spec)
       if (pending.export_settings) setExportSettings(pending.export_settings)
+      setCleanChart(
+        stableStringify([
+          pending.spec,
+          pending.name,
+          pending.export_settings ?? exportSettings,
+        ]),
+      )
       return
     }
     const next = buildDefaultChartSpec(selectedDataset)
@@ -340,6 +366,7 @@ function AnalysisStudio() {
     setSpec(next)
     setSelectedViewId(null)
     setViewName('')
+    setCleanChart(stableStringify([next, '', exportSettings]))
     // Keyed on the dataset's id, not the object: a background refetch of the
     // list hands back new objects for the same dataset, and rebuilding then
     // would drop the saved view the user just opened.
@@ -431,9 +458,17 @@ function AnalysisStudio() {
       if (view && options?.asNew) setSelectedViewId(view.id)
       // A saved view has an address: reloading or sharing the page finds it.
       if (view) {
+        setCleanChart(
+          stableStringify([
+            view.spec,
+            view.name,
+            view.export_settings ?? exportSettings,
+          ]),
+        )
         void navigate({
           search: (current) => ({ ...current, view: view.id }),
           replace: true,
+          ignoreBlocker: true,
         })
       }
       if (view) {
@@ -504,6 +539,13 @@ function AnalysisStudio() {
     setViewName(view.name)
     setSpec(view.spec)
     if (view.export_settings) setExportSettings(view.export_settings)
+    setCleanChart(
+      stableStringify([
+        view.spec,
+        view.name,
+        view.export_settings ?? exportSettings,
+      ]),
+    )
   }
 
   // `?view=<id>` (the read-only analysis route's "Edit in studio" link): load
@@ -530,6 +572,13 @@ function AnalysisStudio() {
     setViewName(view.name)
     setSpec(view.spec)
     if (view.export_settings) setExportSettings(view.export_settings)
+    setCleanChart(
+      stableStringify([
+        view.spec,
+        view.name,
+        view.export_settings ?? exportSettings,
+      ]),
+    )
   }, [views, datasets, selectedDatasetId, summariesQuery.isLoading])
 
   // R5-STUDIO-03: staleness and citations are answered by the canonical
@@ -968,6 +1017,7 @@ export function FilterControls({
   spec: ChartSpec
   onSpecChange: (spec: ChartSpec) => void
 }) {
+  const id = useId()
   function setFilter(index: number, value: string): void {
     const filters = [...spec.filters]
     if (filters[index]) {
@@ -1004,12 +1054,12 @@ export function FilterControls({
             <div className="w-24">
               <label
                 className="sr-only"
-                htmlFor={`filter-${filter.fieldId}-${i}`}
+                htmlFor={`${id}-filter-${filter.fieldId}-${i}`}
               >
                 Filter value
               </label>
               <Input
-                id={`filter-${filter.fieldId}-${i}`}
+                id={`${id}-filter-${filter.fieldId}-${i}`}
                 aria-label={`Filter value for ${column?.label ?? filter.fieldId}`}
                 value={String(filter.value ?? '')}
                 onChange={(e) => setFilter(i, e.target.value)}
@@ -1124,6 +1174,7 @@ function AnalysisInspector({
   /** The experiment this analysis was opened from; Cite offers it first. */
   experimentId?: string
 }) {
+  const id = useId()
   function setScale(axis: 'x' | 'y', scale: AxisScale) {
     onSpecChange({
       ...spec,
@@ -1144,7 +1195,7 @@ function AnalysisInspector({
           {(['x', 'y'] as const).map((axis) => (
             <Field key={axis} label={`${axis.toUpperCase()}-axis scale`}>
               <Select
-                id={`inspector-${axis}-scale`}
+                id={`${id}-inspector-${axis}-scale`}
                 value={spec.display.axes[axis].scale}
                 onChange={(event) =>
                   setScale(axis, event.target.value as AxisScale)
@@ -1564,7 +1615,7 @@ export function ExportPanel({
     // The inspector may be portalled into a dialog. Its source remains the
     // owning Studio preview, never the first chart in the browser document.
     const chartSvg =
-      chartRoot?.current?.querySelector<SVGSVGElement>(
+      chartRoot.current?.querySelector<SVGSVGElement>(
         '[data-analysis-chart] svg',
       ) ?? null
     // Provenance names a view that exists: the selected id is resolved against
@@ -1852,6 +1903,7 @@ export function AnalysisPreview({
   resolving,
   onResolve,
 }: AnalysisPreviewProps) {
+  const id = useId()
   const [dataPreviewOpen, setDataPreviewOpen] = useState(false)
   const validation = useMemo(
     () => validateAnalysisSpec(spec, datasetQuery.data?.rows.length ?? 0),
@@ -2039,7 +2091,7 @@ export function AnalysisPreview({
                   size="sm"
                   variant="primary"
                   disabled={resolving || !canUpdate}
-                  aria-describedby="stale-update-reason"
+                  aria-describedby={`${id}-stale-update-reason`}
                   onClick={() => onResolve('update')}
                 >
                   {liveTarget
@@ -2048,7 +2100,7 @@ export function AnalysisPreview({
                 </Button>
                 {!canUpdate ? (
                   <span
-                    id="stale-update-reason"
+                    id={`${id}-stale-update-reason`}
                     className="max-w-[14rem] text-fg-muted"
                   >
                     Updating in place is unavailable while the source is removed
@@ -2172,6 +2224,7 @@ export function DataTableAlternative({
   /** The dataset the rows came from; the full grid lives at its Rows tab. */
   datasetId: string
 }) {
+  const id = useId()
   if (loading) {
     return <Skeleton className="h-32 w-full" />
   }
@@ -2214,10 +2267,10 @@ export function DataTableAlternative({
   return (
     <div
       className="flex min-h-0 flex-col overflow-hidden border-t"
-      aria-labelledby="data-table-title"
+      aria-labelledby={`${id}-data-table-title`}
     >
       <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
-        <h2 id="data-table-title" className="text-sm font-semibold">
+        <h2 id={`${id}-data-table-title`} className="text-sm font-semibold">
           Data preview
           <span className="ml-2 font-normal text-fg-muted">
             First {Math.min(rows.length, 50)} rows

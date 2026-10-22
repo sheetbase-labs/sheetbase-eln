@@ -312,6 +312,46 @@ All components are repository-owned shadcn-style components built on Base UI pri
 - Breadcrumbs show location, while tabs show the current record's internal views. Do not make them duplicate each other.
 - Global search and command access use `⌘K` / `Ctrl+K` consistently.
 
+#### Composable workspace pages
+
+Product pages share one application shell and open in arrangeable panes.
+Registry object activation opens the object's canonical page beside the source,
+not a summary-only inspector. Ordinary navigation changes the focused pane.
+Alt-click opens a product link beside it. Ctrl, Cmd and Shift retain native link
+behaviour. Local tools such as snapshot retention, chart settings and material
+stock operations remain within their owning page.
+
+The shared `PaneLayout` owns docking, tabs, resizing and stable page hosts.
+Panes can split horizontally or vertically, join another stack's tabs, duplicate
+the current destination, and maximise without unmounting other pages. At browser
+widths of 900px or less, panes become one tab stack. Returning to a wider window
+restores the split arrangement. Local tools respond to the pane's width.
+
+`WorkspaceHost` owns the arrangement and focused destination. Each `PanePage`
+uses an independent client-only memory router with the generated route tree.
+The outer router owns the document, session, live-event connection and shared
+QueryClient. Pane root routes inherit resolved session context rather than
+creating another shell. Changed session context updates existing pane routers.
+Authentication, API, client-portal and legacy reference routes stay outside panes.
+
+The address bar mirrors the focused pane's committed URL, including search and
+hash. Pane changes replace the outer URL rather than adding browser-history
+entries. Per-pane Back controls are not exposed. Notebook block selection uses
+its own router hash and document container, never another pane's DOM.
+
+Session storage saves destinations, titles, focus and layout under a key scoped
+to the current user and workspace. It never saves scientific data or editor
+drafts. On reload, the address bar overrides the restored focused destination.
+This arrangement is not a cross-device saved workspace.
+
+Closing or leaving a pane first dispatches existing cancelable `beforeunload`
+guards, then asks that pane's registered router blockers for approval. Native
+editor guards are currently window-wide: any dirty editor conservatively refuses
+the action and asks the scientist to save. This can block an unrelated clean
+pane, but does not silently discard spreadsheet edits. Resolver-based notebook
+dialogs retain their own approval flow. Workspace switching and sign-out obtain
+approval from all panes before changing the session and clearing the shared cache.
+
 ### Cards and surfaces
 
 - Cards are compact, flat and bounded by Border Slate.

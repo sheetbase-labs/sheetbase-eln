@@ -87,7 +87,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       for (const element of root.querySelectorAll<HTMLElement>(
         '[data-workspace-pane]',
       )) {
-        const title = element.querySelector('h1')?.textContent?.trim()
+        const title = element.querySelector('h1')?.textContent.trim()
         const id = element.dataset.workspacePane
         if (id && title) titles.set(id, title)
       }
@@ -274,7 +274,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         event.stopImmediatePropagation()
         open(target, {
           beside: true,
-          title: anchor.textContent?.trim() || undefined,
+          title: anchor.textContent.trim() || undefined,
         })
       } else if (!anchor.closest('[data-workspace-pane]')) {
         event.preventDefault()
@@ -298,7 +298,6 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         const next =
           remaining.find((pane) => pane.id === current.current.activeId) ??
           remaining[0]
-        if (!next) return
         setState((previous) => ({
           ...previous,
           panes: remaining,
@@ -493,9 +492,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           <Button
             size="sm"
             variant="quiet"
-            onClick={() =>
-              active && open(active.href, { beside: true, duplicate: true })
-            }
+            onClick={() => open(active.href, { beside: true, duplicate: true })}
           >
             Split right
           </Button>
@@ -529,7 +526,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           paneMenu="off"
           minPaneSize={280}
           className={
-            maximized ? 'workspace-layout is-maximized' : 'workspace-layout'
+            maximized
+              ? 'workspace-layout sb-panes--fit is-maximized'
+              : 'workspace-layout sb-panes--fit'
           }
         />
       </section>

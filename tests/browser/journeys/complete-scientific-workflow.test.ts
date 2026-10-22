@@ -216,11 +216,17 @@ test('an imported plate analysis remains reconstructable after independent revie
     const revisionPath = new URL(page.url()).pathname
 
     await open(reviewerPage, '/inbox?type=reviews')
+    await expect(
+      reviewerPage.getByRole('region', { name: 'Workspace', exact: true }),
+    ).toBeVisible()
     await reviewerPage
       .getByRole('button', { name: new RegExp(experimentTitle) })
       .click()
-    await reviewerPage.getByRole('link', { name: 'Open', exact: true }).click()
+    // Inbox activation opens the actual submitted revision beside the list.
     await expect(reviewerPage).toHaveURL(new RegExp(`${revisionPath}$`))
+    await expect(
+      reviewerPage.getByRole('heading', { name: 'Inbox', exact: true }),
+    ).toBeVisible()
     await reviewerPage.getByRole('tab', { name: 'Checks', exact: true }).click()
     const checking = reviewerPage.waitForResponse((response) =>
       response.url().endsWith('/rpc/run_revision_checks'),
@@ -228,6 +234,9 @@ test('an imported plate analysis remains reconstructable after independent revie
     await reviewerPage.getByRole('button', { name: 'Run checks' }).click()
     const checked = await checking
     expect(checked.status(), await checked.text()).toBe(200)
+    await reviewerPage
+      .getByRole('button', { name: 'Details', exact: true })
+      .click()
     await reviewerPage
       .getByRole('button', { name: 'Approve', exact: true })
       .click()

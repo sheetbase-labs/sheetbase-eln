@@ -101,8 +101,14 @@ jobs:
         run: pnpm build
       - name: Install browser
         run: pnpm exec playwright install --with-deps chromium
-      - name: Complete scientific workflow
-        run: pnpm exec playwright test tests/browser/journeys/complete-scientific-workflow.test.ts --project=browser --workers=1
+      - name: Scientific and workspace workflows
+        run: >-
+          pnpm exec playwright test
+          tests/browser/journeys/complete-scientific-workflow.test.ts
+          tests/browser/journeys/analysis.test.ts
+          tests/browser/journeys/notebook-keys.test.ts
+          tests/browser/workspace-panes.test.ts
+          --project=browser --workers=1
       - name: Native signing acceptance
         run: pnpm exec playwright test --config playwright.signatures.config.ts --workers=1
       - name: Upload acceptance evidence

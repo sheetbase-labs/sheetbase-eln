@@ -316,7 +316,8 @@ All components are repository-owned shadcn-style components built on Base UI pri
 
 Product pages share one application shell and open in arrangeable panes.
 Registry object activation opens the object's canonical page beside the source,
-not a summary-only inspector. Ordinary navigation changes the focused pane.
+not a summary-only inspector. Scientific block source links also open beside
+the notebook, keeping its evidence visible. Ordinary navigation changes the focused pane.
 Alt-click opens a product link beside it. Ctrl, Cmd and Shift retain native link
 behaviour. Local tools such as snapshot retention, chart settings and material
 stock operations remain within their owning page.

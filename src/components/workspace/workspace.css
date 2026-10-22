@@ -123,6 +123,9 @@
   .workspace-page [data-local-inspector-trigger] {
     display: inline-flex;
   }
+  .workspace-page-content:has([data-local-inspector-trigger].fixed) {
+    padding-bottom: 60px;
+  }
   .workspace-page [data-local-inspector-trigger].fixed {
     position: absolute;
     bottom: 12px;

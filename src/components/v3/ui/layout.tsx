@@ -46,7 +46,7 @@ export function PageHeader({
     >
       {trail?.length ? <Breadcrumb trail={trail} /> : null}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-        <Title className="min-w-0 flex-1 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6 md:truncate">
+        <Title className="min-w-0 flex-1 basis-60 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6 md:truncate">
           {title}
         </Title>
         {actions ? (

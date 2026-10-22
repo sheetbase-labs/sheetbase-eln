@@ -162,7 +162,15 @@ export function ChartFrame({
         </p>
       ) : null}
       {legend ? (
-        <div className={cn('shrink-0 border-t px-4', fill ? 'py-1.5' : 'py-3')}>
+        <div
+          role="region"
+          aria-label="Chart legend"
+          tabIndex={fill ? 0 : undefined}
+          className={cn(
+            'shrink-0 border-t px-4',
+            fill ? 'max-h-[25%] overflow-y-auto py-1.5' : 'py-3',
+          )}
+        >
           {legend}
         </div>
       ) : null}

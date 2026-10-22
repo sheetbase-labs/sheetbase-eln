@@ -166,6 +166,46 @@ test('an imported plate analysis remains reconstructable after independent revie
     if (await snapshotDetails.isVisible()) await snapshotDetails.click()
     await page.getByRole('link', { name: 'Analyse this snapshot' }).click()
     await expect(page).toHaveURL(/snapshot=/)
+    await page.getByRole('button', { name: 'Split right', exact: true }).click()
+    const studioPanes = page.locator('[data-workspace-pane]')
+    await expect(studioPanes).toHaveCount(2)
+    await studioPanes
+      .nth(1)
+      .getByRole('tab', { name: 'Chart builder', exact: true })
+      .click()
+    const legend = studioPanes.nth(1).getByRole('region', {
+      name: 'Chart legend',
+      exact: true,
+    })
+    await expect(legend.getByRole('listitem')).toHaveCount(96)
+    // Many series must remain available without squeezing the plot away.
+    await expect
+      .poll(() =>
+        studioPanes
+          .nth(1)
+          .locator('figure')
+          .evaluate((figure) => {
+            const key = figure.querySelector('[aria-label="Chart legend"]')
+            const plot = figure.querySelector('svg')
+            return Boolean(
+              key &&
+              plot &&
+              key.clientHeight <= figure.clientHeight * 0.3 &&
+              plot.getBoundingClientRect().height > figure.clientHeight * 0.6,
+            )
+          }),
+      )
+      .toBe(true)
+    await legend.focus()
+    await page.keyboard.press('End')
+    await expect
+      .poll(() => legend.evaluate((key) => key.scrollTop))
+      .toBeGreaterThan(0)
+    await studioPanes
+      .nth(1)
+      .getByRole('button', { name: 'Close Analysis Studio pane' })
+      .click()
+    await expect(studioPanes).toHaveCount(1)
     await page.getByRole('button', { name: 'Descriptive / ANOVA' }).click()
     await page
       .getByLabel('Measured value column')
@@ -290,6 +330,36 @@ test('an imported plate analysis remains reconstructable after independent revie
     await expect(
       frozen.getByRole('cell', { name: '48.5', exact: true }).first(),
     ).toBeVisible()
+    expect(
+      await frozen.evaluate((table) => {
+        let opacity = 1
+        for (
+          let element: Element | null = table;
+          element;
+          element = element.parentElement
+        ) {
+          opacity *= Number(getComputedStyle(element).opacity)
+        }
+        return opacity
+      }),
+    ).toBe(1)
+    await page.getByRole('link', { name: 'Open dataset', exact: true }).click()
+    const evidencePanes = page.locator('[data-workspace-pane]')
+    await expect(evidencePanes).toHaveCount(2)
+    await expect(
+      evidencePanes.nth(0).getByRole('table', {
+        name: 'Descriptive statistics per group',
+      }),
+    ).toBeVisible()
+    await expect(
+      evidencePanes
+        .nth(1)
+        .getByRole('heading', { name: datasetName, exact: true }),
+    ).toBeVisible()
+    await evidencePanes
+      .nth(1)
+      .getByRole('link', { name: 'Data 96', exact: true })
+      .click()
     const evidenceScreenshot = testInfo.outputPath('signed-plate-evidence.png')
     await page.screenshot({ path: evidenceScreenshot, fullPage: true })
     await testInfo.attach('signed-plate-evidence', {

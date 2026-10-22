@@ -1,25 +1,12 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Status } from '#/components/v3/ui/status'
 import { Button } from '#/components/v3/ui/button'
 import { EmptyState } from '#/components/v3/ui/empty-state'
-import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
-import { Choice } from '#/components/v3/ui/choice'
-import { RadioGroup } from '#/components/v3/ui/radio-group'
 import { Muted, Section } from '#/components/v3/ui/layout'
-import { Select } from '#/components/v3/ui/select'
-import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTrigger,
-} from '#/components/v3/ui/dialog'
 import {
   ConfirmDialog,
   ConfirmDialogAction,
@@ -39,77 +26,59 @@ import {
 import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import {
-  createPipelineSchedule,
   deletePipelineSchedule,
   updatePipelineSchedule,
 } from '#/lib/pipelines/data'
-import type { PipelineScheduleKind } from '#/lib/pipelines/types'
+import type {
+  PipelineScheduleKind,
+  PipelineScheduleWire,
+} from '#/lib/pipelines/types'
 import {
-  PIPELINE_TRIGGER_EVENTS,
-  validateScheduleSpec,
-} from '#/lib/pipeline-schedule'
-import { notebookDataClient } from '#/lib/notebook-data'
+  describeInputs,
+  describeParameters,
+  describeSchedule,
+  relativeTime,
+} from '#/lib/pipeline-schedule-form'
+import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
 import {
   pipelineDataQueryKeys,
+  runStatus,
   usePipelineVersions,
+  useLatestScheduleRuns,
   useSchedules,
   currentVersion,
   declaredRunInputs,
-  useDatasetVersionChoices,
 } from '#/components/v3/pipelines/pipelines-data'
-import {
-  parameterError,
-  parameterValue,
-} from '#/components/v3/pipelines/run-dialog'
-import type { PipelineInput, PipelineParameter } from '#/lib/pipelines/config'
+import { ScheduleDialog } from '#/components/v3/pipelines/schedule-dialog'
+import { ScheduleHistoryDialog } from '#/components/v3/pipelines/schedule-history'
 
-/** UI port (roadmap-4/ui-app3): pipeline triggers. Schedules are created,
- * enabled, disabled and deleted through the api RPCs. */
+/** UI port (roadmap-4/ui-app3): pipeline triggers. A trigger starts runs of
+ * the published version on a schedule or when something happens. It can be
+ * added, edited, paused, resumed and deleted, and each one shows when it last
+ * ran, when it runs next and, in its history, why it did not run. */
 export const Route = createFileRoute('/pipelines/$pipelineId/triggers')({
   component: PipelineTriggers,
 })
 
-/** The stored spec written the way the schedule reads: an interval in minutes
- * or hours, a daily wall-clock time in its zone, or the event name with its
- * Dataset filter. A spec this build cannot read renders as a gap, never as raw
- * jsonb. */
+/** The stored spec in the words a scientist uses: an interval, a time of day
+ * in its zone, a weekday or monthly rule, or the event with its Dataset
+ * filter. A spec this build cannot read renders as a gap, never raw jsonb. */
 export function scheduleSpecLabel(
   kind: PipelineScheduleKind,
   spec: Record<string, unknown>,
   datasetNames: Map<string, string>,
 ): string {
-  if (kind === 'interval') {
-    const minutes = spec.intervalMinutes
-    if (typeof minutes !== 'number' || !Number.isFinite(minutes)) return '—'
-    if (minutes >= 60 && minutes % 60 === 0) return `Every ${minutes / 60} h`
-    return `Every ${minutes} min`
-  }
-  if (kind === 'daily') {
-    const at = spec.dailyAt
-    if (typeof at !== 'string' || !at) return '—'
-    const zone =
-      typeof spec.timeZone === 'string' && spec.timeZone ? spec.timeZone : 'UTC'
-    return `Daily at ${at} (${zone})`
-  }
-  const eventType = spec.eventType
-  if (typeof eventType !== 'string' || !eventType) return '—'
-  const datasetId = typeof spec.datasetId === 'string' ? spec.datasetId : null
-  if (!datasetId) return eventType
-  return `${eventType} · ${datasetNames.get(datasetId) ?? 'Dataset no longer readable'}`
+  return describeSchedule(kind, spec, datasetNames)
 }
 
 /** The parameter values a trigger passes to every run it starts, as
  * `name=value` pairs, or an empty string when it passes none. */
 export function scheduleParametersLabel(spec: Record<string, unknown>): string {
-  const parameters = spec.parameters
-  if (!parameters || typeof parameters !== 'object') return ''
-  return Object.entries(parameters as Record<string, unknown>)
-    .map(([name, value]) => `${name}=${String(value)}`)
-    .join(', ')
+  return describeParameters(spec)
 }
 
-/** Dataset id → name, for the Dataset filter an event trigger names. Only read
- * when a caller actually has an id to resolve. */
+/** Dataset id → name, for the Datasets a trigger names. Only read when a
+ * caller actually has an id to resolve. */
 function useDatasetNames(enabled: boolean) {
   const query = useQuery({
     queryKey: ['ui-port', 'pipelines', 'trigger-datasets'],
@@ -126,21 +95,19 @@ function useDatasetNames(enabled: boolean) {
   return query.data ?? new Map<string, string>()
 }
 
-/** Instrument id → name, for the instrument filter on a Dataset trigger. */
-function useInstrumentNames(enabled: boolean) {
-  const query = useQuery({
-    queryKey: ['ui-port', 'pipelines', 'trigger-instruments'],
-    enabled,
-    queryFn: async (): Promise<Map<string, string>> => {
-      const rows = await notebookDataClient.list<{ id: string; name: string }>(
-        'instruments',
-        '?select=id,name&order=name.asc',
-      )
-      return new Map(rows.map((row) => [row.id, row.name]))
-    },
-    staleTime: 60_000,
-  })
-  return query.data ?? new Map<string, string>()
+function namesDatasets(spec: Record<string, unknown>): boolean {
+  if (typeof spec.datasetId === 'string') return true
+  const inputs = spec.inputs
+  return (
+    !!inputs &&
+    typeof inputs === 'object' &&
+    Object.values(inputs).some(
+      (binding) =>
+        !!binding &&
+        typeof binding === 'object' &&
+        typeof (binding as { datasetId?: unknown }).datasetId === 'string',
+    )
+  )
 }
 
 function PipelineTriggers() {
@@ -150,9 +117,11 @@ function PipelineTriggers() {
   const queryClient = useQueryClient()
   const schedules = useSchedules(pipelineId)
   const rows = schedules.data ?? []
-  const datasetNames = useDatasetNames(
-    rows.some((s) => typeof s.spec.datasetId === 'string'),
-  )
+  const datasetNames = useDatasetNames(rows.some((s) => namesDatasets(s.spec)))
+  const latestRuns = useLatestScheduleRuns(rows.map((s) => s.id))
+  const [editing, setEditing] = useState<PipelineScheduleWire | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [history, setHistory] = useState<PipelineScheduleWire | null>(null)
   // The sweep starts a triggered run on the latest PUBLISHED version, so a
   // trigger on a pipeline that has none is enabled but cannot fire. The row
   // must not keep advertising a next run in that state; `null` means the
@@ -183,7 +152,11 @@ function PipelineTriggers() {
       }),
     onSuccess: (updated) => {
       void invalidate()
-      toast(updated.enabled ? 'Trigger enabled' : 'Trigger paused')
+      toast(updated.enabled ? 'Trigger resumed' : 'Trigger paused', {
+        description: updated.enabled
+          ? 'It carries on from now.'
+          : 'It starts no runs until you resume it.',
+      })
     },
     onError: (error: unknown) =>
       toast('Could not change the trigger', {
@@ -216,12 +189,12 @@ function PipelineTriggers() {
   )
 
   const columns: RegistryColumn<(typeof rows)[number]>[] = [
-    { id: 'kind', header: 'Kind', cell: ({ row }) => row.original.kind },
     {
       id: 'spec',
-      header: 'Spec',
+      header: 'Trigger',
       cell: ({ row }) => {
         const passed = scheduleParametersLabel(row.original.spec)
+        const reads = describeInputs(row.original.spec, datasetNames)
         return (
           <span className="text-caption">
             {scheduleSpecLabel(
@@ -229,8 +202,20 @@ function PipelineTriggers() {
               row.original.spec,
               datasetNames,
             )}
+            {reads.map((line) => (
+              <span key={line} className="block text-fg-muted">
+                {line}
+              </span>
+            ))}
             {passed ? (
               <span className="block text-fg-muted">With {passed}</span>
+            ) : null}
+            {row.original.spec.missedRunPolicy === 'skip' ? (
+              <span className="block text-fg-muted">
+                {row.original.kind === 'event'
+                  ? 'Ignores events while paused'
+                  : 'Skips runs it misses'}
+              </span>
             ) : null}
           </span>
         )
@@ -246,25 +231,62 @@ function PipelineTriggers() {
       ),
     },
     {
+      id: 'lastRun',
+      header: 'Last run',
+      cell: ({ row }) => {
+        const run = latestRuns.data?.get(row.original.id)
+        if (!run) return <span className="text-fg-muted">Not yet</span>
+        const status = runStatus(run.status)
+        return (
+          <span className="flex flex-col gap-0.5">
+            <Status tone={status.tone}>{status.label}</Status>
+            <Link
+              to="/pipelines/runs/$runId"
+              params={{ runId: run.id }}
+              className="text-caption text-accent hover:underline"
+            >
+              {formatNotebookDateTime(run.started_at, { zone: true })}
+            </Link>
+          </span>
+        )
+      },
+    },
+    {
       id: 'nextRun',
       header: 'Next run',
-      cell: ({ row }) => (
-        <span className="text-fg-muted">
-          {hasPublishedVersion === false
-            ? 'No published version'
-            : row.original.next_run_at
-              ? row.original.next_run_at.slice(0, 16).replace('T', ' ')
-              : row.original.kind === 'event'
-                ? 'On its event'
-                : 'Never fires'}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const next = row.original.next_run_at
+        if (!row.original.enabled) {
+          return <span className="text-fg-muted">Paused</span>
+        }
+        if (hasPublishedVersion === false) {
+          return <span className="text-fg-muted">No published version</span>
+        }
+        if (row.original.kind === 'event') {
+          return <span className="text-fg-muted">On its event</span>
+        }
+        if (!next) return <span className="text-fg-muted">Never fires</span>
+        return (
+          <span className="flex flex-col gap-0.5">
+            <span>{formatNotebookDateTime(next, { zone: true })}</span>
+            <span className="text-caption text-fg-muted">
+              {relativeTime(next)}
+            </span>
+          </span>
+        )
+      },
     },
     {
       id: 'actions',
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
         <div className="flex justify-end gap-1.5">
+          <Button size="sm" onClick={() => setHistory(row.original)}>
+            History
+          </Button>
+          <Button size="sm" onClick={() => setEditing(row.original)}>
+            Edit
+          </Button>
           <Button
             size="sm"
             disabled={toggle.isPending}
@@ -275,7 +297,7 @@ function PipelineTriggers() {
               })
             }
           >
-            {row.original.enabled ? 'Pause' : 'Enable'}
+            {row.original.enabled ? 'Pause' : 'Resume'}
           </Button>
           <ConfirmDialog>
             <ConfirmDialogTrigger>
@@ -288,8 +310,9 @@ function PipelineTriggers() {
                 <ConfirmDialogTitle>Delete this trigger?</ConfirmDialogTitle>
                 <ConfirmDialogDescription>
                   Runs it would have started will not happen, and deleting
-                  cannot be undone. Add a new trigger if the pipeline should
-                  still run on a schedule or an event.
+                  cannot be undone. Its run history stays with the runs. Add a
+                  new trigger if the pipeline should still run on a schedule or
+                  an event.
                 </ConfirmDialogDescription>
               </ConfirmDialogHeader>
               <ConfirmDialogFooter>
@@ -309,20 +332,15 @@ function PipelineTriggers() {
     },
   ]
 
+  const addButton = (
+    <Button variant="primary" icon="plus" onClick={() => setAdding(true)}>
+      New trigger
+    </Button>
+  )
+
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
-      <Section
-        title="Triggers"
-        count={rows.length}
-        action={
-          <NewTrigger
-            definitionId={pipelineId}
-            workspaceId={workspaceId}
-            inputs={declared.inputs}
-            parameters={declared.parameters}
-          />
-        }
-      >
+      <Section title="Triggers" count={rows.length} action={addButton}>
         {uninterpretable.length ? (
           <Notice tone="warn">
             {uninterpretable.length === 1
@@ -352,407 +370,44 @@ function PipelineTriggers() {
             title="No triggers"
             description="A pipeline runs when someone presses Run now until a trigger is added."
             className="py-4"
-            action={
-              <NewTrigger
-                definitionId={pipelineId}
-                workspaceId={workspaceId}
-                inputs={declared.inputs}
-                parameters={declared.parameters}
-              />
-            }
+            action={addButton}
           />
         )}
       </Section>
       <Muted className="mt-4">
         Triggers start runs; they never sign, submit, approve or delete.
       </Muted>
-    </div>
-  )
-}
-
-/** Add a trigger: an interval, a daily wall-clock time, or a catalogue event.
- * The spec is validated with the same rules the RPC applies, so an invalid
- * trigger is refused before the request leaves the page. */
-function NewTrigger({
-  definitionId,
-  workspaceId,
-  inputs,
-  parameters,
-}: {
-  definitionId: string
-  workspaceId: string
-  inputs: PipelineInput[]
-  parameters: PipelineParameter[]
-}) {
-  const inputNames = inputs.map((input) => input.name)
-  const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
-  const [tried, setTried] = useState(false)
-  const [serverError, setServerError] = useState<string | null>(null)
-  const empty = {
-    kind: 'daily' as PipelineScheduleKind,
-    intervalMinutes: '60',
-    dailyAt: '09:00',
-    timeZone: '',
-    eventType: PIPELINE_TRIGGER_EVENTS[0] ?? '',
-    datasetId: '',
-    inputName: '',
-    instrumentId: '',
-  }
-  const [f, setF] = useState(empty)
-  // Each run a trigger starts is given these, so a pipeline that declares a
-  // parameter or an input can run on a schedule without anyone pressing Run now.
-  const [paramValues, setParamValues] = useState<Record<string, string>>({})
-  const [pinned, setPinned] = useState<Record<string, string>>({})
-  const choices = useDatasetVersionChoices(open && inputs.length > 0)
-  const datasetNames = useDatasetNames(open && f.kind === 'event')
-  const instrumentNames = useInstrumentNames(
-    open && f.kind === 'event' && f.eventType === 'dataset.versioned',
-  )
-
-  const spec: Record<string, unknown> =
-    f.kind === 'interval'
-      ? { intervalMinutes: Number(f.intervalMinutes) }
-      : f.kind === 'daily'
-        ? {
-            dailyAt: f.dailyAt.trim(),
-            ...(f.timeZone.trim() ? { timeZone: f.timeZone.trim() } : {}),
-          }
-        : {
-            eventType: f.eventType,
-            ...(f.datasetId ? { datasetId: f.datasetId } : {}),
-            ...(f.eventType === 'dataset.versioned' && f.instrumentId
-              ? { instrumentId: f.instrumentId }
-              : {}),
-            ...(f.eventType === 'dataset.versioned' && f.inputName
-              ? { inputName: f.inputName }
-              : {}),
-          }
-  // An event trigger binds the version that fired it to one input, so only the
-  // other inputs are pinned here.
-  const boundInput =
-    f.kind === 'event' && f.eventType === 'dataset.versioned'
-      ? f.inputName || inputNames[0]
-      : undefined
-  const rawValue = (p: PipelineParameter) =>
-    paramValues[p.name] ?? (p.default === undefined ? '' : String(p.default))
-  const pinnableInputs = inputs.filter((input) => input.name !== boundInput)
-  const parametersGiven = Object.fromEntries(
-    parameters.flatMap((p) => {
-      const value = parameterValue(p, rawValue(p))
-      return value === undefined ? [] : [[p.name, value]]
-    }),
-  )
-  if (Object.keys(parametersGiven).length > 0) spec.parameters = parametersGiven
-  const inputsGiven = Object.fromEntries(
-    pinnableInputs.flatMap((input) =>
-      pinned[input.name] ? [[input.name, pinned[input.name]]] : [],
-    ),
-  )
-  if (Object.keys(inputsGiven).length > 0) spec.inputVersions = inputsGiven
-  const detailError =
-    parameters.some((p) => parameterError(p, rawValue(p))) ||
-    pinnableInputs.some((input) => !pinned[input.name])
-  const specError = validateScheduleSpec(f.kind, spec)
-  const specErrorMessage = !specError
-    ? null
-    : f.kind === 'interval'
-      ? 'Enter how many minutes between runs, from 1 to 525600.'
-      : f.kind === 'daily'
-        ? /timeZone/.test(specError.message)
-          ? 'Enter a valid IANA time zone, e.g. Europe/London, or leave it empty for UTC.'
-          : 'Enter the time of day as HH:MM.'
-        : 'Choose the event that starts the run.'
-
-  const create = useMutation({
-    mutationFn: () =>
-      createPipelineSchedule(notebookDataClient, {
-        workspaceId,
-        definitionId,
-        kind: f.kind,
-        spec,
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: pipelineDataQueryKeys.schedules(definitionId),
-      })
-      setOpen(false)
-      setF(empty)
-      setParamValues({})
-      setPinned({})
-      setTried(false)
-      toast('Trigger added', {
-        description:
-          'It starts runs of the published version. Pause it any time.',
-      })
-    },
-    onError: (error: unknown) => {
-      setServerError(
-        error instanceof Error ? error.message : 'The database refused it.',
-      )
-    },
-  })
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (!next) {
-          setF(empty)
-          setParamValues({})
-          setPinned({})
-          setTried(false)
-          setServerError(null)
-        }
-      }}
-    >
-      <DialogTrigger render={<Button variant="primary" icon="plus" />}>
-        New trigger
-      </DialogTrigger>
-      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
-        <DialogHeader
-          title="New trigger"
-          description="Triggers start runs of the published version. They never sign, submit or approve anything."
+      <ScheduleDialog
+        open={adding}
+        onOpenChange={setAdding}
+        definitionId={pipelineId}
+        workspaceId={workspaceId}
+        inputs={declared.inputs}
+        parameters={declared.parameters}
+      />
+      {editing ? (
+        <ScheduleDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditing(null)
+          }}
+          schedule={editing}
+          definitionId={pipelineId}
+          workspaceId={workspaceId}
+          inputs={declared.inputs}
+          parameters={declared.parameters}
         />
-        <DialogBody>
-          <RadioGroup
-            aria-label="What starts the run"
-            value={f.kind}
-            onValueChange={(value) =>
-              setF({ ...f, kind: value as PipelineScheduleKind })
-            }
-          >
-            <span className="text-label font-medium text-fg">
-              What starts the run
-            </span>
-            <Choice value="daily" title="Every day at a time">
-              Once a day at a wall-clock time in a named time zone.
-            </Choice>
-            <Choice value="interval" title="On an interval">
-              Every N minutes while the trigger is enabled.
-            </Choice>
-            <Choice value="event" title="On an event">
-              When a workspace event happens, e.g. a Dataset gains a version.
-            </Choice>
-          </RadioGroup>
-
-          {f.kind === 'interval' ? (
-            <Field
-              label="Every"
-              required
-              hint="Minutes between runs, 1 to 525600."
-            >
-              <Input
-                type="number"
-                min={1}
-                max={525600}
-                value={f.intervalMinutes}
-                aria-invalid={tried && specErrorMessage ? true : undefined}
-                onChange={(e) =>
-                  setF({ ...f, intervalMinutes: e.target.value })
-                }
-              />
-            </Field>
-          ) : null}
-
-          {f.kind === 'daily' ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Time of day" required hint="24-hour HH:MM.">
-                <Input
-                  type="time"
-                  value={f.dailyAt}
-                  aria-invalid={tried && specErrorMessage ? true : undefined}
-                  onChange={(e) => setF({ ...f, dailyAt: e.target.value })}
-                />
-              </Field>
-              <Field
-                label="Time zone"
-                hint="IANA name, e.g. Europe/London. Empty means UTC."
-              >
-                <Input
-                  value={f.timeZone}
-                  aria-invalid={tried && specErrorMessage ? true : undefined}
-                  onChange={(e) => setF({ ...f, timeZone: e.target.value })}
-                />
-              </Field>
-            </div>
-          ) : null}
-
-          {f.kind === 'event' ? (
-            <>
-              <Field label="Event" required>
-                <Select
-                  value={f.eventType}
-                  aria-invalid={tried && specErrorMessage ? true : undefined}
-                  onChange={(e) => setF({ ...f, eventType: e.target.value })}
-                >
-                  {PIPELINE_TRIGGER_EVENTS.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              {f.eventType === 'dataset.versioned' ? (
-                <Field
-                  label="Dataset filter"
-                  hint="Only this Dataset's new versions start the run. Optional."
-                >
-                  <Select
-                    value={f.datasetId}
-                    onChange={(e) => setF({ ...f, datasetId: e.target.value })}
-                  >
-                    <option value="">Any dataset</option>
-                    {[...datasetNames].map(([id, name]) => (
-                      <option key={id} value={id}>
-                        {name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              ) : null}
-              {f.eventType === 'dataset.versioned' ? (
-                <Field
-                  label="Instrument filter"
-                  hint="Only versions made by an import from this instrument start the run. Optional."
-                >
-                  <Select
-                    value={f.instrumentId}
-                    onChange={(e) =>
-                      setF({ ...f, instrumentId: e.target.value })
-                    }
-                  >
-                    <option value="">Any instrument</option>
-                    {[...instrumentNames].map(([id, name]) => (
-                      <option key={id} value={id}>
-                        {name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              ) : null}
-              {f.eventType === 'dataset.versioned' && inputNames.length > 0 ? (
-                <Field
-                  label="Bind the new version to"
-                  hint="The pipeline input that receives the Dataset version that triggered the run."
-                >
-                  <Select
-                    value={f.inputName}
-                    onChange={(e) => setF({ ...f, inputName: e.target.value })}
-                  >
-                    <option value="">First input (default)</option>
-                    {inputNames.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              ) : null}
-            </>
-          ) : null}
-
-          {pinnableInputs.map((input) => (
-            <Field
-              key={input.name}
-              label={
-                <>
-                  Input <span className="mono">{input.name}</span>
-                </>
-              }
-              required
-              hint="Every run this trigger starts reads this Dataset Version."
-              error={
-                tried && !pinned[input.name] ? 'Choose a version.' : undefined
-              }
-            >
-              <Select
-                aria-label={`Dataset Version for ${input.name}`}
-                value={pinned[input.name] ?? ''}
-                onChange={(e) =>
-                  setPinned((cur) => ({ ...cur, [input.name]: e.target.value }))
-                }
-              >
-                <option value="">Choose a Dataset Version…</option>
-                {(choices.data ?? []).map((choice) => (
-                  <option key={choice.id} value={choice.id}>
-                    {choice.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ))}
-          {parameters.map((parameter) => {
-            const raw = rawValue(parameter)
-            const error = tried ? parameterError(parameter, raw) : undefined
-            return (
-              <Field
-                key={parameter.name}
-                label={
-                  <>
-                    Parameter <span className="mono">{parameter.name}</span>
-                  </>
-                }
-                required={parameter.required}
-                hint={
-                  parameter.description ??
-                  'Every run this trigger starts gets this value.'
-                }
-                error={error}
-              >
-                {parameter.type === 'boolean' ? (
-                  <Select
-                    aria-label={`Parameter ${parameter.name}`}
-                    value={raw}
-                    onChange={(e) =>
-                      setParamValues((cur) => ({
-                        ...cur,
-                        [parameter.name]: e.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">Not set</option>
-                    <option value="true">Yes</option>
-                    <option value="false">No</option>
-                  </Select>
-                ) : (
-                  <Input
-                    aria-label={`Parameter ${parameter.name}`}
-                    type={parameter.type === 'date' ? 'date' : 'text'}
-                    value={raw}
-                    onChange={(e) =>
-                      setParamValues((cur) => ({
-                        ...cur,
-                        [parameter.name]: e.target.value,
-                      }))
-                    }
-                  />
-                )}
-              </Field>
-            )
-          })}
-
-          {tried && specErrorMessage ? (
-            <Notice tone="bad">{specErrorMessage}</Notice>
-          ) : null}
-          {serverError ? <Notice tone="bad">{serverError}</Notice> : null}
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose render={<Button type="button" />}>Cancel</DialogClose>
-          <Button
-            variant="primary"
-            disabled={create.isPending}
-            onClick={() => {
-              setTried(true)
-              if (specError || detailError) return
-              create.mutate()
-            }}
-          >
-            {create.isPending ? 'Adding…' : 'Add trigger'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      ) : null}
+      {history ? (
+        <ScheduleHistoryDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setHistory(null)
+          }}
+          schedule={history}
+          title={scheduleSpecLabel(history.kind, history.spec, datasetNames)}
+        />
+      ) : null}
+    </div>
   )
 }

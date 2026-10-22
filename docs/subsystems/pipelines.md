@@ -33,7 +33,7 @@ under [ADR-0046](../knowledge/decisions/0046-python-and-eln-pipeline-actions.md)
 | Run                      | `api.pipeline_runs`                | Pins version + parameters + input versions; digest idempotency   |
 | Run log                  | `api.pipeline_run_logs`            | Append-only stage/error log per run                              |
 | Run output               | `api.pipeline_run_outputs`         | Normalized provenance: which Dataset Version a run produced      |
-| Schedule / event trigger | `api.pipeline_schedules`           | interval / daily / dataset-version-created                       |
+| Schedule / event trigger | `api.pipeline_schedules`           | interval / daily / cron / catalogue events                       |
 
 ## Configuration format (v1)
 
@@ -267,25 +267,63 @@ side effects. Failed and cancelled runs have no manifest.
 
 - **Manual** — from the Pipeline definition page (Run/Retry buttons) or from
   a Dataset's Pipelines tab.
-- **Schedule** — interval (every N minutes) or daily (HH:MM in an **explicit
-  IANA time zone**, default UTC — never the server's zone) schedules run the
-  **latest published version** with the schedule's fixed inputs and
-  parameters. Evaluated by the server sweep (`pipeline-scheduler.server.ts`)
-  every 60s; schedule rows are locked only for the start decision so a long
-  run never blocks the next tick.
+- **Schedule** — four kinds: `interval` (every N minutes), `daily` (HH:MM),
+  `cron` (five fields: minute, hour, day of month, month, day of week; 0 and 7
+  are Sunday; when both day fields are restricted either may match) and
+  `event`. The form's weekday, weekly and monthly presets are stored as `cron`.
+  Clock-time kinds run on an **explicit IANA time zone** (default UTC — never
+  the server's zone), so 09:00 stays 09:00 across daylight-saving changes; the
+  form starts on the person's own zone and previews the next three runs.
+  Schedules run the **latest published version**. Evaluated by the server
+  sweep (`pipeline-scheduler.server.ts`) every 60s; schedule rows are locked
+  only for the start decision so a long run never blocks the next tick. The
+  cron maths lives twice, in `src/lib/pipeline-cron.ts` and
+  `api.pipeline_cron_next`, and `tests/db/pipeline-scheduling.test.ts` holds
+  them to the same answers.
+- **Input bindings** — `spec.inputs` says how each pipeline input picks its
+  Dataset Version, per input:
+  - `pinned` — one exact version, every run (what `inputVersions` always did;
+    still read, and `inputs` wins where both name an input);
+  - `latest` — the Dataset's newest version when the run starts;
+  - `incremental` — as `latest`, but the run only happens when the Dataset has
+    a version newer than the last one this trigger ran on. The watermark is
+    `pipeline_schedules.input_watermarks`, moved when the run starts (a failed
+    run is retried on the same inputs, not skipped). With several incremental
+    inputs, a run happens when any has new data. Not offered on event triggers,
+    which already run only on new data.
+    The form defaults new triggers to `latest`: pinning is the opt-in.
+- **Missed runs** — `spec.missedRunPolicy`: `run_once` (default; catch up with
+  one run when a late sweep finds a tick overdue) or `skip` (a tick more than
+  5 minutes late is dropped and the schedule carries on from now). For event
+  triggers the same setting decides what resuming a paused trigger does with
+  events that arrived meanwhile: process them, or ignore them. Pausing never
+  builds a backlog of timed runs; a resumed timed trigger carries on from now.
+  A new tick is also skipped while a run this trigger started earlier is still
+  working.
+- **Activity** — everything a trigger declines to do is written to
+  `api.pipeline_schedule_activity` (`skipped_missed`, `skipped_unchanged`,
+  `skipped_overlap`, `skipped_no_version`, `input_unresolved`, `start_failed`)
+  and shown in the trigger's History beside the runs it started
+  (`pipeline_runs.schedule_id`). A skip that repeats every tick updates one
+  row and counts, rather than writing a row a minute.
+- **Where runs go** — the sweep starts each run through
+  `api.start_pipeline_run` and hands it to `deps.run`; that single seam is where
+  a durable job queue plugs in.
 - **Event** — catalogue event schedules fire when the platform sweep
   observes a matching `change_events` row (optionally filtered to one
   Dataset for `dataset.versioned`). Any stable record/dataset/sheet/review
   event can trigger (`dataset.versioned`, `record.created`, `review.decided`,
   … — see `PIPELINE_TRIGGER_EVENTS` in `src/lib/pipeline-schedule.ts`).
-  Delivery is a polling approximation, but **at-least-once**: the cursor
-  advances only with a durable disposition, failures are recorded in
+  A new event trigger starts at the workspace's current change sequence — it
+  watches what happens from now on and does not replay history. Delivery is a
+  polling approximation, but **at-least-once**: the cursor advances only with a durable disposition, failures are recorded in
   `api.pipeline_trigger_failures` and retried, and abandonment after the
   budget is explicit and visible. Trigger configuration stores the canonical
   catalogue name (wire aliases and the legacy `dataset_version_created`
   spelling are accepted at intake and normalized). Only `dataset.versioned`
   supplies an input version; other events fire with the schedule's
-  configured inputs. See the [event catalogue](../api/event-catalogue.md)
+  configured inputs, and the other inputs follow their bindings (pinned, or
+  the Dataset's latest version when the run starts). See the [event catalogue](../api/event-catalogue.md)
   for the full vocabulary.
 
 ## Incoming webhook triggers

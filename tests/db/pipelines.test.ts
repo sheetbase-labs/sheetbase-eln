@@ -1744,6 +1744,14 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       [failingSchedule.id],
     )
 
+    // A new event trigger starts from the workspace's current change
+    // sequence, so the event below is the first thing it sees.
+    const { rows: startCursor } = await migrator.query(
+      `select last_evaluated_sequence from api.pipeline_schedules where id = $1`,
+      [failingSchedule.id],
+    )
+    expect(startCursor[0].last_evaluated_sequence).not.toBeNull()
+
     const conn = new PgClient({ connectionString: superuserTestUrl() })
     await conn.connect()
     const deps = await makeSweepDeps(conn)
@@ -1754,7 +1762,9 @@ describe('Pipeline schedules and event triggers (AUTO-02)', () => {
       `select last_evaluated_sequence from api.pipeline_schedules where id = $1`,
       [failingSchedule.id],
     )
-    expect(cursor[0].last_evaluated_sequence).toBeNull()
+    expect(cursor[0].last_evaluated_sequence).toBe(
+      startCursor[0].last_evaluated_sequence,
+    )
     const { rows: failures } = await migrator.query(
       `select status, attempt from api.pipeline_trigger_failures
         where schedule_id = $1 order by created_at desc limit 1`,

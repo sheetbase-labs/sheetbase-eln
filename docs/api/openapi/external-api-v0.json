@@ -49,6 +49,10 @@
       "description": "Workspace search."
     },
     {
+      "name": "Pipelines",
+      "description": "Pipeline definitions, versions, runs, run logs and outputs (read), and saving draft versions. Publishing and running stay with people."
+    },
+    {
       "name": "Reviews",
       "description": "Digest preview only. Submit, sign, amend and revision checks are human-session-only."
     }
@@ -5031,6 +5035,1656 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/NotebookTemplatesRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/pipeline_definition_versions": {
+      "get": {
+        "tags": ["Pipelines"],
+        "summary": "Read pipeline_definition_versions",
+        "operationId": "get_pipeline_definition_versions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "GET `pipeline_definition_versions` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_definition_versions` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineDefinitionVersionsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineDefinitionVersionsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Pipelines"],
+        "summary": "Headers for pipeline_definition_versions",
+        "operationId": "head_pipeline_definition_versions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_definition_versions` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineDefinitionVersionsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineDefinitionVersionsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/pipeline_definitions": {
+      "get": {
+        "tags": ["Pipelines"],
+        "summary": "Read pipeline_definitions",
+        "operationId": "get_pipeline_definitions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "GET `pipeline_definitions` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_definitions` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineDefinitionsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineDefinitionsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Pipelines"],
+        "summary": "Headers for pipeline_definitions",
+        "operationId": "head_pipeline_definitions",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_definitions` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineDefinitionsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineDefinitionsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/pipeline_run_logs": {
+      "get": {
+        "tags": ["Pipelines"],
+        "summary": "Read pipeline_run_logs",
+        "operationId": "get_pipeline_run_logs",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "GET `pipeline_run_logs` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_run_logs` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunLogsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunLogsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Pipelines"],
+        "summary": "Headers for pipeline_run_logs",
+        "operationId": "head_pipeline_run_logs",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_run_logs` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunLogsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunLogsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/pipeline_run_outputs": {
+      "get": {
+        "tags": ["Pipelines"],
+        "summary": "Read pipeline_run_outputs",
+        "operationId": "get_pipeline_run_outputs",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "GET `pipeline_run_outputs` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_run_outputs` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunOutputsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunOutputsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Pipelines"],
+        "summary": "Headers for pipeline_run_outputs",
+        "operationId": "head_pipeline_run_outputs",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_run_outputs` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunOutputsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunOutputsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/pipeline_runs": {
+      "get": {
+        "tags": ["Pipelines"],
+        "summary": "Read pipeline_runs",
+        "operationId": "get_pipeline_runs",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "GET `pipeline_runs` through PostgREST.\n\nPagination: `limit` and `offset` query parameters.\n\nSort: `order=column.asc` or `column.desc`; repeat `order` for multiple columns.\n\nFilters: `{column}={operator}.{value}` where operator is one of `eq, neq, gt, gte, lt, lte, like, ilike, in, is, cs, cd, ov, fts, plfts, phfts, wfts, not`. Examples: `id=eq.<uuid>`, `kind=eq.experiment`, `status=in.(draft,in-progress)`.\n\nLogic: `and=(status.eq.draft,kind.eq.experiment)` and `or=(...)`.\n\nCount: send header `Prefer: count=exact` (optionally with `Range: 0-0` or `limit=0`) and read the total from `Content-Range`.\n\nColumn selection: `select=id,title`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_runs` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunsRow"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": ["Pipelines"],
+        "summary": "Headers for pipeline_runs",
+        "operationId": "head_pipeline_runs",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:read"],
+        "description": "Same query string and `Prefer` / `Range` headers as GET. Use with `Prefer: count=exact` to obtain `Content-Range` without a body.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Select"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "$ref": "#/components/parameters/Order"
+          },
+          {
+            "$ref": "#/components/parameters/And"
+          },
+          {
+            "$ref": "#/components/parameters/Or"
+          },
+          {
+            "$ref": "#/components/parameters/ColumnFilter"
+          },
+          {
+            "$ref": "#/components/parameters/Prefer"
+          },
+          {
+            "$ref": "#/components/parameters/Range"
+          },
+          {
+            "$ref": "#/components/parameters/RangeUnit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON array of `pipeline_runs` rows. With `Prefer: count=exact`, `Content-Range` is `start-end/total` (e.g. `0-24/123`).",
+            "headers": {
+              "Content-Range": {
+                "description": "Present when Prefer: count=* is honoured. Total is the number after the slash.",
+                "schema": {
+                  "type": "string",
+                  "examples": ["0-24/123", "0-0/42"]
+                }
+              },
+              "x-request-id": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Proxy correlation id."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunsRow"
+                  }
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content when a `Range` header is used.",
+            "headers": {
+              "Content-Range": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PipelineRunsRow"
                   }
                 }
               }
@@ -11140,6 +12794,148 @@
                     }
                   },
                   "required": ["ok", "recordId", "identifier", "title"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/db/rpc/create_pipeline_definition_version": {
+      "post": {
+        "tags": ["Pipelines"],
+        "summary": "Create a draft pipeline version",
+        "operationId": "rpc_create_pipeline_definition_version",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:write"],
+        "description": "Creates the next version of a pipeline as a draft from a configuration. The configuration is validated exactly as the product validates it (`api.pipeline_config_errors`); a Python step must pin the runner’s runtime in `pythonRuntime` and may declare `pythonRequirements` and a per-step `contract`. Needs the caller’s own identity, so use a personal token: a service credential is refused. The draft is not runnable until a person publishes it.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "p_workspace_id",
+                  "p_definition_id",
+                  "p_configuration"
+                ],
+                "properties": {
+                  "p_workspace_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Workspace UUID."
+                  },
+                  "p_definition_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Pipeline definition UUID."
+                  },
+                  "p_configuration": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "description": "Pipeline configuration, format version 1 (parameters, inputs, transform, steps, output, pythonRuntime, pythonRequirements)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of create_pipeline_definition_version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "New draft version. PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PipelineDefinitionVersionsRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PipelineDefinitionVersionsRow"
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -17865,6 +19661,154 @@
         }
       }
     },
+    "/api/db/rpc/update_pipeline_definition_version_draft": {
+      "post": {
+        "tags": ["Pipelines"],
+        "summary": "Replace the configuration of a draft pipeline version",
+        "operationId": "rpc_update_pipeline_definition_version_draft",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-sheetbase-scopes": ["pipelines:write"],
+        "description": "Replaces the configuration of a draft version, guarded by its `revision` so two editors cannot overwrite each other (a stale revision is refused). Published and retired versions are immutable. Needs a personal token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "p_workspace_id",
+                  "p_version_id",
+                  "p_expected_revision",
+                  "p_configuration"
+                ],
+                "properties": {
+                  "p_workspace_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Workspace UUID."
+                  },
+                  "p_version_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Draft version UUID."
+                  },
+                  "p_expected_revision": {
+                    "type": "integer",
+                    "format": "int64",
+                    "description": "The `revision` last read from the draft; the update is refused if it moved."
+                  },
+                  "p_configuration": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "description": "Replacement configuration, format version 1."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Result of update_pipeline_definition_version_draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Updated draft version. PostgREST returns a JSON array of composite rows by default.",
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PipelineDefinitionVersionsRow"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PipelineDefinitionVersionsRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`validation_error`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthenticated`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permission_denied` — missing scope, revoked credential, or RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` or hidden by RLS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`stale_version` or `conflict`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`missing_link`, `invalid_transition`, `invalid_properties`, or `template_not_instantiable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "`service_unavailable`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProxyError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/db/rpc/update_record_custom_fields": {
       "post": {
         "tags": ["Models"],
@@ -18861,7 +20805,9 @@
                 "webhooks:read",
                 "webhooks:write",
                 "agent_operations:read",
-                "agent_operations:write"
+                "agent_operations:write",
+                "pipelines:read",
+                "pipelines:write"
               ]
             }
           }
@@ -24589,6 +26535,364 @@
             "format": "date-time"
           },
           "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PipelineDefinitionsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.pipeline_definitions` row (snake_case). A pipeline: its identity and lifecycle. Behaviour lives in its versions. GET-only for API keys.",
+        "required": [
+          "id",
+          "workspace_id",
+          "key",
+          "name",
+          "lifecycle",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": ["active", "retired"]
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "display_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "updated_by_user_id": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PipelineDefinitionVersionsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.pipeline_definition_versions` row (snake_case). One immutable-once-published version of a pipeline. `configuration` is the format-version-1 pipeline configuration (inputs, parameters, transform, steps, output, pythonRuntime, pythonRequirements). Optimistic concurrency on drafts: `revision`. GET-only on the table path; drafts are written through the RPCs.",
+        "required": [
+          "id",
+          "definition_id",
+          "workspace_id",
+          "version",
+          "lifecycle",
+          "configuration_format_version",
+          "configuration",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "definition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "lifecycle": {
+            "type": "string",
+            "enum": ["draft", "published", "retired"]
+          },
+          "configuration_format_version": {
+            "type": "integer"
+          },
+          "configuration": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "description": "Pipeline configuration, format version 1."
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "updated_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "published_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "retired_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "retired_by_user_id": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PipelineRunsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.pipeline_runs` row (snake_case). One governed run of a pipeline version. `status` is `running`, `waiting` (paused for a person), `succeeded`, `failed` or `cancelled`. `result` and `error_*` describe the outcome.",
+        "required": [
+          "id",
+          "workspace_id",
+          "definition_version_id",
+          "trigger_kind",
+          "status",
+          "attempt",
+          "parameters",
+          "input_versions",
+          "result",
+          "started_at",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "definition_version_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trigger_kind": {
+            "type": "string",
+            "enum": ["manual", "scheduled", "event"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["running", "waiting", "succeeded", "failed", "cancelled"]
+          },
+          "attempt": {
+            "type": "integer"
+          },
+          "retry_of_run_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "trigger_occurrence_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "schedule_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "input_digest": {
+            "type": "string",
+            "nullable": true
+          },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "description": "Run parameters."
+          },
+          "input_versions": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "description": "Input name → Dataset Version UUID."
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "description": "Outcome summary written when the run settles."
+          },
+          "error_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "error_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "actor_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "actor_credential_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PipelineRunLogsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.pipeline_run_logs` row (snake_case). Ordered log of a run. A Python step’s entry carries what it printed (`detail.logs`), the environment it ran in (`detail.environment`) and, on failure, the line it failed on (`detail.line`). Logs can contain input values.",
+        "required": [
+          "id",
+          "workspace_id",
+          "run_id",
+          "sequence",
+          "level",
+          "stage",
+          "message",
+          "detail",
+          "at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sequence": {
+            "type": "integer"
+          },
+          "level": {
+            "type": "string",
+            "enum": ["info", "warning", "error"]
+          },
+          "stage": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "description": "Stage-specific evidence."
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PipelineRunOutputsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "`api.pipeline_run_outputs` row (snake_case). The Dataset Version a successful run wrote.",
+        "required": [
+          "id",
+          "workspace_id",
+          "run_id",
+          "dataset_id",
+          "dataset_version_id",
+          "label",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dataset_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dataset_version_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          },
+          "created_at": {
             "type": "string",
             "format": "date-time"
           }

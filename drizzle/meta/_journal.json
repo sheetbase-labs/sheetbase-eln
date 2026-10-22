@@ -3261,6 +3261,13 @@
       "when": 1799506577810,
       "tag": "0562_pipeline_scheduling",
       "breakpoints": true
+    },
+    {
+      "idx": 563,
+      "version": "7",
+      "when": 1799507577810,
+      "tag": "0563_pipelines_api_scopes",
+      "breakpoints": true
     }
   ]
 }

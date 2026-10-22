@@ -15,6 +15,16 @@ export type {
 } from "./agent-operations.js";
 export { WebhooksResource } from "./webhooks.js";
 export {
+  PipelinesResource,
+  applyStepSource,
+  notebookToPython,
+} from "./pipelines.js";
+export type {
+  PipelineRunStatus,
+  PipelineStepSource,
+  PipelineTriggerResult,
+} from "./pipelines.js";
+export {
   EVENT_ALIASES,
   EVENT_NAMES,
   isEventName,

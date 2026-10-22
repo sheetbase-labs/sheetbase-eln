@@ -11,10 +11,15 @@ import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
 import { Select } from '#/components/v3/ui/select'
 import { ParametersEditor } from '#/components/v3/pipelines/parameters-editor'
+import {
+  PythonPackagesEditor,
+  PythonStepEditor,
+} from '#/components/v3/pipelines/python-editor'
 import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
 import {
   draftVersion,
   usePipelineOutputTargets,
+  usePythonRuntime,
   usePipelineVersions,
   useWorkspaceMemberNames,
 } from '#/components/v3/pipelines/pipelines-data'
@@ -28,6 +33,9 @@ import type {
   PipelineParameter,
   PipelineStep,
 } from '#/lib/pipelines/config'
+import { statementForLanguage } from '#/lib/pipelines/authoring'
+import { unmetRequirements } from '#/lib/pipelines/python'
+import type { PythonContract } from '#/lib/pipelines/python'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
@@ -56,7 +64,13 @@ interface PipelineConfiguration {
   parameters?: PipelineParameter[]
   steps?: PipelineStep[]
   inputs?: PipelineInput[]
-  transform?: { language?: string; statement?: string }
+  transform?: {
+    language?: string
+    statement?: string
+    contract?: PythonContract
+  }
+  pythonRuntime?: string
+  pythonRequirements?: string[]
   output?: {
     mode?: OutputMode
     schemaVersionId?: string
@@ -75,6 +89,8 @@ const EDITED_CONFIG_FIELDS = [
   'inputs',
   'transform',
   'output',
+  'pythonRuntime',
+  'pythonRequirements',
 ] as const
 
 function PipelineSteps() {
@@ -91,6 +107,11 @@ function PipelineSteps() {
 
   const [description, setDescription] = useState('')
   const [statement, setStatement] = useState('')
+  const [language, setLanguage] = useState('sql')
+  const [transformContract, setTransformContract] = useState<
+    PythonContract | undefined
+  >()
+  const [requirements, setRequirements] = useState<string[]>([])
   const [datasetName, setDatasetName] = useState('')
   const [inputs, setInputs] = useState<PipelineInput[]>([])
   const [parameters, setParameters] = useState<PipelineParameter[]>([])
@@ -107,6 +128,9 @@ function PipelineSteps() {
   useEffect(() => {
     setDescription(sourceConfig.description ?? '')
     setStatement(sourceConfig.transform?.statement ?? '')
+    setLanguage(sourceConfig.transform?.language ?? 'sql')
+    setTransformContract(sourceConfig.transform?.contract)
+    setRequirements(sourceConfig.pythonRequirements ?? [])
     setDatasetName(sourceConfig.output?.datasetName ?? '')
     setInputs(sourceConfig.inputs ?? [])
     setParameters(sourceConfig.parameters ?? [])
@@ -119,6 +143,9 @@ function PipelineSteps() {
     sourceId,
     sourceConfig.description,
     sourceConfig.transform?.statement,
+    sourceConfig.transform?.language,
+    sourceConfig.transform?.contract,
+    sourceConfig.pythonRequirements,
     sourceConfig.output?.datasetName,
     sourceConfig.output?.mode,
     sourceConfig.output?.schemaVersionId,
@@ -129,17 +156,40 @@ function PipelineSteps() {
     sourceConfig.steps,
   ])
 
+  // A saved version pins the immutable Python image it was written against, so
+  // the editor supplies it: the one installed now, or the version's existing pin
+  // when the runner cannot be reached.
+  const runtime = usePythonRuntime()
+  const usesPython =
+    language === 'python' || extraSteps.some((s) => s.language === 'python')
+  const pythonRuntime = usesPython
+    ? runtime.data?.available
+      ? runtime.data.runtime
+      : sourceConfig.pythonRuntime
+    : undefined
+  const pythonUnavailable =
+    usesPython && !pythonRuntime && !runtime.isLoading
+      ? (runtime.data?.message ??
+        'Python is not available yet. Ask your administrator to connect a Python runner.')
+      : null
+
   const builtConfig = useMemo<PipelineConfiguration>(
     () => ({
       ...sourceConfig,
+      pythonRuntime,
+      pythonRequirements:
+        usesPython && requirements.length ? requirements : undefined,
       configVersion: sourceConfig.configVersion ?? 1,
       description: description.trim() || null,
       parameters,
       ...(extraSteps.length ? { steps: extraSteps } : { steps: undefined }),
       inputs,
       transform: {
-        language: sourceConfig.transform?.language ?? 'sql',
+        language,
         statement: statement.trim(),
+        ...(language === 'python' && transformContract
+          ? { contract: transformContract }
+          : {}),
       },
       output: {
         ...(sourceConfig.output ?? {}),
@@ -153,6 +203,11 @@ function PipelineSteps() {
     }),
     [
       sourceConfig,
+      pythonRuntime,
+      usesPython,
+      requirements,
+      transformContract,
+      language,
       description,
       parameters,
       extraSteps,
@@ -171,17 +226,34 @@ function PipelineSteps() {
   // round-trip. Only the keys this page edits are shown; the server stays
   // authoritative for the rest.
   const configErrors = useMemo(
-    () =>
-      validatePipelineConfig(builtConfig).filter((error) =>
+    () => [
+      ...validatePipelineConfig(builtConfig).filter((error) =>
         EDITED_CONFIG_FIELDS.some(
           (field) =>
-            error.field === field || error.field.startsWith(`${field}.`),
+            error.field === field ||
+            error.field.startsWith(`${field}.`) ||
+            error.field.startsWith(`${field}[`),
         ),
       ),
-    [builtConfig],
+      // The runner only ever has the packages baked into its image, so a
+      // declaration it cannot meet is caught here rather than at the first run.
+      ...(usesPython && runtime.data?.packages
+        ? unmetRequirements(requirements, runtime.data.packages).map(
+            (message) => ({
+              code: 'invalid_value' as const,
+              field: 'pythonRequirements',
+              message,
+            }),
+          )
+        : []),
+    ],
+    [builtConfig, usesPython, requirements, runtime.data?.packages],
   )
 
-  const canSave = statement.trim().length > 0 && configErrors.length === 0
+  const canSave =
+    statement.trim().length > 0 &&
+    configErrors.length === 0 &&
+    !pythonUnavailable
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
@@ -262,18 +334,64 @@ function PipelineSteps() {
               onChange={(e) => setDescription(e.target.value)}
             />
           </Field>
-          <Field
-            label="Transform"
-            hint="SQL over the declared inputs. Sheets are read as tables named by the input."
-          >
-            <textarea
-              value={statement}
-              onChange={(e) => setStatement(e.target.value)}
-              rows={6}
-              spellCheck={false}
-              className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
-            />
+          <Field label="Language">
+            <Select
+              aria-label="Transform language"
+              value={language}
+              onChange={(event) => {
+                const next = event.target.value
+                setStatement((current) =>
+                  next === 'sql' || next === 'python'
+                    ? statementForLanguage(current, next, {
+                        inputs,
+                        parameters,
+                      })
+                    : current,
+                )
+                setLanguage(next)
+              }}
+            >
+              <option value="sql">SQL</option>
+              <option value="python">Python</option>
+              {language === 'none' ? <option value="none">None</option> : null}
+            </Select>
           </Field>
+          {language === 'python' ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-label font-medium text-fg">Transform</span>
+              <PythonStepEditor
+                label="Transform"
+                statement={statement}
+                onStatementChange={setStatement}
+                contract={transformContract}
+                onContractChange={setTransformContract}
+                inputs={inputs}
+                parameters={parameters}
+                hasPrevious={false}
+                runtime={runtime.data}
+                requirements={requirements}
+              />
+            </div>
+          ) : (
+            <Field
+              label="Transform"
+              hint="SQL over the declared inputs. Sheets are read as tables named by the input."
+            >
+              <textarea
+                aria-label="Transform code"
+                value={statement}
+                onChange={(e) => setStatement(e.target.value)}
+                rows={6}
+                spellCheck={false}
+                className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
+              />
+            </Field>
+          )}
+          {pythonUnavailable ? (
+            <Notice tone="bad" title="Python is not available">
+              {pythonUnavailable}
+            </Notice>
+          ) : null}
         </div>
       </Section>
 
@@ -286,8 +404,26 @@ function PipelineSteps() {
           steps={extraSteps}
           members={members.data ?? {}}
           onChange={setExtraSteps}
+          python={{
+            runtime: runtime.data,
+            inputs,
+            parameters,
+            requirements,
+            // The transform's result arrives as `previous`, unless there is none.
+            transformRuns: language !== 'none',
+          }}
         />
       </Section>
+
+      {usesPython ? (
+        <Section title="Python packages" count={requirements.length}>
+          <PythonPackagesEditor
+            requirements={requirements}
+            onChange={setRequirements}
+            runtime={runtime.data}
+          />
+        </Section>
+      ) : null}
 
       <Section title="Inputs" count={inputs.length}>
         {inputs.length ? (

@@ -6,6 +6,12 @@
  * required parameter with a default, a skip pointing at a step that was
  * removed).
  */
+import {
+  DEFAULT_SQL_STATEMENT,
+  isStarterStatement,
+  pythonSkeleton,
+} from './python'
+import type { PythonContract, SkeletonOptions } from './python'
 import type {
   ParameterType,
   PipelineParameter,
@@ -84,9 +90,52 @@ export function addStep(list: PipelineStep[]): PipelineStep[] {
         list.map((s) => s.name),
       ),
       language: 'sql',
-      statement: 'select * from previous',
+      statement: DEFAULT_SQL_STATEMENT,
     },
   ]
+}
+
+/**
+ * Change a step's language. An untouched starter statement is swapped for the
+ * other language's starter, so choosing Python never leaves SQL in the editor
+ * (and the reverse); anything the person has written is kept as it is, and a
+ * Python-only data contract goes with the language.
+ */
+export function setStepLanguage(
+  list: PipelineStep[],
+  index: number,
+  language: PipelineStep['language'],
+  context: Omit<SkeletonOptions, 'contract'> = { inputs: [], parameters: [] },
+): PipelineStep[] {
+  return list.map((step, position) => {
+    if (position !== index || step.language === language) return step
+    const { contract, ...rest } = step
+    return {
+      ...rest,
+      language,
+      statement: statementForLanguage(
+        step.statement,
+        language,
+        { ...context, contract },
+        DEFAULT_SQL_STATEMENT,
+      ),
+      ...(language === 'python' && contract ? { contract } : {}),
+    }
+  })
+}
+
+/**
+ * The statement to show after a language change: an untouched starter becomes
+ * the new language's starter; code the person wrote is left alone.
+ */
+export function statementForLanguage(
+  statement: string,
+  language: 'sql' | 'python',
+  context: SkeletonOptions,
+  sqlStarter = '',
+): string {
+  if (!isStarterStatement(statement)) return statement
+  return language === 'python' ? pythonSkeleton(context) : sqlStarter
 }
 
 export function updateStep(
@@ -110,6 +159,19 @@ export function updateStep(
       }
     }
     return step
+  })
+}
+
+/** Set or clear a Python step's data contract. */
+export function setStepContract(
+  list: PipelineStep[],
+  index: number,
+  contract: PythonContract | undefined,
+): PipelineStep[] {
+  return list.map((step, position) => {
+    if (position !== index) return step
+    const { contract: _old, ...rest } = step
+    return contract ? { ...rest, contract } : rest
   })
 }
 

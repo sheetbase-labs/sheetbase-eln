@@ -579,6 +579,40 @@ export function useWorkspaceMemberNames(
   })
 }
 
+/**
+ * What the Python runner offers right now (`GET /api/pipelines/runtime`): the
+ * immutable image a saved version has to pin, the interpreter, and the packages
+ * baked into it. A Python step cannot be saved without this identity, so the
+ * Steps editor reads it before it lets anyone choose Python.
+ */
+export interface PythonRuntimeInfo {
+  available: boolean
+  /** `repository@sha256:…`, the identity a version pins. */
+  runtime?: string
+  /** Interpreter version, e.g. `3.12.8`. */
+  python?: string
+  /** Installed distributions, normalised name → version. */
+  packages?: Record<string, string>
+  /** Why Python is not available, in words for the author. */
+  message?: string
+}
+
+export function usePythonRuntime() {
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'python-runtime'] as const,
+    queryFn: async (): Promise<PythonRuntimeInfo> => {
+      const response = await fetch('/api/pipelines/runtime', {
+        credentials: 'same-origin',
+      })
+      if (!response.ok)
+        return { available: false, message: 'Python could not be checked.' }
+      return (await response.json()) as PythonRuntimeInfo
+    },
+    staleTime: 60_000,
+    retry: false,
+  })
+}
+
 export function useSchedules(
   definitionId: string,
   client: DataClient = notebookDataClient,

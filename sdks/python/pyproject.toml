@@ -27,6 +27,9 @@ dependencies = [
   "pandas>=2.0",
 ]
 
+[project.scripts]
+sheetbase = "sheetbase.cli:main"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",

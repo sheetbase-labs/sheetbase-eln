@@ -189,6 +189,7 @@ function scopeExtension(scopes: readonly Scope[]): Record<string, unknown> {
 }
 
 function tagForTable(resource: string): string {
+  if (resource.startsWith('pipeline_')) return 'Pipelines'
   if (
     resource.startsWith('dataset_schema') ||
     resource.startsWith('sheet_definition')
@@ -202,6 +203,7 @@ function tagForTable(resource: string): string {
 }
 
 function tagForRpc(resource: string, scopes: readonly Scope[]): string {
+  if (resource.includes('pipeline')) return 'Pipelines'
   if (resource.startsWith('query_dataset') || resource.includes('dataset')) {
     return 'Datasets'
   }
@@ -661,6 +663,11 @@ export function buildExternalApiOpenApi(): ExternalApiOpenApi {
         description: 'Notebook template catalogue and instantiation.',
       },
       { name: 'Search', description: 'Workspace search.' },
+      {
+        name: 'Pipelines',
+        description:
+          'Pipeline definitions, versions, runs, run logs and outputs (read), and saving draft versions. Publishing and running stay with people.',
+      },
       {
         name: 'Reviews',
         description:

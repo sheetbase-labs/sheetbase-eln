@@ -27,6 +27,11 @@ from sheetbase._http import TableHead
 from sheetbase._version import API_VERSION, __version__
 from sheetbase.client import SheetbaseClient
 from sheetbase.async_client import AsyncSheetbaseClient
+from sheetbase._pipeline_source import (
+    apply_step_source,
+    notebook_to_python,
+    parse_requirements,
+)
 from sheetbase.errors import (
     SheetbaseError,
     TokenError,
@@ -72,4 +77,7 @@ __all__ = [
     "ServerError",
     "ERROR_CATEGORIES",
     "TOKEN_ERROR_CODES",
+    "apply_step_source",
+    "notebook_to_python",
+    "parse_requirements",
 ]

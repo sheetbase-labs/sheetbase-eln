@@ -110,6 +110,36 @@ beforeEach(() => {
 })
 
 describe('ScientificRecordLinker', () => {
+  it('controls only its own mounted picker across two instances', async () => {
+    const user = userEvent.setup()
+    mount()
+    mount()
+    const [first, second] = screen.getAllByRole('button', {
+      name: /link record/i,
+    })
+    expect(first.hasAttribute('aria-controls')).toBe(false)
+    expect(second.hasAttribute('aria-controls')).toBe(false)
+    await user.click(first)
+    await user.click(second)
+    const firstId = first.getAttribute('aria-controls')!
+    const secondId = second.getAttribute('aria-controls')!
+    expect(firstId).not.toBe(secondId)
+    expect(
+      document
+        .getElementById(firstId)
+        ?.contains(screen.getAllByRole('combobox')[0]),
+    ).toBe(true)
+    expect(
+      document
+        .getElementById(secondId)
+        ?.contains(screen.getAllByRole('combobox')[1]),
+    ).toBe(true)
+    await user.click(second)
+    expect(second.hasAttribute('aria-controls')).toBe(false)
+    expect(document.getElementById(secondId)).toBeNull()
+    expect(document.getElementById(firstId)).toBeTruthy()
+  })
+
   it('renders a collapsed "Link record" button by default', () => {
     mount()
     expect(screen.getByRole('button', { name: /link record/i })).toBeTruthy()

@@ -46,6 +46,7 @@ beforeAll(() => {
   document.elementFromPoint = () => null
   Range.prototype.getClientRects = () => [] as unknown as DOMRectList
   Range.prototype.getBoundingClientRect = () => new DOMRect()
+  Element.prototype.scrollIntoView = () => {}
 })
 
 afterEach(() => cleanup())
@@ -100,6 +101,50 @@ function richTextBlock(id: string, text: string): NotebookBlock {
 }
 
 describe('NotebookDocument — rendering', () => {
+  it('uses each copy’s block deep link and publishes selection only to its owner', () => {
+    const props = {
+      record,
+      blocks: threeBlocks(),
+      readOnly: true,
+      onSaveBlock: vi.fn(),
+      onInsertBlock: vi.fn(),
+      onDuplicateBlock: vi.fn(),
+      onDeleteBlock: vi.fn(),
+    }
+    const scrolled: Element[] = []
+    const scroll = vi
+      .spyOn(Element.prototype, 'scrollIntoView')
+      .mockImplementation(function (this: Element) {
+        scrolled.push(this)
+      })
+    const firstHash = vi.fn()
+    const secondHash = vi.fn()
+    const browserAddress = window.location.href
+    const first = render(
+      <NotebookDocument
+        {...props}
+        initialBlockHash="block-b1"
+        onBlockHashChange={firstHash}
+      />,
+    )
+    const second = render(
+      <NotebookDocument
+        {...props}
+        initialBlockHash="block-b3"
+        onBlockHashChange={secondHash}
+      />,
+    )
+    expect(scrolled).toEqual([
+      first.container.querySelector('[id="block-b1"]'),
+      second.container.querySelector('[id="block-b3"]'),
+    ])
+    fireEvent.click(second.container.querySelector('[id="block-b2"]')!)
+    expect(secondHash).toHaveBeenCalledWith('block-b2')
+    expect(firstHash).not.toHaveBeenCalled()
+    expect(window.location.href).toBe(browserAddress)
+    scroll.mockRestore()
+  })
+
   it('renders each block with a stable anchor id', () => {
     const { container } = render(
       <NotebookDocument
@@ -339,6 +384,16 @@ describe('NotebookDocument — insertion', () => {
       )
     }
 
+    render(
+      <NotebookDocument
+        record={record}
+        blocks={[]}
+        onSaveBlock={vi.fn()}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />,
+    )
     const { container } = render(<SoleEmptyBlockHarness />)
     await user.click(container.querySelector('#block-only-block')!)
     const editor = await screen.findByRole('textbox', { name: 'Text content' })
@@ -350,10 +405,10 @@ describe('NotebookDocument — insertion', () => {
       expect(onDeleteBlock).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'only-block' }),
       )
-      expect(screen.getByText('Start this Notebook')).toBeTruthy()
-      expect(screen.getByRole('button', { name: 'Start writing' })).toBe(
-        document.activeElement,
-      )
+      expect(within(container).getByText('Start this Notebook')).toBeTruthy()
+      expect(
+        within(container).getByRole('button', { name: 'Start writing' }),
+      ).toBe(document.activeElement)
     })
   })
 
@@ -879,6 +934,37 @@ describe('NotebookDocument — movement via menu', () => {
 })
 
 describe('NotebookDocument — movement via keyboard', () => {
+  it('navigates and refocuses moves within the second copy of the same notebook', async () => {
+    const props = {
+      record,
+      blocks: threeBlocks(),
+      onSaveBlock: vi.fn(),
+      onInsertBlock: vi.fn(),
+      onDuplicateBlock: vi.fn(),
+      onDeleteBlock: vi.fn(),
+      onMoveBlock: vi.fn().mockResolvedValue(undefined),
+    }
+    const first = render(<NotebookDocument {...props} />)
+    const second = render(<NotebookDocument {...props} />)
+    const row = second.container.querySelector<HTMLElement>('[id="block-b1"]')!
+    act(() => row.focus())
+    fireEvent.keyDown(row, { key: 'ArrowDown', ctrlKey: true })
+    const next = second.container.querySelector<HTMLElement>('[id="block-b2"]')!
+    await waitFor(() =>
+      expect(next.contains(document.activeElement)).toBe(true),
+    )
+    fireEvent.keyDown(next, { key: 'ArrowUp', altKey: true })
+    await waitFor(() => expect(props.onMoveBlock).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    })
+    await waitFor(() =>
+      expect(next.contains(document.activeElement)).toBe(true),
+    )
+    expect(first.container.contains(document.activeElement)).toBe(false)
+    expect(first.container.querySelector('[data-selected="true"]')).toBeNull()
+  })
+
   it('keeps even a single editable block keyboard selectable', () => {
     const { container } = render(
       <NotebookDocument

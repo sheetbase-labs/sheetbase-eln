@@ -25,7 +25,7 @@ import {
   useSearch,
 } from '@tanstack/react-router'
 import { z } from 'zod'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
@@ -349,6 +349,7 @@ export function ReviewWorkspaceRoute() {
   const currentUserId = context.user.id
   const currentUserName = context.user.name
   const activeTab = search.tab ?? 'diff'
+  const commentsPanelRef = useRef<HTMLDivElement>(null)
   const [commentSelection, setCommentSelection] = useState<{
     revisionId: string
     anchor: ReviewCommentTarget
@@ -366,13 +367,16 @@ export function ReviewWorkspaceRoute() {
       () =>
         reviewShortcuts({
           reply: () => {
-            const trigger = document.querySelector<HTMLButtonElement>(
-              '[aria-label="Reply to thread"]',
-            )
+            const trigger =
+              commentsPanelRef.current?.querySelector<HTMLButtonElement>(
+                '[aria-label="Reply to thread"]',
+              )
             trigger?.click()
             requestAnimationFrame(() => {
-              document
-                .querySelector<HTMLTextAreaElement>('[aria-label="Reply body"]')
+              commentsPanelRef.current
+                ?.querySelector<HTMLTextAreaElement>(
+                  '[aria-label="Reply body"]',
+                )
                 ?.focus()
             })
           },
@@ -823,6 +827,7 @@ export function ReviewWorkspaceRoute() {
 
             <TabsPanel
               value="comments"
+              ref={commentsPanelRef}
               className="min-h-0 flex-1 overflow-y-auto"
             >
               {submission && revision ? (

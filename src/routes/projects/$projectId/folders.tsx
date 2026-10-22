@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -77,6 +77,7 @@ function ProjectFolders() {
   const [current, setCurrent] = useState<string>(UNFILED)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [moving, setMoving] = useState(false)
+  const moveDestinationRef = useRef<HTMLSelectElement>(null)
 
   useEffect(() => setSelected(new Set()), [current])
 
@@ -454,7 +455,7 @@ function ProjectFolders() {
           <DialogBody>
             <Field label="Move to">
               <Select
-                id="move-dest"
+                ref={moveDestinationRef}
                 aria-label="Destination folder"
                 defaultValue={current}
               >
@@ -476,11 +477,7 @@ function ProjectFolders() {
               variant="primary"
               disabled={move.isPending}
               onClick={() => {
-                const value = (
-                  document.getElementById(
-                    'move-dest',
-                  ) as HTMLSelectElement | null
-                )?.value
+                const value = moveDestinationRef.current?.value
                 if (!value) return
                 move.mutate(value === UNFILED ? null : value)
               }}

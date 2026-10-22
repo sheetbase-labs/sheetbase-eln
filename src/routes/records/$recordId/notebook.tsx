@@ -43,7 +43,7 @@ import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dial
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
 import { reopenTaskFromSearch } from '#/lib/return-to'
 import { NotebookDocument } from '#/components/notebook'
-import type { SaveResult } from '#/components/notebook'
+import type { NotebookDocumentProps, SaveResult } from '#/components/notebook'
 import {
   canonicalCellFacts,
   NotebookCellProperties,
@@ -255,6 +255,27 @@ export const Route = createFileRoute('/records/$recordId/notebook')({
 })
 
 type RecordRouteContext = ReturnType<typeof Route.useRouteContext>['context']
+
+function RoutedNotebookDocument(props: NotebookDocumentProps) {
+  const hash = useRouterState({ select: (state) => state.location.hash })
+  const navigate = useNavigate()
+  return (
+    <NotebookDocument
+      {...props}
+      initialBlockHash={hash}
+      onBlockHashChange={(nextHash) => {
+        void navigate({
+          hash: nextHash,
+          search: true,
+          replace: true,
+          resetScroll: false,
+          hashScrollIntoView: false,
+          ignoreBlocker: true,
+        })
+      }}
+    />
+  )
+}
 
 /**
  * Experiments have one page: `/experiments/$expId` (its Notebook tab is this
@@ -1910,7 +1931,7 @@ export function NotebookCanvas({
       )
     }
     return (
-      <NotebookDocument
+      <RoutedNotebookDocument
         record={record}
         blocks={blocks}
         readOnly
@@ -2464,7 +2485,7 @@ function EditableNotebook({
 
   return (
     <>
-      <NotebookDocument
+      <RoutedNotebookDocument
         record={record}
         blocks={blocks}
         onSaveBlock={handleSave}
@@ -2584,7 +2605,7 @@ function HistoricalNotebookCanvas({
     ? sheetEvidenceFromRevisionRows(storedEvidence.data)
     : sheetEvidenceFromEnvelope(toCanonicalEnvelope(revision.data))
   return (
-    <NotebookDocument
+    <RoutedNotebookDocument
       record={record}
       blocks={blocksFromRevision(revision.data)}
       readOnly
@@ -2639,7 +2660,7 @@ function LockedNotebook({
         revision.data ? toCanonicalEnvelope(revision.data) : null,
       )
   return (
-    <NotebookDocument
+    <RoutedNotebookDocument
       record={record}
       blocks={blocks}
       readOnly

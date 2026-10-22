@@ -260,14 +260,19 @@ describe('populated migration 0255', () => {
     expect(result.output).toContain(
       'Migrations require the migrator role and database owner',
     )
-    expect(
-      (
-        await client.query(
-          `SELECT count(*)::int AS n FROM pg_stat_activity
+    // The child exits after closing its socket; PostgreSQL may still be
+    // processing that disconnect when the parent observes process exit.
+    await expect
+      .poll(
+        async () =>
+          (
+            await client.query(
+              `SELECT count(*)::int AS n FROM pg_stat_activity
            WHERE datname=current_database() AND pid<>pg_backend_pid()`,
-        )
-      ).rows[0].n,
-    ).toBe(0)
+            )
+          ).rows[0].n,
+      )
+      .toBe(0)
   })
 
   it('rolls back a failed pending migration and closes its privileged session', async () => {
@@ -303,16 +308,19 @@ describe('populated migration 0255', () => {
     )
     expect(result.code).not.toBe(0)
     expect(result.output).toContain('22012')
-    expect(
-      (
-        await client.query(
-          `SELECT to_regclass('internal.runner_rollback_probe') AS probe,
+    await expect
+      .poll(
+        async () =>
+          (
+            await client.query(
+              `SELECT to_regclass('internal.runner_rollback_probe') AS probe,
                   current_setting('sheetbase.sheet_instance_write', true) AS context,
                   (SELECT count(*)::int FROM pg_stat_activity
                    WHERE datname=current_database() AND pid<>pg_backend_pid()) AS other_sessions`,
-        )
-      ).rows[0],
-    ).toEqual({ probe: null, context: null, other_sessions: 0 })
+            )
+          ).rows[0],
+      )
+      .toEqual({ probe: null, context: null, other_sessions: 0 })
     expect(
       (
         await client.query(

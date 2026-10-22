@@ -42,13 +42,14 @@ describe('deployment contract', () => {
     })
 
     expect(plan.map((step) => step.name)).toEqual([
+      'backup',
       'migrate',
       'rollout',
       'readiness',
     ])
-    expect(plan[0]?.command).toContain('run --rm migrate')
-    expect(plan[1]?.command).toContain('up -d --wait app')
-    expect(plan[2]).toEqual(
+    expect(plan[1]?.command).toContain('run --rm migrate')
+    expect(plan[2]?.command).toContain('up -d --wait app')
+    expect(plan[3]).toEqual(
       expect.objectContaining({
         expectedMigration: '1784920000000',
         readinessUrl: 'https://staging.sheetbase.example/api/health/ready',

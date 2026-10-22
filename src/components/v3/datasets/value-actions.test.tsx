@@ -34,14 +34,32 @@ vi.mock('#/components/v3/ui/sonner', () => ({
   Toaster: () => null,
 }))
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    search,
+  }: {
+    children?: React.ReactNode
+    search?: unknown
+  }) => (
+    <a
+      href={`/readings/new?${new URLSearchParams(search as Record<string, string>)}`}
+    >
+      {children}
+    </a>
+  ),
+}))
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
   datasetFlags.flagDatasetValue.mockResolvedValue({})
   datasetFlags.clearDatasetValueFlag.mockResolvedValue({})
   datasetFlags.requestRepeat.mockResolvedValue({
-    sample: { identifier: 'SMP-2249' },
+    sample: { id: 'repeat-sample', identifier: 'SMP-2249' },
     plannedRowIds: ['row-p1', 'row-p2'],
+    plannedRows: [{ id: 'row-p1', plannedKey: 'repeat:sample:1' }],
+    datasetId: 'ds-1',
     idempotent: false,
   })
 })
@@ -220,6 +238,16 @@ describe('ValueActions', () => {
       expect.objectContaining({
         description: expect.stringContaining('2 planned rows'),
       }),
+    )
+    const href = (
+      await screen.findByRole('link', { name: 'Record repeat reading' })
+    ).getAttribute('href')
+    const search = new URL(href!, 'http://test.invalid').searchParams
+    expect(search.get('sample')).toBe('repeat-sample')
+    expect(search.get('dataset')).toBe('ds-1')
+    expect(search.get('plannedKey')).toBe('repeat:sample:1')
+    expect(search.get('returnTo')).toBe(
+      '/datasets/ds-1/rows?row=row-1&field=field-1&live=true',
     )
   })
 

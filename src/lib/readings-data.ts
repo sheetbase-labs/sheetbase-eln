@@ -73,6 +73,8 @@ export interface ReadingPlannedRowWire {
   dataset_id: string
   planned_key: string | null
   scheduled_at: string | null
+  sample_id: string | null
+  measurement_field_id: string | null
 }
 
 export const readingQueryKeys = {
@@ -85,19 +87,21 @@ export const readingQueryKeys = {
 
 export async function listReadingSamples(
   client: DataClient,
+  sampleId?: string,
 ): Promise<ReadingSampleWire[]> {
   return client.list<ReadingSampleWire>(
     'records',
-    '?kind=eq.sample&deleted_at=is.null&archived_at=is.null&order=identifier.asc&select=id,identifier,title,project_id&limit=200',
+    `?kind=eq.sample&deleted_at=is.null&archived_at=is.null&order=identifier.asc&select=id,identifier,title,project_id&limit=200${sampleId ? `&id=eq.${encodeURIComponent(sampleId)}` : ''}`,
   )
 }
 
 export async function listReadingDatasets(
   client: DataClient,
+  datasetId?: string,
 ): Promise<ReadingDatasetWire[]> {
   return client.list<ReadingDatasetWire>(
     'datasets',
-    '?lifecycle=eq.active&order=name.asc&select=id,display_id,name,schema_version_id,revision&limit=200',
+    `?lifecycle=eq.active&order=name.asc&select=id,display_id,name,schema_version_id,revision&limit=200${datasetId ? `&id=eq.${encodeURIComponent(datasetId)}` : ''}`,
   )
 }
 
@@ -120,10 +124,12 @@ export async function listReadingFields(
  */
 export async function listReadingPlannedRows(
   client: DataClient,
+  datasetId?: string,
+  plannedKey?: string,
 ): Promise<ReadingPlannedRowWire[]> {
   return client.list<ReadingPlannedRowWire>(
-    'dataset_rows',
-    '?status=eq.planned&planned_key=not.is.null&order=planned_key.asc&select=id,dataset_id,planned_key,scheduled_at&limit=500',
+    'reading_planned_rows',
+    `?order=planned_key.asc&select=id,dataset_id,planned_key,scheduled_at,sample_id,measurement_field_id${datasetId ? `&dataset_id=eq.${encodeURIComponent(datasetId)}` : ''}${plannedKey ? `&planned_key=eq.${encodeURIComponent(plannedKey)}` : ''}`,
   )
 }
 

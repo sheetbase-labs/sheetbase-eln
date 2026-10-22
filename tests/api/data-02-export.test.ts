@@ -34,7 +34,7 @@ const OWNER_A = 'data-02-api-owner-a'
 const OWNER_B = 'data-02-api-owner-b'
 const SECRET = process.env.PGRST_JWT_SECRET ?? ''
 
-// Fresh identities per run: everything below is deleted in afterAll.
+// Fresh identities per file; setup.ts drops the entire disposable database.
 const SCHEMA_DEF_A = crypto.randomUUID()
 const SCHEMA_VER_A = crypto.randomUUID()
 const FIELD_SAMPLE = crypto.randomUUID()
@@ -128,7 +128,7 @@ beforeAll(async () => {
   await admin.connect()
   startedAt = new Date()
 
-  // Idempotent parents: reused across runs, never deleted.
+  // Minimal parents owned by this file's disposable database.
   await admin.query(`
     insert into internal."user"(id,name,email,"emailVerified") values
       ('${OWNER_A}','A','data-02-api-a@test.invalid',true),
@@ -234,18 +234,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (!admin) return
-  // Mutable children of this run are removed; the reusable parents above and
-  // the immutable schema/version evidence remain by design.
-  await admin.query(`delete from api.revisions where record_id=$1`, [RECORD_A])
-  await admin.query(
-    `delete from api.data_exports where object_id=any($1::uuid[])`,
-    [[DATASET_A, SHEET_A, RECORD_A, REVISION_ID]],
-  )
-  await admin.query(`delete from api.blocks where record_id=$1`, [RECORD_A])
-  await admin.query(`delete from api.record_links where source_record_id=$1`, [
-    RECORD_A,
-  ])
-  await admin.query(`delete from api.records where id=$1`, [RECORD_A])
   await admin.end()
 })
 

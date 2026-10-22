@@ -21,6 +21,7 @@ import { z } from 'zod'
 
 import * as schema from '#/db/schema'
 import { signInAsDesignUser } from '../visual/sign-in'
+import { open, waitForHydration } from './journeys/helpers'
 
 config({ path: ['.env.local', '.env'] })
 const workspace = randomUUID()
@@ -819,7 +820,7 @@ test('controlled author submission certifies and signs atomically through the re
   )
   await page.getByRole('button', { name: 'Certify signature' }).click()
   expect((await certified).status()).toBe(200)
-  await page.goto(`/records/${controlledRecord}/notebook`)
+  await open(page, `/experiments/${controlledRecord}/notebook`)
   await page.getByRole('button', { name: 'Submit', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Submit for review' })
   await expect(
@@ -1094,7 +1095,24 @@ test('controlled author submission certifies and signs atomically through the re
         })
       ).status,
     ).toBe(200)
+    const verifiedWitness = witnessPage.waitForResponse(
+      (response) =>
+        response.url().endsWith('/rpc/workspace_signature_certifications') &&
+        response.request().method() === 'POST',
+    )
     await witnessPage.reload()
+    await waitForHydration(witnessPage)
+    const witnessCertifications = await verifiedWitness
+    expect(witnessCertifications.status()).toBe(200)
+    expect(await witnessCertifications.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          user_id: witness,
+          identity_verified_by: signer,
+          verified_email: `${witness}@sheetbase.test`,
+        }),
+      ]),
+    )
     await expect(
       witnessPage.getByText(/Verified by Signing Fixture Reviewer/),
     ).toBeVisible()
@@ -1240,7 +1258,8 @@ test('controlled author submission certifies and signs atomically through the re
     })
     const completedInbox = witnessPage.waitForResponse(
       (response) =>
-        new URL(response.url()).pathname === '/api/db/my_work_items',
+        new URL(response.url()).pathname ===
+        '/api/db/rpc/inbox_work_items_page',
     )
     await witnessPage.goto('/inbox')
     expect((await completedInbox).status()).toBe(200)

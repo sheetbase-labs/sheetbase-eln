@@ -74,168 +74,6 @@ let commentId: string
 let signatureId: string
 
 // ---------------------------------------------------------------------------
-// Fixture cleanup — removes only this suite's workspace, in dependency order.
-// ---------------------------------------------------------------------------
-async function clean(): Promise<void> {
-  await admin.query('BEGIN')
-  try {
-    await admin.query(
-      'ALTER TABLE api.revision_sheet_evidence DISABLE TRIGGER USER',
-    )
-    await admin.query(
-      'DELETE FROM api.revision_sheet_evidence WHERE workspace_id=$1',
-      [WS],
-    )
-    await admin.query(
-      'ALTER TABLE api.revision_sheet_evidence ENABLE TRIGGER USER',
-    )
-    await admin.query('COMMIT')
-  } catch (error) {
-    await admin.query('ROLLBACK')
-    throw error
-  }
-  await admin.query(`DELETE FROM api.signatures WHERE workspace_id = $1`, [WS])
-  await admin.query(
-    `DELETE FROM api.review_decisions WHERE workspace_id = $1`,
-    [WS],
-  )
-  await admin.query(
-    `DELETE FROM api.review_submissions WHERE workspace_id = $1`,
-    [WS],
-  )
-  await admin.query(
-    `DELETE FROM api.review_check_results WHERE workspace_id = $1`,
-    [WS],
-  )
-  await admin.query(`DELETE FROM api.comments WHERE workspace_id = $1`, [WS])
-  await admin.query(
-    `DELETE FROM internal.revision_file_objects WHERE workspace_id = $1`,
-    [WS],
-  )
-  await admin.query(
-    `DELETE FROM api.record_links
-       WHERE source_record_id IN (SELECT id FROM api.records WHERE workspace_id = $1)
-          OR target_record_id IN (SELECT id FROM api.records WHERE workspace_id = $1)`,
-    [WS],
-  )
-  await admin.query(
-    `DELETE FROM api.blocks WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id = $1)`,
-    [WS],
-  )
-  // Clear any review lock on the records before deleting the revisions they
-  // reference (records.locked_by_revision_id is ON DELETE RESTRICT). The
-  // migrator role is exempt from the lock trigger.
-  await admin.query(
-    `UPDATE api.records SET locked_at = NULL, locked_by_revision_id = NULL
-     WHERE workspace_id = $1 AND locked_at IS NOT NULL`,
-    [WS],
-  )
-  await admin.query(
-    `DELETE FROM api.revisions WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id = $1)`,
-    [WS],
-  )
-  await admin.query(`DELETE FROM api.file_objects WHERE workspace_id = $1`, [
-    WS,
-  ])
-  await admin.query('BEGIN')
-  try {
-    const guarded = [
-      'sheet_instances',
-      'sheet_instance_calculation_mutations',
-      'sheet_instance_local_mutations',
-      'sheet_definition_versions',
-      'sheet_definitions',
-      'dataset_version_flags',
-      'dataset_version_values',
-      'dataset_version_rows',
-      'dataset_versions',
-      'dataset_schema_version_fields',
-      'dataset_schema_versions',
-    ]
-    for (const table of guarded)
-      await admin.query(`ALTER TABLE api.${table} DISABLE TRIGGER USER`)
-    await admin.query(
-      'DELETE FROM internal.sheet_instance_calculation_results WHERE workspace_id=$1',
-      [WS],
-    )
-    for (const table of [
-      'sheet_instance_calculation_mutations',
-      'sheet_instance_local_mutations',
-      'sheet_instances',
-    ])
-      await admin.query(`DELETE FROM api.${table} WHERE workspace_id=$1`, [WS])
-    await admin.query(
-      'DELETE FROM api.sheet_definition_versions WHERE definition_id IN (SELECT id FROM api.sheet_definitions WHERE workspace_id=$1)',
-      [WS],
-    )
-    await admin.query(
-      'DELETE FROM api.sheet_definitions WHERE workspace_id=$1',
-      [WS],
-    )
-    for (const table of [
-      'dataset_version_flags',
-      'dataset_version_values',
-      'dataset_version_rows',
-    ])
-      await admin.query(
-        `DELETE FROM api.${table} WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id=$1)`,
-        [WS],
-      )
-    await admin.query(
-      'DELETE FROM api.dataset_versions WHERE workspace_id=$1',
-      [WS],
-    )
-    await admin.query('DELETE FROM api.datasets WHERE workspace_id=$1', [WS])
-    await admin.query(
-      'DELETE FROM api.dataset_schema_definitions WHERE workspace_id=$1',
-      [WS],
-    )
-    for (const table of guarded)
-      await admin.query(`ALTER TABLE api.${table} ENABLE TRIGGER USER`)
-    await admin.query('COMMIT')
-  } catch (error) {
-    await admin.query('ROLLBACK')
-    throw error
-  }
-  await admin.query(`DELETE FROM api.records WHERE workspace_id = $1`, [WS])
-  // Fixture-only teardown; never leave the immutable-definition guard off.
-  await admin.query('BEGIN')
-  try {
-    await admin.query(
-      'ALTER TABLE api.record_field_definitions DISABLE TRIGGER model_definition_guard',
-    )
-    await admin.query(
-      'DELETE FROM api.record_field_definitions WHERE workspace_id=$1',
-      [WS],
-    )
-    await admin.query(
-      'ALTER TABLE api.record_field_definitions ENABLE TRIGGER model_definition_guard',
-    )
-    await admin.query('COMMIT')
-  } catch (error) {
-    await admin.query('ROLLBACK')
-    throw error
-  }
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id = $1`, [WS])
-  await admin.query(
-    `DELETE FROM api.workspace_memberships WHERE workspace_id = $1`,
-    [WS],
-  )
-  await admin.query(`DELETE FROM api.workspaces WHERE id = $1`, [WS])
-  await admin.query(
-    `DELETE FROM internal."session" WHERE "userId" IN ($1, $2)`,
-    [OWNER, REVIEWER],
-  )
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1, $2)`, [
-    OWNER,
-    REVIEWER,
-  ])
-  await admin.query(`SELECT pg_notify('pgrst', 'reload schema')`)
-}
-
-// ---------------------------------------------------------------------------
 // Proxy helpers — the same handleProxyRequest + JWT minting the app uses.
 // ---------------------------------------------------------------------------
 function proxy(
@@ -447,7 +285,6 @@ beforeAll(async () => {
       process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
   })
   await admin.connect()
-  await clean()
 
   // Identities + workspace + project (no authenticated creation RPC exists).
   await admin.query(
@@ -975,7 +812,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await signingDatabase?.$client.end()
   if (admin) {
-    await clean()
     await admin.end()
   }
 })

@@ -109,4 +109,34 @@ describe('import mapping', () => {
       /Schema Version changed/,
     )
   })
+
+  it('never relabels numeric values when the source unit is unknown or different', () => {
+    const field = datasetFieldsFromColumns([
+      column({ unit: { storageUnit: 'mg/mL' } }),
+    ])[0]
+    const map = (sourceUnit: string | null, source = 'Concentration') =>
+      mapImportSheet(
+        {
+          name: 'Measurements',
+          headers: [source],
+          rows: [{ [source]: '0.125' }],
+        },
+        [{ source, kind: 'field', field, sourceUnit }],
+        'schema-v1',
+      )
+    expect(map('mg/mL').rows[0]?.values[field.id]).toBe(0.125)
+    for (const unit of [null, 'g/L', 'cells/mL', 'MG/ML']) {
+      const result = map(unit)
+      expect(result.rows[0]?.values).toEqual({})
+      expect(result.errors[0]?.message).toMatch(
+        /Declare the source unit|Convert the source values/,
+      )
+    }
+    expect(map(null, 'Concentration (g/L)').errors[0]?.message).toContain(
+      'source unit g/L',
+    )
+    expect(map(null, 'Concentration [mg/mL]').rows[0]?.values[field.id]).toBe(
+      0.125,
+    )
+  })
 })

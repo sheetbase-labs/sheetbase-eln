@@ -14,7 +14,7 @@
 #   3. resolve the Node base image to an immutable @sha256 digest
 #   4. build the app and PostgREST images locally (no registry)
 #   5. deploy:plan + deploy:apply against the existing controller, which
-#      runs migrations, waits on readiness, and verifies the exact artifact
+#      requires a fresh database + objects backup before migrations, waits on readiness, and verifies the exact artifact
 #      version, digest and migration before accepting the rollout
 #
 # Usage (on the VPS, from /opt/sheetbase):
@@ -93,7 +93,7 @@ for _ in $(seq 1 30); do
   fi
   sleep 1
 done
-docker exec -i \
+docker exec -i -e PIPELINE_SANDBOX_PASSWORD=release-gate \
   -e POSTGRES_USER=sheetbase \
   -e POSTGRES_DB=sheetbase \
   -e POSTGREST_AUTHENTICATOR_PASSWORD=release-gate \
@@ -158,7 +158,7 @@ log "postgrest image: $SHEETBASE_POSTGREST_IMAGE"
 # ---------------------------------------------------------------------------
 log "deploy plan"
 pnpm deploy:plan
-log "deploy apply (migrate -> app -> readiness)"
+log "deploy apply (required backup -> migrate -> app -> readiness)"
 pnpm deploy:apply
 
 log "release ${RELEASE_SHA} complete — verify https://app.sheetbase.co.uk/api/health/ready"

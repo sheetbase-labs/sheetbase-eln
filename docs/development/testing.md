@@ -18,7 +18,9 @@ its own `sheetbase_test_<worker>`, so files run in parallel (about a minute for
 the whole layer). The local Postgres runs with `synchronous_commit`, `fsync` and
 `full_page_writes` off: it is a disposable development database, and those
 settings halve the layer's runtime. API contracts use `pnpm test:api` against the running PostgREST
-stack. Browser workflows use `pnpm test:browser` (two workers); the Playwright
+stack created for each test file, with a fresh random migrated database and an
+ephemeral PostgREST process. No pre-running PostgREST or application is needed
+for this layer. Browser workflows use `pnpm test:browser` (two workers); the Playwright
 configuration starts an isolated application server and the tests create and
 remove their own authenticated fixtures.
 
@@ -54,10 +56,39 @@ port rather than relaxing the guard.
 While working a slice, run the file or files that cover it: the full database
 layer is for acceptance, not for every change.
 
-`pnpm test:parity` and `pnpm test:browser` are deferred until the end of the
-current programme: implementation slices are verified by the unit suite and the
-database files that cover them, and the visual and browser layers run once, at
-acceptance.
+CI now runs static checks, unit/component tests, the real PostgreSQL contract
+layer, a production build and the complete scientific workflow below. It uses
+disposable Compose services and never deploys. A configured workflow is not
+evidence that hosted Actions ran successfully. Preserve failure logs and report
+account or runner failures separately from local test results.
+
+Full visual-parity acceptance remains separate. The current registry maps 45
+screens and leaves 81 pending; the coverage gate must not be bypassed by changing
+its tolerance or excluding unaccepted states.
+
+## Complete scientific workflow
+
+After migrating and running `pnpm db:seed:design`, run:
+
+```bash
+pnpm exec playwright test tests/browser/journeys/complete-scientific-workflow.test.ts --project=browser --workers=1
+```
+
+The test creates a project, independent reviewer and experiment, imports 96 fresh
+observations through the UI, declares their source units, analyses the imported
+snapshot, saves the analysis and immediately cites it without reloading.
+It submits the notebook, approves and signs it as the
+reviewer, then reopens the frozen result. It asserts n = 96 and mean = 48.5 for
+observations 1 through 96. Those expectations do not use the analysis kernel.
+It retains a screenshot of the signed evidence and a trace on failure.
+
+Identity, workspace membership and a native Better Auth credential are trusted
+fixtures. Independent verification, certification, project membership and all
+scientific work use application operations. This test is not OAuth/IdP,
+email-enrolment, instrument hardware, full-population scale, whole-programme
+usability or production acceptance. The subsystem suites cover their separate
+contracts; human scientist observation and operator recovery drills still need
+their own evidence.
 
 ## Rules that apply at every layer
 
@@ -154,3 +185,53 @@ and their dependent calculation results through the live-event stream.
 The browser proof inserts a short-lived Better Auth session directly, just as
 the OAuth callback would after provider consent. It never contacts GitHub and
 removes its user, workspace, generated resources and events after the run.
+
+## Installed SDK and pipeline acceptance
+
+Use the PostgreSQL 18 roles and environment from the
+[orb setup](orb-setup.md). Install the locked Node dependencies through the
+trusted GitHub Packages npmrc. Keep its credential outside the repository.
+Put PostgREST **14.5**, `uv`, `npm`, and Python 3.10 or newer on `PATH`.
+Package builds need access to the configured Python package index or its cache.
+
+Run the following tests in **one Vitest invocation**. Separate concurrent DB
+invocations reuse worker database names and can terminate each other's sessions.
+
+```sh
+uv venv /tmp/sheetbase-acceptance-python
+uv pip install --python /tmp/sheetbase-acceptance-python/bin/python pandas numpy
+PIPELINE_ACCEPTANCE_PYTHON=/tmp/sheetbase-acceptance-python/bin/python \
+  pnpm test:db tests/db/sdk-installed.test.ts tests/db/webhook-recovery.test.ts \
+  tests/db/webhooks.test.ts tests/db/webhook-admin.test.ts \
+  tests/db/pipelines.test.ts tests/db/pipeline-confirm.test.ts \
+  tests/db/pipeline-propose-mode.test.ts tests/db/pipeline-sandbox.test.ts
+```
+
+`sdk-installed.test.ts` builds and packs the TypeScript SDK, installs its tarball
+in a temporary directory, and installs the Python wheel into a fresh virtual
+environment. It starts the actual Vite application and PostgREST on loopback
+ports against its disposable database. Neither SDK uses a mocked transport.
+The tests prove row commits, idempotent replay, stale-revision refusal and retry,
+workspace and scope isolation, live personal-token permissions and membership,
+service-credential revocation with a cached JWT, and denial of human attestation.
+The test removes its temporary package installations and stops both servers.
+It does not publish either package or use an external receiver.
+
+The Python case in `pipelines.test.ts` runs the existing worker source
+with the selected interpreter, then chains its actual rows through the real SQL
+sandbox. A draft trial leaves no runs, logs, or manifests. A published run
+stores a Dataset Version with checked values and a verified signed manifest. The runtime pin in this
+test identifies the local worker source, **not an OCI image**. Docker isolation,
+broker authentication, and availability of deployed digest-pinned images need
+the separate container acceptance in `docs/operations/pipeline-python.md`.
+Without `PIPELINE_ACCEPTANCE_PYTHON`, the worker uses `python3`, which must have
+pandas and NumPy installed. Missing packages fail the case rather than skip it.
+The same invocation covers SQL trial, confirm/resume, proposal, queue recovery,
+output, and manifest tests. A passing local run does not establish hosted CI or release
+acceptance.
+
+`webhook-recovery.test.ts` uses real PostgreSQL for retained-event reconciliation,
+overlapping-worker ownership, rollback, and LISTEN reconnection. Only its
+outbound HTTP adapter is simulated. It verifies receiver deduplication after an
+accepted delivery loses its result commit. HTTPS egress policy has separate
+tests in `src/lib/webhook-http.server.test.ts`.

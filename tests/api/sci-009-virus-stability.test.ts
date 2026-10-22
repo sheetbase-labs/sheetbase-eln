@@ -54,134 +54,6 @@ let frozenChartBlock: any
 let fileMeta: any
 let allBlockIds: string[] = []
 
-async function clean(): Promise<void> {
-  await admin.query(
-    `DELETE FROM api.review_submissions WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM internal.revision_file_objects WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.record_links WHERE source_record_id IN
-       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))
-       OR target_record_id IN
-       (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.blocks WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.revisions WHERE record_id IN
-      (SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(
-    `DELETE FROM api.file_objects WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  // Canonical immutable resources are removed only during fixture teardown.
-  // DDL is transactional so an error cannot leave a guard disabled.
-  await admin.query('BEGIN')
-  try {
-    const guarded = [
-      'sheet_instances',
-      'sheet_definition_versions',
-      'sheet_definitions',
-      'dataset_version_flags',
-      'dataset_version_values',
-      'dataset_version_rows',
-      'dataset_versions',
-      'dataset_schema_version_fields',
-      'dataset_schema_versions',
-    ]
-    for (const table of guarded)
-      await admin.query(`ALTER TABLE api.${table} DISABLE TRIGGER USER`)
-    await admin.query(
-      'DELETE FROM api.sheet_instances WHERE workspace_id IN ($1,$2)',
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      'DELETE FROM api.sheet_definition_versions WHERE definition_id IN (SELECT id FROM api.sheet_definitions WHERE workspace_id IN ($1,$2))',
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      'DELETE FROM api.sheet_definitions WHERE workspace_id IN ($1,$2)',
-      [WS_A, WS_B],
-    )
-    for (const table of [
-      'dataset_version_flags',
-      'dataset_version_values',
-      'dataset_version_rows',
-    ])
-      await admin.query(
-        `DELETE FROM api.${table} WHERE dataset_version_id IN (SELECT id FROM api.dataset_versions WHERE workspace_id IN ($1,$2))`,
-        [WS_A, WS_B],
-      )
-    await admin.query(
-      'DELETE FROM api.dataset_versions WHERE workspace_id IN ($1,$2)',
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      'DELETE FROM api.datasets WHERE workspace_id IN ($1,$2)',
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      'DELETE FROM api.dataset_schema_definitions WHERE workspace_id IN ($1,$2)',
-      [WS_A, WS_B],
-    )
-    for (const table of guarded)
-      await admin.query(`ALTER TABLE api.${table} ENABLE TRIGGER USER`)
-    await admin.query('COMMIT')
-  } catch (error) {
-    await admin.query('ROLLBACK')
-    throw error
-  }
-  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  // Fixture-only teardown; never leave the immutable-definition guard off.
-  await admin.query('BEGIN')
-  try {
-    await admin.query(
-      'ALTER TABLE api.record_field_definitions DISABLE TRIGGER model_definition_guard',
-    )
-    await admin.query(
-      'DELETE FROM api.record_field_definitions WHERE workspace_id IN ($1,$2)',
-      [WS_A, WS_B],
-    )
-    await admin.query(
-      'ALTER TABLE api.record_field_definitions ENABLE TRIGGER model_definition_guard',
-    )
-    await admin.query('COMMIT')
-  } catch (error) {
-    await admin.query('ROLLBACK')
-    throw error
-  }
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(
-    `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
-    USER_A,
-    USER_B,
-  ])
-  await admin.query(`SELECT pg_notify('pgrst','reload schema')`)
-}
-
 function proxy(
   path: string,
   userId: string,
@@ -409,7 +281,6 @@ beforeAll(async () => {
       process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
   })
   await admin.connect()
-  await clean()
   storageDir = await mkdtemp(join(tmpdir(), 'sheetbase-sci009-api-'))
   storage = new LocalFileStorage(storageDir)
   setObjectStorageForTesting(storage)
@@ -996,7 +867,6 @@ beforeAll(async () => {
 afterAll(async () => {
   setObjectStorageForTesting(null)
   if (admin) {
-    await clean()
     await admin.end()
   }
   if (storageDir) await rm(storageDir, { recursive: true, force: true })

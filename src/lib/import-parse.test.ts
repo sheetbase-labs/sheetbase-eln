@@ -32,6 +32,34 @@ describe('import parsers', () => {
     expect(preview.sheets[0]?.rows[0]).toEqual({ Sample: 'A,1', Note: 'ok' })
   })
 
+  it('preserves escaped quotes, quoted newlines, empty cells and CRLF', () => {
+    const preview = parseImportText(
+      'Sample,Note,Blank\r\nA,"said ""yes""\r\nnext",\r\nB,"",end',
+      { format: 'csv' },
+    )
+    expect(preview.sheets[0]?.rows).toEqual([
+      { Sample: 'A', Note: 'said "yes"\r\nnext', Blank: '' },
+      { Sample: 'B', Note: '', Blank: 'end' },
+    ])
+    expect(() => parseImportText('a\n"unfinished')).toThrow(/not closed/)
+    expect(() => parseImportText('a\nbad"quote')).toThrow(/Malformed/)
+  })
+
+  it('accepts 100,000 rows without spreading them onto the call stack and rejects the next row', () => {
+    const text =
+      'sample,value\n' +
+      Array.from({ length: 100_000 }, (_, i) => `S${i},${i + 0.25}\n`).join('')
+    const preview = parseImportText(text, { format: 'csv' })
+    expect(preview.sheets[0]?.rows).toHaveLength(100_000)
+    expect(preview.sheets[0]?.rows.at(-1)).toEqual({
+      sample: 'S99999',
+      value: '99999.25',
+    })
+    expect(() =>
+      parseImportText(text + 'overflow,1\n', { format: 'csv' }),
+    ).toThrow(/100,000 rows/)
+  })
+
   it('parses TSV and clipboard tab text', () => {
     const preview = parseImportText('Sample\tpH\nB\t7.1', {
       format: 'clipboard',

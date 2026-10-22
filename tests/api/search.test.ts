@@ -25,34 +25,6 @@ const SECRET = process.env.PGRST_JWT_SECRET ?? ''
 
 let admin: Client
 
-async function clean(): Promise<void> {
-  await admin.query(
-    `DELETE FROM api.record_links WHERE source_record_id IN (
-      SELECT id FROM api.records WHERE workspace_id IN ($1,$2))`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.records WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM api.projects WHERE workspace_id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(
-    `DELETE FROM api.workspace_memberships WHERE workspace_id IN ($1,$2)`,
-    [WS_A, WS_B],
-  )
-  await admin.query(`DELETE FROM api.workspaces WHERE id IN ($1,$2)`, [
-    WS_A,
-    WS_B,
-  ])
-  await admin.query(`DELETE FROM internal."user" WHERE id IN ($1,$2)`, [
-    OWNER_A,
-    OWNER_B,
-  ])
-}
-
 function proxy(
   path: string,
   userId: string,
@@ -114,7 +86,6 @@ beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
   admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()
-  await clean()
   await admin.query(
     `INSERT INTO internal."user"(id,name,email,"emailVerified") VALUES
       ($1,'SCI008 API A','sci008-a@test.invalid',true),
@@ -153,7 +124,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (admin) {
-    await clean()
     await admin.end()
   }
 })

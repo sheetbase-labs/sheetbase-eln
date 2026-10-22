@@ -51,27 +51,58 @@ that is not four segments with UUID workspace/object ids.
    - the workspace exists and `status = 'active'`;
    - the object's **lifecycle** inside exactly that workspace resolves to a
      grantable state (soft-deleted records and unknown ids are denied);
-   - the caller holds an unsuspended membership in that workspace.
+   - the caller holds an unsuspended membership in that workspace;
+   - `api.collaboration_object_state` applies current canonical View and Edit
+     authority through `internal.can_access_object` (0323), including explicit
+     individual and group project rules;
+   - records and a sheet's parent notebook also pass
+     `internal.record_readable_by` (0434), including private-draft restrictions.
 4. A least-privilege token is minted for exactly that room via
    `@liveblocks/node prepareSession().allow(room, scopes).authorize()`.
 
 Base scopes: writers get `room:write, comments:write, storage:none,
 feeds:none`; viewers get `room:read, comments:read, storage:none,
 feeds:none`. Storage and feeds are explicitly denied because Sheetbase stores
-no content in Liveblocks. The final grant is then intersected with object
-lifecycle (see matrix below).
+no content in Liveblocks. The final grant is intersected with current Edit
+authority and object lifecycle. A workspace writer with only project View
+receives read-only scopes. Sheets also inherit their parent notebook's
+archived, locked, or deleted state.
 
-Revocation semantics: every (re)connection re-authenticates through this
-endpoint, so removal/suspension blocks all future access immediately.
-An already-open connection persists until its token expires; hard eviction of
-live sockets would require Liveblocks webhooks and is deliberately deferred.
+### Revocation boundary
+
+Every fresh token issuance rechecks current authority without a server-side
+permission cache. Removing View, a granting group membership, or workspace
+membership blocks the next issuance. Removing Edit downgrades the next grant.
+Room-name resolution and mention suggestions also recheck current authority.
+Successful auth and object-resolution responses use `Cache-Control: private,
+no-store`.
+
+This is **not immediate revocation of an issued Liveblocks access token**.
+The v3.24.1 client caches tokens and can reuse them on reconnect, so a
+reconnection does not necessarily call Sheetbase. The issued token carries
+`iat` and `exp`; `prepareSession().allow().authorize()` exposes no configurable
+TTL. Neither token expiry nor the SDK's cache deadline establishes when an
+already-open socket closes. No fixed socket revocation deadline is promised.
+
+The supported access-token API has no per-token invalidation or targeted
+backend socket-eviction operation. Changing room ACLs or adding webhooks does
+not revoke permissions embedded in an access token. Cooperative client
+logout can clear that client's cache, but cannot invalidate a copied token.
+Immediate eviction would require a separately designed and verified provider
+authorisation model, not a claim made by this integration.
+
+Sources pinned to v3.24.1:
+[token issuance](https://github.com/liveblocks/liveblocks/blob/v3.24.1/packages/liveblocks-node/src/Session.ts),
+[client authentication cache](https://github.com/liveblocks/liveblocks/blob/v3.24.1/packages/liveblocks-core/src/auth-manager.ts),
+[connection handling](https://github.com/liveblocks/liveblocks/blob/v3.24.1/packages/liveblocks-core/src/connection.ts).
 
 ## Permission matrix
 
 Sheetbase is authoritative; React-side hiding of controls is never the
 boundary — the server-issued scopes are.
 
-Active, writable object:
+Active, writable object, after canonical View has been granted. Writer rows
+also require current Edit; without Edit they receive the viewer scopes:
 
 | Who                                                            | Connect | Read presence/threads | Create/reply/resolve/reopen |
 | -------------------------------------------------------------- | ------- | --------------------- | --------------------------- |
@@ -81,7 +112,7 @@ Active, writable object:
 | non-member / cross-workspace                                   | no      | no                    | no                          |
 | suspended/archived workspace                                   | no      | no                    | no                          |
 
-Lifecycle intersection — final grant = role capability x object state:
+Final grant = role capability × current authority × object lifecycle:
 
 | Object lifecycle                                                   | Writer receives      | Viewer receives |
 | ------------------------------------------------------------------ | -------------------- | --------------- |
@@ -92,8 +123,11 @@ Lifecycle intersection — final grant = role capability x object state:
 Archived/locked objects therefore become collaboration-read-only for
 everyone, enforced by the minted token rather than UI hiding.
 
-Mention suggestions (`GET /api/collaboration/mentions`) return only active
-members of the requested room's workspace. User resolution
+Mention suggestions (`GET /api/collaboration/mentions`) require room read
+authority for both the caller and each suggested recipient. The 20-result
+limit applies after authority filtering, so inaccessible members cannot fill
+the result window. This protects suggestions, not arbitrary mention IDs sent
+directly to Liveblocks by a client already holding a write token. User resolution
 (`/resolve/users`) returns only users sharing a workspace with the caller.
 
 ## Thread anchor model (COLLAB-02)
@@ -135,7 +169,8 @@ unavailable/historical state rather than silently disappearing the discussion.
 Liveblocks inbox notifications carry mention/reply/thread events. Deep links
 are resolved server-side by `/api/collaboration/resolve/rooms`, which returns
 names/urls only for rooms the caller can access; inaccessible rooms are
-omitted so the inbox can never leak object names. Read/unread state is
+omitted from fresh responses. Previously delivered names and Liveblocks-managed
+notifications are not erased by access loss. Read/unread state is
 Liveblocks-managed. Email delivery is intentionally out of scope.
 
 ## Review coordination (COLLAB-04)
@@ -156,6 +191,15 @@ explicit evidence-capture feature says so.
   (`workspace:<wsId>:*` patterns) via the Liveblocks REST API; the deletion
   flows currently live outside the app (operational), so room cleanup is an
   operator step until a first-party deletion flow exists.
-- User access loss removes future room access (see auth model); historical
+- User access loss blocks future token issuance (see revocation boundary); historical
   authored comments keep their author id and render through permission-filtered
   user resolution.
+
+## Authority regression tests
+
+`pnpm test:db collaboration-authority` exercises the actual server resolvers
+against a freshly migrated PostgreSQL database. Only session identity is
+substituted. It covers forbidden projects, private drafts and parent notebooks,
+workspace isolation, View-only writers, viewers, archived and locked objects,
+deletion, and fresh grants after revocation. It does not exercise hosted
+Liveblocks token expiry, existing sockets, or provider notification delivery.

@@ -286,4 +286,84 @@ describe('api.inbox_needs_action_counts', () => {
     await shell.query('commit')
     expect(scoped).toEqual(before)
   })
+
+  it('pages all unseen actions after 210 seen items, with following isolated and exact counts', async () => {
+    const user = await asAuthenticated(USER)
+    await user.query('BEGIN')
+    try {
+      await user.query('SELECT api.mark_work_items_seen($1::text[])', [
+        Array.from(
+          { length: 210 },
+          (_, i) => `data_issue:${itemId('8000', i + 1)}`,
+        ),
+      ])
+      // Add enough unseen work to require several pages, with equal dates so
+      // the stable identity tie-breaker is necessary to visit every item once.
+      await migrator.query(`INSERT INTO api.dataset_import_files
+        (id,workspace_id,filename,byte_size,checksum,storage_key,format,status,created_by_user_id,parser_failure,created_at)
+        SELECT ('00000000-0000-4000-c000-'||lpad(to_hex(i),12,'0'))::uuid,
+          '${WS}','page-'||i||'.csv',12,repeat('a',64),'page/'||i,'csv','failed','${USER}',
+          '{"message":"Page regression","failedAt":"2026-10-01T09:00:00Z"}'::jsonb,'2026-10-01T09:00:00Z'
+        FROM generate_series(1,300) i`)
+      await migrator.query(`INSERT INTO api.records (id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id)
+        SELECT ('00000000-0000-4000-d000-'||lpad(to_hex(i),12,'0'))::uuid,'${WS}','${PROJECT}',
+          'sample','SMP-PAGE-'||i,'Following sample '||i,'available','${USER}' FROM generate_series(1,5) i`)
+      await migrator.query(`INSERT INTO api.work_item_follows(workspace_id,user_id,record_id)
+        SELECT '${WS}','${USER}',id FROM api.records WHERE identifier LIKE 'SMP-PAGE-%'`)
+      const keys: string[] = []
+      for (let offset = 0; offset < 342; offset += 100) {
+        const page = (
+          await user.query(
+            'SELECT api.inbox_work_items_page($1,$2,100,$3) result',
+            ['needs-action', null, offset],
+          )
+        ).rows[0].result
+        expect(page.total).toBe(342)
+        expect(page.tabs).toEqual({
+          'needs-action': 342,
+          'done-today': 211,
+          following: 5,
+        })
+        expect(page.types).toEqual({ data: 340, reviews: 2 })
+        keys.push(
+          ...page.items.map((item: { item_key: string }) => item.item_key),
+        )
+      }
+      expect(keys).toHaveLength(342)
+      expect(new Set(keys).size).toBe(342)
+      expect(keys).toContain(`data_issue:${itemId('8000', 250)}`)
+      expect(keys).not.toContain(`data_issue:${itemId('8000', 210)}`)
+      const reviews = (
+        await user.query(
+          "SELECT api.inbox_work_items_page('needs-action','reviews',1,0) result",
+        )
+      ).rows[0].result
+      expect(reviews.total).toBe(2)
+      expect(reviews.items).toHaveLength(1)
+      expect(reviews.items[0].kind).toBe('review_requested')
+      expect(await countsFor(user)).toEqual({ total: 342, reviews: 2 })
+      await user.query('SELECT api.mark_work_items_seen($1::text[])', [keys])
+      const empty = (
+        await user.query('SELECT api.inbox_work_items_page() result')
+      ).rows[0].result
+      expect(empty.items).toEqual([])
+      expect(empty.total).toBe(0)
+      expect(await countsFor(user)).toEqual({ total: 0, reviews: 0 })
+      const outsider = await asAuthenticated(OUTSIDER, OTHER_WS)
+      expect(
+        (await outsider.query('SELECT api.inbox_work_items_page() result'))
+          .rows[0].result.total,
+      ).toBe(0)
+    } finally {
+      await user.query('ROLLBACK')
+      await migrator.query(
+        `DELETE FROM api.dataset_import_files WHERE workspace_id='${WS}' AND storage_key LIKE 'page/%'`,
+      )
+      await migrator.query(`DELETE FROM api.work_item_follows WHERE workspace_id='${WS}' AND record_id IN
+        (SELECT id FROM api.records WHERE identifier LIKE 'SMP-PAGE-%')`)
+      await migrator.query(
+        `DELETE FROM api.records WHERE workspace_id='${WS}' AND identifier LIKE 'SMP-PAGE-%'`,
+      )
+    }
+  })
 })

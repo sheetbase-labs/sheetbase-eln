@@ -58,6 +58,15 @@ export const CHART_TYPES = [
 ] as const
 export type ChartType = (typeof CHART_TYPES)[number]
 
+/** Values use the schema's storage unit, never an unconverted display unit. */
+export function chartUnitSymbol(unit: unknown): string | undefined {
+  if (!unit || typeof unit !== 'object') return undefined
+  if ('storageUnit' in unit && typeof unit.storageUnit === 'string')
+    return unit.storageUnit
+  if ('symbol' in unit && typeof unit.symbol === 'string') return unit.symbol
+  return undefined
+}
+
 export const CHART_TYPE_LABELS: Record<ChartType, string> = {
   line: 'line',
   scatter: 'scatter',
@@ -431,6 +440,8 @@ export interface FrozenChart {
   revisionId: string | null
   frozenAt: string
   frozenByUserId: string
+  /** Absent on historical evidence, which included every recorded value. */
+  exclusionPolicy?: 'include_flagged' | 'exclude_bound_fields'
   datasetProvenance: FrozenDatasetProvenance[]
   data: FrozenChartData
 }
@@ -1622,14 +1633,8 @@ export function materialiseChart(
 
   const xLabel = xCol?.label ?? spec.display.axes.x.label ?? 'x'
   const yLabel = yCol?.label ?? spec.display.axes.y.label ?? 'y'
-  const xUnit =
-    typeof xCol?.unit === 'object' && xCol.unit && 'symbol' in xCol.unit
-      ? String((xCol.unit as { symbol: string }).symbol)
-      : spec.display.axes.x.unit
-  const yUnit =
-    typeof yCol?.unit === 'object' && yCol.unit && 'symbol' in yCol.unit
-      ? String((yCol.unit as { symbol: string }).symbol)
-      : spec.display.axes.y.unit
+  const xUnit = chartUnitSymbol(xCol?.unit) ?? spec.display.axes.x.unit
+  const yUnit = chartUnitSymbol(yCol?.unit) ?? spec.display.axes.y.unit
 
   if (missing.length > 0)
     return {

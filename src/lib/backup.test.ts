@@ -53,6 +53,8 @@ describe('selectExpiredBackupPrefixes', () => {
 
 describe('manifestIsComplete', () => {
   const base: BackupManifest = {
+    formatVersion: 2,
+    permissions: 'preserved',
     prefix: 'sheetbase-20260827T120000Z',
     startedAt: '2026-08-27T12:00:00Z',
     finishedAt: '2026-08-27T12:01:00Z',
@@ -60,8 +62,9 @@ describe('manifestIsComplete', () => {
     database: {
       container: 'c',
       database: 'sheetbase',
+      bootstrapRole: 'sheetbase',
       dumpBytes: 1024,
-      dumpSha256: 'abc',
+      dumpSha256: 'a'.repeat(64),
     },
     objects: null,
     retentionDays: 14,
@@ -82,5 +85,20 @@ describe('manifestIsComplete', () => {
 
   it('rejects a malformed prefix', () => {
     expect(manifestIsComplete({ ...base, prefix: 'latest' })).toBe(false)
+  })
+
+  it('rejects malformed hashes and incomplete object archives', () => {
+    expect(
+      manifestIsComplete({
+        ...base,
+        database: { ...base.database, dumpSha256: 'abc' },
+      }),
+    ).toBe(false)
+    expect(
+      manifestIsComplete({
+        ...base,
+        objects: { archiveBytes: 0, archiveSha256: 'a'.repeat(64) },
+      }),
+    ).toBe(false)
   })
 })

@@ -81,9 +81,22 @@ export function Inspector({
   children,
   label = 'Details',
   width,
+  open: controlledOpen,
+  onOpenChange,
   ...props
-}: React.ComponentProps<'aside'> & { label?: string; width?: number }) {
-  const [open, setOpen] = useState(false)
+}: React.ComponentProps<'aside'> & {
+  label?: string
+  width?: number
+  /** With an external toolbar trigger, omit the floating button. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = controlledOpen ?? internalOpen
+  function setOpen(next: boolean) {
+    setInternalOpen(next)
+    onOpenChange?.(next)
+  }
   return (
     <>
       <aside
@@ -97,17 +110,19 @@ export function Inspector({
       >
         {children}
       </aside>
-      <Button
-        type="button"
-        size="lg"
-        variant="secondary"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        className="fixed bottom-4 right-4 z-30 rounded-full shadow-overlay max-md:bottom-[76px] xl:hidden"
-      >
-        <Icon name="info" size={14} />
-        {label}
-      </Button>
+      {controlledOpen === undefined ? (
+        <Button
+          type="button"
+          size="lg"
+          variant="secondary"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          className="fixed bottom-4 right-4 z-30 rounded-full shadow-overlay max-md:bottom-[76px] xl:hidden"
+        >
+          <Icon name="info" size={14} />
+          {label}
+        </Button>
+      ) : null}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent title={label}>
           <div className="flex flex-col gap-5 p-4">{children}</div>

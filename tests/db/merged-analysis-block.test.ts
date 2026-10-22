@@ -12,7 +12,11 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { prepareTestDatabase, ensureSessions } from './helpers'
-import { ANALYSIS_METHOD_VERSION } from '#/lib/analysis-definition'
+import { ANALYSIS_METHOD_VERSION, runAnalysis } from '#/lib/analysis-definition'
+import type { FrozenAnalysis } from '#/lib/analysis-block'
+import type { DatasetValueFlag } from '#/lib/dataset-flags'
+import { fetchFrozenAnalysisRows } from '#/lib/chart-data'
+import type { DataClient } from '#/lib/data-client'
 
 const WS_A = crypto.randomUUID()
 const PROJECT_A = crypto.randomUUID()
@@ -300,6 +304,262 @@ async function freeze(block: { id: string; version: number }) {
 }
 
 describe('merged analysis block', () => {
+  it('freezes and reconstructs the full 100000-row import envelope through canonical paging', async () => {
+    await migrator.query('BEGIN')
+    try {
+      const large = await insertCanonicalDataset('large_assay', 0)
+      const fields = await migrator.query(
+        `SELECT f.key,f.field_id FROM api.dataset_schema_version_fields f JOIN api.datasets d ON d.schema_version_id=f.schema_version_id WHERE d.id=$1`,
+        [large],
+      )
+      const valueField = fields.rows.find((f) => f.key === 'recovery').field_id
+      await migrator.query(
+        `INSERT INTO api.dataset_rows(id,dataset_id,workspace_id)
+        SELECT md5($1::text || ':' || n)::uuid,$1::uuid,$2::uuid FROM generate_series(1,100000) n`,
+        [large, WS_A],
+      )
+      await migrator.query(
+        `INSERT INTO api.dataset_row_values(row_id,field_id,numeric_value)
+        SELECT md5($1::text || ':' || n)::uuid,$2,3*n+7 FROM generate_series(1,100000) n`,
+        [large, valueField],
+      )
+      const definition = await definitionWith('Large assay', {
+        kind: 'descriptive',
+        datasets: [{ datasetId: large }],
+        value: { fieldId: valueField },
+      })
+      const frozen: FrozenAnalysis = (
+        await freeze(await insertAnalysisBlock({ definitionId: definition }))
+      ).payload.frozen
+      const pin = frozen.datasetProvenance[0]
+      expect(pin.rowCount).toBe(100000)
+      // This adapter executes the real canonical RPCs, not generated fixture pages.
+      const client = {
+        rpc: async (name: string, args: Record<string, unknown>) => {
+          if (name === 'query_dataset_version_rows')
+            return (
+              await migrator.query(
+                `SELECT api.query_dataset_version_rows($1,$2,$3) AS result`,
+                [args.p_dataset_version_id, args.p_limit, args.p_offset],
+              )
+            ).rows[0].result
+          if (name === 'analysis_dataset_version_flags')
+            return (
+              await migrator.query(
+                `SELECT api.analysis_dataset_version_flags($1) AS result`,
+                [args.p_dataset_version_id],
+              )
+            ).rows[0].result
+          throw new Error(`Unexpected RPC ${name}`)
+        },
+      } as DataClient
+      const rebuilt = await fetchFrozenAnalysisRows(
+        client,
+        pin.datasetVersionId,
+        pin.rowCount,
+        frozen.exclusionPolicy,
+      )
+      expect(rebuilt.matchesProvenance).toBe(true)
+      const result = runAnalysis(
+        frozen.definition,
+        frozen.columns.map((c) => ({
+          id: c.fieldId,
+          label: c.label,
+          logicalType: c.logicalType,
+        })),
+        rebuilt.rows,
+        rebuilt.flags,
+      )
+      expect(
+        result.ok &&
+          result.result.kind === 'descriptive' &&
+          result.result.rows[0].stats.n,
+      ).toBe(100000)
+      expect(
+        result.ok &&
+          result.result.kind === 'descriptive' &&
+          result.result.rows[0].stats.mean,
+      ).toBe(150008.5)
+    } finally {
+      await migrator.query('ROLLBACK')
+    }
+  }, 120_000)
+
+  it('pins the examined snapshot and schema, and replays the explicit flag policy after live changes', async () => {
+    await migrator.query('BEGIN')
+    try {
+      const row = await migrator.query(
+        `SELECT row_id FROM api.dataset_row_values WHERE field_id=$1 AND numeric_value=5`,
+        [fieldRecovery],
+      )
+      const outlier = row.rows[0].row_id
+      await migrator.query(
+        `UPDATE api.dataset_row_values SET numeric_value=100 WHERE row_id=$1 AND field_id=$2`,
+        [outlier, fieldRecovery],
+      )
+      await migrator.query(
+        `SELECT api.flag_dataset_value($1,$2,$3,'out_of_range','Rejected outlier',NULL)`,
+        [datasetId, outlier, fieldRecovery],
+      )
+      const other = await migrator.query(
+        `SELECT row_id FROM api.dataset_row_values WHERE field_id=$1 AND numeric_value=1`,
+        [fieldRecovery],
+      )
+      await migrator.query(
+        `SELECT api.flag_dataset_value($1,$2,$3,'out_of_range','Unrelated field',NULL)`,
+        [datasetId, other.rows[0].row_id, fieldBatch],
+      )
+      const id = await definitionWith('Flag policy', {
+        kind: 'descriptive',
+        value: { fieldId: fieldRecovery },
+      })
+      const live: FrozenAnalysis = (
+        await freeze(await insertAnalysisBlock({ definitionId: id }))
+      ).payload.frozen
+      expect(live.exclusionPolicy).toBe('exclude_bound_fields')
+      const pin = live.datasetProvenance[0]
+      const selected = [{ datasetId, datasetVersionId: pin.datasetVersionId }]
+      const selectedId = await definitionWith('Selected snapshot', {
+        kind: 'descriptive',
+        value: { fieldId: fieldRecovery },
+        datasets: selected,
+        chart: chartSpec({ datasets: selected }),
+      })
+
+      // Advance the live schema instead of mutating immutable historical fields.
+      const next = await migrator.query(
+        `INSERT INTO api.dataset_schema_versions(schema_id,version,lifecycle)
+        SELECT sv.schema_id,2,'draft' FROM api.datasets d JOIN api.dataset_schema_versions sv ON sv.id=d.schema_version_id WHERE d.id=$1 RETURNING id`,
+        [datasetId],
+      )
+      const nextSchema = next.rows[0].id
+      await migrator.query(
+        `INSERT INTO api.dataset_schema_version_fields(schema_version_id,field_id,key,label,logical_type,display_order,quantity)
+        SELECT $2,field_id,key,'Changed ' || label,logical_type,display_order,'{"kind":"concentration","dimension":"mass/volume","storageUnit":"mg/L"}'::jsonb
+        FROM api.dataset_schema_version_fields WHERE schema_version_id=(SELECT schema_version_id FROM api.datasets WHERE id=$1)`,
+        [datasetId, nextSchema],
+      )
+      await migrator.query(
+        `UPDATE api.dataset_schema_versions SET lifecycle='active' WHERE id=$1`,
+        [nextSchema],
+      )
+      await migrator.query(
+        `UPDATE api.datasets SET schema_version_id=$2 WHERE id=$1`,
+        [datasetId, nextSchema],
+      )
+      await migrator.query(
+        `UPDATE api.dataset_row_values SET numeric_value=numeric_value*10 WHERE field_id=$1`,
+        [fieldRecovery],
+      )
+      await migrator.query(
+        `UPDATE api.dataset_value_flags SET cleared_at=now() WHERE dataset_id=$1`,
+        [datasetId],
+      )
+
+      const snapshot: FrozenAnalysis = (
+        await freeze(await insertAnalysisBlock({ definitionId: selectedId }))
+      ).payload.frozen
+      expect(snapshot.exclusionPolicy).toBe('include_flagged')
+      expect(snapshot.datasetProvenance[0]).toMatchObject({
+        datasetVersionId: pin.datasetVersionId,
+        schemaVersionNumber: pin.schemaVersionNumber,
+        sourceDatasetRevision: pin.sourceDatasetRevision,
+        rowCount: 3,
+      })
+      expect(
+        snapshot.columns.find((c) => c.fieldId === fieldRecovery),
+      ).toMatchObject({ label: 'Recovery', unit: null })
+      const page = (
+        await migrator.query(
+          `SELECT api.query_dataset_version_rows($1,1000,0) AS page`,
+          [pin.datasetVersionId],
+        )
+      ).rows[0].page
+      const rows = page.rows.map(
+        (r: { rowId: string; values: Record<string, unknown> }) => ({
+          ...r.values,
+          __sheetbaseRowId: r.rowId,
+        }),
+      )
+      const flags: DatasetValueFlag[] = (
+        await migrator.query(
+          `SELECT api.analysis_dataset_version_flags($1) AS flags`,
+          [pin.datasetVersionId],
+        )
+      ).rows[0].flags
+      expect(flags.find((f) => f.rowId === outlier)?.reason).toBe(
+        'Rejected outlier',
+      )
+      const columns = snapshot.columns.map((c) => ({
+        id: c.fieldId,
+        label: c.label,
+        logicalType: c.logicalType,
+        unit: c.unit,
+      }))
+      const excluded = runAnalysis(live.definition, columns, rows, flags)
+      const included = runAnalysis(snapshot.definition, columns, rows)
+      expect(
+        excluded.ok &&
+          excluded.result.kind === 'descriptive' &&
+          excluded.result.rows[0].stats.mean,
+      ).toBe(2)
+      expect(
+        included.ok &&
+          included.result.kind === 'descriptive' &&
+          included.result.rows[0].stats.mean,
+      ).toBeCloseTo(104 / 3)
+
+      const chartBlock = (
+        await migrator.query(
+          `INSERT INTO api.blocks(record_id,type,payload,"order",created_by_user_id)
+        VALUES ($1,'chart',$2,$3,$4) RETURNING *`,
+          [
+            experimentId,
+            {
+              title: 'Selected snapshot',
+              spec: chartSpec({ datasets: selected }),
+            },
+            ++blockOrder,
+            USER_A,
+          ],
+        )
+      ).rows[0]
+      const chart = (
+        await migrator.query(`SELECT * FROM api.freeze_chart($1,$2)`, [
+          chartBlock.id,
+          chartBlock.version,
+        ])
+      ).rows[0].payload.frozen
+      expect(chart.datasetProvenance[0].datasetVersionId).toBe(
+        pin.datasetVersionId,
+      )
+      expect(
+        chart.data.columns.find(
+          (c: { fieldId: string }) => c.fieldId === fieldRecovery,
+        ).label,
+      ).toBe('Recovery')
+      expect(chart.exclusionPolicy).toBe('include_flagged')
+
+      const denied = await asRole('authenticator')
+      clients.push(denied)
+      await denied.query('SET ROLE authenticated')
+      await denied.query(`SELECT set_config('request.jwt.claims',$1,false)`, [
+        JSON.stringify({
+          sub: USER_A,
+          workspace_id: crypto.randomUUID(),
+          role: 'authenticated',
+        }),
+      ])
+      await expect(
+        denied.query(`SELECT api.analysis_dataset_version_flags($1)`, [
+          pin.datasetVersionId,
+        ]),
+      ).rejects.toMatchObject({ code: '42501' })
+    } finally {
+      await migrator.query('ROLLBACK')
+    }
+  })
+
   it('freezes a statistic alone exactly as before', async () => {
     const block = await insertAnalysisBlock({})
     const frozen = (await freeze(block)).payload.frozen
@@ -369,7 +629,7 @@ describe('merged analysis block', () => {
     )
   })
 
-  it('refuses a chart that reads another dataset than the analysis', async () => {
+  it('refuses a chart that reads another dataset or version than the analysis', async () => {
     const other = await insertCanonicalDataset(`other_${Date.now()}`, 3)
     const id = await definitionWith('Chart elsewhere', {
       ...statistic(),
@@ -377,6 +637,15 @@ describe('merged analysis block', () => {
     })
     const block = await insertAnalysisBlock({ definitionId: id })
     await expect(freeze(block)).rejects.toMatchObject({ code: '23514' })
+    const mismatchedVersion = await definitionWith('Chart version elsewhere', {
+      ...statistic(),
+      chart: chartSpec({
+        datasets: [{ datasetId, datasetVersionId: crypto.randomUUID() }],
+      }),
+    })
+    await expect(
+      freeze(await insertAnalysisBlock({ definitionId: mismatchedVersion })),
+    ).rejects.toMatchObject({ code: '23514' })
   })
 
   it('refuses a chart-only analysis that carries no chart', async () => {

@@ -3268,6 +3268,41 @@
       "when": 1799507577810,
       "tag": "0563_pipelines_api_scopes",
       "breakpoints": true
+    },
+    {
+      "idx": 564,
+      "version": "7",
+      "when": 1799507577811,
+      "tag": "0564_collaboration_current_authority",
+      "breakpoints": true
+    },
+    {
+      "idx": 565,
+      "version": "7",
+      "when": 1799507577812,
+      "tag": "0565_scientific_evidence_fidelity",
+      "breakpoints": true
+    },
+    {
+      "idx": 566,
+      "version": "7",
+      "when": 1799507577813,
+      "tag": "0566_import_worksheet_provenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 567,
+      "version": "7",
+      "when": 1799507577814,
+      "tag": "0567_repeat_inbox_closure",
+      "breakpoints": true
+    },
+    {
+      "idx": 568,
+      "version": "7",
+      "when": 1799507577815,
+      "tag": "0568_revision_integrity_snapshot",
+      "breakpoints": true
     }
   ]
 }

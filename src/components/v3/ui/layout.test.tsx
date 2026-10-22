@@ -1,9 +1,37 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { InspectorSection, PageHeader } from './layout'
+import { Inspector, InspectorSection, PageHeader } from './layout'
 
 afterEach(cleanup)
+
+it('opens and dismisses an inspector from an external toolbar trigger', async () => {
+  function Workbench() {
+    const [open, setOpen] = useState(false)
+    return (
+      <>
+        <button onClick={() => setOpen(true)}>Open settings</button>
+        <Inspector label="Settings" open={open} onOpenChange={setOpen}>
+          <p>Axis controls</p>
+        </Inspector>
+      </>
+    )
+  }
+  render(<Workbench />)
+  expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Open settings' }))
+  const dialog = await screen.findByRole('dialog', { name: 'Settings' })
+  expect(dialog.textContent).toContain('Axis controls')
+  fireEvent.keyDown(dialog, { key: 'Escape', code: 'Escape' })
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+})
 
 describe('Layout headings', () => {
   it('renders an inspector section at H2, so an inspector-only page never skips a level', () => {

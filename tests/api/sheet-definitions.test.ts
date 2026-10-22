@@ -31,34 +31,6 @@ function request(path: string, init: RequestInit = {}) {
   return new Request(`http://sheetbase.test/api/db/${path}`, init)
 }
 
-async function cleanup() {
-  await admin.query('begin')
-  try {
-    await admin.query(
-      `alter table api.sheet_definition_versions disable trigger user`,
-    )
-    await admin.query(`alter table api.sheet_definitions disable trigger user`)
-    await admin.query(
-      `delete from api.sheet_definition_versions where definition_id in (select id from api.sheet_definitions where workspace_id=$1)`,
-      [WS],
-    )
-    await admin.query(
-      `delete from api.sheet_definitions where workspace_id=$1`,
-      [WS],
-    )
-    await admin.query(`alter table api.sheet_definitions enable trigger user`)
-    await admin.query(
-      `alter table api.sheet_definition_versions enable trigger user`,
-    )
-    await admin.query(`delete from api.workspaces where id=$1`, [WS])
-    await admin.query(`delete from internal."user" where id=$1`, [OWNER])
-    await admin.query('commit')
-  } catch (error) {
-    await admin.query('rollback').catch(() => undefined)
-    throw error
-  }
-}
-
 async function expectGuardsEnabled() {
   const result = await admin.query(
     `select count(*)::integer trigger_count,bool_and(tgenabled='O') enabled
@@ -72,7 +44,6 @@ beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
   admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()
-  await cleanup()
   await admin.query(
     `insert into internal."user"(id,name,email,"emailVerified") values($1,'Sheet Definition API Owner','sheet-definition-api@test.invalid',true)`,
     [OWNER],
@@ -90,7 +61,6 @@ beforeAll(async () => {
 afterAll(async () => {
   if (admin) {
     try {
-      await cleanup()
       await expectGuardsEnabled()
     } finally {
       await admin.end()

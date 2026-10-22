@@ -102,65 +102,6 @@ function state() {
   }
 }
 
-async function cleanup() {
-  await admin.query('begin')
-  try {
-    for (const table of [
-      'api.sheet_instances',
-      'api.sheet_definition_versions',
-      'api.sheet_definitions',
-      'api.datasets',
-      'api.dataset_schema_version_fields',
-      'api.dataset_schema_versions',
-      'api.dataset_schema_definitions',
-    ])
-      await admin.query(`alter table ${table} disable trigger user`)
-    await admin.query(`delete from api.sheet_instances where workspace_id=$1`, [
-      WS,
-    ])
-    await admin.query(
-      `delete from api.sheet_definition_versions where definition_id in (select id from api.sheet_definitions where workspace_id=$1)`,
-      [WS],
-    )
-    await admin.query(
-      `delete from api.sheet_definitions where workspace_id=$1`,
-      [WS],
-    )
-    await admin.query(`delete from api.datasets where workspace_id=$1`, [WS])
-    await admin.query(
-      `delete from api.dataset_schema_version_fields where schema_version_id in
-       (select v.id from api.dataset_schema_versions v join api.dataset_schema_definitions d
-        on d.id=v.schema_id where d.workspace_id=$1)`,
-      [WS],
-    )
-    await admin.query(
-      `delete from api.dataset_schema_versions where schema_id in
-       (select id from api.dataset_schema_definitions where workspace_id=$1)`,
-      [WS],
-    )
-    await admin.query(
-      `delete from api.dataset_schema_definitions where workspace_id=$1`,
-      [WS],
-    )
-    for (const table of [
-      'api.dataset_schema_definitions',
-      'api.dataset_schema_versions',
-      'api.dataset_schema_version_fields',
-      'api.datasets',
-      'api.sheet_definitions',
-      'api.sheet_definition_versions',
-      'api.sheet_instances',
-    ])
-      await admin.query(`alter table ${table} enable trigger user`)
-    await admin.query(`delete from api.workspaces where id=$1`, [WS])
-    await admin.query(`delete from internal."user" where id=$1`, [OWNER])
-    await admin.query('commit')
-  } catch (error) {
-    await admin.query('rollback').catch(() => undefined)
-    throw error
-  }
-}
-
 async function expectSheetInstanceGuardEnabled() {
   const result = await admin.query(
     `select tgenabled from pg_trigger
@@ -174,7 +115,6 @@ beforeAll(async () => {
   if (!SECRET) throw new Error('PGRST_JWT_SECRET is required for API tests.')
   admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()
-  await cleanup()
   await admin.query(
     `insert into internal."user"(id,name,email,"emailVerified") values($1,'Parameter API Owner','parameter-api@test.invalid',true)`,
     [OWNER],
@@ -222,7 +162,6 @@ beforeAll(async () => {
 afterAll(async () => {
   if (admin) {
     try {
-      await cleanup()
       await expectSheetInstanceGuardEnabled()
     } finally {
       await admin.end()

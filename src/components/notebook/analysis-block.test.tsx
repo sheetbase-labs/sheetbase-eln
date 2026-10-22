@@ -5,7 +5,13 @@
  * through the mocked data layer. No PostgREST required.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -54,6 +60,7 @@ vi.mock('#/lib/chart-data', async (importOriginal) => {
   return {
     ...actual,
     sciDataClient: {} as never,
+    resolveDatasetRef: vi.fn(),
     fetchCanonicalDataset: vi.fn(),
     fetchDatasetRows: vi.fn(),
     fetchFrozenAnalysisRows: vi.fn(),
@@ -119,8 +126,55 @@ const FROZEN: FrozenAnalysis = {
 }
 
 describe('analysis block preview', () => {
+  it('uses bound-field flags for frozen statistics, not flags on unrelated fields', async () => {
+    mockFetchFrozenRows.mockResolvedValue({
+      rows: [
+        { [FIELD_RECOVERY]: 1, __sheetbaseRowId: 'r1' },
+        { [FIELD_RECOVERY]: 3, __sheetbaseRowId: 'r2' },
+        { [FIELD_RECOVERY]: 100, __sheetbaseRowId: 'r3' },
+      ],
+      totalCount: 3,
+      matchesProvenance: true,
+      flags: [
+        {
+          id: 'f1',
+          datasetId: 'ds',
+          rowId: 'r3',
+          fieldId: FIELD_RECOVERY,
+          kind: 'out_of_range',
+          reason: 'Rejected outlier',
+          comment: null,
+          setAt: '',
+        },
+        {
+          id: 'f2',
+          datasetId: 'ds',
+          rowId: 'r1',
+          fieldId: 'unrelated',
+          kind: 'out_of_range',
+          reason: 'Other measurement',
+          comment: null,
+          setAt: '',
+        },
+      ],
+    })
+    renderPreview({
+      title: 'Recovery',
+      definitionId: 'def-1',
+      frozen: { ...FROZEN, exclusionPolicy: 'exclude_bound_fields' },
+    })
+    const table = await screen.findByRole('table')
+    expect(screen.getByText(/1 row.*excluded/)).toBeTruthy()
+    const cells = within(within(table).getAllByRole('row')[1]).getAllByRole(
+      'cell',
+    )
+    expect(cells[1].textContent).toBe('2') // n
+    expect(cells[3].textContent).toBe('2') // mean, not 34.7 or 3
+  })
+
   it('reconstructs the frozen result from the pinned Dataset Version', async () => {
     mockFetchFrozenRows.mockResolvedValue({
+      flags: [],
       rows: [{ [FIELD_RECOVERY]: 10 }, { [FIELD_RECOVERY]: 30 }],
       totalCount: 2,
       matchesProvenance: true,
@@ -136,6 +190,7 @@ describe('analysis block preview', () => {
 
   it('surfaces an honest mismatch when provenance diverges', async () => {
     mockFetchFrozenRows.mockResolvedValue({
+      flags: [],
       rows: [],
       totalCount: 5,
       matchesProvenance: false,
@@ -147,6 +202,7 @@ describe('analysis block preview', () => {
 
   it('withholds the numbers when the recorded method version differs', async () => {
     mockFetchFrozenRows.mockResolvedValue({
+      flags: [],
       rows: [{ [FIELD_RECOVERY]: 10 }, { [FIELD_RECOVERY]: 30 }],
       totalCount: 2,
       matchesProvenance: true,
@@ -164,6 +220,7 @@ describe('analysis block preview', () => {
 
   it('names the method on a frozen reconstruction and notes a legacy snapshot', async () => {
     mockFetchFrozenRows.mockResolvedValue({
+      flags: [],
       rows: [{ [FIELD_RECOVERY]: 10 }, { [FIELD_RECOVERY]: 30 }],
       totalCount: 2,
       matchesProvenance: true,
@@ -186,24 +243,23 @@ describe('analysis block preview', () => {
       created_at: '',
       updated_at: '',
     })
-    const { fetchCanonicalDataset, fetchDatasetRows } =
-      await import('#/lib/chart-data')
-    vi.mocked(fetchCanonicalDataset).mockResolvedValue({
-      datasetId: '11111111-1111-1111-8111-111111111111',
-      name: 'Stability',
-      workspaceId: 'ws',
-      schemaVersionId: 'sv-1',
-      schemaVersionNumber: 3,
-      revision: 1,
-      columns: [
-        {
-          id: FIELD_RECOVERY,
-          label: 'Recovery (%)',
-          logicalType: 'decimal',
-        },
-      ],
-    })
-    vi.mocked(fetchDatasetRows).mockResolvedValue({
+    const { resolveDatasetRef } = await import('#/lib/chart-data')
+    vi.mocked(resolveDatasetRef).mockResolvedValue({
+      source: {
+        datasetId: '11111111-1111-1111-8111-111111111111',
+        name: 'Stability',
+        workspaceId: 'ws',
+        schemaVersionId: 'sv-1',
+        schemaVersionNumber: 3,
+        revision: 1,
+        columns: [
+          {
+            id: FIELD_RECOVERY,
+            label: 'Recovery (%)',
+            logicalType: 'decimal',
+          },
+        ],
+      },
       rows: [{ [FIELD_RECOVERY]: 100 }, { [FIELD_RECOVERY]: 300 }],
       totalCount: 2,
       truncated: false,
@@ -230,6 +286,7 @@ describe('analysis block preview', () => {
 
   it('exposes the pinned Dataset affordance on a frozen block (NOTE-03)', async () => {
     mockFetchFrozenRows.mockResolvedValue({
+      flags: [],
       rows: [{ [FIELD_RECOVERY]: 10 }],
       totalCount: 1,
       matchesProvenance: true,
@@ -253,24 +310,23 @@ describe('analysis block preview', () => {
       created_at: '',
       updated_at: '',
     })
-    const { fetchCanonicalDataset, fetchDatasetRows } =
-      await import('#/lib/chart-data')
-    vi.mocked(fetchCanonicalDataset).mockResolvedValue({
-      datasetId: '11111111-1111-1111-8111-111111111111',
-      name: 'Stability',
-      workspaceId: 'ws',
-      schemaVersionId: 'sv-1',
-      schemaVersionNumber: 3,
-      revision: 1,
-      columns: [
-        {
-          id: FIELD_RECOVERY,
-          label: 'Recovery (%)',
-          logicalType: 'decimal',
-        },
-      ],
-    })
-    vi.mocked(fetchDatasetRows).mockResolvedValue({
+    const { resolveDatasetRef } = await import('#/lib/chart-data')
+    vi.mocked(resolveDatasetRef).mockResolvedValue({
+      source: {
+        datasetId: '11111111-1111-1111-8111-111111111111',
+        name: 'Stability',
+        workspaceId: 'ws',
+        schemaVersionId: 'sv-1',
+        schemaVersionNumber: 3,
+        revision: 1,
+        columns: [
+          {
+            id: FIELD_RECOVERY,
+            label: 'Recovery (%)',
+            logicalType: 'decimal',
+          },
+        ],
+      },
       rows: [{ [FIELD_RECOVERY]: 100 }],
       totalCount: 1,
       truncated: false,
@@ -325,6 +381,7 @@ describe('merged analysis block: a chart, a statistic or both', () => {
 
   it('rebuilds a frozen statistic and its chart from the pinned rows', async () => {
     mockFetchFrozenRows.mockResolvedValue({
+      flags: [],
       rows,
       totalCount: 2,
       matchesProvenance: true,
@@ -341,6 +398,7 @@ describe('merged analysis block: a chart, a statistic or both', () => {
 
   it('shows only the chart for a frozen chart-only analysis', async () => {
     mockFetchFrozenRows.mockResolvedValue({
+      flags: [],
       rows,
       totalCount: 2,
       matchesProvenance: true,
@@ -362,6 +420,7 @@ describe('merged analysis block: a chart, a statistic or both', () => {
 
   it('keeps a frozen statistic-only payload from before the merge rendering as it did', async () => {
     mockFetchFrozenRows.mockResolvedValue({
+      flags: [],
       rows: [{ [FIELD_RECOVERY]: 10 }, { [FIELD_RECOVERY]: 30 }],
       totalCount: 2,
       matchesProvenance: true,
@@ -373,6 +432,7 @@ describe('merged analysis block: a chart, a statistic or both', () => {
 
   it('withholds the chart too when the pinned rows do not match the provenance', async () => {
     mockFetchFrozenRows.mockResolvedValue({
+      flags: [],
       rows: [],
       totalCount: 9,
       matchesProvenance: false,

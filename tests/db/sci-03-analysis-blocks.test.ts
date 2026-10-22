@@ -208,34 +208,10 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await migrator.query(
-    `DELETE FROM api.analysis_definitions WHERE workspace_id=$1`,
-    [WS_A],
-  )
-  await migrator.query(
-    `DELETE FROM api.review_submissions WHERE workspace_id=$1`,
-    [WS_A],
-  )
-  await migrator.query(
-    `DELETE FROM api.revisions WHERE record_id IN
-    (SELECT id FROM api.records WHERE project_id=$1)`,
-    [PROJECT_A],
-  )
-  await migrator.query(
-    `DELETE FROM api.blocks WHERE record_id IN
-    (SELECT id FROM api.records WHERE project_id=$1)`,
-    [PROJECT_A],
-  )
-  await migrator.query(`DELETE FROM api.records WHERE project_id=$1`, [
-    PROJECT_A,
-  ])
-  await migrator.query(`DELETE FROM api.projects WHERE id=$1`, [PROJECT_A])
-  await migrator.query(
-    `DELETE FROM api.workspace_memberships WHERE workspace_id=$1`,
-    [WS_A],
-  )
-  // Dataset Versions are immutable evidence: their created_by SET NULL
-  // would fire the immutability trigger, so the fixture user is left in place.
+  // The suite owns a disposable database, not permission to delete retained
+  // revisions, check results or immutable Dataset Versions within it.
+  await Promise.all(clients.map((client) => client.end()))
+  await migrator?.end()
 })
 
 describe('SCI-03 analysis blocks', () => {
@@ -467,12 +443,26 @@ describe('SCI-03 analysis blocks', () => {
     expect(snapAnalysis.payload.frozen.revisionId).toBe(revisionId)
     expect(snapChart.payload.frozen.revisionId).toBe(revisionId)
 
-    // 3. Stored digest equals the preview taken on live state — the digest is
-    // computed from the same bound evidence the snapshot pins.
-    expect(revRow.rows[0].integrity_digest).toBe(
-      preview.rows[0].preview.sourceDigest,
-    )
+    // The preview authorises the source, while integrity binds the exact frozen
+    // snapshot, including the revision identity assigned during submission.
+    const digests = (
+      await migrator.query(
+        `SELECT internal.revision_integrity_digest(canonical_snapshot) AS snapshot_digest,
+          internal.revision_integrity_digest(internal.envelope_for_digest(canonical_snapshot)) AS source_digest
+         FROM api.revisions WHERE id=$1`,
+        [revisionId],
+      )
+    ).rows[0]
+    expect(digests.source_digest).toBe(preview.rows[0].preview.sourceDigest)
+    expect(digests.snapshot_digest).not.toBe(digests.source_digest)
+    expect(revRow.rows[0].integrity_digest).toBe(digests.snapshot_digest)
     expect(submitted.submission.state).toBe('submitted')
+    await expect(
+      migrator.query(
+        `SELECT api.run_revision_checks($1,'default-scientific-checks',1,true,$2)`,
+        [revisionId, crypto.randomUUID()],
+      ),
+    ).resolves.toBeDefined()
 
     // 4. Unfreeze remains impossible once bound.
     const boundVersion = (
@@ -551,14 +541,16 @@ describe('SCI-03 submission idempotency recovery', () => {
    * `revision_id` (review_submissions enforces uniqueness on it) with an
    * exactly-known integrity digest.
    */
-  async function insertRaceRevision(digest: string): Promise<string> {
+  async function insertRaceRevision(digest?: string): Promise<string> {
     const id = crypto.randomUUID()
     await migrator.query(
-      `INSERT INTO api.revisions(
+      `WITH snapshot AS (SELECT internal.build_revision_envelope($2) AS envelope)
+       INSERT INTO api.revisions(
          id,record_id,workspace_id,structure_version,metadata_version,
-         metadata_snapshot,block_snapshot,integrity_algorithm,integrity_digest,
+         metadata_snapshot,block_snapshot,canonical_snapshot,integrity_algorithm,integrity_digest,
          reason,created_by_user_id)
-       VALUES ($1,$2,$3,1,1,'{}'::jsonb,'[]'::jsonb,'sha256',$4,'submit',$5)`,
+       SELECT $1,$2,$3,1,1,envelope->'record',envelope->'blocks',envelope,'sha256',
+         coalesce($4,internal.revision_integrity_digest(envelope)),'submit',$5 FROM snapshot`,
       [id, experimentId, WS_A, digest, USER_A],
     )
     return id
@@ -593,10 +585,7 @@ describe('SCI-03 submission idempotency recovery', () => {
       }),
     ])
     const loserDigest = await freshPreview()
-    const expectedLoserDigest =
-      winner.digest === undefined ? loserDigest : winner.digest
-    const revisionId = await insertRaceRevision(expectedLoserDigest)
-    void expectedLoserDigest
+    const revisionId = await insertRaceRevision(winner.digest)
 
     await migrator.query('BEGIN')
     await migrator.query(

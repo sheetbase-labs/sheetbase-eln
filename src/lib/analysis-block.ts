@@ -27,6 +27,7 @@ export interface FrozenAnalysisColumn {
   fieldId: string
   label: string
   logicalType: string
+  unit?: unknown
 }
 
 /** Provenance for the single immutable Dataset Version backing the freeze. */
@@ -62,6 +63,8 @@ export interface FrozenAnalysis {
    * rather than assuming the current kernel still reproduces them.
    */
   methodVersion?: number
+  /** Absent on historical evidence, which included every recorded value. */
+  exclusionPolicy?: 'include_flagged' | 'exclude_bound_fields'
   columns: FrozenAnalysisColumn[]
   datasetProvenance: FrozenDatasetProvenance[]
 }

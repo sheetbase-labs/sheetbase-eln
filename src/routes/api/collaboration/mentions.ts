@@ -1,7 +1,6 @@
 /**
  * COLLAB: mention suggestions. Backs the @-composer in comment threads.
- * Returns active members of the requested room's workspace only — never a
- * global user directory.
+ * Both caller and suggested recipients require current room read authority.
  */
 import { createFileRoute } from '@tanstack/react-router'
 
@@ -24,7 +23,12 @@ const handler = async ({ request }: { request: Request }) => {
     room,
     url.searchParams.get('text') ?? '',
   )
-  return Response.json({ userIds })
+  return Response.json(
+    { userIds },
+    {
+      headers: { 'Cache-Control': 'private, no-store' },
+    },
+  )
 }
 
 export const Route = createFileRoute('/api/collaboration/mentions')({

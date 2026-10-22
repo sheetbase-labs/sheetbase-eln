@@ -111,11 +111,12 @@ async function commit(
     revision?: number
     key?: string
     connectorRun?: string | null
+    mapping?: Record<string, unknown>
   } = {},
 ) {
   const result = await (options.client ?? writer).query(
     `SELECT api.commit_dataset_import(
-    $1, $2, $3::jsonb, $4, $5, '{}'::jsonb, '{}'::jsonb, $6, $7, NULL, NULL, $8) result`,
+    $1, $2, $3::jsonb, $4, $5, $9::jsonb, '{}'::jsonb, $6, $7, NULL, NULL, $8) result`,
     [
       f.dataset,
       options.revision ?? 1,
@@ -131,12 +132,61 @@ async function commit(
       options.parser === undefined ? f.parser : options.parser,
       options.version === undefined ? f.version : options.version,
       options.connectorRun ?? null,
+      JSON.stringify(options.mapping ?? {}),
     ],
   )
   return result.rows[0].result
 }
 
 describe('DSET-06.2 canonical import provenance', () => {
+  it('freezes worksheet interpretation beside authoritative raw identity and refuses key reuse with a different interpretation', async () => {
+    const f = await fixture()
+    const key = randomUUID()
+    const mapping = {
+      sheetName: 'Measurements',
+      sources: [{ source: 'reading', fieldId: field, unit: null }],
+    }
+    const result = await commit(f, { key, mapping })
+    expect(result.ok).toBe(true)
+    const receipt = (
+      await migrator.query(
+        'SELECT source_provenance, mapping FROM api.dataset_imports WHERE id=$1',
+        [result.importId],
+      )
+    ).rows[0]
+    expect(receipt.source_provenance).toEqual({
+      fileId: f.file,
+      filename: 'readings.csv',
+      checksum: 'a'.repeat(64),
+      storageKey: f.file,
+      sheetName: 'Measurements',
+    })
+    expect(receipt.mapping).toEqual(mapping)
+    expect((await commit(f, { key, mapping })).idempotent).toBe(true)
+    await expectDenied(
+      commit(f, { key, mapping: { ...mapping, sheetName: 'Cover' } }),
+      '22023',
+    )
+    await expectDenied(
+      commit(f, {
+        key,
+        mapping: {
+          ...mapping,
+          sources: [{ source: 'reading', fieldId: field, unit: 'mg' }],
+        },
+      }),
+      '22023',
+    )
+    expect(
+      (
+        await migrator.query(
+          'SELECT count(*)::int n FROM api.dataset_versions WHERE dataset_id=$1',
+          [f.dataset],
+        )
+      ).rows[0].n,
+    ).toBe(1)
+  })
+
   it('requires both canonical parser identities, not nullable attribution', async () => {
     const f = await fixture()
     await expectDenied(commit(f, { parser: null, version: null }), 'SB107')

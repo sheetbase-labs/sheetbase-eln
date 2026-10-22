@@ -131,6 +131,23 @@ metadata only, never secrets).
   exponential backoff, per-endpoint rate budgets (`rate_limit_per_minute`;
   over-budget attempts defer, never drop), and auto-disablement on
   consecutive failures.
+- Recovery reconciles **all retained events since each subscription's
+  creation**, including events older than 24 hours. It pages beyond 500
+  events and checks missing deliveries separately for each subscription.
+  Startup and reconnect establish `LISTEN` before reconciliation. The
+  periodic sweep repairs missed notifications even without a reconnect.
+- Recovery uses the subscription's current active state and event filters.
+  Reactivation can therefore deliver matching retained events from a paused
+  interval. Events before subscription creation are not backfilled. Deleted
+  events cannot be recovered. Missing delivery records use reconciliation;
+  terminal delivery records use the explicit replay operations below.
+- Workers hold a database transaction lock on one delivery and its
+  subscription through the HTTP attempt and result commit. Rollback or
+  connection loss releases ownership for another worker. A receiver may
+  accept a request before the database result commits, so delivery is
+  **at-least-once, not exactly-once**. Receivers must store the event ID and
+  apply their effect atomically. Independent receiver destinations should
+  deduplicate independently. Delivery order across workers is not guaranteed.
 - Exhausted backoff lands in the explicit `dead_letter` state — the DLQ
   surface, listing reason (`error_code`/`error_message`) with the payload
   referenced by delivery id. The retry sweep never picks dead letters up;

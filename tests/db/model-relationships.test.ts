@@ -408,12 +408,14 @@ describe('link enforcement', () => {
     expect(first).toHaveLength(1)
     // The loser blocks on the matched rule-row lock until the winner
     // commits, then recounts and fails closed with the named error.
-    const loser = b.query(
-      `SELECT * FROM api.create_record_link($1, 'sample', $2, 'sample', $3, NULL)`,
-      [exp.id, s2.identifier, s2.id],
-    )
+    const loser = expect(
+      b.query(
+        `SELECT * FROM api.create_record_link($1, 'sample', $2, 'sample', $3, NULL)`,
+        [exp.id, s2.identifier, s2.id],
+      ),
+    ).rejects.toMatchObject({ code: 'SB081' })
     await a.query('COMMIT')
-    await expect(loser).rejects.toMatchObject({ code: 'SB081' })
+    await loser
     await b.query('ROLLBACK')
     const { rows: counted } = await owner.query(
       `SELECT count(*)::int AS n FROM api.record_links WHERE source_record_id = $1 AND link_type = 'sample'`,

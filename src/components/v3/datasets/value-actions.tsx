@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 
 import { Notice } from '#/components/v3/ui/alert'
 import { Button } from '#/components/v3/ui/button'
@@ -311,6 +312,25 @@ export function ValueActions({
         >
           Request repeat
         </Button>
+        {repeat.data?.plannedRows.at(0) ? (
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link
+                to="/readings/new"
+                search={{
+                  sample: repeat.data.sample.id,
+                  dataset: datasetId,
+                  plannedKey: repeat.data.plannedRows[0].plannedKey,
+                  returnTo: `/datasets/${datasetId}/rows?row=${rowId}&field=${fieldId}&live=true`,
+                }}
+              />
+            }
+          >
+            Record repeat reading
+          </Button>
+        ) : null}
       </div>
 
       <MarkOutOfRangeDialog

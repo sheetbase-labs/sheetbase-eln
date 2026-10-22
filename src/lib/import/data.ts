@@ -76,9 +76,11 @@ export async function uploadImportFile(input: {
 export async function fetchImportFile(input: {
   fileId: string
   datasetId?: string | null
+  sheetName?: string
 }): Promise<ImportFileUploadResponse> {
   const query = new URLSearchParams({ fileId: input.fileId })
   if (input.datasetId) query.set('datasetId', input.datasetId)
+  if (input.sheetName) query.set('sheetName', input.sheetName)
   const response = await fetch(`/api/import/files?${query.toString()}`)
   return readJson<ImportFileUploadResponse>(response)
 }

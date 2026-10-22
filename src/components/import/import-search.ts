@@ -16,6 +16,8 @@ export interface ImportSearch {
   instrument?: string
   parser?: string
   map?: string
+  sheet?: string
+  units?: string
   /** The project the import was started from (shared create-context param). */
   project?: string
   /** An in-app path the finished or cancelled import goes back to. */
@@ -40,15 +42,20 @@ export function parseImportSearch(
     instrument: text(search.instrument),
     parser: text(search.parser),
     map: text(search.map),
+    sheet: text(search.sheet),
+    units: text(search.units),
     project: text(search.project),
     returnTo: safeReturnTo(search.returnTo),
   }
 }
 
 /** Compact, URL-safe `source:field` pairs; skipped columns carry no pair. */
-export function serializeImportMapping(values: Record<string, string>): string {
+export function serializeImportMapping(
+  values: Record<string, string>,
+  keepEmpty = false,
+): string {
   return Object.entries(values)
-    .filter(([, fieldId]) => Boolean(fieldId))
+    .filter(([, fieldId]) => keepEmpty || Boolean(fieldId))
     .map(
       ([source, fieldId]) =>
         `${encodeURIComponent(source)}:${encodeURIComponent(fieldId)}`,
@@ -67,7 +74,7 @@ export function parseImportMapping(
     try {
       const source = decodeURIComponent(pair.slice(0, separator))
       const fieldId = decodeURIComponent(pair.slice(separator + 1))
-      if (source && fieldId) values[source] = fieldId
+      if (source) values[source] = fieldId
     } catch {
       // A malformed pair is ignored rather than failing the whole link.
     }

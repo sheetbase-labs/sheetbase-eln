@@ -18,11 +18,12 @@ import {
 import {
   IMPORT_LIMITS,
   parseImportBytes,
+  selectImportSheet,
   sniffImportFormat,
 } from '#/lib/import-parse'
 import type { ImportPreview, ImportSheet } from '#/lib/import-parse'
 import { describeImportRpcCode } from '#/lib/import-commit'
-import { mapImportSheet } from '#/lib/import-mapping'
+import { importHeaderUnit, mapImportSheet } from '#/lib/import-mapping'
 import type {
   ImportColumnMapping,
   ImportTargetField,
@@ -150,7 +151,12 @@ export function mappingsFromDocument(
   return document.sources.map((entry) => {
     const field = entry.fieldId ? byId.get(entry.fieldId) : undefined
     return field
-      ? { source: entry.source, kind: 'field', field }
+      ? {
+          source: entry.source,
+          kind: 'field',
+          field,
+          sourceUnit: entry.sourceUnit,
+        }
       : { source: entry.source, kind: 'ignore' }
   })
 }
@@ -181,6 +187,7 @@ export function toTargetFields(fields: FieldWire[]): ImportTargetField[] {
     label: field.label,
     logicalType: field.logical_type,
     nullable: field.nullable,
+    unit: fieldUnit(field.quantity),
     options: [],
     kind: 'dataset-field' as const,
   }))
@@ -287,6 +294,7 @@ async function loadStoredFile(
 async function readAndParse(
   storage: ObjectStorage,
   file: ImportFileWire,
+  sheetName?: string | null,
 ): Promise<{ sheet: ImportSheet; preview: ImportPreview }> {
   if (!file.storage_key.startsWith(`${file.workspace_id}/`))
     throw new Error(
@@ -310,8 +318,7 @@ async function readAndParse(
     fileName: file.filename,
     format: sniffImportFormat(file.filename),
   })
-  const sheet = preview.sheets.at(0)
-  if (!sheet) throw new Error('The file contains no data sheet.')
+  const sheet = selectImportSheet(preview, sheetName ?? undefined)
   return { sheet, preview }
 }
 
@@ -437,7 +444,7 @@ async function buildFileView(
   storage: ObjectStorage,
   file: ImportFileWire,
   datasetId: string | null,
-  options: { record: boolean },
+  options: { record: boolean; sheetName?: string },
 ): Promise<ImportFileUploadResponse> {
   const base = {
     ok: true,
@@ -453,7 +460,7 @@ async function buildFileView(
   let preview: ImportPreview | null = null
   let parseError: string | undefined
   try {
-    const parsed = await readAndParse(storage, file)
+    const parsed = await readAndParse(storage, file, options.sheetName)
     sheet = parsed.sheet
     preview = parsed.preview
   } catch (error) {
@@ -609,7 +616,10 @@ export async function handleImportFileRead(
   }
   const datasetId = params.get('datasetId') ?? file.dataset_id
   return Response.json(
-    await buildFileView(context, storage, file, datasetId, { record: false }),
+    await buildFileView(context, storage, file, datasetId, {
+      record: false,
+      sheetName: params.get('sheetName') ?? undefined,
+    }),
   )
 }
 
@@ -744,6 +754,18 @@ interface PreparedImport {
   mapping: ImportMappingDocument
 }
 
+const mappingSchema = z.object({
+  sources: z.array(
+    z.object({
+      source: z.string(),
+      fieldId: z.string().nullable(),
+      unit: z.string().nullable(),
+      sourceUnit: z.string().nullable().optional(),
+    }),
+  ),
+  sheetName: z.string().min(1).optional(),
+})
+
 async function prepareImport(
   context: { workspaceId: string; token: string },
   storage: ObjectStorage,
@@ -751,6 +773,7 @@ async function prepareImport(
     fileId: string
     datasetId: string
     mapping: ImportMappingDocument
+    sheetName?: string | null
   },
 ): Promise<PreparedImport | { error: Response }> {
   const file = await loadStoredFile(context.token, input.fileId)
@@ -765,13 +788,86 @@ async function prepareImport(
       error: requestErrorResponse(loaded.status, loaded.code, loaded.message),
     }
   }
-  const { sheet } = await readAndParse(storage, file)
+  const parsedMapping = mappingSchema.safeParse(input.mapping)
+  if (!parsedMapping.success)
+    return {
+      error: requestErrorResponse(
+        400,
+        'invalid_mapping',
+        'Choose valid source columns, fields and units.',
+      ),
+    }
+  if (
+    input.sheetName &&
+    parsedMapping.data.sheetName &&
+    input.sheetName !== parsedMapping.data.sheetName
+  ) {
+    return {
+      error: requestErrorResponse(
+        422,
+        'worksheet_mismatch',
+        'The worksheet and mapping disagree. Choose the worksheet again.',
+      ),
+    }
+  }
+  let sheet: ImportSheet
+  try {
+    const selected = input.sheetName ?? parsedMapping.data.sheetName
+    const parsed = await readAndParse(storage, file, selected)
+    if (!selected && parsed.preview.sheets.length > 1) {
+      return {
+        error: requestErrorResponse(
+          422,
+          'worksheet_required',
+          'Choose a worksheet before reviewing or importing this workbook.',
+        ),
+      }
+    }
+    sheet = parsed.sheet
+  } catch (error) {
+    return {
+      error: requestErrorResponse(
+        422,
+        'parse_failed',
+        error instanceof Error
+          ? error.message
+          : 'Could not read the worksheet.',
+      ),
+    }
+  }
+  const fields = new Set(loaded.fields.map((field) => field.field_id))
+  if (
+    parsedMapping.data.sources.some(
+      (entry) =>
+        !sheet.headers.includes(entry.source) ||
+        (entry.fieldId && !fields.has(entry.fieldId)),
+    )
+  ) {
+    return {
+      error: requestErrorResponse(
+        422,
+        'invalid_mapping',
+        'The mapping does not match this worksheet and Dataset. Map the columns again.',
+      ),
+    }
+  }
   return {
     file,
     dataset: loaded.dataset,
     fields: loaded.fields,
     sheet,
-    mapping: input.mapping,
+    mapping: {
+      ...parsedMapping.data,
+      sheetName: sheet.name,
+      sources: parsedMapping.data.sources.map((entry) => ({
+        ...entry,
+        unit: fieldUnit(
+          loaded.fields.find((field) => field.field_id === entry.fieldId)
+            ?.quantity,
+        ),
+        sourceUnit: entry.sourceUnit?.trim() || importHeaderUnit(entry.source),
+      })),
+    },
   }
 }
 
@@ -832,6 +928,7 @@ export async function handleImportReview(
     mapping?: ImportMappingDocument
     parserKey?: string | null
     parserVersionId?: string | null
+    sheetName?: string | null
   }
   try {
     body = (await request.json()) as typeof body
@@ -853,6 +950,7 @@ export async function handleImportReview(
     fileId: body.fileId,
     datasetId: body.datasetId,
     mapping: body.mapping,
+    sheetName: body.sheetName,
   })
   if ('error' in prepared) return prepared.error
 
@@ -962,6 +1060,7 @@ export async function handleImportCommit(
     parserVersionId?: string | null
     experimentRecordId?: string | null
     instrumentId?: string | null
+    sheetName?: string | null
     idempotencyKey?: string
   }
   try {
@@ -989,6 +1088,7 @@ export async function handleImportCommit(
     fileId: body.fileId,
     datasetId: body.datasetId,
     mapping: body.mapping,
+    sheetName: body.sheetName,
   })
   if ('error' in prepared) return prepared.error
 

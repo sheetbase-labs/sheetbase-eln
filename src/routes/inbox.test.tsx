@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   itemLink,
@@ -16,52 +16,56 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import type * as router from '@tanstack/react-router'
 import type * as workItems from '#/lib/work-items/data'
 import type { WorkItem } from '#/lib/work-items/data'
-import { itemKey } from '#/lib/work-items/predicate'
+import { itemKey, itemTab, workItemType } from '#/lib/work-items/predicate'
 
-const { navigate, items, state, invalidate, seen } = vi.hoisted(() => {
-  const navigateMock = vi.fn()
-  const invalidateMock = vi.fn()
-  const seenKeys: string[] = []
-  const seenSearch: { item?: string; tab?: string } = {}
-  const workItems: WorkItem[] = [
-    {
-      kind: 'review_requested',
-      recordId: 'record-1',
-      identifier: 'EXP-0001',
-      title: 'First review',
-      projectId: 'project-1',
-      reason: 'Review requested',
-      dueAt: '2026-10-03T09:00:00.000Z',
-      state: 'needs_action',
-      createdAt: null,
-    },
-    {
-      kind: 'data_issue',
-      recordId: 'record-2',
-      identifier: 'DS-0002',
-      title: 'Second review',
-      projectId: 'project-1',
-      reason: 'Flagged value',
-      dueAt: '2026-10-03T10:00:00.000Z',
-      state: 'needs_action',
-      createdAt: null,
-    },
-  ]
-  return {
-    navigate: navigateMock,
-    invalidate: invalidateMock,
-    items: workItems,
-    seen: seenKeys,
-    state: {
-      error: null as Error | null,
-      loading: false,
-      search: seenSearch,
-    },
-  }
-})
+const { navigate, items, state, invalidate, seen, listeners } = vi.hoisted(
+  () => {
+    const navigateMock = vi.fn()
+    const invalidateMock = vi.fn()
+    const seenKeys: string[] = []
+    const seenSearch: { item?: string; tab?: string; type?: string } = {}
+    const workItems: WorkItem[] = [
+      {
+        kind: 'review_requested',
+        recordId: 'record-1',
+        identifier: 'EXP-0001',
+        title: 'First review',
+        projectId: 'project-1',
+        reason: 'Review requested',
+        dueAt: '2026-10-03T09:00:00.000Z',
+        state: 'needs_action',
+        createdAt: null,
+      },
+      {
+        kind: 'data_issue',
+        recordId: 'record-2',
+        identifier: 'DS-0002',
+        title: 'Second review',
+        projectId: 'project-1',
+        reason: 'Flagged value',
+        dueAt: '2026-10-03T10:00:00.000Z',
+        state: 'needs_action',
+        createdAt: null,
+      },
+    ]
+    return {
+      navigate: navigateMock,
+      invalidate: invalidateMock,
+      items: workItems,
+      seen: seenKeys,
+      listeners: new Set<() => void>(),
+      state: {
+        error: null as Error | null,
+        loading: false,
+        search: seenSearch,
+      },
+    }
+  },
+)
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+  const { useSyncExternalStore } = await import('react')
   return {
     ...actual,
     Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
@@ -69,7 +73,14 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     ),
     useNavigate: () => navigate,
     useRouter: () => ({ invalidate: invalidate }),
-    useSearch: () => state.search,
+    useSearch: () =>
+      useSyncExternalStore(
+        (listener) => {
+          listeners.add(listener)
+          return () => listeners.delete(listener)
+        },
+        () => state.search,
+      ),
   }
 })
 
@@ -88,8 +99,25 @@ vi.mock('#/lib/work-items/data', async (importOriginal) => {
   const actual = await importOriginal<typeof workItems>()
   return {
     ...actual,
-    useWorkItems: () =>
-      state.error
+    useInboxPage: (tab: string, type?: string) => {
+      const seenKeys = new Set(seen)
+      const inTab = items.filter((item) => itemTab(item, seenKeys) === tab)
+      const visible = inTab.filter(
+        (item) => !type || workItemType(item.kind) === type,
+      )
+      const tabs = Object.fromEntries(
+        ['needs-action', 'following', 'done-today'].map((t) => [
+          t,
+          items.filter((item) => itemTab(item, seenKeys) === t).length,
+        ]),
+      )
+      const types = Object.fromEntries(
+        ['reviews', 'data', 'runs', 'materials', 'lab', 'admin'].map((t) => [
+          t,
+          inTab.filter((item) => workItemType(item.kind) === t).length,
+        ]),
+      )
+      return state.error
         ? {
             data: undefined,
             isLoading: false,
@@ -100,8 +128,28 @@ vi.mock('#/lib/work-items/data', async (importOriginal) => {
           }
         : state.loading
           ? { data: undefined, isLoading: true, isError: false }
-          : { data: items, isLoading: false, isError: false },
+          : {
+              data: {
+                pages: [{ items: visible, total: visible.length, tabs, types }],
+              },
+              isLoading: false,
+              isError: false,
+            }
+    },
   }
+})
+
+beforeEach(() => {
+  navigate.mockImplementation(
+    (arg: {
+      search?: (previous: typeof state.search) => typeof state.search
+    }) => {
+      if (typeof arg.search === 'function') {
+        state.search = arg.search(state.search)
+        listeners.forEach((listener) => listener())
+      }
+    },
+  )
 })
 
 const witnessItem: WorkItem = {
@@ -566,6 +614,37 @@ describe('Inbox marking and empty state (QA3-inbox-1, QA3-inbox-2)', () => {
 })
 
 describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
+  it('restores the default tab and filter when Back removes the URL parameters', () => {
+    const view = renderInbox()
+    fireEvent.click(view.getByRole('tab', { name: /^Following/ }))
+    expect(
+      view
+        .getByRole('tab', { name: /^Following/ })
+        .getAttribute('aria-selected'),
+    ).toBe('true')
+    state.search = {}
+    const Inbox = Route.options.component!
+    // Rerender the same mounted route, as a history navigation does.
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <ShortcutProvider definitions={[]}>
+          <Inbox />
+        </ShortcutProvider>
+      </QueryClientProvider>,
+    )
+    expect(
+      view
+        .getByRole('tab', { name: /^Needs action/ })
+        .getAttribute('aria-selected'),
+    ).toBe('true')
+    expect(view.getByRole('button', { name: /First review/ })).toBeTruthy()
+    expect(
+      view
+        .getByRole('button', { name: 'All types' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true')
+  })
+
   it('writes the tab into the URL so a reload follows the list', () => {
     const { getByRole } = renderInbox()
     fireEvent.click(getByRole('tab', { name: /^Following/ }))

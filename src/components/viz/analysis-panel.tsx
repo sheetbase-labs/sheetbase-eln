@@ -69,14 +69,8 @@ import {
   saveAnalysisDefinition,
 } from '#/lib/analysis-definitions-data'
 import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
-import {
-  fetchCanonicalDataset,
-  fetchDatasetRows,
-  resolveDatasetRef,
-  sciDataClient,
-} from '#/lib/chart-data'
+import { resolveDatasetRef, sciDataClient } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
-import { fetchActiveDatasetFlags } from '#/lib/dataset-flags'
 import { SnapshotSourceBanner } from './snapshot-source-banner'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
 import { insertBlock } from '#/lib/notebook-mutations'
@@ -100,8 +94,10 @@ export interface AnalysisPanelProps {
   datasets: CanonicalDatasetSource[]
   workspaceId: string
   userId: string
-  /** The dataset the studio was opened with; the panel starts on it. */
+  /** The dataset requested by the studio, including later source changes. */
   initialDatasetId?: string | null
+  /** Keep the studio's source selector in sync with this panel. */
+  onDatasetChange?: (datasetId: string) => void
   /** A snapshot of that dataset to read instead of its live rows. */
   initialSnapshotId?: string | null
   /** A saved statistic to open on, e.g. from the Analysis list. */
@@ -127,6 +123,7 @@ export function AnalysisPanel({
   workspaceId,
   userId,
   initialDatasetId,
+  onDatasetChange,
   initialSnapshotId,
   initialDefinitionId,
   experimentId,
@@ -141,18 +138,21 @@ export function AnalysisPanel({
   const [snapshotId, setSnapshotId] = useState<string | null>(
     initialSnapshotId ?? null,
   )
-  // The dataset list can arrive after the panel mounts (a deep link opens the
-  // studio before its sources load). Adopt the requested dataset once it is
-  // there, and only once, so choosing "Select a dataset" afterwards sticks.
-  const adoptedInitialDataset = useRef(selectedDatasetId !== '')
-  useEffect(() => {
-    if (adoptedInitialDataset.current || !initialDatasetId) return
-    if (!datasets.some((d) => d.datasetId === initialDatasetId)) return
-    adoptedInitialDataset.current = true
-    setSelectedDatasetId(initialDatasetId)
-  }, [datasets, initialDatasetId])
   const [citeOpen, setCiteOpen] = useState(false)
   const [draft, setDraft] = useState<DefinitionDraft>(emptyDraft)
+  // Sources can arrive after a deep link, or change in the studio header.
+  // An echo of a panel selection must not discard a saved definition's pin.
+  const adoptedInitialDataset = useRef(selectedDatasetId)
+  useEffect(() => {
+    if (!initialDatasetId || adoptedInitialDataset.current === initialDatasetId)
+      return
+    if (!datasets.some((d) => d.datasetId === initialDatasetId)) return
+    adoptedInitialDataset.current = initialDatasetId
+    if (selectedDatasetId === initialDatasetId) return
+    setSelectedDatasetId(initialDatasetId)
+    setSnapshotId(initialSnapshotId ?? null)
+    setDraft(emptyDraft)
+  }, [datasets, initialDatasetId, initialSnapshotId, selectedDatasetId])
 
   const definitionsQuery = useQuery({
     queryKey: analysisDefinitionQueryKeys.all,
@@ -160,11 +160,6 @@ export function AnalysisPanel({
     staleTime: 10_000,
   })
   const definitions = definitionsQuery.data ?? []
-
-  const selectedDataset = useMemo(
-    () => datasets.find((d) => d.datasetId === selectedDatasetId) ?? null,
-    [datasets, selectedDatasetId],
-  )
 
   // Dataset rows for execution — read-only canonical rows through the same
   // /api/db boundary as every chart surface.
@@ -174,26 +169,21 @@ export function AnalysisPanel({
       selectedDatasetId,
       snapshotId,
     ] as const,
-    queryFn: async () => {
-      if (snapshotId)
-        return resolveDatasetRef(sciDataClient, {
-          datasetId: selectedDatasetId,
-          datasetVersionId: snapshotId,
-        })
-      const source = await fetchCanonicalDataset(
-        sciDataClient,
-        selectedDatasetId,
-      )
-      if (!source) return null
-      const [paged, flags] = await Promise.all([
-        fetchDatasetRows(sciDataClient, source.datasetId),
-        fetchActiveDatasetFlags(sciDataClient, source.datasetId),
-      ])
-      return { source, ...paged, flags }
-    },
+    queryFn: () =>
+      resolveDatasetRef(sciDataClient, {
+        datasetId: selectedDatasetId,
+        datasetVersionId: snapshotId ?? undefined,
+      }),
     enabled: Boolean(selectedDatasetId),
     staleTime: 10_000,
   })
+
+  // Bind and label the fields of the examined version, not today's schema.
+  const selectedDataset =
+    rowsQuery.data?.source ??
+    (snapshotId
+      ? null
+      : (datasets.find((d) => d.datasetId === selectedDatasetId) ?? null))
 
   // A definition is runnable once it validates structurally and its dataset
   // is selected; execution errors surface per-run below.
@@ -208,7 +198,8 @@ export function AnalysisPanel({
     draft.definition !== null &&
     validation.length === 0 &&
     Boolean(selectedDatasetId) &&
-    !rowsQuery.isLoading
+    !rowsQuery.isLoading &&
+    !rowsQuery.isError
 
   const execution = useMemo(() => {
     const resolved = rowsQuery.data
@@ -281,6 +272,7 @@ export function AnalysisPanel({
     })
     setSelectedDatasetId(def.datasets[0]?.datasetId ?? '')
     setSnapshotId(def.datasets[0]?.datasetVersionId ?? null)
+    onDatasetChange?.(def.datasets[0]?.datasetId ?? '')
   }
 
   // Opened from the Analysis list: load that statistic once, when it arrives.
@@ -308,11 +300,7 @@ export function AnalysisPanel({
           name: draft.name.trim(),
           definition: draft.definition,
           source_revisions: captureDefinitionSourceRevisions(
-            datasets.filter((d) =>
-              draft.definition!.datasets.some(
-                (ref) => ref.datasetId === d.datasetId,
-              ),
-            ),
+            selectedDataset ? [selectedDataset] : [],
             draft.definition,
           ),
         },
@@ -320,7 +308,8 @@ export function AnalysisPanel({
         userId,
       )
     },
-    onSuccess: () => {
+    onSuccess: (saved) => {
+      if (saved) loadDefinition(saved)
       void queryClient.invalidateQueries({
         queryKey: analysisDefinitionQueryKeys.all,
       })
@@ -406,7 +395,7 @@ export function AnalysisPanel({
       ) : null}
       <div className="rounded-lg border border-border bg-surface space-y-3 p-3">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-44 flex-1">
+          <div className="flex min-w-44 flex-1 flex-col gap-1">
             <label
               className="text-label text-fg-muted"
               htmlFor="analysis-definition-dataset"
@@ -416,15 +405,20 @@ export function AnalysisPanel({
             <Select
               id="analysis-definition-dataset"
               aria-label="Analysis dataset"
+              size="sm"
               value={selectedDatasetId}
               onChange={(event) => {
                 setSelectedDatasetId(event.target.value)
-                // A snapshot belongs to one dataset.
+                // Pins and field bindings belong to the previous dataset.
                 setSnapshotId(null)
+                setDraft(emptyDraft)
+                onDatasetChange?.(event.target.value)
               }}
-              className="h-8 bg-surface"
+              className="bg-surface"
             >
-              <option value="">Select a dataset</option>
+              <option value="" disabled={Boolean(onDatasetChange)}>
+                Select a dataset
+              </option>
               {datasets.map((d) => (
                 <option key={d.datasetId} value={d.datasetId}>
                   {d.name}
@@ -432,7 +426,7 @@ export function AnalysisPanel({
               ))}
             </Select>
           </div>
-          <div className="min-w-40 flex-1">
+          <div className="flex min-w-40 flex-1 flex-col gap-1">
             <label className="text-label text-fg-muted" htmlFor="analysis-kind">
               Analysis
             </label>
@@ -459,10 +453,10 @@ export function AnalysisPanel({
           </div>
         </div>
 
-        {draft.definition ? (
+        {draft.definition && selectedDataset ? (
           <AnalysisDefinitionControls
             definition={draft.definition}
-            table={selectedDataset!}
+            table={selectedDataset}
             onChange={updateDefinition}
           />
         ) : null}
@@ -483,7 +477,7 @@ export function AnalysisPanel({
             onChange={(event) =>
               setDraft((prev) => ({ ...prev, name: event.target.value }))
             }
-            className="h-8 w-48 bg-surface"
+            className="h-[26px] w-48 bg-surface text-label max-md:h-8"
           />
           <Button
             type="button"
@@ -497,7 +491,8 @@ export function AnalysisPanel({
             }
             onClick={() => saveMutation.mutate()}
           >
-            <Save /> {draft.editingId ? 'Update' : 'Save'}
+            <Save className="size-3.5" aria-hidden />{' '}
+            {draft.editingId ? 'Update' : 'Save'}
           </Button>
           {draft.editingId ? (
             <Button
@@ -523,7 +518,14 @@ export function AnalysisPanel({
         ) : null}
       </div>
 
-      {execution && execution.ok ? (
+      {rowsQuery.error ? (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-xs text-danger-text"
+        >
+          {rowsQuery.error.message}
+        </div>
+      ) : execution && execution.ok ? (
         <AnalysisResultTable result={execution.result} />
       ) : execution ? (
         <div
@@ -694,7 +696,7 @@ function AnalysisDefinitionControls({
     <div className="flex flex-wrap items-end gap-3">
       {definition.kind === 'descriptive' ? (
         <>
-          <div className="min-w-36 flex-1">
+          <div className="flex min-w-36 flex-1 flex-col gap-1">
             <label
               className="text-label text-fg-muted"
               htmlFor="analysis-value"
@@ -704,14 +706,15 @@ function AnalysisDefinitionControls({
             <Select
               id="analysis-value"
               aria-label="Measured value column"
+              size="sm"
               value={bindingValue(definition.value)}
               onChange={(e) => setBinding('value', e.target.value, true)}
-              className="h-8 bg-surface"
+              className="bg-surface"
             >
               {columnOptions(numeric)}
             </Select>
           </div>
-          <div className="min-w-36 flex-1">
+          <div className="flex min-w-36 flex-1 flex-col gap-1">
             <label
               className="text-label text-fg-muted"
               htmlFor="analysis-group"
@@ -721,9 +724,10 @@ function AnalysisDefinitionControls({
             <Select
               id="analysis-group"
               aria-label="Group by column"
+              size="sm"
               value={bindingValue(definition.group)}
               onChange={(e) => setBinding('group', e.target.value, false)}
-              className="h-8 bg-surface"
+              className="bg-surface"
             >
               <option value="">(one group)</option>
               {columnOptions(category)}
@@ -732,7 +736,7 @@ function AnalysisDefinitionControls({
         </>
       ) : (
         <>
-          <div className="min-w-36 flex-1">
+          <div className="flex min-w-36 flex-1 flex-col gap-1">
             <label
               className="text-label text-fg-muted"
               htmlFor="analysis-outcome"
@@ -742,14 +746,15 @@ function AnalysisDefinitionControls({
             <Select
               id="analysis-outcome"
               aria-label="Outcome column"
+              size="sm"
               value={bindingValue(definition.outcome)}
               onChange={(e) => setBinding('outcome', e.target.value, true)}
-              className="h-8 bg-surface"
+              className="bg-surface"
             >
               {columnOptions(numeric)}
             </Select>
           </div>
-          <div className="min-w-36 flex-1">
+          <div className="flex min-w-36 flex-1 flex-col gap-1">
             <label
               className="text-label text-fg-muted"
               htmlFor="analysis-predictor"
@@ -759,14 +764,15 @@ function AnalysisDefinitionControls({
             <Select
               id="analysis-predictor"
               aria-label="Predictor column"
+              size="sm"
               value={bindingValue(definition.predictor)}
               onChange={(e) => setBinding('predictor', e.target.value, true)}
-              className="h-8 bg-surface"
+              className="bg-surface"
             >
               {columnOptions(numeric)}
             </Select>
           </div>
-          <div className="min-w-24">
+          <div className="flex min-w-24 flex-col gap-1">
             <label
               className="text-label text-fg-muted"
               htmlFor="analysis-degree"
@@ -776,13 +782,14 @@ function AnalysisDefinitionControls({
             <Select
               id="analysis-degree"
               aria-label="Polynomial degree"
+              size="sm"
               value={String(definition.degree ?? 1)}
               onChange={(e) =>
                 onChange({
                   degree: Math.max(1, Number(e.target.value) || 1),
                 })
               }
-              className="h-8 bg-surface"
+              className="bg-surface"
             >
               {Array.from({ length: MAX_DEGREE }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>
@@ -791,7 +798,7 @@ function AnalysisDefinitionControls({
               ))}
             </Select>
           </div>
-          <div className="min-w-32">
+          <div className="flex min-w-32 flex-col gap-1">
             <label
               className="text-label text-fg-muted"
               htmlFor="analysis-y-transform"
@@ -801,16 +808,17 @@ function AnalysisDefinitionControls({
             <Select
               id="analysis-y-transform"
               aria-label="Outcome transform"
+              size="sm"
               value={definition.outcomeTransform ?? ''}
               onChange={(e) => setTransform('outcomeTransform', e.target.value)}
-              className="h-8 bg-surface"
+              className="bg-surface"
             >
               <option value="">None</option>
               <option value="log10">log₁₀</option>
               <option value="ln">ln</option>
             </Select>
           </div>
-          <div className="min-w-32">
+          <div className="flex min-w-32 flex-col gap-1">
             <label
               className="text-label text-fg-muted"
               htmlFor="analysis-x-transform"
@@ -820,18 +828,19 @@ function AnalysisDefinitionControls({
             <Select
               id="analysis-x-transform"
               aria-label="Predictor transform"
+              size="sm"
               value={definition.predictorTransform ?? ''}
               onChange={(e) =>
                 setTransform('predictorTransform', e.target.value)
               }
-              className="h-8 bg-surface"
+              className="bg-surface"
             >
               <option value="">None</option>
               <option value="log10">log₁₀</option>
               <option value="ln">ln</option>
             </Select>
           </div>
-          <div className="min-w-36 flex-1">
+          <div className="flex min-w-36 flex-1 flex-col gap-1">
             <label
               className="text-label text-fg-muted"
               htmlFor="analysis-regression-group"
@@ -841,9 +850,10 @@ function AnalysisDefinitionControls({
             <Select
               id="analysis-regression-group"
               aria-label="Regression grouping column"
+              size="sm"
               value={bindingValue(definition.group)}
               onChange={(e) => setBinding('group', e.target.value, false)}
-              className="h-8 bg-surface"
+              className="bg-surface"
             >
               <option value="">(one fit)</option>
               {columnOptions(category)}
@@ -1278,7 +1288,7 @@ function SavedDefinitionsList({
               aria-label={`Delete ${saved.name}`}
               onClick={() => onDelete(saved)}
             >
-              <Trash2 />
+              <Trash2 className="size-3.5" aria-hidden />
             </Button>
           </span>
         </li>

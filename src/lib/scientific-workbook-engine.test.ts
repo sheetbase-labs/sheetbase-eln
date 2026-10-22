@@ -1,5 +1,10 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import {
+  SHEETBASE_TABLE_ENGINE_VERSION,
+  SHEETBASE_PROFILE_FINGERPRINT,
+} from './formula-profile'
 
 import { buildPersistedFormulaArtifact, parseFormula } from './formula-ir'
 import {
@@ -16,6 +21,20 @@ import type { WorkbookTable } from './scientific-workbook'
  */
 
 const tableId = '11111111-1111-4111-8111-111111111111'
+it('records the installed engine without relabelling historical semantic profiles', () => {
+  const manifest = JSON.parse(
+    readFileSync(
+      new URL(
+        '../../node_modules/@sheetbase-labs/sheetbase-table/package.json',
+        import.meta.url,
+      ),
+      'utf8',
+    ),
+  )
+  expect(SHEETBASE_TABLE_ENGINE_VERSION).toBe(manifest.version)
+  expect(SHEETBASE_PROFILE_FINGERPRINT).toBe('fnv1a32-dcfa915f')
+})
+
 const rowIds = [
   '21111111-1111-4111-8111-111111111111',
   '21111111-1111-4111-8111-111111111112',

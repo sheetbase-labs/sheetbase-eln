@@ -72,7 +72,7 @@ export function validateArtifactImageMetadata(
 }
 
 export type DeploymentStep =
-  | { name: 'migrate' | 'rollout'; command: string }
+  | { name: 'backup' | 'migrate' | 'rollout'; command: string }
   | {
       name: 'readiness'
       command: string
@@ -110,6 +110,11 @@ export function buildDeploymentPlan(
     'docker compose -f compose.deploy.yaml' +
     (input.pythonImages ? ' -f compose.pipeline-python.yaml' : '')
   return [
+    {
+      name: 'backup',
+      command:
+        'node --import tsx scripts/backup.ts (complete database + objects required)',
+    },
     { name: 'migrate', command: `${compose} run --rm migrate` },
     {
       name: 'rollout',

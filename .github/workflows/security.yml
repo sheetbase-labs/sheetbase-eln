@@ -10,14 +10,12 @@
 
 name: Security
 
-# Automatic triggers disabled to save Actions minutes; uncomment to restore.
-# on:
-#   push:
-#     branches: [main]
-#   schedule:
-#     # Weekly, Monday 06:20 UTC — picks up newly published advisories.
-#     - cron: '20 6 * * 1'
 on:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, Monday 06:20 UTC, for newly published advisories.
+    - cron: '20 6 * * 1'
   workflow_dispatch:
 
 permissions:

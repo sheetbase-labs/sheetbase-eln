@@ -38,7 +38,8 @@ export function SnapshotSourceBanner({
         {version
           ? ` (${version.rowCount} rows, ${version.createdAt.slice(0, 10)})`
           : ''}
-        . These rows do not change when the dataset does.
+        . These rows do not change when the dataset does. All snapshot values
+        are included; flags do not exclude rows.
       </span>
       <Button type="button" size="sm" variant="quiet" onClick={onUseLive}>
         Use live data

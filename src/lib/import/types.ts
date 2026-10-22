@@ -14,12 +14,17 @@ export interface ImportValueFlag {
 export interface ImportMappingEntry {
   source: string
   fieldId: string | null
+  /** Target storage unit, retained for the mapping receipt. */
   unit: string | null
+  /** Explicit unit of the original file values. Not inferred from `unit`. */
+  sourceUnit?: string | null
 }
 
 /** The saved/shared mapping document stored on `api.parser_mappings`. */
 export interface ImportMappingDocument {
   sources: ImportMappingEntry[]
+  /** Interpretation of the retained bytes, frozen with the receipt. */
+  sheetName?: string
 }
 
 export interface ImportParserSummary {

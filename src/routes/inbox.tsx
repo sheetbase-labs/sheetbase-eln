@@ -11,6 +11,7 @@ import { toast } from '#/components/v3/ui/sonner'
 import { notebookDataClient } from '#/lib/notebook-data'
 
 import { Button } from '#/components/v3/ui/button'
+import { LoadMore } from '#/components/v3/ui/load-more'
 import { Dot, Status } from '#/components/v3/ui/status'
 import type { Tone } from '#/components/v3/ui/status'
 import {
@@ -28,15 +29,10 @@ import {
 import { resolveRunForWorkItem } from '#/components/v3/pipelines/pipelines-data'
 import { listShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
-import {
-  fetchSeenItemKeys,
-  groupWorkItems,
-  useWorkItems,
-  workItemsQueryKeys,
-} from '#/lib/work-items/data'
+import { groupWorkItems, useInboxPage } from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
 import { itemLink } from '#/lib/work-items/destination'
-import { itemKey, itemTab, workItemType } from '#/lib/work-items/predicate'
+import { itemKey } from '#/lib/work-items/predicate'
 import type { InboxTab, WorkItemType } from '#/lib/work-items/predicate'
 
 type InboxType = WorkItemType
@@ -201,11 +197,12 @@ export function reviewNeedsLargerScreen(item: WorkItem): boolean {
 }
 
 function Inbox() {
-  const query = useWorkItems()
-  const items = query.data ?? []
   const search = useSearch({ from: '/inbox' })
-  const [tab, setTab] = useState<InboxTab>(search.tab ?? 'needs-action')
-  const [type, setType] = useState<InboxType | undefined>(search.type)
+  const tab = search.tab ?? 'needs-action'
+  const type = search.type
+  const query = useInboxPage(tab, type)
+  const page = query.data?.pages.at(0)
+  const items = query.data?.pages.flatMap((p) => p.items) ?? []
   // QA3-lists-inbox-2 — `later` is the person's explicit choice: null means
   // "follow the default", which expands the bucket when it holds every row the
   // tab would render. A tab whose items are all undated then shows its rows
@@ -217,12 +214,6 @@ function Inbox() {
   )
   const [selection, setSelection] = useState<Set<string>>(() => new Set())
 
-  // A chip on Home links to /inbox?type=… — follow the URL when it changes on
-  // an already-mounted page, not only on first mount.
-  useEffect(() => {
-    if (search.tab) setTab(search.tab)
-    setType(search.type)
-  }, [search.tab, search.type])
   // Back and Forward move the selection with the address.
   useEffect(() => {
     setSelectedKeyState(search.item ?? null)
@@ -230,16 +221,9 @@ function Inbox() {
 
   const queryClient = useQueryClient()
   const router = useRouter()
-  const seenQuery = useQuery({
-    queryKey: workItemsQueryKeys.seen(),
-    queryFn: () => fetchSeenItemKeys(),
-    staleTime: 15_000,
-  })
-  const seen = seenQuery.data ?? new Set<string>()
 
   const groups = useMemo(() => groupWorkItems(items), [items])
-  const inTab = items.filter((i) => itemTab(i, seen) === tab)
-  const visible = inTab.filter((i) => !type || workItemType(i.kind) === type)
+  const visible = items
   const visibleKeys = useMemo(
     () => new Set(visible.map((i) => itemKey(i))),
     [visible],
@@ -253,9 +237,7 @@ function Inbox() {
   const shown = visible.filter(
     (i) => laterExpanded || !groups.later.includes(i),
   )
-  const hiddenLater = groups.later.filter(
-    (i) => itemTab(i, seen) === tab && (!type || workItemType(i.kind) === type),
-  ).length
+  const hiddenLater = groups.later.length
   const sections: [string | null, WorkItem[]][] = useMemo(
     () =>
       tab === 'needs-action'
@@ -291,19 +273,13 @@ function Inbox() {
   const selectedSeenKeys = useMemo(
     () =>
       orderedRows
-        .filter(
-          (item) =>
-            selection.has(rowKey(item)) &&
-            itemTab(item, seen) === 'needs-action',
-        )
+        .filter((item) => selection.has(rowKey(item)) && tab === 'needs-action')
         .map(itemKey),
-    [orderedRows, selection, seen],
+    [orderedRows, selection, tab],
   )
 
-  const tabCount = (t: InboxTab) =>
-    items.filter((i) => itemTab(i, seen) === t).length
-  const typeCount = (t: InboxType) =>
-    inTab.filter((i) => workItemType(i.kind) === t).length
+  const tabCount = (t: InboxTab) => page?.tabs[t] ?? 0
+  const typeCount = (t: InboxType) => page?.types[t] ?? 0
   const typeLabel = type
     ? (types.find(([t]) => t === type)?.[1] ?? type)
     : undefined
@@ -311,16 +287,15 @@ function Inbox() {
   // QA2-Inbox-2: while the read is outstanding the counts are unknown, not
   // zero. Stating 0 made the page disagree with the sidebar and hid the fact
   // that nothing had answered yet.
-  const countsKnown = !query.isLoading
+  const countsKnown = Boolean(page)
 
   // QA3-inbox-1 — "Mark all seen" acts on the items the current tab and type
   // chip show, not on every needs-action item. On Following and Done today
   // there is nothing of the sort on screen, and a type chip narrows the list,
   // so marking the rest reported success for work the person could not see.
   const markableKeys = useMemo(
-    () =>
-      visible.filter((i) => itemTab(i, seen) === 'needs-action').map(itemKey),
-    [visible, seen],
+    () => (tab === 'needs-action' ? visible.map(itemKey) : []),
+    [visible, tab],
   )
 
   // SHELL-03.3 — the List scope through the single shortcut registry. The
@@ -369,8 +344,6 @@ function Inbox() {
     [navigate],
   )
   const selectTab = (next: InboxTab) => {
-    setTab(next)
-    setType(undefined)
     setLater(null)
     updateSearch({
       tab: next === 'needs-action' ? undefined : next,
@@ -379,7 +352,6 @@ function Inbox() {
     })
   }
   const selectType = (next: InboxType | undefined) => {
-    setType(next)
     updateSearch({ type: next })
   }
 
@@ -478,7 +450,7 @@ function Inbox() {
                 disabled={markSeen.isPending || markableKeys.length === 0}
                 onClick={() => markSeen.mutate(markableKeys)}
               >
-                Mark all seen
+                {query.hasNextPage ? 'Mark loaded seen' : 'Mark all seen'}
               </Button>
             </>
           }
@@ -561,7 +533,7 @@ function Inbox() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          {query.isError ? (
+          {query.isError && !page ? (
             <div
               role="alert"
               className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
@@ -718,6 +690,23 @@ function Inbox() {
             >
               Later · {hiddenLater} items
             </button>
+          ) : null}
+          {page ? (
+            <LoadMore
+              label="Inbox pages"
+              hasMore={Boolean(query.hasNextPage)}
+              loading={query.isFetchingNextPage}
+              error={
+                query.isFetchNextPageError
+                  ? 'Could not load more items.'
+                  : undefined
+              }
+              onLoadMore={() => void query.fetchNextPage()}
+              loaded={items.length}
+              total={page.total}
+              noun="items"
+              className="px-4 py-3 md:px-6"
+            />
           ) : null}
         </div>
       </div>

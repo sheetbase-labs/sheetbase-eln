@@ -1,5 +1,8 @@
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { z } from 'zod'
+import { verifyBackupSet } from './backup-io'
 
 import { validateDeploymentConfig } from '../src/lib/deployment-config'
 import {
@@ -144,6 +147,12 @@ if (mode !== '--plan' && mode !== '--apply') {
 process.stdout.write(`${JSON.stringify({ mode, plan }, null, 2)}\n`)
 if (mode === '--plan') process.exit(0)
 
+// Keep the database container, object volume and Compose rollout on one project.
+process.env.COMPOSE_PROJECT_NAME =
+  process.env.SHEETBASE_COMPOSE_PROJECT ??
+  process.env.COMPOSE_PROJECT_NAME ??
+  'sheetbase-deploy'
+
 function compose(args: string[]) {
   const result = spawnSync('docker', ['compose', ...composeFiles, ...args], {
     stdio: 'inherit',
@@ -167,6 +176,43 @@ function isolateFailedRollout() {
   }
 }
 
+// A fresh complete set is mandatory, not an age check of an unrelated nightly
+// backup. Plan stays read-only; release.sh and manual Actions share this gate.
+const backupStarted = Date.now()
+const backup = spawnSync(
+  process.execPath,
+  ['--import', 'tsx', 'scripts/backup.ts'],
+  {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+    env: {
+      ...process.env,
+      SHEETBASE_BACKUP_LOCAL: 'false',
+      SHEETBASE_BACKUP_INCLUDE_OBJECTS: 'true',
+    },
+  },
+)
+if (backup.status !== 0)
+  throw new Error('pre-migration backup failed; migration was not started')
+const backupResult = z
+  .object({ manifestPath: z.string() })
+  .parse(JSON.parse(backup.stdout.trim()))
+const backupSet = await verifyBackupSet(backupResult.manifestPath)
+if (
+  Date.parse(backupSet.manifest.startedAt) < backupStarted ||
+  Date.parse(backupSet.manifest.finishedAt) > Date.now()
+)
+  throw new Error('pre-migration backup was not produced by this deployment')
+if (
+  resolve(backupResult.manifestPath) !==
+  join(
+    resolve(process.env.SHEETBASE_BACKUP_DIR ?? '/opt/sheetbase/backups'),
+    `${backupSet.manifest.prefix}-manifest.json`,
+  )
+)
+  throw new Error(
+    'pre-migration backup manifest is outside the configured store',
+  )
 compose(['run', '--rm', 'migrate'])
 try {
   compose([
@@ -219,7 +265,7 @@ for (let attempt = 1; attempt <= 12; attempt += 1) {
   } catch {
     // Retry during the bounded rollout window; final failure is explicit.
   }
-  await new Promise((resolve) => setTimeout(resolve, 5000))
+  await new Promise((done) => setTimeout(done, 5000))
 }
 if (!evidence) {
   isolateFailedRollout()
@@ -235,6 +281,10 @@ process.stdout.write(
       environment: deployment.environment,
       artifact: deployment.artifact,
       expectedMigration: deployment.expectedMigration,
+      backup: {
+        prefix: backupSet.manifest.prefix,
+        finishedAt: backupSet.manifest.finishedAt,
+      },
       readiness: evidence,
     },
     null,

@@ -214,6 +214,13 @@ export function ChartRenderer({
               {materialised.sampling.analysisCount} observations.
             </p>
           ) : null}
+          {frozen || spec?.datasets[0]?.datasetVersionId ? (
+            <p role="status" className="mt-1 text-xs text-muted-foreground">
+              {frozen?.exclusionPolicy === 'exclude_bound_fields'
+                ? 'Flag policy: exclude rows flagged on chart fields, using the flags captured in the Dataset Version.'
+                : 'Flag policy: include all snapshot values.'}
+            </p>
+          ) : null}
           {materialised.fit ? (
             <p className="mt-1 text-xs text-muted-foreground">
               {materialised.fit.error

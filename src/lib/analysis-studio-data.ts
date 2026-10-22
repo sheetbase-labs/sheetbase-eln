@@ -19,7 +19,7 @@ import {
   fetchDatasetSummaries,
   datasetExplorerDataClient,
 } from './dataset-explorer-data'
-import { chartUsedFieldIds } from './chart-data'
+import { chartUsedFieldIds, SCI_ANALYSIS_ROW_LIMIT } from './chart-data'
 import { isDuplicateLinkError } from './scientific-records'
 import type { CanonicalDatasetSource } from './chart-data'
 import { filterRowsByFlags } from './dataset-flags'
@@ -45,12 +45,12 @@ export type { FacetedResult }
 //
 // The studio confines interactive analysis to these limits so a browser
 // session never builds an unbounded query. The hard row ceiling matches the
-// `query_dataset` / scientific-table read ceiling; results beyond it are
+// canonical live/frozen analysis reader; results beyond it are
 // surfaced as an explicit excessive-size state rather than rendered silently.
 
 export const ANALYSIS_MAX_FILTERS = 8
 export const ANALYSIS_MAX_TRANSFORMATIONS = 4
-export const ANALYSIS_MAX_RESULT_ROWS = 5000
+export const ANALYSIS_MAX_RESULT_ROWS = SCI_ANALYSIS_ROW_LIMIT
 
 export const analysisStudioDataClient = createDataClient()
 

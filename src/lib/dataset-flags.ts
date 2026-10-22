@@ -304,8 +304,10 @@ export interface RequestRepeatInput {
 }
 
 export interface RequestRepeatResult {
-  sample: Record<string, unknown>
+  sample: { id: string; identifier: string }
+  datasetId: string
   plannedRowIds: string[]
+  plannedRows: { id: string; plannedKey: string }[]
   idempotent: boolean
 }
 

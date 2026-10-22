@@ -13,6 +13,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AnalysisPanel, AnalysisResultTable } from './analysis-panel'
@@ -23,10 +24,10 @@ import type * as definitionsData from '#/lib/analysis-definitions-data'
 import {
   deleteAnalysisDefinition,
   fetchAnalysisDefinitions,
+  saveAnalysisDefinition,
 } from '#/lib/analysis-definitions-data'
 import type * as chartData from '#/lib/chart-data'
-import { fetchCanonicalDataset, fetchDatasetRows } from '#/lib/chart-data'
-import type * as flagsModule from '#/lib/dataset-flags'
+import { resolveDatasetRef } from '#/lib/chart-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
@@ -34,17 +35,8 @@ vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
   return {
     ...actual,
     fetchAnalysisDefinitions: vi.fn(),
-    saveAnalysisDefinition: vi
-      .fn()
-      .mockResolvedValue({ id: 'saved', version: 1 }),
+    saveAnalysisDefinition: vi.fn(),
     deleteAnalysisDefinition: vi.fn().mockResolvedValue(undefined),
-  }
-})
-vi.mock('#/lib/dataset-flags', async (importOriginal) => {
-  const actual = await importOriginal<typeof flagsModule>()
-  return {
-    ...actual,
-    fetchActiveDatasetFlags: vi.fn().mockResolvedValue([]),
   }
 })
 vi.mock('#/lib/chart-data', async (importOriginal) => {
@@ -52,14 +44,12 @@ vi.mock('#/lib/chart-data', async (importOriginal) => {
   return {
     ...actual,
     sciDataClient: {} as never,
-    fetchCanonicalDataset: vi.fn(),
-    fetchDatasetRows: vi.fn(),
+    resolveDatasetRef: vi.fn(),
   }
 })
 
 const mockFetchDefinitions = vi.mocked(fetchAnalysisDefinitions)
-const mockFetchDataset = vi.mocked(fetchCanonicalDataset)
-const mockFetchRows = vi.mocked(fetchDatasetRows)
+const mockResolveDataset = vi.mocked(resolveDatasetRef)
 
 const FIELD_TIME = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa01'
 const FIELD_RECOVERY = 'aaaaaaaa-aaaa-1aaa-8aaa-aaaaaaaaaa02'
@@ -89,10 +79,24 @@ function wrapper() {
 }
 
 beforeEach(() => {
+  vi.mocked(saveAnalysisDefinition).mockImplementation(
+    async (_client, input, workspaceId, userId) => ({
+      id: input.id ?? 'saved',
+      workspace_id: workspaceId,
+      owner_user_id: userId,
+      name: input.name,
+      definition: input.definition,
+      source_revisions: input.source_revisions,
+      version: 1,
+      created_at: '',
+      updated_at: '',
+    }),
+  )
   mockFetchDefinitions.mockResolvedValue([])
-  mockFetchDataset.mockResolvedValue(DATASET)
   // Rows are keyed by stable field_id, exactly as query_dataset_rows returns.
-  mockFetchRows.mockResolvedValue({
+  mockResolveDataset.mockResolvedValue({
+    source: DATASET,
+    flags: [],
     rows: [
       { [FIELD_TIME]: 0, [FIELD_RECOVERY]: 100, [FIELD_CONDITION]: '4C' },
       { [FIELD_TIME]: 24, [FIELD_RECOVERY]: 90, [FIELD_CONDITION]: '4C' },
@@ -133,6 +137,67 @@ async function runDescriptive() {
 }
 
 describe('AnalysisPanel', () => {
+  it('authors and saves against the examined snapshot schema and revision', async () => {
+    const snapshotId = '22222222-2222-4222-8222-222222222222'
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(['dataset-version-summaries', DATASET.datasetId], [])
+    client.setQueryData(
+      ['analysis-definition-rows', DATASET.datasetId, snapshotId],
+      {
+        source: {
+          ...DATASET,
+          revision: 2,
+          schemaVersionNumber: 3,
+          columns: [
+            {
+              id: FIELD_RECOVERY,
+              label: 'Original recovery',
+              logicalType: 'decimal',
+            },
+          ],
+        },
+        rows: [{ [FIELD_RECOVERY]: 7 }, { [FIELD_RECOVERY]: 13 }],
+        flags: [],
+        truncated: false,
+        totalCount: 2,
+      },
+    )
+    render(
+      <QueryClientProvider client={client}>
+        <AnalysisPanel
+          datasets={[DATASET]}
+          workspaceId="ws-1"
+          userId="user-1"
+          initialDatasetId={DATASET.datasetId}
+          initialSnapshotId={snapshotId}
+        />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: /Descriptive \/ ANOVA/i }),
+    )
+    expect(
+      screen.getByRole('option', { name: 'Original recovery' }),
+    ).toBeTruthy()
+    expect(
+      screen.getByLabelText<HTMLSelectElement>('Measured value column').value,
+    ).toBe(FIELD_RECOVERY)
+    fireEvent.change(screen.getByLabelText('Analysis name'), {
+      target: { value: 'Original recovery' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }))
+    await waitFor(() => expect(saveAnalysisDefinition).toHaveBeenCalledOnce())
+    const input = vi.mocked(saveAnalysisDefinition).mock.calls[0][1]
+    expect(input.definition.datasets).toEqual([
+      { datasetId: DATASET.datasetId, datasetVersionId: snapshotId },
+    ])
+    expect(input.source_revisions).toEqual([
+      { datasetId: DATASET.datasetId, revision: 2, schemaVersionNumber: 3 },
+    ])
+  })
+
   it('runs a grouped descriptive analysis against live rows', async () => {
     await runDescriptive()
     // Groups appear in codepoint-sorted order with computed statistics.
@@ -167,8 +232,83 @@ describe('AnalysisPanel', () => {
     expect(select.value).toBe('')
   })
 
+  it('synchronises studio source changes without losing a loaded snapshot', async () => {
+    const other = { ...DATASET, datasetId: 'other', name: 'Other dataset' }
+    const snapshotId = '22222222-2222-4222-8222-222222222222'
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    client.setQueryData(['dataset-version-summaries', DATASET.datasetId], [])
+    mockFetchDefinitions.mockResolvedValue([
+      {
+        id: 'pinned',
+        workspace_id: 'ws-1',
+        owner_user_id: 'user-1',
+        name: 'Pinned recovery',
+        definition: {
+          definitionVersion: 1,
+          kind: 'descriptive',
+          datasets: [
+            { datasetId: DATASET.datasetId, datasetVersionId: snapshotId },
+          ],
+          value: { fieldId: FIELD_RECOVERY },
+        },
+        source_revisions: [],
+        version: 1,
+        created_at: '',
+        updated_at: '',
+      },
+    ])
+    function Studio() {
+      const [source, setSource] = useState(other.datasetId)
+      return (
+        <QueryClientProvider client={client}>
+          <label>
+            Studio source
+            <select
+              value={source}
+              onChange={(event) => setSource(event.target.value)}
+            >
+              {[DATASET, other].map((dataset) => (
+                <option key={dataset.datasetId} value={dataset.datasetId}>
+                  {dataset.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <AnalysisPanel
+            datasets={[DATASET, other]}
+            workspaceId="ws-1"
+            userId="user-1"
+            initialDatasetId={source}
+            onDatasetChange={setSource}
+          />
+        </QueryClientProvider>
+      )
+    }
+    render(<Studio />)
+    const studio = screen.getByLabelText<HTMLSelectElement>('Studio source')
+    const panel = screen.getByLabelText<HTMLSelectElement>('Analysis dataset')
+    fireEvent.click(await screen.findByRole('button', { name: 'Load' }))
+    await waitFor(() => expect(studio.value).toBe(DATASET.datasetId))
+    expect(panel.value).toBe(DATASET.datasetId)
+    expect(screen.getByText(/Reading snapshot/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Update' })).toBeTruthy()
+
+    fireEvent.change(panel, { target: { value: other.datasetId } })
+    expect(studio.value).toBe(other.datasetId)
+    expect(screen.queryByText(/Reading snapshot/)).toBeNull()
+    expect(screen.queryByLabelText('Measured value column')).toBeNull()
+
+    fireEvent.change(studio, { target: { value: DATASET.datasetId } })
+    await waitFor(() => expect(panel.value).toBe(DATASET.datasetId))
+    expect(screen.queryByText(/Reading snapshot/)).toBeNull()
+  })
+
   it('surfaces an honest execution error for an empty dataset', async () => {
-    mockFetchRows.mockResolvedValue({
+    mockResolveDataset.mockResolvedValue({
+      source: DATASET,
+      flags: [],
       rows: [],
       totalCount: 0,
       truncated: false,
@@ -178,7 +318,23 @@ describe('AnalysisPanel', () => {
     expect(alert.textContent).toMatch(/dataset has no rows/i)
   })
 
-  it('enables saving only with a name and persists through the data layer', async () => {
+  it('shows a changed-source error instead of presenting scientific results', async () => {
+    mockResolveDataset.mockRejectedValue(
+      new Error('Dataset changed while loading; reload before analysing'),
+    )
+    renderPanel()
+    fireEvent.change(screen.getByLabelText('Analysis dataset'), {
+      target: { value: DATASET.datasetId },
+    })
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /Dataset changed/,
+    )
+    expect(
+      screen.queryByRole('table', { name: 'Descriptive statistics per group' }),
+    ).toBeNull()
+  })
+
+  it('adopts a saved analysis immediately for citation and subsequent updates', async () => {
     await runDescriptive()
     const save = screen.getByRole('button', {
       name: /^Save$/,
@@ -189,9 +345,17 @@ describe('AnalysisPanel', () => {
     })
     expect(save.hasAttribute('disabled')).toBe(false)
     fireEvent.click(save)
-    const { saveAnalysisDefinition } =
-      await import('#/lib/analysis-definitions-data')
     await waitFor(() => expect(saveAnalysisDefinition).toHaveBeenCalledOnce())
+    expect(
+      await screen.findByRole('button', { name: /Cite in a notebook/ }),
+    ).toBeTruthy()
+    expect(screen.getByText('median')).toBeTruthy()
+    expect(
+      screen.getByLabelText<HTMLSelectElement>('Analysis dataset').value,
+    ).toBe(DATASET.datasetId)
+    fireEvent.click(screen.getByRole('button', { name: /^Update$/ }))
+    await waitFor(() => expect(saveAnalysisDefinition).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(saveAnalysisDefinition).mock.calls[1][1].id).toBe('saved')
   })
 
   it('lists saved analyses and loads one back into the editor', async () => {

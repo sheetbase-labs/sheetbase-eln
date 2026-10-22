@@ -351,6 +351,7 @@ export async function findMatchingSubscriptions(
   workspaceId: string,
   eventType: string,
   connectionString: string = env.DATABASE_URL,
+  eventCreatedAt?: string,
 ): Promise<WebhookSubscriptionRow[]> {
   const client = new Client({ connectionString })
   await client.connect()
@@ -359,8 +360,9 @@ export async function findMatchingSubscriptions(
       `SELECT id, workspace_id, key, url, event_types, max_retries,
               failure_threshold, status, rate_limit_per_minute
          FROM api.webhook_subscriptions
-        WHERE workspace_id = $1 AND status = 'active'`,
-      [workspaceId],
+        WHERE workspace_id = $1 AND status = 'active'
+          AND ($2::timestamptz IS NULL OR created_at <= $2)`,
+      [workspaceId, eventCreatedAt ?? null],
     )
     return rows.filter((sub) => matchesFilter(eventType, sub.event_types))
   } finally {
@@ -475,9 +477,10 @@ export async function recordDeliveryResult(
   attempt: number,
   maxRetries: number,
   connectionString: string = env.DATABASE_URL,
+  transaction?: Client,
 ): Promise<void> {
-  const client = new Client({ connectionString })
-  await client.connect()
+  const client = transaction ?? new Client({ connectionString })
+  if (!transaction) await client.connect()
   try {
     if (result.success) {
       await client.query(
@@ -516,7 +519,7 @@ export async function recordDeliveryResult(
       )
     }
   } finally {
-    await client.end()
+    if (!transaction) await client.end()
   }
 }
 
@@ -545,34 +548,11 @@ export async function countRecentAttempts(
          FROM api.webhook_deliveries
         WHERE subscription_id = $1
           AND updated_at > now() - interval '1 minute'
+          AND (attempt > 0 OR status = 'delivered')
           AND ($2 OR id <> $3)`,
       [subscriptionId, includeSelf, excludeDeliveryId],
     )
     return rows[0].n
-  } finally {
-    await client.end()
-  }
-}
-
-/**
- * Defer a delivery by pushing its next attempt forward. The row stays
- * pending/retrying — deferred work is never dropped, only delayed.
- */
-export async function deferDelivery(
-  workspaceId: string,
-  deliveryId: string,
-  delayMs: number,
-  connectionString: string = env.DATABASE_URL,
-): Promise<void> {
-  const client = new Client({ connectionString })
-  await client.connect()
-  try {
-    await client.query(
-      `UPDATE api.webhook_deliveries
-          SET next_attempt_at = $3, updated_at = now()
-        WHERE id = $1 AND workspace_id = $2`,
-      [deliveryId, workspaceId, new Date(Date.now() + delayMs)],
-    )
   } finally {
     await client.end()
   }
@@ -584,7 +564,7 @@ export async function deferDelivery(
 
 /**
  * Process a single change event notification: find matching subscriptions,
- * create delivery records, and attempt immediate delivery.
+ * create delivery records. Only the transactional retry processor attempts HTTP.
  */
 export async function processChangeEvent(
   notification: NotificationPayload,
@@ -633,6 +613,7 @@ export async function processChangeEvent(
     eventRow.workspaceId,
     eventType,
     connectionString,
+    eventRow.createdAt,
   )
   if (subscriptions.length === 0) return
 
@@ -654,7 +635,7 @@ export async function processChangeEvent(
       const signature = signPayload(body, secret)
 
       // Create delivery record (idempotent — skips if one already exists).
-      const delivery = await createDeliveryRecord(
+      await createDeliveryRecord(
         sub.workspace_id,
         sub.id,
         eventRow.id,
@@ -664,61 +645,6 @@ export async function processChangeEvent(
         signature,
         connectionString,
       )
-
-      // Delivery already exists (catch-up race or duplicate notification).
-      if (!delivery) continue
-
-      // EVENT-02: per-endpoint rate budget. Over-budget attempts defer
-      // (retry sweep picks them up) instead of hitting the endpoint.
-      if (sub.rate_limit_per_minute) {
-        const recent = await countRecentAttempts(
-          sub.id,
-          delivery.id,
-          false,
-          connectionString,
-        )
-        if (recent >= sub.rate_limit_per_minute) {
-          await deferDelivery(
-            sub.workspace_id,
-            delivery.id,
-            60_000,
-            connectionString,
-          )
-          logger.info('webhook delivery deferred by rate limit', {
-            subscriptionId: sub.id,
-            deliveryId: delivery.id,
-            eventType,
-          })
-          continue
-        }
-      }
-
-      // Attempt immediate delivery (idempotency key = change_event id).
-      const result = await attemptDelivery(
-        sub.url,
-        body,
-        signature,
-        DELIVERY_TIMEOUT_MS,
-        3,
-        eventRow.id,
-      )
-      // Record the result.
-      await recordDeliveryResult(
-        sub.workspace_id,
-        delivery.id,
-        result,
-        0,
-        sub.max_retries,
-        connectionString,
-      )
-
-      logger.info('webhook delivery attempted', {
-        subscriptionId: sub.id,
-        deliveryId: delivery.id,
-        eventType,
-        success: result.success,
-        responseStatus: result.responseStatus,
-      })
     } catch (err) {
       logger.error('webhook delivery error', {
         subscriptionId: sub.id,
@@ -748,9 +674,15 @@ export async function processRetries(
   await client.connect()
   let processed = 0
   try {
-    // Fetch and lock deliveries ready for retry.
-    const { rows } = await client.query(
-      `SELECT d.id, d.workspace_id, d.subscription_id, d.change_event_id,
+    // Keep ownership through HTTP and settlement. A crashed worker rolls back,
+    // releasing its locks for recovery. Receivers must still deduplicate when an
+    // HTTP success precedes a lost connection/commit (at-least-once delivery).
+    // Each transaction owns one row so unrelated deliveries can commit without
+    // waiting for a whole batch's network requests.
+    for (let selected = 0; selected < batchSize; selected++) {
+      await client.query('BEGIN')
+      const { rows } = await client.query(
+        `SELECT d.id, d.workspace_id, d.subscription_id, d.change_event_id,
               d.event_type, d.payload, d.body, d.signature, d.attempt,
               d.status, d.next_attempt_at,
               s.url, s.max_retries, s.failure_threshold, s.status AS sub_status,
@@ -762,11 +694,14 @@ export async function processRetries(
           AND d.next_attempt_at <= now()
           AND s.status = 'active'
           ORDER BY d.next_attempt_at ASC
-        LIMIT $1
-        FOR UPDATE OF d SKIP LOCKED`,
-      [batchSize],
-    )
-    for (const row of rows) {
+        LIMIT 1
+        FOR UPDATE OF d, s SKIP LOCKED`,
+      )
+      const row = rows[0]
+      if (!row) {
+        await client.query('COMMIT')
+        break
+      }
       // EVENT-02: per-endpoint rate budget — defer over-budget retries
       // without attempting (the row's own last attempt counts, so a
       // just-failed delivery is not immediately re-attempted).
@@ -774,20 +709,23 @@ export async function processRetries(
         const recent = await countRecentAttempts(
           row.subscription_id,
           row.id,
-          true,
+          row.status !== 'pending',
           connectionString,
         )
         if (recent >= row.rate_limit_per_minute) {
-          await deferDelivery(
-            row.workspace_id,
-            row.id,
-            60_000,
-            connectionString,
+          await client.query(
+            `UPDATE api.webhook_deliveries
+                SET next_attempt_at = now() + interval '1 minute', updated_at = now()
+              WHERE id = $1`,
+            [row.id],
           )
+          await client.query('COMMIT')
           continue
         }
       }
-      const attempt = row.attempt + 1
+      // The result RPC increments attempt on failure; it is already the
+      // number of failed attempts, not a zero-based retry index to increment.
+      const attempt = row.attempt
       // Use the stored body text (byte-accurate with the original signature).
       // The idempotency key is the original change_event id.
       const result = await attemptDelivery(
@@ -806,9 +744,14 @@ export async function processRetries(
         attempt,
         row.max_retries,
         connectionString,
+        client,
       )
       processed++
+      await client.query('COMMIT')
     }
+  } catch (error) {
+    await client.query('ROLLBACK')
+    throw error
   } finally {
     await client.end()
   }
@@ -819,19 +762,21 @@ export async function processRetries(
 // LISTEN-based delivery engine.
 // ---------------------------------------------------------------------------
 
-/** How far back to look for unprocessed events on startup/reconnect. */
-const CATCHUP_LOOKBACK_INTERVAL = '24 hours'
 /** Maximum events to process during a single catch-up sweep. */
 const CATCHUP_BATCH_SIZE = 500
 /** Delay before reconnecting the LISTEN client after an error. */
 const RECONNECT_DELAY_MS = 5_000
 
 /**
- * Startup catch-up: process change_events that were emitted while the
- * delivery engine was down. Queries recent change_events that map to the
- * webhook surface and have no corresponding webhook_deliveries records.
+ * Reconcile all retained events since each subscription's creation. There is
+ * no age cutoff: outages older than 24 hours use this same repair path. Events
+ * before subscription creation are not historical subscriptions/backfills.
+ * Pages advance even for unsupported operations or missing signing secrets;
+ * those cannot starve later events and are reconsidered on the next sweep.
  */
-async function startupCatchup(connectionString: string): Promise<number> {
+export async function reconcileWebhookDeliveries(
+  connectionString: string = env.DATABASE_URL,
+): Promise<number> {
   const client = new Client({ connectionString })
   await client.connect()
   let processed = 0
@@ -851,39 +796,51 @@ async function startupCatchup(connectionString: string): Promise<number> {
       'notebook_template',
       'notebook_template_version',
     ]
-    const placeholders = entityTypes.map((_, i) => `$${i + 2}`).join(', ')
-    const { rows } = await client.query(
-      `SELECT ce.id, ce.workspace_id, ce.sequence, ce.entity_type, ce.operation
+    let afterSequence = '0'
+    let afterId = '00000000-0000-0000-0000-000000000000'
+    for (;;) {
+      const { rows } = await client.query(
+        `SELECT ce.id, ce.workspace_id, ce.sequence, ce.entity_type, ce.operation
          FROM api.change_events ce
-        WHERE ce.created_at > now() - $1::interval
-          AND ce.entity_type IN (${placeholders})
-          AND NOT EXISTS (
-            SELECT 1 FROM api.webhook_deliveries wd
-             WHERE wd.change_event_id = ce.id
+        WHERE (ce.sequence, ce.id) > ($1::bigint, $3::uuid)
+          AND ce.entity_type = ANY($2::text[])
+          AND EXISTS (
+            SELECT 1 FROM api.webhook_subscriptions s
+             WHERE s.workspace_id = ce.workspace_id AND s.status = 'active'
+               AND s.created_at <= ce.created_at
+               AND NOT EXISTS (
+                 SELECT 1 FROM api.webhook_deliveries wd
+                  WHERE wd.change_event_id = ce.id AND wd.subscription_id = s.id
+                    AND wd.replay_of_delivery_id IS NULL
+               )
           )
-        ORDER BY ce.sequence ASC
+        ORDER BY ce.sequence ASC, ce.id ASC
         LIMIT ${CATCHUP_BATCH_SIZE}`,
-      [CATCHUP_LOOKBACK_INTERVAL, ...entityTypes],
-    )
+        [afterSequence, entityTypes, afterId],
+      )
+      if (rows.length === 0) break
+      afterSequence = String(rows[rows.length - 1].sequence)
+      afterId = rows[rows.length - 1].id
 
-    for (const row of rows) {
-      try {
-        await processChangeEvent(
-          {
-            workspace_id: row.workspace_id,
-            sequence: Number(row.sequence),
-            id: row.id,
-            entity_type: row.entity_type,
-            operation: row.operation,
-          },
-          connectionString,
-        )
-        processed++
-      } catch (err) {
-        logger.error('webhook catch-up: error processing event', {
-          eventId: row.id,
-          error: err instanceof Error ? err.message : String(err),
-        })
+      for (const row of rows) {
+        try {
+          await processChangeEvent(
+            {
+              workspace_id: row.workspace_id,
+              sequence: Number(row.sequence),
+              id: row.id,
+              entity_type: row.entity_type,
+              operation: row.operation,
+            },
+            connectionString,
+          )
+          processed++
+        } catch (err) {
+          logger.error('webhook catch-up: error processing event', {
+            eventId: row.id,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
       }
     }
     if (processed > 0) {
@@ -899,7 +856,7 @@ async function startupCatchup(connectionString: string): Promise<number> {
  * Start the webhook delivery engine. Opens a LISTEN connection on
  * `sheetbase_change` and processes events as they are emitted.
  *
- * Before starting LISTEN, processes a startup catch-up of recent
+ * After starting LISTEN, reconciles retained
  * change_events that were emitted while the engine was down (durable
  * consumption by sequence). The LISTEN notification is a wake-up; the
  * durable event row in `change_events` is the source of truth.
@@ -928,12 +885,35 @@ export function startWebhookDeliveryEngine(
   let retryTimer: ReturnType<typeof setInterval> | null = null
   let stopped = false
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let draining: Promise<void> | null = null
+  let notifications = 0
+
+  async function drainPending(): Promise<void> {
+    let observed: number
+    do {
+      observed = notifications
+      await reconcileWebhookDeliveries(connectionString)
+      while (!stopped && (await processRetries(connectionString)) > 0) {
+        // Drain all due batches, not just the first 50 rows.
+      }
+    } while (!stopped && observed !== notifications)
+  }
+
+  function drain(): Promise<void> {
+    if (stopped) return Promise.resolve()
+    if (draining) return draining
+    draining = drainPending().finally(() => {
+      draining = null
+    })
+    return draining
+  }
 
   async function handleNotification(msg: { payload?: string }) {
     if (!msg.payload || stopped) return
     try {
-      const notification = JSON.parse(msg.payload) as NotificationPayload
-      await processChangeEvent(notification, connectionString)
+      // Notifications only wake the durable reconciliation path.
+      notifications++
+      await drain()
     } catch (err) {
       logger.error('webhook listen: error processing notification', {
         error: err instanceof Error ? err.message : String(err),
@@ -978,10 +958,9 @@ export function startWebhookDeliveryEngine(
           }
           listenClient = null
         }
-        // Catch up on events missed during the disconnection.
-        await startupCatchup(connectionString)
-        // Reconnect.
+        // LISTEN first, then repair the whole disconnected interval.
         await connectListener()
+        await drain()
       } catch (err) {
         logger.error('webhook reconnect failed', {
           error: err instanceof Error ? err.message : String(err),
@@ -992,18 +971,10 @@ export function startWebhookDeliveryEngine(
   }
 
   async function start() {
-    // Startup catch-up: process events missed while the engine was down.
-    try {
-      await startupCatchup(connectionString)
-    } catch (err) {
-      logger.error('webhook startup catch-up failed', {
-        error: err instanceof Error ? err.message : String(err),
-      })
-    }
-
     // Start LISTEN.
     try {
       await connectListener()
+      await drain()
     } catch (err) {
       logger.error('webhook LISTEN initial connect failed', {
         error: err instanceof Error ? err.message : String(err),
@@ -1011,14 +982,12 @@ export function startWebhookDeliveryEngine(
       scheduleReconnect()
     }
 
-    // Periodic retry processor.
+    if (stopped) return
+    // Periodic reconciliation and retry processor.
     retryTimer = setInterval(async () => {
       if (stopped) return
       try {
-        const n = await processRetries(connectionString)
-        if (n > 0) {
-          logger.info('webhook retry processor', { processed: n })
-        }
+        await drain()
       } catch (err) {
         logger.error('webhook retry processor error', {
           error: err instanceof Error ? err.message : String(err),
@@ -1033,6 +1002,8 @@ export function startWebhookDeliveryEngine(
     stopped = true
     if (retryTimer) clearInterval(retryTimer)
     if (reconnectTimer) clearTimeout(reconnectTimer)
+    await started.catch(() => {})
+    await draining?.catch(() => {})
     if (listenClient) {
       try {
         await listenClient.query('UNLISTEN sheetbase_change')
@@ -1053,7 +1024,7 @@ export function startWebhookDeliveryEngine(
   // Register synchronously before startup begins. Request middleware can call
   // this function again while the first asynchronous connection is opening.
   registry[WEBHOOK_ENGINE_STOP] = stop
-  void start()
+  const started = start()
 
   return stop
 }

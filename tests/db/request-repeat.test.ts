@@ -19,6 +19,7 @@ const PROJECT_B = '00000000-0000-4000-8000-00000000e0a3'
 const SCHEMA_DEF = '00000000-0000-4000-8000-00000000e0a4'
 const SCHEMA_VERSION = '00000000-0000-4000-8000-00000000e0a5'
 const FIELD = '00000000-0000-4000-8000-00000000e0a6'
+const SAMPLE_FIELD = '00000000-0000-4000-8000-00000000e0ac'
 const DATASET_A = '00000000-0000-4000-8000-00000000e0a7'
 const DATASET_B = '00000000-0000-4000-8000-00000000e0a8'
 const ROW_A = '00000000-0000-4000-8000-00000000e0a9'
@@ -65,15 +66,16 @@ beforeAll(async () => {
   )
   await migrator.query(
     `INSERT INTO api.dataset_schema_version_fields (id, schema_version_id, field_id, key, label, logical_type, nullable, display_order) VALUES
-      (gen_random_uuid(), '${SCHEMA_VERSION}', '${FIELD}', 'titre', 'Titre', 'decimal', true, 1)`,
+      (gen_random_uuid(), '${SCHEMA_VERSION}', '${FIELD}', 'titre', 'Titre', 'decimal', true, 1),
+      (gen_random_uuid(), '${SCHEMA_VERSION}', '${SAMPLE_FIELD}', 'sample', 'Sample', 'text', true, 2)`,
   )
   await migrator.query(
     `UPDATE api.dataset_schema_versions SET lifecycle = 'active', published_at = now() WHERE id = '${SCHEMA_VERSION}'`,
   )
   // Dataset A uses the rich schema; Dataset B is a minimal cross-workspace target.
   await migrator.query(
-    `INSERT INTO api.datasets (id, workspace_id, schema_version_id, name, primary_project_id) VALUES
-      ('${DATASET_A}', '${WS_A}', '${SCHEMA_VERSION}', 'Repeat A dataset', '${PROJECT_A}')`,
+    `INSERT INTO api.datasets (id, workspace_id, schema_version_id, name, primary_project_id, created_by_user_id) VALUES
+      ('${DATASET_A}', '${WS_A}', '${SCHEMA_VERSION}', 'Repeat A dataset', '${PROJECT_A}', '${MEMBER}')`,
   )
   await migrator.query(
     `INSERT INTO api.dataset_rows (id, dataset_id, workspace_id) VALUES ('${ROW_A}', '${DATASET_A}', '${WS_A}')`,
@@ -124,6 +126,8 @@ interface RepeatResult {
     properties: Record<string, unknown>
   }
   plannedRowIds: string[]
+  datasetId: string
+  plannedRows: { id: string; plannedKey: string }[]
   idempotent: boolean
 }
 
@@ -260,6 +264,135 @@ describe('api.request_repeat', () => {
   it('denies a viewer', async () => {
     const viewer = await asUser(VIEWER, WS_A)
     await expectDenied(requestRepeat(viewer), '42501')
+  })
+
+  it('hands a default-key repeat to the bench and fills its exact row once with the derived sample', async () => {
+    const member = await asUser(MEMBER, WS_A)
+    const repeat = await requestRepeat(member, {
+      scheduled: '2026-10-09T09:00:00Z',
+    })
+    expect(repeat.datasetId).toBe(DATASET_A)
+    expect(repeat.plannedRows).toEqual([
+      {
+        id: repeat.plannedRowIds[0],
+        plannedKey: `repeat:${repeat.sample.id}:1`,
+      },
+    ])
+    const plan = repeat.plannedRows[0]
+    const { rows: plans } = await member.query(
+      'SELECT * FROM api.reading_planned_rows WHERE id=$1',
+      [plan.id],
+    )
+    expect(plans[0]).toMatchObject({
+      planned_key: plan.plannedKey,
+      sample_id: repeat.sample.id,
+      measurement_field_id: FIELD,
+    })
+    const { rows: datasets } = await member.query(
+      'SELECT revision FROM api.datasets WHERE id=$1',
+      [DATASET_A],
+    )
+    const batch = JSON.stringify([
+      {
+        operation: 'create',
+        rowId: '00000000-0000-4000-8000-00000000e0ad',
+        plannedKey: plan.plannedKey,
+        values: { [FIELD]: 3.75, [SAMPLE_FIELD]: repeat.sample.identifier },
+      },
+    ])
+    const args = [
+      DATASET_A,
+      datasets[0].revision,
+      batch,
+      'repeat-bench-regression',
+    ]
+    const submit = () =>
+      member.query(
+        'SELECT api.commit_dataset_row_batch($1,$2,$3::jsonb,$4) result',
+        args,
+      )
+    const first = (await submit()).rows[0].result
+    expect(first).toMatchObject({
+      ok: true,
+      rows: [{ rowId: plan.id, operation: 'fill' }],
+    })
+    expect((await submit()).rows[0].result).toMatchObject({
+      ok: true,
+      idempotent: true,
+      rows: first.rows,
+    })
+    expect(
+      (
+        await member.query(
+          'SELECT * FROM api.reading_planned_rows WHERE id=$1',
+          [plan.id],
+        )
+      ).rows,
+    ).toEqual([])
+    const live = (
+      await member.query('SELECT api.dataset_value_context($1,$2) result', [
+        DATASET_A,
+        plan.id,
+      ])
+    ).rows[0].result
+    expect(live.rows).toEqual([
+      {
+        rowId: plan.id,
+        revision: 2,
+        values: { [FIELD]: 3.75, [SAMPLE_FIELD]: repeat.sample.identifier },
+      },
+    ])
+    for (const field of [FIELD, SAMPLE_FIELD]) {
+      await member.query(
+        "SELECT api.flag_dataset_value($1,$2,$3,'out_of_range','Check this exact value',NULL)",
+        [DATASET_A, plan.id, field],
+      )
+    }
+    const issues = (
+      await member.query(
+        "SELECT source_id,dataset_id,row_id,field_id FROM api.my_work_items WHERE source_type='dataset_value_flag'",
+      )
+    ).rows
+    expect(issues).toHaveLength(2)
+    expect(new Set(issues.map((issue) => issue.source_id)).size).toBe(2)
+    expect(issues).toEqual(
+      expect.arrayContaining(
+        [FIELD, SAMPLE_FIELD].map((field_id) =>
+          expect.objectContaining({
+            dataset_id: DATASET_A,
+            row_id: plan.id,
+            field_id,
+          }),
+        ),
+      ),
+    )
+    await member.query('SELECT api.mark_work_items_seen($1::text[])', [
+      [`data_issue:${issues[0].source_id}`],
+    ])
+    const remaining = (
+      await member.query(
+        "SELECT api.inbox_work_items_page('needs-action','data') result",
+      )
+    ).rows[0].result
+    expect(remaining.total).toBe(1)
+    expect(remaining.items[0].source_id).toBe(issues[1].source_id)
+    const outsider = await asUser(OUTSIDER, WS_B)
+    expect(
+      (
+        await outsider.query('SELECT api.dataset_value_context($1,$2) result', [
+          DATASET_A,
+          plan.id,
+        ])
+      ).rows[0].result,
+    ).toBeNull()
+    expect(
+      (
+        await outsider.query(
+          'SELECT * FROM api.reading_planned_rows WHERE dataset_id=$1',
+          [DATASET_A],
+        )
+      ).rows,
+    ).toEqual([])
   })
 
   it('denies a non-member and another workspace', async () => {

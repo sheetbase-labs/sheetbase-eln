@@ -54,10 +54,38 @@ port rather than relaxing the guard.
 While working a slice, run the file or files that cover it: the full database
 layer is for acceptance, not for every change.
 
-`pnpm test:parity` and `pnpm test:browser` are deferred until the end of the
-current programme: implementation slices are verified by the unit suite and the
-database files that cover them, and the visual and browser layers run once, at
-acceptance.
+CI now runs static checks, unit/component tests, the real PostgreSQL contract
+layer, a production build and the complete scientific workflow below. It uses
+disposable Compose services and never deploys. A configured workflow is not
+evidence that hosted Actions ran successfully. Preserve failure logs and report
+account or runner failures separately from local test results.
+
+Full visual-parity acceptance remains separate. The current registry maps 45
+screens and leaves 81 pending; the coverage gate must not be bypassed by changing
+its tolerance or excluding unaccepted states.
+
+## Complete scientific workflow
+
+After migrating and running `pnpm db:seed:design`, run:
+
+```bash
+pnpm exec playwright test tests/browser/journeys/complete-scientific-workflow.test.ts --project=browser --workers=1
+```
+
+The test creates a project, independent reviewer and experiment, imports 96 fresh
+observations through the UI, analyses the imported snapshot, saves and reloads
+the analysis, cites it in the notebook, submits it, approves and signs it as the
+reviewer, then reopens the frozen result. It asserts n = 96 and mean = 48.5 for
+observations 1 through 96. Those expectations do not use the analysis kernel.
+It retains a screenshot of the signed evidence and a trace on failure.
+
+Identity, workspace membership and a native Better Auth credential are trusted
+fixtures. Independent verification, certification, project membership and all
+scientific work use application operations. This test is not OAuth/IdP,
+email-enrolment, instrument hardware, full-population scale, whole-programme
+usability or production acceptance. The subsystem suites cover their separate
+contracts; human scientist observation and operator recovery drills still need
+their own evidence.
 
 ## Rules that apply at every layer
 

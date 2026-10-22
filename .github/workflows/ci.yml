@@ -1,254 +1,100 @@
-# Continuous integration: the merge gate made visible.
-#
-# Runs the repository's own quality gates (see AGENTS.md `pnpm validate`):
-# formatting, lint, typecheck, unit tests, database integration tests and a
-# production build. Database tests run against a postgres:18-alpine service
-# with the same role skeleton Compose provisions locally (migrator owns
-# migrations, authenticator fronts PostgREST); each suite rebuilds its own
-# disposable test database from drizzle files.
-#
-# Triggers on pull requests (all branches) and pushes to main. Browser
-# (Playwright) and API suites stay manual: they need a running server plus
-# seeded services and are too heavy/flaky for per-PR runs.
-
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
-  # Manual runs for debugging CI itself (branch selectable in the UI/API).
   workflow_dispatch:
+
 permissions:
   contents: read
-  # Read the private @sheetbase-labs/* packages from GitHub Packages.
   packages: read
 
-env:
-  # Non-secret placeholders so server-env validation passes at import and
-  # build time (mirrors deploy.yml verify). Unit tests mock or override
-  # whatever they actually exercise.
-  DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
-  FORMULA_DATABASE_URL: postgresql://formula_runtime:sheetbase-ci@localhost:5432/sheetbase
-  PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
-  BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
-  PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
-  # Reads the private @sheetbase-labs/* packages from GitHub Packages.
-  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   static:
     name: Format, lint and typecheck
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
+      FORMULA_DATABASE_URL: postgresql://formula_runtime:sheetbase-ci@localhost:5432/sheetbase
+      BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
+      PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
         with:
           version: 11.9.0
-
       - name: GitHub Packages auth
         run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm lint
+      - run: pnpm typecheck
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check formatting
-        run: pnpm check
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-# Disabled to save Actions minutes; uncomment to restore (unit, db, build, parity).
-# Only the static job above (format, lint, typecheck) runs for now.
-#   unit:
-#     name: Unit tests
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-#
-#       - name: Set up Node
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 22
-#
-#       - name: Install pnpm
-#         uses: pnpm/action-setup@v4
-#         with:
-#           version: 11.9.0
-#
-#       - name: GitHub Packages auth
-#         run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-#
-#       - name: Install dependencies
-#         run: pnpm install --frozen-lockfile
-#
-#       - name: Run unit tests
-#         run: pnpm test
-#
-#   db:
-#     name: Database integration tests
-#     runs-on: ubuntu-latest
-#     services:
-#       postgres:
-#         image: postgres:18-alpine
-#         env:
-#           POSTGRES_USER: sheetbase
-#           POSTGRES_PASSWORD: sheetbase-ci
-#           POSTGRES_DB: sheetbase
-#         ports:
-#           - 5432:5432
-#         options: >-
-#           --health-cmd="pg_isready -U sheetbase"
-#           --health-interval=10s
-#           --health-timeout=5s
-#           --health-retries=5
-#     env:
-#       DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
-#       MIGRATION_DATABASE_URL: postgresql://migrator:sheetbase-ci@localhost:5432/sheetbase
-#       PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
-#       BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
-#       PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-#
-#       - name: Set up Node
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 22
-#
-#       - name: Install pnpm
-#         uses: pnpm/action-setup@v4
-#         with:
-#           version: 11.9.0
-#
-#       - name: GitHub Packages auth
-#         run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-#
-#       - name: Install dependencies
-#         run: pnpm install --frozen-lockfile
-#
-#       - name: Bootstrap database roles
-#         env:
-#           POSTGRES_USER: sheetbase
-#           POSTGRES_DB: sheetbase
-#           POSTGREST_AUTHENTICATOR_PASSWORD: sheetbase-ci
-#           MIGRATOR_PASSWORD: sheetbase-ci
-#           FORMULA_WRITER_PASSWORD: sheetbase-ci
-#           PGHOST: localhost
-#           PGUSER: sheetbase
-#           PGPASSWORD: sheetbase-ci
-#         run: |
-#           sh docker/db/init/00-roles.sh
-#           psql -h localhost -U sheetbase -d sheetbase -c 'ALTER USER sheetbase CREATEDB'
-#
-#       - name: Run database tests
-#         run: pnpm test:db
-#
-#   build:
-#     name: Production build
-#     runs-on: ubuntu-latest
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-#
-#       - name: Set up Node
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 22
-#
-#       - name: Install pnpm
-#         uses: pnpm/action-setup@v4
-#         with:
-#           version: 11.9.0
-#
-#       - name: GitHub Packages auth
-#         run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-#
-#       - name: Install dependencies
-#         run: pnpm install --frozen-lockfile
-#
-#       - name: Build
-#         run: pnpm build
-#
-#   # DSYS-06: exact-parity gate. Renders the vendored design with the same
-#   # Chromium the parity project uses, seeds the design data, and compares each
-#   # migrated screen with its render. Pending coverage and visual differences
-#   # fail this job; neither is an accepted exception.
-#   parity:
-#     name: Visual parity
-#     runs-on: ubuntu-latest
-#     env:
-#       DATABASE_URL: postgresql://sheetbase:sheetbase-ci@localhost:5432/sheetbase
-#       MIGRATION_DATABASE_URL: postgresql://migrator:sheetbase-ci@localhost:5432/sheetbase
-#       PGRST_DB_URI: postgresql://authenticator:sheetbase-ci@localhost:5432/sheetbase
-#       BETTER_AUTH_SECRET: ci-only-placeholder-secret-value-32-chars-min
-#       PGRST_JWT_SECRET: ci-only-placeholder-secret-value-32-chars-min
-#       SHEETBASE_DEV_AUTH_FREE: 'false'
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-#
-#       - name: Set up Node
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 22
-#
-#       - name: Install pnpm
-#         uses: pnpm/action-setup@v4
-#         with:
-#           version: 11.9.0
-#
-#       - name: GitHub Packages auth
-#         run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-#
-#       - name: Install dependencies
-#         run: pnpm install --frozen-lockfile
-#
-#       - name: Start PostgreSQL and PostgREST
-#         run: docker compose -f compose.yaml up -d postgres postgrest
-#
-#       - name: Wait for PostgreSQL
-#         run: |
-#           for _ in $(seq 1 30); do
-#             if docker compose -f compose.yaml exec -T postgres pg_isready -U sheetbase >/dev/null 2>&1; then exit 0; fi
-#             sleep 2
-#           done
-#           echo "PostgreSQL did not become ready" >&2
-#           exit 1
-#
-#       - name: Migrate and seed the design data
-#         run: |
-#           pnpm db:migrate
-#           pnpm db:seed:design
-#
-#       - name: Install Chromium
-#         run: pnpm exec playwright install --with-deps chromium
-#
-#       - name: Render the design reference
-#         run: pnpm design:render
-#
-#       # Includes parity-drift.spec.ts: clean reference, +1px padding rejection,
-#       # then restored reference. No expected failures or tolerance override.
-#       - name: Run parity and one-pixel negative control
-#         run: pnpm exec playwright test --project=parity --reporter=list,./tests/visual/parity-reporter.ts
-#
-#       - name: Upload visual diffs and coverage
-#         if: always()
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: parity-diffs
-#           path: test-results/
-#           if-no-files-found: ignore
+  acceptance:
+    name: Tests, build and scientific workflow
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      SHEETBASE_DEV_AUTH_FREE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - name: GitHub Packages auth
+        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+      - run: pnpm install --frozen-lockfile
+      - name: Prepare disposable services
+        run: |
+          cp .env.example .env.local
+          cp .env.local .env.ci-compose
+          docker compose --env-file .env.ci-compose up -d --build --wait postgres postgrest
+          sed -i 's/@postgres:5432/@localhost:5432/' .env.local
+      - name: Unit and component tests
+        run: pnpm test --maxWorkers=4
+      - name: Database contract tests
+        run: pnpm test:db --maxWorkers=4
+      - name: Migrate and seed the acceptance workspace
+        run: |
+          pnpm db:migrate
+          pnpm db:seed:design
+          docker compose --env-file .env.ci-compose restart postgrest
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3002/ready; then break; fi
+            sleep 2
+          done
+          curl --fail http://127.0.0.1:3002/ready
+      - name: Production build
+        run: pnpm build
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Complete scientific workflow
+        run: pnpm exec playwright test tests/browser/journeys/complete-scientific-workflow.test.ts --project=browser --workers=1
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-workflow-evidence
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+      - name: Service diagnostics
+        if: failure()
+        run: docker compose --env-file .env.ci-compose logs --no-color --tail=100
+      - name: Remove disposable services
+        if: always()
+        run: docker compose --env-file .env.ci-compose down -v

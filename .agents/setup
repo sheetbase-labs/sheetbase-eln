@@ -45,11 +45,15 @@ PG_CONF=/etc/postgresql/18/main/postgresql.conf
 # Tune for speed over durability: this is an ephemeral dev/test orb.
 sudo sed -i 's/^#\?\s*fsync\s*=.*/fsync = off/' "$PG_CONF"
 sudo sed -i 's/^#\?\s*synchronous_commit\s*=.*/synchronous_commit = off/' "$PG_CONF"
+# Match Compose: concurrent DB suites and app pools exhaust the default 100.
+sudo sed -i 's/^#\?\s*max_connections\s*=.*/max_connections = 300/' "$PG_CONF"
 # The orb lacks the snakeoil SSL certs the Debian config expects; disable SSL
 # for the local-only dev/test cluster.
 sudo sed -i 's/^#\?\s*ssl\s*=.*/ssl = off/' "$PG_CONF"
 if ! pg_lsclusters --no-header 2>/dev/null | awk '$1=="18"&&$2=="main"&&$4=="online"{f=1}END{exit !f}'; then
   sudo pg_ctlcluster 18 main start
+elif [ "$(sudo -u postgres psql -tAc 'show max_connections')" != '300' ]; then
+  sudo pg_ctlcluster 18 main restart
 fi
 # Wait for it to accept connections.
 for _ in $(seq 1 30); do

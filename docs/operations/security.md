@@ -87,10 +87,10 @@ Audited against the fully-migrated schema (and now continuously asserted in
   the account can run CI reliably.
 - **Overrides:** `js-yaml`, `nanoid` (and `jsdom` upgraded) so the tree is
   free of patched advisories rather than ignoring them.
-- **SAST:** CodeQL (`javascript-typescript`, `security-extended` queries) on
-  main pushes and a weekly schedule in `security.yml`. Findings are triaged
-  on the Security tab; they intentionally do not block a release until the
-  initial alert set is baselined, after which new alerts gate like bugs.
+- **SAST:** CodeQL is not configured in the current workflow. It was removed
+  after token-scope failures. Main pushes and the weekly schedule run the
+  dependency audit, not CodeQL. Restoring SAST needs a working account/token
+  configuration and an explicit decision about enforcement.
 
 ## 5. Deliberately deferred
 

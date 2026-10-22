@@ -4,6 +4,9 @@ import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Muted, Section } from '#/components/v3/ui/layout'
 import { TableBox } from '#/components/v3/ui/table'
+import { triggerLabel } from '#/lib/pipeline-schedule-form'
+import { formatNotebookDateTime } from '#/lib/notebook-data'
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   RegistryGrid,
   rightAligned,
@@ -23,6 +26,8 @@ export const Route = createFileRoute('/pipelines/$pipelineId/runs/')({
 })
 
 function PipelineRuns() {
+  // Re-render when the person's time zone is applied or changed.
+  useDisplayTimeZone()
   const { pipelineId } = Route.useParams()
   const versions = usePipelineVersions(pipelineId)
   const list = versions.data ?? []
@@ -54,7 +59,7 @@ function PipelineRuns() {
     {
       id: 'trigger',
       header: 'Trigger',
-      cell: ({ row }) => row.original.trigger_kind,
+      cell: ({ row }) => triggerLabel(row.original.trigger_kind),
     },
     {
       id: 'status',
@@ -69,7 +74,7 @@ function PipelineRuns() {
       header: 'Started',
       cell: ({ row }) => (
         <span className="text-fg-muted">
-          {row.original.started_at.slice(0, 16).replace('T', ' ')}
+          {formatNotebookDateTime(row.original.started_at, { zone: true })}
         </span>
       ),
     },

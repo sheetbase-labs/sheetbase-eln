@@ -45,6 +45,12 @@ export interface PipelineInput {
   name: string
   required: boolean
   description?: string
+  /**
+   * The Dataset Schema this input expects. Only a convenience for people: the
+   * Run dialog offers Dataset Versions that follow it first. A run is never
+   * refused for it; the SQL decides whether the columns fit.
+   */
+  schemaId?: string
 }
 
 export interface PipelineOutput {

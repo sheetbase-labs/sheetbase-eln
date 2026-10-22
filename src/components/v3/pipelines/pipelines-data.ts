@@ -308,9 +308,78 @@ export function useDatasetNames(
   })
 }
 
+/** A Dataset Version a run was pinned to, with the dataset's readable name. */
+export interface RunInputInfo {
+  datasetVersionId: string
+  datasetId: string
+  datasetName: string
+  versionLabel: string
+}
+
+/** Dataset Version id → where it came from, for the inputs a run used. */
+export function useRunInputs(
+  versionIds: string[],
+  client: DataClient = notebookDataClient,
+) {
+  const ids = [...new Set(versionIds)].sort()
+  return useQuery({
+    queryKey: ['ui-port', 'pipelines', 'run-inputs', ids] as const,
+    queryFn: async (): Promise<Record<string, RunInputInfo>> => {
+      const versions = await listByIds(ids, (inList) =>
+        client.list<{ id: string; dataset_id: string; label: string }>(
+          'dataset_versions',
+          `?select=id,dataset_id,label&id=in.(${inList})`,
+        ),
+      )
+      const datasets = await listByIds(
+        [...new Set(versions.map((v) => v.dataset_id))],
+        (inList) =>
+          client.list<{ id: string; name: string; display_id: string | null }>(
+            'datasets',
+            `?select=id,name,display_id&id=in.(${inList})`,
+          ),
+      )
+      const nameOf = new Map(
+        datasets.map((d) => [
+          d.id,
+          d.display_id ? `${d.display_id} · ${d.name}` : d.name,
+        ]),
+      )
+      return Object.fromEntries(
+        versions.map((v) => [
+          v.id,
+          {
+            datasetVersionId: v.id,
+            datasetId: v.dataset_id,
+            datasetName: nameOf.get(v.dataset_id) ?? 'Dataset',
+            versionLabel: v.label,
+          },
+        ]),
+      )
+    },
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+  })
+}
+
 export interface DatasetVersionChoice {
   id: string
   label: string
+  /** The Dataset Schema the version's dataset follows; empty when unknown. */
+  schemaId: string
+  schemaName: string
+}
+
+/** The distinct schemas a list of choices follows, by name. */
+export function schemasOf(
+  choices: DatasetVersionChoice[],
+): Array<{ id: string; name: string }> {
+  const seen = new Map<string, string>()
+  for (const choice of choices)
+    if (choice.schemaId) seen.set(choice.schemaId, choice.schemaName)
+  return [...seen]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 /** Dataset Versions a run input can be pinned to, newest first per dataset. */
@@ -321,22 +390,36 @@ export function useDatasetVersionChoices(
   return useQuery({
     queryKey: ['ui-port', 'pipelines', 'dataset-version-choices'] as const,
     queryFn: async (): Promise<DatasetVersionChoice[]> => {
-      const [versions, datasets] = await Promise.all([
-        client.list<{
-          id: string
-          dataset_id: string
-          label: string
-          created_at: string
-        }>(
-          'dataset_versions',
-          '?select=id,dataset_id,label,created_at&order=created_at.desc&limit=500',
-        ),
-        client.list<{ id: string; name: string; display_id: string | null }>(
-          'datasets',
-          '?select=id,name,display_id&order=name.asc',
-        ),
-      ])
+      const [versions, datasets, schemaVersions, schemaDefinitions] =
+        await Promise.all([
+          client.list<{
+            id: string
+            dataset_id: string
+            schema_version_id?: string
+            label: string
+            created_at: string
+          }>(
+            'dataset_versions',
+            '?select=id,dataset_id,schema_version_id,label,created_at&order=created_at.desc&limit=500',
+          ),
+          client.list<{ id: string; name: string; display_id: string | null }>(
+            'datasets',
+            '?select=id,name,display_id&order=name.asc',
+          ),
+          client.list<{ id: string; schema_id: string }>(
+            'dataset_schema_versions',
+            '?select=id,schema_id',
+          ),
+          client.list<{ id: string; name: string }>(
+            'dataset_schema_definitions',
+            '?select=id,name&order=name.asc',
+          ),
+        ])
       const byId = new Map(datasets.map((d) => [d.id, d]))
+      const schemaOfVersion = new Map(
+        schemaVersions.map((v) => [v.id, v.schema_id]),
+      )
+      const schemaNames = new Map(schemaDefinitions.map((d) => [d.id, d.name]))
       return versions
         .map((v) => {
           const dataset = byId.get(v.dataset_id)
@@ -345,14 +428,17 @@ export function useDatasetVersionChoices(
               ? `${dataset.display_id} · ${dataset.name}`
               : dataset.name
             : 'Dataset'
+          const schemaId = schemaOfVersion.get(v.schema_version_id ?? '') ?? ''
           return {
             id: v.id,
             label: `${name} — ${v.label} (${v.created_at.slice(0, 10)})`,
+            schemaId,
+            schemaName: schemaNames.get(schemaId) ?? '',
             sort: name,
           }
         })
         .sort((a, b) => a.sort.localeCompare(b.sort))
-        .map(({ id, label }) => ({ id, label }))
+        .map(({ sort: _sort, ...choice }) => choice)
     },
     enabled,
     staleTime: 30_000,

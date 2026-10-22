@@ -8,6 +8,8 @@ import {
   emptyDraft,
   relativeTime,
   scheduleToDraft,
+  eventLabel,
+  triggerLabel,
 } from './pipeline-schedule-form'
 import { validateScheduleSpec } from './pipeline-schedule'
 import type { ScheduleDraft } from './pipeline-schedule-form'
@@ -299,5 +301,22 @@ describe('relativeTime', () => {
     expect(relativeTime('2026-10-21T18:00:00Z', now)).toBe('in 6 h')
     expect(relativeTime('2026-10-21T09:00:00Z', now)).toBe('3 h ago')
     expect(relativeTime('2026-10-14T12:00:00Z', now)).toBe('7 d ago')
+  })
+})
+
+describe('plain names for events and triggers', () => {
+  it('words a known event the way a scientist would', () => {
+    expect(eventLabel('dataset.versioned')).toBe('A Dataset gets a new version')
+    expect(eventLabel('pipeline.run.completed')).toBe('A pipeline run finishes')
+  })
+
+  it('spells out an event it does not know instead of showing a code', () => {
+    expect(eventLabel('sheet.row_moved')).toBe('Sheet row moved')
+  })
+
+  it('says how a run was started', () => {
+    expect(triggerLabel('manual')).toBe('By hand')
+    expect(triggerLabel('scheduled')).toBe('On a schedule')
+    expect(triggerLabel('event')).toBe('When something happened')
   })
 })

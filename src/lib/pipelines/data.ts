@@ -19,6 +19,7 @@ import type {
   PipelineScheduleKind,
   PipelineScheduleActivityWire,
   PipelineScheduleWire,
+  PipelineTrialWire,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -229,6 +230,26 @@ export async function executePipelineRun(
   if (!response.ok)
     throw await readRunError(response, 'Pipeline execution failed')
   return followRun(runId)
+}
+
+/**
+ * Try a draft: run the configuration the editor holds on the chosen inputs and
+ * get a preview back. Nothing is saved, published or recorded.
+ */
+export async function tryPipelineDraft(input: {
+  workspaceId: string
+  configuration: unknown
+  inputVersions: Record<string, string>
+  parameters: Record<string, unknown>
+}): Promise<PipelineTrialWire> {
+  const response = await fetch('/api/pipelines/try-draft', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok)
+    throw await readRunError(response, 'Trying the draft failed')
+  return (await response.json()) as PipelineTrialWire
 }
 
 // ---------------------------------------------------------------------------

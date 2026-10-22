@@ -37,12 +37,15 @@ import {
   cancelPipelineRun,
 } from '#/lib/pipelines/data'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
-import { notebookDataClient } from '#/lib/notebook-data'
-import { runCitationLines } from '#/lib/pipelines/run-notebook'
+import { formatNotebookDateTime, notebookDataClient } from '#/lib/notebook-data'
+import { triggerLabel } from '#/lib/pipeline-schedule-form'
+import { runCitation } from '#/lib/pipelines/run-notebook'
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
 import {
   pipelineDataQueryKeys,
   readDeliveryIds,
   useDatasetNames,
+  useRunInputs,
   runDuration,
   runStatus,
   usePipelineDefinition,
@@ -71,6 +74,9 @@ function RunPage() {
   const datasetNames = useDatasetNames(
     (outputs.data ?? []).map((o) => o.dataset_id),
   )
+  const runInputs = useRunInputs(Object.values(run.data?.input_versions ?? {}))
+  // Re-render when the person's time zone is applied or changed.
+  useDisplayTimeZone()
   const prompts = useRunPrompts(runId)
   const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
@@ -229,8 +235,10 @@ function RunPage() {
             <span className="text-fg">
               <Status tone={status.tone}>{status.label}</Status>
             </span>
-            <span>{r.trigger_kind} trigger</span>
-            <span>Started {r.started_at.slice(0, 16).replace('T', ' ')}</span>
+            <span>Started {triggerLabel(r.trigger_kind).toLowerCase()}</span>
+            <span>
+              Started {formatNotebookDateTime(r.started_at, { zone: true })}
+            </span>
             <span>Took {runDuration(r)}</span>
           </>
         }
@@ -289,12 +297,27 @@ function RunPage() {
             </>
           ) : r.status === 'succeeded' ? (
             <AddRunToNotebook
-              lines={runCitationLines(r, {
-                pipelineKey: definition.data
-                  ? `${definition.data.name} (${definition.data.key})`
-                  : pipelineId.slice(0, 8),
+              paragraphs={runCitation(r, {
+                pipeline: {
+                  id: pipelineId,
+                  name: definition.data?.name ?? 'pipeline',
+                },
                 versionNumber: version?.version ?? null,
-                outputs: outputs.data ?? [],
+                inputs: Object.entries(r.input_versions).map(
+                  ([name, versionId]) => ({
+                    name,
+                    datasetVersionId: versionId,
+                    datasetId: runInputs.data?.[versionId]?.datasetId,
+                    datasetName: runInputs.data?.[versionId]?.datasetName,
+                    versionLabel: runInputs.data?.[versionId]?.versionLabel,
+                  }),
+                ),
+                outputs: (outputs.data ?? []).map((output) => ({
+                  label: output.label,
+                  datasetVersionId: output.dataset_version_id,
+                  datasetId: output.dataset_id,
+                  datasetName: datasetNames.data?.[output.dataset_id],
+                })),
               })}
             />
           ) : r.status === 'running' ? (
@@ -416,9 +439,9 @@ function RunPage() {
               )}
               <Muted className="mt-1.5">
                 {prompt.answered_at
-                  ? `Answered ${prompt.answered_at.slice(0, 16).replace('T', ' ')}`
+                  ? `Answered ${formatNotebookDateTime(prompt.answered_at, { zone: true })}`
                   : prompt.expires_at
-                    ? `Expires ${prompt.expires_at.slice(0, 16).replace('T', ' ')}`
+                    ? `Expires ${formatNotebookDateTime(prompt.expires_at, { zone: true })}`
                     : 'No expiry set.'}
               </Muted>
             </InspectorSection>
@@ -427,10 +450,24 @@ function RunPage() {
             {Object.keys(r.input_versions).length ? (
               <DescriptionList
                 labelWidth={90}
-                items={Object.entries(r.input_versions).map(([k, v]) => [
-                  k,
-                  v.slice(0, 8),
-                ])}
+                items={Object.entries(r.input_versions).map(([k, v]) => {
+                  const info = runInputs.data?.[v]
+                  return [
+                    k,
+                    info ? (
+                      <Link
+                        key={k}
+                        to="/datasets/$datasetId/snapshots"
+                        params={{ datasetId: info.datasetId }}
+                        className="underline"
+                      >
+                        {info.datasetName} · {info.versionLabel}
+                      </Link>
+                    ) : (
+                      v.slice(0, 8)
+                    ),
+                  ]
+                })}
               />
             ) : (
               <Muted>No inputs pinned.</Muted>

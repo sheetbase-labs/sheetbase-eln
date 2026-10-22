@@ -3,15 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { Button } from '#/components/v3/ui/button'
 import { Notice } from '#/components/v3/ui/alert'
 import { Muted } from '#/components/v3/ui/layout'
-import {
-  Table,
-  TableBody,
-  TableBox,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/v3/ui/table'
+import { PreviewTable } from '#/components/v3/pipelines/preview-table'
 import { readResultPreview } from '#/lib/pipelines/result-preview'
 import type {
   PipelineRunOutputWire,
@@ -20,10 +12,6 @@ import type {
 
 const plural = (n: number, one: string, many: string) =>
   `${n.toLocaleString()} ${n === 1 ? one : many}`
-
-function cellText(value: unknown): string {
-  return value === null || value === undefined ? '—' : String(value)
-}
 
 /**
  * What a succeeded run produced: the answer first (a preview of the result
@@ -115,38 +103,7 @@ export function RunResult({
       )}
 
       {preview && preview.columns.length ? (
-        <>
-          <TableBox>
-            <Table caption="Result preview">
-              <TableHeader>
-                <TableRow>
-                  {preview.columns.map((column) => (
-                    <TableHead key={column}>{column}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {preview.rows.map((row, index) => (
-                  <TableRow key={index}>
-                    {row.map((cell, position) => (
-                      <TableCell
-                        key={position}
-                        align={typeof cell === 'number' ? 'right' : undefined}
-                      >
-                        {cellText(cell)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableBox>
-          <Muted>
-            {preview.truncated
-              ? `Showing the first ${plural(preview.rows.length, 'row', 'rows')} of ${plural(preview.rowCount, 'row', 'rows')}${outputs.length ? '; the dataset holds all of them' : ''}.`
-              : `${plural(preview.rowCount, 'row', 'rows')}.`}
-          </Muted>
-        </>
+        <PreviewTable preview={preview} keptAll={outputs.length > 0} />
       ) : rowCount !== null ? (
         <Muted>
           {rowCount === 0

@@ -7,7 +7,16 @@
 import { expect, test } from 'playwright/test'
 import type { Page } from 'playwright/test'
 
-import { open, signIn, uniqueName, waitForHydration } from './helpers'
+import {
+  DESIGN_USER,
+  createExperiment,
+  createProject,
+  open,
+  signIn,
+  uniqueName,
+  waitForHydration,
+  withAdminDb,
+} from './helpers'
 
 test.setTimeout(180_000)
 test.use({ viewport: { width: 1280, height: 900 } })
@@ -103,4 +112,127 @@ test('AUTO-08 a run waiting for a person is answered from the Inbox', async ({
   await expect(
     page.getByRole('list', { name: 'Inbox items' }).getByText(name),
   ).toHaveCount(0)
+})
+
+test('AUTO-09 a draft is tried on a chosen dataset version without publishing or recording anything', async ({
+  page,
+}) => {
+  const id = await startPipeline(page, uniqueName('Try before publishing'))
+  const recorded = () =>
+    withAdminDb(async (db) => {
+      const result = await db.query<{ versions: string; runs: string }>(
+        `select (select count(*) from api.pipeline_definition_versions
+                  where definition_id = $1)::text as versions,
+                (select count(*) from api.pipeline_runs r
+                   join api.pipeline_definition_versions v
+                     on v.id = r.definition_version_id
+                  where v.definition_id = $1)::text as runs`,
+        [id],
+      )
+      return result.rows[0]
+    })
+
+  // A statement with a mistake says what is wrong and what is available.
+  await page.getByRole('button', { name: 'Add input' }).click()
+  await page.getByLabel('Input 1 name').fill('readings')
+  await page.getByLabel('Transform code').fill('select nope from readings')
+  // The SQL is coloured as it is written.
+  await expect(
+    page.locator('[data-slot="sql-highlight"] .text-primary-text').first(),
+  ).toHaveText('select')
+  await page.getByRole('button', { name: 'Try draft' }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByText(/Nothing is saved/)).toBeVisible()
+  await dialog
+    .getByLabel('Dataset Version for readings')
+    .selectOption({ index: 1 })
+  await dialog.getByRole('button', { name: 'Try draft' }).click()
+  const result = page.getByRole('region', { name: 'Try draft result' })
+  await expect(result.getByText(/Transform failed/)).toBeVisible({
+    timeout: 60_000,
+  })
+  await expect(result.getByText(/Available: readings\(/)).toBeVisible()
+
+  // Fixing it and trying again shows the rows, still without saving.
+  await page
+    .getByLabel('Transform code')
+    .fill('select count(*) as n from readings')
+  await expect(result.getByText(/You changed the draft/)).toBeVisible()
+  await result.getByRole('button', { name: 'Try the new draft' }).click()
+  await expect(result.getByText(/Nothing was saved/)).toBeVisible({
+    timeout: 60_000,
+  })
+  await expect(result.getByRole('columnheader', { name: 'n' })).toBeVisible()
+  await expect(result.getByText('1 row.')).toBeVisible()
+
+  // Nothing exists in the database for this pipeline: no version, no run.
+  expect(await recorded()).toEqual({ versions: '0', runs: '0' })
+  await expect(
+    page.getByRole('button', { name: 'Create draft v1' }),
+  ).toBeVisible()
+})
+
+test('AUTO-10 a run shows its time in the personal zone and is cited in a notebook with links', async ({
+  page,
+}) => {
+  const clearZone = () =>
+    withAdminDb((db) =>
+      db.query(
+        'update api.user_preferences set timezone = null where user_id = $1',
+        [DESIGN_USER],
+      ),
+    )
+  await withAdminDb((db) =>
+    db.query(
+      `update api.user_preferences set timezone = 'Pacific/Auckland' where user_id = $1`,
+      [DESIGN_USER],
+    ),
+  )
+  try {
+    const experiment = uniqueName('Cites a pipeline run')
+    const project = await createProject(page, uniqueName('Pipeline citations'))
+    const experimentId = await createExperiment(page, project, experiment)
+
+    const name = uniqueName('Daily plate count')
+    const id = await startPipeline(page, name)
+    await page.getByLabel('Transform code').fill('select 1 as plates')
+    await publishDraft(page)
+    await page.getByRole('link', { name: 'Overview' }).first().click()
+    await waitForHydration(page)
+    await page.getByRole('button', { name: 'Run now' }).click()
+    await expect(page).toHaveURL(/\/pipelines\/.*runs\/[0-9a-f-]{36}/)
+    await expect(page.getByText('Succeeded').first()).toBeVisible({
+      timeout: 60_000,
+    })
+
+    // The run's time is on the person's clock, named, not raw UTC.
+    await expect(
+      page.getByText(/\b(NZDT|NZST|GMT\+1[23])\b/).first(),
+    ).toBeVisible()
+
+    await page.getByRole('button', { name: 'Add to notebook' }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByPlaceholder(/Search/).fill(experiment)
+    await dialog.getByText(experiment).first().click()
+    await dialog.getByRole('button', { name: 'Add', exact: true }).click()
+    await expect(page.getByText('Added to notebook').first()).toBeVisible()
+
+    // The block names the pipeline and links to it and to the run: no bare ids.
+    const block = async () =>
+      withAdminDb(async (db) => {
+        const result = await db.query<{ payload: unknown }>(
+          `select payload from api.blocks where record_id = $1 order by created_at desc limit 1`,
+          [experimentId],
+        )
+        return JSON.stringify(result.rows[0]?.payload ?? {})
+      })
+    await expect.poll(block).toContain(`"href":"/pipelines/${id}"`)
+    const stored = await block()
+    expect(stored).toContain(name)
+    expect(stored).toMatch(
+      new RegExp(`"href":"/pipelines/${id}/runs/[0-9a-f-]{36}"`),
+    )
+  } finally {
+    await clearZone()
+  }
 })

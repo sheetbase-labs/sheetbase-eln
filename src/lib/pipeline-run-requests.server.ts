@@ -11,10 +11,15 @@ import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
 import { getAppSession } from '#/lib/auth'
-import { validatePipelineResume } from './pipeline-execute.server'
+import { createRateLimiter } from '#/lib/rate-limit'
+import {
+  tryPipelineDraft,
+  validatePipelineResume,
+} from './pipeline-execute.server'
 import type {
   ExecConnection,
   PipelineExecuteDeps,
+  PipelineTrialReport,
 } from './pipeline-execute.server'
 import {
   enqueuePipelineResume,
@@ -183,6 +188,89 @@ export async function handlePipelineExecute(
   } finally {
     await conn.end().catch(() => {})
   }
+}
+
+const trialLimiter = createRateLimiter({ maxRequests: 30, windowSeconds: 60 })
+const TRIAL_BODY_BYTES = 512 * 1024
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+
+/**
+ * POST /api/pipelines/try-draft — run a configuration the editor holds, against
+ * chosen input Dataset Versions, and answer with a preview of its result. Nothing
+ * is saved or recorded: no run, no log, no output, no action. It executes the
+ * same way a queued run does, but inside the request, because the person is
+ * waiting for the answer and there is nothing to follow afterwards.
+ *
+ * Body: `{ workspaceId, configuration, inputVersions, parameters }`.
+ * Answer: a PipelineTrialReport.
+ */
+export async function handlePipelineTryDraft(
+  request: Request,
+  deps: PipelineRunRequestDeps = defaultDeps,
+): Promise<Response> {
+  const session = await deps.getSession(request.headers)
+  if (!session) {
+    return responseError(401, 'unauthenticated', 'Authentication is required.')
+  }
+  const decision = trialLimiter.hit(`try-draft:${session.user.id}`)
+  if (!decision.allowed) {
+    return responseError(
+      429,
+      'rate_limited',
+      `Too many trial runs. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
+    )
+  }
+  let body: unknown
+  try {
+    const text = await request.text()
+    if (text.length > TRIAL_BODY_BYTES) {
+      return responseError(413, 'body_too_large', 'The draft is too large.')
+    }
+    body = JSON.parse(text) as unknown
+  } catch {
+    return responseError(
+      400,
+      'invalid_request',
+      'A JSON request body is required.',
+    )
+  }
+  if (
+    !isRecord(body) ||
+    typeof body.workspaceId !== 'string' ||
+    !UUID.test(body.workspaceId) ||
+    !isRecord(body.configuration)
+  ) {
+    return responseError(
+      400,
+      'invalid_request',
+      'workspaceId and configuration are required.',
+    )
+  }
+  const inputVersions = isRecord(body.inputVersions) ? body.inputVersions : {}
+  const parameters = isRecord(body.parameters) ? body.parameters : {}
+  if (Object.values(inputVersions).some((id) => typeof id !== 'string')) {
+    return responseError(
+      400,
+      'invalid_request',
+      'inputVersions must map each input to a Dataset Version id.',
+    )
+  }
+  const report: PipelineTrialReport = await tryPipelineDraft(
+    session.user.id,
+    {
+      workspaceId: body.workspaceId,
+      configuration: body.configuration,
+      inputVersions: inputVersions as Record<string, string>,
+      parameters,
+    },
+    pipelineExecuteDeps(deps),
+  )
+  if (!report.ok && report.errorCode === 'workspace_membership_required') {
+    return responseError(403, report.errorCode, report.errorMessage)
+  }
+  return Response.json(report, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 export interface PipelineRunStateBody {

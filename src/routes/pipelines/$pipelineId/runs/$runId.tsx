@@ -22,9 +22,6 @@ import {
   Muted,
   PageHeader,
 } from '#/components/v3/ui/layout'
-import { TableBox } from '#/components/v3/ui/table'
-import { RegistryGrid } from '#/components/v3/inventory/registry-grid'
-import type { RegistryColumn } from '#/components/v3/inventory/registry-grid'
 import { toast } from '#/components/v3/ui/sonner'
 import { NotFoundNotice } from '#/components/v3/ui/not-found-notice'
 import { ProjectListFailure } from '#/components/v3/projects/project-list'
@@ -33,6 +30,8 @@ import { RunPromptPanel } from '#/components/v3/pipelines/run-prompt'
 import { AddRunToNotebook } from '#/components/v3/pipelines/add-run-to-notebook'
 import { RunDeliveriesPanel } from '#/components/v3/pipelines/run-deliveries'
 import { RunLog } from '#/components/v3/pipelines/run-log'
+import { RunResult } from '#/components/v3/pipelines/run-result'
+import { explainRunError } from '#/lib/pipelines/run-errors'
 import {
   answerPipelineRunPrompt,
   cancelPipelineRun,
@@ -43,6 +42,7 @@ import { runCitationLines } from '#/lib/pipelines/run-notebook'
 import {
   pipelineDataQueryKeys,
   readDeliveryIds,
+  useDatasetNames,
   runDuration,
   runStatus,
   usePipelineDefinition,
@@ -68,31 +68,9 @@ function RunPage() {
   const run = usePipelineRun(runId)
   const logs = useRunLogs(runId)
   const outputs = useRunOutputs(runId)
-  type RunOutput = NonNullable<typeof outputs.data>[number]
-  const outputColumns: RegistryColumn<RunOutput>[] = [
-    { id: 'label', header: 'Label', cell: ({ row }) => row.original.label },
-    {
-      id: 'dataset',
-      header: 'Dataset',
-      cell: ({ row }) => (
-        <Link
-          to="/datasets/$datasetId/snapshots"
-          params={{ datasetId: row.original.dataset_id }}
-        >
-          <span className="mono">{row.original.dataset_id.slice(0, 8)}</span>
-        </Link>
-      ),
-    },
-    {
-      id: 'snapshot',
-      header: 'Snapshot',
-      cell: ({ row }) => (
-        <span className="mono">
-          {row.original.dataset_version_id.slice(0, 8)}
-        </span>
-      ),
-    },
-  ]
+  const datasetNames = useDatasetNames(
+    (outputs.data ?? []).map((o) => o.dataset_id),
+  )
   const prompts = useRunPrompts(runId)
   const members = useWorkspaceMemberNames()
   const versions = usePipelineVersions(pipelineId)
@@ -230,6 +208,7 @@ function RunPage() {
   }
 
   const status = runStatus(r.status)
+  const guidance = explainRunError(r.error_code)
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -265,7 +244,7 @@ function RunPage() {
                   disabled={launcher.pending}
                   onClick={() =>
                     launcher.launch({
-                      pipelineKey: `run ${r.id.slice(0, 8)}`,
+                      pipelineName: definition.data?.name ?? 'this pipeline',
                       version: currentPublished,
                       rerunOn: r,
                     })
@@ -274,28 +253,46 @@ function RunPage() {
                   Retry on current version (v{currentPublished.version})
                 </Button>
               ) : null}
-              <Button
-                size="sm"
-                icon="play"
-                disabled={!version || launcher.pending}
-                onClick={() =>
-                  version &&
-                  launcher.launch({
-                    pipelineKey: `run ${r.id.slice(0, 8)}`,
-                    version,
-                    retryOf: r,
-                  })
-                }
-              >
-                {canRerunOnCurrent
-                  ? `Retry on v${version?.version ?? ''}`
-                  : 'Retry this run'}
-              </Button>
+              {guidance.fix ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to="/pipelines/$pipelineId/steps"
+                      params={{ pipelineId }}
+                    />
+                  }
+                >
+                  Edit pipeline
+                </Button>
+              ) : null}
+              {guidance.retryHelps || r.status === 'cancelled' ? (
+                <Button
+                  size="sm"
+                  icon="play"
+                  disabled={!version || launcher.pending}
+                  onClick={() =>
+                    version &&
+                    launcher.launch({
+                      pipelineName: definition.data?.name ?? 'this pipeline',
+                      version,
+                      retryOf: r,
+                    })
+                  }
+                >
+                  {canRerunOnCurrent
+                    ? `Retry on v${version?.version ?? ''}`
+                    : 'Retry this run'}
+                </Button>
+              ) : null}
             </>
           ) : r.status === 'succeeded' ? (
             <AddRunToNotebook
               lines={runCitationLines(r, {
-                pipelineKey: definition.data?.key ?? pipelineId.slice(0, 8),
+                pipelineKey: definition.data
+                  ? `${definition.data.name} (${definition.data.key})`
+                  : pipelineId.slice(0, 8),
                 versionNumber: version?.version ?? null,
                 outputs: outputs.data ?? [],
               })}
@@ -332,17 +329,18 @@ function RunPage() {
       />
 
       {r.status === 'failed' ? (
-        <Banner tone="bad" icon="warn" title={r.error_code ?? 'Run failed'}>
-          {r.error_message ??
-            'No error message was recorded for this run. The log below shows how far it got.'}{' '}
+        <Banner tone="bad" icon="warn" title={guidance.title}>
+          {r.error_message
+            ? `${r.error_message.replace(/[.\s]+$/, '')}.`
+            : 'No error message was recorded for this run. The log below shows how far it got.'}{' '}
+          {guidance.hint}{' '}
           <a href="#run-log" className="underline">
             See the log
           </a>
-          . Retry runs it again on the same version with the same inputs
-          {canRerunOnCurrent
-            ? `; Retry on current version uses the same inputs on v${String(currentPublished.version)}`
-            : ''}
           .
+          {canRerunOnCurrent
+            ? ` Retry on current version runs the same inputs on v${String(currentPublished.version)}.`
+            : ''}
         </Banner>
       ) : null}
 
@@ -382,27 +380,14 @@ function RunPage() {
             </Notice>
           ) : null}
 
-          {outputs.data?.length ? (
-            <section>
-              <h2 className="mb-1.5 font-sans text-label font-semibold">
-                Outputs kept
-              </h2>
-              <TableBox>
-                <RegistryGrid
-                  label="Run outputs"
-                  rows={outputs.data}
-                  columns={outputColumns}
-                  getRowId={(o) => o.id}
-                  selectable={false}
-                />
-              </TableBox>
-            </section>
-          ) : (
-            <Notice icon="info">
-              This run kept no dataset snapshot; temporary tables were deleted
-              when it ended.
-            </Notice>
-          )}
+          {r.status === 'succeeded' ? (
+            <RunResult
+              run={r}
+              pipelineId={pipelineId}
+              outputs={outputs.data ?? []}
+              datasetNames={datasetNames.data ?? {}}
+            />
+          ) : null}
 
           <RunDeliveriesPanel
             deliveries={deliveries.data ?? []}

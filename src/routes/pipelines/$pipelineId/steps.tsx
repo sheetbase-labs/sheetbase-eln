@@ -1,33 +1,36 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/v3/ui/button'
-import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Field, Input } from '#/components/v3/ui/input'
 import { Notice } from '#/components/v3/ui/alert'
 import { Section } from '#/components/v3/ui/layout'
 import { Status } from '#/components/v3/ui/status'
 import { toast } from '#/components/v3/ui/sonner'
-import { Select } from '#/components/v3/ui/select'
 import { ParametersEditor } from '#/components/v3/pipelines/parameters-editor'
 import {
   PythonPackagesEditor,
   PythonStepEditor,
 } from '#/components/v3/pipelines/python-editor'
 import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
+import { InputsEditor } from '#/components/v3/pipelines/inputs-editor'
+import { OutputEditor } from '#/components/v3/pipelines/output-editor'
+import type {
+  OutputDraft,
+  OutputMode,
+} from '#/components/v3/pipelines/output-editor'
 import {
   draftVersion,
   usePipelineOutputTargets,
   usePythonRuntime,
+  useDefinitionRuns,
+  usePipelineDefinition,
   usePipelineVersions,
   useWorkspaceMemberNames,
 } from '#/components/v3/pipelines/pipelines-data'
-import {
-  INPUT_NAME_RE,
-  MAX_INPUTS,
-  validatePipelineConfig,
-} from '#/lib/pipelines/config'
+import { validatePipelineConfig } from '#/lib/pipelines/config'
+import { readResultPreview } from '#/lib/pipelines/result-preview'
 import type {
   PipelineInput,
   PipelineParameter,
@@ -56,8 +59,6 @@ export const Route = createFileRoute('/pipelines/$pipelineId/steps')({
   component: PipelineSteps,
 })
 
-type OutputMode = 'create' | 'append' | 'none'
-
 interface PipelineConfiguration {
   configVersion?: number
   description?: string | null
@@ -77,7 +78,7 @@ interface PipelineConfiguration {
     datasetId?: string
     datasetName?: string
     datasetLabel?: string
-    fieldMapping?: unknown
+    fieldMapping?: Record<string, string> | null
   }
 }
 
@@ -121,7 +122,13 @@ function PipelineSteps() {
   const [schemaVersionId, setSchemaVersionId] = useState('')
   const [datasetId, setDatasetId] = useState('')
   const [datasetLabel, setDatasetLabel] = useState('')
-  const targets = usePipelineOutputTargets()
+  const [fieldMapping, setFieldMapping] = useState<Record<
+    string,
+    string
+  > | null>(null)
+  const definition = usePipelineDefinition(pipelineId)
+  const runs = useDefinitionRuns(list)
+  const transformRef = useRef<HTMLTextAreaElement>(null)
 
   const sourceId = source?.id
   const sourceConfig = (source?.configuration ?? {}) as PipelineConfiguration
@@ -139,6 +146,7 @@ function PipelineSteps() {
     setSchemaVersionId(sourceConfig.output?.schemaVersionId ?? '')
     setDatasetId(sourceConfig.output?.datasetId ?? '')
     setDatasetLabel(sourceConfig.output?.datasetLabel ?? '')
+    setFieldMapping(sourceConfig.output?.fieldMapping ?? null)
   }, [
     sourceId,
     sourceConfig.description,
@@ -151,6 +159,7 @@ function PipelineSteps() {
     sourceConfig.output?.schemaVersionId,
     sourceConfig.output?.datasetId,
     sourceConfig.output?.datasetLabel,
+    sourceConfig.output?.fieldMapping,
     sourceConfig.inputs,
     sourceConfig.parameters,
     sourceConfig.steps,
@@ -199,6 +208,7 @@ function PipelineSteps() {
           outputMode === 'create' ? schemaVersionId || undefined : undefined,
         datasetId: outputMode === 'append' ? datasetId || undefined : undefined,
         datasetLabel: datasetLabel.trim() || undefined,
+        fieldMapping: outputMode === 'none' ? undefined : fieldMapping,
       },
     }),
     [
@@ -218,6 +228,7 @@ function PipelineSteps() {
       schemaVersionId,
       datasetId,
       datasetLabel,
+      fieldMapping,
     ],
   )
 
@@ -254,6 +265,63 @@ function PipelineSteps() {
     statement.trim().length > 0 &&
     configErrors.length === 0 &&
     !pythonUnavailable
+  const outputDraft: OutputDraft = {
+    mode: outputMode,
+    datasetName,
+    schemaVersionId,
+    datasetId,
+    datasetLabel,
+    fieldMapping,
+  }
+  const updateOutput = (patch: Partial<OutputDraft>) => {
+    if (patch.mode !== undefined) {
+      setOutputMode(patch.mode)
+      // A new dataset starts with the pipeline's own name and a label to match.
+      if (patch.mode !== 'none' && !datasetLabel.trim()) {
+        setDatasetLabel(definition.data?.name ?? '')
+      }
+      if (patch.mode === 'create' && !datasetName.trim()) {
+        setDatasetName(definition.data?.name ?? '')
+      }
+    }
+    if (patch.datasetName !== undefined) setDatasetName(patch.datasetName)
+    if (patch.schemaVersionId !== undefined)
+      setSchemaVersionId(patch.schemaVersionId)
+    if (patch.datasetId !== undefined) setDatasetId(patch.datasetId)
+    if (patch.datasetLabel !== undefined) setDatasetLabel(patch.datasetLabel)
+    if (patch.fieldMapping !== undefined) setFieldMapping(patch.fieldMapping)
+  }
+  // Errors the contract reports for the output, shown beside their control.
+  const outputErrors = useMemo(() => {
+    const byField: Record<string, string> = {}
+    for (const error of configErrors) {
+      if (error.field.startsWith('output.')) {
+        byField[error.field.slice('output.'.length)] ??= error.message
+      }
+    }
+    return byField
+  }, [configErrors])
+  // The columns of the newest successful run: suggestions and a fit check.
+  const lastResultColumns = useMemo(() => {
+    for (const run of runs.data ?? []) {
+      if (run.status !== 'succeeded') continue
+      const preview = readResultPreview(run.result)
+      if (preview) return preview.columns
+    }
+    return []
+  }, [runs.data])
+  // Put a column reference into the SQL where the cursor is.
+  const insertIntoTransform = (text: string) => {
+    const el = transformRef.current
+    const start = el?.selectionStart ?? statement.length
+    const end = el?.selectionEnd ?? statement.length
+    setStatement(statement.slice(0, start) + text + statement.slice(end))
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(start + text.length, start + text.length)
+    })
+  }
+
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
@@ -326,9 +394,21 @@ function PipelineSteps() {
         )}
       </div>
 
-      <Section title="Step">
+      <Section title="Inputs" count={inputs.length}>
+        <InputsEditor
+          inputs={inputs}
+          onChange={setInputs}
+          onInsert={insertIntoTransform}
+        />
+      </Section>
+
+      <Section title="Parameters" count={parameters.length}>
+        <ParametersEditor parameters={parameters} onChange={setParameters} />
+      </Section>
+
+      <Section title="Transform">
         <div className="flex flex-col gap-4">
-          <Field label="Description">
+          <Field label="Description" hint="What this pipeline is for.">
             <Input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -378,6 +458,7 @@ function PipelineSteps() {
               hint="SQL over the declared inputs. Sheets are read as tables named by the input."
             >
               <textarea
+                ref={transformRef}
                 aria-label="Transform code"
                 value={statement}
                 onChange={(e) => setStatement(e.target.value)}
@@ -393,10 +474,6 @@ function PipelineSteps() {
             </Notice>
           ) : null}
         </div>
-      </Section>
-
-      <Section title="Parameters" count={parameters.length}>
-        <ParametersEditor parameters={parameters} onChange={setParameters} />
       </Section>
 
       <Section title="Further steps" count={extraSteps.length}>
@@ -425,176 +502,13 @@ function PipelineSteps() {
         </Section>
       ) : null}
 
-      <Section title="Inputs" count={inputs.length}>
-        {inputs.length ? (
-          <div className="flex flex-col gap-2">
-            {inputs.map((input, index) => (
-              <div key={index} className="flex flex-wrap items-center gap-2">
-                <Input
-                  className="mono h-8 w-[200px] text-xs"
-                  aria-label={`Input ${index + 1} name`}
-                  placeholder="e.g. readings"
-                  value={input.name}
-                  onChange={(event) =>
-                    setInputs((current) =>
-                      current.map((item, position) =>
-                        position === index
-                          ? { ...item, name: event.target.value }
-                          : item,
-                      ),
-                    )
-                  }
-                />
-                <label className="flex items-center gap-1.5 text-body">
-                  <Checkbox
-                    aria-label={`Input ${index + 1} required`}
-                    checked={input.required}
-                    onCheckedChange={(on) =>
-                      setInputs((current) =>
-                        current.map((item, position) =>
-                          position === index
-                            ? { ...item, required: Boolean(on) }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                  Required
-                </label>
-                <Button
-                  size="sm"
-                  variant="quiet"
-                  aria-label={`Remove input ${index + 1}`}
-                  onClick={() =>
-                    setInputs((current) =>
-                      current.filter((_, position) => position !== index),
-                    )
-                  }
-                >
-                  Remove
-                </Button>
-                {input.name && !INPUT_NAME_RE.test(input.name) ? (
-                  <span role="alert" className="text-label text-danger-text">
-                    Lower-case letters, numbers and _, starting with a letter.
-                  </span>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="m-0 text-label text-fg-muted">No inputs declared.</p>
-        )}
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            icon="plus"
-            disabled={inputs.length >= MAX_INPUTS}
-            onClick={() =>
-              setInputs((current) => [
-                ...current,
-                { name: '', required: false },
-              ])
-            }
-          >
-            Add input
-          </Button>
-          <span className="text-label text-fg-muted">
-            Each input is a table the transform reads by name; up to{' '}
-            {MAX_INPUTS}.
-          </span>
-        </div>
-      </Section>
-
       <Section title="Output">
-        <div className="flex flex-col gap-4">
-          <Field
-            label="Mode"
-            hint="What the run leaves behind. Keep a dataset to make each successful run write a new Dataset Version."
-          >
-            <Select
-              aria-label="Output mode"
-              value={outputMode}
-              onChange={(event) =>
-                setOutputMode(event.target.value as OutputMode)
-              }
-            >
-              <option value="none">None — keep no dataset output</option>
-              <option value="create">Create a new dataset</option>
-              <option value="append">Append to an existing dataset</option>
-            </Select>
-          </Field>
-          {outputMode === 'create' ? (
-            <>
-              <Field label="Dataset name">
-                <Input
-                  aria-label="Dataset name"
-                  value={datasetName}
-                  onChange={(e) => setDatasetName(e.target.value)}
-                />
-              </Field>
-              <Field
-                label="Dataset schema version"
-                hint="The published schema the new dataset is built from."
-              >
-                <Select
-                  aria-label="Dataset schema version"
-                  value={schemaVersionId}
-                  onChange={(e) => setSchemaVersionId(e.target.value)}
-                >
-                  <option value="">Choose a schema version…</option>
-                  {(targets.data?.schemaVersions ?? []).map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            </>
-          ) : null}
-          {outputMode === 'append' ? (
-            <Field
-              label="Dataset"
-              hint="The dataset each run adds a version to."
-            >
-              <Select
-                aria-label="Dataset"
-                value={datasetId}
-                onChange={(e) => setDatasetId(e.target.value)}
-              >
-                <option value="">Choose a dataset…</option>
-                {(targets.data?.datasets ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.displayId ? `${d.displayId} · ${d.name}` : d.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : null}
-          {outputMode !== 'none' ? (
-            <Field
-              label="Dataset version label"
-              hint="Names each version a run writes, for example “Weekly readings”."
-            >
-              <Input
-                aria-label="Dataset version label"
-                value={datasetLabel}
-                onChange={(e) => setDatasetLabel(e.target.value)}
-              />
-            </Field>
-          ) : (
-            <p className="m-0 text-label text-fg-muted">
-              The run keeps its result in the run record only.
-            </p>
-          )}
-          {outputMode !== 'none' && targets.isError ? (
-            <Notice tone="bad" title="Couldn’t load datasets and schemas">
-              The choices above come from the workspace’s datasets.{' '}
-              <Button size="sm" onClick={() => void targets.refetch()}>
-                Try again
-              </Button>
-            </Notice>
-          ) : null}
-        </div>
+        <OutputEditor
+          value={outputDraft}
+          onChange={updateOutput}
+          resultColumns={lastResultColumns}
+          fieldErrors={outputErrors}
+        />
       </Section>
 
       {configErrors.length ? (

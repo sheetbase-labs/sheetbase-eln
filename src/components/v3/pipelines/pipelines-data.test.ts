@@ -4,6 +4,8 @@ import {
   buildPipelineRows,
   currentVersion,
   draftVersion,
+  fetchPipelineOutputTargets,
+  fetchSchemaVersionFields,
   resolveRunForWorkItem,
   runStatus,
 } from './pipelines-data'
@@ -190,5 +192,60 @@ describe('resolveRunForWorkItem', () => {
         client({}),
       ),
     ).toBeNull()
+  })
+})
+
+describe('pipeline output targets', () => {
+  const listing = (rows: Record<string, unknown[]>) =>
+    ({
+      list: vi.fn(async (resource: string) => rows[resource] ?? []),
+    }) as unknown as DataClient
+
+  it('offers active schema versions (a schema version is never "published")', async () => {
+    const c = listing({
+      dataset_schema_versions: [{ id: 'sv-1', schema_id: 's-1', version: 2 }],
+      dataset_schema_definitions: [{ id: 's-1', name: 'Viability' }],
+      datasets: [
+        {
+          id: 'd-1',
+          name: 'Runs',
+          display_id: 'DS-0001',
+          schema_version_id: 'sv-1',
+        },
+      ],
+    })
+    const targets = await fetchPipelineOutputTargets(c)
+    expect(targets.schemaVersions).toEqual([
+      { id: 'sv-1', label: 'Viability v2' },
+    ])
+    expect(targets.datasets).toEqual([
+      {
+        id: 'd-1',
+        name: 'Runs',
+        displayId: 'DS-0001',
+        schemaVersionId: 'sv-1',
+      },
+    ])
+    const queries = vi.mocked(c.list).mock.calls.map((call) => call[1])
+    expect(queries.join(' ')).toContain('lifecycle=eq.active')
+    expect(queries.join(' ')).not.toContain('lifecycle=eq.published')
+  })
+
+  it('reads a schema version’s fields as the keys a SQL step uses', async () => {
+    const c = listing({
+      dataset_schema_version_fields: [
+        {
+          key: 'sample',
+          label: 'Sample',
+          logical_type: 'text',
+          nullable: false,
+        },
+        { key: 'od', label: 'OD', logical_type: 'decimal', nullable: true },
+      ],
+    })
+    expect(await fetchSchemaVersionFields(c, 'sv-1')).toEqual([
+      { key: 'sample', label: 'Sample', type: 'text', required: true },
+      { key: 'od', label: 'OD', type: 'decimal', required: false },
+    ])
   })
 })

@@ -237,3 +237,79 @@ export function setConfirmPatch(
   if (!confirm) return list
   return setStepConfirm(list, index, { ...confirm, ...patch })
 }
+
+/**
+ * A pipeline key suggested from its name: lower-case words joined by `_`, in
+ * the shape the database accepts (a letter first, then letters, digits and
+ * underscores, at most 60 characters). Empty when the name has nothing to use.
+ */
+export function suggestPipelineKey(name: string): string {
+  const slug = name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  if (!slug) return ''
+  const lettered = /^[a-z]/.test(slug) ? slug : `p_${slug}`
+  return lettered.slice(0, 60).replace(/_+$/, '')
+}
+
+/** The result column feeding a schema field, or '' when the column is called
+ * the same as the field (the default). */
+export function columnForField(
+  mapping: Record<string, string> | null | undefined,
+  fieldKey: string,
+): string {
+  for (const [column, target] of Object.entries(mapping ?? {})) {
+    if (target === fieldKey) return column
+  }
+  return ''
+}
+
+/** Feed a schema field from a differently named result column; an empty or
+ * identical column clears the mapping. Returns null when nothing is mapped. */
+export function setFieldColumn(
+  mapping: Record<string, string> | null | undefined,
+  fieldKey: string,
+  column: string,
+): Record<string, string> | null {
+  const next: Record<string, string> = {}
+  for (const [existing, target] of Object.entries(mapping ?? {})) {
+    if (target !== fieldKey) next[existing] = target
+  }
+  const trimmed = column.trim()
+  if (trimmed && trimmed !== fieldKey) next[trimmed] = fieldKey
+  return Object.keys(next).length ? next : null
+}
+
+export interface OutputFit {
+  /** Required schema fields no result column feeds. */
+  missing: string[]
+  /** Result columns that no schema field takes. */
+  unmatched: string[]
+}
+
+/** How a known set of result columns lines up with a schema's fields, using
+ * the same rule as the executor: a column feeds the field its mapping names,
+ * or the field with its own name. */
+export function checkOutputFit(
+  fields: ReadonlyArray<{ key: string; required: boolean }>,
+  mapping: Record<string, string> | null | undefined,
+  resultColumns: readonly string[],
+): OutputFit {
+  const keys = new Set(fields.map((f) => f.key))
+  const fed = new Set<string>()
+  const unmatched: string[] = []
+  for (const column of resultColumns) {
+    const target = mapping?.[column] ?? column
+    if (keys.has(target)) fed.add(target)
+    else unmatched.push(column)
+  }
+  return {
+    missing: fields
+      .filter((f) => f.required && !fed.has(f.key))
+      .map((f) => f.key),
+    unmatched,
+  }
+}

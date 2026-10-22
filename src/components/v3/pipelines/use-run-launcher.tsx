@@ -15,7 +15,7 @@ import type {
 } from '#/lib/pipelines/types'
 
 interface Target {
-  pipelineKey: string
+  pipelineName: string
   version: PipelineDefinitionVersionWire
   /** Set for a retry: links the new run to the failed one and reuses its inputs. */
   retryOf?: PipelineRunWire
@@ -71,10 +71,10 @@ export function useRunLauncher(
       setTarget(null)
       toast(
         t.retryOf
-          ? `Retry of ${t.pipelineKey} started`
+          ? `Retry of ${t.pipelineName} started`
           : t.rerunOn
-            ? `Run of ${t.pipelineKey} started on version ${String(t.version.version)}`
-            : `Run of ${t.pipelineKey} started`,
+            ? `Run of ${t.pipelineName} started on version ${String(t.version.version)}`
+            : `Run of ${t.pipelineName} started`,
         {
           description: 'It is running now. Open the run to follow its log.',
         },
@@ -106,7 +106,7 @@ export function useRunLauncher(
 
   const dialog: ReactNode = target ? (
     <RunDialog
-      pipelineKey={target.pipelineKey}
+      pipelineName={target.pipelineName}
       version={target.version}
       initial={target.initial}
       busy={start.isPending}

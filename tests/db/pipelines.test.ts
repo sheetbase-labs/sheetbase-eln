@@ -570,6 +570,75 @@ describe('Pipeline execution (AUTO-02)', () => {
     ).toEqual([20, 40, 80])
   })
 
+  it('reuses its created Dataset on later runs, adding a Dataset Version each time', async () => {
+    const owner = await actor(OWNER, WS)
+    // Its own pipeline, so the Dataset it creates is not the one other tests
+    // (and the scheduler tests' event triggers) read and write.
+    const definition = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition',
+      {
+        p_workspace_id: WS,
+        p_key: 'reuse_scale_values',
+        p_name: 'Reuse scale values',
+      },
+    )
+    const version = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: definition.id,
+        p_configuration: pipelineConfig(
+          'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+        ),
+      },
+    )
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: version.id,
+    })
+    const runWith = async (factor: number) => {
+      const run = await rpc<{ id: string }>(owner, 'start_pipeline_run', {
+        p_workspace_id: WS,
+        p_definition_version_id: version.id,
+        p_trigger_kind: 'manual',
+        p_parameters: { factor },
+        p_input_versions: { measurements: inputDatasetVersionId },
+      })
+      const { deps, close } = await makeExecDeps(OWNER)
+      const report = await runPipelineExecution(OWNER, run.id, deps)
+      await close()
+      expect(report.run?.status).toBe('succeeded')
+      return report.run!.result as {
+        outputDatasetId: string
+        outputDatasetVersionId: string
+      }
+    }
+    const first = await runWith(5)
+    const second = await runWith(6)
+    expect(second.outputDatasetId).toBe(first.outputDatasetId)
+    expect(second.outputDatasetVersionId).not.toBe(first.outputDatasetVersionId)
+
+    // One Dataset with a Dataset Version per run; the later version also holds
+    // the earlier run's rows (a create output adds rows, like append).
+    const versions = await migrator.query(
+      `select count(*)::int as versions,
+              (select count(*)::int from api.dataset_rows where dataset_id = $1) as rows
+         from api.dataset_versions where dataset_id = $1`,
+      [first.outputDatasetId],
+    )
+    expect(versions.rows[0]).toEqual({ versions: 2, rows: 6 })
+    const datasets = await migrator.query(
+      `select count(distinct o.dataset_id)::int as count
+         from api.pipeline_run_outputs o
+         join api.pipeline_runs r on r.id = o.run_id
+        where r.definition_version_id = $1`,
+      [version.id],
+    )
+    expect(datasets.rows[0].count).toBe(1)
+  })
+
   it('replays a prior success idempotently for the same canonical inputs', async () => {
     const owner = await actor(OWNER, WS)
     const first = await rpc<{
@@ -784,6 +853,10 @@ describe('Pipeline execution (AUTO-02)', () => {
     await close()
     expect(report.ok).toBe(false)
     expect(report.errorCode).toBe('transform_failed')
+    // The failure names the columns the input does have.
+    expect(report.errorMessage).toMatch(
+      /Available: measurements\(batch, value, scaled\)/,
+    )
   })
 
   it('keeps a transform that slips past the statement filter inside the sandbox login', async () => {
@@ -1074,12 +1147,39 @@ describe('Pipeline execution (AUTO-02)', () => {
       ['aaac0000-0000-4000-8000-000000000001', bulkDatasetId],
     )
 
+    // Its own pipeline: a create output reuses its Dataset, and this output
+    // must not pile its 1,500 rows onto the one the other tests read.
+    const bulkDefinition = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition',
+      {
+        p_workspace_id: WS,
+        p_key: 'bulk_scale_values',
+        p_name: 'Bulk scale values',
+      },
+    )
+    const bulkVersion = await rpc<{ id: string }>(
+      owner,
+      'create_pipeline_definition_version',
+      {
+        p_workspace_id: WS,
+        p_definition_id: bulkDefinition.id,
+        p_configuration: pipelineConfig(
+          'SELECT batch, value, value * {{factor}} AS scaled FROM measurements',
+        ),
+      },
+    )
+    await rpc(owner, 'publish_pipeline_definition_version', {
+      p_workspace_id: WS,
+      p_version_id: bulkVersion.id,
+    })
+
     const run = await rpc<{ id: string; status: string }>(
       owner,
       'start_pipeline_run',
       {
         p_workspace_id: WS,
-        p_definition_version_id: pipelineVersionId,
+        p_definition_version_id: bulkVersion.id,
         p_trigger_kind: 'manual',
         p_parameters: { factor: 3 },
         p_input_versions: {

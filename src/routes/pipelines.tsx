@@ -45,6 +45,7 @@ import { ProjectListFailure } from '#/components/v3/projects/project-list'
 import { Tabs } from '#/components/v3/ui/tabs'
 import { toast } from '#/components/v3/ui/sonner'
 import { createPipelineDefinition } from '#/lib/pipelines/data'
+import { suggestPipelineKey } from '#/lib/pipelines/authoring'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   pipelineDataQueryKeys,
@@ -261,7 +262,7 @@ function PipelinesList() {
                 icon="pipeline"
                 render={<Link to="/pipelines/agents" />}
               >
-                Agent operations
+                Agent operations (experimental)
               </Button>
             </>
           }
@@ -404,7 +405,7 @@ function PipelinesList() {
                 }
                 onClick={() =>
                   sel.current &&
-                  run.launch({ pipelineKey: sel.key, version: sel.current })
+                  run.launch({ pipelineName: sel.name, version: sel.current })
                 }
               >
                 Run now
@@ -482,6 +483,8 @@ function NewPipeline({ workspaceId }: { workspaceId: string }) {
   const [serverError, setServerError] = useState<string | null>(null)
   const empty = { key: '', name: '', description: '' }
   const [f, setF] = useState(empty)
+  // The key follows the name until someone types their own.
+  const [keyTouched, setKeyTouched] = useState(false)
 
   // The database's own rule for `pipeline_definitions.key`.
   const errors = {
@@ -506,6 +509,7 @@ function NewPipeline({ workspaceId }: { workspaceId: string }) {
       })
       setOpen(false)
       setF(empty)
+      setKeyTouched(false)
       setTried(false)
       toast(`${definition.name} created`, {
         description:
@@ -533,6 +537,7 @@ function NewPipeline({ workspaceId }: { workspaceId: string }) {
         setOpen(next)
         if (!next) {
           setF(empty)
+          setKeyTouched(false)
           setTried(false)
           setServerError(null)
         }
@@ -547,29 +552,36 @@ function NewPipeline({ workspaceId }: { workspaceId: string }) {
           description="A pipeline is a versioned configuration: declare its inputs and transform next, then publish it so runs and triggers can use it."
         />
         <DialogBody>
+          <Field label="Name" required error={nameError}>
+            <Input
+              autoFocus
+              value={f.name}
+              aria-invalid={nameError ? true : undefined}
+              onChange={(e) =>
+                setF({
+                  ...f,
+                  name: e.target.value,
+                  key: keyTouched ? f.key : suggestPipelineKey(e.target.value),
+                })
+              }
+              placeholder="e.g. Plate reader PR-01 export"
+            />
+          </Field>
           <Field
             label="Key"
             required
             error={keyError}
-            hint="Used in run logs and the API, e.g. plate_reader_export."
+            hint="Suggested from the name. Used in run logs and the API; it cannot change later."
           >
             <Input
-              autoFocus
               className="mono"
               value={f.key}
               aria-invalid={keyError ? true : undefined}
               onChange={(e) => {
                 setF({ ...f, key: e.target.value })
+                setKeyTouched(true)
                 setServerError(null)
               }}
-            />
-          </Field>
-          <Field label="Name" required error={nameError}>
-            <Input
-              value={f.name}
-              aria-invalid={nameError ? true : undefined}
-              onChange={(e) => setF({ ...f, name: e.target.value })}
-              placeholder="e.g. Plate reader PR-01 export"
             />
           </Field>
           <Field label="Description" hint="Optional">

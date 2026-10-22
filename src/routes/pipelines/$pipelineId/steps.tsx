@@ -17,6 +17,9 @@ import {
 import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
 import { InputsEditor } from '#/components/v3/pipelines/inputs-editor'
 import { OutputEditor } from '#/components/v3/pipelines/output-editor'
+import { RunDialog } from '#/components/v3/pipelines/run-dialog'
+import type { RunDetails } from '#/components/v3/pipelines/run-dialog'
+import { TrialPanel } from '#/components/v3/pipelines/trial-panel'
 import type {
   OutputDraft,
   OutputMode,
@@ -40,6 +43,11 @@ import { statementForLanguage } from '#/lib/pipelines/authoring'
 import { unmetRequirements } from '#/lib/pipelines/python'
 import type { PythonContract } from '#/lib/pipelines/python'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { tryPipelineDraft } from '#/lib/pipelines/data'
+import type {
+  PipelineDefinitionVersionWire,
+  PipelineTrialWire,
+} from '#/lib/pipelines/types'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /** UI port (RM-125): the pipeline Steps editor. Edits the stored configuration
@@ -347,6 +355,54 @@ function PipelineSteps() {
       toast.error(error instanceof Error ? error.message : 'Couldn’t save it.'),
   })
 
+  // Try draft: run what is on screen, unsaved, and show the result inline.
+  const [trialDialog, setTrialDialog] = useState(false)
+  const [trialDetails, setTrialDetails] = useState<RunDetails | null>(null)
+  const [trialResult, setTrialResult] = useState<{
+    report: PipelineTrialWire
+    ranWith: string
+  } | null>(null)
+  const configKey = JSON.stringify(builtConfig)
+  const tryDraft = useMutation({
+    mutationFn: (details: RunDetails) =>
+      tryPipelineDraft({
+        workspaceId,
+        configuration: builtConfig,
+        inputVersions: details.inputVersions,
+        parameters: details.parameters,
+      }),
+    onSuccess: (report) => {
+      setTrialDialog(false)
+      setTrialResult({ report, ranWith: configKey })
+    },
+    onError: (error: unknown) => {
+      setTrialDialog(false)
+      toast.error(
+        error instanceof Error ? error.message : 'Couldn’t try the draft.',
+      )
+    },
+  })
+  const startTrial = () => {
+    const { inputs: declared, parameters: declaredParameters } = builtConfig
+    if (!declared?.length && !declaredParameters?.length) {
+      const empty = { inputVersions: {}, parameters: {} }
+      setTrialDetails(empty)
+      tryDraft.mutate(empty)
+      return
+    }
+    setTrialDialog(true)
+  }
+  const submitTrial = (details: RunDetails) => {
+    setTrialDetails(details)
+    tryDraft.mutate(details)
+  }
+  // The dialog reads what the draft declares, not what was last saved.
+  const draftAsVersion = {
+    id: draft?.id ?? 'draft',
+    version: draft?.version ?? 0,
+    configuration: builtConfig,
+  } as unknown as PipelineDefinitionVersionWire
+
   const publish = useMutation({
     mutationFn: () => {
       if (!draft) throw new Error('No draft to publish.')
@@ -510,6 +566,16 @@ function PipelineSteps() {
         />
       </Section>
 
+      {trialResult ? (
+        <TrialPanel
+          result={trialResult.report}
+          stale={trialResult.ranWith !== configKey}
+          onTryAgain={() =>
+            trialDetails ? tryDraft.mutate(trialDetails) : startTrial()
+          }
+        />
+      ) : null}
+
       {configErrors.length ? (
         <Notice tone="bad" title="This version cannot be saved yet">
           <ul className="m-0 mt-1 flex list-none flex-col gap-0.5 p-0">
@@ -534,6 +600,13 @@ function PipelineSteps() {
                 ? 'Save as draft'
                 : 'Create draft v1'}
         </Button>
+        <Button
+          icon="play"
+          disabled={tryDraft.isPending || !canSave}
+          onClick={startTrial}
+        >
+          {tryDraft.isPending ? 'Trying…' : 'Try draft'}
+        </Button>
         {draft ? (
           <Button
             disabled={publish.isPending || !canSave}
@@ -551,6 +624,17 @@ function PipelineSteps() {
           Pipeline runs
         </Button>
       </div>
+      {trialDialog ? (
+        <RunDialog
+          trial
+          pipelineName={definition.data?.name ?? 'this pipeline'}
+          version={draftAsVersion}
+          initial={trialDetails ?? undefined}
+          busy={tryDraft.isPending}
+          onClose={() => setTrialDialog(false)}
+          onSubmit={submitTrial}
+        />
+      ) : null}
     </div>
   )
 }

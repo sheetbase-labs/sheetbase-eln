@@ -419,3 +419,79 @@ describe('Steps editor guided building', () => {
     expect(sql.value).toBe('select readings.batch from readings')
   })
 })
+
+describe('Steps editor Try draft', () => {
+  const answer = {
+    ok: true,
+    preview: {
+      columns: ['n'],
+      rows: [[1]],
+      rowCount: 1,
+      truncated: false,
+    },
+    logs: [],
+    durationMs: 120,
+    wouldWrite: 'none',
+  }
+
+  it('runs the unsaved draft, shows the result inline and says when it is out of date', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(answer))
+    vi.stubGlobal('fetch', fetchMock)
+    renderSteps()
+    const sql = document.querySelector<HTMLTextAreaElement>('textarea')!
+    fireEvent.change(sql, { target: { value: 'select 1 as n' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Try draft' }))
+
+    await screen.findByText('Try draft result')
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe('/api/pipelines/try-draft')
+    const body = JSON.parse(init.body as string) as {
+      workspaceId: string
+      configuration: { transform: { statement: string } }
+    }
+    expect(body.workspaceId).toBe('ws-1')
+    expect(body.configuration.transform.statement).toBe('select 1 as n')
+    expect(screen.getByText(/Nothing was saved/)).toBeTruthy()
+    // Nothing was saved or published to get this answer.
+    expect(rpc).not.toHaveBeenCalled()
+    expect(screen.queryByText(/You changed the draft/)).toBeNull()
+
+    fireEvent.change(sql, { target: { value: 'select 2 as n' } })
+    expect(screen.getByText(/You changed the draft/)).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+
+  it('asks which Dataset Versions to use when the draft declares inputs', async () => {
+    renderSteps()
+    fireEvent.change(document.querySelector('textarea')!, {
+      target: { value: 'select * from readings' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add input' }))
+    fireEvent.change(screen.getByLabelText('Input 1 name'), {
+      target: { value: 'readings' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Try draft' }))
+    expect(await screen.findByText(/Try Viability summary with…/)).toBeTruthy()
+  })
+
+  it('shows the reason when the draft does not run', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json({
+          ok: false,
+          errorCode: 'transform_failed',
+          errorMessage: 'Transform failed: column "x" does not exist',
+          logs: [],
+        }),
+      ),
+    )
+    renderSteps()
+    fireEvent.change(document.querySelector('textarea')!, {
+      target: { value: 'select x' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Try draft' }))
+    expect(await screen.findByText(/column "x" does not exist/)).toBeTruthy()
+    vi.unstubAllGlobals()
+  })
+})

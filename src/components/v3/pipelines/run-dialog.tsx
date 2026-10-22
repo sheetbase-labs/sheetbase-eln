@@ -68,6 +68,7 @@ export function RunDialog({
   onClose,
   onSubmit,
   initial,
+  trial,
 }: {
   pipelineName: string
   version: PipelineDefinitionVersionWire
@@ -75,6 +76,8 @@ export function RunDialog({
   onClose: () => void
   onSubmit: (details: RunDetails) => void
   initial?: Partial<RunDetails>
+  /** Set to try an unsaved draft: the dialog then promises that nothing is kept. */
+  trial?: boolean
 }) {
   const { inputs, parameters } = declaredRunInputs(version)
   const choices = useDatasetVersionChoices(inputs.length > 0)
@@ -102,8 +105,14 @@ export function RunDialog({
     <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
         <DialogHeader
-          title={`Run ${pipelineName} with…`}
-          description={`Version v${version.version}. Each input is pinned to the Dataset Version you choose, so the run can be repeated exactly.`}
+          title={
+            trial ? `Try ${pipelineName} with…` : `Run ${pipelineName} with…`
+          }
+          description={
+            trial
+              ? 'Runs the draft as it is now on the Dataset Versions you choose and shows what it would produce. Nothing is saved, published or recorded.'
+              : `Version v${version.version}. Each input is pinned to the Dataset Version you choose, so the run can be repeated exactly.`
+          }
         />
         <DialogBody>
           {choices.isError ? (
@@ -214,7 +223,7 @@ export function RunDialog({
               })
             }
           >
-            Run
+            {trial ? 'Try draft' : 'Run'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -142,6 +142,26 @@ describe('NotebookDocument — rendering', () => {
     expect(secondHash).toHaveBeenCalledWith('block-b2')
     expect(firstHash).not.toHaveBeenCalled()
     expect(window.location.href).toBe(browserAddress)
+    const secondCopy = (hash: string) => (
+      <NotebookDocument
+        {...props}
+        initialBlockHash={hash}
+        onBlockHashChange={secondHash}
+      />
+    )
+    // A selection echoed by the owning router must not jump to the block top.
+    second.rerender(secondCopy('block-b2'))
+    expect(scrolled).toHaveLength(2)
+    // Links to other blocks must still work without remounting the document,
+    // including returning to the last locally selected block.
+    second.rerender(secondCopy('block-b1'))
+    second.rerender(secondCopy('block-b2'))
+    expect(scrolled.slice(2)).toEqual([
+      second.container.querySelector('[id="block-b1"]'),
+      second.container.querySelector('[id="block-b2"]'),
+    ])
+    expect(secondHash).toHaveBeenCalledTimes(1)
+    expect(firstHash).not.toHaveBeenCalled()
     scroll.mockRestore()
   })
 

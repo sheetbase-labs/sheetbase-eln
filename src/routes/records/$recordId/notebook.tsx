@@ -1148,11 +1148,11 @@ export function StickyRecordHeader({
 
   // Coming back from a detour (certifying a signature, for one) reopens the
   // dialog the person left, instead of leaving them to find the button again.
+  const reopenTask = useRouterState({
+    select: (state) => reopenTaskFromSearch(state.location.search),
+  })
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const task = reopenTaskFromSearch(
-      Object.fromEntries(new URLSearchParams(window.location.search)),
-    )
+    const task = reopenTask
     if (!task) return
     if (task === 'submit' && !canSubmit) return
     if (task === 'sign' && !canSign) return
@@ -1166,7 +1166,7 @@ export function StickyRecordHeader({
       }),
       replace: true,
     } as never)
-  }, [canSubmit, canSign, navigate])
+  }, [canSubmit, canSign, navigate, reopenTask])
 
   const linkRecords = useMutation({
     mutationFn: (items: PickerItem[]) =>

@@ -262,6 +262,7 @@ function NotebookDocumentContent({
 }: NotebookDocumentProps) {
   const documentRef = React.useRef<HTMLDivElement>(null)
   const emptyStartRef = React.useRef<HTMLButtonElement>(null)
+  const selectionHashRef = React.useRef<string | null>(null)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [activeId, setActiveId] = React.useState<string | null>(null)
   /**
@@ -391,9 +392,13 @@ function NotebookDocumentContent({
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasUnsavedWork])
 
-  // Scroll to the block named in the URL hash on mount (deep link to a block).
+  // Follow the owning router's deep links, but do not scroll again when a
+  // local selection is reflected back through that router.
   React.useEffect(() => {
     const hash = initialBlockHash
+    const fromSelection = selectionHashRef.current === hash
+    selectionHashRef.current = null
+    if (fromSelection) return
     if (hash.startsWith('block-')) {
       const el = Array.from(
         documentRef.current?.querySelectorAll<HTMLElement>('[id^="block-"]') ??
@@ -403,10 +408,12 @@ function NotebookDocumentContent({
         el.scrollIntoView({ block: 'start' })
       }
     }
-  }, [])
+  }, [initialBlockHash])
 
   function updateBlockHash(blockId: string | null) {
-    onBlockHashChange?.(blockId ? `block-${blockId}` : '')
+    const hash = blockId ? `block-${blockId}` : ''
+    selectionHashRef.current = hash
+    onBlockHashChange?.(hash)
   }
 
   function selectBlock(block: NotebookBlockData) {

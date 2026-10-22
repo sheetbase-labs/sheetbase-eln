@@ -10,8 +10,16 @@
  * History keep rendering the existing panels.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -37,6 +45,11 @@ import {
  * would, keeping the selection contract (not the renderer) under test.
  */
 const gridRender = vi.hoisted(() => vi.fn())
+
+const TestRouterContext = createContext<{
+  location: { search: Record<string, unknown>; hash: string }
+  navigate: ReturnType<typeof vi.fn>
+}>({ location: { search: {}, hash: '' }, navigate: vi.fn() })
 
 vi.mock('#/components/sheet/sheetbase-grid', () => ({
   SheetbaseTableGrid: (props: SheetbaseGridProps) => {
@@ -68,10 +81,12 @@ vi.mock('@tanstack/react-router', () => ({
   }),
   redirect: (options: unknown) => options,
   useBlocker: () => ({ status: 'idle' }),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => useContext(TestRouterContext).navigate,
   useParams: () => ({ recordId: 'r1', projectId: 'p1' }),
-  useRouterState: (options?: { select?: (state: unknown) => unknown }) =>
-    options?.select ? options.select({ location: { search: '' } }) : {},
+  useRouterState: (options?: { select?: (state: unknown) => unknown }) => {
+    const state = useContext(TestRouterContext)
+    return options?.select ? options.select(state) : state
+  },
   // The Sheet workspace reads the root auth context; this Notebook renders
   // without Sheet comments, so no actor is needed.
   useRouteContext: () => ({ auth: null }),
@@ -99,6 +114,17 @@ vi.mock('@tanstack/react-router', () => ({
       </a>
     )
   },
+}))
+
+vi.mock('#/components/notebook/submit-notebook-dialog', () => ({
+  SubmitNotebookDialog: ({ recordId }: { recordId: string }) => (
+    <div role="dialog" aria-label={`Submit ${recordId}`} />
+  ),
+}))
+vi.mock('#/components/notebook/sign-notebook-dialog', () => ({
+  SignNotebookDialog: ({ revisionId }: { revisionId: string }) => (
+    <div role="dialog" aria-label={`Sign ${revisionId}`} />
+  ),
 }))
 
 beforeAll(() => {
@@ -357,6 +383,89 @@ describe('NotebookInspector — selected Sheet cell (EXP-04.4)', () => {
 })
 
 describe('StickyRecordHeader — notebook title', () => {
+  it.each([undefined, 'sign'] as const)(
+    'keeps a background notebook’s reopen=%s and return params separate from the active browser URL',
+    async (backgroundTask) => {
+      const address = window.location.href
+      window.history.replaceState(null, '', '?reopen=submit&returnTo=%2Factive')
+      const activeNavigate = vi.fn()
+      const backgroundNavigate = vi.fn()
+      const activeSearch = {
+        reopen: 'submit',
+        returnTo: '/active',
+        tab: 'notebook',
+      }
+      const backgroundSearch = {
+        reopen: backgroundTask,
+        returnTo: '/background',
+        revision: 'revision-b',
+      }
+      const mount = (
+        search: Record<string, unknown>,
+        navigate: ReturnType<typeof vi.fn>,
+        background: boolean,
+      ) =>
+        render(
+          <QueryClientProvider client={new QueryClient()}>
+            <TestRouterContext.Provider
+              value={{ location: { search, hash: '' }, navigate }}
+            >
+              <StickyRecordHeader
+                record={
+                  background
+                    ? {
+                        ...record,
+                        id: 'rB',
+                        lockedAt: backgroundTask ? '2026-10-22' : null,
+                        lockedByRevisionId: backgroundTask
+                          ? 'revision-b'
+                          : null,
+                      }
+                    : { ...record, id: 'rA' }
+                }
+                projectName="Project"
+                projectId="p1"
+                currentUserId="u1"
+                currentUserName="Ada Lovelace"
+                workspaceId={WORKSPACE}
+              />
+            </TestRouterContext.Provider>
+          </QueryClientProvider>,
+        )
+      try {
+        const active = mount(activeSearch, activeNavigate, false)
+        const background = mount(backgroundSearch, backgroundNavigate, true)
+        expect(
+          await within(active.container).findByRole('dialog', {
+            name: 'Submit rA',
+          }),
+        ).toBeTruthy()
+        if (backgroundTask) {
+          expect(
+            await within(background.container).findByRole('dialog', {
+              name: 'Sign revision-b',
+            }),
+          ).toBeTruthy()
+          expect(backgroundNavigate).toHaveBeenCalledTimes(1)
+          expect(
+            backgroundNavigate.mock.calls[0][0].search(backgroundSearch),
+          ).toEqual({ ...backgroundSearch, reopen: undefined })
+        } else {
+          expect(within(background.container).queryByRole('dialog')).toBeNull()
+          expect(backgroundNavigate).not.toHaveBeenCalled()
+        }
+        expect(activeNavigate).toHaveBeenCalledTimes(1)
+        expect(activeNavigate.mock.calls[0][0].search(activeSearch)).toEqual({
+          ...activeSearch,
+          reopen: undefined,
+        })
+        expect(window.location.search).toBe('?reopen=submit&returnTo=%2Factive')
+      } finally {
+        window.history.replaceState(null, '', address)
+      }
+    },
+  )
+
   it('puts the title back when the rename is refused', async () => {
     const update = vi
       .spyOn(notebookExperience, 'updateExperimentMetadata')

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import type { RouterHistory } from '@tanstack/react-router'
+import { Columns2, Maximize2, Minimize2, Plus, Rows2 } from 'lucide-react'
 import {
   addPaneToStack,
   listStacks,
@@ -483,25 +484,47 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             Alt-click any link to open beside
           </span>
           <Button
-            size="sm"
+            size="icon"
             variant="quiet"
+            aria-label="New pane"
+            title="New pane"
             onClick={() => open('/', { duplicate: true })}
           >
-            New pane
+            <Plus size={16} aria-hidden="true" />
           </Button>
           <Button
-            size="sm"
+            size="icon"
             variant="quiet"
+            aria-label="Split right"
+            title="Split right"
             onClick={() => open(active.href, { beside: true, duplicate: true })}
           >
-            Split right
+            <Columns2 size={16} aria-hidden="true" />
           </Button>
           <Button
-            size="sm"
+            size="icon"
             variant="quiet"
+            aria-label="Split below"
+            title="Split below"
+            onClick={() =>
+              open(active.href, { beside: true, below: true, duplicate: true })
+            }
+          >
+            <Rows2 size={16} aria-hidden="true" />
+          </Button>
+          <Button
+            size="icon"
+            variant="quiet"
+            aria-label={maximized ? 'Restore layout' : 'Maximise'}
+            title={maximized ? 'Restore layout' : 'Maximise'}
+            aria-pressed={maximized}
             onClick={() => setMaximized((value) => !value)}
           >
-            {maximized ? 'Restore layout' : 'Maximise'}
+            {maximized ? (
+              <Minimize2 size={16} aria-hidden="true" />
+            ) : (
+              <Maximize2 size={16} aria-hidden="true" />
+            )}
           </Button>
         </div>
         {error ? (

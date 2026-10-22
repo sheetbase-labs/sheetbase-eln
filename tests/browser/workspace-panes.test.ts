@@ -4,6 +4,88 @@ import { open, signIn, uniqueName, withAdminDb } from './journeys/helpers'
 test.use({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 2 })
 test.setTimeout(90_000)
 
+test('icon controls compose a four-by-four grid of real pages', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 2560, height: 1800 })
+  await signIn(page)
+  await open(page, '/samples')
+  const workspace = page.getByRole('region', { name: 'Workspace', exact: true })
+  const panes = workspace.locator('[data-workspace-pane]')
+  await expect(panes).toHaveCount(1)
+  const initialId = await panes.first().getAttribute('data-workspace-pane')
+  if (!initialId) throw new Error('Missing initial pane')
+
+  async function split(id: string, direction: 'right' | 'below') {
+    const before = await panes.evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute('data-workspace-pane')),
+    )
+    await workspace
+      .locator(`[data-workspace-pane="${id}"] > .workspace-page-heading > span`)
+      .click()
+    const button = workspace.getByRole('button', {
+      name: `Split ${direction}`,
+      exact: true,
+    })
+    await expect(button).toHaveText('')
+    await expect(button).toHaveAttribute('title', `Split ${direction}`)
+    await button.click()
+    await expect(panes).toHaveCount(before.length + 1)
+    const addedId = await panes.evaluateAll(
+      (elements, existing) =>
+        elements
+          .map((element) => element.getAttribute('data-workspace-pane'))
+          .find((value) => !existing.includes(value)),
+      before,
+    )
+    if (!addedId) throw new Error('Missing split pane')
+    return addedId
+  }
+
+  const rightId = await split(initialId, 'right')
+  const columns = [
+    initialId,
+    await split(initialId, 'right'),
+    rightId,
+    await split(rightId, 'right'),
+  ]
+  for (const id of columns) {
+    const bottomId = await split(id, 'below')
+    await split(id, 'below')
+    await split(bottomId, 'below')
+  }
+
+  async function expectGrid() {
+    await expect(panes).toHaveCount(16)
+    await expect(
+      workspace.getByRole('heading', { name: 'Samples', exact: true }),
+    ).toHaveCount(16)
+    await expect
+      .poll(async () =>
+        panes.evaluateAll((elements) => {
+          const boxes = elements.map((element) =>
+            element.getBoundingClientRect(),
+          )
+          return {
+            columns: new Set(boxes.map((box) => Math.round(box.x))).size,
+            rows: new Set(boxes.map((box) => Math.round(box.y))).size,
+            visible: boxes.every(
+              (box) =>
+                box.width >= 280 &&
+                box.height >= 280 &&
+                box.right <= innerWidth &&
+                box.bottom <= innerHeight,
+            ),
+          }
+        }),
+      )
+      .toEqual({ columns: 4, rows: 4, visible: true })
+  }
+  await expectGrid()
+  await page.reload()
+  await expectGrid()
+})
+
 test('actual pages stay independent through splitting, navigation, arrangement and reload', async ({
   page,
 }) => {

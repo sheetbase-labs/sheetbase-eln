@@ -21,6 +21,7 @@ Role facts used throughout:
 ---
 
 ### J-SET-01 Invited person tries to join a workspace
+
 - **Persona / goal:** Owner invites a colleague. The colleague must end up as a member of the owner's workspace.
 - **Entry:** Members and roles, "Invite people" button, "Send invitation" (`routes/settings/members.tsx:538-543`, `834-846`).
 - **Path:**
@@ -36,6 +37,7 @@ Role facts used throughout:
 - **Severity:** S1. Every multi-person workspace, and every client-portal account (see J-SET-14), depends on it.
 
 ### J-SET-02 Sole owner needs to certify an electronic signature
+
 - **Persona / goal:** First user of a fresh workspace wants to sign a record. Home tells them to "Set up your electronic signature" and says it takes about 2 minutes.
 - **Entry:** Home first-run checklist, step 2 (`routes/index.tsx:142-147`). Also the sign dialog and review page link to `/settings/signatures` (`components/notebook/sign-notebook-dialog.tsx:212`, `routes/review/$revisionId.tsx:2564`).
 - **Path:**
@@ -49,6 +51,7 @@ Role facts used throughout:
 - **Severity:** S1 (blocks regulated work).
 
 ### J-SET-03 User with no workspace membership opens Home
+
 - **Persona / goal:** A member the owner removed, or a user whose membership was never created, signs in and opens the app.
 - **Entry:** Any signed-in page.
 - **Path:**
@@ -62,6 +65,7 @@ Role facts used throughout:
 - **Severity:** S1 (user cannot do anything and is not told why).
 
 ### J-SET-04 Suspended member keeps using the app
+
 - **Persona / goal:** A scientist whose membership an owner suspended opens a record.
 - **Entry:** Any page.
 - **Path:**
@@ -76,6 +80,7 @@ Role facts used throughout:
 - **Severity:** S1 for a regulated tool (user cannot tell a suspension from an outage).
 
 ### J-SET-05 Session expires while working
+
 - **Persona / goal:** A scientist leaves a notebook open. The session ends. They come back and keep editing.
 - **Entry:** Any authenticated page.
 - **Path:**
@@ -90,6 +95,7 @@ Role facts used throughout:
 - **Severity:** S1 (data-loss risk and wrong guidance).
 
 ### J-SET-06 Signed-out visitor deep-links in, or GitHub sign-in fails
+
 - **Persona / goal:** Someone opens a link to `/records/...` or `/settings/api` while signed out, or sign-in returns an error.
 - **Entry:** Redirect to `/sign-in`, or `/sign-in?error=...`.
 - **Path:**
@@ -105,6 +111,7 @@ Role facts used throughout:
 - **Severity:** S3 for step 2, S2 for step 5.
 
 ### J-SET-07 Working offline, then syncing
+
 - **Persona / goal:** A scientist on a lab network drop keeps editing a notebook, then reconnects.
 - **Entry:** Notebook offline banner and "Some edits could not sync" notice.
 - **Path:**
@@ -119,6 +126,7 @@ Role facts used throughout:
 - **Severity:** S2.
 
 ### J-SET-08 Admin turns off "Allow offline editing"
+
 - **Persona / goal:** An admin of a regulated site disables offline editing so edits cannot be held on devices.
 - **Entry:** Settings, General, "Allow offline editing on this workspace’s devices" (`components/v3/settings/settings-general.tsx:322-335`).
 - **Path:**
@@ -131,6 +139,7 @@ Role facts used throughout:
 - **Severity:** S1 (a compliance setting that does nothing).
 
 ### J-SET-09 Bell: "Notification settings" and notification preferences
+
 - **Persona / goal:** Any member wants to change which events reach them.
 - **Entry:** Bell popover footer link "Notification settings" (`components/v3/shell/app-shell.tsx:792`).
 - **Path:**
@@ -145,6 +154,7 @@ Role facts used throughout:
 - **Severity:** S2.
 
 ### J-SET-10 Admin or owner opens Members and roles
+
 - **Persona / goal:** A workspace `admin` (not owner) wants to invite someone or change a role. A viewer or client wants to see who is in the workspace.
 - **Entry:** Settings, Members and roles.
 - **Path:**
@@ -160,6 +170,7 @@ Role facts used throughout:
 - **Severity:** S2.
 
 ### J-SET-11 Project access: "I can't add a rule"
+
 - **Persona / goal:** A lead wants to give a group edit access to a project, or an owner wants to know why no one can open one.
 - **Entry:** Settings, Project access.
 - **Path:**
@@ -175,6 +186,7 @@ Role facts used throughout:
 - **Severity:** S2.
 
 ### J-SET-12 API tokens and service credentials
+
 - **Persona / goal:** A member creates a token for a notebook. An owner manages a service credential.
 - **Entry:** Settings, API and SDK.
 - **Path:**
@@ -190,6 +202,7 @@ Role facts used throughout:
 - **Severity:** S2.
 
 ### J-SET-13 Settings, General fails to load
+
 - **Persona / goal:** An admin edits the workspace name or time zone.
 - **Entry:** Settings, General.
 - **Path:**
@@ -202,6 +215,7 @@ Role facts used throughout:
 - **Severity:** S2.
 
 ### J-SET-14 Client viewer uses the client portal
+
 - **Persona / goal:** A CDMO client reads approved reports, downloads a PDF and messages the team.
 - **Entry:** Sign-in, then Home, then the portal.
 - **Path:**
@@ -217,6 +231,7 @@ Role facts used throughout:
 - **Severity:** S1 for step 1, S2 for the rest.
 
 ### J-SET-15 Comments panel: read-only, empty or failed
+
 - **Persona / goal:** A reviewer or author reads and adds comments on a record.
 - **Entry:** Notebook inspector, Comments tab; review page; sheet workspace.
 - **Path:**
@@ -231,6 +246,7 @@ Role facts used throughout:
 - **Severity:** S2.
 
 ### J-SET-16 Something failed: from Diagnostics, Usage and Help to someone who can fix it
+
 - **Persona / goal:** An admin sees a failing check, a capacity warning or a failed run and wants to fix it or get support.
 - **Entry:** Settings, Diagnostics; Usage, "Capacity warnings"; Help, Contact support.
 - **Path:**
@@ -246,6 +262,7 @@ Role facts used throughout:
 - **Severity:** S2.
 
 ### J-SET-17 Search: no matches, search failure, empty query
+
 - **Persona / goal:** Find a record by ID or value, and recover when nothing is found.
 - **Entry:** `/search`, ⌘K palette, or the not-found screen's Search button (`components/v3/shell/not-found.tsx:94-100`).
 - **Path:**
@@ -275,24 +292,24 @@ Role facts used throughout:
 
 ## Summary
 
-| ID | Title | Verdict | Severity |
-| --- | --- | --- | --- |
-| J-SET-01 | Invited person tries to join a workspace | dead-end | S1 |
-| J-SET-02 | Sole owner needs to certify an electronic signature | dead-end | S1 |
-| J-SET-03 | User with no workspace membership opens Home | dead-end | S1 |
-| J-SET-04 | Suspended member keeps using the app | dead-end | S1 |
-| J-SET-05 | Session expires while working | dead-end | S1 |
-| J-SET-06 | Signed-out deep link, or GitHub sign-in fails | partial | S2 |
-| J-SET-07 | Working offline, then syncing | partial | S2 |
-| J-SET-08 | Admin turns off "Allow offline editing" | dead-end | S1 |
-| J-SET-09 | Bell: "Notification settings" and preferences | partial | S2 |
-| J-SET-10 | Admin or owner opens Members and roles | partial | S2 |
-| J-SET-11 | Project access: "I can't add a rule" | dead-end | S2 |
-| J-SET-12 | API tokens and service credentials | partial | S2 |
-| J-SET-13 | Settings, General fails to load | dead-end | S2 |
-| J-SET-14 | Client viewer uses the client portal | dead-end | S1 |
-| J-SET-15 | Comments panel: read-only, empty or failed | partial | S2 |
-| J-SET-16 | Something failed: Diagnostics, Usage, Help | dead-end | S2 |
-| J-SET-17 | Search: no matches, failure, empty query | complete | S3 |
+| ID       | Title                                               | Verdict  | Severity |
+| -------- | --------------------------------------------------- | -------- | -------- |
+| J-SET-01 | Invited person tries to join a workspace            | dead-end | S1       |
+| J-SET-02 | Sole owner needs to certify an electronic signature | dead-end | S1       |
+| J-SET-03 | User with no workspace membership opens Home        | dead-end | S1       |
+| J-SET-04 | Suspended member keeps using the app                | dead-end | S1       |
+| J-SET-05 | Session expires while working                       | dead-end | S1       |
+| J-SET-06 | Signed-out deep link, or GitHub sign-in fails       | partial  | S2       |
+| J-SET-07 | Working offline, then syncing                       | partial  | S2       |
+| J-SET-08 | Admin turns off "Allow offline editing"             | dead-end | S1       |
+| J-SET-09 | Bell: "Notification settings" and preferences       | partial  | S2       |
+| J-SET-10 | Admin or owner opens Members and roles              | partial  | S2       |
+| J-SET-11 | Project access: "I can't add a rule"                | dead-end | S2       |
+| J-SET-12 | API tokens and service credentials                  | partial  | S2       |
+| J-SET-13 | Settings, General fails to load                     | dead-end | S2       |
+| J-SET-14 | Client viewer uses the client portal                | dead-end | S1       |
+| J-SET-15 | Comments panel: read-only, empty or failed          | partial  | S2       |
+| J-SET-16 | Something failed: Diagnostics, Usage, Help          | dead-end | S2       |
+| J-SET-17 | Search: no matches, failure, empty query            | complete | S3       |
 
 Counts: dead-end 10, partial 6, complete 1.

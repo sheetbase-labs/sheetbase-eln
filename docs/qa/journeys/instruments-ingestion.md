@@ -8,6 +8,7 @@ Format and severity scale are in [README.md](./README.md).
 Not run in a browser. Verdicts describe what the code offers, not what a tester saw.
 
 ### J-INS-01 Automated instrument has no validated parser (reference journey)
+
 - **Persona / goal:** lab scientist or schema editor who registered a file-drop or webhook instrument and wants its readings to import into a GxP dataset.
 - **Entry:** warning on the registry inspector or the instrument record: "No parser yet." / "Parser not validated."
 - **Path:**
@@ -21,6 +22,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** n/a
 
 ### J-INS-02 Parser is validated but not approved; the GxP import is then refused
+
 - **Persona / goal:** schema editor who has just validated a parser and sees the warning disappear.
 - **Entry:** the instrument inspector reads "Parser: X · validated" with no notice. Later, the import commit fails for a regulated dataset.
 - **Path:**
@@ -34,6 +36,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-03 Validate and approve a parser in settings: failure and disabled controls
+
 - **Persona / goal:** schema editor or steward testing a draft against a retained export.
 - **Entry:** `/settings/instruments` with a draft version selected.
 - **Path:**
@@ -48,6 +51,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-04 Member follows a "Parser failure" inbox item to parser settings
+
 - **Persona / goal:** the scientist who uploaded a file that failed. As the file's creator they receive a data-issue work item.
 - **Entry:** Inbox "Data issues" row "Parser failure: <file>".
 - **Path:**
@@ -61,6 +65,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-05 Uploaded file is not recognised by any parser
+
 - **Persona / goal:** scientist importing an instrument export into a dataset.
 - **Entry:** `/import/<fileId>?step=map` with the banner "Choose how to read this file".
 - **Path:**
@@ -73,6 +78,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S3
 
 ### J-INS-06 Admin approves a parser; the original import is never resumed
+
 - **Persona / goal:** admin or steward who approved a parser after a failure, expecting the scientist's file to import.
 - **Entry:** the success line "Parser version approved. Retry the retained import using this exact version." (`parser-settings.tsx:149-152`).
 - **Path:**
@@ -85,6 +91,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-07 Review or commit refuses the import
+
 - **Persona / goal:** scientist at the Review step of an import.
 - **Entry:** the "These rows stop the import" banner, or the "Import error" banner after Import.
 - **Path:**
@@ -99,6 +106,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-08 Import against an instrument whose calibration is overdue
+
 - **Persona / goal:** scientist importing results and tagging the instrument that produced them.
 - **Entry:** the Instrument field on `/import`, which shows a status chip beside the picker.
 - **Path:**
@@ -111,6 +119,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-09 Automated instrument is not delivering data (failed, stale, waiting)
+
 - **Persona / goal:** instrument owner whose file-drop or webhook instrument shows "Last import failed", "No data for N days" or "Waiting for first data".
 - **Entry:** registry column or inspector Health row; record page Health badge.
 - **Path:**
@@ -123,6 +132,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-10 Calibration overdue: "until a new certificate is attached"
+
 - **Persona / goal:** instrument owner or technician who must restore a GxP-citable instrument.
 - **Entry:** the red Notice "Calibration overdue." in the inspector (`instruments.tsx:783-787`), or the "Calibration due" column.
 - **Path:**
@@ -138,6 +148,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S1
 
 ### J-INS-11 Booking refused: not qualified, or calibration overdue
+
 - **Persona / goal:** scientist booking an instrument from the Schedule or the registry "Book" button.
 - **Entry:** the red alert in the "Book an instrument" dialog.
 - **Path:**
@@ -151,6 +162,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S1
 
 ### J-INS-12 Recalibrated instrument still refuses bookings (suspected defect)
+
 - **Persona / goal:** technician who has just recorded a new calibration for an instrument that was overdue.
 - **Entry:** record page shows "Valid", then booking fails with "the instrument calibration is overdue".
 - **Path:**
@@ -163,6 +175,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S1 if confirmed
 
 ### J-INS-13 Enterprise connector registered but never configured
+
 - **Persona / goal:** steward connecting an S3 bucket or an external PostgreSQL source.
 - **Entry:** Settings → Integrations → Register connector, then the connector page.
 - **Path:**
@@ -176,6 +189,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S1
 
 ### J-INS-14 Connector is paused, archived, or the viewer cannot run it
+
 - **Persona / goal:** user who opens a connector to ingest or import from it.
 - **Entry:** `/settings/integrations/<id>`.
 - **Path:**
@@ -190,6 +204,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-15 Ingest an instrument file from the connector: disabled button and silent parse failure
+
 - **Persona / goal:** steward or admin pushing a plate-reader CSV through an instrument connector.
 - **Entry:** "Ingest instrument output" panel (`ingest-panel.tsx:232-371`).
 - **Path:**
@@ -204,6 +219,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-16 Failed connector run: what next?
+
 - **Persona / goal:** steward investigating a failed ingest or source import.
 - **Entry:** Run history on the connector page, a red "Failed" row, or the Inbox "connector run" item that links to the connector (`inbox.tsx:135-139`).
 - **Path:**
@@ -217,6 +233,7 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 - **Severity:** S2
 
 ### J-INS-17 Scan an instrument label before using it
+
 - **Persona / goal:** technician at the bench scanning INS-nnnn to check the instrument is safe to use, or fixing a bad scan.
 - **Entry:** `/scan`, camera or typed ID.
 - **Path:**
@@ -231,24 +248,24 @@ Not run in a browser. Verdicts describe what the code offers, not what a tester 
 
 ## Summary
 
-| ID | Title | Verdict | Severity |
-| --- | --- | --- | --- |
-| J-INS-01 | Parser warning follow-up (reference) | complete | n/a |
-| J-INS-02 | Validated but unapproved parser, GxP import refused | partial | S2 |
-| J-INS-03 | Validate and approve parser, disabled controls | partial | S2 |
-| J-INS-04 | Member opens parser failure from inbox | dead-end | S2 |
-| J-INS-05 | File not recognised at import | partial | S3 |
-| J-INS-06 | Approved parser, import never resumed | dead-end | S2 |
-| J-INS-07 | Review or commit refuses the import | partial | S2 |
-| J-INS-08 | Import against overdue calibration | partial | S2 |
-| J-INS-09 | Automated instrument not delivering data | dead-end | S2 |
-| J-INS-10 | Calibration overdue, certificate cannot be attached | dead-end | S1 |
-| J-INS-11 | Booking refused: unqualified or calibration overdue | dead-end | S1 |
-| J-INS-12 | Recalibrated instrument still refused (suspected) | dead-end | S1 |
-| J-INS-13 | Enterprise connector cannot be configured | dead-end | S1 |
-| J-INS-14 | Paused, archived or non-executor connector | partial | S2 |
-| J-INS-15 | Instrument file ingest panel | partial | S2 |
-| J-INS-16 | Failed connector run | dead-end | S2 |
-| J-INS-17 | Scan an instrument label | partial | S2 |
+| ID       | Title                                               | Verdict  | Severity |
+| -------- | --------------------------------------------------- | -------- | -------- |
+| J-INS-01 | Parser warning follow-up (reference)                | complete | n/a      |
+| J-INS-02 | Validated but unapproved parser, GxP import refused | partial  | S2       |
+| J-INS-03 | Validate and approve parser, disabled controls      | partial  | S2       |
+| J-INS-04 | Member opens parser failure from inbox              | dead-end | S2       |
+| J-INS-05 | File not recognised at import                       | partial  | S3       |
+| J-INS-06 | Approved parser, import never resumed               | dead-end | S2       |
+| J-INS-07 | Review or commit refuses the import                 | partial  | S2       |
+| J-INS-08 | Import against overdue calibration                  | partial  | S2       |
+| J-INS-09 | Automated instrument not delivering data            | dead-end | S2       |
+| J-INS-10 | Calibration overdue, certificate cannot be attached | dead-end | S1       |
+| J-INS-11 | Booking refused: unqualified or calibration overdue | dead-end | S1       |
+| J-INS-12 | Recalibrated instrument still refused (suspected)   | dead-end | S1       |
+| J-INS-13 | Enterprise connector cannot be configured           | dead-end | S1       |
+| J-INS-14 | Paused, archived or non-executor connector          | partial  | S2       |
+| J-INS-15 | Instrument file ingest panel                        | partial  | S2       |
+| J-INS-16 | Failed connector run                                | dead-end | S2       |
+| J-INS-17 | Scan an instrument label                            | partial  | S2       |
 
 Counts: 1 complete, 8 partial, 8 dead-end (17 journeys). Severity: 4 S1 (one only if confirmed), 11 S2, 1 S3.

@@ -7,6 +7,7 @@ not shown how to resolve it.
 Each domain file holds ~16–18 journeys in this shape:
 
 ### J-<DOMAIN>-<nn> <title>
+
 - **Persona / goal:** who, and what they are trying to finish
 - **Entry:** the screen or warning where the journey starts
 - **Path:** numbered screens/actions the code actually offers (file:line)
@@ -22,14 +23,14 @@ and offers the next action (or names the person who can).
 
 102 journeys in six files: 43 dead-end, 51 partial, 8 complete.
 
-| File | Journeys | Dead-end | Partial | Complete |
-|---|---|---|---|---|
-| instruments-ingestion.md | 17 | 8 | 8 | 1 |
-| samples-materials.md | 17 | 9 | 7 | 1 |
-| notebook-records-signing.md | 17 | 7 | 8 | 2 |
-| data-analysis-models.md | 17 | 4 | 11 | 2 |
-| pipelines-projects.md | 17 | 5 | 11 | 1 |
-| settings-auth-shell.md | 17 | 10 | 6 | 1 |
+| File                        | Journeys | Dead-end | Partial | Complete |
+| --------------------------- | -------- | -------- | ------- | -------- |
+| instruments-ingestion.md    | 17       | 8        | 8       | 1        |
+| samples-materials.md        | 17       | 9        | 7       | 1        |
+| notebook-records-signing.md | 17       | 7        | 8       | 2        |
+| data-analysis-models.md     | 17       | 4        | 11      | 2        |
+| pipelines-projects.md       | 17       | 5        | 11      | 1        |
+| settings-auth-shell.md      | 17       | 10       | 6       | 1        |
 
 ### Recurring causes
 
@@ -43,7 +44,7 @@ and offers the next action (or names the person who can).
    items, QR label scan, `?selected=` across tabs.
 4. **"Ask a workspace admin" with no way to see who.**
 5. **Raw database or contract errors shown to people.** SB115/SB116, `record is
-   locked`, `current signature certification required`.
+locked`, `current signature certification required`.
 6. **Silent failure states.** Removed or suspended user, expired session read as
    offline, failed load shown as empty.
 

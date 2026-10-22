@@ -1,3 +1,4 @@
+import { SqlEditor } from '#/components/v3/pipelines/sql-editor'
 import { Button } from '#/components/v3/ui/button'
 import { Checkbox } from '#/components/v3/ui/checkbox'
 import { Input } from '#/components/v3/ui/input'
@@ -154,17 +155,15 @@ export function StepsEditor({
                   requirements={python.requirements}
                 />
               ) : (
-                <textarea
+                <SqlEditor
                   aria-label={`Step ${n} code`}
                   value={step.statement}
                   rows={4}
-                  spellCheck={false}
                   onChange={(e) =>
                     onChange(
                       updateStep(steps, index, { statement: e.target.value }),
                     )
                   }
-                  className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
                 />
               )}
               <label className="flex items-center gap-2 text-body">

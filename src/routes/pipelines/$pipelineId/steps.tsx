@@ -14,6 +14,7 @@ import {
   PythonPackagesEditor,
   PythonStepEditor,
 } from '#/components/v3/pipelines/python-editor'
+import { SqlEditor } from '#/components/v3/pipelines/sql-editor'
 import { StepsEditor } from '#/components/v3/pipelines/steps-editor'
 import { InputsEditor } from '#/components/v3/pipelines/inputs-editor'
 import { OutputEditor } from '#/components/v3/pipelines/output-editor'
@@ -512,14 +513,12 @@ function PipelineSteps() {
               label="Transform"
               hint="SQL over the declared inputs. Sheets are read as tables named by the input."
             >
-              <textarea
+              <SqlEditor
                 ref={transformRef}
                 aria-label="Transform code"
                 value={statement}
                 onChange={(e) => setStatement(e.target.value)}
                 rows={6}
-                spellCheck={false}
-                className="num w-full rounded-md border border-border bg-surface p-2 text-body text-fg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus"
               />
             </Field>
           )}

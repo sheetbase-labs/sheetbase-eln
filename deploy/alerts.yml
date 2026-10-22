@@ -16,12 +16,12 @@ groups:
       # The app cannot serve meaningful traffic. Fire on the container
       # healthcheck path first; this is the scraper-side backstop.
       - alert: SheetbaseReadinessFailing
-        expr: up{job="sheetbase"} == 0
+        expr: sheetbase_recovery_readiness_healthy == 0 or absent(sheetbase_recovery_readiness_healthy)
         for: 5m
         labels:
           severity: critical
         annotations:
-          summary: Sheetbase readiness endpoint has been unreachable or failing for 5 minutes.
+          summary: Readiness is failing or its independent recovery probe is missing for 5 minutes.
 
       # Server-error rate on the data proxy. 2% of requests over 10 minutes
       # is the initial threshold.
@@ -73,23 +73,33 @@ groups:
         annotations:
           summary: Connector runs were reconciled as stale — a process died mid-run or executions exceed the threshold.
 
-      # Backup failing / missed. The backup runner writes latest.json on
-      # success; this file-scrape check complements the in-app metrics.
-      # If you expose it as a metric (push or node_exporter textfile), wire:
-      #   sheetbase_backup_success_time_seconds (mtime of latest.json)
+      # recovery-check.ts verifies complete sets and operator-selected ages.
+      # A missing series is NOT healthy. Scope these rules per deployment's
+      # collector; absent() alone cannot identify a missing member of a fleet.
       - alert: SheetbaseBackupMissing
-        expr: time() - sheetbase_backup_success_time_seconds > 90000
+        expr: sheetbase_recovery_backup_healthy == 0 or absent(sheetbase_recovery_backup_healthy)
         for: 0m
         labels:
           severity: critical
         annotations:
-          summary: No successful backup in over 25 hours (RPO at risk).
+          summary: Backup is missing, corrupt, incomplete or older than the operator-selected limit.
 
       # Restore verification failing means backups exist but are not proven.
       - alert: SheetbaseRestoreDrillFailing
-        expr: sheetbase_restore_drill_success == 0
+        expr: sheetbase_recovery_drill_healthy == 0 or absent(sheetbase_recovery_drill_healthy)
         for: 0m
         labels:
           severity: warning
         annotations:
-          summary: The latest restore drill failed — backups are not proven restorable.
+          summary: Restore drill is missing, failed or older than the operator-selected limit.
+
+      - alert: SheetbaseRecoveryMonitorStale
+        expr: >
+          time() - sheetbase_recovery_check_time_seconds > sheetbase_recovery_check_max_age_seconds
+          or absent(sheetbase_recovery_check_time_seconds)
+          or absent(sheetbase_recovery_check_max_age_seconds)
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: Recovery checks stopped running or their freshness policy is missing.

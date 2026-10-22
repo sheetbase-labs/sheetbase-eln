@@ -160,19 +160,24 @@ Prometheus-compatible scraper. No alert-delivery platform exists in this
 deployment yet — the rules and thresholds are the contract; wire a scraper
 (load the rules file) when one is introduced. Initial signals:
 
-| Alert                     | Signal                                                             | Severity |
-| ------------------------- | ------------------------------------------------------------------ | -------- |
-| Readiness failing         | `up == 0` for 5 m                                                  | critical |
-| Server error rate         | > 2% of proxy requests for 10 m                                    | critical |
-| Database unavailable      | sustained `service_unavailable` upstream failures                  | critical |
-| Connector failure rate    | > 30% of finished runs over 30 m                                   | warning  |
-| Stale-run reconciliations | any `stale_reconciled` outcome                                     | warning  |
-| Backup missing            | no successful backup in 25 h (`latest.json` age / textfile metric) | critical |
-| Restore drill failing     | last drill failed (textfile metric)                                | warning  |
+| Alert                     | Signal                                                            | Severity |
+| ------------------------- | ----------------------------------------------------------------- | -------- |
+| Readiness failing         | independent readiness probe fails or its series is absent for 5 m | critical |
+| Server error rate         | > 2% of proxy requests for 10 m                                   | critical |
+| Database unavailable      | sustained `service_unavailable` upstream failures                 | critical |
+| Connector failure rate    | > 30% of finished runs over 30 m                                  | warning  |
+| Stale-run reconciliations | any `stale_reconciled` outcome                                    | warning  |
+| Backup missing            | complete set is missing, corrupt or stale by operator policy      | critical |
+| Restore drill failing     | last drill is missing, failed or stale by operator policy         | warning  |
+| Recovery monitor stale    | check heartbeat exceeds operator limit or is absent               | critical |
 
-The backup and restore-drill scripts emit optional Prometheus textfile
-metrics (`SHEETBASE_METRICS_TEXTFILE_DIR`) so the backup alerts have a real
-signal if a node_exporter-style textfile collector is present.
+`scripts/recovery-check.ts` checks the latest set, last drill result and real
+`/api/health/ready` response independently of the application's metrics route.
+It writes textfile gauges and a heartbeat through `SHEETBASE_METRICS_TEXTFILE_DIR`.
+The [recovery runbook](recovery.md#detect-missing-and-stale-evidence) lists the
+required operator-selected ages, scheduling and collector permissions. These
+limits do not establish an RPO or RTO. Scheduling, scrape access and alert
+delivery still require external configuration and a delivered test alert.
 
 ## Tracing decision
 

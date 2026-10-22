@@ -67,7 +67,8 @@ image.
 
 ### CI workflow (GitHub Actions)
 
-The `.github/workflows/deploy.yml` workflow runs on every push to `main`. It:
+The `.github/workflows/deploy.yml` workflow requires a deliberate manual
+dispatch on `main` and the `deploy` confirmation. Pushes do not deploy. It:
 
 0. **Release gate (`verify` job, PLAT-01):** typecheck, lint, unit tests,
    database integration tests (against a service PostgreSQL with the same
@@ -108,7 +109,7 @@ deployment planner rejects mutable application and PostgREST references.
 
 The environment model above is the supported _contract_. The surfaces that
 actually exist today are production (`app.sheetbase.co.uk`, deployed
-automatically from `main`) and the disposable development surface
+by deliberate manual dispatch) and the disposable development surface
 (`dev.sheetbase.co.uk`, manual dispatch). Test/CI exists as the workflow gate
 environment. Staging is defined but not provisioned; it becomes real only
 when infrastructure evidence exists (see "Outstanding real-environment
@@ -130,7 +131,9 @@ beyond the deployed-environment validation rules.
 Migrations are Drizzle/PostgreSQL migrations in `drizzle/` — the one
 migration mechanism; no second path exists.
 
-- **When:** migrations run as part of every deployment, ordered before the
+- **When:** the controller requires a fresh complete database and objects
+  backup before migration. Failure stops apply before the migration service.
+  Migrations run as part of every deployment, ordered before the
   new application starts (`migrate` one-shot service → `app` starts only
   after PostgREST is healthy → app listens only after its own readiness
   contract succeeds).
@@ -193,11 +196,14 @@ pnpm deploy:apply
 
 The apply path is intentionally ordered:
 
-1. Run `node scripts/migrate-once.mjs` as a one-shot service and stop on failure.
-2. Start the selected application digest only after PostgREST is healthy; the
+1. Produce a fresh complete database and objects backup and verify its manifest
+   and artifact hashes. A missing volume, failed dump or incomplete set blocks
+   migration. See [Recovery](recovery.md#require-a-backup-before-migration).
+2. Run `node scripts/migrate-once.mjs` as a one-shot service and stop on failure.
+3. Start the selected application digest only after PostgREST is healthy; the
    server does not listen until its own readiness contract succeeds.
-3. Poll the public HTTPS readiness endpoint for at most 60 seconds.
-4. Accept the rollout only when readiness reports the expected artifact version,
+4. Poll the public HTTPS readiness endpoint for at most 60 seconds.
+5. Accept the rollout only when readiness reports the expected artifact version,
    artifact digest, and exact applied migration version.
 
 The readiness endpoint must share the configured `BETTER_AUTH_URL` origin. If
@@ -215,11 +221,14 @@ can run them. A deployment whose GitHub account **cannot run Actions jobs**
 controller with `scripts/release.sh` — run it **on the VPS** from
 `/opt/sheetbase`:
 
-> **Status:** the `.github/workflows/deploy.yml` and
-> `deploy-dev.yml` triggers are **paused** (their `on:` blocks are commented
-> out) because the account cannot run hosted-runner jobs. The local release
-> path below is the canonical release path while that is the case; uncomment
-> the `on:` blocks to re-enable the Actions path when runners are available.
+The local runner is an alternative for an explicitly authorised release when
+hosted runners are unavailable. Its existence does not authorise a deployment
+or change the manual confirmation contract of the Actions workflows.
+
+The populated recovery regression in its database gate also requires
+PostgreSQL 18 server/client tools on the host and an unprivileged OS user for
+`initdb`; see [recovery acceptance prerequisites](recovery.md#reproduce-repository-acceptance).
+The disposable database container alone does not supply those host tools.
 
 ```bash
 cd /opt/sheetbase
@@ -245,7 +254,7 @@ locally:
    or GitHub dependency exists. The OCI labels still carry the release version
    (= commit SHA), source revision and expected migration.
 4. `pnpm deploy:plan` then `pnpm deploy:apply` — the same controller:
-   migrate → start app → readiness verification of the exact artifact
+   required backup → migrate → start app → readiness verification of the exact artifact
    version, digest and migration.
 
 The release evidence is the controller's JSON output plus the gate log, stored
@@ -264,12 +273,14 @@ environment; see `docs/development/dev-environment.md`.
 The deployment apply path verifies **local container health** before any
 public hostname is expected to serve traffic:
 
-1. `docker compose run --rm migrate` applies migrations (one-shot, stops on
+1. The controller backs up the existing database and object volume. Prepare
+   these dependencies before first apply; there is no backup bypass.
+2. `docker compose run --rm migrate` applies migrations (one-shot, stops on
    failure). The migrate service waits for PostgreSQL's healthcheck.
-2. `docker compose up -d --wait app` starts the app container only after
+3. `docker compose up -d --wait app` starts the app container only after
    PostgREST's healthcheck passes (`depends_on: service_healthy`).
-3. The app container's own healthcheck polls `http://localhost:3000/api/health/ready`.
-4. `deploy.ts` polls the public HTTPS readiness URL for at most 60 seconds.
+4. The app container's own healthcheck polls `http://localhost:3000/api/health/ready`.
+5. `deploy.ts` polls the public HTTPS readiness URL for at most 60 seconds.
 
 The Cloudflare hostname (`app.sheetbase.co.uk`) is configured as a **manual
 one-time external step** that should only be activated after the local app

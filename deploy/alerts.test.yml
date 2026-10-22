@@ -1,0 +1,68 @@
+rule_files:
+  - alerts.yml
+evaluation_interval: 1m
+tests:
+  - name: missing recovery evidence cannot look healthy
+    interval: 1m
+    input_series: []
+    promql_expr_test:
+      - expr: count(ALERTS{alertstate="firing",alertname=~"Sheetbase(BackupMissing|RestoreDrillFailing|ReadinessFailing|RecoveryMonitorStale)"})
+        eval_time: 6m
+        exp_samples:
+          - labels: '{}'
+            value: 4
+  - name: fresh healthy probes do not alert
+    interval: 1m
+    input_series:
+      - series: sheetbase_recovery_backup_healthy
+        values: '1x10'
+      - series: sheetbase_recovery_drill_healthy
+        values: '1x10'
+      - series: sheetbase_recovery_readiness_healthy
+        values: '1x10'
+      - series: sheetbase_recovery_check_time_seconds
+        values: '0+60x10'
+      - series: sheetbase_recovery_check_max_age_seconds
+        values: '180x10'
+    promql_expr_test:
+      - expr: ALERTS{alertstate="firing",alertname=~"Sheetbase(BackupMissing|RestoreDrillFailing|ReadinessFailing|RecoveryMonitorStale)"}
+        eval_time: 6m
+        exp_samples: []
+  - name: failed or stale evidence from a running checker alerts
+    interval: 1m
+    input_series:
+      - series: sheetbase_recovery_backup_healthy
+        values: '0x10'
+      - series: sheetbase_recovery_drill_healthy
+        values: '0x10'
+      - series: sheetbase_recovery_readiness_healthy
+        values: '0x10'
+      - series: sheetbase_recovery_check_time_seconds
+        values: '0+60x10'
+      - series: sheetbase_recovery_check_max_age_seconds
+        values: '180x10'
+    promql_expr_test:
+      - expr: count(ALERTS{alertstate="firing",alertname=~"Sheetbase(BackupMissing|RestoreDrillFailing|ReadinessFailing|RecoveryMonitorStale)"})
+        eval_time: 6m
+        exp_samples:
+          - labels: '{}'
+            value: 3
+  - name: a stopped checker cannot preserve green readiness
+    interval: 1m
+    input_series:
+      - series: sheetbase_recovery_backup_healthy
+        values: '1x10'
+      - series: sheetbase_recovery_drill_healthy
+        values: '1x10'
+      - series: sheetbase_recovery_readiness_healthy
+        values: '1x10'
+      - series: sheetbase_recovery_check_time_seconds
+        values: '0x10'
+      - series: sheetbase_recovery_check_max_age_seconds
+        values: '180x10'
+    promql_expr_test:
+      - expr: ALERTS{alertstate="firing",alertname="SheetbaseRecoveryMonitorStale"}
+        eval_time: 4m
+        exp_samples:
+          - labels: 'ALERTS{alertname="SheetbaseRecoveryMonitorStale",alertstate="firing",severity="critical"}'
+            value: 1

@@ -40,13 +40,16 @@ describe('PLAT-02 alert contract', () => {
       'SheetbaseConnectorStaleRuns',
       'SheetbaseBackupMissing',
       'SheetbaseRestoreDrillFailing',
+      'SheetbaseRecoveryMonitorStale',
     ]) {
       expect(names).toContain(expected)
     }
   })
 
-  it('only references metrics the application actually renders', () => {
-    const rendered = readFileSync('src/lib/metrics.ts', 'utf8')
+  it('only references metrics the application or recovery checker renders', () => {
+    const rendered =
+      readFileSync('src/lib/metrics.ts', 'utf8') +
+      readFileSync('scripts/recovery-check.ts', 'utf8')
     const alertsRaw = readFileSync('deploy/alerts.yml', 'utf8')
     const metricNames = [...alertsRaw.matchAll(/sheetbase_[a-z_]+/g)].map(
       (m) => m[0],
@@ -54,10 +57,8 @@ describe('PLAT-02 alert contract', () => {
     for (const name of new Set(metricNames)) {
       // Backup/restore textfile signals are emitted by the ops scripts, not
       // the app registry; everything else must exist in the registry.
-      if (
-        name === 'sheetbase_backup_success_time_seconds' ||
-        name === 'sheetbase_restore_drill_success'
-      ) {
+      if (/^sheetbase_recovery_(backup|drill|readiness)_healthy$/.test(name)) {
+        expect(rendered).toContain('sheetbase_recovery_${name}_healthy')
         continue
       }
       expect(rendered).toContain(name.replace(/^sheetbase_/, 'sheetbase_'))

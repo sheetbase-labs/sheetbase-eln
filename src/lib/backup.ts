@@ -6,6 +6,7 @@
  * object-storage archive and the manifest. Retention prunes whole sets, so a
  * database dump is never kept without its matching storage archive.
  */
+import { z } from 'zod'
 
 export const BACKUP_PREFIX_PATTERN = /^sheetbase-\d{8}T\d{6}Z$/
 
@@ -68,23 +69,32 @@ export function selectExpiredBackupPrefixes(
   return expired.sort()
 }
 
-export interface BackupManifest {
-  prefix: string
-  startedAt: string
-  finishedAt: string
-  durationMs: number
-  database: {
-    container: string
-    database: string
-    dumpBytes: number
-    dumpSha256: string
-  }
-  objects: { archiveBytes: number; archiveSha256: string } | null
-  retentionDays: number
-}
+const sha256 = z.string().regex(/^[a-f0-9]{64}$/)
+export const backupManifestSchema = z.object({
+  formatVersion: z.literal(2),
+  permissions: z.literal('preserved'),
+  prefix: z.string().regex(BACKUP_PREFIX_PATTERN),
+  startedAt: z.iso.datetime(),
+  finishedAt: z.iso.datetime(),
+  durationMs: z.number().nonnegative(),
+  database: z.object({
+    container: z.string(),
+    database: z.string().min(1),
+    bootstrapRole: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/),
+    dumpBytes: z.number().int().positive(),
+    dumpSha256: sha256,
+  }),
+  objects: z
+    .object({
+      archiveBytes: z.number().int().positive(),
+      archiveSha256: sha256,
+    })
+    .nullable(),
+  retentionDays: z.number().int().nonnegative(),
+})
+export type BackupManifest = z.infer<typeof backupManifestSchema>
 
 /** True when a manifest proves the restore prerequisites for its components. */
 export function manifestIsComplete(manifest: BackupManifest): boolean {
-  if (!BACKUP_PREFIX_PATTERN.test(manifest.prefix)) return false
-  return manifest.database.dumpBytes > 0 && manifest.database.dumpSha256 !== ''
+  return backupManifestSchema.safeParse(manifest).success
 }

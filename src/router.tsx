@@ -1,5 +1,9 @@
-import { createRouter as createTanStackRouter } from '@tanstack/react-router'
+import {
+  createMemoryHistory,
+  createRouter as createTanStackRouter,
+} from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
+import type { RouterContext } from './routes/__root'
 
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { createRouterContext } from './integrations/tanstack-query/router-context'
@@ -35,6 +39,27 @@ export function getRouter() {
 
   setupRouterSsrQueryIntegration({ router, queryClient: context.queryClient })
 
+  return router
+}
+
+/** Client-only page router. Providers and query ownership stay with the app. */
+export function getPaneRouter(context: RouterContext, href: string) {
+  const history = createMemoryHistory({ initialEntries: [href] })
+  history.replace(href, { __hashScrollIntoViewOptions: false })
+  const router = createTanStackRouter({
+    routeTree,
+    history,
+    context: { ...context, workspacePane: true },
+    isServer: false,
+    scrollRestoration: false,
+    defaultHashScrollIntoView: false,
+    defaultNotFoundComponent: NotFound,
+    defaultPreload: 'intent',
+    defaultPreloadStaleTime: 30_000,
+  })
+  // TanStack still scrolls the document on the first render when restoration
+  // is false. Panes must not move another pane's document or hash target.
+  router._scroll.next = false
   return router
 }
 

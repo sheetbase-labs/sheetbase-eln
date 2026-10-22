@@ -19,12 +19,35 @@ test.beforeEach(async ({ page }) => {
   await signIn(page)
 })
 
-test('EXP-20 the notebook can be written and reordered from the keyboard', async ({
+test('EXP-20 the notebook can be written and reordered beside source data from the keyboard', async ({
   page,
 }) => {
   const path = await createProject(page, uniqueName('Keys'))
   await createExperiment(page, path, uniqueName('Keyboard only'))
   await waitForHydration(page)
+  await page.getByRole('button', { name: 'Split right', exact: true }).click()
+  await page
+    .getByRole('navigation', { name: 'Main', exact: true })
+    .getByRole('link', { name: /^Datasets/ })
+    .click()
+  await page
+    .getByRole('link', {
+      name: 'ELISA capsid titre and turbidity',
+      exact: true,
+    })
+    .click()
+  await page
+    .getByRole('button', { name: 'Close Datasets pane', exact: true })
+    .click()
+  const panes = page.locator('[data-workspace-pane]')
+  await expect(panes).toHaveCount(2)
+  await panes.nth(1).getByRole('link', { name: 'Data 96', exact: true }).click()
+  await expect(
+    panes.nth(1).getByRole('heading', {
+      name: 'ELISA capsid titre and turbidity',
+      exact: true,
+    }),
+  ).toBeVisible()
   await page.locator('[contenteditable="true"]').first().click()
   await page.keyboard.type('First line')
   // Alt+Enter adds a text block below and moves the caret into it.

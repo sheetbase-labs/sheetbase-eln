@@ -9,6 +9,7 @@
  */
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { createRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useQuery } from '@tanstack/react-query'
@@ -25,6 +26,7 @@ import type { ChartSpec } from '#/lib/chart-spec'
 import { DEFAULT_EXPORT_SETTINGS } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import * as downloads from '#/lib/download'
 
 globalThis.ResizeObserver = class {
   observe() {}
@@ -411,6 +413,7 @@ describe('ExportPanel', () => {
   it('renders format, theme, dimensions and provenance controls', () => {
     render(
       <ExportPanel
+        chartRoot={{ current: null }}
         spec={spec()}
         mode="chart"
         settings={DEFAULT_EXPORT_SETTINGS}
@@ -450,6 +453,7 @@ describe('ExportPanel', () => {
   it('states why export is unavailable outside the Chart builder', () => {
     render(
       <ExportPanel
+        chartRoot={{ current: null }}
         spec={spec()}
         mode="compare"
         settings={DEFAULT_EXPORT_SETTINGS}
@@ -479,6 +483,65 @@ describe('ExportPanel', () => {
         .getByRole('button', { name: /Export PNG/ })
         .hasAttribute('disabled'),
     ).toBe(true)
+  })
+
+  it('exports the owning preview when another pane has an earlier chart', async () => {
+    const download = vi
+      .spyOn(downloads, 'downloadTextFile')
+      .mockImplementation(() => {})
+    const chartRoot = createRef<HTMLDivElement>()
+    render(
+      <>
+        <div data-analysis-chart>
+          <svg xmlns="http://www.w3.org/2000/svg">
+            <text>Other pane figure</text>
+          </svg>
+        </div>
+        <div ref={chartRoot}>
+          <div data-analysis-chart />
+        </div>
+        <ExportPanel
+          chartRoot={chartRoot}
+          spec={spec()}
+          mode="chart"
+          settings={{ ...DEFAULT_EXPORT_SETTINGS, format: 'svg' }}
+          onSettingsChange={() => {}}
+          sources={[source()]}
+          viewName="Owned figure"
+          selectedViewId={null}
+          views={[]}
+          user={{ id: 'u-1', name: 'Alice' }}
+          workspaceId="ws-1"
+          materialised={{
+            state: { kind: 'ok' },
+            columns: [],
+            rows: [],
+            series: [],
+            xLabel: 'x',
+            yLabel: 'y',
+            xUnit: undefined,
+            yUnit: undefined,
+            droppedPoints: 0,
+          }}
+        />
+      </>,
+    )
+    const preview = chartRoot.current?.querySelector('[data-analysis-chart]')
+    if (!preview) throw new Error('Missing test preview')
+    // Match the export helper's existing SVG fixtures, including namespace
+    // parsing; JSX's xmlns attribute has different namespace metadata in jsdom.
+    preview.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg"><text>Own pane figure</text></svg>'
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: /Export SVG/ }))
+    try {
+      const output = download.mock.calls[0]?.[1]
+      expect(output).toContain('Own pane figure')
+      expect(output).not.toContain('Other pane figure')
+    } finally {
+      download.mockRestore()
+    }
   })
 })
 

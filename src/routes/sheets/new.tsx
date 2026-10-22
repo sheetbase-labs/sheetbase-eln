@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   createFileRoute,
   Link,
@@ -98,6 +98,8 @@ const starts = [
 ]
 
 function NewSheet() {
+  const formRef = useRef<HTMLDivElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const workspaceId = context.workspace?.id ?? ''
@@ -302,11 +304,11 @@ function NewSheet() {
                       type="button"
                       onClick={() => {
                         setPasteFirst('paste' in o && o.paste === true)
-                        document.getElementById('new-sheet')?.scrollIntoView({
+                        formRef.current?.scrollIntoView({
                           behavior: 'smooth',
                           block: 'start',
                         })
-                        document.getElementById('new-sheet-name')?.focus()
+                        nameRef.current?.focus()
                       }}
                       className="flex min-h-14 cursor-pointer gap-2.5 rounded-md border border-border bg-surface p-3 text-left text-fg hover:bg-surface-hover"
                     >
@@ -343,7 +345,7 @@ function NewSheet() {
           )}
 
           <div
-            id="new-sheet"
+            ref={formRef}
             className="mt-2 flex flex-col gap-3 rounded-md border border-border p-3"
           >
             {experimentLocked ? (
@@ -401,7 +403,7 @@ function NewSheet() {
             </Field>
             <Field label="Name">
               <Input
-                id="new-sheet-name"
+                ref={nameRef}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />

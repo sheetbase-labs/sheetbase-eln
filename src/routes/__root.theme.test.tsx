@@ -11,6 +11,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { noCapabilities } from '#/lib/capabilities'
 import { Route as RootRoute } from './__root'
 
+vi.mock('#/components/workspace/workspace-host', () => ({
+  WorkspaceHost: ({ children }: { children: React.ReactNode }) => children,
+}))
+
 /**
  * R5-SHELL-02: the server renders the person's theme on the first paint. The
  * preference lives in the `sb-theme` cookie, which the request carries, so the

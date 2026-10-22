@@ -212,6 +212,10 @@ export interface NotebookDocumentProps {
    * a live canvas, where the blocks read as "applies to the next submission".
    */
   actionBlockContext?: ActionBlockContext
+  /** Block deep link from the owning router, without the leading #. */
+  initialBlockHash?: string
+  /** Replace the owning route's hash; an empty string clears the selection. */
+  onBlockHashChange?: (hash: string) => void
   className?: string
 }
 
@@ -249,11 +253,16 @@ function NotebookDocumentContent({
   frozenSheetEvidence,
   onCellSelectionChange,
   actionBlockContext,
+  initialBlockHash = '',
+  onBlockHashChange,
   className,
   /** NOTE-02 section collapse — presentation state only, route-owned. */
   collapsedSections,
   onToggleSection,
 }: NotebookDocumentProps) {
+  const documentRef = React.useRef<HTMLDivElement>(null)
+  const emptyStartRef = React.useRef<HTMLButtonElement>(null)
+  const selectionHashRef = React.useRef<string | null>(null)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [activeId, setActiveId] = React.useState<string | null>(null)
   /**
@@ -383,27 +392,28 @@ function NotebookDocumentContent({
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasUnsavedWork])
 
-  // Scroll to the block named in the URL hash on mount (deep link to a block).
+  // Follow the owning router's deep links, but do not scroll again when a
+  // local selection is reflected back through that router.
   React.useEffect(() => {
-    const hash = window.location.hash.replace('#', '')
+    const hash = initialBlockHash
+    const fromSelection = selectionHashRef.current === hash
+    selectionHashRef.current = null
+    if (fromSelection) return
     if (hash.startsWith('block-')) {
-      const el = document.getElementById(hash)
+      const el = Array.from(
+        documentRef.current?.querySelectorAll<HTMLElement>('[id^="block-"]') ??
+          [],
+      ).find((block) => block.id === hash)
       if (el && typeof el.scrollIntoView === 'function') {
         el.scrollIntoView({ block: 'start' })
       }
     }
-  }, [])
+  }, [initialBlockHash])
 
   function updateBlockHash(blockId: string | null) {
-    try {
-      // Replace, not navigate, so the route guard and queries do not refire.
-      const next = blockId
-        ? `#block-${blockId}`
-        : `${window.location.pathname}${window.location.search}`
-      window.history.replaceState(null, '', next)
-    } catch {
-      /* jsdom/SSR: ignore */
-    }
+    const hash = blockId ? `block-${blockId}` : ''
+    selectionHashRef.current = hash
+    onBlockHashChange?.(hash)
   }
 
   function selectBlock(block: NotebookBlockData) {
@@ -526,8 +536,12 @@ function NotebookDocumentContent({
   useRegisterShortcuts(
     React.useMemo(() => {
       const selectedBlock = () =>
-        document.activeElement?.closest('[id^="block-"]') ??
-        (selectedId ? document.getElementById(`block-${selectedId}`) : null)
+        (documentRef.current?.contains(document.activeElement)
+          ? document.activeElement?.closest('[id^="block-"]')
+          : null) ??
+        (selectedId
+          ? documentRef.current?.querySelector(`[id="block-${selectedId}"]`)
+          : null)
       const commentButton = () =>
         selectedBlock()?.querySelector<HTMLButtonElement>(
           '[data-sheet-comment-selection]:not(:disabled)',
@@ -640,7 +654,9 @@ function NotebookDocumentContent({
   function focusBlockAnchor(blockId: string) {
     // Defer so the reordered DOM has committed before we focus.
     requestAnimationFrame(() => {
-      const el = document.getElementById(`block-${blockId}`)
+      const el = documentRef.current?.querySelector<HTMLElement>(
+        `[id="block-${blockId}"]`,
+      )
       if (!el) return
       if (el.contains(document.activeElement)) {
         if (typeof el.scrollIntoView === 'function') {
@@ -654,7 +670,7 @@ function NotebookDocumentContent({
 
   function focusEmptyNotebook() {
     requestAnimationFrame(() => {
-      document.getElementById('notebook-empty-start')?.focus()
+      emptyStartRef.current?.focus()
     })
   }
 
@@ -729,7 +745,9 @@ function NotebookDocumentContent({
     setActiveId(blockId)
     updateBlockHash(blockId)
     requestAnimationFrame(() => {
-      const el = document.getElementById(`block-${blockId}`)
+      const el = documentRef.current?.querySelector<HTMLElement>(
+        `[id="block-${blockId}"]`,
+      )
       if (el && typeof el.focus === 'function') el.focus()
     })
   }
@@ -934,7 +952,7 @@ function NotebookDocumentContent({
   }
 
   return (
-    <div className={cn('pt-2', className)}>
+    <div ref={documentRef} className={cn('pt-2', className)}>
       {/* COLLAB-01: broadcast which block I am editing. Awareness only —
           this never gates or locks editing for anyone. PresenceSync is
           null until the enclosing CollaborationRoom has mounted. */}
@@ -947,6 +965,7 @@ function NotebookDocumentContent({
           projectId={record.projectId}
           commentEnabled={collabComments && collabReady}
           selectedBlockId={selectedId}
+          documentRef={documentRef}
         />
       ) : null}
       {orderedIds.length === 0 && !isReadOnly ? (
@@ -957,7 +976,7 @@ function NotebookDocumentContent({
           action={
             <>
               <Button
-                id="notebook-empty-start"
+                ref={emptyStartRef}
                 type="button"
                 variant="primary"
                 onClick={() => void handleInsert('rich_text')}

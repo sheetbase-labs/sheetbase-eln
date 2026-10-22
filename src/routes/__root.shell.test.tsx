@@ -27,6 +27,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { noCapabilities } from '#/lib/capabilities'
 import { Route as RootRoute } from './__root'
 
+vi.mock('#/components/workspace/workspace-host', () => ({
+  WorkspaceHost: ({ children }: { children: React.ReactNode }) => children,
+}))
+
 vi.mock('@tanstack/react-devtools', () => ({ TanStackDevtools: () => null }))
 vi.mock('@tanstack/react-router-devtools', () => ({
   TanStackRouterDevtoolsPanel: () => null,

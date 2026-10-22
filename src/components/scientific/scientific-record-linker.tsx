@@ -18,7 +18,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/v3/ui/button'
@@ -110,6 +110,7 @@ export function ScientificRecordLinker({
   sourceModelKey,
   rules,
 }: ScientificRecordLinkerProps) {
+  const pickerId = useId()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const allowedKinds = KIND_OPTIONS.filter((opt) =>
@@ -203,7 +204,7 @@ export function ScientificRecordLinker({
           className="text-muted-foreground"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          aria-controls="sci-001-linker-picker"
+          aria-controls={open ? pickerId : undefined}
         >
           <Icon name="plus" size={12} /> Link record
         </Button>
@@ -211,7 +212,7 @@ export function ScientificRecordLinker({
 
       {open && (
         <div
-          id="sci-001-linker-picker"
+          id={pickerId}
           className="space-y-2 rounded-md border bg-popover p-2"
         >
           <Tabs

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Link,
   Outlet,
@@ -19,6 +19,8 @@ import { useProjectNames } from '#/components/v3/samples/samples-data'
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { DescriptionList, Inspector } from '#/components/v3/ui/layout'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
+import { reagentPath } from '#/lib/navigation'
 import {
   RegistryGrid,
   rightAligned,
@@ -168,6 +170,23 @@ function MaterialsRoute() {
 function MaterialsList() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const workspace = useWorkspaceNavigation()
+  const openMaterial = useCallback(
+    (row: MaterialListRow, event?: React.MouseEvent) => {
+      event?.stopPropagation()
+      if (
+        event &&
+        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
+      )
+        return
+      const href = reagentPath(row.uuid)
+      if (workspace) {
+        event?.preventDefault()
+        workspace.open(href, { beside: true, title: row.name })
+      } else if (!event) void navigate({ href })
+    },
+    [workspace, navigate],
+  )
   const page = useReagentPage()
   const queryClient = useQueryClient()
   const tab: MaterialTab = search.tab ?? 'instock'
@@ -505,6 +524,7 @@ function MaterialsList() {
               getRowId={(m) => m.uuid}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onRowClick={openMaterial}
               isLoading={page.isLoading}
             />
           ) : null}
@@ -516,7 +536,11 @@ function MaterialsList() {
               title: m.name,
               sub: `${m.stock} · ${m.location}`,
               status: <Status tone={m.status.tone}>{m.status.label}</Status>,
-              onSelect: () => setSelected(m.uuid),
+              link: {
+                to: '/materials/$lotId',
+                params: { lotId: m.uuid },
+                onClick: (event: React.MouseEvent) => openMaterial(m, event),
+              },
               selected: m.uuid === sel?.uuid,
             }))}
           />

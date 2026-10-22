@@ -3,6 +3,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { RichTextContent, isRichTextPayload } from '#/lib/blocks'
 import { isBlockType } from '#/lib/blocks/registry'
@@ -164,10 +165,24 @@ export function OpenLink({
   to: string
   children: React.ReactNode
 }) {
+  const workspace = useWorkspaceNavigation()
   return (
     <Link
       to={to}
-      className="text-xs text-fg-muted underline underline-offset-2 hover:text-fg"
+      className="text-xs text-link underline underline-offset-2"
+      onClick={(event) => {
+        if (
+          workspace &&
+          event.button === 0 &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey
+        ) {
+          event.preventDefault()
+          event.stopPropagation()
+          workspace.open(to, { beside: true })
+        }
+      }}
     >
       {children}
     </Link>

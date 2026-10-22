@@ -37,6 +37,7 @@ export function PageHeader({
   const Title = `h${titleLevel}` as 'h1'
   return (
     <header
+      data-page-header
       className={cn(
         'flex flex-col gap-1.5 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-3.5',
         !tabs && 'pb-3',
@@ -45,7 +46,7 @@ export function PageHeader({
     >
       {trail?.length ? <Breadcrumb trail={trail} /> : null}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-        <Title className="min-w-0 flex-1 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6 md:truncate">
+        <Title className="min-w-0 flex-1 basis-60 text-title max-md:basis-full max-md:text-[18px] max-md:leading-6 md:truncate">
           {title}
         </Title>
         {actions ? (
@@ -100,6 +101,7 @@ export function Inspector({
   return (
     <>
       <aside
+        data-local-inspector
         aria-label={label}
         style={width === undefined ? undefined : { width }}
         className={cn(
@@ -112,6 +114,7 @@ export function Inspector({
       </aside>
       {controlledOpen === undefined ? (
         <Button
+          data-local-inspector-trigger
           type="button"
           size="lg"
           variant="secondary"

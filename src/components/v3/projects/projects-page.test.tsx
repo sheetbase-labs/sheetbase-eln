@@ -10,18 +10,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { ProjectsPage } from './projects-page'
+import { WorkspaceNavigationContext } from '#/components/workspace/workspace-navigation'
 import type { ProjectsSearch } from './projects-page'
 import type { ProjectRow } from './types'
-import type { ProjectActivityEvent } from './project-data'
 import type * as ProjectData from './project-data'
-import type * as NotebookData from '#/lib/notebook-data'
 import type * as WorkspaceAccess from '#/lib/workspace-access'
 
-const { activity, milestones, dataClient } = vi.hoisted(() => ({
-  activity: vi.fn<() => Promise<ProjectActivityEvent[]>>(async () => []),
-  milestones: vi.fn<() => { data: ProjectData.ProjectMilestone[] }>(() => ({
-    data: [],
-  })),
+const { dataClient, navigate } = vi.hoisted(() => ({
+  navigate: vi.fn(),
   dataClient: {
     list: vi.fn<() => Promise<unknown[]>>(async () => []),
     rpc: vi.fn<() => Promise<unknown>>(async () => ({})),
@@ -29,14 +25,7 @@ const { activity, milestones, dataClient } = vi.hoisted(() => ({
 }))
 vi.mock('./project-data', async (importOriginal) => ({
   ...(await importOriginal<typeof ProjectData>()),
-  fetchProjectActivity: activity,
-  fetchProjectMembers: async () => [],
-  useProjectMilestones: milestones,
   projectDataClient: dataClient,
-}))
-vi.mock('#/lib/notebook-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof NotebookData>()),
-  fetchRecordsForProject: async () => [],
 }))
 
 const { assignments } = vi.hoisted(() => ({
@@ -48,8 +37,19 @@ vi.mock('#/lib/workspace-access', async (importOriginal) => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
-    <a href={typeof to === 'string' ? to : '#'}>{children}</a>
+  useNavigate: () => navigate,
+  Link: ({
+    to,
+    children,
+    onClick,
+  }: {
+    to?: unknown
+    children?: React.ReactNode
+    onClick?: React.MouseEventHandler<HTMLAnchorElement>
+  }) => (
+    <a href={typeof to === 'string' ? to : '#'} onClick={onClick}>
+      {children}
+    </a>
   ),
 }))
 
@@ -91,6 +91,10 @@ function renderPage(
     error?: string | null
     onRetry?: () => void
     onOpenProject?: (p: ProjectRow) => void
+    openInWorkspace?: (
+      href: string,
+      options?: { beside?: boolean; title?: string },
+    ) => void
   } = {},
   setSearch: (patch: Partial<ProjectsSearch>) => void = () => {},
 ) {
@@ -101,19 +105,23 @@ function renderPage(
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <ProjectsPage
-        projects={projects}
-        me="Gareth P."
-        meId={meId}
-        canCreate={canCreate}
-        loading={state.loading}
-        error={state.error ?? null}
-        onRetry={state.onRetry}
-        onOpenProject={state.onOpenProject}
-        search={search}
-        setSearch={setSearch}
-        onCreate={() => {}}
-      />
+      <WorkspaceNavigationContext
+        value={state.openInWorkspace ? { open: state.openInWorkspace } : null}
+      >
+        <ProjectsPage
+          projects={projects}
+          me="Gareth P."
+          meId={meId}
+          canCreate={canCreate}
+          loading={state.loading}
+          error={state.error ?? null}
+          onRetry={state.onRetry}
+          onOpenProject={state.onOpenProject}
+          search={search}
+          setSearch={setSearch}
+          onCreate={() => {}}
+        />
+      </WorkspaceNavigationContext>
     </QueryClientProvider>,
   )
 }
@@ -136,124 +144,25 @@ describe('ProjectsPage', () => {
     expect(opened).toEqual(['PRJ-0217'])
   })
 
-  it('keeps the quick view on its own control', () => {
-    renderPage([row()])
-
+  it('opens rows and name links beside while modified links keep native behavior', () => {
+    const open = vi.fn()
+    renderPage([row()], {}, undefined, true, { openInWorkspace: open })
+    const name = screen.getByRole('link', { name: 'AAV9 process transfer' })
+    fireEvent.click(name.closest('tr')!)
+    fireEvent.click(name)
     fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Quick view of AAV9 process transfer',
-      }),
+      screen.getByRole('button', { name: 'Open AAV9 process transfer' }),
     )
-    expect(screen.getByText('Open project')).toBeTruthy()
-  })
-
-  it.each([
-    ['Europe/London', '29 Sept'],
-    ['UTC', '28 Sept'],
-  ])(
-    'renders due instants in %s without shifting date-only started_on',
-    async (timezone, expected) => {
-      milestones.mockReturnValue({
-        data: [
-          {
-            id: 'milestone-1',
-            name: 'Clarification train',
-            status: 'planned',
-            dueAt: '2026-09-28T23:00:00+00:00',
-            timezone,
-            linkedRecordId: null,
-            linkedRecordIdentifier: null,
-          },
-        ],
-      })
-      const client = new QueryClient({
-        defaultOptions: { queries: { retry: false } },
-      })
-      render(
-        <QueryClientProvider client={client}>
-          <ProjectsPage
-            projects={[row({ started: '2026-09-29' })]}
-            me="Gareth"
-            search={{}}
-            setSearch={() => {}}
-            onCreate={() => {}}
-          />
-        </QueryClientProvider>,
-      )
-      fireEvent.click(
-        screen.getByRole('button', {
-          name: 'Quick view of AAV9 process transfer',
-        }),
-      )
-      expect(
-        await screen.findByText(`Clarification train · ${expected}`),
-      ).toBeTruthy()
-      expect(screen.getByText('29 Sept 2026')).toBeTruthy()
-      milestones.mockReturnValue({ data: [] })
-      client.clear()
-    },
-  )
-
-  it('renders current record identity and distinguishes null, unresolved and known actors', async () => {
-    const event = {
-      id: 'event-1',
-      sequence: 1,
-      createdAt: '2026-10-04T10:00:00Z',
-      entityType: 'record',
-      entityUuid: '00000000-record-1',
-      operation: 'update',
-      recordId: '00000000-record-1',
-      projectId: 'project-1',
-      actorUserId: null,
-      actorName: null,
-      actorCredentialId: null,
-      clientId: null,
-      payload: {},
-      currentActorName: null,
-      currentRecord: {
-        id: '00000000-record-1',
-        identifier: 'SMP-23',
-        title: 'Harvest lot',
-      },
+    expect(open).toHaveBeenCalledTimes(3)
+    expect(open).toHaveBeenLastCalledWith(
+      '/projects/00000000-0000-4000-8000-000000000320',
+      { beside: true, title: 'AAV9 process transfer' },
+    )
+    for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey']) {
+      expect(fireEvent.click(name, { [modifier]: true })).toBe(true)
     }
-    activity.mockResolvedValueOnce([
-      event,
-      { ...event, id: 'event-2', actorUserId: 'removed', currentRecord: null },
-      {
-        ...event,
-        id: 'event-3',
-        actorUserId: 'priya',
-        currentActorName: 'Priya',
-      },
-    ])
-    render(
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <ProjectsPage
-          projects={[row()]}
-          me="Gareth"
-          search={{}}
-          setSearch={() => {}}
-          onCreate={() => {}}
-        />
-      </QueryClientProvider>,
-    )
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Quick view of AAV9 process transfer',
-      }),
-    )
-    expect(await screen.findByText(/No recorded actor updated/)).toBeTruthy()
-    expect(
-      screen.getByText(/Unknown actor updated Record 00000000/),
-    ).toBeTruthy()
-    expect(screen.getByText(/Priya updated/)).toBeTruthy()
-    expect(screen.getAllByTitle('Current record identity')).toHaveLength(2)
-    expect(screen.getAllByText('SMP-23 · Harvest lot')).toHaveLength(2)
-    expect(screen.queryByText(/A collaborator/)).toBeNull()
+    expect(open).toHaveBeenCalledTimes(3)
+    expect(screen.queryByLabelText('Project details')).toBeNull()
   })
 
   it('renders the design columns and tab counts', () => {
@@ -288,7 +197,7 @@ describe('ProjectsPage', () => {
     // The archived project is a row on the default view, not hidden behind a
     // filter the person never set.
     expect(
-      screen.getByRole('button', { name: 'Quick view of Old project' }),
+      screen.getByRole('button', { name: 'Open Old project' }),
     ).toBeTruthy()
     expect(
       screen.queryByRole('button', {
@@ -351,11 +260,11 @@ describe('ProjectsPage', () => {
       { tab: 'archived' },
     )
     expect(
-      screen.getByRole('button', { name: 'Quick view of Old project' }),
+      screen.getByRole('button', { name: 'Open Old project' }),
     ).toBeTruthy()
     expect(
       screen.queryByRole('button', {
-        name: 'Quick view of AAV9 process transfer',
+        name: 'Open AAV9 process transfer',
       }),
     ).toBeNull()
     expect(

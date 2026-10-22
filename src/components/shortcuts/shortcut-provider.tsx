@@ -31,9 +31,11 @@ const SEQUENCE_TIMEOUT_MS = 1500
 export function ShortcutProvider({
   definitions,
   children,
+  enabled = true,
 }: {
   definitions: ShortcutDefinition[]
   children: React.ReactNode
+  enabled?: boolean
 }) {
   const [scopes, setScopes] = React.useState<Record<string, ShortcutScope>>({})
   const scope = Object.values(scopes).at(-1) ?? 'global'
@@ -98,6 +100,7 @@ export function ShortcutProvider({
   const timer = React.useRef<number | null>(null)
 
   React.useEffect(() => {
+    if (!enabled) return
     const platform = currentPlatform()
 
     function clearPending() {
@@ -209,7 +212,7 @@ export function ShortcutProvider({
       window.removeEventListener('keydown', onKeyDown, true)
       clearPending()
     }
-  }, [definitions, scoped, scope])
+  }, [definitions, scoped, scope, enabled])
 
   const value = React.useMemo<ShortcutContextValue>(
     () => ({ scope, registerScope, registry, register }),

@@ -10,6 +10,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { Route as RootRoute } from './__root'
 
+vi.mock('#/components/workspace/workspace-host', () => ({
+  WorkspaceHost: ({ children }: { children: React.ReactNode }) => children,
+}))
+
 /**
  * Regression guard for the blank-page bug: the root route's `component`
  * must render nested matches through `<Outlet />`. TanStack Router calls

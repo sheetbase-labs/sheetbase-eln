@@ -49,6 +49,9 @@ test('ANA-04 a saved analysis view is listed on the Analysis page', async ({
   await open(page, `/analysis/new?mode=chart&dataset=${ELISA_DATASET}`)
   await waitForHydration(page)
   await page.getByLabel('Y axis field').selectOption({ label: 'Capsid titre' })
+  await page
+    .getByRole('button', { name: 'Chart settings', exact: true })
+    .click()
   await page.getByRole('tab', { name: /^Views/ }).click()
   await page.getByLabel('Analysis view name').fill(name)
   await page.getByRole('button', { name: 'Save analysis view' }).click()
@@ -69,10 +72,17 @@ test('ANA-05 a chart is cited into an experiment notebook and shows there', asyn
   )
   await waitForHydration(page)
   await page.getByLabel('Y axis field').selectOption({ label: 'Capsid titre' })
+  await page
+    .getByRole('button', { name: 'Chart settings', exact: true })
+    .click()
   await page.getByRole('tab', { name: 'Export' }).click()
   await page.getByRole('button', { name: 'Cite in a notebook…' }).click()
-  const dialog = page.getByRole('dialog')
+  const dialog = page.getByRole('dialog', {
+    name: 'Save and cite',
+    exact: true,
+  })
   await dialog.getByRole('textbox').first().fill(caption)
+  await dialog.getByRole('combobox').fill(title)
   await dialog.getByText(title).first().click()
   await dialog.getByRole('button', { name: 'Cite', exact: true }).click()
   await expect(page.getByText('Cited in a notebook').first()).toBeVisible()

@@ -32,6 +32,13 @@ const linkCalls = vi.hoisted(() => ({
   }>,
 }))
 
+const routerLocation = vi.hoisted(
+  (): { search: Record<string, unknown>; hash: string } => ({
+    search: {},
+    hash: '',
+  }),
+)
+
 // Stub the router Link as a plain anchor that interpolates $params so no
 // route tree is required. createFileRoute/redirect are stubbed so the route
 // module loads without a router context.
@@ -45,6 +52,10 @@ vi.mock('@tanstack/react-router', () => ({
   redirect: (opts: unknown) => opts,
   useBlocker: () => ({ status: 'idle' }),
   useNavigate: () => vi.fn(),
+  useRouterState: (options?: { select?: (state: unknown) => unknown }) => {
+    const state = { location: routerLocation }
+    return options?.select ? options.select(state) : state
+  },
   Link: ({
     to,
     params,
@@ -75,6 +86,7 @@ vi.mock('@tanstack/react-router', () => ({
 afterEach(() => {
   cleanup()
   linkCalls.calls.length = 0
+  routerLocation.search = {}
 })
 
 // jsdom lacks the Range geometry prosemirror reads when the editor scrolls
@@ -297,12 +309,8 @@ describe('StickyRecordHeader withdraws a submission from the notebook menu', () 
 })
 
 describe('StickyRecordHeader reopens the task the person left', () => {
-  afterEach(() => {
-    window.history.replaceState(null, '', '/')
-  })
-
   it('opens the Submit dialog on return from certifying a signature', async () => {
-    window.history.replaceState(null, '', '/records/r1?reopen=submit')
+    routerLocation.search = { reopen: 'submit' }
     renderWithQuery(
       <StickyRecordHeader
         record={record}

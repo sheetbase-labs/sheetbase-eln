@@ -22,6 +22,7 @@ import { AnalysisFigureGuide } from '#/components/assist/analysis-figure-guide'
 import { RecordPicker } from '#/components/v3/record-picker/record-picker'
 import type { PickerItem } from '#/components/v3/record-picker/record-picker-data'
 import { insertBlock } from '#/lib/notebook-mutations'
+import { stableStringify } from '#/lib/notebook-submission'
 import { DataClientError } from '#/lib/data-client'
 import { downloadTextFile } from '#/lib/download'
 import { fetchRecord, notebookDataClient } from '#/lib/notebook-data'
@@ -53,10 +54,11 @@ import {
   Link,
   createFileRoute,
   redirect,
+  useBlocker,
   useNavigate,
   useRouter,
 } from '@tanstack/react-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { PanelLeft, PanelLeftClose, Save, Sigma, Trash2 } from 'lucide-react'
 
 import type { ChartSelection } from '#/components/viz/chart-renderer'
@@ -208,6 +210,9 @@ const STUDIO_MODE_LABEL: Record<StudioMode, string> = {
 }
 
 function AnalysisStudio() {
+  const instanceId = useId()
+  const chartConfigId = `${instanceId}-chart-config`
+  const chartRoot = useRef<HTMLDivElement | null>(null)
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const workspaceId = context.workspace?.id ?? 'no-workspace'
@@ -266,6 +271,23 @@ function AnalysisStudio() {
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
   )
+  const [cleanChart, setCleanChart] = useState('')
+  const chartDraft = stableStringify([spec, viewName, exportSettings])
+  const chartDirty = cleanChart !== '' && cleanChart !== chartDraft
+  useBlocker({
+    shouldBlockFn: () => chartDirty,
+    enableBeforeUnload: false,
+  })
+  useEffect(() => {
+    if (!chartDirty) return
+    // Memory-history blockers cannot protect a browser reload or tab close.
+    const guard = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', guard)
+    return () => window.removeEventListener('beforeunload', guard)
+  }, [chartDirty])
   // A saved view whose dataset differs from the current selection is applied
   // by the dataset-change effect below; until then it waits here, so loading
   // it does not have its spec overwritten by the default rebuild.
@@ -322,6 +344,13 @@ function AnalysisStudio() {
       setViewName(pending.name)
       setSpec(pending.spec)
       if (pending.export_settings) setExportSettings(pending.export_settings)
+      setCleanChart(
+        stableStringify([
+          pending.spec,
+          pending.name,
+          pending.export_settings ?? exportSettings,
+        ]),
+      )
       return
     }
     const next = buildDefaultChartSpec(selectedDataset)
@@ -337,6 +366,7 @@ function AnalysisStudio() {
     setSpec(next)
     setSelectedViewId(null)
     setViewName('')
+    setCleanChart(stableStringify([next, '', exportSettings]))
     // Keyed on the dataset's id, not the object: a background refetch of the
     // list hands back new objects for the same dataset, and rebuilding then
     // would drop the saved view the user just opened.
@@ -428,9 +458,17 @@ function AnalysisStudio() {
       if (view && options?.asNew) setSelectedViewId(view.id)
       // A saved view has an address: reloading or sharing the page finds it.
       if (view) {
+        setCleanChart(
+          stableStringify([
+            view.spec,
+            view.name,
+            view.export_settings ?? exportSettings,
+          ]),
+        )
         void navigate({
           search: (current) => ({ ...current, view: view.id }),
           replace: true,
+          ignoreBlocker: true,
         })
       }
       if (view) {
@@ -501,6 +539,13 @@ function AnalysisStudio() {
     setViewName(view.name)
     setSpec(view.spec)
     if (view.export_settings) setExportSettings(view.export_settings)
+    setCleanChart(
+      stableStringify([
+        view.spec,
+        view.name,
+        view.export_settings ?? exportSettings,
+      ]),
+    )
   }
 
   // `?view=<id>` (the read-only analysis route's "Edit in studio" link): load
@@ -527,6 +572,13 @@ function AnalysisStudio() {
     setViewName(view.name)
     setSpec(view.spec)
     if (view.export_settings) setExportSettings(view.export_settings)
+    setCleanChart(
+      stableStringify([
+        view.spec,
+        view.name,
+        view.export_settings ?? exportSettings,
+      ]),
+    )
   }, [views, datasets, selectedDatasetId, summariesQuery.isLoading])
 
   // R5-STUDIO-03: staleness and citations are answered by the canonical
@@ -593,6 +645,7 @@ function AnalysisStudio() {
   const inspector =
     selectedSource && spec ? (
       <AnalysisInspector
+        chartRoot={chartRoot}
         source={selectedSource}
         spec={spec}
         mode={mode}
@@ -623,7 +676,7 @@ function AnalysisStudio() {
     ) : undefined
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
+    <div ref={chartRoot} className="flex min-h-0 min-w-0 flex-1">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-1.5">
           <AnalysisStudioHeader
@@ -652,6 +705,7 @@ function AnalysisStudio() {
           />
           {inspector ? (
             <Button
+              data-local-inspector-trigger
               type="button"
               size="sm"
               icon="info"
@@ -669,7 +723,7 @@ function AnalysisStudio() {
               size="sm"
               variant="quiet"
               aria-expanded={configOpen}
-              aria-controls="analysis-chart-config"
+              aria-controls={configOpen ? chartConfigId : undefined}
               onClick={() => setConfigOpen((open) => !open)}
             >
               {configOpen ? (
@@ -775,14 +829,15 @@ function AnalysisStudio() {
           <div className="flex min-h-0 flex-1 overflow-hidden">
             {configOpen ? (
               <aside
-                id="analysis-chart-config"
+                id={chartConfigId}
+                data-analysis-chart-config
                 className="flex w-56 shrink-0 flex-col overflow-y-auto border-r"
               >
                 <ChartConfigurator
                   source={selectedSource}
                   spec={spec}
                   onSpecChange={setSpec}
-                  idPrefix="analysis"
+                  idPrefix={instanceId}
                   layout="rail"
                 />
               </aside>
@@ -888,6 +943,7 @@ export function AnalysisStudioHeader({
   onSelect,
   returnTo,
 }: AnalysisStudioHeaderProps) {
+  const id = useId()
   return (
     <header
       // No `shrink-0`: the header is a flex item in the studio's toolbar, and
@@ -896,10 +952,10 @@ export function AnalysisStudioHeader({
       // pane's `overflow-hidden` with nothing able to scroll to it. It shrinks
       // and wraps instead (QA4-zoom-studio).
       className="flex flex-wrap items-center justify-between gap-3"
-      aria-labelledby="analysis-title"
+      aria-labelledby={`${id}-title`}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <h1 id="analysis-title" className="text-title">
+        <h1 id={`${id}-title`} className="text-title">
           Analysis Studio
         </h1>
         {returnTo ? (
@@ -922,11 +978,11 @@ export function AnalysisStudioHeader({
           <Badge variant="kind">No datasets</Badge>
         ) : (
           <div className="flex items-center gap-2">
-            <label className="sr-only" htmlFor="analysis-data-source">
+            <label className="sr-only" htmlFor={`${id}-source`}>
               Data source
             </label>
             <Select
-              id="analysis-data-source"
+              id={`${id}-source`}
               aria-label="Select data source"
               value={selectedDatasetId ?? ''}
               onChange={(e) => onSelect(e.target.value)}
@@ -961,6 +1017,7 @@ export function FilterControls({
   spec: ChartSpec
   onSpecChange: (spec: ChartSpec) => void
 }) {
+  const id = useId()
   function setFilter(index: number, value: string): void {
     const filters = [...spec.filters]
     if (filters[index]) {
@@ -997,12 +1054,12 @@ export function FilterControls({
             <div className="w-24">
               <label
                 className="sr-only"
-                htmlFor={`filter-${filter.fieldId}-${i}`}
+                htmlFor={`${id}-filter-${filter.fieldId}-${i}`}
               >
                 Filter value
               </label>
               <Input
-                id={`filter-${filter.fieldId}-${i}`}
+                id={`${id}-filter-${filter.fieldId}-${i}`}
                 aria-label={`Filter value for ${column?.label ?? filter.fieldId}`}
                 value={String(filter.value ?? '')}
                 onChange={(e) => setFilter(i, e.target.value)}
@@ -1064,6 +1121,7 @@ function SelectedPointSummary({
 }
 
 function AnalysisInspector({
+  chartRoot,
   source,
   spec,
   mode,
@@ -1089,6 +1147,7 @@ function AnalysisInspector({
   sourceStatus,
   experimentId,
 }: {
+  chartRoot: React.RefObject<HTMLDivElement | null>
   source: CanonicalDatasetSource
   spec: ChartSpec
   mode: 'chart' | 'analyse' | 'compare'
@@ -1115,6 +1174,7 @@ function AnalysisInspector({
   /** The experiment this analysis was opened from; Cite offers it first. */
   experimentId?: string
 }) {
+  const id = useId()
   function setScale(axis: 'x' | 'y', scale: AxisScale) {
     onSpecChange({
       ...spec,
@@ -1135,7 +1195,7 @@ function AnalysisInspector({
           {(['x', 'y'] as const).map((axis) => (
             <Field key={axis} label={`${axis.toUpperCase()}-axis scale`}>
               <Select
-                id={`inspector-${axis}-scale`}
+                id={`${id}-inspector-${axis}-scale`}
                 value={spec.display.axes[axis].scale}
                 onChange={(event) =>
                   setScale(axis, event.target.value as AxisScale)
@@ -1255,6 +1315,7 @@ function AnalysisInspector({
           label: 'Export',
           content: (
             <ExportPanel
+              chartRoot={chartRoot}
               spec={spec}
               mode={mode}
               settings={exportSettings}
@@ -1302,9 +1363,10 @@ export function SavedViewsPanel({
   saving,
   canSave,
 }: SavedViewsPanelProps) {
+  const id = useId()
   return (
-    <section className="space-y-3" aria-labelledby="saved-views-title">
-      <h2 id="saved-views-title" className="text-sm font-semibold">
+    <section className="space-y-3" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`} className="text-sm font-semibold">
         Saved analysis views
       </h2>
       <p className="text-xs text-fg-muted">
@@ -1313,14 +1375,11 @@ export function SavedViewsPanel({
       </p>
       <div className="flex flex-wrap items-end gap-1.5">
         <div className="flex-1">
-          <label
-            className="text-label text-fg-muted"
-            htmlFor="analysis-view-name"
-          >
+          <label className="text-label text-fg-muted" htmlFor={`${id}-name`}>
             Name
           </label>
           <Input
-            id="analysis-view-name"
+            id={`${id}-name`}
             aria-label="Analysis view name"
             value={viewName}
             onChange={(e) => onViewNameChange(e.target.value)}
@@ -1401,6 +1460,7 @@ export function SavedViewsPanel({
 // ---------------------------------------------------------------------------
 
 interface ExportPanelProps {
+  chartRoot: React.RefObject<HTMLDivElement | null>
   spec: ChartSpec
   mode: 'chart' | 'analyse' | 'compare'
   settings: ExportSettings
@@ -1417,6 +1477,7 @@ interface ExportPanelProps {
 }
 
 export function ExportPanel({
+  chartRoot,
   spec,
   mode,
   settings,
@@ -1430,7 +1491,7 @@ export function ExportPanel({
   materialised,
   defaultExperimentId,
 }: ExportPanelProps) {
-  const svgRef = useRef<SVGSVGElement | null>(null)
+  const id = useId()
   const navigate = useNavigate()
   const [citeOpen, setCiteOpen] = useState(false)
   const [caption, setCaption] = useState('')
@@ -1551,6 +1612,12 @@ export function ExportPanel({
   }
 
   async function doExport(): Promise<void> {
+    // The inspector may be portalled into a dialog. Its source remains the
+    // owning Studio preview, never the first chart in the browser document.
+    const chartSvg =
+      chartRoot.current?.querySelector<SVGSVGElement>(
+        '[data-analysis-chart] svg',
+      ) ?? null
     // Provenance names a view that exists: the selected id is resolved against
     // the loaded list, so an id whose row is gone (deleted since the list was
     // read) is never stamped onto the file.
@@ -1568,7 +1635,7 @@ export function ExportPanel({
     )
     const filename = (viewName || 'analysis').replace(/[^a-z0-9_-]+/gi, '_')
     const needsChart = settings.format === 'png' || settings.format === 'svg'
-    if (needsChart && !svgRef.current) {
+    if (needsChart && !chartSvg) {
       toast('No chart to export', {
         description:
           'The image export reads the rendered chart. Open the Chart builder, then export the SVG or PNG.',
@@ -1578,12 +1645,7 @@ export function ExportPanel({
     try {
       if (settings.format === 'png') {
         const caption = spec.display.caption
-        const svg = exportChartSvg(
-          svgRef.current,
-          settings,
-          provenance,
-          caption,
-        )
+        const svg = exportChartSvg(chartSvg, settings, provenance, caption)
         const blob = await rasteriseSvgToPng(svg, {
           format: 'png',
           width: settings.width,
@@ -1613,7 +1675,7 @@ export function ExportPanel({
         ext = 'csv'
       } else {
         content = exportChartSvg(
-          svgRef.current,
+          chartSvg,
           settings,
           provenance,
           spec.display.caption,
@@ -1633,9 +1695,9 @@ export function ExportPanel({
   return (
     <div
       className="rounded-lg border border-border bg-surface space-y-2 p-4"
-      aria-labelledby="export-title"
+      aria-labelledby={`${id}-title`}
     >
-      <h2 id="export-title" className="text-sm font-semibold">
+      <h2 id={`${id}-title`} className="text-sm font-semibold">
         Export
       </h2>
       {mode === 'chart' ? null : (
@@ -1647,14 +1709,11 @@ export function ExportPanel({
       )}
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
-          <label
-            className="text-label text-fg-muted"
-            htmlFor="analysis-export-format"
-          >
+          <label className="text-label text-fg-muted" htmlFor={`${id}-format`}>
             Format
           </label>
           <Select
-            id="analysis-export-format"
+            id={`${id}-format`}
             aria-label="Export format"
             value={settings.format}
             onChange={(e) =>
@@ -1669,14 +1728,11 @@ export function ExportPanel({
           </Select>
         </div>
         <div>
-          <label
-            className="text-label text-fg-muted"
-            htmlFor="analysis-export-theme"
-          >
+          <label className="text-label text-fg-muted" htmlFor={`${id}-theme`}>
             Theme
           </label>
           <Select
-            id="analysis-export-theme"
+            id={`${id}-theme`}
             aria-label="Export theme"
             value={settings.theme}
             onChange={(e) =>
@@ -1689,14 +1745,11 @@ export function ExportPanel({
           </Select>
         </div>
         <div>
-          <label
-            className="text-label text-fg-muted"
-            htmlFor="analysis-export-width"
-          >
+          <label className="text-label text-fg-muted" htmlFor={`${id}-width`}>
             Width (px)
           </label>
           <Input
-            id="analysis-export-width"
+            id={`${id}-width`}
             aria-label="Export width"
             type="number"
             min={320}
@@ -1709,14 +1762,11 @@ export function ExportPanel({
           />
         </div>
         <div>
-          <label
-            className="text-label text-fg-muted"
-            htmlFor="analysis-export-height"
-          >
+          <label className="text-label text-fg-muted" htmlFor={`${id}-height`}>
             Height (px)
           </label>
           <Input
-            id="analysis-export-height"
+            id={`${id}-height`}
             aria-label="Export height"
             type="number"
             min={240}
@@ -1731,14 +1781,14 @@ export function ExportPanel({
       </div>
       <div className="flex grid-cols-[auto_1fr] items-center gap-2">
         <input
-          id="analysis-export-provenance"
+          id={`${id}-provenance`}
           type="checkbox"
           checked={settings.includeProvenance}
           onChange={(e) => setSetting('includeProvenance', e.target.checked)}
         />
         <label
           className="text-label text-fg-muted"
-          htmlFor="analysis-export-provenance"
+          htmlFor={`${id}-provenance`}
         >
           Include provenance metadata (owner, version, sources)
         </label>
@@ -1811,27 +1861,8 @@ export function ExportPanel({
           </DialogContent>
         </Dialog>
       ) : null}
-      <SvgExporterAnchor svgRef={svgRef} />
     </div>
   )
-}
-
-/**
- * Captures a reference to the rendered chart SVG so the export panel can
- * serialise it. The preview renders the SVG inside the
- * `[data-analysis-chart]` container; this resolves it after every render.
- */
-export function SvgExporterAnchor({
-  svgRef,
-}: {
-  svgRef: React.MutableRefObject<SVGSVGElement | null>
-}) {
-  useEffect(() => {
-    const container = document.querySelector('[data-analysis-chart]')
-    svgRef.current =
-      (container?.querySelector('svg') as SVGSVGElement | null) ?? null
-  })
-  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -1872,6 +1903,7 @@ export function AnalysisPreview({
   resolving,
   onResolve,
 }: AnalysisPreviewProps) {
+  const id = useId()
   const [dataPreviewOpen, setDataPreviewOpen] = useState(false)
   const validation = useMemo(
     () => validateAnalysisSpec(spec, datasetQuery.data?.rows.length ?? 0),
@@ -2059,7 +2091,7 @@ export function AnalysisPreview({
                   size="sm"
                   variant="primary"
                   disabled={resolving || !canUpdate}
-                  aria-describedby="stale-update-reason"
+                  aria-describedby={`${id}-stale-update-reason`}
                   onClick={() => onResolve('update')}
                 >
                   {liveTarget
@@ -2068,7 +2100,7 @@ export function AnalysisPreview({
                 </Button>
                 {!canUpdate ? (
                   <span
-                    id="stale-update-reason"
+                    id={`${id}-stale-update-reason`}
                     className="max-w-[14rem] text-fg-muted"
                   >
                     Updating in place is unavailable while the source is removed
@@ -2192,6 +2224,7 @@ export function DataTableAlternative({
   /** The dataset the rows came from; the full grid lives at its Rows tab. */
   datasetId: string
 }) {
+  const id = useId()
   if (loading) {
     return <Skeleton className="h-32 w-full" />
   }
@@ -2234,10 +2267,10 @@ export function DataTableAlternative({
   return (
     <div
       className="flex min-h-0 flex-col overflow-hidden border-t"
-      aria-labelledby="data-table-title"
+      aria-labelledby={`${id}-data-table-title`}
     >
       <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
-        <h2 id="data-table-title" className="text-sm font-semibold">
+        <h2 id={`${id}-data-table-title`} className="text-sm font-semibold">
           Data preview
           <span className="ml-2 font-normal text-fg-muted">
             First {Math.min(rows.length, 50)} rows

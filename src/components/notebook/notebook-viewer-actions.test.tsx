@@ -10,7 +10,9 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  act,
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -240,20 +242,34 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
     expect(screen.queryByText(/Edit access requested/)).toBeNull()
   })
 
-  it('copies the reader’s selection to the clipboard', async () => {
-    const user = userEvent.setup()
+  it('copies only the owning document’s selection to the clipboard', async () => {
+    userEvent.setup()
     const writeText = vi
       .spyOn(navigator.clipboard, 'writeText')
       .mockResolvedValue(undefined)
-    vi.spyOn(window, 'getSelection').mockReturnValue({
-      toString: () => '4.1 NTU',
-    } as unknown as Selection)
+    const first = renderDocument({ readOnly: true })
+    const second = renderDocument({
+      readOnly: true,
+      blocks: [richTextBlock('b1', '4.1 NTU')],
+    })
+    act(() => {
+      const range = document.createRange()
+      range.selectNodeContents(within(second.container).getByText('4.1 NTU'))
+      window.getSelection()?.removeAllRanges()
+      window.getSelection()?.addRange(range)
+      document.dispatchEvent(new Event('selectionchange'))
+    })
 
-    renderDocument({ readOnly: true })
-
-    const copy = screen.getByRole('button', { name: 'Copy selection' })
+    const copy = within(second.container).getByRole('button', {
+      name: 'Copy selection',
+    })
+    expect(
+      within(first.container)
+        .getByRole('button', { name: 'Copy selection' })
+        .hasAttribute('disabled'),
+    ).toBe(true)
     await waitFor(() => expect(copy.hasAttribute('disabled')).toBe(false))
-    await user.click(copy)
+    fireEvent.click(copy)
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('4.1 NTU'))
     expect(screen.getByRole('button', { name: 'Copied' })).toBeTruthy()
@@ -283,6 +299,34 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
     blockComment.addEventListener('click', opened)
     await user.click(screen.getByRole('button', { name: 'Comment' }))
     expect(opened).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens comments only in the second mounted copy of the same notebook', async () => {
+    const user = userEvent.setup()
+    const first = renderDocument({
+      readOnly: true,
+      collaborationWorkspaceId: 'w1',
+    })
+    const second = renderDocument({
+      readOnly: true,
+      collaborationWorkspaceId: 'w1',
+    })
+    const firstOpened = vi.fn()
+    const secondOpened = vi.fn()
+    within(first.container)
+      .getByRole('button', { name: 'Comments on block b1' })
+      .addEventListener('click', firstOpened)
+    within(second.container)
+      .getByRole('button', { name: 'Comments on block b1' })
+      .addEventListener('click', secondOpened)
+
+    await user.click(second.container.querySelector('[id="block-b1"]')!)
+    await user.click(
+      within(second.container).getByRole('button', { name: 'Comment' }),
+    )
+
+    expect(secondOpened).toHaveBeenCalledTimes(1)
+    expect(firstOpened).not.toHaveBeenCalled()
   })
 })
 

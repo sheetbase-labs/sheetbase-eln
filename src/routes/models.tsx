@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Link,
@@ -12,12 +12,7 @@ import {
 import { Status } from '#/components/v3/ui/status'
 import { EmptyState } from '#/components/v3/ui/empty-state'
 import { Button } from '#/components/v3/ui/button'
-import {
-  DescriptionList,
-  Inspector,
-  InspectorSection,
-  Muted,
-} from '#/components/v3/ui/layout'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
 import {
   ListFooter,
   ListHeader,
@@ -136,6 +131,24 @@ function modelVersionLabel(model: ModelRow): string {
 function ModelsList() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const workspace = useWorkspaceNavigation()
+  const openModel = useCallback(
+    (row: ModelRow, event?: React.MouseEvent) => {
+      event?.stopPropagation()
+      if (
+        event &&
+        (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0)
+      )
+        return
+      // Models own /models/$modelId; objectPath deliberately has no model kind.
+      const href = `/models/${encodeURIComponent(row.id)}`
+      if (workspace) {
+        event?.preventDefault()
+        workspace.open(href, { beside: true, title: row.name })
+      } else if (!event) void navigate({ href })
+    },
+    [workspace, navigate],
+  )
   const query = useModels()
   const rows = query.data ?? []
   const members = useWorkspaceMemberNames()
@@ -209,8 +222,7 @@ function ModelsList() {
   const visible = rows
     .filter((m) => inTab(m, tab))
     .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q))
-  const sel =
-    visible.find((m) => m.id === (selected ?? search.selected)) ?? visible.at(0)
+  const sel = visible.find((m) => m.id === (selected ?? search.selected))
 
   const columns = useMemo<RegistryColumn<ModelRow>[]>(
     () => [
@@ -234,7 +246,7 @@ function ModelsList() {
           <Link
             to="/models/$modelId"
             params={{ modelId: row.original.id }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => openModel(row.original, event)}
             className={row.getIsSelected() ? 'font-medium' : undefined}
           >
             {row.original.name}
@@ -291,7 +303,7 @@ function ModelsList() {
         cell: ({ row }) => row.original.updated_at.slice(0, 10),
       },
     ],
-    [members.data],
+    [members.data, openModel],
   )
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
@@ -371,6 +383,7 @@ function ModelsList() {
               getRowId={(m) => m.id}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
+              onRowClick={openModel}
               isLoading={query.isLoading}
             />
           ) : null}
@@ -384,7 +397,11 @@ function ModelsList() {
                 title: m.name,
                 sub: `${m.fieldCount} fields · ${m.datasetCount} datasets · ${ownerName(m.created_by_user_id)}`,
                 status: <Status tone={status.tone}>{status.label}</Status>,
-                link: { to: '/models/$modelId', params: { modelId: m.id } },
+                link: {
+                  to: '/models/$modelId',
+                  params: { modelId: m.id },
+                  onClick: (event: React.MouseEvent) => openModel(m, event),
+                },
               }
             })}
           />
@@ -421,78 +438,6 @@ function ModelsList() {
             : `${visible.length} of ${counts[tab]} ${tabLabel[tab].toLowerCase()}`}
         </ListFooter>
       </div>
-
-      {sel ? (
-        <Inspector aria-label="Model details" className="w-[320px] gap-0 p-0">
-          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-            <span className="mono text-fg-muted">{sel.key}</span>
-            <div className="font-heading text-doc font-semibold">
-              {sel.name}
-            </div>
-            <div className="text-label">
-              <Status tone={modelStatus(sel.lifecycle).tone}>
-                {modelStatus(sel.lifecycle).label}
-              </Status>
-            </div>
-            <div className="mt-1.5 flex gap-1.5">
-              <Button
-                size="sm"
-                variant="primary"
-                nativeButton={false}
-                render={
-                  <Link to="/models/$modelId" params={{ modelId: sel.id }} />
-                }
-              >
-                Open
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title="Details">
-              <DescriptionList
-                labelWidth={80}
-                items={[
-                  ['Key', sel.key],
-                  ['Version', modelVersionLabel(sel)],
-                  ['Fields', String(sel.fieldCount)],
-                  ['Datasets', String(sel.datasetCount)],
-                  ['Updated', sel.updated_at.slice(0, 10)],
-                ]}
-              />
-            </InspectorSection>
-            <InspectorSection title="Versions">
-              <div className="flex flex-col text-label">
-                {sel.versions.length ? (
-                  sel.versions.map((v, i) => (
-                    <div
-                      key={v.id}
-                      className={`grid grid-cols-[40px_1fr_auto] gap-2 py-1.5 ${
-                        i < sel.versions.length - 1
-                          ? 'border-b border-border-subtle'
-                          : ''
-                      }`}
-                    >
-                      <b className="font-medium">v{v.version}</b>
-                      <span>{modelStatus(v.lifecycle).label}</span>
-                      <span className="text-fg-muted">
-                        {v.published_at ? v.published_at.slice(0, 10) : '—'}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <Muted>No version yet.</Muted>
-                )}
-              </div>
-            </InspectorSection>
-            <InspectorSection title="Publishing">
-              <Muted>
-                Publishing needs approval from a model owner and QA. Existing
-                datasets keep the version they were created on.
-              </Muted>
-            </InspectorSection>
-          </div>
-        </Inspector>
-      ) : null}
 
       <ModelCreateDialog
         open={createOpen}

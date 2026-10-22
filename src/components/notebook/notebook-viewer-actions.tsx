@@ -40,10 +40,11 @@ import { requestProjectEditAccess } from '#/lib/workspace-access'
  * is one comment surface, not a second one.
  */
 export function blockCommentButton(
+  root: HTMLElement | null,
   blockId: string | null,
 ): HTMLButtonElement | null {
   if (!blockId) return null
-  const block = document.getElementById(`block-${blockId}`)
+  const block = root?.querySelector(`[id="block-${blockId}"]`)
   return (
     block?.querySelector<HTMLButtonElement>(
       '[aria-label^="Comments on block"]:not(:disabled)',
@@ -138,6 +139,8 @@ export interface NotebookViewerActionsProps {
   commentEnabled: boolean
   /** The block the reader has selected, if any. */
   selectedBlockId: string | null
+  /** The mounted document this bar acts on, never another copy. */
+  documentRef?: React.RefObject<HTMLDivElement | null>
 }
 
 /**
@@ -148,6 +151,7 @@ export function NotebookViewerActions({
   projectId,
   commentEnabled,
   selectedBlockId,
+  documentRef,
 }: NotebookViewerActionsProps) {
   const [requestOpen, setRequestOpen] = React.useState(false)
   const [requested, setRequested] = React.useState(false)
@@ -158,11 +162,20 @@ export function NotebookViewerActions({
   // Copy is offered exactly when there is a selection to copy, so the button
   // never promises the clipboard something it cannot deliver.
   React.useEffect(() => {
-    const read = () => setSelection(window.getSelection()?.toString() ?? '')
+    const read = () => {
+      const current = window.getSelection()
+      setSelection(
+        current &&
+          documentRef?.current?.contains(current.anchorNode) &&
+          documentRef.current.contains(current.focusNode)
+          ? current.toString()
+          : '',
+      )
+    }
     read()
     document.addEventListener('selectionchange', read)
     return () => document.removeEventListener('selectionchange', read)
-  }, [])
+  }, [documentRef])
 
   // A genuinely new selection invalidates the previous copy's confirmation.
   // Keying this on the selection text means a redundant selectionchange event
@@ -217,7 +230,12 @@ export function NotebookViewerActions({
             type="button"
             size="sm"
             disabled={!selectedBlockId}
-            onClick={() => blockCommentButton(selectedBlockId)?.click()}
+            onClick={() =>
+              blockCommentButton(
+                documentRef?.current ?? null,
+                selectedBlockId,
+              )?.click()
+            }
           >
             Comment
           </Button>

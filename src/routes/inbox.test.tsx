@@ -3,15 +3,10 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  itemLink,
-  recordLink,
-  reviewNeedsLargerScreen,
-  runLink,
-  Route,
-  rowKey,
-} from './inbox'
+import { itemLink, runLink, Route, rowKey } from './inbox'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
+import { WorkspaceNavigationContext } from '#/components/workspace/workspace-navigation'
+import type { WorkspaceNavigation } from '#/components/workspace/workspace-navigation'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type * as router from '@tanstack/react-router'
 import type * as workItems from '#/lib/work-items/data'
@@ -66,13 +61,21 @@ const { navigate, items, state, invalidate, seen, listeners } = vi.hoisted(
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
   const { useSyncExternalStore } = await import('react')
+  const locationRouter = actual.createRouter({
+    routeTree: actual.createRootRoute(),
+    history: actual.createMemoryHistory({ initialEntries: ['/inbox'] }),
+  })
+  const inboxRouter = {
+    invalidate,
+    buildLocation: locationRouter.buildLocation,
+  }
   return {
     ...actual,
     Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
       <a href={typeof to === 'string' ? to : '#'}>{children}</a>
     ),
     useNavigate: () => navigate,
-    useRouter: () => ({ invalidate: invalidate }),
+    useRouter: () => inboxRouter,
     useSearch: () =>
       useSyncExternalStore(
         (listener) => {
@@ -178,7 +181,7 @@ afterEach(() => {
   items.splice(2)
 })
 
-function renderInbox() {
+function renderInbox(workspace: WorkspaceNavigation | null = null) {
   const Inbox = Route.options.component
   if (!Inbox) throw new Error('inbox route has no component')
   return render(
@@ -188,7 +191,9 @@ function renderInbox() {
       }
     >
       <ShortcutProvider definitions={[]}>
-        <Inbox />
+        <WorkspaceNavigationContext value={workspace}>
+          <Inbox />
+        </WorkspaceNavigationContext>
       </ShortcutProvider>
     </QueryClientProvider>,
   )
@@ -261,28 +266,37 @@ describe('Inbox witness presentation (REV-02)', () => {
   })
 })
 
-describe('MOB-01.2 review items on a phone', () => {
-  it('says a larger screen is needed for a review item, and not for a data issue', () => {
-    const { getByRole, getByText, queryByText } = renderInbox()
-    // The first needs-action row is the review request, and it is selected.
-    expect(getByText(/Reviewing and signing need a larger screen/)).toBeTruthy()
-    expect(getByText(/Open record/)).toBeTruthy()
-
-    fireEvent.click(getByRole('button', { name: /Second review/ }))
-    expect(queryByText(/Reviewing and signing need a larger screen/)).toBeNull()
-    expect(queryByText(/Open record/)).toBeNull()
+describe('Inbox page activation', () => {
+  it('opens the exact review revision and meaning beside without substituting the live record', () => {
+    items.push(witnessItem)
+    const open = vi.fn()
+    const { getByRole, queryByLabelText } = renderInbox({ open })
+    fireEvent.click(getByRole('button', { name: /Witness target/ }))
+    expect(open).toHaveBeenCalledWith(
+      '/review/frozen-revision-2?signatureMeaning=witnessed',
+      { beside: true, title: 'Witness target' },
+    )
+    expect(queryByLabelText('Item details')).toBeNull()
   })
 
-  it('keeps the review surface for the desktop link and the record for the phone', () => {
-    expect(reviewNeedsLargerScreen(items[0])).toBe(true)
-    expect(reviewNeedsLargerScreen(items[1])).toBe(false)
-    expect(recordLink(items[0])).toEqual({
-      to: '/records/$recordId',
-      params: { recordId: 'record-1' },
+  it('preserves the exact live dataset row and field in a pane destination', () => {
+    items.push({
+      ...items[1],
+      recordId: null,
+      title: 'Flagged titre',
+      sourceId: 'flag-9',
+      sourceType: 'dataset_value_flag',
+      datasetId: 'ds-7',
+      rowId: 'row-903',
+      fieldId: 'titre',
     })
-    expect(recordLink({ ...items[1], recordId: null })).toEqual({
-      to: '/inbox',
-    })
+    const open = vi.fn()
+    const { getByRole } = renderInbox({ open })
+    fireEvent.click(getByRole('button', { name: /Flagged titre/ }))
+    expect(open).toHaveBeenCalledWith(
+      '/datasets/ds-7/rows?row=row-903&field=titre&live=true',
+      { beside: true, title: 'Flagged titre' },
+    )
   })
 })
 
@@ -748,7 +762,7 @@ describe('Inbox selection lives in the URL', () => {
 describe('Inbox bulk select (Phase 4)', () => {
   it('marks only the selected items seen', async () => {
     const { getByRole } = renderInbox()
-    fireEvent.click(getByRole('button', { name: /Second review/ }))
+    fireEvent.click(getByRole('checkbox', { name: 'Select Second review' }))
     fireEvent.click(getByRole('button', { name: 'Mark selected seen' }))
     await waitFor(() =>
       expect(notebookDataClient.rpc).toHaveBeenCalledWith(

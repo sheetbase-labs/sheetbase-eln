@@ -28,6 +28,7 @@ import {
 } from '#/lib/user-preferences'
 import type { UserPreferences } from '#/lib/user-preferences'
 import type { Notification } from '#/components/v3/types'
+import { registerWorkspaceLeave } from '#/components/workspace/workspace-navigation'
 
 const { signOut, navigate, invalidate, cancelQueries, clearQueries, goBack } =
   vi.hoisted(() => ({
@@ -524,7 +525,26 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
     )
     expect(invalidate).toHaveBeenCalled()
     // The page open belongs to the workspace just left: land on Home.
-    expect(navigate).toHaveBeenCalledWith({ to: '/' })
+    expect(navigate).toHaveBeenCalledWith(expect.objectContaining({ to: '/' }))
+  })
+
+  it('keeps the active workspace when a page refuses to leave', async () => {
+    const unregister = registerWorkspaceLeave(async () => false)
+    try {
+      const user = userEvent.setup()
+      renderShell()
+      await openWorkspaceMenu(user)
+      await user.click(
+        await screen.findByRole('menuitem', { name: 'Analytical' }),
+      )
+      expect((await screen.findByRole('alert')).textContent).toContain(
+        'could not be opened',
+      )
+      expect(setActiveWorkspace).not.toHaveBeenCalled()
+      expect(clearQueries).not.toHaveBeenCalled()
+    } finally {
+      unregister()
+    }
   })
 
   it('reports a refused switch instead of re-resolving onto it', async () => {
@@ -597,10 +617,12 @@ describe('v3 AccountMenu native signout', () => {
   it('clears authenticated cache and navigates only after native success', async () => {
     await chooseSignOut()
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({
-        to: '/sign-in',
-        search: { state: 'signed-out' },
-      }),
+      expect(navigate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: '/sign-in',
+          search: { state: 'signed-out' },
+        }),
+      ),
     )
     expect(signOut).toHaveBeenCalledOnce()
     expect(cancelQueries).toHaveBeenCalledOnce()

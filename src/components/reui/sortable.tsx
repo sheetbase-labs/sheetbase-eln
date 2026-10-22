@@ -369,11 +369,7 @@ function SortableItem({
         ref: setNodeRef,
         style,
         ...attributes,
-        className: cn(
-          isSortableDragging && 'opacity-50 z-50',
-          disabled && 'opacity-50',
-          className,
-        ),
+        className: cn(isSortableDragging && 'opacity-50 z-50', className),
         children: props.children,
       }
 

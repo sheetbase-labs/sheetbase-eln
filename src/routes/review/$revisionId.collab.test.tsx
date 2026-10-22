@@ -14,16 +14,20 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  act,
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { ReviewWorkspaceRoute } from './$revisionId'
+import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 
 // ---------------------------------------------------------------------------
 // Hoisted state the mocks read per test.
@@ -36,6 +40,7 @@ interface RouteContextStub {
 
 const h = vi.hoisted(() => ({
   collaborationEnabled: true,
+  tab: 'diff',
   others: [] as Array<{ connectionId?: number; info?: { name?: string } }>,
   routeContext: null as unknown as RouteContextStub,
 }))
@@ -58,7 +63,7 @@ vi.mock('@tanstack/react-router', () => ({
   redirect: (options: unknown) => options,
   useNavigate: () => vi.fn(),
   useParams: () => ({ revisionId: REVISION_ID }),
-  useSearch: () => ({}),
+  useSearch: () => ({ tab: h.tab }),
   Link: ({
     children,
     ...props
@@ -260,7 +265,14 @@ vi.mock('#/components/audit', () => ({
   RecordHistoryTimeline: () => <div />,
 }))
 vi.mock('#/components/comments', () => ({
-  CommentPanel: () => <div />,
+  CommentPanel: () => {
+    const [replying, setReplying] = useState(false)
+    return replying ? (
+      <textarea aria-label="Reply body" />
+    ) : (
+      <button aria-label="Reply to thread" onClick={() => setReplying(true)} />
+    )
+  },
 }))
 vi.mock('#/components/notebook/notebook-sheet-block', () => ({
   FrozenSheetEvidencePanel: () => <div />,
@@ -281,21 +293,55 @@ globalThis.ResizeObserver = class {
 afterEach(() => {
   cleanup()
   h.collaborationEnabled = true
+  h.tab = 'diff'
   h.others = []
 })
 
-function renderWorkspace() {
+function renderWorkspace(withShortcuts = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   return render(
     <QueryClientProvider client={client}>
-      <ReviewWorkspaceRoute />
+      {withShortcuts ? (
+        <ShortcutProvider definitions={[]}>
+          <ReviewWorkspaceRoute />
+        </ShortcutProvider>
+      ) : (
+        <ReviewWorkspaceRoute />
+      )}
     </QueryClientProvider>,
   )
 }
 
 describe('review workspace collaboration gating', () => {
+  it('replies and focuses only the owning comments panel with two workspaces mounted', async () => {
+    h.tab = 'comments'
+    const first = renderWorkspace()
+    const second = renderWorkspace(true)
+    await within(first.container).findByRole('button', {
+      name: 'Reply to thread',
+    })
+    await within(second.container).findByRole('button', {
+      name: 'Reply to thread',
+    })
+
+    fireEvent.keyDown(document.body, { key: 'r' })
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    })
+    const reply = within(second.container).getByRole('textbox', {
+      name: 'Reply body',
+    })
+    expect(document.activeElement).toBe(reply)
+    expect(
+      within(first.container).queryByRole('textbox', { name: 'Reply body' }),
+    ).toBeNull()
+    expect(
+      within(first.container).getByRole('button', { name: 'Reply to thread' }),
+    ).toBeTruthy()
+  })
+
   it('renders the workspace unchanged when collaboration is disabled', async () => {
     h.collaborationEnabled = false
 

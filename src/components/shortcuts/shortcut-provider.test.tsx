@@ -12,6 +12,48 @@ import {
 afterEach(cleanup)
 
 describe('ShortcutProvider', () => {
+  it('only enables the active provider and discards a partial sequence on deactivation', () => {
+    const first = vi.fn()
+    const second = vi.fn()
+    const definitions = (handler: () => void) => [
+      {
+        id: 'home',
+        scope: 'global' as const,
+        keys: ['g h'],
+        description: 'Home',
+        handler,
+      },
+    ]
+    function Scene({ firstActive }: { firstActive: boolean }) {
+      return (
+        <>
+          <ShortcutProvider
+            definitions={definitions(first)}
+            enabled={firstActive}
+          >
+            <div />
+          </ShortcutProvider>
+          <ShortcutProvider
+            definitions={definitions(second)}
+            enabled={!firstActive}
+          >
+            <div />
+          </ShortcutProvider>
+        </>
+      )
+    }
+    const app = render(<Scene firstActive />)
+    fireEvent.keyDown(window, { key: 'g' })
+    app.rerender(<Scene firstActive={false} />)
+    fireEvent.keyDown(window, { key: 'h' })
+    expect(first).not.toHaveBeenCalled()
+    expect(second).not.toHaveBeenCalled()
+    fireEvent.keyDown(window, { key: 'g' })
+    fireEvent.keyDown(window, { key: 'h' })
+    expect(first).not.toHaveBeenCalled()
+    expect(second).toHaveBeenCalledOnce()
+  })
+
   it('fires a sequence shortcut', async () => {
     const user = userEvent.setup()
     const home = vi.fn()

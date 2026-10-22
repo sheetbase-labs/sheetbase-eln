@@ -19,6 +19,16 @@ function item(kind: WorkItemKind, overrides: Partial<WorkItem> = {}): WorkItem {
 }
 
 describe('itemLink', () => {
+  it('opens an expiring material on its actual lot page, with a registry fallback only when identity is absent', () => {
+    expect(itemLink(item('material_expiring'))).toEqual({
+      to: '/materials/$lotId',
+      params: { lotId: 'record-1' },
+    })
+    expect(itemLink(item('material_expiring', { recordId: null }))).toEqual({
+      to: '/materials',
+    })
+  })
+
   it('opens the exact live flagged value, not the dataset with the most issues', () => {
     expect(
       itemLink(

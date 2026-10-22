@@ -62,6 +62,7 @@ import { SearchPalette } from '#/components/v3/search/search-palette'
 import { ContextHelp } from '#/components/v3/help/context-help'
 import { authClient } from '#/lib/auth-client'
 import { Notice } from '#/components/v3/ui/alert'
+import { requestWorkspaceLeave } from '#/components/workspace/workspace-navigation'
 
 const SIDEBAR_COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
 
@@ -182,11 +183,15 @@ export function AppShell({
   // a workspace the caller never became active in.
   const switchWorkspace = useCallback(
     async (workspaceId: string) => {
+      if (!(await requestWorkspaceLeave()))
+        throw new Error('Save your pending edits before switching workspaces.')
       await setActiveWorkspace(createDataClient(), workspaceId)
+      await router.options.context.queryClient.cancelQueries()
+      router.options.context.queryClient.clear()
       // The page being looked at belongs to the workspace just left, so the
       // person lands on the new workspace's Home rather than a page that may
       // not exist there.
-      await router.navigate({ to: '/' })
+      await router.navigate({ to: '/', ignoreBlocker: true })
       await router.invalidate()
     },
     [router],
@@ -857,6 +862,10 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
       )
       return
     }
+    if (!(await requestWorkspaceLeave())) {
+      setSignOutError('Sign out cancelled. Your edits have not been discarded.')
+      return
+    }
     setSigningOut(true)
     try {
       // Record that this device is holding drafts for this user, before the
@@ -876,7 +885,11 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
         )
       await router.options.context.queryClient.cancelQueries()
       router.options.context.queryClient.clear()
-      await navigate({ to: '/sign-in', search: { state: 'signed-out' } })
+      await navigate({
+        to: '/sign-in',
+        search: { state: 'signed-out' },
+        ignoreBlocker: true,
+      })
       await router.invalidate()
     } catch {
       setSignOutError('Sign out could not be confirmed. Try again.')

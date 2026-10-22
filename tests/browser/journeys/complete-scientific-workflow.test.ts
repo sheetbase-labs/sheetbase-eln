@@ -158,6 +158,12 @@ test('an imported plate analysis remains reconstructable after independent revie
     const datasetId = new URL(page.url()).pathname.split('/')[2]
     expect(datasetId).toMatch(/^[0-9a-f-]{36}$/)
     await page.getByRole('row').filter({ hasText: /96/ }).first().click()
+    // Local snapshot tools fold behind Details at the workspace pane's width.
+    const snapshotDetails = page.getByRole('button', {
+      name: 'Details',
+      exact: true,
+    })
+    if (await snapshotDetails.isVisible()) await snapshotDetails.click()
     await page.getByRole('link', { name: 'Analyse this snapshot' }).click()
     await expect(page).toHaveURL(/snapshot=/)
     await page.getByRole('button', { name: 'Descriptive / ANOVA' }).click()

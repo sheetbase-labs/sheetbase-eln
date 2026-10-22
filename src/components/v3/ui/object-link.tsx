@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 
 import { cn } from '#/lib/utils'
 import { objectPath } from '#/lib/navigation'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
 
 /**
  * An identifier shown as a link to the page that owns the object.
@@ -33,6 +34,7 @@ export function ObjectLink({
   className?: string
 }) {
   const ref = id || identifier || ''
+  const workspace = useWorkspaceNavigation()
   const to = ref ? objectPath(kind, ref) : null
   const label = children ?? identifier ?? id ?? ''
   if (!to) {
@@ -43,7 +45,22 @@ export function ObjectLink({
       to={to}
       className={cn('text-link', mono && 'mono', className)}
       // A row that is itself clickable must not also navigate twice.
-      onClick={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation()
+        if (
+          workspace &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey &&
+          event.button === 0
+        ) {
+          event.preventDefault()
+          workspace.open(to, {
+            beside: true,
+            title: typeof label === 'string' ? label : undefined,
+          })
+        }
+      }}
     >
       {label}
     </Link>

@@ -32,6 +32,8 @@
 @import '@sheetbase-labs/sheetbase-explorer/styles.css' layer(sheetbase);
 @import '@sheetbase-labs/sheetbase-advanced-search/styles.css' layer(sheetbase);
 @import '@sheetbase-labs/sheetbase-shared/themes/v3.css' layer(sheetbase);
+@import '@sheetbase-labs/sheetbase-shared/panes.css' layer(sheetbase);
+@import './components/workspace/workspace.css';
 
 @custom-variant dark (&:is(.dark *));
 

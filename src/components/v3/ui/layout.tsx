@@ -37,6 +37,7 @@ export function PageHeader({
   const Title = `h${titleLevel}` as 'h1'
   return (
     <header
+      data-page-header
       className={cn(
         'flex flex-col gap-1.5 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-3.5',
         !tabs && 'pb-3',
@@ -100,6 +101,7 @@ export function Inspector({
   return (
     <>
       <aside
+        data-local-inspector
         aria-label={label}
         style={width === undefined ? undefined : { width }}
         className={cn(
@@ -112,6 +114,7 @@ export function Inspector({
       </aside>
       {controlledOpen === undefined ? (
         <Button
+          data-local-inspector-trigger
           type="button"
           size="lg"
           variant="secondary"

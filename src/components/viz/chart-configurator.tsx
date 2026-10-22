@@ -393,6 +393,7 @@ export function ChartConfigurator({
         />
       ) : null}
       <div
+        data-chart-encoding-fields
         className={
           layout === 'rail'
             ? 'flex flex-col gap-3'

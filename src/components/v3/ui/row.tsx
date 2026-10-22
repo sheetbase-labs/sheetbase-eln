@@ -2,6 +2,7 @@ import { Children, createContext, useContext, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { cn } from '#/lib/utils'
+import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
 
 /**
  * Row and RowList — one row, and the list that holds it (JH-1, row chrome).
@@ -97,6 +98,7 @@ export function Row({
   className,
   ...props
 }: RowProps) {
+  const workspace = useWorkspaceNavigation()
   const inList = useContext(RowListContext)
   const density = densityProp ?? inList ?? 'list'
   const scale = densities[density]
@@ -134,7 +136,27 @@ export function Row({
   // item behaves as one row; a row that stands alone carries it itself.
   const tooltip = inList === null ? detail : undefined
   const element = to ? (
-    <Link to={to as never} className={frame} title={tooltip} {...props}>
+    <Link
+      to={to as never}
+      className={frame}
+      title={tooltip}
+      {...props}
+      onClick={(event) => {
+        if (
+          workspace &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey &&
+          event.button === 0
+        ) {
+          event.preventDefault()
+          workspace.open(to, {
+            beside: true,
+            title: typeof title === 'string' ? title : undefined,
+          })
+        }
+      }}
+    >
       {body}
     </Link>
   ) : href ? (

@@ -33,6 +33,7 @@ import {
   releaseSettledRunArtefacts,
   resumePipelineRun,
   runPipelineExecution,
+  tryPipelineDraft,
 } from '#/lib/pipeline-execute.server'
 import { verifyRunManifest } from '#/lib/pipeline-manifest.server'
 import type { RunManifest } from '#/lib/pipeline-manifest.server'
@@ -568,6 +569,104 @@ describe('Pipeline execution (AUTO-02)', () => {
     expect(
       rows.map((r) => Number(r.numeric_value)).sort((a, b) => a - b),
     ).toEqual([20, 40, 80])
+  })
+
+  describe('Try draft', () => {
+    const counts = async () => {
+      const { rows } = await migrator.query(
+        `select (select count(*) from api.pipeline_runs where workspace_id = $1)::int as runs,
+                (select count(*) from api.datasets where workspace_id = $1)::int as datasets,
+                (select count(*) from api.dataset_versions where workspace_id = $1)::int as versions,
+                (select count(*) from api.pipeline_run_logs where workspace_id = $1)::int as logs`,
+        [WS],
+      )
+      return rows[0]
+    }
+
+    it('previews an unsaved configuration and records nothing', async () => {
+      const before = await counts()
+      const { deps, close } = await makeExecDeps(OWNER)
+      const report = await tryPipelineDraft(
+        OWNER,
+        {
+          workspaceId: WS,
+          configuration: pipelineConfig(
+            'SELECT batch, value * {{factor}} AS scaled FROM measurements',
+          ),
+          inputVersions: { measurements: inputDatasetVersionId },
+          parameters: { factor: 3 },
+        },
+        deps,
+      )
+      await close()
+      expect(report, JSON.stringify(report)).toMatchObject({
+        ok: true,
+        wouldWrite: 'create',
+      })
+      if (!report.ok) return
+      expect(report.preview.columns).toEqual(['batch', 'scaled'])
+      expect(report.preview.rowCount).toBe(3)
+      expect(
+        report.preview.rows.map((row) => Number(row[1])).sort((a, b) => a - b),
+      ).toEqual([6, 12, 24])
+      expect(await counts()).toEqual(before)
+    })
+
+    it('names the available columns when the SQL is wrong, still recording nothing', async () => {
+      const before = await counts()
+      const { deps, close } = await makeExecDeps(OWNER)
+      const report = await tryPipelineDraft(
+        OWNER,
+        {
+          workspaceId: WS,
+          configuration: pipelineConfig('SELECT bogus FROM measurements'),
+          inputVersions: { measurements: inputDatasetVersionId },
+          parameters: { factor: 1 },
+        },
+        deps,
+      )
+      await close()
+      expect(report).toMatchObject({
+        ok: false,
+        errorCode: 'transform_failed',
+      })
+      if (!report.ok)
+        expect(report.errorMessage).toMatch(/Available: .*measurements\(/)
+      expect(await counts()).toEqual(before)
+    })
+
+    it('checks the same request a run would, and keeps viewers out', async () => {
+      const { deps, close } = await makeExecDeps(OWNER)
+      const missing = await tryPipelineDraft(
+        OWNER,
+        {
+          workspaceId: WS,
+          configuration: pipelineConfig('SELECT 1 AS x'),
+          inputVersions: {},
+          parameters: { factor: 1 },
+        },
+        deps,
+      )
+      const viewer = await tryPipelineDraft(
+        VIEWER,
+        {
+          workspaceId: WS,
+          configuration: pipelineConfig('SELECT 1 AS x'),
+          inputVersions: { measurements: inputDatasetVersionId },
+          parameters: { factor: 1 },
+        },
+        deps,
+      )
+      await close()
+      expect(missing).toMatchObject({
+        ok: false,
+        errorCode: 'invalid_run_request',
+      })
+      expect(viewer).toMatchObject({
+        ok: false,
+        errorCode: 'workspace_membership_required',
+      })
+    })
   })
 
   it('reuses its created Dataset on later runs, adding a Dataset Version each time', async () => {

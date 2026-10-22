@@ -55,7 +55,11 @@ import {
   confirmNoAnswerOutcome,
   validateConfirmAnswer,
 } from './pipelines/config'
-import type { PipelineRunWire } from './pipelines/types'
+import type {
+  PipelineRunWire,
+  PipelineTrialLogEntry,
+  PipelineTrialWire,
+} from './pipelines/types'
 import {
   checkTransformStatement,
   substituteParameters,
@@ -156,7 +160,14 @@ interface RunRow {
   version_number: number
   configuration: Record<string, unknown>
   definition_name: string
+  /**
+   * Set for a trial of a draft: nothing is recorded against the run, because
+   * there is none. Log lines are collected here instead of written.
+   */
+  trial?: TrialLogEntry[]
 }
+
+type TrialLogEntry = PipelineTrialLogEntry
 
 interface SchemaFieldRow {
   field_id: string
@@ -385,6 +396,113 @@ export async function runPipelineExecution(
   } finally {
     metrics.pipelineActiveRuns.dec()
     await conn.end()
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Try draft — run a configuration that is not saved, published or recorded.
+// ---------------------------------------------------------------------------
+
+export interface PipelineTrialInput {
+  workspaceId: string
+  /** The configuration as the editor holds it: nothing needs to be saved. */
+  configuration: Record<string, unknown>
+  inputVersions: Record<string, string>
+  parameters: Record<string, unknown>
+}
+
+export type PipelineTrialReport = PipelineTrialWire
+
+/**
+ * Run a draft configuration against chosen input Dataset Versions exactly as a
+ * real run would up to the point of writing: same membership check, same
+ * materialised inputs, same sandbox login, timeout and row limits. Then stop.
+ * The whole thing happens in a transaction that is always rolled back, with no
+ * run row, no log rows, no output Dataset, no actions or notifications and no
+ * manifest. A confirm step is not paused for a person: the trial shows what the
+ * step proposed and ends there.
+ */
+export async function tryPipelineDraft(
+  actor: string,
+  input: PipelineTrialInput,
+  deps: PipelineExecuteDeps,
+): Promise<PipelineTrialReport> {
+  const logs: TrialLogEntry[] = []
+  const conn = await deps.connect()
+  const startedAt = Date.now()
+  const fail = (
+    errorCode: PipelineErrorCode,
+    errorMessage: string,
+  ): PipelineTrialReport => ({ ok: false, errorCode, errorMessage, logs })
+  try {
+    await conn.begin()
+    await assertMember(conn, input.workspaceId, actor)
+    await setActorClaims(conn, actor, input.workspaceId)
+    const config = parseConfig(input.configuration)
+    const requestErrors = validatePipelineRunRequest(
+      config,
+      input.parameters,
+      input.inputVersions,
+    )
+    if (requestErrors.length > 0) {
+      return fail('invalid_run_request', requestErrors[0].message)
+    }
+    const run: RunRow = {
+      id: randomUuid(),
+      workspace_id: input.workspaceId,
+      definition_version_id: '',
+      trigger_kind: 'manual',
+      status: 'running',
+      attempt: 1,
+      retry_of_run_id: null,
+      trigger_occurrence_id: null,
+      schedule_id: null,
+      input_digest: null,
+      parameters: input.parameters,
+      input_versions: input.inputVersions,
+      actor_user_id: actor,
+      actor_credential_id: null,
+      version_number: 0,
+      configuration: input.configuration,
+      definition_name: 'draft',
+      trial: logs,
+    }
+    const materialized = await materializeInputs(conn, run)
+    await log(conn, run, 'info', 'inputs', 'Inputs read.', {
+      inputs: materialized.map((m) => ({ name: m.name, rows: m.rowCount })),
+    })
+    const outcome = await withSandbox(conn, deps, (sandbox) =>
+      executeSteps(
+        conn,
+        run,
+        config,
+        deps.executePython ?? executePythonTransform,
+        sandbox,
+      ),
+    )
+    if (outcome.kind === 'error') return fail(outcome.code, outcome.message)
+    if (outcome.kind === 'cancelled')
+      return fail('run_cancelled', 'The trial was cancelled.')
+    const waiting = outcome.kind === 'waiting'
+    return {
+      ok: true,
+      ...(waiting
+        ? { stoppedAt: { step: outcome.step.name, reason: 'confirm' as const } }
+        : {}),
+      preview: buildResultPreview(waiting ? outcome.proposal : outcome.rows),
+      logs,
+      durationMs: Date.now() - startedAt,
+      wouldWrite: config.output.mode,
+    }
+  } catch (error) {
+    return fail(
+      error instanceof PipelineStepError ? error.code : 'pipeline_internal',
+      error instanceof Error ? error.message : String(error),
+    )
+  } finally {
+    // A trial leaves nothing behind, whatever happened.
+    await conn.rollback().catch(() => {})
+    await conn.end().catch(() => {})
   }
 }
 
@@ -1671,7 +1789,7 @@ async function executeSteps(
         const result = await python({
           // PIPE-04.2: the artefact key is the run, so every Python step's files land in
           // one per-run directory the run releases when it settles.
-          artefactKey: run.id,
+          artefactKey: run.trial ? undefined : run.id,
           statement: step.statement,
           inputs,
           parameters: run.parameters,
@@ -1742,7 +1860,8 @@ async function executeSteps(
       )
       continue
     }
-    if (!(await isRunRunning(conn, run.id))) return { kind: 'cancelled' }
+    if (!(await isRunRunning(conn, run.id, run.trial !== undefined)))
+      return { kind: 'cancelled' }
     const outcome = await runStep(index, step)
     if (outcome.kind !== 'rows') return outcome
     let cells = 0
@@ -2021,7 +2140,9 @@ async function availableColumnsHint(conn: ExecConnection): Promise<string> {
 async function isRunRunning(
   conn: ExecConnection,
   runId: string,
+  trial = false,
 ): Promise<boolean> {
+  if (trial) return true
   const { rows } = await conn.query<{ status: string }>(
     `SELECT status FROM api.pipeline_runs WHERE id = $1`,
     [runId],
@@ -2563,6 +2684,10 @@ async function log(
   message: string,
   detail: Record<string, unknown> = {},
 ): Promise<void> {
+  if (run.trial) {
+    run.trial.push({ level, stage, message: truncate(message, 2000) })
+    return
+  }
   await conn.query(
     `SELECT api.append_pipeline_run_log($1, $2, $3, $4, $5, $6::jsonb)`,
     [
